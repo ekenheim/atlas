@@ -22,7 +22,7 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - migrations from an empty database
 
   A mutation check confirmed the fail-closed tests go red when readiness always reports ready.
-- **CI entrypoint:** `scripts/ci.sh` passed locally end to end (≈3.5 min). **GitHub Actions has not run yet**: the workflow is committed but unverified on a runner.
+- **CI entrypoint:** `scripts/ci.sh` passed locally end to end (≈3.5 min). **GitHub Actions passed** on the first push (run 36480960995, commit `1413ee8`, 2026-09-28, ≈1.5 min, including the image build + smoke).
 - **Manual check:** `docker compose up -d --build --wait api`, then `/health/ready` reported database and archive `ok` and Hindsight/LiteLLM `not_configured`; `/` served the frontend; `/metrics` exposed `atlas_build_info`; logs are JSON.
 - **Deviations and notes:**
   - The dev dependency is `httpx2`, because Starlette deprecates `httpx` for its test client.
