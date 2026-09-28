@@ -14,12 +14,14 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 - `uv run atlas hindsight apply-template`: dry-run, then import `configs/hindsight/bank-template.json` into the research bank, recording its version.
 - `docker compose --profile hindsight up -d`: local Hindsight 0.10.1 + pgvector, via LiteLLM (needs `ATLAS_LITELLM_URL`/`_API_KEY`; never in CI).
 - `npm --prefix frontend run lint | typecheck | build`: the frontend gates; `build` writes the static export to `frontend/out/`.
+- `scripts/gen_api_client.sh [--check]`: regenerate the frontend's typed API client (`frontend/lib/api/{openapi.json,schema.ts}`) from the FastAPI OpenAPI schema; commit the result. CI runs `--check`, which fails on a stale client.
+- `uv run python scripts/e2e.py`: the Playwright smoke test of the source viewer (needs `postgres-app` and a built `frontend/out/`). It seeds a fresh database from the Lumentum EDGAR fixtures, serves the API and export on a free port, and skips with a message locally if chromium can't be installed.
 
 ## Layout
 
 - `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `audit.py` hash-chained audit trail, `bank_template.py` applying the versioned bank template, `companies.py` the company universe from config, `db/` migrations, `hindsight/` the only Hindsight HTTP client, `jobs/` Postgres job queue and worker, `ledger/` the source ledger (Source Documents, Source Versions, fetch observations) and the `ingest` job, `llm_routes.py` the LiteLLM route recorder (`/model/info`), `parsing.py` the deterministic HTML/text parser, `runs.py` the minimal run record, `sources/` source adapters (SEC EDGAR), `settings.py`, `health.py`, `cli.py`)
 - `tests/fakes/hindsight.py`: the recorded Hindsight fake (an `httpx2.MockTransport` replaying `spikes/hindsight/recordings/`); `tests/fakes/litellm.py` fakes LiteLLM `/model/info`; `tests/fakes/serve.py` serves a fake on localhost for the CLI subprocess and the API
-- `frontend/`: Next.js static export, served by FastAPI
+- `frontend/`: Next.js static export, served by FastAPI: the read-only source viewer (`app/` pages take `?id=`; `lib/api/client.ts` wraps the generated `schema.ts`; `e2e/` the Playwright smoke test)
 - `tests/unit`, `tests/integration`: tests at the agreed seams (HTTP API, CLI entry, migrations)
 - `configs/`: versioned config (Hindsight bank templates; `themes/` the company universe and themes)
 - `spikes/hindsight/`: the Hindsight 0.10.1 spike, fixtures and recordings (contract-test source)

@@ -15,3 +15,5 @@ frontend/out
 spikes
 docs
 tests
+frontend/test-results
+frontend/playwright-report

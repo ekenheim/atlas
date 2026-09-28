@@ -4,8 +4,8 @@
 
 **Blocked by:** 07 (Ingest a Lumentum filing end to end)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The typed API client is generated from the OpenAPI schema
-- [ ] The provenance panel shows URL/accession, hashes, every timestamp with its basis, parser version and fetch status
-- [ ] A Playwright smoke test opens a Source Version and sees its provenance and parsed text
+- [x] The typed API client is generated from the OpenAPI schema
+- [x] The provenance panel shows URL/accession, hashes, every timestamp with its basis, parser version and fetch status
+- [x] A Playwright smoke test opens a Source Version and sees its provenance and parsed text
