@@ -31,6 +31,53 @@ services:
     volumes:
       - silo:/data
 
+  # The app image, as three roles. Readiness (/health/ready) is the truth about
+  # whether the flow works; Compose ordering only sequences startup.
+  migrate:
+    build: .
+    command: ["migrate"]
+    environment: &app-env
+      ATLAS_DATABASE_URL: postgresql+psycopg://atlas:atlas@postgres-app:5432/atlas
+      ATLAS_ACTOR: ${ATLAS_ACTOR:-local-researcher}
+      ATLAS_ARCHIVE_ROOT: /data/archive
+    read_only: true
+    tmpfs: [/tmp]
+    depends_on:
+      postgres-app:
+        condition: service_healthy
+
+  api:
+    build: .
+    command: ["api"]
+    environment: *app-env
+    read_only: true
+    tmpfs: [/tmp]
+    ports:
+      - "127.0.0.1:${ATLAS_API_PORT:-58080}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')"]
+      interval: 3s
+      retries: 20
+    volumes:
+      - archive:/data/archive
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build: .
+    # Until the job queue lands (ticket 04) the worker only checks in and exits.
+    command: ["worker", "--once"]
+    environment: *app-env
+    read_only: true
+    tmpfs: [/tmp]
+    volumes:
+      - archive:/data/archive
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
 volumes:
   postgres-app:
   silo:
+  archive:

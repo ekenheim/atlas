@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Compose brings up the API, worker, application Postgres and the pinned Silo S3 server; readiness reports DB and archive status, and reports Hindsight/LiteLLM as 'not configured'
-- [ ] Missing required settings fail at startup with an actionable message; missing optional providers log 'disabled: missing X' once
-- [ ] The first migration applies cleanly from empty
-- [ ] The CI entrypoint passes locally, and the GitHub Actions workflow invokes the same entrypoint
-- [ ] README, AGENTS.md (commands, layout) and .env.example are written; .env values are whitespace-stripped (the CRLF-safe loader)
-- [ ] The implementation log is started with this ticket's files, tests run and their results
+- [x] Compose brings up the API, worker, application Postgres and the pinned Silo S3 server; readiness reports DB and archive status, and reports Hindsight/LiteLLM as 'not configured'
+- [x] Missing required settings fail at startup with an actionable message; missing optional providers log 'disabled: missing X' once
+- [x] The first migration applies cleanly from empty
+- [x] The CI entrypoint passes locally, and the GitHub Actions workflow invokes the same entrypoint
+- [x] README, AGENTS.md (commands, layout) and .env.example are written; .env values are whitespace-stripped (the CRLF-safe loader)
+- [x] The implementation log is started with this ticket's files, tests run and their results

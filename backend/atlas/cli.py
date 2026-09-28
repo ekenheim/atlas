@@ -33,7 +33,8 @@ def run_api(settings: Settings) -> None:
 
     from atlas.api.app import create_app
 
-    uvicorn.run(create_app(settings), host="0.0.0.0", port=8000)  # noqa: S104 - container port
+    # log_config=None keeps uvicorn on the JSON root logger configured in main().
+    uvicorn.run(create_app(settings), host="0.0.0.0", port=8000, log_config=None)  # noqa: S104
 
 
 def run_worker(settings: Settings, once: bool) -> None:
