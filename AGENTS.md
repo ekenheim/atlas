@@ -12,7 +12,8 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 
 ## Layout
 
-- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `db/` migrations, `settings.py`, `health.py`, `cli.py`)
+- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `audit.py` hash-chained audit trail, `db/` migrations, `hindsight/` the only Hindsight HTTP client, `jobs/` Postgres job queue and worker, `sources/` source adapters (SEC EDGAR), `settings.py`, `health.py`, `cli.py`)
+- `tests/fakes/hindsight.py`: the recorded Hindsight fake (an `httpx2.MockTransport` replaying `spikes/hindsight/recordings/`)
 - `frontend/`: Next.js static export, served by FastAPI
 - `tests/unit`, `tests/integration`: tests at the agreed seams (HTTP API, CLI entry, migrations)
 - `configs/`: versioned config (e.g. Hindsight bank templates)

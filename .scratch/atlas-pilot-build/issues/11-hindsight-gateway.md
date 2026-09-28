@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Typed operations: batch retain, operation status, scoped recall, reflect with an optional schema, memory lookup, bank template apply, mental-model create/refresh/history, LLM request log
-- [ ] Contract tests assert that the gateway parses every recording correctly
-- [ ] `tags_match=any` and union-type schemas are rejected before any call; operation outcomes are decided only by `status`, with a polling timeout
-- [ ] The alternative listing routes are used (observations via the memory list, pages via the tree)
+- [x] Typed operations: batch retain, operation status, scoped recall, reflect with an optional schema, memory lookup, bank template apply, mental-model create/refresh/history, LLM request log
+- [x] Contract tests assert that the gateway parses every recording correctly
+- [x] `tags_match=any` and union-type schemas are rejected before any call; operation outcomes are decided only by `status`, with a polling timeout
+- [x] The alternative listing routes are used (observations via the memory list, pages via the tree)
