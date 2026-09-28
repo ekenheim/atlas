@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     hindsight_bank_id: str = "atlas-ai-infrastructure"
     litellm_url: str | None = None
     litellm_api_key: str | None = None
+    # The research bank's versioned template, relative to the working directory (/app in the image).
+    hindsight_template_path: Path = Path("configs/hindsight/bank-template.json")
+    # LiteLLM aliases Atlas uses, named in config and never hard-coded (spec Part B).
+    llm_extract_alias: str = Field(default="atlas-extract", min_length=1)
+    llm_reflect_alias: str = Field(default="atlas-reflect", min_length=1)
+    # Recorded on every run: the image's commit SHA (a build arg), else the package version.
+    code_version: str | None = None
     # Live SEC EDGAR fetching is opt-in; without it the EDGAR adapter replays fixtures.
     sec_live: bool = False
     # SEC fair-access policy: a requester name and contact email, e.g. "Atlas Research ops@x.com".
@@ -78,6 +85,10 @@ class Settings(BaseSettings):
         if value and not re.search(r"\S+@\S+\.\S+", value):
             raise ValueError("must include a contact email, e.g. 'Atlas Research ops@example.com'")
         return value or None
+
+    def llm_aliases(self) -> list[str]:
+        """The LiteLLM aliases whose routed deployments each run records."""
+        return list(dict.fromkeys([self.llm_extract_alias, self.llm_reflect_alias]))
 
     def disabled_providers(self) -> list[tuple[str, str]]:
         """(provider, missing setting) for each optional provider that is not configured."""

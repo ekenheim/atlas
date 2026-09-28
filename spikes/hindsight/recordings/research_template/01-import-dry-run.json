@@ -1,0 +1,67 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-template-1790632603/import",
+    "query": {
+      "dry_run": "true"
+    },
+    "body": {
+      "version": "1",
+      "bank": {
+        "retain_mission": "Extract economically material facts about capacity, supply agreements, customer dependencies, product specifications, manufacturing constraints, demand forecasts, capital expenditure and risk. Preserve the difference between what was explicitly stated and what was inferred. Keep figures, units and reporting periods exactly as stated.",
+        "enable_observations": true,
+        "observations_mission": "Consolidate independently grounded industry developments while recording contradictions, conditionality and changed circumstances. Don't turn speculative language into certainty.",
+        "reflect_mission": "Form source-grounded research syntheses. Distinguish factual statements, third-party claims, model assumptions and hypotheses. Seek disconfirmation.",
+        "disposition_skepticism": 4,
+        "disposition_literalism": 4
+      },
+      "directives": [
+        {
+          "name": "Cite supporting evidence",
+          "content": "Support every statement with the memories it rests on and cite them. Don't present a conclusion that no retrieved memory supports.",
+          "priority": 10
+        },
+        {
+          "name": "Say when facts are missing",
+          "content": "When the retrieved memories don't answer the question, or answer only part of it, say so explicitly and name what is missing. Never fill a gap with general knowledge presented as evidence.",
+          "priority": 10
+        },
+        {
+          "name": "Never fabricate figures",
+          "content": "Never invent or estimate contract values, customer exposure, revenue shares, capacity numbers or other figures. Report a figure only as stated in a memory, with its unit and period.",
+          "priority": 10
+        },
+        {
+          "name": "Flag source uncertainty",
+          "content": "Flag uncertainty about where a statement originally came from: say whether it is the company's own statement, a third-party claim or an inference, and say when the original source is unclear.",
+          "priority": 8
+        },
+        {
+          "name": "No trading orders",
+          "content": "Never give trading orders or recommendations to buy, sell or hold a security. Describe evidence and its implications only.",
+          "priority": 8
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.04,
+    "body": {
+      "bank_id": "atlas-template-1790632603",
+      "config_applied": true,
+      "mental_models_created": [],
+      "mental_models_updated": [],
+      "directives_created": [
+        "Cite supporting evidence",
+        "Say when facts are missing",
+        "Never fabricate figures",
+        "Flag source uncertainty",
+        "No trading orders"
+      ],
+      "directives_updated": [],
+      "operation_ids": [],
+      "dry_run": true
+    }
+  }
+}

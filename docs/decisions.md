@@ -27,6 +27,15 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **Citation states:** resolved / unverified / broken. Only resolved citations count as Evidence.
 - **Phase 2 mental models:** Theme status and Bottlenecks, refreshed on a daily cron (not after consolidation). No knowledge pages in Phase 2.
 
+## 2026-09-29: Hindsight in Compose, bank template and run record (build ticket 12)
+
+- **Template file:** `configs/hindsight/bank-template.json` is `{template_version, manifest}`. The manifest goes to Hindsight unchanged. Each application records the version and the manifest's SHA-256 (`bank_template_application`) and writes a `bank_template.applied` audit event. A run's template version is the bank's latest application, and no run starts before one exists.
+- **Template changes need a recording:** the contract test replays the real file through a recorded dry run and import. Changing the file means re-running `spikes/hindsight/record_bank_template.py` against the local spike (config-only, no LLM calls).
+- **LiteLLM readiness** means Atlas's key is accepted by `GET /model/info` and every configured alias has a deployment. No model is called.
+- **Routed models** are stored per alias as a list of `{model, model_id}` (`litellm_params.model`, `model_info.id`), since an alias can load-balance.
+- **Local Hindsight** sits behind the Compose profile `hindsight`; CI never starts it. The app services read `ATLAS_COMPOSE_HINDSIGHT_URL`, which is separate from `.env`'s host-side `ATLAS_HINDSIGHT_URL`.
+- **Code version** is the image's commit SHA (build arg `ATLAS_CODE_VERSION`, set by the release workflow), falling back to the package version.
+
 ## 2026-09-28: archive durability (ticket 10)
 
 - **Bucket provisioning by script, not OpenTofu (deviates from Appendix A):** OpenTofu isn't running, its state location is unknown, and most existing buckets are hand-made. A re-runnable minio-py script creates `atlas-archive` (object lock, Governance, 10-year default retention), a scoped `atlas` user without bypass rights, and prints the credentials for Bitwarden.

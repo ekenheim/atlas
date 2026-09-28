@@ -31,6 +31,73 @@ services:
     volumes:
       - silo:/data
 
+  # Hindsight 0.10.1 and its pgvector database, configured like the spike
+  # (spikes/hindsight/compose.yaml). Behind the `hindsight` profile, so the default
+  # stack and CI need no LLM. All LLM, embedding and rerank traffic goes through LiteLLM:
+  #   ATLAS_LITELLM_URL=... ATLAS_LITELLM_API_KEY=... docker compose --profile hindsight up -d
+  # Point the app at it with ATLAS_COMPOSE_HINDSIGHT_URL=http://hindsight:8888 (the api and
+  # worker services) or ATLAS_HINDSIGHT_URL=http://127.0.0.1:58888 (`uv run atlas` on the
+  # host), then run `atlas hindsight apply-template`.
+  hindsight-db:
+    image: pgvector/pgvector:pg18
+    profiles: [hindsight]
+    environment:
+      POSTGRES_USER: hindsight
+      POSTGRES_PASSWORD: hindsight
+      POSTGRES_DB: hindsight
+    volumes:
+      - hindsight-db:/var/lib/postgresql/18/docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hindsight -d hindsight"]
+      interval: 5s
+      retries: 20
+
+  hindsight:
+    # Same image and digest as the cluster's llm/hindsight release; bumps are deliberate.
+    image: ghcr.io/vectorize-io/hindsight-api:0.10.1-slim@sha256:26f9a62a5c870382c42ab7296722e0d7a2cead185b01d36708c7c3bdee4bf974
+    profiles: [hindsight]
+    depends_on:
+      hindsight-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${ATLAS_HINDSIGHT_PORT:-58888}:8888"
+    environment:
+      HINDSIGHT_API_DATABASE_URL: postgresql://hindsight:hindsight@hindsight-db:5432/hindsight
+      HINDSIGHT_API_VECTOR_EXTENSION: pgvector
+      # Stable, so interrupted operations recover across restarts.
+      HINDSIGHT_API_WORKER_ID: atlas-hindsight-1
+      # LLM: the LiteLLM aliases (overridable), MiniMax-M3 with thinking off behind them.
+      # Retain and consolidation use the extract alias; reflect and mental-model refresh
+      # the reflect alias. ${VAR:-} rather than ${VAR:?}: Compose interpolates every
+      # service, even with the profile off, and the default stack must not need these.
+      HINDSIGHT_API_LLM_PROVIDER: openai
+      HINDSIGHT_API_LLM_BASE_URL: ${ATLAS_LITELLM_URL:-}/v1
+      HINDSIGHT_API_LLM_API_KEY: ${ATLAS_LITELLM_API_KEY:-}
+      HINDSIGHT_API_LLM_MODEL: ${ATLAS_LLM_EXTRACT_ALIAS:-atlas-extract}
+      HINDSIGHT_API_REFLECT_LLM_MODEL: ${ATLAS_LLM_REFLECT_ALIAS:-atlas-reflect}
+      HINDSIGHT_API_LLM_EXTRA_BODY: ${ATLAS_HINDSIGHT_LLM_EXTRA_BODY:-{"thinking":{"type":"disabled"}}}
+      HINDSIGHT_API_LLM_SEND_BANK_AS_USER: "true"
+      # Pacing: 2 concurrent LLM calls; consolidation reserves 2 worker slots, so 4 in all.
+      HINDSIGHT_API_LLM_MAX_CONCURRENT: "2"
+      HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
+      HINDSIGHT_API_WORKER_MAX_SLOTS: "4"
+      # Timeouts raised to 300 s (MiniMax extraction and reflect are slow).
+      HINDSIGHT_API_LLM_TIMEOUT: "300"
+      HINDSIGHT_API_RETAIN_LLM_TIMEOUT: "300"
+      HINDSIGHT_API_REFLECT_LLM_TIMEOUT: "300"
+      HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_TIMEOUT: "300"
+      # Embeddings: the same model and dimension as the cluster release.
+      HINDSIGHT_API_EMBEDDINGS_PROVIDER: openai
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_BASE_URL: ${ATLAS_LITELLM_URL:-}/v1
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY: ${ATLAS_LITELLM_API_KEY:-}
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_MODEL: qwen3-embedding-0.6b
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_DIMENSIONS: "1024"
+      # The slim image has no local cross-encoder; rerank through LiteLLM (no TEI sidecar).
+      HINDSIGHT_API_RERANKER_PROVIDER: litellm
+      HINDSIGHT_API_RERANKER_LITELLM_API_BASE: ${ATLAS_LITELLM_URL:-}
+      HINDSIGHT_API_RERANKER_LITELLM_API_KEY: ${ATLAS_LITELLM_API_KEY:-}
+      HINDSIGHT_API_RERANKER_LITELLM_MODEL: rerank
+
   # The app image, as three roles. Readiness (/health/ready) is the truth about
   # whether the flow works; Compose ordering only sequences startup.
   migrate:
@@ -40,6 +107,12 @@ services:
       ATLAS_DATABASE_URL: postgresql+psycopg://atlas:atlas@postgres-app:5432/atlas
       ATLAS_ACTOR: ${ATLAS_ACTOR:-local-researcher}
       ATLAS_ARCHIVE_ROOT: /data/archive
+      # Empty = disabled (readiness reports not_configured). With the hindsight profile, set
+      # ATLAS_COMPOSE_HINDSIGHT_URL=http://hindsight:8888 (a separate variable, because
+      # .env's ATLAS_HINDSIGHT_URL is a host address that containers can't reach).
+      ATLAS_HINDSIGHT_URL: ${ATLAS_COMPOSE_HINDSIGHT_URL:-}
+      ATLAS_LITELLM_URL: ${ATLAS_LITELLM_URL:-}
+      ATLAS_LITELLM_API_KEY: ${ATLAS_LITELLM_API_KEY:-}
     read_only: true
     tmpfs: [/tmp]
     depends_on:
@@ -81,3 +154,4 @@ volumes:
   postgres-app:
   silo:
   archive:
+  hindsight-db:

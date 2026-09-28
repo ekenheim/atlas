@@ -23,12 +23,17 @@ RUN uv sync --frozen --no-dev
 # Versioned config (the company universe), read relative to WORKDIR /app.
 COPY configs/ configs/
 COPY --from=frontend /build/out /app/frontend
+# Versioned config, e.g. the research bank template (`atlas hindsight apply-template`).
+COPY configs/ configs/
 
 RUN useradd --system --uid 10001 --no-create-home atlas \
     && mkdir -p /data/archive && chown 10001 /data/archive
 USER 10001
+# The commit SHA, recorded on every run (the release workflow passes it).
+ARG ATLAS_CODE_VERSION
 ENV PATH="/app/.venv/bin:$PATH" \
-    ATLAS_FRONTEND_DIR=/app/frontend
+    ATLAS_FRONTEND_DIR=/app/frontend \
+    ATLAS_CODE_VERSION=${ATLAS_CODE_VERSION}
 EXPOSE 8000
 ENTRYPOINT ["atlas"]
 CMD ["api"]

@@ -11,12 +11,14 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 - `uv run scripts/provision_archive.py --endpoint <url>`: the owner's one-off archive bucket/user provisioning (root credentials from `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`; see `docs/runbooks.md`).
 - `uv run atlas companies seed`: create or update the companies in `configs/themes/ai-infrastructure.yaml` (idempotent).
 - `uv run atlas ingest --company lumentum [--key K]`: enqueue an ingest job; `atlas worker --once` runs it. Fixture mode needs `ATLAS_SEC_FIXTURES_DIR=tests/fixtures/edgar`; `ATLAS_SEC_LIVE=true` fetches from SEC.
+- `uv run atlas hindsight apply-template`: dry-run, then import `configs/hindsight/bank-template.json` into the research bank, recording its version.
+- `docker compose --profile hindsight up -d`: local Hindsight 0.10.1 + pgvector, via LiteLLM (needs `ATLAS_LITELLM_URL`/`_API_KEY`; never in CI).
 - `npm --prefix frontend run lint | typecheck | build`: the frontend gates; `build` writes the static export to `frontend/out/`.
 
 ## Layout
 
-- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `audit.py` hash-chained audit trail, `companies.py` the company universe from config, `ledger/` the source ledger (Source Documents, Source Versions, fetch observations) and the `ingest` job, `parsing.py` the deterministic HTML/text parser, `db/` migrations, `hindsight/` the only Hindsight HTTP client, `jobs/` Postgres job queue and worker, `sources/` source adapters (SEC EDGAR), `settings.py`, `health.py`, `cli.py`)
-- `tests/fakes/hindsight.py`: the recorded Hindsight fake (an `httpx2.MockTransport` replaying `spikes/hindsight/recordings/`)
+- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `audit.py` hash-chained audit trail, `bank_template.py` applying the versioned bank template, `companies.py` the company universe from config, `db/` migrations, `hindsight/` the only Hindsight HTTP client, `jobs/` Postgres job queue and worker, `ledger/` the source ledger (Source Documents, Source Versions, fetch observations) and the `ingest` job, `llm_routes.py` the LiteLLM route recorder (`/model/info`), `parsing.py` the deterministic HTML/text parser, `runs.py` the minimal run record, `sources/` source adapters (SEC EDGAR), `settings.py`, `health.py`, `cli.py`)
+- `tests/fakes/hindsight.py`: the recorded Hindsight fake (an `httpx2.MockTransport` replaying `spikes/hindsight/recordings/`); `tests/fakes/litellm.py` fakes LiteLLM `/model/info`; `tests/fakes/serve.py` serves a fake on localhost for the CLI subprocess and the API
 - `frontend/`: Next.js static export, served by FastAPI
 - `tests/unit`, `tests/integration`: tests at the agreed seams (HTTP API, CLI entry, migrations)
 - `configs/`: versioned config (Hindsight bank templates; `themes/` the company universe and themes)

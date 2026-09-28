@@ -1,0 +1,51 @@
+{
+  "data": [
+    {
+      "model_name": "atlas-extract",
+      "litellm_params": {
+        "api_base": "https://minimax.provider.example/v1",
+        "model": "minimax/MiniMax-M3"
+      },
+      "model_info": {
+        "id": "3f1c2b8e9d7a4c6f0b5e1a2d3c4b5a69788f7e6d5c4b3a2918f7e6d5c4b3a291",
+        "db_model": false,
+        "key": "minimax/MiniMax-M3"
+      }
+    },
+    {
+      "model_name": "atlas-reflect",
+      "litellm_params": {
+        "api_base": "https://minimax.provider.example/v1",
+        "model": "minimax/MiniMax-M3"
+      },
+      "model_info": {
+        "id": "8eefdf61e375ace21356414a23782159e703c6afe66eb7b46a3a17a2095f53b1",
+        "db_model": false,
+        "key": "minimax/MiniMax-M3"
+      }
+    },
+    {
+      "model_name": "qwen3-embedding-0.6b",
+      "litellm_params": {
+        "api_base": "http://embeddings.provider.example",
+        "model": "openai/qwen3-embedding-0.6b"
+      },
+      "model_info": {
+        "id": "b0a6d6c1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9",
+        "db_model": false,
+        "mode": "embedding"
+      }
+    },
+    {
+      "model_name": "rerank",
+      "litellm_params": {
+        "model": "openai/rerank"
+      },
+      "model_info": {
+        "id": "c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
+        "db_model": false,
+        "mode": "rerank"
+      }
+    }
+  ]
+}
