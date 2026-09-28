@@ -1,7 +1,7 @@
 # Phase 2 deploy shape and PR sequencing
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 03, 05, 08, 10
 
 ## Question
