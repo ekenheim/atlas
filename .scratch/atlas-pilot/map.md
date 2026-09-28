@@ -31,6 +31,8 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 
 <!-- one line per closed ticket -->
 
+- [Hindsight releases after 0.10.1: anything Phase 2 needs?](issues/01-hindsight-release-delta.md): keep 0.10.1 (latest release); upsert is a chunk-level delta, reflect citations need a per-memory lookup, and the mental-model refresh-loop risk needs a mitigation.
+
 ## Not yet specified
 
 - **Hindsight gateway surface details:** the exact shape of the typed gateway, provenance resolution (memory → document_id → source version → quote span) and operation polling. Hangs on the feature matrix.

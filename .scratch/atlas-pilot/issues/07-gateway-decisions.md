@@ -16,4 +16,11 @@ With the matrix in hand, decide:
 - operation polling and zero-fact handling
 - which two mental models ship in Phase 2
 
+Inputs from ticket 01 to weigh:
+
+- reflect citations need a per-memory lookup to reach `document_id`
+- structured output is loosely enforced
+- the mental-model refresh-loop risk (#4532)
+- the worker-slot hang (#4763)
+
 Record spec deviations in `docs/decisions.md`.
