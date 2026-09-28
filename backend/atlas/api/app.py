@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 
 from atlas import __version__
 from atlas.api.jobs import jobs_router
+from atlas.api.memory import memory_router
 from atlas.api.sources import sources_router
 from atlas.archive import open_archive
 from atlas.health import (
@@ -59,6 +60,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     app.include_router(jobs_router(JobQueue(engine)))
     app.include_router(sources_router(engine, archive))
+    app.include_router(memory_router(engine, settings.hindsight_bank_id))
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:

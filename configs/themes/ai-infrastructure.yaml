@@ -25,8 +25,8 @@ companies:
         currency: USD
         valid_from: 2015-08-04
 
-  # Stub: Coherent joins in Phase 2 (spec Part A "Anchors"); there are no EDGAR fixtures
-  # for it yet, so a fixture-mode ingest of it fails with "no fixtures".
+  # The second company (spec Part B story 11): recorded EDGAR fixtures in
+  # tests/fixtures/edgar/coherent (10-K, 10-Q and companyfacts; no 8-K yet).
   coherent:
     legal_name: Coherent Corp.
     display_name: Coherent

@@ -4,7 +4,8 @@ Payload: `{"company": "<slug>", "forms": [...]?, "limit": N?}`. The job seeds th
 from the theme config, discovers its filings (fixture replay, or live SEC when
 `ATLAS_SEC_LIVE` is on), fetches each document (conditionally, with the validators of its
 last fetch) and records it in the ledger. Re-running is safe: unchanged material makes
-no new Source Version.
+no new Source Version. When Hindsight is configured, each new parsed Source Version gets a
+`retain` job (`atlas.retention`).
 
 A document whose fetch fails is skipped and the others are still recorded; the attempt
 then fails listing every failed URL, so a gap in coverage is never silent, and the retry
@@ -25,6 +26,7 @@ from atlas.companies import load_universe, seed
 from atlas.jobs.handlers import JobHandler
 from atlas.jobs.queue import Artifacts, Job
 from atlas.ledger.service import RecordedFetch, SourceLedger
+from atlas.retention.service import enqueue_retains
 from atlas.settings import Settings
 from atlas.sources import (
     EdgarAdapter,
@@ -88,6 +90,15 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
         recorded, errors = asyncio.run(
             _fetch_all(client, ledger, config.cik, query, seeded.company_id, job.id)
         )
+        # Every new parsed version is retained into memory, when Hindsight is configured;
+        # also for a partial ingest, whose recorded versions are kept.
+        retain_jobs = (
+            enqueue_retains(
+                engine, [f.source_version_id for f in recorded if f.outcome == "new_version"]
+            )
+            if settings.hindsight_url
+            else None
+        )
     finally:
         engine.dispose()
     if errors:
@@ -95,7 +106,10 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
         raise IngestIncomplete(
             f"{len(errors)} of {len(errors) + len(recorded)} documents not fetched ({failed})"
         )
-    return _artifacts(seeded.company_id, recorded)
+    artifacts = _artifacts(seeded.company_id, recorded)
+    if retain_jobs is not None:
+        artifacts["retain_jobs"] = list[JsonValue](retain_jobs)
+    return artifacts
 
 
 def _sec_client(settings: Settings, company: str) -> SecHttpClient:

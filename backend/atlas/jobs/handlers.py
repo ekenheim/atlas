@@ -37,12 +37,15 @@ def noop(job: Job) -> Artifacts:
 def builtin_registry(settings: "Settings | None" = None) -> HandlerRegistry:
     """Every job kind Atlas knows how to run; `atlas worker` uses this registry.
 
-    Kinds that touch the database, the archive or sources (`ingest`) need `settings`.
+    Kinds that touch the database, the archive, sources or Hindsight (`ingest`, `retain`,
+    `poll_operation`, `reprocess`) need `settings`.
     """
     registry = HandlerRegistry()
     registry.register("noop", noop)
     if settings is not None:
         from atlas.ledger.ingest import INGEST_KIND, make_ingest_handler
+        from atlas.retention import register_retention_handlers
 
         registry.register(INGEST_KIND, make_ingest_handler(settings))
+        register_retention_handlers(registry, settings)
     return registry

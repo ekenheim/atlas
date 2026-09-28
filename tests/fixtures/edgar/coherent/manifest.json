@@ -1,0 +1,45 @@
+{
+  "description": "Recorded SEC EDGAR responses for Coherent Corp. (CIK 0000820318), replayed by atlas.sources.edgar_fixtures. SEC data is public domain. Bodies are the bytes SEC served (after gzip decoding), except where 'trimmed' says how a large body was cut. Recorded with 4 SEC requests (ticket 13); no 8-K was recorded, to stay within the 6-request budget (an 8-K needs its index headers plus each document).",
+  "recorded_at": "2026-09-28T22:49Z",
+  "user_agent": "Atlas Research ekenheim@gmail.com",
+  "responses": [
+    {
+      "url": "https://data.sec.gov/submissions/CIK0000820318.json",
+      "file": "data.sec.gov/submissions/CIK0000820318.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "filings.recent trimmed to the 2026-05-06..2026-09-28 window; unrecorded 10-K/10-Q/8-K rows removed; re-serialized compactly"
+    },
+    {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json",
+      "file": "data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "facts trimmed to dei plus the us-gaap concepts of the Lumentum fixture that Coherent reports (GrossProfit is absent); re-serialized compactly"
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm",
+      "file": "www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html",
+        "last-modified": "Fri, 14 Aug 2026 12:10:44 GMT"
+      },
+      "trimmed": "body truncated to its first 760 of 1231 top-level elements (through Item 7, before Item 7A), plus SEC's trailing edge script (byte slices, still well-formed)"
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm",
+      "file": "www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html",
+        "last-modified": "Wed, 06 May 2026 20:11:25 GMT"
+      },
+      "trimmed": "body truncated to its first 59 of 456 top-level elements (cover, contents and the start of Item 1), plus SEC's trailing edge script (byte slices, still well-formed)"
+    }
+  ]
+}
