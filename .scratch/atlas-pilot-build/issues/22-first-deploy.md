@@ -4,7 +4,7 @@
 
 **Blocked by:** 17 (Live test suite), 21 (Home-ops Atlas releases (PRs 4 and 6))
 
-**Status:** ready-for-agent
+**Status:** parked (owner: repo-only focus for now; resume when asked)
 
 - [ ] The smoke script checks readiness, one small ingest and one resolved recall against the deployed instance
 - [ ] Each rollout step is confirmed healthy before the next PR is opened
