@@ -1,0 +1,192 @@
+[
+  {
+    "id": "A1",
+    "doc": "10-K",
+    "statement": "Headquarters are in San Jose, California",
+    "match_all_of": [
+      [
+        "san jose"
+      ]
+    ]
+  },
+  {
+    "id": "A2",
+    "doc": "10-K",
+    "statement": "Incorporated in Delaware on February 10, 2015 as a subsidiary of JDSU",
+    "match_all_of": [
+      [
+        "delaware"
+      ],
+      [
+        "2015",
+        "jdsu",
+        "jds uniphase"
+      ]
+    ]
+  },
+  {
+    "id": "A3",
+    "doc": "10-K",
+    "statement": "Spun off from JDSU (now Viavi) in August 2015",
+    "match_all_of": [
+      [
+        "spun off",
+        "spin-off",
+        "spinoff",
+        "spun-off"
+      ]
+    ]
+  },
+  {
+    "id": "A4",
+    "doc": "10-K",
+    "statement": "Acquired Oclaro in 2018",
+    "match_all_of": [
+      [
+        "oclaro"
+      ]
+    ]
+  },
+  {
+    "id": "A5",
+    "doc": "10-K",
+    "statement": "Acquired NeoPhotonics (and IPG telecom transmission lines) in 2022",
+    "match_all_of": [
+      [
+        "neophotonics"
+      ]
+    ]
+  },
+  {
+    "id": "A6",
+    "doc": "10-K",
+    "statement": "Acquired Cloud Light Technology in 2023",
+    "match_all_of": [
+      [
+        "cloud light"
+      ]
+    ]
+  },
+  {
+    "id": "A7",
+    "doc": "10-K",
+    "statement": "AI/cloud demand is outpacing current supply, requiring supply allocation decisions",
+    "match_all_of": [
+      [
+        "outpac",
+        "exceed",
+        "allocation",
+        "allocat"
+      ]
+    ]
+  },
+  {
+    "id": "A8",
+    "doc": "10-K",
+    "statement": "Investing in manufacturing capacity internally and with contract manufacturers",
+    "match_all_of": [
+      [
+        "contract manufactur"
+      ]
+    ]
+  },
+  {
+    "id": "A9",
+    "doc": "10-K",
+    "statement": "Operates in one reportable segment",
+    "match_all_of": [
+      [
+        "segment"
+      ]
+    ]
+  },
+  {
+    "id": "A10",
+    "doc": "10-K",
+    "statement": "Scale-out adoption of 200G lane-speed components doubling rates vs 100G",
+    "match_all_of": [
+      [
+        "200g",
+        "200 g"
+      ]
+    ]
+  },
+  {
+    "id": "B1",
+    "doc": "8-K",
+    "statement": "Q4 FY2026 net revenue was $1.01 billion ($1,006.3M)",
+    "match_all_of": [
+      [
+        "1.01 billion",
+        "1,006.3",
+        "1006.3",
+        "$1.01"
+      ]
+    ]
+  },
+  {
+    "id": "B2",
+    "doc": "8-K",
+    "statement": "Q4 GAAP net loss of $7.2B driven by a $7.8B non-cash loss on debt extinguishment (convertible notes)",
+    "match_all_of": [
+      [
+        "extinguish"
+      ]
+    ]
+  },
+  {
+    "id": "B3",
+    "doc": "8-K",
+    "statement": "FY2026 net revenue was $3.01 billion vs $1.6 billion in FY2025",
+    "match_all_of": [
+      [
+        "3.01 billion",
+        "3,014",
+        "3014",
+        "$3.01"
+      ]
+    ]
+  },
+  {
+    "id": "B4",
+    "doc": "8-K",
+    "statement": "Q1 FY2027 revenue guidance of $1.225\u2013$1.275 billion",
+    "match_all_of": [
+      [
+        "1.225",
+        "1.275"
+      ]
+    ]
+  },
+  {
+    "id": "B5",
+    "doc": "8-K",
+    "statement": "$2.7 billion in cash, cash equivalents and short-term investments at end of Q4 FY2026",
+    "match_all_of": [
+      [
+        "2.7 billion",
+        "$2.7"
+      ]
+    ]
+  },
+  {
+    "id": "B6",
+    "doc": "8-K",
+    "statement": "Michael Hurlston is President and CEO",
+    "match_all_of": [
+      [
+        "hurlston"
+      ]
+    ]
+  },
+  {
+    "id": "B7",
+    "doc": "8-K",
+    "statement": "Q4 FY2026 Components revenue was $649.4 million",
+    "match_all_of": [
+      [
+        "649.4"
+      ]
+    ]
+  }
+]

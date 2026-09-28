@@ -19,3 +19,13 @@ Against the pinned version in Compose, using a model that worked in the bake-off
 - export/import
 
 Save each request/response pair as a versioned fixture (Q11). Output: `docs/hindsight-feature-matrix.md`, with every row linking its recordings, plus the fixture directory. Explicitly test that re-retaining the same document_id deletes the earlier extraction, and that `query_timestamp`/`temporal_window` are not hard filters.
+
+Inputs from ticket 04:
+
+- Reuse `spikes/hindsight/` (compose, `run.sh`, fixture, harness).
+- Known so far:
+  - `WORKER_MAX_SLOTS` must be ≥ 3
+  - union types in `response_schema` return a 500
+  - `/llm-requests` gives a per-bank LLM log
+  - reflect includes raw chunks
+  - async retain + operation polling works (`status: completed`)

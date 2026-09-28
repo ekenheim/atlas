@@ -1,0 +1,61 @@
+# Local Hindsight 0.10.1 for the extraction bake-off (ticket 04) and the
+# feature check (ticket 06). All LLM, embedding and rerank traffic goes
+# through the cluster LiteLLM using the atlas-dev key from the repo's .env.
+# Start it with ./run.sh, which strips the CRLF line endings from .env.
+name: atlas-hindsight-spike
+
+services:
+  hindsight-db:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: hindsight
+      POSTGRES_PASSWORD: hindsight
+      POSTGRES_DB: hindsight
+    volumes:
+      - hindsight-db:/var/lib/postgresql/18/docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hindsight -d hindsight"]
+      interval: 5s
+      retries: 20
+
+  hindsight:
+    # Same image and digest as the cluster's llm/hindsight release.
+    image: ghcr.io/vectorize-io/hindsight-api:0.10.1-slim@sha256:26f9a62a5c870382c42ab7296722e0d7a2cead185b01d36708c7c3bdee4bf974
+    depends_on:
+      hindsight-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8888:8888"
+    environment:
+      HINDSIGHT_API_DATABASE_URL: postgresql://hindsight:hindsight@hindsight-db:5432/hindsight
+      HINDSIGHT_API_VECTOR_EXTENSION: pgvector
+      HINDSIGHT_API_WORKER_ID: atlas-spike-1
+      # LLM: one LiteLLM alias for retain and reflect, chosen per run.
+      HINDSIGHT_API_LLM_PROVIDER: openai
+      HINDSIGHT_API_LLM_BASE_URL: ${LITELLM_URL:?}/v1
+      HINDSIGHT_API_LLM_API_KEY: ${LITELLM_API_KEY:?}
+      HINDSIGHT_API_LLM_MODEL: ${ATLAS_LLM_MODEL:?}
+      HINDSIGHT_API_LLM_EXTRA_BODY: ${ATLAS_LLM_EXTRA_BODY:?}
+      HINDSIGHT_API_LLM_SEND_BANK_AS_USER: "true"
+      # Pacing: MiniMax Plus absorbs ~3-4 concurrent agents; stay well under.
+      HINDSIGHT_API_LLM_MAX_CONCURRENT: "2"
+      HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
+      # Consolidation reserves 2 worker slots, so <=2 total starves retain.
+      HINDSIGHT_API_WORKER_MAX_SLOTS: "4"
+      HINDSIGHT_API_LLM_TIMEOUT: "300"
+      HINDSIGHT_API_RETAIN_LLM_TIMEOUT: "300"
+      HINDSIGHT_API_REFLECT_LLM_TIMEOUT: "300"
+      # Embeddings: the same model and dimension as the cluster release.
+      HINDSIGHT_API_EMBEDDINGS_PROVIDER: openai
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_BASE_URL: ${LITELLM_URL:?}/v1
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY: ${LITELLM_API_KEY:?}
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_MODEL: qwen3-embedding-0.6b
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_DIMENSIONS: "1024"
+      # The slim image can't run a local cross-encoder; use LiteLLM's rerank alias.
+      HINDSIGHT_API_RERANKER_PROVIDER: ${ATLAS_RERANKER_PROVIDER:-litellm}
+      HINDSIGHT_API_RERANKER_LITELLM_API_BASE: ${LITELLM_URL:?}
+      HINDSIGHT_API_RERANKER_LITELLM_API_KEY: ${LITELLM_API_KEY:?}
+      HINDSIGHT_API_RERANKER_LITELLM_MODEL: rerank
+
+volumes:
+  hindsight-db:

@@ -1,0 +1,30 @@
+{
+  "company": "Lumentum Holdings Inc.",
+  "cik": "0001633978",
+  "fetched_at": "2026-09-28",
+  "note": "Text converted from SEC EDGAR HTML (public domain). Excerpts only.",
+  "documents": [
+    {
+      "file": "lite-10k-fy26-item1.txt",
+      "form": "10-K",
+      "section": "Item 1. Business (first ~14k chars)",
+      "accession": "0001628280-26-057358",
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm",
+      "acceptance_datetime": "2026-08-17T20:03:17.000Z",
+      "period_end": "2026-06-27",
+      "sha256": "73eb59803a379482eea8f60b1fefd4f60c95f3f5f4f5166999fbc6da4486d1fe",
+      "chars": 13799
+    },
+    {
+      "file": "lite-8k-q4fy26-ex991.txt",
+      "form": "8-K EX-99.1",
+      "section": "Earnings release through Business Outlook",
+      "accession": "0001628280-26-055726",
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm",
+      "acceptance_datetime": "2026-08-11T20:24:11.000Z",
+      "period_end": "2026-06-27",
+      "sha256": "e8b40a1561df05704434dd4810ca9c89c1408011c8635906b55c343551e49691",
+      "chars": 5750
+    }
+  ]
+}

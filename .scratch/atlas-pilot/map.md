@@ -36,6 +36,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - [Home-ops wiring facts for the Atlas deploy](issues/08-home-ops-wiring.md): MinIO needs module work for versioning/lock and there is no R2 replication to reuse (→ ticket 10); scope the `llm` secret store to `datasci`; Atlas image bumps would auto-deploy under current Renovate rules.
 - [Which LiteLLM routes can Hindsight 0.10.1 use for extraction?](issues/02-hindsight-llm-compat.md): the bake-off candidates are MiniMax-M3/M2.7, Ornith (`fast`) and Gemma 3 (`translate`, extraction only); ChatGPT and Anthropic subscriptions are not viable; no candidate has a dated ID.
 - [Local dev access to LiteLLM](issues/03-cluster-access.md): `litellm.<domain>` and `search.<domain>` work from WSL with the `atlas-dev` key in `.env`; MiniMax-M3/M2.7 pass non-streaming, JSON-schema and forced-tool probes.
+- [MiniMax extraction check on a Lumentum filing fixture](issues/04-extraction-bakeoff.md): MiniMax-M3 with thinking off wins (16/17 facts, 3× faster than M2.7, verbatim quotes); no rate errors at 2 concurrent calls; four Hindsight traps recorded.
 
 ## Not yet specified
 

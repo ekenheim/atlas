@@ -31,3 +31,5 @@ What remains to decide: M3 vs M2.7 for each of extraction and reflect, the alias
 - whether the backfill is spread over nightly batches
 
 **Privacy (Q22):** MiniMax is allowed for all Atlas traffic, both extraction and reflect; see `docs/decisions.md`.
+
+**Bake-off result (ticket 04):** MiniMax-M3 with thinking disabled beat M2.7 on every measure (facts, speed, verbatim quotes, observations); see `docs/research/extraction-bakeoff.md`. The obvious candidate for both extraction and reflect, pending this ticket's grilling.

@@ -1,0 +1,350 @@
+{
+  "label": "minimax-m27",
+  "bank": "atlas-bakeoff-minimax-m27-1790614242",
+  "documents": [
+    {
+      "file": "lite-10k-fy26-item1.txt",
+      "submit_status": 200,
+      "submit_s": 0.04,
+      "operation_id": "08e2b06a-80db-49a2-b1fd-e783da54a702",
+      "status": "completed",
+      "wait_s": 147.2,
+      "error": null
+    },
+    {
+      "file": "lite-8k-q4fy26-ex991.txt",
+      "submit_status": 200,
+      "submit_s": 0.01,
+      "operation_id": "1b2206e7-7d49-4e87-b05d-8a0000ae83eb",
+      "status": "completed",
+      "wait_s": 54.1,
+      "error": null
+    }
+  ],
+  "memories": {
+    "status": 200,
+    "count": 40,
+    "by_type": {
+      "world": 40
+    },
+    "sample": [
+      "Lumentum's scale-out optical solutions include 200G lane speed optical components that double data transfer rates compared to traditional 100G lanes, connecting compute clusters, servers, and switches across data center networks | Involving: Lumentum Holdings Inc. | Specific technology capability doubling bandwidth",
+      "Lumentum's supply chain is complex, managing component supply with fluctuating customer demand; the company experiences logistics issues and component shortages requiring incremental procurement costs to fulfill customer demands | Involving: Lumentum | Complex supply chain with fluctuating demand and occasional shortages",
+      "Widespread 5G mobile network deployment and bandwidth-intensive applications are increasing data speeds at the network edge, accelerating capacity expansion demand across DCIs, metro regional, and long-haul networks. | 5G deployment driving edge bandwidth demand",
+      "The convergence of cloud computing and AI is driving rapid innovation in optical hardware for hyperscale operators, shifting infrastructure from traditional copper interconnects to high-speed photonics due to AI model computational demands | Involving: Lumentum Holdings Inc. | Industry trend driving demand for Lumentum's products",
+      "Lumentum is investing in manufacturing capacity, both internally and with contract manufacturers, to meet AI and cloud-driven demand | Involving: Lumentum, contract manufacturers | Current demand outpacing supply",
+      "Lumentum's consumer electronics laser light sources integrate into 3D sensing cameras for smartphones, computers, and other devices, enabling biometric identification, augmented/virtual reality, and computational photography | Involving: Lumentum Holdings Inc. | Key product applications in consumer electronics market segment",
+      "Systems products include optical modules, optical circuit switches, and industrial lasers (short-pulse solid-state lasers and kilowatt-class fiber lasers) that are complete, stand-alone solutions integrating multiple technologies into finished products. | Involving: Lumentum Holdings Inc. | Key product category for end-use solutions",
+      "Beginning Q1 fiscal year 2025, network equipment manufacturers normalized inventory levels and AI/cloud customer demand increased for data center expansion, driven by cloud and AI infrastructure advances; this demand outpaced supply, requiring supply allocation decisions | When: Q1 fiscal year 2025 (2024-07 to 2024-09) | Involving: Lumentum, network equipment manufacturers, AI and cloud customers | AI infrastructure expansion outpacing supply",
+      "Reconfigurable Optical Add-Drop Multiplexers (ROADMs), wavelength-selective switches, and tunable transmission products facilitate remote capacity adjustments in optical networks. | Dynamic network traffic demands agile optical networks",
+      "Through fiscal year 2024, Lumentum experienced significant demand fluctuations as customers delayed shipments or adjusted inventory in response to supply constraints; margins were adversely impacted due to underutilized manufacturing capacity | When: through fiscal year 2024 (ending 2024-06-29) | Involving: Lumentum, customers, network equipment manufacturers | Supply chain constraints and inventory buildup/drawdown cycles",
+      "Lumentum's industrial lasers include diode lasers as pump sources for high-power fiber lasers used in metal fabrication, and ultrafast lasers for PCB manufacturing, semiconductor processing, EV battery production, solar cell production, and flat panel display fabrication | Involving: Lumentum Holdings Inc. | Key product applications in industrial market segment",
+      "Dense wavelength-division multiplexing (DWDM) technologies are being leveraged to increase data speeds while reducing costs for long-haul, metro, and access networks. | Exponential data growth across industries",
+      "Completed acquisitions: Oclaro Inc. (2018), NeoPhotonics Corporation and IPG Photonics telecom transmission product lines (2022), Cloud Light Technology Limited (2023) | When: 2018-01-01 to 2023-12-31 | Involving: Lumentum Holdings Inc., Oclaro Inc., NeoPhotonics Corporation, IPG Photonics, Cloud Light Technology Limited | Strategic acquisitions enhancing product portfolio and market position",
+      "Components products include semiconductor laser chips, laser sub-assemblies, line subsystems, and wavelength management systems supplied to cloud data center operators, AI/ML infrastructure providers, and network equipment manufacturers. | Involving: Lumentum Holdings Inc. | Key product category for foundational optical elements",
+      "Customer supply chain disruptions caused by geopolitical events could reduce or delay demand for Lumentum products, ultimately impacting revenue and operating results. | Involving: Lumentum Holdings Inc., customers | Customer inventory and demand fluctuations affect Lumentum's revenue",
+      "Lumentum operates as a global business spanning diverse geographic regions, exposing the company to geopolitical risks such as war, military conflicts, export regulation changes, and shifts in national priorities that could affect product demand and supply capabilities. | Involving: Lumentum Holdings Inc. | Geopolitical fluctuations can impact revenue and profit margins",
+      "Lumentum's customers include cloud and network service providers, AI infrastructure providers, and network equipment manufacturers (NEMs), with products supporting cloud data centers, AI/ML, enterprise and communications services networking | Involving: Lumentum Holdings Inc., cloud providers, network service providers, AI infrastructure providers, NEMs | Identifies primary customer base and market applications",
+      "Lumentum manufactures ultrafast lasers for micromachining and advanced material processing, and produces laser emitters for 3D sensing in consumer electronics | Involving: Lumentum | Manufacturing industry pursuing higher precision, innovative materials, and improved efficiency",
+      "Lumentum provides Scale-Across DCI Solutions with high-speed data center interconnects enabling seamless, low-latency data exchange across geographically dispersed data centers, optimizing resource utilization across multiple locations. | Involving: Lumentum Holdings Inc. | Cloud operators need to balance computing power across locations",
+      "Lumentum operates in one reportable segment as a single, integrated enterprise. | Involving: Lumentum Holdings Inc. | Simplified corporate structure",
+      "Lumentum was incorporated in Delaware as wholly owned subsidiary of JDSU on February 10, 2015; spun off from JDSU in August 2015 and became independent publicly traded company | When: 2015-02-10 to 2015-08-31 | Involving: Lumentum Holdings Inc., JDSU (now Viavi Solutions) | Founding history",
+      "Lumentum Holdings Inc. is a global leader in optical and photonic technologies and an industry-leading provider of optical and photonic products based on revenue and market share, serving cloud, AI/ML, telecommunications, consumer, and industrial end-markets. | Involving: Lumentum Holdings Inc. | Core company identity and market position",
+      "Lumentum Holdings Inc. products enable high-capacity optical links for cloud computing, AI/ML workloads, data center interconnect (DCI), and communications service provider networks; products support access, metro, long-haul, and submarine network infrastructure; industrial lasers serve precision material processing for semiconductor fabrication, EV/battery production, and advanced manufacturing | Involving: Lumentum Holdings Inc. | Core business description from SEC 10-K filing",
+      "Lumentum Holdings Inc. faces global trade environment risks including tariffs on imported goods and export controls that may increase costs and reduce gross margins if unable to pass costs to customers through price increases. | Involving: Lumentum Holdings Inc. | Global trade uncertainty creates volatility and potential cost pressures",
+      "Lumentum provides network solutions supporting data transmission, AI/ML, digitalization, cloud data centers, and higher-bandwidth capabilities | Involving: Lumentum | Driven by convergence of data reliance, AI/ML adoption, and digitalization trends",
+      "Lumentum Holdings Inc. maintains leading market positions in optical networking markets, providing optical and photonic components, modules, and subsystems for high-speed data transmission over fiber optic links | Involving: Lumentum Holdings Inc. | Core business description from SEC 10-K filing",
+      "Lumentum provides Scale-Up Optical Solutions using high-speed photonics and optical switches to interconnect GPUs and AI accelerators within compute fabric, maximizing cluster efficiency and processing speeds. | Involving: Lumentum Holdings Inc. | AI and compute cluster interconnect needs",
+      "FY2026 net revenue by product: Components $2.0 billion (66.6%), Systems $1.0 billion (33.4%); Components revenue up 79.7% and Systems up 90.7% year-over-year | When: 2026-08-11 | Involving: Lumentum Holdings Inc. | Revenue breakdown by segment",
+      "Lumentum expects Q1 FY2027 net revenue of $1.225-1.275 billion, non-GAAP operating margin of 39.5-40.5%, and non-GAAP diluted EPS of $4.05-4.35 | When: 2026-08-11 | Involving: Lumentum Holdings Inc. | Business outlook guidance",
+      "Lumentum expects to reach its target revenue model more than a quarter ahead of schedule, driven by accelerating AI demand | When: August 11, 2026 | Involving: Lumentum Holdings Inc. | Accelerated growth trajectory",
+      "CEO Michael Hurlston stated Lumentum is positioned at the center of AI-driven demand for optical connectivity; key growth drivers include OCS solutions, cloud module business (1.6T adoption advancing), ultra-high-power CPO lasers, ELS modules, and NPO engagements | When: August 11, 2026 | Involving: Michael Hurlston (President and CEO) | Strategic positioning and growth outlook",
+      "Q4 FY2026 net revenue was $1.006 billion, up 109.3% year-over-year from $480.7 million in Q4 FY2025; Non-GAAP operating margin was 36.6% vs 15.0% year-over-year | When: 2026-06-27 | Involving: Lumentum Holdings Inc. | Quarterly performance",
+      "Lumentum held $2.7 billion in total cash, cash equivalents, and short-term investments at end of Q4 FY2026, an increase of $1.9 billion from end of FY2025 | When: 2026-06-27 | Involving: Lumentum Holdings Inc. | Liquidity position",
+      "Lumentum held $2.7B in cash, cash equivalents, and short-term investments at Q4 FY2026 end, down $433.9M from Q3 FY2026 | When: June 27, 2026 | Involving: Lumentum Holdings Inc. | Liquidity position",
+      "Lumentum Q1 FY2027 guidance: revenue $1.225B-$1.275B, non-GAAP operating margin 39.5%-40.5%, non-GAAP diluted EPS $4.05-$4.35 | When: Q1 fiscal year 2027 | Involving: Lumentum Holdings Inc. | Forward guidance",
+      "Non-GAAP net income for FY2026 was $782.3 million ($8.67 per diluted share), up from $146.4 million ($2.06 per diluted share) in FY2025 | When: 2026-08-11 | Involving: Lumentum Holdings Inc. | Key profitability metric excluding one-time items",
+      "Lumentum FY2025 net revenue was $1.6 billion with GAAP net income of $25.9 million ($0.37 per diluted share) | When: 2025-06-28 | Involving: Lumentum Holdings Inc. | Prior year comparison",
+      "Lumentum reported GAAP net loss of $7.2B ($84.65 diluted EPS) driven by one-time non-cash loss on debt extinguishment of $7.8B from equitization of convertible notes | When: Q4 fiscal year 2026 | Involving: Lumentum Holdings Inc. | Explains discrepancy between GAAP loss and non-GAAP net income",
+      "Lumentum Holdings Inc. reported FY2026 net revenue of $3.01 billion with GAAP net loss of $6.9 billion ($92.96 per diluted share), driven by a one-time, non-cash loss on debt extinguishment of $7.8 billion from equitization of convertible notes in Q4 | When: 2026-08-11 | Involving: Lumentum Holdings Inc. | SEC 8-K earnings release filing",
+      "Lumentum Q4 FY2026 revenue $1.01B; GAAP gross margin 47.4%, non-GAAP 50.4%; GAAP operating margin 27.8%, non-GAAP 36.6%; non-GAAP net income $326.3M or $3.23 diluted EPS | When: Q4 fiscal year 2026 (quarter ended June 27, 2026) | Involving: Lumentum Holdings Inc. | Quarterly earnings report"
+    ]
+  },
+  "expected": {
+    "found": 15,
+    "total": 17,
+    "detail": [
+      {
+        "id": "A1",
+        "statement": "Headquarters are in San Jose, California",
+        "found": false,
+        "matched": null
+      },
+      {
+        "id": "A2",
+        "statement": "Incorporated in Delaware on February 10, 2015 as a subsidiary of JDSU",
+        "found": true,
+        "matched": "Lumentum was incorporated in Delaware as wholly owned subsidiary of JDSU on February 10, 2015; spun off from JDSU in August 2015 and became independent publicly traded company | When: 2015-02-10 to 2015-08-31 | Involving: Lumentum Holdings Inc., JDSU (now Viavi Solutions) | Founding history"
+      },
+      {
+        "id": "A3",
+        "statement": "Spun off from JDSU (now Viavi) in August 2015",
+        "found": true,
+        "matched": "Lumentum was incorporated in Delaware as wholly owned subsidiary of JDSU on February 10, 2015; spun off from JDSU in August 2015 and became independent publicly traded company | When: 2015-02-10 to 2015-08-31 | Involving: Lumentum Holdings Inc., JDSU (now Viavi Solutions) | Founding history"
+      },
+      {
+        "id": "A4",
+        "statement": "Acquired Oclaro in 2018",
+        "found": true,
+        "matched": "Completed acquisitions: Oclaro Inc. (2018), NeoPhotonics Corporation and IPG Photonics telecom transmission product lines (2022), Cloud Light Technology Limited (2023) | When: 2018-01-01 to 2023-12-31 | Involving: Lumentum Holdings Inc., Oclaro Inc., NeoPhotonics Corporation, IPG Photonics, Cloud Light Technology Limited | Strategic acquisitions enhancing product portfolio and market position"
+      },
+      {
+        "id": "A5",
+        "statement": "Acquired NeoPhotonics (and IPG telecom transmission lines) in 2022",
+        "found": true,
+        "matched": "Completed acquisitions: Oclaro Inc. (2018), NeoPhotonics Corporation and IPG Photonics telecom transmission product lines (2022), Cloud Light Technology Limited (2023) | When: 2018-01-01 to 2023-12-31 | Involving: Lumentum Holdings Inc., Oclaro Inc., NeoPhotonics Corporation, IPG Photonics, Cloud Light Technology Limited | Strategic acquisitions enhancing product portfolio and market position"
+      },
+      {
+        "id": "A6",
+        "statement": "Acquired Cloud Light Technology in 2023",
+        "found": true,
+        "matched": "Completed acquisitions: Oclaro Inc. (2018), NeoPhotonics Corporation and IPG Photonics telecom transmission product lines (2022), Cloud Light Technology Limited (2023) | When: 2018-01-01 to 2023-12-31 | Involving: Lumentum Holdings Inc., Oclaro Inc., NeoPhotonics Corporation, IPG Photonics, Cloud Light Technology Limited | Strategic acquisitions enhancing product portfolio and market position"
+      },
+      {
+        "id": "A7",
+        "statement": "AI/cloud demand is outpacing current supply, requiring supply allocation decisions",
+        "found": true,
+        "matched": "Lumentum is investing in manufacturing capacity, both internally and with contract manufacturers, to meet AI and cloud-driven demand | Involving: Lumentum, contract manufacturers | Current demand outpacing supply"
+      },
+      {
+        "id": "A8",
+        "statement": "Investing in manufacturing capacity internally and with contract manufacturers",
+        "found": true,
+        "matched": "Lumentum is investing in manufacturing capacity, both internally and with contract manufacturers, to meet AI and cloud-driven demand | Involving: Lumentum, contract manufacturers | Current demand outpacing supply"
+      },
+      {
+        "id": "A9",
+        "statement": "Operates in one reportable segment",
+        "found": true,
+        "matched": "Lumentum's consumer electronics laser light sources integrate into 3D sensing cameras for smartphones, computers, and other devices, enabling biometric identification, augmented/virtual reality, and computational photography | Involving: Lumentum Holdings Inc. | Key product applications in consumer electronics market segment"
+      },
+      {
+        "id": "A10",
+        "statement": "Scale-out adoption of 200G lane-speed components doubling rates vs 100G",
+        "found": true,
+        "matched": "Lumentum's scale-out optical solutions include 200G lane speed optical components that double data transfer rates compared to traditional 100G lanes, connecting compute clusters, servers, and switches across data center networks | Involving: Lumentum Holdings Inc. | Specific technology capability doubling bandwidth"
+      },
+      {
+        "id": "B1",
+        "statement": "Q4 FY2026 net revenue was $1.01 billion ($1,006.3M)",
+        "found": true,
+        "matched": "Lumentum Q4 FY2026 revenue $1.01B; GAAP gross margin 47.4%, non-GAAP 50.4%; GAAP operating margin 27.8%, non-GAAP 36.6%; non-GAAP net income $326.3M or $3.23 diluted EPS | When: Q4 fiscal year 2026 (quarter ended June 27, 2026) | Involving: Lumentum Holdings Inc. | Quarterly earnings report"
+      },
+      {
+        "id": "B2",
+        "statement": "Q4 GAAP net loss of $7.2B driven by a $7.8B non-cash loss on debt extinguishment (convertible notes)",
+        "found": true,
+        "matched": "Lumentum reported GAAP net loss of $7.2B ($84.65 diluted EPS) driven by one-time non-cash loss on debt extinguishment of $7.8B from equitization of convertible notes | When: Q4 fiscal year 2026 | Involving: Lumentum Holdings Inc. | Explains discrepancy between GAAP loss and non-GAAP net income"
+      },
+      {
+        "id": "B3",
+        "statement": "FY2026 net revenue was $3.01 billion vs $1.6 billion in FY2025",
+        "found": true,
+        "matched": "Lumentum Holdings Inc. reported FY2026 net revenue of $3.01 billion with GAAP net loss of $6.9 billion ($92.96 per diluted share), driven by a one-time, non-cash loss on debt extinguishment of $7.8 billion from equitization of convertible notes in Q4 | When: 2026-08-11 | Involving: Lumentum Holdings Inc. | SEC 8-K earnings release filing"
+      },
+      {
+        "id": "B4",
+        "statement": "Q1 FY2027 revenue guidance of $1.225\u2013$1.275 billion",
+        "found": true,
+        "matched": "Lumentum expects Q1 FY2027 net revenue of $1.225-1.275 billion, non-GAAP operating margin of 39.5-40.5%, and non-GAAP diluted EPS of $4.05-4.35 | When: 2026-08-11 | Involving: Lumentum Holdings Inc. | Business outlook guidance"
+      },
+      {
+        "id": "B5",
+        "statement": "$2.7 billion in cash, cash equivalents and short-term investments at end of Q4 FY2026",
+        "found": true,
+        "matched": "Lumentum held $2.7 billion in total cash, cash equivalents, and short-term investments at end of Q4 FY2026, an increase of $1.9 billion from end of FY2025 | When: 2026-06-27 | Involving: Lumentum Holdings Inc. | Liquidity position"
+      },
+      {
+        "id": "B6",
+        "statement": "Michael Hurlston is President and CEO",
+        "found": true,
+        "matched": "CEO Michael Hurlston stated Lumentum is positioned at the center of AI-driven demand for optical connectivity; key growth drivers include OCS solutions, cloud module business (1.6T adoption advancing), ultra-high-power CPO lasers, ELS modules, and NPO engagements | When: August 11, 2026 | Involving: Michael Hurlston (President and CEO) | Strategic positioning and growth outlook"
+      },
+      {
+        "id": "B7",
+        "statement": "Q4 FY2026 Components revenue was $649.4 million",
+        "found": false,
+        "matched": null
+      }
+    ]
+  },
+  "llm_request_stats": {
+    "bank_id": "atlas-bakeoff-minimax-m27-1790614242",
+    "period": "7d",
+    "trunc": "day",
+    "start": "2026-09-21T16:54:04.364806+00:00",
+    "buckets": [
+      {
+        "time": "2026-09-28T00:00:00+00:00",
+        "statuses": {
+          "success": 9
+        },
+        "total": 9,
+        "tokens": {
+          "input": 32746,
+          "output": 11076,
+          "cached": 25043,
+          "total": 43822
+        }
+      }
+    ]
+  },
+  "llm_requests_raw_status": 200,
+  "llm_requests": [
+    {
+      "operation": "consolidation",
+      "scope": "consolidation",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 49421,
+      "input_tokens": 4655,
+      "output_tokens": 1521
+    },
+    {
+      "operation": "retain",
+      "scope": "retain_extract_facts",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 45535,
+      "input_tokens": 4015,
+      "output_tokens": 1254
+    },
+    {
+      "operation": "retain",
+      "scope": "retain_extract_facts",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 21782,
+      "input_tokens": 3708,
+      "output_tokens": 1245
+    },
+    {
+      "operation": "retain",
+      "scope": "retain_extract_facts",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 141347,
+      "input_tokens": 3267,
+      "output_tokens": 790
+    },
+    {
+      "operation": "retain",
+      "scope": "retain_extract_facts",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 124765,
+      "input_tokens": 3469,
+      "output_tokens": 1174
+    },
+    {
+      "operation": "retain",
+      "scope": "retain_extract_facts",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 83195,
+      "input_tokens": 3351,
+      "output_tokens": 664
+    },
+    {
+      "operation": "retain",
+      "scope": "retain_extract_facts",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 100970,
+      "input_tokens": 3449,
+      "output_tokens": 2799
+    },
+    {
+      "operation": "retain",
+      "scope": "retain_extract_facts",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 32304,
+      "input_tokens": 3481,
+      "output_tokens": 846
+    },
+    {
+      "operation": "retain",
+      "scope": "retain_extract_facts",
+      "model": "MiniMax-M2.7",
+      "status": "success",
+      "error": null,
+      "duration_ms": 15866,
+      "input_tokens": 3351,
+      "output_tokens": 783
+    }
+  ],
+  "reflect": {
+    "status": 200,
+    "seconds": 63.9,
+    "answer": "## Lumentum's Supply Constraints and Capacity Issues\n\n### What Lumentum Describes\n\nLumentum describes **two distinct phases** of supply and demand imbalance:\n\n1. **Through Fiscal Year 2024 (ending June 29, 2024) \u2014 Demand Fluctuations and Underutilized Capacity**\n   - Customers delayed projected shipments or built up inventory in response to supply shortages\n   - When supply chain constraints eased, customers drew down inventories\n   - Lumentum's margins were **adversely impacted** because it \"was not able to fully recover costs, such as underutilized manufacturing capacity\"\n\n2. **Beginning Q1 FY2025 (July\u2013September 2024) \u2014 Demand Outpacing Supply**\n   - Network equipment manufacturers normalized inventory levels\n   - AI and cloud customers increased demand for data center expansion, driven by advances in cloud and AI infrastructure\n   - This new demand **outpaced Lumentum's current supply**, requiring **supply allocation decisions**\n   - Lumentum is actively **investing in manufacturing capacity**, both internally and with contract manufacturers, to meet demand\n\n### Supporting Evidence\n\n| Period | Evidence | Source |\n|--------|----------|--------|\n| Through FY2024 | \"significant fluctuations in demand as customers delayed projected shipments or built up inventory in response to supply shortages\" | SEC 10-K |\n| Through FY2024 | \"margins were adversely impacted as we were not able to fully recover costs, such as underutilized manufacturing capacity\" | SEC 10-K |\n| Q1 FY2025 onward | \"demand is outpacing our current supply which has required us to make decisions on supply allocation\" | SEC 10-K |\n| Q1 FY2025 onward | \"We are investing in manufacturing capacity, both internally and with contract manufacturers, to meet demand\" | SEC 10-K |\n| Ongoing | \"From time to time, we experience logistics and supply chain issues and shortages of the types of components we and our customers require in our products\" | SEC 10-K |\n| Ongoing | Shortages require \"incremental supply and procurement costs in order to increase our ability to fulfill demands from our customers\" | SEC 10-K |\n\nThe company's financial results corroborate the demand surge: Q4 FY2026 revenue of **$1.01 billion** was up **109.3% year-over-year** from $480.7 million, and FY2026 Components revenue grew **79.7%** year-over-year.\n\n---\n\n### What Is Missing\n\nThe available filings do not disclose:\n\n- **Specific component categories** or product lines (e.g., 1.6T modules, ELS, CPO lasers) facing the worst shortages\n- **Quantified capacity gaps** \u2014 e.g., what percentage demand exceeds supply\n- **Lead time data** \u2014 how actual or target lead times have changed\n- **Supplier-level details** \u2014 which component suppliers are constraining output\n- **Geographic breakdown** of capacity constraints (e.g., Asia-Pacific vs. North America)\n- **Customer-level allocation specifics** \u2014 which customers received prioritized allocation and on what basis\n- **Financial impact quantification** of the incremental procurement costs beyond the general statement that they exist\n- **Timeline for when capacity investments will close the gap** \u2014 no specific ramp schedule is disclosed",
+    "cited_facts": 14,
+    "keys": [
+      "based_on",
+      "structured_output",
+      "structured_output_error",
+      "text",
+      "trace",
+      "usage"
+    ]
+  },
+  "structured_reflect": {
+    "status": 200,
+    "seconds": 56.4,
+    "structured_output": {
+      "constraints": [
+        {
+          "constraint": "Supply Chain Complexity and Component Shortages",
+          "evidence_quote": "Lumentum's supply chain is complex, managing component supply with fluctuating customer demand; the company experiences logistics issues and component shortages requiring incremental procurement costs to fulfill customer demands.",
+          "explicit_in_source": true
+        },
+        {
+          "constraint": "Demand Fluctuations and Underutilized Manufacturing Capacity",
+          "evidence_quote": "Through fiscal year 2024, Lumentum experienced significant demand fluctuations as customers delayed shipments or adjusted inventory in response to supply constraints; margins were adversely impacted due to underutilized manufacturing capacity.",
+          "explicit_in_source": true
+        },
+        {
+          "constraint": "AI/Cloud Demand Outpacing Supply (Q1 FY2025 Onward)",
+          "evidence_quote": "Beginning Q1 fiscal year 2025, network equipment manufacturers normalized inventory levels and AI/cloud customer demand increased for data center expansion, driven by cloud and AI infrastructure advances; this demand outpaced supply, requiring supply allocation decisions.",
+          "explicit_in_source": true
+        },
+        {
+          "constraint": "Investing in Capacity to Meet Demand",
+          "evidence_quote": "Lumentum is investing in manufacturing capacity, both internally and with contract manufacturers, to meet AI and cloud-driven demand.",
+          "explicit_in_source": true
+        }
+      ],
+      "q4_fy26_components_revenue_known": true,
+      "q4_fy26_components_revenue_musd": 649.4,
+      "missing_information": [
+        "Quarterly Components revenue guidance for future periods (Q1 FY2027 guidance provides only total company revenue of $1.225-$1.275 billion)",
+        "Specific component types in shortage (documents reference general 'component shortages' without listing specific part numbers or categories)",
+        "Geographic breakdown of supply constraints",
+        "Supplier names or specific supply chain relationships under constraint",
+        "Quantified capacity utilization rates or production capacity figures",
+        "Duration or expected resolution timeline for current supply-demand imbalance"
+      ]
+    },
+    "structured_output_error": null,
+    "shape_ok": true,
+    "verbatim_quotes": "0/4"
+  }
+}
