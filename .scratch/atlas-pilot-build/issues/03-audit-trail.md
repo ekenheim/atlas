@@ -4,8 +4,8 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A direct UPDATE or DELETE on audit events fails at the database level (trigger and role privileges)
-- [ ] Chain verification detects a tampered or missing event
-- [ ] The actor comes from configuration and is required by every mutating service
+- [x] A direct UPDATE or DELETE on audit events fails at the database level (trigger and role privileges)
+- [x] Chain verification detects a tampered or missing event
+- [x] The actor comes from configuration and is required by every mutating service

@@ -44,3 +44,12 @@ def test_worker_once_exits_cleanly_and_reports_each_disabled_provider_once(tmp_p
         ("litellm", "ATLAS_LITELLM_URL"),
     ]:
         assert result.stderr.count(f"{provider} disabled: missing {setting}") == 1
+
+
+def test_a_blank_actor_is_refused_at_startup(tmp_path: Path) -> None:
+    env = {**valid_env(tmp_path), "ATLAS_ACTOR": "  "}
+
+    result = run_atlas(["worker", "--once"], cwd=tmp_path, env=env)
+
+    assert result.returncode == 2
+    assert "ATLAS_ACTOR" in result.stderr
