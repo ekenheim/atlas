@@ -4,8 +4,8 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (the `atlas/litellm` commit is waiting on an owner fix to home-ops' object store; see `docs/implementation-log.md`)
 
-- [ ] Each branch passes flux-local, kubeconform and yamllint locally; literal `${…}` is escaped as `$${…}`
-- [ ] No secrets are in Git; optional ExternalSecret fields use `{{ index . "X" }}`
-- [ ] The branches are not pushed; the owner opens the PRs
+- [x] Each branch passes flux-local, kubeconform and yamllint locally; literal `${…}` is escaped as `$${…}`
+- [x] No secrets are in Git; optional ExternalSecret fields use `{{ index . "X" }}`
+- [x] The branches are not pushed; the owner opens the PRs
