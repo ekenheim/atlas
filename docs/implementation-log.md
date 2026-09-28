@@ -561,3 +561,8 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - ticket 16 adds the two mental models to the template, bumps `template_version` and re-records `research_template/*`
   - tickets 13–15 start runs through `RunRecorder`
   - record a real, redacted `/model/info` response to replace the hand-made fixture
+
+## 2026-09-29: live check of the LiteLLM `/model/info` shape (ticket 12 follow-up)
+
+- A read-only `GET /model/info` against the cluster LiteLLM with the `atlas-dev` key returned `{"data": [...]}` with 32 rows of `{model_name, litellm_params: {model, api_base, …}, model_info: {id, …}}`. That **matches** the shape ticket 12 assumed and faked in CI.
+- The `atlas-extract` / `atlas-reflect` aliases are **not present yet**. They arrive with the home-ops `atlas/litellm` branch, which is still uncommitted: root-owned objects in home-ops `.git/objects`; see the ticket 20 entry. Until then, Atlas readiness reports LiteLLM as not routed.
