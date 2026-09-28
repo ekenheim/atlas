@@ -33,3 +33,12 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **Off-cluster copy:** a nightly copy-only CronJob to R2 `atlas-archive-offsite`. Immutability is guaranteed on MinIO only.
 - **Dev/CI S3:** MinIO images and binaries are no longer publicly distributed, so Compose/CI use another S3-compatible server (ticket 13). Dev defaults to the filesystem backend.
 - **Cluster MinIO image:** it can't be re-pulled from quay. Spegel's peer-to-peer image cache mitigates this; the owner accepts the residual risk.
+
+## 2026-09-28: deploy shape (ticket 09)
+
+- **Hindsight API is in-cluster only.** No route; the control-plane UI is on the internal route `atlas-hindsight.<domain>`.
+- **No TEI reranker sidecar:** reranking goes through LiteLLM `rerank`.
+- **`vector` extension:** created once by hand by the superuser, not by an init container.
+- **Release deployment:** Renovate automerge is off for Atlas and for the dedicated Hindsight, so the owner's merge is the deploy. Home-ops PRs are prepared and validated locally and opened by the owner.
+- **GHCR images are public for now** (can be made private later; that would need `ghcr-pull` in `datasci`).
+- **CI replays the recorded Hindsight fixtures only.** Live Hindsight tests are manual.
