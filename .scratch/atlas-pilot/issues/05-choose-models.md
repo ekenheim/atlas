@@ -29,3 +29,5 @@ What remains to decide: M3 vs M2.7 for each of extraction and reflect, the alias
 - Hindsight's LLM concurrency
 - how Atlas treats a 429 cap-out: pause the queue until the window resets, rather than failing jobs
 - whether the backfill is spread over nightly batches
+
+**Privacy (Q22):** MiniMax is allowed for all Atlas traffic, both extraction and reflect; see `docs/decisions.md`.

@@ -17,4 +17,5 @@ Decide:
 - how the `vector` extension is created in `atlas-hindsight`: a one-off manual step vs an init container holding the superuser credential (ticket 08 §3)
 - the scoping of the `llm` secret store: a Role in `llm`, restricted to `datasci` (ticket 08 §2)
 - how `ghcr-pull` in `datasci` is confirmed, or whether images are public (ticket 08 §6)
+- amending the LiteLLM configmap's PRIVACY comment to record Atlas's exception (Q22); note that a configmap edit restarts LiteLLM via reloader
 - how validation (`flux-local`, `kubeconform`, `yamllint`) is run before each PR is opened
