@@ -1,7 +1,7 @@
 # Archive durability: versioning, object lock and the off-cluster copy
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -29,3 +29,14 @@ The spec wants the `atlas-archive` bucket versioned, object-locked where possibl
   - (a) enable tofu-controller and add an OpenTofu CR for `terraform/minio`
   - (b) apply `terraform/minio` by hand (the state location must then be settled)
   - (c) create the bucket and its user with `mc`, outside the OpenTofu convention
+
+## Answer
+
+Grilled 2026-09-28; Q15–Q19 accepted as recommended.
+
+15. **Creation:** a re-runnable provisioning script in the Atlas repo, using the `minio` Python package (`Minio` + `MinioAdmin`). It creates `atlas-archive` with object lock enabled, a dedicated `atlas` user, and a policy scoped to that bucket, and prints the credentials for Bitwarden. The owner runs it once with root credentials. This deviates from the "managed by OpenTofu" convention; see `docs/decisions.md`.
+16. **Lock:** default retention in **Governance** mode for **10 years**. The `atlas` user has no `s3:BypassGovernanceRetention`, while root keeps the escape hatch. Versioning is implied.
+17. **Off-cluster copy:** a nightly CronJob copies (never deletes) `atlas-archive` to the R2 bucket `atlas-archive-offsite`. R2 has no object lock, so it is a backup copy, not the immutability guarantee. The R2 cost at pilot size is to be confirmed (flag if it leaves the free tier).
+18. **Snapshots:** the same bucket and policy, under the content-addressed prefix `snapshots/`.
+19. **Dev/CI:** the filesystem archive backend for dev. The S3 contract suite runs against a pullable S3-compatible server that supports versioning and object lock, to be chosen by ticket 13. The spec's "MinIO in Compose" is amended.
+20. **MinIO image risk:** the owner keeps MinIO as is. Mitigation already in place: Spegel (`kube-system/spegel`) mirrors cached images peer-to-peer between nodes, so a rescheduled pod can pull from another node's cache. The residual risk (every node losing its cache) is accepted.

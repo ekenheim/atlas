@@ -104,12 +104,12 @@ Re-fetching unchanged material creates nothing new. Changed material creates a n
 ### Shape
 
 - One Python 3.12 application managed with `uv` and a committed lockfile, plus one TypeScript frontend. One container image serves the FastAPI API (which also serves the frontend's static export) or runs the worker, selected by its command.
-- Local stack in Compose: API, worker, application Postgres, MinIO. The Hindsight service and its pgvector database are added to Compose by the feature-check ticket, not by this spec's slice.
+- Local stack in Compose: API, worker, application Postgres, and an S3-compatible server (MinIO images are no longer publicly pullable; the server is chosen by the map's ticket 13). The Hindsight service and its pgvector database are added to Compose by the feature-check ticket, not by this spec's slice.
 - Configuration comes from environment and versioned config files (themes, providers, research policies), validated at startup with typed settings. Company universe and theme membership are config-only; no company is hard-coded.
 
 ### Modules (deep modules with small interfaces)
 
-- **Archive.** Put and get immutable, content-addressed objects; raw and parsed objects are stored separately. Two backends behind one interface: local filesystem and S3-compatible (MinIO). Writes are idempotent by hash; nothing is overwritten or deleted. It is exposed to callers only via internal application URIs; the API streams the content.
+- **Archive.** Put and get immutable, content-addressed objects; raw and parsed objects are stored separately. Two backends behind one interface: local filesystem and S3-compatible (the cluster's MinIO in deployment). Writes are idempotent by hash; nothing is overwritten or deleted. It is exposed to callers only via internal application URIs; the API streams the content.
 - **Source adapters.** The common asynchronous `SourceAdapter` protocol from spec §4.2 (discover, fetch, updates). Phase 1 implements the SEC EDGAR adapter and a fixture adapter that replays recorded EDGAR responses. The EDGAR adapter uses:
   - an HTTP client with an injectable transport
   - one process-wide token bucket (≤10 req/s), shared across jobs in the process
@@ -209,7 +209,7 @@ The Hindsight feature matrix comes from the map's feature-check ticket.
   - A direct UPDATE/DELETE on `audit_event` fails at the database level.
   - Two workers never claim the same job.
   - Migrations upgrade cleanly from empty.
-- **Archive contract suite:** one parametrized suite runs against both the filesystem and MinIO backends. It covers idempotent put by hash, exact round-trip, and no overwrite.
+- **Archive contract suite:** one parametrized suite runs against both the filesystem backend and the S3-compatible server in Compose (ticket 13), including versioning and object-lock behavior. It covers idempotent put by hash, exact round-trip, and no overwrite.
 - **Parser:** unit tests on fixtures assert determinism (same input and version give the same content hash).
 - **Frontend:** one Playwright smoke test against the static export served by FastAPI. It opens a Source Version, sees its provenance and parsed text, and creates an Assertion.
 - **Prior art:** none. This is a new repository, so these tests establish the conventions for later phases.

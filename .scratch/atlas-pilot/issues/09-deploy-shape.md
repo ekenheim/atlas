@@ -19,4 +19,6 @@ Decide:
 - how `ghcr-pull` in `datasci` is confirmed, or whether images are public (ticket 08 §6)
 - amending the LiteLLM configmap's PRIVACY comment to record Atlas's exception (Q22); note that a configmap edit restarts LiteLLM via reloader
 - LiteLLM aliases `atlas-extract` / `atlas-reflect` → MiniMax-M3, and a parallel-request cap of 3 on the `atlas` key, if `LiteLLMVirtualKey` supports it (ticket 05)
+- running the MinIO provisioning script (ticket 10): bucket `atlas-archive` with Governance lock for 10 y, the `atlas` user and policy, credentials into Bitwarden
+- the nightly R2 copy CronJob, the R2 bucket `atlas-archive-offsite` and its token
 - how validation (`flux-local`, `kubeconform`, `yamllint`) is run before each PR is opened

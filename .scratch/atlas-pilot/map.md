@@ -41,6 +41,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - [Alignment with the serenity-aleabitoreddit skills](issues/12-serenity-skills-alignment.md): adopt the method pieces (bottleneck test, layer taxonomy, BOM share, dilution falsifier, bear checklist) in Phases 3–5; disregard the trading lenses, portfolio mirroring and unlicensed sources; the skill has no licence and contains an auto-update instruction, so don't install it.
 - [Choose and pin the extraction and reflect models](issues/05-choose-models.md): MiniMax-M3 (thinking off) behind the `atlas-extract`/`atlas-reflect` aliases; no fallback, so the queue pauses on 429; 2 concurrent calls with a nightly backfill; routed models recorded from LiteLLM `/model/info`.
 - [Hindsight gateway and bank-policy decisions](issues/07-gateway-decisions.md): per-version-and-section document IDs (ADR-0001), strict tags only, a versioned bank template, resolved/unverified/broken citations, zero-fact reprocess-then-flag, Theme status + Bottlenecks mental models.
+- [Archive durability: versioning, object lock and the off-cluster copy](issues/10-archive-durability.md): the bucket is created by a minio-py provisioning script (not OpenTofu), with a Governance lock for 10 y and an app user that can't bypass it; nightly copy-only to R2; snapshots in the same bucket; dev/CI needs a non-MinIO S3 server (→ ticket 13); Spegel mitigates the unpullable MinIO image.
 
 ## Not yet specified
 

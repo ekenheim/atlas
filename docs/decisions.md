@@ -26,3 +26,10 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **Only strict tag matching** is allowed through the gateway.
 - **Citation states:** resolved / unverified / broken. Only resolved citations count as Evidence.
 - **Phase 2 mental models:** Theme status and Bottlenecks, refreshed on a daily cron (not after consolidation). No knowledge pages in Phase 2.
+
+## 2026-09-28: archive durability (ticket 10)
+
+- **Bucket provisioning by script, not OpenTofu (deviates from Appendix A):** OpenTofu isn't running, its state location is unknown, and most existing buckets are hand-made. A re-runnable minio-py script creates `atlas-archive` (object lock, Governance, 10-year default retention), a scoped `atlas` user without bypass rights, and prints the credentials for Bitwarden.
+- **Off-cluster copy:** a nightly copy-only CronJob to R2 `atlas-archive-offsite`. Immutability is guaranteed on MinIO only.
+- **Dev/CI S3:** MinIO images and binaries are no longer publicly distributed, so Compose/CI use another S3-compatible server (ticket 13). Dev defaults to the filesystem backend.
+- **Cluster MinIO image:** it can't be re-pulled from quay. Spegel's peer-to-peer image cache mitigates this; the owner accepts the residual risk.
