@@ -34,3 +34,5 @@ Record spec deviations in `docs/decisions.md`.
 - one operation per batch retain
 - the alternative listing routes
 - no union types in schemas
+
+**Input from ticket 12:** the candidate glossary term *Bottleneck* (a constrained input with no qualified second source or substitute in the relevant timeframe, where the owner has pricing power), and the proposed wording for the Bottlenecks mental model. Both are in `docs/research/serenity-skills-alignment.md`.

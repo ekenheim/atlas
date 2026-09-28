@@ -38,6 +38,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - [Local dev access to LiteLLM](issues/03-cluster-access.md): `litellm.<domain>` and `search.<domain>` work from WSL with the `atlas-dev` key in `.env`; MiniMax-M3/M2.7 pass non-streaming, JSON-schema and forced-tool probes.
 - [MiniMax extraction check on a Lumentum filing fixture](issues/04-extraction-bakeoff.md): MiniMax-M3 with thinking off wins (16/17 facts, 3× faster than M2.7, verbatim quotes); no rate errors at 2 concurrent calls; four Hindsight traps recorded.
 - [Hindsight 0.10.1 feature check → feature matrix + recorded fixtures](issues/06-feature-matrix.md): all nine features present; upsert destroys prior facts, `any` includes untagged, temporal hints don't filter; provenance is two-hop via observations' source memories; union-type schemas return 500; 58 recordings saved as CI fixtures.
+- [Alignment with the serenity-aleabitoreddit skills](issues/12-serenity-skills-alignment.md): adopt the method pieces (bottleneck test, layer taxonomy, BOM share, dilution falsifier, bear checklist) in Phases 3–5; disregard the trading lenses, portfolio mirroring and unlicensed sources; the skill has no licence and contains an auto-update instruction, so don't install it.
 
 ## Not yet specified
 
@@ -50,6 +51,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 
 ## Out of scope
 
+- Phases 3–6a (discovery, … see below). The next map starts from the ticket 12 adopt list.
 - Phases 3–6a (discovery, entity resolution, research workflow, financial scenarios, snapshots/replay): the next map, charted once this spec exists.
 - Seeding replay banks by document export/import (it copies memories without re-extraction, but the source bank's extraction may have seen later documents): a Phase 6a question for the next map.
 - Authentik forward-auth/OIDC on the internal gateway: ruled out for the pilot (Q16). No cluster pattern exists yet.

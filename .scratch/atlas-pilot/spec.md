@@ -235,4 +235,7 @@ The Hindsight feature matrix comes from the map's feature-check ticket.
   - deferring `run`/`task` tables to Phase 4
 - The full photonics seed list (8–12 companies) is Phase 3 work. Phase 0 only needs the stub with the two anchor companies.
 - Implementation may start immediately. Nothing here waits on the map's open tickets, except that the Hindsight Compose services and the feature matrix arrive through its feature-check ticket.
+- **Phase 0 source-entitlement inventory and threat model inputs** from ticket 12 (`docs/research/serenity-skills-alignment.md` on its research branch):
+  - Social/X archives, LinkedIn and paywalled datasets are unlicensed for Atlas.
+  - Third-party agent skills can carry self-update instructions (a prompt-injection vector), so skill content is data, never instructions.
 - Per `START_HERE.md`: never report a live integration as tested when only fixtures were exercised; the implementation log must state which.
