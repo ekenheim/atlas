@@ -42,5 +42,16 @@ def test_worker_once_exits_cleanly_and_reports_each_disabled_provider_once(tmp_p
     for provider, setting in [
         ("hindsight", "ATLAS_HINDSIGHT_URL"),
         ("litellm", "ATLAS_LITELLM_URL"),
+        ("sec", "ATLAS_SEC_LIVE"),
     ]:
         assert result.stderr.count(f"{provider} disabled: missing {setting}") == 1
+
+
+def test_live_sec_without_a_user_agent_fails_fast_naming_the_setting(tmp_path: Path) -> None:
+    env = {**valid_env(tmp_path), "ATLAS_SEC_LIVE": "true"}
+
+    result = run_atlas(["worker", "--once"], cwd=tmp_path, env=env)
+
+    assert result.returncode == 2
+    assert "ATLAS_SEC_USER_AGENT" in result.stderr
+    assert "Traceback" not in result.stderr

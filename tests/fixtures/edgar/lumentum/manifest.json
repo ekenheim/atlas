@@ -1,0 +1,72 @@
+{
+  "description": "Recorded SEC EDGAR responses for Lumentum Holdings Inc. (CIK 0001633978), replayed by atlas.sources.edgar_fixtures. SEC data is public domain. Bodies are the bytes SEC served (after gzip decoding), except where 'trimmed' says how a large body was cut.",
+  "recorded_at": "2026-09-28T20:50Z",
+  "user_agent": "Atlas Research ekenheim@gmail.com",
+  "responses": [
+    {
+      "url": "https://data.sec.gov/submissions/CIK0001633978.json",
+      "file": "data.sec.gov/submissions/CIK0001633978.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "filings.recent trimmed to the 2026-05-05..2026-09-28 window; unrecorded 10-K/10-Q/8-K rows removed"
+    },
+    {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001633978.json",
+      "file": "data.sec.gov/api/xbrl/companyfacts/CIK0001633978.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "facts trimmed to dei plus nine us-gaap concepts; re-serialized compactly"
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/0001628280-26-055726-index-headers.html",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026055726/0001628280-26-055726-index-headers.html",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html",
+        "last-modified": "Tue, 11 Aug 2026 20:24:36 GMT"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite-20260811.htm",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite-20260811.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html",
+        "last-modified": "Tue, 11 Aug 2026 20:24:36 GMT"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html",
+        "last-modified": "Tue, 11 Aug 2026 20:24:36 GMT"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html",
+        "last-modified": "Mon, 17 Aug 2026 20:03:58 GMT"
+      },
+      "trimmed": "body truncated to its first 668 of 1411 top-level elements (byte slices, still well-formed)"
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026030777/lite-20260328.htm",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026030777/lite-20260328.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html",
+        "last-modified": "Wed, 06 May 2026 10:02:33 GMT"
+      },
+      "trimmed": "body truncated to its first 89 of 1025 top-level elements (byte slices, still well-formed)"
+    }
+  ]
+}

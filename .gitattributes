@@ -1,0 +1,2 @@
+# Recorded source fixtures are replayed byte for byte (their hashes matter).
+tests/fixtures/** -text
