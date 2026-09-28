@@ -14,6 +14,11 @@ Local markdown files under `.scratch/` (no remote tracker). See `docs/agents/iss
 
 Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
 
+### Hindsight skills
+
+- `hindsight-docs` is the Hindsight 0.10.1 documentation and OpenAPI schema, pinned to the server version. The feature matrix and recordings win where they disagree.
+- `hindsight-self-hosted` gives development memory in the **`atlas-dev`** bank on the owner's shared Hindsight, via the `hindsight` CLI. Never use Atlas's research banks for it, and keep decisions in the repo.
+
 ### Domain docs
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
