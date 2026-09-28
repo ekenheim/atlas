@@ -22,3 +22,10 @@ Inputs from ticket 02 that need the owner:
 - Model drift and terms ambiguity are accepted.
 
 What remains to decide: M3 vs M2.7 for each of extraction and reflect, the alias names, the fallback behavior, and how the concrete routed model is recorded per run (the `x-litellm-model-id` header or the spend logs).
+
+**Pacing to decide here:**
+
+- per-key `rpm` / `tpm` / max-parallel limits on the `atlas` and `atlas-dev` LiteLLM keys (check whether `LiteLLMVirtualKey` exposes them; the counters persist via Dragonfly)
+- Hindsight's LLM concurrency
+- how Atlas treats a 429 cap-out: pause the queue until the window resets, rather than failing jobs
+- whether the backfill is spread over nightly batches

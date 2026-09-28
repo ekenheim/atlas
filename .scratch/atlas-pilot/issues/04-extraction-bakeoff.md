@@ -14,4 +14,10 @@ Run pinned Hindsight 0.10.1 in local Compose against MiniMax-M3 and MiniMax-M2.7
 - latency
 - any spend visible in LiteLLM
 
+**Pacing (owner, 2026-09-28):** MiniMax's flat plan returns 429 on cap-out, and the owner saw MiniMax billing-service retry errors (`openplatform-billing … UserResourcePackagePage`, code 1000) during the probe. Run the bake-off paced: low concurrency, async batch retain, and nothing parallel against MiniMax. Also establish:
+
+- Hindsight 0.10.1's own LLM concurrency and retry settings (the knob that paces extraction)
+- the MiniMax error classes observed (429 cap-out, code 1000 transient, others), and whether LiteLLM or Hindsight retries them
+- sustained throughput at the chosen pace, to size the backfill
+
 Output: a results table in `docs/research/extraction-bakeoff.md`. No decision is made here; ticket 05 decides.
