@@ -46,7 +46,6 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 
 - **CI Hindsight strategy:** the recorded-response fake now has 58 recordings to replay. Still open: whether CI also runs a real Hindsight container, which would need an LLM (a local model or a fixture LLM, since MiniMax must not be called from CI).
 - **Home-ops rollout order:** the PR sequencing across the Crunchy users, the OpenTofu bucket, the LiteLLM key, the Hindsight release and the app release, given that PRs auto-merge.
-- **Recording Hindsight's concrete model per run:** LiteLLM rewrites `model` to the alias, and Atlas can't see Hindsight's response headers, so the routed model must come from the LiteLLM spend logs. How Atlas reads them (admin API access, key scope) is open.
 - **Threat model and gold-fixture format:** Phase 0 deliverables. Their content likely comes straight from the spec, but may surface decisions once the Hindsight matrix exists.
 
 ## Out of scope
