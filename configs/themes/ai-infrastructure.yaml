@@ -1,0 +1,48 @@
+# The AI-infrastructure research universe: which companies Atlas monitors, and which
+# themes they belong to (spec Part A "Shape": company universe and theme membership are
+# configuration, never code). Seeded idempotently by `atlas companies seed` and by each
+# ingest job; a company row is keyed by its slug and CIK.
+#
+# Bump `version` on any change, so a run can record which universe it used.
+version: 1
+name: ai-infrastructure
+
+companies:
+  lumentum:
+    legal_name: Lumentum Holdings Inc.
+    display_name: Lumentum
+    cik: "0001633978"  # SEC submissions index (tests/fixtures/edgar/lumentum)
+    country: US
+    website: https://www.lumentum.com
+    securities:
+      # The 10-K (FY2026) says the common stock trades on the Nasdaq Global Select Market
+      # as "LITE" since the August 2015 spin-off from JDSU. The start day (2015-08-04, the
+      # first regular-way trading day) is from Lumentum's separation announcement, not a
+      # recorded fixture.
+      - ticker: LITE
+        exchange_mic: XNAS
+        instrument_type: common
+        currency: USD
+        valid_from: 2015-08-04
+
+  # Stub: Coherent joins in Phase 2 (spec Part A "Anchors"); there are no EDGAR fixtures
+  # for it yet, so a fixture-mode ingest of it fails with "no fixtures".
+  coherent:
+    legal_name: Coherent Corp.
+    display_name: Coherent
+    # Verified 2026-09-28 against data.sec.gov/submissions/CIK0000820318.json:
+    # "COHERENT CORP.", ticker COHR on NYSE, formerly II-VI INC (until 2022-09-01).
+    cik: "0000820318"
+    country: US
+    website: https://www.coherent.com
+    # TODO(phase 2): add the COHR (XNYS) security once its listing start date is taken
+    # from a primary source; II-VI traded as IIVI on Nasdaq before the 2022 rename.
+    securities: []
+
+themes:
+  photonics:
+    title: Photonics for AI data centers
+    description: >-
+      Optical transceivers, lasers and components whose capacity may constrain AI
+      data-center build-outs. Stub: the full 8-12 company seed list is Phase 3 work.
+    companies: [lumentum, coherent]

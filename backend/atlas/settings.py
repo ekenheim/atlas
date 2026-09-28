@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     sec_live: bool = False
     # SEC fair-access policy: a requester name and contact email, e.g. "Atlas Research ops@x.com".
     sec_user_agent: str | None = Field(default=None, validate_default=True)
+    # Fixture mode: recorded EDGAR responses, one directory per company slug
+    # (e.g. tests/fixtures/edgar/lumentum). Unused when sec_live is on.
+    sec_fixtures_dir: Path | None = None
+
+    # The versioned company universe and themes (company membership is config, not code).
+    themes_config: Path = Path("configs/themes/ai-infrastructure.yaml")
 
     @field_validator("*", mode="before")
     @classmethod

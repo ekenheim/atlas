@@ -4,23 +4,11 @@ import uuid
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
+from atlas.api.common import ErrorDetail, ErrorEnvelope, error_response
 from atlas.jobs import Job, JobQueue
 
-
-class ErrorDetail(BaseModel):
-    code: str
-    message: str
-
-
-class ErrorEnvelope(BaseModel):
-    error: ErrorDetail
-
-
-def error_response(status_code: int, code: str, message: str) -> JSONResponse:
-    body = ErrorEnvelope(error=ErrorDetail(code=code, message=message))
-    return JSONResponse(body.model_dump(), status_code=status_code)
+__all__ = ["ErrorDetail", "ErrorEnvelope", "error_response", "jobs_router"]
 
 
 def jobs_router(queue: JobQueue) -> APIRouter:

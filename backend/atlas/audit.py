@@ -7,7 +7,8 @@ canonical hash format). `verify_chain` recomputes the chain independently.
 """
 
 import hashlib
-from collections.abc import Iterable
+import json
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -32,6 +33,18 @@ class Actor:
     @classmethod
     def from_settings(cls, settings: Settings) -> "Actor":
         return cls(settings.actor)
+
+
+def content_hash(fields: Mapping[str, object]) -> str:
+    """The SHA-256 (hex) of an entity's canonical JSON, for `old_hash` / `new_hash`.
+
+    Keys are sorted and separators fixed; values that are not JSON types (UUIDs,
+    datetimes, dates) are rendered with `str`, so the same content always hashes the same.
+    """
+    canonical = json.dumps(
+        fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
+    )
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 @dataclass(frozen=True)

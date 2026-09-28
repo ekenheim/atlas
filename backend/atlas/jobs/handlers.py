@@ -1,8 +1,12 @@
 """Job handlers, registered by job kind."""
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from atlas.jobs.queue import Artifacts, Job
+
+if TYPE_CHECKING:
+    from atlas.settings import Settings
 
 # A handler does the work for one attempt and returns the artifacts it produced (e.g. the
 # IDs of new Source Versions). Raising records a failed attempt, retried up to the bound.
@@ -30,8 +34,15 @@ def noop(job: Job) -> Artifacts:
     return {}
 
 
-def builtin_registry() -> HandlerRegistry:
-    """Every job kind Atlas knows how to run; `atlas worker` uses this registry."""
+def builtin_registry(settings: "Settings | None" = None) -> HandlerRegistry:
+    """Every job kind Atlas knows how to run; `atlas worker` uses this registry.
+
+    Kinds that touch the database, the archive or sources (`ingest`) need `settings`.
+    """
     registry = HandlerRegistry()
     registry.register("noop", noop)
+    if settings is not None:
+        from atlas.ledger.ingest import INGEST_KIND, make_ingest_handler
+
+        registry.register(INGEST_KIND, make_ingest_handler(settings))
     return registry
