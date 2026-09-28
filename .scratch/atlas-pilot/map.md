@@ -23,6 +23,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
   - Embeddings: reuse `qwen3-embedding-0.6b` via LiteLLM (1024 dims).
   - The LiteLLM key reaches `datasci` via a new `ClusterSecretStore` modeled on `crunchy-pgo-secrets`.
   - Pilot auth: private-CIDR Envoy SecurityPolicy with the actor identity from config.
+  - Deployment is release-driven: the app repo under `github.com/ekenheim` publishes versioned releases to GHCR; home-ops pins a released version and is bumped per release.
   - Hindsight is pinned at 0.10.1 unless ticket 01 finds a reason to move.
   - The EDGAR adapter is written fresh; `trading-research` is reference only.
 
