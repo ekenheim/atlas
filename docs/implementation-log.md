@@ -350,3 +350,10 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - The ClusterSecretStore is named `litellm-key-secrets` (after `crunchy-pgo-secrets`), not `litellm-keys` as the research note suggested, to avoid confusion with the `litellm-keys` Flux Kustomization.
 - **Credentials:** none needed.
 - **Next:** the owner fixes the object-store ownership and commits `atlas/litellm`, reviews the three branches, then pushes and opens them in the order in `docs/runbooks.md`. After PR 1, run the `vector` step. PR 4 (`atlas-hindsight` release) and PR 6 (the app) are later tickets.
+
+## 2026-09-28: log redaction (spec Part A story 9; gap found by ticket 02)
+
+- **Files:** `backend/atlas/logs.py` (`RedactingJsonFormatter`, `redact`), `tests/unit/test_logs.py`.
+- **Behavior:** every formatted log record (message, extras and tracebacks) is redacted before it reaches stderr: credentials in URLs, `Bearer` tokens, `sk-` API keys, and `password|secret|token|api_key|access_key=…` values.
+- **Tests (TDD):** 5 new; 4 went red first, then green. Unit suite 117 passed; ruff and strict pyright clean.
+- **Limits:** pattern-based. A secret logged in an unrecognized shape isn't caught; don't log secrets at all, and treat redaction as the safety net.
