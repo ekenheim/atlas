@@ -1,7 +1,7 @@
 # Home-ops wiring facts for the Atlas deploy
 
 Type: research
-Status: open
+Status: claimed
 Blocked by: none
 
 ## Question
@@ -16,3 +16,7 @@ In `/mnt/c/Users/ekenh/home-ops-upgrade`, establish the facts the Phase 2 deploy
 6. Is the `ghcr-pull` secret present in `datasci`, and how are private GHCR images pulled?
 
 Cite file paths for every claim.
+
+## Context
+
+Research in progress on branch `research/home-ops-wiring`; findings in `docs/research/home-ops-wiring.md` on that branch.

@@ -1,7 +1,7 @@
 # Which LiteLLM routes can Hindsight 0.10.1 use for extraction, given what we already pay for?
 
 Type: research
-Status: open
+Status: claimed
 Blocked by: none
 
 ## Question
@@ -16,3 +16,7 @@ All LLM traffic goes through LiteLLM, and that includes Atlas Hindsight's extrac
 Also: does each candidate have a stable model identifier (dated ID, or pinned weights/quant for self-hosted), and does LiteLLM expose the concrete routed model so it can be recorded per run?
 
 Sources: the Hindsight source at the 0.10.1 tag (the LLM provider module), the LiteLLM docs, the MiniMax and Anthropic terms, and `/mnt/c/Users/ekenh/home-ops-upgrade/kubernetes/apps/llm/litellm/app/configmap.yaml` for the concrete routes.
+
+## Context
+
+Research in progress on branch `research/hindsight-llm-compat`; findings in `docs/research/hindsight-llm-compat.md` on that branch.
