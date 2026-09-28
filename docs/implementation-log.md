@@ -31,3 +31,22 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - The S3 archive backend is not wired into readiness yet; that's ticket 05.
 - **Credentials:** none needed.
 - **Next:** tickets 03 (audit trail), 04 (job queue), 05 (archive), 06 (EDGAR adapter), 11 (Hindsight gateway) and 18 (release pipeline) are unblocked. Ticket 02 (docs pack) and 20 (home-ops prerequisites) were unblocked already.
+
+## 2026-09-28: ticket 02, Phase 0 documentation pack
+
+- **Built (documentation only; no application code changed):**
+  - `docs/architecture.md`: components, write and trust boundaries, Phase 1–2 data flow (Mermaid), clocks, local and cluster deployment
+  - `docs/data-model.md`: Phase 1–2 tables with invariants, and a Mermaid ER diagram
+  - `docs/threat-model.md`: assets, adversaries, trust rules (source text and third-party skill content are data, never instructions), threats T1–T25 mapped to tickets and tests, residual risks
+  - `docs/source-licenses.md`: the entitlement inventory (statuses, license classes, allowed / lead-only / unlicensed / absent sources, processors, a site register)
+  - `docs/evaluation-methodology.md`: principles, the gold-fixture format (case IDs, source hashes, manifest, schema, example), all 13 §9.5 categories plus `LAY` and `INF` from ticket 12, metrics, recording results
+  - `docs/adr/0002-fresh-edgar-adapter-sibling-repos-reference-only.md`: the reuse ADR
+  - a `docs/decisions.md` entry; ticket 02 marked done
+- **Inputs:** spec Parts A and B; build plan §2, §4, §5, §6, §7.5, §9, §12, §13 and Appendix A; `docs/decisions.md`; ADR-0001; the feature matrix; `research/serenity-skills-alignment` and `research/home-ops-wiring` (read with `git show`; not merged into this branch). The sibling repositories were read only, to write ADR-0002.
+- **Tests:** `scripts/ci.sh --no-image` passed: ruff format and lint clean, pyright 0 errors, frontend lint, typecheck and build OK, pytest 11 passed (the existing suite). No tests were added, because the ticket is documentation only.
+- **Fixture vs live:** nothing was integrated or run live. Mermaid diagrams weren't rendered by a tool (no Mermaid renderer is installed); relative links were checked by a script.
+- **Deviations and findings:**
+  - Research docs on unmerged branches are cited by branch and path, since they are not on `main` yet.
+  - The threat model found a gap: spec story 9 (secrets redacted in logs) isn't built. `backend/atlas/logs.py` has no redaction filter, and no ticket owns it explicitly.
+  - Data-model open points are left to tickets 07, 14 and 15 (see the decisions entry).
+- **Next:** the implementing tickets (03, 04, 07, 08, 12–15) follow `docs/data-model.md` and update it when they change a column. The first gold cases and their validator land with Phase 2 (`INJ`, `RET`, `NOX`, `CON`).

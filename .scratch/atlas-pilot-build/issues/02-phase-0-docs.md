@@ -4,8 +4,8 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each document exists, uses CONTEXT.md vocabulary, and links to the relevant spec sections, decisions and ADRs
-- [ ] The reuse ADR is the next number after ADR-0001
-- [ ] The gold-fixture format covers every case category in spec §9.5, with stable case IDs and source hashes
+- [x] Each document exists, uses CONTEXT.md vocabulary, and links to the relevant spec sections, decisions and ADRs
+- [x] The reuse ADR is the next number after ADR-0001
+- [x] The gold-fixture format covers every case category in spec §9.5, with stable case IDs and source hashes

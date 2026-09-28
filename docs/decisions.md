@@ -42,3 +42,10 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **Release deployment:** Renovate automerge is off for Atlas and for the dedicated Hindsight, so the owner's merge is the deploy. Home-ops PRs are prepared and validated locally and opened by the owner.
 - **GHCR images are public for now** (can be made private later; that would need `ghcr-pull` in `datasci`).
 - **CI replays the recorded Hindsight fixtures only.** Live Hindsight tests are manual.
+
+## 2026-09-28: Phase 0 documentation pack (build ticket 02)
+
+- **Reuse:** a fresh EDGAR adapter; the sibling repositories (`trading-research`, `alphaos`, `TradingDashboard`) are reference only, and their data is not an Atlas entitlement (ADR-0002).
+- **License classes (§4.3, §5.3):** `source_document.license_class` takes one of `public_regulatory`, `public_issuer`, `lead_metadata`, `manual_lead`, `synthetic_fixture` or the reserved `licensed:<provider>`. Unlicensed sources get no Source Document at all. See `docs/source-licenses.md`.
+- **Gold fixtures (§9.5):** JSON case files under `tests/evaluation/gold/`, with IDs `EV-<CAT>-<NNN>`, content-addressed source files, and a manifest that pins each case by hash. Gold quotes carry no offsets, so cases survive parser-version changes. Two categories beyond §9.5 come from ticket 12: layer conflation (`LAY`) and the partner-page inference trap (`INF`). See `docs/evaluation-methodology.md`.
+- **Schema contract (§5):** `docs/data-model.md` is the contract for the Phase 1–2 migrations. Open points are left to the owning tickets: re-parse storage and per-fetch observations (07), stored recall (15) and the queue-pause representation (14).
