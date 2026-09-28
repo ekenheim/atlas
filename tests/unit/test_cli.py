@@ -35,6 +35,53 @@ def valid_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
+S3_SETTINGS = (
+    "ATLAS_S3_ENDPOINT_URL",
+    "ATLAS_S3_BUCKET",
+    "ATLAS_S3_ACCESS_KEY_ID",
+    "ATLAS_S3_SECRET_ACCESS_KEY",
+)
+
+
+def test_s3_archive_without_its_settings_fails_fast_naming_each_one(tmp_path: Path) -> None:
+    env = {**valid_env(tmp_path), "ATLAS_ARCHIVE_BACKEND": "s3"}
+
+    result = run_atlas(["api"], cwd=tmp_path, env=env)
+
+    assert result.returncode == 2
+    for name in S3_SETTINGS:
+        assert name in result.stderr
+    assert "ATLAS_?" not in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_s3_settings_error_names_only_what_is_missing_and_never_the_secret(tmp_path: Path) -> None:
+    env = {
+        **valid_env(tmp_path),
+        "ATLAS_ARCHIVE_BACKEND": "s3",
+        "ATLAS_S3_ENDPOINT_URL": "http://127.0.0.1:1",
+        "ATLAS_S3_ACCESS_KEY_ID": "atlas",
+        "ATLAS_S3_SECRET_ACCESS_KEY": "do-not-print-this-secret",
+    }
+
+    result = run_atlas(["api"], cwd=tmp_path, env=env)
+
+    assert result.returncode == 2
+    assert "ATLAS_S3_BUCKET" in result.stderr
+    assert "ATLAS_S3_ENDPOINT_URL" not in result.stderr
+    assert "do-not-print-this-secret" not in result.stderr
+
+
+def test_unknown_archive_backend_is_rejected_with_its_setting_name(tmp_path: Path) -> None:
+    env = {**valid_env(tmp_path), "ATLAS_ARCHIVE_BACKEND": "gcs"}
+
+    result = run_atlas(["api"], cwd=tmp_path, env=env)
+
+    assert result.returncode == 2
+    assert "ATLAS_ARCHIVE_BACKEND" in result.stderr
+    assert "filesystem" in result.stderr and "s3" in result.stderr
+
+
 def test_worker_reports_each_disabled_provider_once_and_fails_cleanly_without_a_database(
     tmp_path: Path,
 ) -> None:

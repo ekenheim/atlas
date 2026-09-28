@@ -1,9 +1,8 @@
 """Readiness checks: the truth about whether the whole flow can work."""
 
-import os
-from pathlib import Path
-
 from sqlalchemy import Engine, text
+
+from atlas.archive import Archive
 
 OK = "ok"
 DOWN = "down"
@@ -19,5 +18,9 @@ def check_database(engine: Engine) -> str:
     return OK
 
 
-def check_archive(root: Path) -> str:
-    return OK if root.is_dir() and os.access(root, os.W_OK) else DOWN
+def check_archive(archive: Archive) -> str:
+    """The configured backend: a writable root directory, or a reachable S3 bucket."""
+    try:
+        return OK if archive.is_ready() else DOWN
+    except Exception:
+        return DOWN

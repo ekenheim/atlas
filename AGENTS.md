@@ -12,7 +12,7 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 
 ## Layout
 
-- `backend/atlas/`: the Python package (`api/` FastAPI app, `db/` migrations, `settings.py`, `health.py`, `cli.py`)
+- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `db/` migrations, `settings.py`, `health.py`, `cli.py`)
 - `frontend/`: Next.js static export, served by FastAPI
 - `tests/unit`, `tests/integration`: tests at the agreed seams (HTTP API, CLI entry, migrations)
 - `configs/`: versioned config (e.g. Hindsight bank templates)

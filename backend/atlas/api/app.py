@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 
 from atlas import __version__
 from atlas.api.jobs import jobs_router
+from atlas.archive import open_archive
 from atlas.health import NOT_CONFIGURED, OK, check_archive, check_database
 from atlas.jobs import JobQueue
 from atlas.settings import Settings
@@ -19,6 +20,8 @@ def create_app(settings: Settings) -> FastAPI:
     app = FastAPI(title="Atlas Research")
     app.state.settings = settings
     engine = create_engine(settings.database_url, pool_pre_ping=True)
+    archive = open_archive(settings)
+    app.state.archive = archive
     registry = CollectorRegistry()
     Info("atlas_build", "Atlas build information", registry=registry).info({"version": __version__})
 
@@ -30,7 +33,7 @@ def create_app(settings: Settings) -> FastAPI:
     def ready() -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
         checks = {
             "database": check_database(engine),
-            "archive": check_archive(settings.archive_root),
+            "archive": check_archive(archive),
             "hindsight": NOT_CONFIGURED,
             "litellm": NOT_CONFIGURED,
         }

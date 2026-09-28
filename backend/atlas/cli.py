@@ -18,8 +18,10 @@ def load_settings() -> Settings:
     except ValidationError as error:
         lines = ["atlas: invalid configuration (see .env.example):"]
         for issue in error.errors():
-            field = str(issue["loc"][0]) if issue["loc"] else "?"
-            name = f"ATLAS_{field.upper()}"
+            if not issue["loc"]:  # a cross-field rule; its message names the settings
+                lines.append(f"  - {issue['msg'].removeprefix('Value error, ')}")
+                continue
+            name = f"ATLAS_{str(issue['loc'][0]).upper()}"
             if issue["type"] == "missing":
                 lines.append(f"  - {name} is required but not set")
             else:

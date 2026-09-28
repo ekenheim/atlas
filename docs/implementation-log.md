@@ -163,3 +163,48 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - The threat model found a gap: spec story 9 (secrets redacted in logs) isn't built. `backend/atlas/logs.py` has no redaction filter, and no ticket owns it explicitly.
   - Data-model open points are left to tickets 07, 14 and 15 (see the decisions entry).
 - **Next:** the implementing tickets (03, 04, 07, 08, 12–15) follow `docs/data-model.md` and update it when they change a column. The first gold cases and their validator land with Phase 2 (`INJ`, `RET`, `NOX`, `CON`).
+## 2026-09-28: ticket 05, archive (filesystem + S3)
+
+- **Built:**
+  - `backend/atlas/archive/`: one `Archive` class (`put(namespace, bytes) -> uri`, `get(uri)`, `exists(uri)`, `is_ready()`) over two backend stores, `filesystem.py` and `s3.py` (boto3). `open_archive(settings)` picks the backend.
+  - URIs: `archive://<raw|parsed>/sha256/<hex>`. They are the same for both backends and carry no bucket, endpoint or credentials. Anything else raises `InvalidArchiveUri`, including path traversal and uppercase hex. Both stores use the object key `<namespace>/sha256/<hex>`.
+  - Write-once:
+    - Filesystem: a temporary file is fsynced, set to mode 0444 and hard-linked into place. The link fails if the key already exists.
+    - S3: HEAD first, then `PutObject` with `If-None-Match: *` (a 412 counts as already stored) and a server-verified `ChecksumSHA256`.
+  - `get` re-hashes and raises `ArchiveIntegrityError` rather than return bytes that don't match their URI.
+  - Settings:
+    - `ATLAS_ARCHIVE_BACKEND` (`filesystem`|`s3`, default `filesystem`)
+    - `ATLAS_S3_ENDPOINT_URL`, `ATLAS_S3_BUCKET`, `ATLAS_S3_ACCESS_KEY_ID`, `ATLAS_S3_SECRET_ACCESS_KEY` (`SecretStr`): required only for s3, with one message that names each missing setting
+    - `ATLAS_S3_REGION` (default `us-east-1`)
+  - The CLI now prints cross-field setting errors without the `ATLAS_?` prefix.
+  - Readiness `archive` uses the configured backend: filesystem checks for a writable root, s3 does a `HeadBucket`. The archive is on `app.state.archive` for the content API (ticket 07).
+  - Dependencies: `boto3` (runtime) and `boto3-stubs[s3]` (dev, for strict pyright). The stub import is `TYPE_CHECKING`-only in the package.
+- **Tests (TDD, red first):** 64 passing in total, 53 new:
+  - `tests/integration/test_archive_contract.py`: 40 cases, the same 20 against the filesystem and against a fresh versioned Silo bucket. They cover:
+    - known-digest URIs with no leaks
+    - separate raw/parsed namespaces
+    - exact round-trip (all byte values, CRLF/NUL, UTF-8, empty)
+    - idempotent put that leaves the stored state untouched (inode/mtime on disk; the version list in S3)
+    - never overwriting a pre-existing object, where a later `get` raises an integrity error
+    - not-found
+    - rejection of 8 malformed or foreign URIs
+    - readiness
+    - no secret in `repr`
+  - `tests/integration/test_archive_object_lock.py`, 4 tests **live against Silo**. The bucket is created with `ObjectLockEnabledForBucket` and a default GOVERNANCE retention of 1 day, with a unique name per run. The tests check that:
+    - the default retention is applied
+    - an overwrite creates a new version, the original version keeps its bytes, and the archive refuses the tampered latest version
+    - a plain delete adds a delete marker and keeps the version
+    - a version delete without bypass is refused: any 4xx, no exact code asserted, and the version and bytes survive
+  - `tests/integration/test_readiness.py`, 4 new tests: s3 ready, ready regardless of `ATLAS_ARCHIVE_ROOT`, bucket missing gives 503 `down`, endpoint unreachable gives 503 `down`. No bucket, endpoint or credentials appear in the body.
+  - `tests/unit/test_cli.py`, 3 new tests: s3 without settings names all four; a partial config names only the missing one and never prints the secret; an unknown backend is rejected.
+  - `tests/unit/test_settings.py`, 2 new tests: the default backend, and the secret stays out of `repr` and `model_dump`.
+  - A mutation check confirmed the idempotence and no-overwrite tests fail on both backends when the store overwrites (no existence check, no `If-None-Match`, `os.replace`).
+- **CI:** `scripts/ci.sh --no-image` passed: ruff, pyright strict (0 errors), frontend gates, 64 passed. The image build was not run (the lead runs it after merging).
+- **Live vs fixture:** S3 behavior was exercised live against the Compose Silo (`127.0.0.1:59000`, root credentials). It was **not** tested against the cluster MinIO or as the scoped `atlas` user without bypass rights; ticket 19 provisions that user. Governance cleanup uses the root bypass. Leftover buckets, if any, expire after the one-day retention; none were left after this run.
+- **Deviations and notes:**
+  - `ATLAS_ARCHIVE_ROOT` is still required with `ATLAS_ARCHIVE_BACKEND=s3`, although it is unused there. Making it conditional would have stopped the existing fail-fast CLI test from reporting every missing setting at once, because pydantic runs cross-field checks only after field validation succeeds. Revisit at deploy (ticket 22).
+  - `get` returns the latest version only. After tampering or a delete marker, the locked original is still in the bucket, but recovering it is an operator task.
+  - `get` returns the whole object in memory; streaming can come with the content API if large filings need it.
+  - Archive-write metrics are not added yet (spec story 8); they belong with the ingest service (ticket 07).
+- **Credentials:** none. The tests use the Compose dev root credentials from `compose.yaml`, overridable with `ATLAS_TEST_S3_*`.
+- **Next:** ticket 07 (ingest slice) uses `open_archive`/`Archive.put`. Ticket 19 (archive provisioning) can reuse the S3 settings names.
