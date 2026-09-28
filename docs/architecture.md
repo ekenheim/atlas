@@ -198,7 +198,7 @@ Ticket 12 adds the pinned Hindsight 0.10.1 and its pgvector database, configured
 
 Readiness (`/health/ready`) is the truth about whether the flow works, not Compose ordering. It checks the database and the archive in Phase 1, and adds Hindsight and LiteLLM in Phase 2. Until then those report `not_configured`.
 
-**CI:** `scripts/ci.sh` is the one entrypoint, and GitHub Actions runs exactly it. It runs ruff format and lint, strict pyright, the frontend gates, pytest (unit with network blocked, integration against the Compose Postgres and Silo), and the image build with a non-root, read-only smoke test. It is fixture-only: no paid keys, no LLM calls, Hindsight replayed from the 58 recordings.
+**CI:** `scripts/ci.sh` is the one entrypoint, and GitHub Actions runs exactly it. It runs ruff format and lint, strict pyright, the frontend gates (including a check that the generated API client matches the OpenAPI schema), pytest (unit with network blocked, integration against the Compose Postgres and Silo), the Playwright smoke test of the source viewer against a fixture-seeded API, and the image build with a non-root, read-only smoke test. It is fixture-only: no paid keys, no LLM calls, Hindsight replayed from the 58 recordings.
 
 ### 5.2 Home cluster (from Phase 2)
 

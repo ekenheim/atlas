@@ -1,0 +1,84 @@
+/* Plain, readable defaults; no design system. */
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 0 1rem 3rem;
+}
+
+header {
+  border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  padding: 0.75rem 0;
+}
+
+:focus-visible {
+  outline: 3px solid Highlight;
+  outline-offset: 2px;
+}
+
+.skip {
+  position: absolute;
+  left: -100vw;
+}
+
+.skip:focus {
+  left: 1rem;
+  top: 0.5rem;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 0.5rem 0 1.5rem;
+  width: 100%;
+}
+
+caption {
+  font-weight: 600;
+  text-align: left;
+  padding: 0.25rem 0;
+}
+
+th,
+td {
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th[scope="row"] {
+  white-space: nowrap;
+  width: 1%;
+}
+
+td {
+  overflow-wrap: anywhere;
+}
+
+.ident,
+time {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+.muted {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+pre.document {
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  max-height: 70vh;
+  overflow: auto;
+  padding: 0.75rem;
+  white-space: pre-wrap;
+}
+
+.crumbs {
+  margin: 1rem 0 0;
+}

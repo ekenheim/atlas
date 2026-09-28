@@ -693,3 +693,67 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - ticket 14: classify operation errors, pause the queue on 429, and back off the poll retries
   - ticket 15: resolve memories through `document_id` + `metadata.source_version_id` to `memory_document` rows
   - record a real retain of an Atlas section, a zero-fact document, and a failed operation against the spike, to replace the derivations
+## 2026-09-29: ticket 09, source viewer (read-only)
+
+- **Built:**
+  - **Typed API client.**
+    - `scripts/export_openapi.py` writes the FastAPI schema. It builds the app with placeholder settings, and no connection is opened.
+    - `scripts/gen_api_client.sh` runs the export and then `openapi-typescript` 7.13. The results are committed as `frontend/lib/api/openapi.json` and `schema.ts`, marked `linguist-generated`.
+    - `frontend/lib/api/client.ts` is a thin `fetch` wrapper typed from the generated `paths`: route, path and query params, and the 200 body. It throws `ApiError` carrying the error envelope's code and message.
+    - CI runs `gen_api_client.sh --check`, which regenerates into a temp dir and diffs against the committed files.
+  - **Pages.** All are static and client-fetched, with ids as `?id=` (no dynamic routes):
+    - `/`: companies
+    - `/company/`: the company and its Source Documents
+    - `/source/`: the Source Document and its version history
+    - `/version/`: the Source Version, with:
+      - the provenance panel: URL (plus the origin URL when it differs), accession, form, publisher/tier/licence, raw, content and comparison SHA-256 (with the rule), bytes and media type, archive and parsed object URIs, parser version, parse status/error, fetch status, and supersedes/superseded-by links
+      - a timestamps table: `available_at` with its recorded basis, and `published_at`, `event_at`, `fetched_at`, `first_seen_at` and `ingested_at`, each with what its clock means. An absent clock shows "not recorded".
+      - source metadata
+      - fetch observations
+      - the parsed text in a `<pre>`, and a "Download original bytes" link to `content?kind=raw`
+  - The UI is plain and accessible: semantic tables with row and column headers, labelled regions, loading and error states in `role=status`/`alert`, a skip link, and no design system.
+  - **Playwright smoke test.** `frontend/e2e/source-viewer.spec.ts` and `frontend/playwright.config.ts`, driven by `scripts/e2e.py`. `scripts/ci.sh` gained two steps: the client check after typecheck, and `uv run python scripts/e2e.py` after pytest, while the Compose services are up and the frontend is built.
+- **How the Playwright test gets its data:** `scripts/e2e.py` does all of it.
+  1. It installs chromium (`--with-deps` when `CI` is set) and probes that it launches.
+  2. It creates an empty database `atlas_e2e_<hex>` on the test Postgres (`ATLAS_TEST_DATABASE_URL`, default `127.0.0.1:55432`).
+  3. It seeds that database through the public CLI, the same path as ticket 07's gate tests: `atlas migrate`, `atlas ingest --company lumentum --key e2e-smoke` and `atlas worker --once`. These run with `ATLAS_SEC_FIXTURES_DIR=tests/fixtures/edgar`, a temporary filesystem archive and a clean env, in a temp cwd so no developer `.env` is read. That replays the recorded Lumentum EDGAR filings.
+  4. It starts uvicorn in-process on a free `127.0.0.1` port (never 55432, 59000, 58000 or 58080). `ATLAS_FRONTEND_DIR=frontend/out` puts the built export on the same origin as `/api/v1`.
+  5. It runs `playwright test` with `ATLAS_E2E_BASE_URL`, then stops the API and drops the database.
+
+  The spec's expected values come from the fixture files, never from the API:
+  - accession and URL from the manifest
+  - raw SHA-256 of the fixture bytes
+  - content SHA-256 from `tests/fixtures/parser/golden.json`
+  - `available_at` = the submissions `acceptanceDateTime`
+
+  The test clicks from the company list to the FY2026 10-K's version 1. It then asserts each provenance row, that `available_at` has basis `sec_acceptance`, that `published_at` is "not recorded", and that `fetched_at` and `first_seen_at` hold timestamps. It also checks that the hash of the rendered parsed text equals the golden content hash (so the whole text is on the page), and that the downloaded original bytes hash to the fixture's SHA-256.
+- **Files:**
+  - new:
+    - `scripts/{export_openapi.py,gen_api_client.sh,e2e.py}`
+    - `frontend/lib/api/{openapi.json,schema.ts,client.ts}`, `frontend/lib/{use-api.ts,routes.ts}`, `frontend/components/ui.tsx`
+    - `frontend/app/{globals.css,company/page.tsx,source/page.tsx,version/page.tsx}`
+    - `frontend/e2e/source-viewer.spec.ts`, `frontend/playwright.config.ts`
+  - edited:
+    - `frontend/app/{layout,page}.tsx`
+    - `frontend/package.json`/`package-lock.json` (dev deps `openapi-typescript`, `@playwright/test`, plus an `overrides` entry, see below)
+    - `frontend/.gitignore`, `.dockerignore` (Playwright output)
+    - `.gitattributes`, `scripts/ci.sh`, `AGENTS.md`, `docs/architecture.md`
+  - No backend, migration or Python dependency changes.
+- **Tests (actual results):**
+  - Red first: the spec failed against the old skeleton page (no "Lumentum" link), while seeding and serving worked.
+  - Green: 1 passed (≈3.5 s).
+  - Mutation checks went red as expected:
+    - rendering `text.slice(1)` failed the parsed-text hash
+    - showing `fetched_at` in the `available_at` row failed the acceptance-time check
+  - `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64 scripts/ci.sh --no-image` **passed**: ruff/pyright clean, lint/typecheck, "API client is current with the OpenAPI schema", build, **271 passed, 1 deselected** (live) in 199 s, and e2e **1 passed**.
+  - Without the override, this Ubuntu 20.04 WSL box prints `e2e: SKIPPED: ... Playwright does not support chromium on ubuntu20.04-x64` and continues (exit 0). That is the local skip path.
+- **Fixture vs live:** everything is fixture-seeded. No SEC or other network access beyond localhost, apart from npm and Playwright downloading packages and chromium. The CI path with `--with-deps` on GitHub's ubuntu-latest runner has **not run yet**; it runs on the next push.
+- **Deviations:**
+  - `openapi-typescript` 7.13 declares a peer of `typescript ^5`, and the repo pins TypeScript 6. `package.json` `overrides` points its peer at the root `typescript`; generation works with TS 6.
+  - In CI, a browser that can't be installed or launched **fails** the step instead of skipping, so the gate can't silently disappear. Locally it skips with the reason and a hint (including `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE`).
+  - The API is started with uvicorn in-process rather than via `atlas api`, which hard-codes port 8000. This avoids touching `cli.py`.
+  - The Playwright test is Node (`@playwright/test`) orchestrated by a Python script, not a pytest test, so `uv run pytest` is unchanged.
+  - "Toggle" between parsed text and raw (story 48) is the parsed text shown, plus the download link beside it.
+  - Selection-to-Assertion and the Assertion list are out of scope (ticket 08 and later).
+- **Credentials:** none.
+- **Next:** the Assertion viewer ticket adds selection-to-Assertion on the parsed `<pre>` and the review list. Run `scripts/gen_api_client.sh` after ticket 08's routes merge, or CI's `--check` will fail. Confirm the e2e step on the first GitHub Actions run.
