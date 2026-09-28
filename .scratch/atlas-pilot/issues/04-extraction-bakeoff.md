@@ -1,7 +1,7 @@
 # MiniMax extraction check on a Lumentum filing fixture (bake-off)
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 02, 03
 
 ## Question
