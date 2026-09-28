@@ -55,3 +55,7 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **License classes (§4.3, §5.3):** `source_document.license_class` takes one of `public_regulatory`, `public_issuer`, `lead_metadata`, `manual_lead`, `synthetic_fixture` or the reserved `licensed:<provider>`. Unlicensed sources get no Source Document at all. See `docs/source-licenses.md`.
 - **Gold fixtures (§9.5):** JSON case files under `tests/evaluation/gold/`, with IDs `EV-<CAT>-<NNN>`, content-addressed source files, and a manifest that pins each case by hash. Gold quotes carry no offsets, so cases survive parser-version changes. Two categories beyond §9.5 come from ticket 12: layer conflation (`LAY`) and the partner-page inference trap (`INF`). See `docs/evaluation-methodology.md`.
 - **Schema contract (§5):** `docs/data-model.md` is the contract for the Phase 1–2 migrations. Open points are left to the owning tickets: re-parse storage and per-fetch observations (07), stored recall (15) and the queue-pause representation (14).
+
+## 2026-09-28: Postgres accounts in the cluster
+
+- **The owner provisions the cluster Postgres accounts and databases** (`atlas`, `atlas-hindsight`, including the `vector` extension) themselves. Atlas's deployment only consumes the resulting credentials (via ExternalSecret/Bitwarden). The prepared home-ops branch `atlas/crunchy-users` is optional reference material, not a required rollout step, and agents should not ask the owner for anything Postgres-related in the homelab.
