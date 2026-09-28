@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     archive_root: Path
     frontend_dir: Path | None = None
 
+    # Job queue: how often an idle continuous worker polls, and how long a claim is held
+    # before another worker may reclaim it (a crashed worker's job is retried after this).
+    worker_poll_seconds: float = Field(default=5.0, gt=0)
+    job_lease_seconds: float = Field(default=300.0, gt=0)
+
     # Optional providers: when unset, the feature is disabled (logged once at startup).
     hindsight_url: str | None = None
     litellm_url: str | None = None
