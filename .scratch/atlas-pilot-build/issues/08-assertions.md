@@ -4,8 +4,8 @@
 
 **Blocked by:** 07 (Ingest a Lumentum filing end to end)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An Assertion whose quote doesn't occur at the given anchor in the archived parse is rejected
-- [ ] New Assertions are `unreviewed`; review transitions follow spec §5.4; supersession links to a successor and never edits
-- [ ] Listing by company and review state works; every create/review writes an audit event
+- [x] An Assertion whose quote doesn't occur at the given anchor in the archived parse is rejected
+- [x] New Assertions are `unreviewed`; review transitions follow spec §5.4; supersession links to a successor and never edits
+- [x] Listing by company and review state works; every create/review writes an audit event
