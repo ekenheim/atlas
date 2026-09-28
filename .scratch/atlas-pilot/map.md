@@ -32,6 +32,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 <!-- one line per closed ticket -->
 
 - [Hindsight releases after 0.10.1: anything Phase 2 needs?](issues/01-hindsight-release-delta.md): keep 0.10.1 (latest release); upsert is a chunk-level delta, reflect citations need a per-memory lookup, and the mental-model refresh-loop risk needs a mitigation.
+- [Home-ops wiring facts for the Atlas deploy](issues/08-home-ops-wiring.md): MinIO needs module work for versioning/lock and there is no R2 replication to reuse (→ ticket 10); scope the `llm` secret store to `datasci`; Atlas image bumps would auto-deploy under current Renovate rules.
 
 ## Not yet specified
 
