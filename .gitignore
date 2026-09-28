@@ -32,3 +32,6 @@ Thumbs.db
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Local Hindsight CLI config (holds an API key)
+.hindsight/
