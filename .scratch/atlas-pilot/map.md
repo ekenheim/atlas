@@ -6,6 +6,8 @@ Label: wayfinder:map
 
 A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service skeleton, SEC provenance vertical slice, Hindsight integration against the verified feature matrix, and the first home-ops deployment. The spec will be at `.scratch/atlas-pilot/spec.md`.
 
+**Status (2026-09-28): destination reached.** `spec.md` covers Phases 0–2 (Part A: Phases 0–1, Part B: Phase 2) and is `ready-for-agent`. Only research ticket 13 (the dev/CI S3 server) is still open; it affects Part A's Compose image only.
+
 ## Notes
 
 - **Domain:** evidence-driven investment research on Hindsight. Glossary: `CONTEXT.md`. The build plan (`hindsight_investment_research_build_plan.md` v1.1) is authoritative. Grilling fills its gaps; it doesn't relitigate it. Deviations go in `docs/decisions.md`.
