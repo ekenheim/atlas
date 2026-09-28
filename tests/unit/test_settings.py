@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from atlas.settings import Settings
 
@@ -63,3 +64,40 @@ def test_environment_values_with_carriage_returns_are_stripped(
     assert settings.database_url == "postgresql+psycopg://atlas:atlas@db/atlas"
     assert settings.actor == "local-researcher"
     assert settings.archive_root == Path("/data/archive")
+
+
+def required_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)  # no .env here
+    monkeypatch.setenv("ATLAS_DATABASE_URL", "postgresql+psycopg://atlas:atlas@db/atlas")
+    monkeypatch.setenv("ATLAS_ACTOR", "local-researcher")
+    monkeypatch.setenv("ATLAS_ARCHIVE_ROOT", "/data/archive")
+
+
+def test_live_sec_is_off_by_default_and_reported_as_a_disabled_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    required_env(monkeypatch, tmp_path)
+
+    settings = Settings()  # pyright: ignore[reportCallIssue]
+
+    assert settings.sec_live is False
+    assert ("sec", "ATLAS_SEC_LIVE") in settings.disabled_providers()
+
+
+def test_live_sec_requires_a_user_agent_with_a_contact_email(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    required_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("ATLAS_SEC_LIVE", "true")
+
+    with pytest.raises(ValidationError, match="sec_user_agent"):
+        Settings()  # pyright: ignore[reportCallIssue]
+
+    monkeypatch.setenv("ATLAS_SEC_USER_AGENT", "Atlas Research")
+    with pytest.raises(ValidationError, match="contact email"):
+        Settings()  # pyright: ignore[reportCallIssue]
+
+    monkeypatch.setenv("ATLAS_SEC_USER_AGENT", "Atlas Research ops@example.com\r")
+    settings = Settings()  # pyright: ignore[reportCallIssue]
+    assert settings.sec_user_agent == "Atlas Research ops@example.com"
+    assert "sec" not in {provider for provider, _ in settings.disabled_providers()}

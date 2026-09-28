@@ -22,6 +22,8 @@ frontend/out/
 
 # Local runtime data
 data/
+# ...but recorded EDGAR fixtures mirror SEC paths, which contain a data/ directory
+!tests/fixtures/**/data/
 *.log
 
 # Editors / OS

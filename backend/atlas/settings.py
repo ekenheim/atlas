@@ -1,9 +1,10 @@
 """Runtime configuration, loaded from ATLAS_* environment variables (and .env)."""
 
+import re
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +34,10 @@ class Settings(BaseSettings):
     hindsight_url: str | None = None
     litellm_url: str | None = None
     litellm_api_key: str | None = None
+    # Live SEC EDGAR fetching is opt-in; without it the EDGAR adapter replays fixtures.
+    sec_live: bool = False
+    # SEC fair-access policy: a requester name and contact email, e.g. "Atlas Research ops@x.com".
+    sec_user_agent: str | None = Field(default=None, validate_default=True)
 
     @field_validator("*", mode="before")
     @classmethod
@@ -57,6 +62,15 @@ class Settings(BaseSettings):
                 )
         return self
 
+    @field_validator("sec_user_agent")
+    @classmethod
+    def _sec_user_agent_when_live(cls, value: str | None, info: ValidationInfo) -> str | None:
+        if info.data.get("sec_live") and not value:
+            raise ValueError("required when ATLAS_SEC_LIVE is true (SEC fair-access policy)")
+        if value and not re.search(r"\S+@\S+\.\S+", value):
+            raise ValueError("must include a contact email, e.g. 'Atlas Research ops@example.com'")
+        return value or None
+
     def disabled_providers(self) -> list[tuple[str, str]]:
         """(provider, missing setting) for each optional provider that is not configured."""
         missing: list[tuple[str, str]] = []
@@ -66,4 +80,6 @@ class Settings(BaseSettings):
             missing.append(("litellm", "ATLAS_LITELLM_URL"))
         elif not self.litellm_api_key:
             missing.append(("litellm", "ATLAS_LITELLM_API_KEY"))
+        if not self.sec_live:
+            missing.append(("sec", "ATLAS_SEC_LIVE"))
         return missing
