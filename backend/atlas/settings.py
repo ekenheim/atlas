@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # LiteLLM aliases Atlas uses, named in config and never hard-coded (spec Part B).
     llm_extract_alias: str = Field(default="atlas-extract", min_length=1)
     llm_reflect_alias: str = Field(default="atlas-reflect", min_length=1)
+    # Retention: how long one poll job waits for a retain operation to reach a terminal
+    # status (keep it below job_lease_seconds), and how often it asks. A poll that times out
+    # fails its attempt and is retried, up to retain_poll_attempts.
+    retain_poll_timeout_seconds: float = Field(default=240.0, gt=0)
+    retain_poll_interval_seconds: float = Field(default=5.0, gt=0)
+    retain_poll_attempts: int = Field(default=5, ge=1)
     # Recorded on every run: the image's commit SHA (a build arg), else the package version.
     code_version: str | None = None
     # Live SEC EDGAR fetching is opt-in; without it the EDGAR adapter replays fixtures.

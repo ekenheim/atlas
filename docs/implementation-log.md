@@ -628,3 +628,68 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - The OpenAPI 422 schema of the pre-existing routes still shows FastAPI's default shape, although the body is now the envelope.
 - **Credentials:** none.
 - **Next:** ticket 10 (the viewer) creates and reviews Assertions through these routes. It must send code-point offsets, converting from the UTF-16 selection indices. If the retention ticket defines section anchors, `page_or_anchor` could then be validated against them.
+## 2026-09-29: ticket 13, retain Source Versions into memory
+
+- **Built:**
+  - **Alembic revision `0007`** (down_revision `0005`; the lead re-chains it at merge):
+    - `hindsight_operation`: Hindsight's operation ID, bank, kind (`retain`/`reprocess`), status as last reported, error, retry count, the Source Version and the batch's document IDs, result metadata, the submitting job, and submitted / last-polled / completed timestamps.
+    - `memory_document`: Source Version, anchor, heading, character offsets, sectioner version, Hindsight document ID (unique), bank, operation, retain state (`pending`/`completed`/`failed`/`zero_fact`/`linked`), fact count, reprocess count (0–1), template version, linked-to Source Version, error.
+    - Checks tie `linked` to a link and no document ID, and require a fact count for `completed`/`zero_fact` and an error for `failed`. An ENABLE ALWAYS trigger rejects DELETE, TRUNCATE and any change to a row's identity columns. Grants go to `atlas_app` when it exists.
+  - **`atlas.retention`:**
+    - `sections`: the `sec-items-v1` sectioner. It splits on Item headings for SEC primary documents (qualified by PART, skipping the table of contents, with a `cover` section before the body) and uses bounded 12,000-character chunks otherwise. The sections tile the parse.
+    - `service`: the `retain`, `poll_operation` and `reprocess` jobs.
+      - Retain decides between linking and retaining under an advisory lock on the raw hash.
+      - IDs are `srcv:<source_version_uuid>:<anchor>`. The tags, metadata and timestamp are as the spec says.
+      - It submits one batch per Source Version.
+      - It polls status only, with a timeout.
+      - It counts `memory_unit_count` per document. Zero facts get one reprocess (a re-retain under the same ID), then `zero_fact`. Failed operations mark their sections `failed` with the error.
+      - Every write is audited.
+    - `reads` and `GET /api/v1/source-versions/{id}/memory`: section documents, states, fact counts, per-state counts, and the operations.
+  - **Ingest** enqueues a `retain` job for each new parsed Source Version when `ATLAS_HINDSIGHT_URL` is set. Artifacts gain `retain_jobs`. Companyfacts JSON isn't retained.
+  - **Settings:** `ATLAS_RETAIN_POLL_TIMEOUT_SECONDS` (240), `ATLAS_RETAIN_POLL_INTERVAL_SECONDS` (5), `ATLAS_RETAIN_POLL_ATTEMPTS` (5).
+  - **Coherent fixtures:** `tests/fixtures/edgar/coherent/`. Recorded live on 2026-09-28 with **4 SEC requests** (submissions, the FY2026 10-K `0000820318-26-000020`, the 10-Q `0000820318-26-000013`, companyfacts) as `Atlas Research ekenheim@gmail.com`, ≥2 s apart.
+    - Trimming follows the Lumentum conventions: submissions to the 2026-05-06..2026-09-28 window with unrecorded 10-K/10-Q/8-K rows removed; companyfacts to dei plus the Lumentum concepts (GrossProfit is absent); the 10-K to its first 760 of 1231 top-level elements (through Item 7); the 10-Q to 59 of 456.
+    - **Gap:** no Coherent 8-K. An 8-K needs its index headers plus each document (≥3 requests, with an unknown number of EX-99 exhibits), which could overrun the 6-request budget.
+  - **Fake (`tests/fakes/hindsight.py`) derivations**, documented in its docstring:
+    - `derive_retains` (off by default) answers an unrecorded async batch retain with `retain/04-batch`. It changes only `bank_id`, `items_count` and `operation_id` (UUIDv5 of the body). The operation is then served from `retain/05-batch-final` with only `operation_id` changed, and each document from `upsert/09-get-document` with only `id`, `bank_id`, `tags` and `document_metadata` changed.
+    - `report_zero_facts` zeroes a derived document's counts.
+    - `hold_retains` applies `hold_operation` to matching derived batches.
+    - These derivations are needed because the recordings hold synthetic documents, so no real section's retain can match one. **Zero-fact documents, failed operations and never-finishing operations are derived, not recorded.**
+- **Files:**
+  - new: `backend/atlas/retention/{__init__,sections,service,handlers,reads}.py`, `backend/atlas/api/memory.py`, `backend/atlas/db/migrations/versions/0007_memory_documents.py`, `tests/fixtures/edgar/coherent/**`, `tests/integration/test_retention.py`, `tests/unit/test_sections.py`, `tests/unit/test_hindsight_fake_derivations.py`
+  - small edits: `api/app.py` (router), `jobs/handlers.py` (registers the three kinds), `ledger/ingest.py` (enqueue retains), `settings.py`, `.env.example`, `configs/themes/ai-infrastructure.yaml` (Coherent comment), `tests/fakes/hindsight.py`, `tests/integration/test_ingest.py` (the no-fixtures test now removes Coherent's fixtures from a copy), `tests/integration/test_migrations.py` (head `0007`), `AGENTS.md`, `docs/data-model.md` (§3.2–3.3 as built), `docs/decisions.md`
+- **Tests:** 25 new. The implementation was written just ahead of the integration suite, not strictly red first, and the suite was then checked by mutation.
+  - `tests/integration/test_retention.py` (12, at the CLI + single-pass worker + API seam, real Postgres, the fake served on localhost):
+    - sections, states, fact counts and tiling of the Lumentum 10-K
+    - one batch per Source Version, with the exact IDs, tags, metadata, timestamp and content
+    - exhibit chunks, and companyfacts not retained
+    - Coherent alongside Lumentum, tagged apart
+    - a replayed retain (new key via `atlas jobs enqueue retain`) sends nothing
+    - a revised 8-K gets new document IDs, v1's are untouched, and DELETE or re-keying a row fails
+    - an identical-bytes exhibit copy is `linked`, not re-retained
+    - zero facts: reprocessed exactly once as a one-item batch, then `zero_fact`
+    - a failed operation is visible with its error
+    - a never-finishing operation: the poll times out twice, then the job fails, and the sections stay `pending` with status `processing`
+    - no retain before a template is applied
+    - 404 envelope
+  - `tests/unit/test_sections.py` (9) and `tests/unit/test_hindsight_fake_derivations.py` (4).
+  - Mutation checks each turned exactly their test red: disabling linking, skipping the reprocess, treating failed operations as successes, and dropping the "already retained" check.
+  - `scripts/ci.sh --no-image` **passed**: ruff format/lint clean, pyright strict 0 errors, frontend gates green, **296 passed, 1 deselected** (live), 306 s.
+- **Fixture-tested vs live:**
+  - **Live:** only the 4 SEC requests that recorded the Coherent fixtures.
+  - **Fixture only:** every Hindsight interaction, against the recorded fake with the derivations above. No live Hindsight or LLM call was made.
+  - **Never tested against a real server:** the batch retain of real sections, per-document memory counts, zero-fact behaviour and failed operations.
+- **Deviations and notes:**
+  - PKs are `id` (the data model said `memory_document_id`).
+  - Added columns: `section_heading`, `sectioner_version` and `error` on `memory_document`; `source_version_id`, `document_ids` and `result_metadata` on `hindsight_operation`.
+  - Not built: `memory_ids_json` (Hindsight's document read gives counts, not IDs) and `error_class` (ticket 14).
+  - Reprocess uses a re-retain under the same ID, because the documents `reprocess` route is unrecorded.
+  - A zero-fact section awaiting reprocess is `pending` with fact count 0.
+  - Retains don't start a `run` yet; `result_metadata.total_tokens` is stored per operation.
+  - Failed sections aren't retried automatically, and a poll that exhausts its attempts leaves the operation unfinished (ticket 14's pause/backoff should revisit both).
+  - Coherent's COHR security is still a TODO.
+- **Credentials:** none.
+- **Next:**
+  - ticket 14: classify operation errors, pause the queue on 429, and back off the poll retries
+  - ticket 15: resolve memories through `document_id` + `metadata.source_version_id` to `memory_document` rows
+  - record a real retain of an Atlas section, a zero-fact document, and a failed operation against the spike, to replace the derivations

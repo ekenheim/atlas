@@ -475,12 +475,19 @@ def test_ingest_cli_rejects_a_company_that_is_not_configured(atlas: Atlas) -> No
     assert "lumentum" in result.stderr
 
 
-def test_a_company_without_fixtures_fails_its_ingest_visibly(atlas: Atlas) -> None:
+def test_a_company_without_fixtures_fails_its_ingest_visibly(
+    database_url: str, tmp_path: Path
+) -> None:
+    fixtures = editable_fixtures(tmp_path)
+    shutil.rmtree(fixtures / "coherent")
+    atlas = Atlas(database_url, tmp_path, fixtures)
+
     job = atlas.ingest("coherent-first", company="coherent")
 
     assert job["status"] == "failed"
     assert "no recorded EDGAR fixtures for coherent" in job["last_error"]
     assert atlas.get(f"/api/v1/companies/{atlas.company('coherent')['id']}/sources")["total"] == 0
+    atlas.engine.dispose()
 
 
 # --- read API errors ---

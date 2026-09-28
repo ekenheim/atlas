@@ -259,42 +259,50 @@ One row per application of the bank template (dry run, then import); audited as 
 
 ### 3.2 `hindsight_operation`
 
-One row per asynchronous Hindsight operation Atlas tracks.
+One row per asynchronous Hindsight operation Atlas submitted. Migration 0007 (ticket 13); PK named `id`, like the other tables.
 
 | Column | Type | Notes |
 |---|---|---|
-| `operation_id` | text PK | Hindsight's ID |
+| `id` | text PK | Hindsight's operation ID |
 | `bank_id` | text not null | `atlas-ai-infrastructure` |
-| `kind` | text not null | `retain`, `consolidate`, `mental_model_refresh`, `template_import` |
-| `status` | text not null | As reported by Hindsight; the only basis for an outcome |
-| `error_message` | text null | |
-| `error_class` | text null | `quota`, `unavailable`, `permanent`, … (drives the queue pause) |
-| `retry_count` | integer not null default 0 | |
+| `kind` | text not null | `retain` (a Source Version's batch) or `reprocess` (a zero-fact re-retain). Later: `consolidate`, `mental_model_refresh` |
+| `status` | text not null | As Hindsight last reported it (`pending` on submission); the only basis for an outcome |
+| `error_message` | text null | Hindsight's error, when it gives one |
+| `retry_count` | integer not null default 0 | Hindsight's retry count |
+| `source_version_id` | uuid not null FK → source_version | Whose sections the batch holds |
+| `document_ids` | jsonb array not null | The Hindsight document IDs in the batch |
+| `result_metadata` | jsonb object not null default `{}` | Hindsight's result metadata once terminal (items, `total_tokens`, extraction errors) |
 | `job_id` | uuid null FK → job | The job that submitted it |
-| `submitted_at`, `last_polled_at`, `completed_at` | timestamptz | |
+| `submitted_at`, `last_polled_at`, `completed_at`, `updated_at` | timestamptz | `completed_at` is set once the status is terminal |
+
+**(open, ticket 14):** `error_class` (`quota`, `unavailable`, `permanent`), which drives the queue pause.
 
 ### 3.3 `memory_document`
 
-The mapping from the ledger to Memory (build plan §6.3; ADR-0001; spec Part B stories 2–10).
+The mapping from the ledger to Memory (build plan §6.3; ADR-0001; spec Part B stories 2–10). Migration 0007 (ticket 13).
 
 | Column | Type | Notes |
 |---|---|---|
-| `memory_document_id` | uuid PK | |
+| `id` | uuid PK | |
 | `source_version_id` | uuid not null FK → source_version | |
-| `section_anchor` | text not null | |
-| `char_start`, `char_end` | integer not null | Offsets into the parsed text |
+| `section_anchor` | text not null | `cover`, `part-i-item-1a`, `item-2-02`, `chunk-001`, … (`atlas.retention.sections`) |
+| `section_heading` | text null | The Item heading line; null for the cover and chunks |
+| `char_start`, `char_end` | integer not null | Character offsets into the parsed text, `[start, end)`; a version's sections tile it |
+| `sectioner_version` | text not null | `sec-items-v1` |
 | `hindsight_document_id` | text null, unique | `srcv:<source_version_uuid>:<section-anchor>`; null when `linked` |
 | `bank_id` | text not null | |
-| `operation_id` | text null FK → hindsight_operation | |
+| `operation_id` | text null FK → hindsight_operation | The operation that last retained it (the reprocess, after one) |
 | `retain_state` | text not null | `pending`, `completed`, `failed`, `zero_fact`, `linked` |
-| `fact_count` | integer null | Memories counted after completion |
-| `memory_ids_json` | jsonb not null default `[]` | Returned memory IDs, when accessible |
-| `reprocess_count` | integer not null default 0 | A zero-fact section is reprocessed at most once |
-| `template_version` | text not null | |
+| `fact_count` | integer null | `memory_unit_count` of the Hindsight document after completion |
+| `reprocess_count` | integer not null default 0 | 0 or 1: a zero-fact section is reprocessed at most once |
+| `template_version` | text not null | The bank's applied template version when it was recorded |
 | `linked_to_source_version_id` | uuid null FK → source_version | Set when the same raw bytes are already retained |
+| `error` | text null | Why a section `failed` (the operation's error, or a document missing after completion) |
 | `created_at`, `updated_at` | timestamptz | |
 
-Invariants: `UNIQUE (source_version_id, section_anchor, bank_id)`; `CHECK ((retain_state = 'linked') = (linked_to_source_version_id IS NOT NULL))`; a `hindsight_document_id` is never reused (unique, and rows are never deleted).
+Invariants: `UNIQUE (source_version_id, section_anchor, bank_id)`; `UNIQUE hindsight_document_id`, so an ID is never reused; `linked` exactly when `linked_to_source_version_id` is set and `hindsight_document_id` is null; `completed`/`zero_fact` have a fact count (`zero_fact`: 0); `failed` has an error. A trigger (ENABLE ALWAYS) rejects DELETE and TRUNCATE and any change to a row's identity (Source Version, anchor, offsets, sectioner, document ID, bank, link). A zero-fact section awaiting its reprocess is `pending` with `fact_count` 0. Every insert and state change writes an audit event (`memory_document.*`, `hindsight_operation.*`).
+
+Not implemented: `memory_ids_json`. Hindsight's document read returns counts, not memory IDs; provenance resolves memories through `document_id` and `metadata.source_version_id` (ticket 15).
 
 ### 3.4 `research_answer`
 
