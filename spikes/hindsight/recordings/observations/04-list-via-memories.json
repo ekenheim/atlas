@@ -1,0 +1,190 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/memories/list",
+    "query": {
+      "type": "observation",
+      "limit": 100
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.02,
+    "body": {
+      "items": [
+        {
+          "id": "7061e39c-41b0-4f50-bf92-22c259044955",
+          "text": "Aurora Optics Inc. announced closure of its Tucson, Arizona fab by December 2026 and relocation of laser production to a contract manufacturer in Penang, Malaysia.",
+          "context": "",
+          "date": "2026-09-01T00:00:00+00:00",
+          "fact_type": "observation",
+          "document_id": null,
+          "mentioned_at": "2026-09-01T00:00:00+00:00",
+          "occurred_start": "2026-09-01T00:00:00+00:00",
+          "occurred_end": "2026-12-31T00:00:00+00:00",
+          "entities": "",
+          "chunk_id": null,
+          "proof_count": 2,
+          "tags": [
+            "company:aurora"
+          ],
+          "metadata": {},
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-09-28T17:05:05.540751+00:00",
+          "source_memory_ids": [
+            "95152d1e-5f30-4f52-b734-e3df31505efc",
+            "75ed71c9-0cde-4e5e-95c6-de7d3578962d"
+          ]
+        },
+        {
+          "id": "2839635b-b362-4866-a759-7805dea01eb9",
+          "text": "Aurora Optics reported weak demand and high inventories for 800G optical modules in March 2024, then stated demand exceeded supply in Q3 2026, reflecting a shift from oversupply to supply constraint in that market.",
+          "context": "",
+          "date": "2024-03-15T00:00:00+00:00",
+          "fact_type": "observation",
+          "document_id": null,
+          "mentioned_at": "2026-08-20T00:00:00+00:00",
+          "occurred_start": "2026-07-01T00:00:00+00:00",
+          "occurred_end": "2026-09-30T00:00:00+00:00",
+          "entities": "",
+          "chunk_id": null,
+          "proof_count": 1,
+          "tags": [
+            "company:aurora"
+          ],
+          "metadata": {},
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-09-28T17:04:45.362184+00:00",
+          "source_memory_ids": [
+            "3762d077-7276-4f4e-a1c3-cfc466ce911e",
+            "719c096d-14ff-4d5c-9488-84318096d5b0"
+          ]
+        },
+        {
+          "id": "d8b9f311-b009-4be9-acc9-7fda758a85eb",
+          "text": "Cirrus Semiconductor stated its gallium arsenide substrate output doubled in 2025, indicating significant capacity expansion in semiconductor materials.",
+          "context": "",
+          "date": "2025-01-01T00:00:00+00:00",
+          "fact_type": "observation",
+          "document_id": null,
+          "mentioned_at": "2026-08-02T00:00:00+00:00",
+          "occurred_start": "2025-01-01T00:00:00+00:00",
+          "occurred_end": "2025-12-31T23:59:59+00:00",
+          "entities": "",
+          "chunk_id": null,
+          "proof_count": 1,
+          "tags": [],
+          "metadata": {},
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-09-28T17:04:34.629290+00:00",
+          "source_memory_ids": [
+            "1dc82ce8-3370-4e1b-9915-9580320de560"
+          ]
+        },
+        {
+          "id": "28f78f7f-2bd7-4e42-acda-695c12b35333",
+          "text": "Borealis Photonics Ltd. reported lead times of 52 weeks for its silicon photonics modules as of August 1, 2026, indicating significant supply constraint and capacity tightness that could affect customers dependent on these components.",
+          "context": "",
+          "date": "2026-08-01T00:00:00+00:00",
+          "fact_type": "observation",
+          "document_id": null,
+          "mentioned_at": "2026-08-01T00:00:00+00:00",
+          "occurred_start": "2026-08-01T00:00:00+00:00",
+          "occurred_end": "2026-08-01T00:00:00+00:00",
+          "entities": "",
+          "chunk_id": null,
+          "proof_count": 1,
+          "tags": [
+            "company:borealis"
+          ],
+          "metadata": {},
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-09-28T17:04:32.321549+00:00",
+          "source_memory_ids": [
+            "fc34bfd6-87c4-4247-b892-aff205c73a93"
+          ]
+        },
+        {
+          "id": "94dc45e4-5469-4a2e-97ff-8e068f68678f",
+          "text": "Aurora Optics Inc. supplies 1.6T transceiver lasers to Halcyon Networks.",
+          "context": "",
+          "date": "2026-01-10T00:00:00.010000+00:00",
+          "fact_type": "observation",
+          "document_id": null,
+          "mentioned_at": "2026-01-10T00:00:00.010000+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "",
+          "chunk_id": null,
+          "proof_count": 1,
+          "tags": [
+            "company:aurora"
+          ],
+          "metadata": {},
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-09-28T17:05:00.943816+00:00",
+          "source_memory_ids": [
+            "c0557e02-d595-45a5-8884-5cefd226949e"
+          ]
+        },
+        {
+          "id": "1472d75a-8271-4676-a80d-47018130a25b",
+          "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year.",
+          "context": "",
+          "date": "2026-01-10T00:00:00+00:00",
+          "fact_type": "observation",
+          "document_id": null,
+          "mentioned_at": "2026-01-10T00:00:00+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "",
+          "chunk_id": null,
+          "proof_count": 1,
+          "tags": [
+            "company:aurora"
+          ],
+          "metadata": {},
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-09-28T17:05:00.943816+00:00",
+          "source_memory_ids": [
+            "64ebb9c5-53c6-4b7f-b1a1-4b5d45a994a8"
+          ]
+        }
+      ],
+      "total": 6,
+      "limit": 100,
+      "offset": 0
+    }
+  }
+}

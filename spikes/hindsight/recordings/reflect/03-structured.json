@@ -1,0 +1,56 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-fm-1790615064/reflect",
+    "query": null,
+    "body": {
+      "query": "Is Aurora Optics capacity constrained?",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "constrained": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "constrained",
+          "evidence"
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 29.38,
+    "body": {
+      "text": "## Direct Answer\n\n**Yes \u2014 based on the retrieved data, Aurora Optics appears to be capacity constrained, with multiple indicators pointing in this direction during 2026.**\n\n---\n\n## Evidence from the Data\n\n### 1. Demand\u2013Supply Reversal in 800G Optical Modules\n\nAurora Optics reported that in **Q3 2026 (observation window: July 1 \u2013 September 30, 2026)**, **demand exceeded supply** for 800G optical modules. This is the most direct statement of supply constraint in the retrieved data.\n\nFor context, the same observation notes the situation was reversed in March 2024, when the company reported **weak demand and high inventories**. The shift from oversupply to undersupply represents a significant capacity constraint at the 800G module level.\n\n### 2. Indium Phosphide Wafer Fab Capacity\n\nAurora Optics operates an **indium phosphide (InP) wafer fab in Tucson, Arizona**, with stated capacity of **40,000 wafers per year**. Indium phosphide is a key substrate material for high-speed optical components, including laser diodes used in transceivers. The existence of a single fab with a fixed annual wafer capacity creates a structural ceiling on production.\n\n### 3. Tucson Fab Closure and Relocation to Penang\n\nAurora Optics **announced the closure of its Tucson, Arizona fab by December 2026**, with laser production relocating to a **contract manufacturer in Penang, Malaysia**. This is a meaningful capacity consideration:\n\n- During the transition period (September \u2013 December 2026), production capacity may be temporarily reduced as operations shift between facilities.\n- Reliance on a **contract manufacturer** (rather than wholly owned production) introduces dependencies on a third party's capacity and ramp-up timeline.\n- The relocation suggests the company is restructuring its manufacturing footprint, which during the transition can exacerbate rather than relieve supply tightness.\n\n### 4. Customer Demand for 1.6T Transceiver Lasers\n\nAurora Optics supplies **1.6T transceiver lasers to Halcyon Networks**. The 1.6T product generation is at the leading edge of optical transceiver speeds, and demand for such components typically runs ahead of mature, scaled supply. Combined with the Q3 2026 demand-exceeds-supply statement, this customer relationship likely contributes to utilization pressure.\n\n---\n\n## Supporting Industry Context (from Related Observations)\n\nWhile not specific to Aurora Optics, two industry data points in the retrieved set are consistent with broader photonic-component supply tightness:\n\n| Company | Component | Observation | Period |\n|---|---|---|---|\n| Borealis Photonics Ltd. | Silicon photonics modules | Lead times of **52 weeks** | As of August 1, 2026 |\n| Cirrus Semiconductor | Gallium arsenide (GaAs) substrates | Output **doubled** in 2025 | 2025 |\n\nBorealis's 52-week lead times indicate **severe capacity tightness** across the photonic module market, which is consistent with Aurora's own demand-supply imbalance. Cirrus's substrate expansion suggests upstream materials suppliers were responding to elevated downstream demand, indirectly corroborating a tight photonic-component supply environment.\n\n---\n\n## Caveats and Limitations\n\nSeveral points should temper the conclusion:\n\n- The data does **not** state the **utilization rate** of the Tucson fab, so it is not possible to confirm whether the 40,000 wafers/year capacity is fully consumed.\n- The retrieved observations do **not** quantify the **size of the supply gap** in Q3 2026 (i.e., how far demand exceeds supply).\n- The data does not record Aurora's **post-Penang transition capacity**, so future constraint cannot be assessed.\n- The Tucson closure timeline (by December 2026) overlaps with the Q3 2026 constraint observation, meaning the constraint may be exacerbated by the announced transition rather than reflecting steady-state operations.\n\n---\n\n## Synthesis\n\nTaken together, the retrieved evidence supports the conclusion that **Aurora Optics is capacity constrained as of Q3 2026**. The primary direct evidence is the company's own statement that demand exceeded supply in the 800G optical module market during that quarter. Supporting factors \u2014 a single InP fab with a fixed 40,000-wafer annual capacity, the announced relocation of laser production to a Penang contract manufacturer, and supply of leading-edge 1.6T lasers to Halcyon Networks \u2014 are all consistent with this conclusion. Industry context from Borealis Photonics (52-week lead times) and Cirrus Semiconductor (doubled GaAs output in 2025) reinforces that broader photonic-component supply tightness was a feature of the 2026 market environment.",
+      "based_on": null,
+      "structured_output": {
+        "constrained": true,
+        "evidence": [
+          "In Q3 2026, demand exceeded supply for 800G optical modules, the most direct statement of supply constraint in the retrieved data.",
+          "Aurora Optics operates a single indium phosphide (InP) wafer fab in Tucson, Arizona, with stated capacity of 40,000 wafers per year, creating a structural ceiling on production.",
+          "Aurora Optics announced the closure of its Tucson, Arizona fab by December 2026, with laser production relocating to a contract manufacturer in Penang, Malaysia, which may temporarily reduce production capacity during the transition.",
+          "Reliance on a contract manufacturer introduces dependencies on a third party's capacity and ramp-up timeline.",
+          "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks; the 1.6T product generation is at the leading edge of optical transceiver speeds, and demand typically runs ahead of mature, scaled supply.",
+          "Industry context supports broader photonic-component supply tightness: Borealis Photonics reported silicon photonics module lead times of 52 weeks as of August 1, 2026, and Cirrus Semiconductor doubled its GaAs substrate output in 2025, indicating upstream suppliers were responding to elevated downstream demand."
+        ]
+      },
+      "structured_output_error": null,
+      "usage": {
+        "input_tokens": 12085,
+        "output_tokens": 1844,
+        "total_tokens": 13929,
+        "cached_tokens": 0,
+        "thoughts_tokens": 0
+      },
+      "trace": null
+    }
+  }
+}

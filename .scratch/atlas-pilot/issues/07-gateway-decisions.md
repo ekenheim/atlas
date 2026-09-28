@@ -24,3 +24,13 @@ Inputs from ticket 01 to weigh:
 - the worker-slot hang (#4763)
 
 Record spec deviations in `docs/decisions.md`.
+
+**Inputs from ticket 06 (`docs/hindsight-feature-matrix.md`):**
+
+- two-hop provenance via `source_memory_ids` and preserved `metadata.source_version_id`
+- chunk-sourced reflect content can't be resolved to a memory
+- templates exist (so use a versioned template, not the config API)
+- strict tag modes work
+- one operation per batch retain
+- the alternative listing routes
+- no union types in schemas

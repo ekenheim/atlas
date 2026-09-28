@@ -1,0 +1,35 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-import-1790615064/operations/d5cff457-d420-4c90-baef-b3c5937a380c"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "d5cff457-d420-4c90-baef-b3c5937a380c",
+      "status": "completed",
+      "operation_type": "import_documents",
+      "created_at": "2026-09-28T17:07:41.147489+00:00",
+      "updated_at": "2026-09-28T17:07:43.501127+00:00",
+      "completed_at": "2026-09-28T17:07:43.501127+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "facts_imported": 3,
+        "documents_skipped": 0,
+        "documents_imported": 2,
+        "observations_skipped": 0,
+        "skipped_document_ids": [],
+        "observations_imported": 0,
+        "remapped_document_ids": {},
+        "mental_models_imported": 0,
+        "knowledge_pages_imported": 0
+      },
+      "details": null,
+      "child_operations": null,
+      "task_payload": null
+    }
+  }
+}

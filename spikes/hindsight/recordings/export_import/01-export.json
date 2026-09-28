@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-fm-1790615064/document-transfer/export",
+    "query": {
+      "document_id": [
+        "srcv:aurora-v1",
+        "srcv:aurora-v2"
+      ]
+    },
+    "body": null
+  },
+  "response": {
+    "status": 202,
+    "seconds": 0.01,
+    "body": {
+      "operation_id": "2f663214-2010-470b-bf7b-df7da5501a06",
+      "status": "pending"
+    }
+  }
+}

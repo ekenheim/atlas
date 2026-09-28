@@ -1,0 +1,46 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/operations/fc94b23b-3d51-4c36-8af4-be258c6f21ec"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "fc94b23b-3d51-4c36-8af4-be258c6f21ec",
+      "status": "completed",
+      "operation_type": "refresh_mental_model",
+      "created_at": "2026-09-28T17:07:10.771709+00:00",
+      "updated_at": "2026-09-28T17:07:35.635129+00:00",
+      "completed_at": "2026-09-28T17:07:35.635129+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "name": "Aurora Optics overview",
+        "outcome": "content_written",
+        "content_len": 2320,
+        "failure_reason": null,
+        "based_on_counts": {
+          "world": 0,
+          "opinion": 0,
+          "directives": 0,
+          "experience": 0,
+          "observation": 4,
+          "mental-models": 0
+        },
+        "mental_model_id": "mm-e7d52ba02e8243a199cd5c815c5129d6",
+        "delta_ops_applied": 0,
+        "delta_ops_skipped": 0,
+        "populated_content": true
+      },
+      "details": {
+        "operation_type": "refresh_mental_model",
+        "outcome": "content_written",
+        "failure_reason": null
+      },
+      "child_operations": null,
+      "task_payload": null
+    }
+  }
+}

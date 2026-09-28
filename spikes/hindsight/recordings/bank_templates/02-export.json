@@ -1,0 +1,122 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/export",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "version": "1",
+      "bank": {
+        "reflect_mission": "Form source-grounded syntheses; distinguish facts from claims; seek disconfirmation.",
+        "retain_mission": "Extract economically material facts about capacity, supply agreements, customer dependencies and manufacturing constraints. Keep stated and inferred facts distinct.",
+        "retain_extraction_mode": null,
+        "retain_custom_instructions": null,
+        "retain_chunk_size": null,
+        "retain_structured_chunk_size": null,
+        "enable_observations": null,
+        "observations_mission": null,
+        "enable_text_search": null,
+        "enable_temporal_retrieval": null,
+        "enable_graph_retrieval": null,
+        "enable_reranking": null,
+        "disposition_skepticism": 5,
+        "disposition_literalism": 5,
+        "disposition_empathy": null,
+        "entity_labels": null,
+        "entities_allow_free_form": null,
+        "retain_default_strategy": null,
+        "retain_strategies": null,
+        "retain_chunk_batch_size": null,
+        "retain_max_attachments_per_chunk": null,
+        "mcp_enabled_tools": null,
+        "consolidation_llm_batch_size": null,
+        "consolidation_source_facts_max_tokens": null,
+        "consolidation_source_facts_max_tokens_per_observation": null,
+        "max_observations_per_scope": null,
+        "observation_scope_limits": null,
+        "reflect_source_facts_max_tokens": null,
+        "knowledge_page_default_trigger": null,
+        "reflect_default_options": null,
+        "mental_model_min_refresh_interval_seconds": null,
+        "llm_gemini_safety_settings": null,
+        "recall_budget_function": null,
+        "recall_budget_fixed_low": null,
+        "recall_budget_fixed_mid": null,
+        "recall_budget_fixed_high": null,
+        "recall_budget_adaptive_low": null,
+        "recall_budget_adaptive_mid": null,
+        "recall_budget_adaptive_high": null,
+        "recall_budget_min": null,
+        "recall_budget_max": null,
+        "audit_log_enabled": null,
+        "store_document_text": null,
+        "enable_auto_consolidation": null,
+        "consolidation_max_memories_per_round": null,
+        "consolidation_llm_parallelism": null,
+        "recall_include_chunks": null,
+        "recall_max_tokens": null,
+        "recall_chunks_max_tokens": null,
+        "memory_defense": null
+      },
+      "mental_models": [
+        {
+          "id": "mm-e7d52ba02e8243a199cd5c815c5129d6",
+          "name": "Aurora Optics overview",
+          "source_query": "Summarize what is documented about Aurora Optics' capacity and customers.",
+          "tags": [],
+          "max_tokens": 4096,
+          "trigger": {
+            "reflect_search_observations_max_tokens": null,
+            "reflect_search_observations_include_entities": null,
+            "mode": "delta",
+            "refresh_after_consolidation": true,
+            "refresh_cron": null,
+            "min_refresh_interval_seconds": null,
+            "fact_types": [
+              "observation"
+            ],
+            "exclude_mental_models": true,
+            "exclude_mental_model_ids": null,
+            "tags_match": null,
+            "tag_groups": null,
+            "include_chunks": null,
+            "recall_max_tokens": null,
+            "recall_chunks_max_tokens": null,
+            "response_schema": null,
+            "keep_trace": false
+          }
+        },
+        {
+          "id": "theme-status",
+          "name": "Theme status",
+          "source_query": "What are the documented developments in optical module supply and demand, with supporting and opposing evidence?",
+          "tags": [],
+          "max_tokens": 2048,
+          "trigger": {
+            "reflect_search_observations_max_tokens": null,
+            "reflect_search_observations_include_entities": null,
+            "mode": "full",
+            "refresh_after_consolidation": false,
+            "refresh_cron": null,
+            "min_refresh_interval_seconds": 3600,
+            "fact_types": null,
+            "exclude_mental_models": false,
+            "exclude_mental_model_ids": null,
+            "tags_match": null,
+            "tag_groups": null,
+            "include_chunks": null,
+            "recall_max_tokens": null,
+            "recall_chunks_max_tokens": null,
+            "response_schema": null,
+            "keep_trace": false
+          }
+        }
+      ],
+      "directives": null
+    }
+  }
+}

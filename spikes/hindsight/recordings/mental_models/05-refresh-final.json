@@ -1,0 +1,46 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/operations/5f668ab5-04e1-429c-a716-0e4cb8acc76b"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "5f668ab5-04e1-429c-a716-0e4cb8acc76b",
+      "status": "completed",
+      "operation_type": "refresh_mental_model",
+      "created_at": "2026-09-28T17:06:43.625143+00:00",
+      "updated_at": "2026-09-28T17:07:07.719491+00:00",
+      "completed_at": "2026-09-28T17:07:07.719491+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "name": "Theme status",
+        "outcome": "content_written",
+        "content_len": 737,
+        "failure_reason": null,
+        "based_on_counts": {
+          "world": 0,
+          "opinion": 0,
+          "directives": 0,
+          "experience": 0,
+          "observation": 6,
+          "mental-models": 0
+        },
+        "mental_model_id": "theme-status",
+        "delta_ops_applied": 0,
+        "delta_ops_skipped": 0,
+        "populated_content": true
+      },
+      "details": {
+        "operation_type": "refresh_mental_model",
+        "outcome": "content_written",
+        "failure_reason": null
+      },
+      "child_operations": null,
+      "task_payload": null
+    }
+  }
+}

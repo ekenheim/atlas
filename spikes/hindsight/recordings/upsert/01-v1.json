@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-fm-1790615064/memories",
+    "query": null,
+    "body": {
+      "items": [
+        {
+          "content": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year. Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks.",
+          "document_id": "doc-upsert",
+          "timestamp": "2026-01-10T00:00:00Z",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "metadata": {
+            "source_version_id": "e6c7d101-5af9-470c-92cd-57a8e3b9acb3",
+            "fixture": "feature-check"
+          },
+          "tags": [
+            "company:aurora"
+          ]
+        }
+      ],
+      "async": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "success": true,
+      "bank_id": "atlas-fm-1790615064",
+      "items_count": 1,
+      "async": true,
+      "operation_id": "a85809f7-a38e-4879-9524-69a522ca68ec",
+      "operation_ids": null,
+      "usage": null
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-fm-1790615064/reflect",
+    "query": null,
+    "body": {
+      "query": "Is Aurora Optics capacity constrained? Cite evidence.",
+      "include": {
+        "facts": {}
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 27.56,
+    "body": {
+      "text": "## Is Aurora Optics Capacity Constrained?\n\nThe evidence is mixed: Aurora Optics shows clear demand-side signals of supply tightness, but its own physical capacity profile points in the opposite direction. Below is a synthesis of what the retrieved data directly records, what can reasonably be inferred, and where the evidence stops.\n\n---\n\n### Evidence Pointing to Supply Constraint (Demand-Side)\n\n**1. Shift from oversupply to supply constraint in 800G optical modules**\n\nAurora Optics itself framed this transition:\n\n- **March 2024:** \"weak demand and high inventories\" for 800G optical modules\n- **Q3 2026 (Jul\u2013Sep 2026, mentioned 2026-08-20):** \"demand exceeded supply\"\n\nThis is the strongest direct statement that, by Aurora's own admission, its 800G optical module business moved into a supply-constrained regime within roughly a 2.5-year window. A company reporting that demand exceeds supply is, by definition, capacity constrained for that product line in that period.\n\n**2. Broader photonics supply tightness affecting complementary products**\n\nWhile this is not Aurora-specific, it is relevant context for a customer or competitor mapping:\n\n- **Borealis Photonics Ltd. (2026-08-01):** \"lead times of 52 weeks for its silicon photonics modules \u2026 indicating significant supply constraint and capacity tightness\"\n- **Cirrus Semiconductor (2025, mentioned 2026-08-02):** \"gallium arsenide substrate output doubled in 2025, indicating significant capacity expansion\"\n\nThe Borealis data point suggests the constraint environment extends beyond 800G modules to silicon photonics generally. The Cirrus expansion is a counter-signal \u2014 at least one upstream substrate supplier is adding capacity \u2014 which suggests material supply is not the binding bottleneck.\n\n---\n\n### Evidence Pointing Away from Physical Capacity Constraint (Supply-Side)\n\n**1. The Tucson fab is being closed, not expanded**\n\nThe retrieved data records:\n\n- Aurora Optics operates an **indium phosphide wafer fab in Tucson, Arizona** with stated capacity of **40,000 wafers per year** (mentioned 2026-01-10).\n- Aurora announced **closure of the Tucson fab by December 2026** and **relocation of laser production to a contract manufacturer in Penang, Malaysia** (announced 2026-09-01).\n\nA company shutting down its primary wafer fab is not behaving like a producer that needs more capacity \u2014 it is behaving like a producer rationalizing or relocating capacity. This is a meaningful disconfirming signal against a straightforward \"we need more physical capacity\" reading.\n\n**2. Production is being shifted to a contract manufacturer**\n\nMoving laser production to a Penang-based contract manufacturer is consistent with outsourcing rather than capex-driven capacity expansion. The retrieved data does not state the Penang contract manufacturer's capacity, output, or ramp timeline, so any claim about whether the new arrangement increases or decreases effective capacity would be speculation.\n\n---\n\n### Reconciling the Two Signals\n\nThe two sets of evidence can be made consistent if read carefully:\n\n| Signal | What it indicates | Caveat |\n|---|---|---|\n| Q3 2026 \"demand exceeded supply\" for 800G modules | Demand-side tightness in Aurora's 800G optical module business | Aurora's own framing; no quantification of the gap |\n| Tucson fab closing by Dec 2026 | Aurora is shrinking or relocating its physical footprint | Could be margin/rationalization-driven rather than demand-driven |\n| Laser production moving to Penang contract manufacturer | Shift to outsourced production model | New capacity level not stated in retrieved data |\n| 40,000 wafers/year InP fab capacity | Stated installed capacity baseline | No utilization rate stated |\n| Borealis 52-week lead times (Aug 2026) | Industry-wide photonics tightness | Different company, different product (silicon photonics modules) |\n| Cirrus GaAs substrate doubling (2025) | Upstream substrate supply loosening | Not the binding constraint for 1.6T lasers |\n\n**Inference (not a stated fact):** The most coherent reading is that Aurora's reported \"demand exceeds supply\" in 800G modules in Q3 2026 reflects **demand strength against a fixed or contracting production footprint** \u2014 not a greenfield capacity shortfall. The Tucson closure announcement (Sept 2026) comes during the same quarter Aurora is reporting supply tightness, which suggests the constraint may be driving or coinciding with the outsourcing decision rather than being solved by it.\n\n---\n\n### Caveats and What the Data Does Not Record\n\nThe retrieved data does **not** contain:\n\n- Quantitative figures for the Q3 2026 demand\u2013supply gap in 800G modules\n- Utilization rates at the Tucson fab in 2026\n- Capacity figures for the Penang contract manufacturer\n- Timeline for when relocated production will reach prior or new output levels\n- Whether 1.6T transceiver laser supply (Aurora supplies these to Halcyon Networks, mentioned 2026-01-10) is constrained \u2014 this is a different product from the 800G modules cited in the constraint statement\n- Any explicit Aurora statement that it is \"capacity constrained\" as a corporate-level claim\n\nAny specific number, percentage, or timeline beyond what is quoted above would be invention, not inference.\n\n---\n\n### Bottom Line\n\n**Yes, Aurora Optics is reporting capacity constraint in its 800G optical module business as of Q3 2026**, based on its own statement that demand exceeded supply in that quarter \u2014 a reversal from the March 2024 condition of weak demand and high inventories. However, the company's concurrent decision to close its Tucson, Arizona indium phosphide wafer fab and outsource laser production to a Penang contract manufacturer indicates the constraint is being addressed through **relocation and outsourcing rather than capacity expansion**. Whether the new production arrangement resolves the constraint, and on what timeline, is not stated in the retrieved data.",
+      "based_on": {
+        "memories": [
+          {
+            "id": "2839635b-b362-4866-a759-7805dea01eb9",
+            "text": "Aurora Optics reported weak demand and high inventories for 800G optical modules in March 2024, then stated demand exceeded supply in Q3 2026, reflecting a shift from oversupply to supply constraint in that market.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-07-01T00:00:00+00:00",
+            "occurred_end": "2026-09-30T00:00:00+00:00"
+          },
+          {
+            "id": "1472d75a-8271-4676-a80d-47018130a25b",
+            "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": null,
+            "occurred_end": null
+          },
+          {
+            "id": "7061e39c-41b0-4f50-bf92-22c259044955",
+            "text": "Aurora Optics Inc. announced closure of its Tucson, Arizona fab by December 2026 and relocation of laser production to a contract manufacturer in Penang, Malaysia.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-09-01T00:00:00+00:00",
+            "occurred_end": "2026-12-31T00:00:00+00:00"
+          },
+          {
+            "id": "94dc45e4-5469-4a2e-97ff-8e068f68678f",
+            "text": "Aurora Optics Inc. supplies 1.6T transceiver lasers to Halcyon Networks.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": null,
+            "occurred_end": null
+          },
+          {
+            "id": "28f78f7f-2bd7-4e42-acda-695c12b35333",
+            "text": "Borealis Photonics Ltd. reported lead times of 52 weeks for its silicon photonics modules as of August 1, 2026, indicating significant supply constraint and capacity tightness that could affect customers dependent on these components.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-08-01T00:00:00+00:00",
+            "occurred_end": "2026-08-01T00:00:00+00:00"
+          },
+          {
+            "id": "d8b9f311-b009-4be9-acc9-7fda758a85eb",
+            "text": "Cirrus Semiconductor stated its gallium arsenide substrate output doubled in 2025, indicating significant capacity expansion in semiconductor materials.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2025-01-01T00:00:00+00:00",
+            "occurred_end": "2025-12-31T23:59:59+00:00"
+          }
+        ],
+        "mental_models": [],
+        "directives": []
+      },
+      "structured_output": null,
+      "structured_output_error": null,
+      "usage": {
+        "input_tokens": 10600,
+        "output_tokens": 1936,
+        "total_tokens": 12536,
+        "cached_tokens": 0,
+        "thoughts_tokens": 0
+      },
+      "trace": null
+    }
+  }
+}

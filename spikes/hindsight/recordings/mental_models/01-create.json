@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-fm-1790615064/mental-models",
+    "query": null,
+    "body": {
+      "id": "theme-status",
+      "name": "Theme status",
+      "source_query": "What are the documented developments in optical module supply and demand, with supporting and opposing evidence?",
+      "trigger": {
+        "refresh_after_consolidation": false,
+        "min_refresh_interval_seconds": 3600
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.1,
+    "body": {
+      "mental_model_id": "theme-status",
+      "operation_id": "7f54c478-5119-43a4-8a8d-e33006dd7e29"
+    }
+  }
+}

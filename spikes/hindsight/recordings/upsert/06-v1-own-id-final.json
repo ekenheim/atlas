@@ -1,0 +1,41 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/operations/c4f053b8-8a0e-40a7-9b4a-b34d362ea34a"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "c4f053b8-8a0e-40a7-9b4a-b34d362ea34a",
+      "status": "completed",
+      "operation_type": "batch_retain",
+      "created_at": "2026-09-28T17:04:50.828877+00:00",
+      "updated_at": "2026-09-28T17:04:58.428231+00:00",
+      "completed_at": "2026-09-28T17:04:58.428231+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "is_parent": true,
+        "document_id": "srcv:aurora-v1",
+        "items_count": 1,
+        "total_tokens": 48,
+        "unit_ids_count": 2,
+        "num_sub_batches": 1,
+        "extraction_errors_count": 0
+      },
+      "details": null,
+      "child_operations": [
+        {
+          "operation_id": "bb038442-882f-4680-a252-afe950aff78e",
+          "status": "completed",
+          "sub_batch_index": 1,
+          "items_count": 1,
+          "error_message": null
+        }
+      ],
+      "task_payload": null
+    }
+  }
+}

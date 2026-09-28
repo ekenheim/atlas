@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/llm-requests/stats",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.0,
+    "body": {
+      "bank_id": "atlas-fm-1790615064",
+      "period": "7d",
+      "trunc": "day",
+      "start": "2026-09-21T17:07:44.189847+00:00",
+      "buckets": [
+        {
+          "time": "2026-09-28T00:00:00+00:00",
+          "statuses": {
+            "success": 31
+          },
+          "total": 31,
+          "tokens": {
+            "input": 127585,
+            "output": 11618,
+            "cached": 22211,
+            "total": 139203
+          }
+        }
+      ]
+    }
+  }
+}

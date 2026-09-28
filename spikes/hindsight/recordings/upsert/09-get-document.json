@@ -1,0 +1,43 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/documents/doc-upsert",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "id": "doc-upsert",
+      "bank_id": "atlas-fm-1790615064",
+      "original_text": "Aurora Optics Inc. announced it will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia.",
+      "content_hash": "3f70f27ad09f017be0509dd91b632ee00277abfd7fde6b294f54a41aed0af09e",
+      "created_at": "2026-09-28T17:04:46.465646+00:00",
+      "updated_at": "2026-09-28T17:04:50.247983+00:00",
+      "memory_unit_count": 1,
+      "nodes_by_fact_type": {
+        "world": 1,
+        "experience": 0,
+        "observation": 1
+      },
+      "tags": [
+        "company:aurora"
+      ],
+      "document_metadata": {
+        "fixture": "feature-check",
+        "source_version_id": "99b8ff26-6045-4cd6-8623-1816ee6cd2bd"
+      },
+      "retain_params": {
+        "context": "Synthetic Atlas feature-check document (fictional companies).",
+        "metadata": {
+          "fixture": "feature-check",
+          "source_version_id": "99b8ff26-6045-4cd6-8623-1816ee6cd2bd"
+        },
+        "event_date": "2026-09-01T00:00:00+00:00"
+      },
+      "observation_scopes": null,
+      "attachments": null
+    }
+  }
+}

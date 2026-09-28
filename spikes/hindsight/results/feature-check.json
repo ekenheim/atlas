@@ -1,0 +1,325 @@
+{
+  "bank": "atlas-fm-1790615064",
+  "evidence": {
+    "bank_config": {
+      "create_status": 200,
+      "config_status": 200,
+      "config_keys": [
+        "bank_id",
+        "config",
+        "overrides"
+      ]
+    },
+    "retain_modes": {
+      "sync_status": 200,
+      "sync_response_keys": [
+        "async",
+        "bank_id",
+        "items_count",
+        "operation_id",
+        "operation_ids",
+        "success",
+        "usage"
+      ],
+      "sync_ok": true,
+      "async_submit": 200,
+      "async_final": "completed",
+      "batch_submit": 200,
+      "batch_final": "completed",
+      "batch_ops_returned": "b77ff7af-0eef-4f06-a368-49bd408313e1",
+      "memories_total": 6
+    },
+    "upsert": {
+      "v1_facts": 2,
+      "v1_mentions_40000": 1,
+      "after_v2_facts": 1,
+      "after_v2_mentions_40000": 0,
+      "after_v2_mentions_penang": 1,
+      "own_ids_v1_facts": 2,
+      "own_ids_v2_facts": 1,
+      "document_status": 200
+    },
+    "operations": {
+      "list_status": 200,
+      "count": 20,
+      "statuses": {
+        "completed": 20
+      },
+      "fields": [
+        "created_at",
+        "details",
+        "document_id",
+        "error_message",
+        "filename",
+        "id",
+        "items_count",
+        "mental_model_id",
+        "next_retry_at",
+        "progress",
+        "retry_count",
+        "status",
+        "task_type",
+        "updated_at"
+      ]
+    },
+    "tags": {
+      "any": {
+        "status": 200,
+        "results": 12,
+        "by_company": {
+          "aurora": 10,
+          "borealis": 0,
+          "cirrus": 2
+        }
+      },
+      "any_strict": {
+        "status": 200,
+        "results": 10,
+        "by_company": {
+          "aurora": 10,
+          "borealis": 0,
+          "cirrus": 0
+        }
+      },
+      "all_strict": {
+        "status": 200,
+        "results": 10,
+        "by_company": {
+          "aurora": 10,
+          "borealis": 0,
+          "cirrus": 0
+        }
+      },
+      "exact": {
+        "status": 200,
+        "results": 10,
+        "by_company": {
+          "aurora": 10,
+          "borealis": 0,
+          "cirrus": 0
+        }
+      },
+      "no_filter": {
+        "status": 200,
+        "results": 14,
+        "by_company": {
+          "aurora": 10,
+          "borealis": 2,
+          "cirrus": 2
+        }
+      }
+    },
+    "temporal": {
+      "status": 200,
+      "results": 14,
+      "future_dated_results": 7,
+      "first_results": [
+        "aurora optics reported weak demand and high inventories for 800g optical modules in march 2024, then stated demand excee",
+        "aurora optics stated demand for 800g optical modules exceeded supply in q3 2026. | when: august 2026 | involving: aurora",
+        "aurora optics stated demand for 800g optical modules was weak and inventories were high. | when: march 2024 | involving:",
+        "borealis photonics ltd. reported lead times of 52 weeks for its silicon photonics modules as of august 1, 2026, indicati",
+        "borealis photonics ltd. reported that lead times for its silicon photonics modules rose to 52 weeks. | when: as of augus"
+      ],
+      "hard_filter": false
+    },
+    "reflect": {
+      "status": 200,
+      "based_on_keys": [
+        "directives",
+        "memories",
+        "mental_models"
+      ],
+      "cited": 6,
+      "cited_fact_fields": [
+        "context",
+        "id",
+        "occurred_end",
+        "occurred_start",
+        "text",
+        "type"
+      ],
+      "resolved_memory": {
+        "status": 200,
+        "fields": [
+          "chunk_id",
+          "context",
+          "date",
+          "document_id",
+          "edited_at",
+          "entities",
+          "history",
+          "id",
+          "invalidated_at",
+          "invalidation_reason",
+          "mentioned_at",
+          "metadata",
+          "observation_scopes",
+          "occurred_end",
+          "occurred_start",
+          "source_memories",
+          "source_memory_ids",
+          "state",
+          "tags",
+          "text",
+          "type"
+        ],
+        "document_id": null
+      },
+      "structured_status": 200,
+      "structured_output": {
+        "constrained": true,
+        "evidence": [
+          "In Q3 2026, demand exceeded supply for 800G optical modules, the most direct statement of supply constraint in the retrieved data.",
+          "Aurora Optics operates a single indium phosphide (InP) wafer fab in Tucson, Arizona, with stated capacity of 40,000 wafers per year, creating a structural ceiling on production.",
+          "Aurora Optics announced the closure of its Tucson, Arizona fab by December 2026, with laser production relocating to a contract manufacturer in Penang, Malaysia, which may temporarily reduce production capacity during the transition.",
+          "Reliance on a contract manufacturer introduces dependencies on a third party's capacity and ramp-up timeline.",
+          "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks; the 1.6T product generation is at the leading edge of optical transceiver speeds, and demand typically runs ahead of mature, scaled supply.",
+          "Industry context supports broader photonic-component supply tightness: Borealis Photonics reported silicon photonics module lead times of 52 weeks as of August 1, 2026, and Cirrus Semiconductor doubled its GaAs substrate output in 2025, indicating upstream suppliers were responding to elevated downstream demand."
+        ]
+      },
+      "structured_output_error": null,
+      "union_type_status": 500
+    },
+    "observations": {
+      "consolidate_status": 200,
+      "consolidate_final": "completed",
+      "observations": 0,
+      "sample": []
+    },
+    "mental_models": {
+      "exception": "AttributeError(\"'list' object has no attribute 'get'\")"
+    },
+    "knowledge_pages": {
+      "create_status": 201,
+      "create_response_keys": [
+        "mental_model_id",
+        "operation_id",
+        "page_id"
+      ],
+      "create_final": "completed",
+      "list_status": 405,
+      "pages": 1
+    },
+    "bank_templates": {
+      "schema_status": 200,
+      "export_status": 200,
+      "manifest_keys": [
+        "bank",
+        "directives",
+        "mental_models",
+        "version"
+      ],
+      "dry_run_status": 200,
+      "dry_run": {
+        "bank_id": "atlas-fm-template-1790615064",
+        "config_applied": true,
+        "mental_models_created": [
+          "mm-e7d52ba02e8243a199cd5c815c5129d6",
+          "theme-status"
+        ],
+        "mental_models_updated": [],
+        "directives_created": [],
+        "directives_updated": [],
+        "operation_ids": [],
+        "dry_run": true
+      },
+      "import_status": 200,
+      "import": {
+        "bank_id": "atlas-fm-template-1790615064",
+        "config_applied": true,
+        "mental_models_created": [
+          "mm-e7d52ba02e8243a199cd5c815c5129d6",
+          "theme-status"
+        ],
+        "mental_models_updated": [],
+        "directives_created": [],
+        "directives_updated": [],
+        "operation_ids": [
+          "4c30fe3c-899c-4689-8d33-9901b6d7361c",
+          "aae7fb0d-bc97-44b3-aab8-8480c1c8c5e6"
+        ],
+        "dry_run": false
+      },
+      "imported_config_has_retain_mission": true
+    },
+    "export_import": {
+      "export_status": 202,
+      "export_final": "completed",
+      "bytes": 2090,
+      "download_status": 200,
+      "import_status": 202,
+      "import_final": "completed",
+      "import_error": null,
+      "imported_memories": 3,
+      "import_llm_requests": []
+    },
+    "llm_requests": {
+      "status": 200,
+      "buckets": [
+        {
+          "time": "2026-09-28T00:00:00+00:00",
+          "statuses": {
+            "success": 31
+          },
+          "total": 31,
+          "tokens": {
+            "input": 127585,
+            "output": 11618,
+            "cached": 22211,
+            "total": 139203
+          }
+        }
+      ]
+    }
+  },
+  "followup": {
+    "observations_via_memories_list": {
+      "status": 200,
+      "count": 6
+    },
+    "provenance_two_hop": {
+      "observation_document_id": null,
+      "source_hops": [
+        {
+          "status": 200,
+          "type": "world",
+          "document_id": "doc-upsert",
+          "chunk_id": "atlas-fm-1790615064_doc-upsert_0",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "99b8ff26-6045-4cd6-8623-1816ee6cd2bd"
+          }
+        },
+        {
+          "status": 200,
+          "type": "world",
+          "document_id": "srcv:aurora-v2",
+          "chunk_id": "atlas-fm-1790615064_srcv:aurora-v2_0",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "0681807b-ba98-4eb7-a341-2f84ba0e1aa6"
+          }
+        }
+      ]
+    },
+    "knowledge_tree": {
+      "status": 200,
+      "body": "{'roots': [{'id': 'kp-ee83defab0b7479cbae5d18afa17a052', 'kind': 'page', 'name': 'Aurora Optics overview', 'parent_id': None, 'mental_model_id': 'mm-e7d52ba02e8243a199cd5c815c5129d6', 'managed': False, 'description': \"Summarize what is documented about Aurora Optics' capacity and customers.\", 'tags': [], 'timestamp': '2026-09-28T17:07:35.627703+00:00', 'is_stale': False, 'trigger': {'reflect_searc"
+    },
+    "knowledge_page": {
+      "status": 200,
+      "keys": [
+        "body",
+        "description",
+        "id",
+        "markdown",
+        "name",
+        "tags",
+        "timestamp",
+        "type"
+      ],
+      "content_chars": 0
+    },
+    "mental_model_history_entries": 2
+  }
+}

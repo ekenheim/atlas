@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-fm-1790615064/mental-models/theme-status/refresh",
+    "query": null,
+    "body": {}
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "operation_id": "5f668ab5-04e1-429c-a716-0e4cb8acc76b",
+      "status": "queued"
+    }
+  }
+}

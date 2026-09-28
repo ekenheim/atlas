@@ -10,3 +10,10 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **Embeddings (§6.1).** Reuse `qwen3-embedding-0.6b` via LiteLLM (1024 dims), the same as the shared Hindsight.
 - **Release-driven deployment (refines §12, Appendix A).** The app lives in its own GitHub repo under `github.com/ekenheim`. Versioned releases publish images to GHCR, and the home-ops deployment pins a released version and is bumped per release, never tracking `main`. Home-ops holds only manifests.
 - **Issue tracking.** Local markdown under `.scratch/`, permanently (see `docs/agents/issue-tracker.md`).
+
+## 2026-09-28: Hindsight 0.10.1 feature matrix (`docs/hindsight-feature-matrix.md`)
+
+- **Provenance resolution (refines §6.4):** reflect citations carry no `document_id`. Atlas resolves observations through `source_memory_ids` to world facts, then maps each world fact to its Source Version via `document_id` (`srcv:<sha256>`) and the preserved `metadata.source_version_id`. Content that reflect draws from raw chunks, with no memory ID, is unverified until matched to an archived span.
+- **Bank configuration uses versioned templates (§6.2):** 0.10.1 supports template export, dry-run and import, so the config-API fallback isn't needed.
+- **Response schemas avoid union types:** 0.10.1 returns 500 on `"type": [..., "null"]`.
+- **Worker slots ≥ 3:** consolidation reserves 2; pacing uses `HINDSIGHT_API_LLM_MAX_CONCURRENT`.

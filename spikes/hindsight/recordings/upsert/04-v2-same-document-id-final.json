@@ -1,0 +1,41 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/operations/13370da4-e809-42c2-8221-6455f310411a"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "13370da4-e809-42c2-8221-6455f310411a",
+      "status": "completed",
+      "operation_type": "batch_retain",
+      "created_at": "2026-09-28T17:04:47.788439+00:00",
+      "updated_at": "2026-09-28T17:04:50.297551+00:00",
+      "completed_at": "2026-09-28T17:04:50.297551+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "is_parent": true,
+        "document_id": "doc-upsert",
+        "items_count": 1,
+        "total_tokens": 34,
+        "unit_ids_count": 1,
+        "num_sub_batches": 1,
+        "extraction_errors_count": 0
+      },
+      "details": null,
+      "child_operations": [
+        {
+          "operation_id": "d2ae34ab-213e-4a6a-ad51-38385a994667",
+          "status": "completed",
+          "sub_batch_index": 1,
+          "items_count": 1,
+          "error_message": null
+        }
+      ],
+      "task_payload": null
+    }
+  }
+}

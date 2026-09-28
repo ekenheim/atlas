@@ -1,0 +1,30 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/operations/2f663214-2010-470b-bf7b-df7da5501a06"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "2f663214-2010-470b-bf7b-df7da5501a06",
+      "status": "completed",
+      "operation_type": "export_documents",
+      "created_at": "2026-09-28T17:07:38.098919+00:00",
+      "updated_at": "2026-09-28T17:07:38.574393+00:00",
+      "completed_at": "2026-09-28T17:07:38.574393+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "filename": "atlas-fm-1790615064-documents.zip",
+        "byte_size": 2090,
+        "storage_key": "tenants/public/banks/atlas-fm-1790615064/exports/5268b171-869e-4d40-8f9d-66b52f758382/transfer.zip",
+        "download_url": "/v1/default/files/download/tenants/public/banks/atlas-fm-1790615064/exports/5268b171-869e-4d40-8f9d-66b52f758382/transfer.zip"
+      },
+      "details": null,
+      "child_operations": null,
+      "task_payload": null
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-fm-import-1790615064/document-transfer",
+    "query": null,
+    "body": "<multipart upload>"
+  },
+  "response": {
+    "status": 202,
+    "seconds": 0.02,
+    "body": {
+      "operation_id": "d5cff457-d420-4c90-baef-b3c5937a380c",
+      "status": "pending"
+    }
+  }
+}

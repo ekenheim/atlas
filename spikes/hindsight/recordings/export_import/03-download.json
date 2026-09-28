@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/files/download/tenants/public/banks/atlas-fm-1790615064/exports/5268b171-869e-4d40-8f9d-66b52f758382/transfer.zip",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.0,
+    "body": {
+      "_binary_bytes": 2090,
+      "_content_type": "application/zip"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/knowledge-base/tree",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "roots": [
+        {
+          "id": "kp-ee83defab0b7479cbae5d18afa17a052",
+          "kind": "page",
+          "name": "Aurora Optics overview",
+          "parent_id": null,
+          "mental_model_id": "mm-e7d52ba02e8243a199cd5c815c5129d6",
+          "managed": false,
+          "description": "Summarize what is documented about Aurora Optics' capacity and customers.",
+          "tags": [],
+          "timestamp": "2026-09-28T17:07:35.627703+00:00",
+          "is_stale": false,
+          "trigger": {
+            "reflect_search_observations_max_tokens": null,
+            "reflect_search_observations_include_entities": null,
+            "mode": "delta",
+            "refresh_after_consolidation": true,
+            "refresh_cron": null,
+            "min_refresh_interval_seconds": null,
+            "fact_types": [
+              "observation"
+            ],
+            "exclude_mental_models": true,
+            "exclude_mental_model_ids": null,
+            "tags_match": null,
+            "tag_groups": null,
+            "include_chunks": null,
+            "recall_max_tokens": null,
+            "recall_chunks_max_tokens": null,
+            "response_schema": null,
+            "keep_trace": false
+          },
+          "children": []
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-fm-1790615064/memories/2839635b-b362-4866-a759-7805dea01eb9",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "id": "2839635b-b362-4866-a759-7805dea01eb9",
+      "text": "Aurora Optics reported weak demand and high inventories for 800G optical modules in March 2024, then stated demand exceeded supply in Q3 2026, reflecting a shift from oversupply to supply constraint in that market.",
+      "context": "",
+      "date": "2024-03-15T00:00:00+00:00",
+      "type": "observation",
+      "mentioned_at": "2026-08-20T00:00:00+00:00",
+      "occurred_start": "2026-07-01T00:00:00+00:00",
+      "occurred_end": "2026-09-30T00:00:00+00:00",
+      "entities": [
+        "inventories",
+        "800G optical modules",
+        "demand",
+        "Aurora Optics"
+      ],
+      "document_id": null,
+      "chunk_id": null,
+      "tags": [
+        "company:aurora"
+      ],
+      "metadata": {},
+      "observation_scopes": null,
+      "state": "valid",
+      "invalidation_reason": null,
+      "invalidated_at": null,
+      "edited_at": null,
+      "history": [],
+      "source_memory_ids": [
+        "3762d077-7276-4f4e-a1c3-cfc466ce911e",
+        "719c096d-14ff-4d5c-9488-84318096d5b0"
+      ],
+      "source_memories": [
+        {
+          "id": "719c096d-14ff-4d5c-9488-84318096d5b0",
+          "text": "Aurora Optics stated demand for 800G optical modules exceeded supply in Q3 2026. | When: August 2026 | Involving: Aurora Optics | Indicates supply constraint / demand-supply imbalance for 800G optical modules",
+          "type": "world",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-07-01T00:00:00+00:00",
+          "mentioned_at": "2026-08-20T00:00:00+00:00"
+        },
+        {
+          "id": "3762d077-7276-4f4e-a1c3-cfc466ce911e",
+          "text": "Aurora Optics stated demand for 800G optical modules was weak and inventories were high. | When: March 2024 | Involving: Aurora Optics | Indicates weak demand and excess inventory for 800G optical modules, signaling potential supply overhang or reduced near-term orders affecting dependent customers.",
+          "type": "world",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "mentioned_at": "2024-03-15T00:00:00+00:00"
+        }
+      ]
+    }
+  }
+}
