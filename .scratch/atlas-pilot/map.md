@@ -51,8 +51,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 
 ## Out of scope
 
-- Phases 3–6a (discovery, … see below). The next map starts from the ticket 12 adopt list.
-- Phases 3–6a (discovery, entity resolution, research workflow, financial scenarios, snapshots/replay): the next map, charted once this spec exists.
+- Phases 3–6a (discovery, entity resolution, research workflow, financial scenarios, snapshots/replay): the next map, charted once this spec exists. It starts from ticket 12's adopt list.
 - Seeding replay banks by document export/import (it copies memories without re-extraction, but the source bank's extraction may have seen later documents): a Phase 6a question for the next map.
 - Authentik forward-auth/OIDC on the internal gateway: ruled out for the pilot (Q16). No cluster pattern exists yet.
 - Exa, Firecrawl, OpenBB and any market-data provider: optional or post-pilot per the spec.
