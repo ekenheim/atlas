@@ -196,14 +196,27 @@ Extended into the full run/task model in Phase 4 (spec Part B "Schema").
 
 | Column | Type | Notes |
 |---|---|---|
-| `run_id` | uuid PK | Also sent as `metadata.run_id` to LiteLLM |
+| `run_id` | uuid PK | Also sent as `metadata.run_id` to LiteLLM. Implemented as `id` (migration 0005), like `job.id` |
 | `kind` | text not null | `ingest`, `retain`, `reflect`, `mental_model_refresh`, … |
-| `code_version` | text not null | Git SHA of the image |
-| `hindsight_version` | text not null | For example `0.10.1` |
-| `template_version` | text not null | Bank template version applied |
-| `routed_models_json` | jsonb not null | `{alias: deployment}` from LiteLLM `/model/info`, for `atlas-extract` and `atlas-reflect` |
+| `code_version` | text not null | Git SHA of the image (`ATLAS_CODE_VERSION`, a build arg), else the package version |
+| `hindsight_version` | text not null | For example `0.10.1`, from Hindsight `GET /version` at run start |
+| `template_version` | text not null | The bank's latest `bank_template_application.template_version` |
+| `routed_models_json` | jsonb not null | Implemented as `routed_models`: `{alias: [{"model": <litellm_params.model>, "model_id": <model_info.id>}, …]}` from LiteLLM `/model/info`, for the configured aliases (`atlas-extract`, `atlas-reflect`) |
 | `tokens_in`, `tokens_out` | bigint not null default 0 | Totals |
 | `started_at`, `finished_at` | timestamptz | |
+
+### 3.1b `bank_template_application`
+
+One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `bank_id` | text not null | |
+| `template_version` | text not null | `template_version` from `configs/hindsight/bank-template.json` |
+| `manifest_sha256` | text not null | SHA-256 of the canonical manifest JSON, so an edit without a version bump still shows |
+| `dry_run_result`, `import_result` | jsonb not null | Hindsight's import responses |
+| `applied_at` | timestamptz not null | |
 
 ### 3.2 `hindsight_operation`
 

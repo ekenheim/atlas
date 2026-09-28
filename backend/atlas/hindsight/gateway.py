@@ -44,6 +44,8 @@ from atlas.hindsight.models import (
     RetainedDocument,
     RetainItem,
     RetainSubmitted,
+    ServerHealth,
+    ServerVersion,
     TagScope,
     TemplateApplication,
     TemplateImportResult,
@@ -55,6 +57,8 @@ from atlas.settings import Settings
 
 # Hindsight's own LLM timeouts are raised to 300 s; a synchronous reflect can take that long.
 DEFAULT_REQUEST_TIMEOUT = 300.0
+# Health and version reads are cheap; a readiness probe must not hang for minutes.
+SERVER_CHECK_TIMEOUT = 5.0
 
 _KNOWLEDGE_TREE = TypeAdapter(list[KnowledgeNode])
 _HISTORY = TypeAdapter(list[MentalModelRevision])
@@ -222,6 +226,18 @@ class HindsightGateway:
         path = f"/mental-models/{_segment(mental_model_id)}/history"
         return self._parse(_HISTORY, self._get(path))
 
+    # --- server (not bank-scoped) --------------------------------------------------------------
+
+    def server_health(self) -> ServerHealth:
+        """`GET /health`. Raises `HindsightUnavailable` or `HindsightHTTPError` when it isn't up."""
+        data = self._request("GET", "/health", scoped=False, timeout=SERVER_CHECK_TIMEOUT)
+        return self._parse(ServerHealth, data)
+
+    def server_version(self) -> ServerVersion:
+        """`GET /version`: the running Hindsight's API version, e.g. `0.10.1`."""
+        data = self._request("GET", "/version", scoped=False, timeout=SERVER_CHECK_TIMEOUT)
+        return self._parse(ServerVersion, data)
+
     # --- LLM request log -----------------------------------------------------------------------
 
     def llm_request_stats(
@@ -248,10 +264,13 @@ class HindsightGateway:
         *,
         params: Mapping[str, str | int] | None = None,
         body: Mapping[str, Any] | None = None,
+        scoped: bool = True,
+        timeout: float | None = None,
     ) -> JsonValue:
-        url = f"{self._bank_path}{path}"
+        url = f"{self._bank_path}{path}" if scoped else path
+        extra: dict[str, Any] = {} if timeout is None else {"timeout": timeout}
         try:
-            response = self._client.request(method, url, params=params, json=body)
+            response = self._client.request(method, url, params=params, json=body, **extra)
         except httpx2.TransportError as error:
             raise HindsightUnavailable(f"{method} {url}: {error}") from error
         if response.status_code == 404:

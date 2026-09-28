@@ -3,6 +3,7 @@
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -129,6 +130,53 @@ def run_audit_verify(settings: Settings) -> int:
     return 1
 
 
+def run_apply_template(settings: Settings, template_path: Path | None) -> int:
+    import json
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.exc import OperationalError
+
+    from atlas.audit import Actor
+    from atlas.bank_template import BankTemplate, InvalidTemplate, apply_template
+    from atlas.hindsight import HindsightError, HindsightGateway
+
+    try:
+        template = BankTemplate.load(template_path or settings.hindsight_template_path)
+    except InvalidTemplate as error:
+        print(f"atlas: invalid bank template: {error}", file=sys.stderr)
+        return 2
+    gateway = HindsightGateway.from_settings(settings)
+    if gateway is None:
+        print("atlas: Hindsight is not configured (ATLAS_HINDSIGHT_URL)", file=sys.stderr)
+        return 2
+    engine = create_engine(settings.database_url)
+    try:
+        applied = apply_template(engine, gateway, template, Actor.from_settings(settings))
+    except HindsightError as error:
+        print(f"atlas: template not applied: {error}", file=sys.stderr)
+        return 1
+    except OperationalError as error:
+        # The import may have succeeded; re-applying the same template is safe.
+        print(
+            "atlas: template application not recorded: database unavailable"
+            f" ({type(error.orig).__name__}); re-run once it is back",
+            file=sys.stderr,
+        )
+        return 1
+    finally:
+        gateway.close()
+        engine.dispose()
+    summary = applied.model_dump(mode="json", include={"bank_id", "template_version"})
+    summary |= {
+        "manifest_sha256": applied.manifest_sha256,
+        "dry_run": applied.dry_run.model_dump(mode="json", exclude={"bank_id"}),
+        "applied": applied.applied.model_dump(mode="json", exclude={"bank_id"}),
+        "audit_event_id": applied.audit_event_id,
+    }
+    print(json.dumps(summary))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="atlas")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -146,6 +194,14 @@ def main(argv: list[str] | None = None) -> None:
     enqueue.add_argument("--key", required=True, help="idempotency key: same key, same job")
     enqueue.add_argument("--payload", default="{}", help="job payload as a JSON object")
     enqueue.add_argument("--max-attempts", type=int, default=3, help="retry bound (default 3)")
+    hindsight = commands.add_parser("hindsight", help="configure the research bank")
+    hindsight_commands = hindsight.add_subparsers(dest="hindsight_command", required=True)
+    apply = hindsight_commands.add_parser(
+        "apply-template", help="dry-run, then import the bank template, and record its version"
+    )
+    apply.add_argument(
+        "--template", type=Path, help="template file (default: ATLAS_HINDSIGHT_TEMPLATE_PATH)"
+    )
     args = parser.parse_args(argv)
 
     configure_logging()
@@ -161,6 +217,8 @@ def main(argv: list[str] | None = None) -> None:
         log.info("database migrated to head")
     elif args.command == "audit":
         raise SystemExit(run_audit_verify(settings))
+    elif args.command == "hindsight":
+        raise SystemExit(run_apply_template(settings, args.template))
     elif args.command == "jobs":
         enqueue_job(settings, args.kind, args.key, args.payload, args.max_attempts)
     else:

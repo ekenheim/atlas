@@ -1,10 +1,17 @@
 import os
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from atlas.api.app import create_app
 from atlas.settings import Settings
+from tests.fakes.hindsight import RecordedHindsight
+from tests.fakes.litellm import API_KEY as LITELLM_KEY
+from tests.fakes.litellm import FakeLiteLLM
+from tests.fakes.serve import serve
 from tests.integration.conftest import (
     S3_ACCESS_KEY_ID,
     S3_ENDPOINT_URL,
@@ -115,3 +122,86 @@ def test_not_ready_when_the_s3_endpoint_is_unreachable(tmp_path: Path, s3_bucket
 
     assert response.status_code == 503
     assert response.json()["checks"]["archive"] == "down"
+
+
+# --- Hindsight and LiteLLM: checked when configured ---------------------------------------------
+
+
+@pytest.fixture
+def hindsight_url() -> Iterator[str]:
+    """The recorded Hindsight fake on localhost (its `/health` is a real 0.10.1 recording)."""
+    fake = RecordedHindsight()
+    with serve(fake.transport.handle_request) as served:
+        yield served.url
+    served.raise_errors()
+    assert set(fake.served) <= {"monitoring/01-health"}
+
+
+@contextmanager
+def litellm(fake: FakeLiteLLM) -> Generator[str]:
+    with serve(fake.handle) as served:
+        yield served.url
+    served.raise_errors()
+
+
+def ready_with(tmp_path: Path, **overrides: object) -> tuple[int, dict[str, str]]:
+    response = TestClient(create_app(make_settings(tmp_path, **overrides))).get("/health/ready")
+    return response.status_code, response.json()["checks"]
+
+
+def test_ready_when_hindsight_and_litellm_are_up(tmp_path: Path, hindsight_url: str) -> None:
+    fake = FakeLiteLLM()
+    with litellm(fake) as litellm_url:
+        status, checks = ready_with(
+            tmp_path,
+            hindsight_url=hindsight_url,
+            litellm_url=litellm_url,
+            litellm_api_key=LITELLM_KEY,
+        )
+
+    assert status == 200
+    assert checks == {"database": "ok", "archive": "ok", "hindsight": "ok", "litellm": "ok"}
+    assert [(c.method, c.url.path) for c in fake.calls] == [("GET", "/model/info")]
+
+
+def test_not_ready_when_hindsight_is_unreachable(tmp_path: Path) -> None:
+    status, checks = ready_with(tmp_path, hindsight_url="http://127.0.0.1:1")
+
+    assert status == 503
+    assert checks["hindsight"] == "down"
+    assert checks["litellm"] == "not_configured"
+
+
+def test_not_ready_when_litellm_is_unreachable(tmp_path: Path, hindsight_url: str) -> None:
+    status, checks = ready_with(
+        tmp_path,
+        hindsight_url=hindsight_url,
+        litellm_url="http://127.0.0.1:1",
+        litellm_api_key=LITELLM_KEY,
+    )
+
+    assert status == 503
+    assert (checks["hindsight"], checks["litellm"]) == ("ok", "down")
+
+
+def test_not_ready_when_litellm_rejects_the_key(tmp_path: Path) -> None:
+    with litellm(FakeLiteLLM()) as litellm_url:
+        status, checks = ready_with(tmp_path, litellm_url=litellm_url, litellm_api_key="sk-other")
+
+    assert status == 503
+    assert checks["litellm"] == "down"
+
+
+def test_not_ready_when_an_alias_atlas_uses_has_no_route(tmp_path: Path) -> None:
+    with litellm(FakeLiteLLM().without("atlas-reflect")) as litellm_url:
+        status, checks = ready_with(tmp_path, litellm_url=litellm_url, litellm_api_key=LITELLM_KEY)
+
+    assert status == 503
+    assert checks["litellm"] == "down"
+
+
+def test_litellm_without_its_key_is_not_configured(tmp_path: Path) -> None:
+    status, checks = ready_with(tmp_path, litellm_url="http://127.0.0.1:1")
+
+    assert status == 200
+    assert checks["litellm"] == "not_configured"

@@ -4,8 +4,8 @@
 
 **Blocked by:** 11 (Hindsight gateway and recorded fake)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Compose adds Hindsight 0.10.1 (the cluster digest) with the spike's settings (2 concurrent LLM calls, 4 worker slots, thinking off, LiteLLM embeddings and rerank)
-- [ ] The template holds spec §6.2 missions and dispositions; applying is dry run then import, and the version is recorded
-- [ ] The run record stores code version, Hindsight version, template version and each alias's routed deployment from `/model/info` (faked in CI)
+- [x] Compose adds Hindsight 0.10.1 (the cluster digest) with the spike's settings (2 concurrent LLM calls, 4 worker slots, thinking off, LiteLLM embeddings and rerank)
+- [x] The template holds spec §6.2 missions and dispositions; applying is dry run then import, and the version is recorded
+- [x] The run record stores code version, Hindsight version, template version and each alias's routed deployment from `/model/info` (faked in CI)

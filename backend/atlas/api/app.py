@@ -11,8 +11,17 @@ from sqlalchemy import create_engine
 from atlas import __version__
 from atlas.api.jobs import jobs_router
 from atlas.archive import open_archive
-from atlas.health import NOT_CONFIGURED, OK, check_archive, check_database
+from atlas.health import (
+    NOT_CONFIGURED,
+    OK,
+    check_archive,
+    check_database,
+    check_hindsight,
+    check_litellm,
+)
+from atlas.hindsight import HindsightGateway
 from atlas.jobs import JobQueue
+from atlas.llm_routes import LiteLLMRoutes
 from atlas.settings import Settings
 
 
@@ -22,6 +31,8 @@ def create_app(settings: Settings) -> FastAPI:
     engine = create_engine(settings.database_url, pool_pre_ping=True)
     archive = open_archive(settings)
     app.state.archive = archive
+    hindsight = HindsightGateway.from_settings(settings)
+    litellm = LiteLLMRoutes.from_settings(settings)
     registry = CollectorRegistry()
     Info("atlas_build", "Atlas build information", registry=registry).info({"version": __version__})
 
@@ -34,8 +45,8 @@ def create_app(settings: Settings) -> FastAPI:
         checks = {
             "database": check_database(engine),
             "archive": check_archive(archive),
-            "hindsight": NOT_CONFIGURED,
-            "litellm": NOT_CONFIGURED,
+            "hindsight": check_hindsight(hindsight),
+            "litellm": check_litellm(litellm, settings.llm_aliases()),
         }
         is_ready = all(v in (OK, NOT_CONFIGURED) for v in checks.values())
         body: dict[str, Any] = {"status": "ready" if is_ready else "not_ready", "checks": checks}

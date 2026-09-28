@@ -350,3 +350,111 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - The ClusterSecretStore is named `litellm-key-secrets` (after `crunchy-pgo-secrets`), not `litellm-keys` as the research note suggested, to avoid confusion with the `litellm-keys` Flux Kustomization.
 - **Credentials:** none needed.
 - **Next:** the owner fixes the object-store ownership and commits `atlas/litellm`, reviews the three branches, then pushes and opens them in the order in `docs/runbooks.md`. After PR 1, run the `vector` step. PR 4 (`atlas-hindsight` release) and PR 6 (the app) are later tickets.
+
+## 2026-09-29: ticket 12, Hindsight in Compose and the bank template
+
+- **Built:**
+  - **Compose:** `hindsight` (0.10.1-slim at the cluster digest) and `hindsight-db` (pgvector pg18), both behind the profile `hindsight`, so the default stack and CI never start them. The settings match the spike:
+    - provider `openai` at `${ATLAS_LITELLM_URL}/v1`
+    - extra body `{"thinking":{"type":"disabled"}}` (`ATLAS_HINDSIGHT_LLM_EXTRA_BODY`)
+    - `LLM_MAX_CONCURRENT=2` / `RETAIN_LLM_MAX_CONCURRENT=2`, `WORKER_MAX_SLOTS=4`
+    - LLM, retain, reflect and mental-model-refresh timeouts at 300 s
+    - embeddings `qwen3-embedding-0.6b` at 1024 dims; reranker `litellm` / `rerank`
+    - a stable worker ID
+    - models `atlas-extract` (retain, consolidation) and `atlas-reflect` (reflect, mental-model refresh), overridable with `ATLAS_LLM_EXTRACT_ALIAS` / `ATLAS_LLM_REFLECT_ALIAS`
+    - host port `127.0.0.1:${ATLAS_HINDSIGHT_PORT:-58888}`
+
+    The app services get `ATLAS_HINDSIGHT_URL` from `ATLAS_COMPOSE_HINDSIGHT_URL`, plus `ATLAS_LITELLM_URL`/`_API_KEY`. All three default to empty, which means disabled.
+  - **Template:** `configs/hindsight/bank-template.json` (`template_version` `1.0.0`) wraps the Hindsight manifest. It holds:
+    - the §6.2 retain, observations and reflect missions, with observations enabled
+    - skepticism 4 and literalism 4 (the server default is 3)
+    - the five §6.2 reflect directives
+
+    It has no mental models; ticket 16 adds them.
+  - **Applying it:** `atlas hindsight apply-template [--template PATH]` loads and validates the file, then runs the gateway's dry run and import. It then writes a `bank_template_application` row (version, manifest SHA-256, both results) and a `bank_template.applied` audit event (entity `hindsight_bank`, old/new hash = previous/new manifest SHA) in one transaction. It prints a JSON summary. Exit codes: 2 for a bad template or unconfigured Hindsight, 1 for a Hindsight or database error. The Dockerfile now copies `configs/` into the image.
+  - **Gateway additions:** `server_health()` (`GET /health`) and `server_version()` (`GET /version`). They aren't bank-scoped and use a 5 s timeout.
+  - **Readiness:**
+    - `hindsight` is `ok` when `/health` reports `healthy`.
+    - `litellm` is `ok` when `GET /model/info` with Atlas's key succeeds and both configured aliases have a deployment. This calls no model.
+    - Anything else is `down`, and an unconfigured provider stays `not_configured`. LiteLLM needs both its URL and its key.
+  - **LLM route recorder:** `atlas.llm_routes.LiteLLMRoutes.routes(aliases)` → `{alias: [RoutedDeployment(model, model_id)]}`. It raises `AliasNotRouted` if an alias is missing, and `LiteLLMUnavailable` on a transport error, a non-2xx response or an unexpected shape. The error never echoes the body or the key.
+  - **Run record:** `atlas.runs.RunRecorder` (`from_settings`, `start(kind)`, `finish(run_id, tokens_in=, tokens_out=)`, `get`).
+    - `start` records the code version, the Hindsight `api_version`, the bank's latest applied template version and the routed deployments per alias.
+    - It raises `RunNotStartable` if no template has been applied (with no LiteLLM call and no row), and fails with no row if an alias isn't routed.
+    - `code_version` is `ATLAS_CODE_VERSION`, which the release workflow sets to `github.sha` as a build arg; otherwise it's the package version.
+  - **Migration `0005`** (down_revision `0003`, to be re-chained at merge): `bank_template_application` and `run`, with SELECT/INSERT (and UPDATE on `run`) granted to `atlas_app` when that role exists.
+  - **Settings:** `ATLAS_HINDSIGHT_TEMPLATE_PATH`, `ATLAS_LLM_EXTRACT_ALIAS`, `ATLAS_LLM_REFLECT_ALIAS`, `ATLAS_CODE_VERSION`.
+  - **Docs:** `.env.example`, README, AGENTS.md, and `docs/data-model.md` (actual `run` columns, plus `bank_template_application`).
+- **LiteLLM `/model/info` shape assumed:** `{"data": [{"model_name": <alias>, "litellm_params": {"model": <provider/model>, ...secrets masked}, "model_info": {"id": <deployment hash>, ...}}]}`. Only `model_name`, `litellm_params.model` and `model_info.id` are read; `api_base` is never stored. Sources:
+  - LiteLLM docs, Model Management: "`GET /model/info` returns the full model list with API keys masked"
+  - the `/model/info` entry quoted in BerriAI/litellm issue #5524 (`model_name`, `litellm_params.{api_base,model}`, `model_info.{id,db_model,key}`)
+  - the dev probe's `x-litellm-model-id` header, which is the deployment hash
+
+  The docs page shows no full response example. The `{"data": [...]}` wrapper comes from LiteLLM's proxy source (`model_info_v1` returns `{"data": all_models}`), from memory rather than a fresh read, and was **not verified live**. The fixture `tests/fixtures/litellm/model-info.json` is hand-made in this shape, with illustrative model names and IDs. Replace it with a redacted real response when one is recorded.
+- **New Hindsight recordings (real, from the running spike on 127.0.0.1:8888, 2026-09-29):** `spikes/hindsight/record_bank_template.py` recorded five interactions:
+  - `research_template/01-import-dry-run`, `02-import` and `03-imported-config`: the actual template file, into a fresh bank `atlas-template-1790632603`
+  - `monitoring/01-health` and `monitoring/02-version` (`api_version` 0.10.1)
+
+  The run made no LLM calls: the bank's `llm-requests/stats` had no buckets afterwards, because a template without mental models queues no operations (`operation_ids: []`). Directive import is now verified on 0.10.1: all five directives were created and listed. The contract test now drives the real template file through the recorded dry run and import, so **editing the template requires re-running the recorder** (ticket 16 will). The recording count is 58 → 63, and all are classified.
+- **Tests (actual results):** `scripts/ci.sh --no-image` **passed**: ruff format/lint clean, pyright strict 0 errors, frontend gates green, **225 passed**, 1 deselected (live). New tests:
+  - `tests/unit/test_hindsight_contract.py` (+4):
+    - the template file matches the recorded dry run and import
+    - the imported config
+    - health
+    - version
+  - `tests/unit/test_llm_routes.py` (7):
+    - routes per alias with the bearer key and a single `GET /model/info`
+    - a missing alias is named
+    - 401 is unavailable and the key isn't echoed
+    - unreachable
+    - a bad shape
+    - `from_settings` needs both URL and key
+    - aliases come from config
+  - `tests/integration/test_bank_template.py` (8), through the real CLI subprocess against the recorded fake served on localhost (`tests/fakes/serve.py`):
+    - dry run then import, with the version, SHA and audit event recorded
+    - re-apply chains the audit hashes
+    - a failed dry run imports and records nothing
+    - unreachable Hindsight
+    - unconfigured Hindsight
+    - three invalid template files
+  - `tests/integration/test_readiness.py` (+6), each asserting the readiness status:
+    - both up gives `ok`/`ok`
+    - Hindsight unreachable
+    - LiteLLM unreachable
+    - key rejected
+    - alias unrouted
+    - URL without key gives `not_configured`
+  - `tests/integration/test_runs.py` (8):
+    - provenance at start
+    - token totals at finish, and a double finish rejected
+    - code-version fallback
+    - the latest template version wins
+    - no run before a template is applied
+    - no run with an unrouted alias
+    - configured aliases
+    - no recorder unless both services are configured
+  - `test_migrations` head is now `0005`.
+  - Mutation checks: disabling the missing-alias check turned 3 tests red, and skipping `dry_run=true` turned 2 red.
+- **Fixture-only vs live:**
+  - **Live:** only the five Hindsight recordings above (config import, health, version) against the local spike.
+  - **Fixture-only:** everything else. That includes all of LiteLLM (no `/model/info` call was made), readiness, the CLI and run records.
+  - **Not run:** the Compose `hindsight` profile itself was not started; only `docker compose config` was checked, with and without the profile.
+  - **Only faked:** the failed-dry-run test's 500 comes from the served fake refusing an unrecorded request, not from a real Hindsight rejection.
+- **Deviations and notes:**
+  - **Template file shape:** a wrapper `{template_version, manifest}` rather than a bare manifest, so the version isn't a field Hindsight might reject. The manifest SHA-256 is recorded too, so an edit without a version bump is still visible.
+  - **Retain mission:** it adds one sentence beyond §6.2: "Keep figures, units and reporting periods exactly as stated."
+  - **Directive wording:** the directives are Atlas's wording of the five §6.2 points.
+  - **Dispositions:** 4/4 (above the default, per §6.2, and not tuned). Empathy is left at the server default.
+  - **`run` and `bank_template_application` columns:** they follow the job table's conventions (`id`, `routed_models`) rather than `docs/data-model.md`'s `run_id` / `routed_models_json`. The data model now says so.
+  - **`routed_models` shape:** it stores a list per alias (`[{model, model_id}]`), because an alias can load-balance over several deployments.
+  - **LiteLLM readiness:** it requires the aliases to be routed, not just reachable, because an unrouted alias means no LLM call can succeed.
+  - **Compose variables:** Compose interpolates every service even when its profile is off, so the Hindsight service uses `${VAR:-}` rather than `${VAR:?}`. Started without LiteLLM settings, it fails at boot rather than at `docker compose` time.
+  - **`ATLAS_COMPOSE_HINDSIGHT_URL`:** it is separate from `ATLAS_HINDSIGHT_URL` because `.env`'s value is a host address.
+  - **Token totals:** they are passed to `finish` by the caller. Wiring them from Hindsight's `/llm-requests` belongs to the jobs that create runs (tickets 13–15).
+  - **No run creator yet:** nothing creates runs so far; ticket 13+ jobs should call `RunRecorder.start`.
+  - **Spike recording:** the recordings used the already-running spike Hindsight (config-only calls, no LLM). They didn't start a new stack.
+- **Credentials:** none. The recording script needs no key, and the `.env` was not read.
+- **Next:**
+  - ticket 16 adds the two mental models to the template, bumps `template_version` and re-records `research_template/*`
+  - tickets 13–15 start runs through `RunRecorder`
+  - record a real, redacted `/model/info` response to replace the hand-made fixture

@@ -29,6 +29,13 @@ scripts/ci.sh                              # full CI: gates, tests, image build 
 
 The app is one image with three roles: `atlas api`, `atlas worker [--once]` and `atlas migrate`.
 
+Local Hindsight 0.10.1 (pinned digest, configured like the spike) is behind a Compose profile, so the default stack needs no LLM. It sends all LLM, embedding and rerank traffic to LiteLLM:
+
+```bash
+docker compose --profile hindsight up -d --wait hindsight   # needs ATLAS_LITELLM_URL / _API_KEY
+ATLAS_HINDSIGHT_URL=http://127.0.0.1:58888 uv run atlas hindsight apply-template
+```
+
 ## Releases
 
 Push a tag `vX.Y.Z` to publish `ghcr.io/ekenheim/atlas:X.Y.Z` (amd64). The release workflow runs `scripts/ci.sh --no-image` first and smokes the image before pushing it. After the very first release, set the GHCR package to **Public** once in GitHub's package settings; new packages start private. See `docs/deployment.md`.

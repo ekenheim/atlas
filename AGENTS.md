@@ -8,12 +8,14 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 - `uv run pytest`: unit tests (network blocked by pytest-socket) and integration tests (localhost only; needs `docker compose up -d --wait postgres-app silo`).
 - `uv run atlas api | worker [--once] | migrate`: the three roles of the one image.
 - `uv run atlas audit verify`: check the audit hash chain; exits 1 if it is broken.
+- `uv run atlas hindsight apply-template`: dry-run, then import `configs/hindsight/bank-template.json` into the research bank, recording its version.
+- `docker compose --profile hindsight up -d`: local Hindsight 0.10.1 + pgvector, via LiteLLM (needs `ATLAS_LITELLM_URL`/`_API_KEY`; never in CI).
 - `npm --prefix frontend run lint | typecheck | build`: the frontend gates; `build` writes the static export to `frontend/out/`.
 
 ## Layout
 
-- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `audit.py` hash-chained audit trail, `db/` migrations, `hindsight/` the only Hindsight HTTP client, `jobs/` Postgres job queue and worker, `sources/` source adapters (SEC EDGAR), `settings.py`, `health.py`, `cli.py`)
-- `tests/fakes/hindsight.py`: the recorded Hindsight fake (an `httpx2.MockTransport` replaying `spikes/hindsight/recordings/`)
+- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `audit.py` hash-chained audit trail, `bank_template.py` applying the versioned bank template, `db/` migrations, `hindsight/` the only Hindsight HTTP client, `jobs/` Postgres job queue and worker, `llm_routes.py` the LiteLLM route recorder (`/model/info`), `runs.py` the minimal run record, `sources/` source adapters (SEC EDGAR), `settings.py`, `health.py`, `cli.py`)
+- `tests/fakes/hindsight.py`: the recorded Hindsight fake (an `httpx2.MockTransport` replaying `spikes/hindsight/recordings/`); `tests/fakes/litellm.py` fakes LiteLLM `/model/info`; `tests/fakes/serve.py` serves a fake on localhost for the CLI subprocess and the API
 - `frontend/`: Next.js static export, served by FastAPI
 - `tests/unit`, `tests/integration`: tests at the agreed seams (HTTP API, CLI entry, migrations)
 - `configs/`: versioned config (e.g. Hindsight bank templates)

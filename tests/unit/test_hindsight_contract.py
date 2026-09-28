@@ -8,11 +8,13 @@ recording must be exercised here, or listed as a route Atlas deliberately doesn'
 """
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from pydantic import JsonValue
 
+from atlas.bank_template import BankTemplate
 from atlas.hindsight import (
     HindsightGateway,
     HindsightRuleViolation,
@@ -24,6 +26,7 @@ from atlas.hindsight import (
 from tests.fakes.hindsight import RecordedHindsight, Recording, load_recordings
 
 RECORDINGS = load_recordings()
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def gateway_for(fake: RecordedHindsight, recording: Recording) -> HindsightGateway:
@@ -394,7 +397,34 @@ def test_bank_template_is_applied_by_dry_run_then_import() -> None:
         assert result.operation_ids == expected["operation_ids"]
 
 
-@pytest.mark.parametrize("name", ["bank_config/02-get-config", "bank_templates/05-imported-config"])
+def test_the_research_bank_template_file_is_what_the_server_was_sent() -> None:
+    # Recorded by spikes/hindsight/record_bank_template.py from the file itself; editing the
+    # template without re-recording its dry run and import fails here.
+    fake = RecordedHindsight()
+    dry = fake.recording("research_template/01-import-dry-run")
+    real = fake.recording("research_template/02-import")
+    template = BankTemplate.load(REPO_ROOT / "configs" / "hindsight" / "bank-template.json")
+
+    applied = gateway_for(fake, dry).apply_bank_template(template.manifest)
+
+    assert fake.served == ["research_template/01-import-dry-run", "research_template/02-import"]
+    for result, recording in [(applied.dry_run, dry), (applied.applied, real)]:
+        expected = recording.response_object()
+        assert result.dry_run == expected["dry_run"]
+        assert result.config_applied == expected["config_applied"]
+        assert result.directives_created == expected["directives_created"]
+        assert result.mental_models_created == expected["mental_models_created"]
+        assert result.operation_ids == expected["operation_ids"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "bank_config/02-get-config",
+        "bank_templates/05-imported-config",
+        "research_template/03-imported-config",
+    ],
+)
 def test_bank_config_returns_the_resolved_config(name: str) -> None:
     fake = RecordedHindsight()
     recording = fake.recording(name)
@@ -522,6 +552,38 @@ def test_llm_request_stats_returns_the_recorded_buckets(name: str) -> None:
     ]
 
 
+# --- server: health and version ---------------------------------------------------------------
+
+
+def server_gateway(fake: RecordedHindsight) -> HindsightGateway:
+    # /health and /version aren't bank-scoped; any bank will do.
+    return HindsightGateway(
+        "http://hindsight.test", "atlas-ai-infrastructure", transport=fake.transport
+    )
+
+
+def test_server_health_reports_a_healthy_server() -> None:
+    fake = RecordedHindsight()
+    expected = fake.recording("monitoring/01-health").response_object()
+
+    health = server_gateway(fake).server_health()
+
+    assert fake.served == ["monitoring/01-health"]
+    assert (health.status, health.database) == (expected["status"], expected["database"])
+    assert health.is_healthy
+
+
+def test_server_version_reports_the_pinned_api_version() -> None:
+    fake = RecordedHindsight()
+    expected = fake.recording("monitoring/02-version").response_object()
+
+    version = server_gateway(fake).server_version()
+
+    assert fake.served == ["monitoring/02-version"]
+    assert version.api_version == expected["api_version"] == "0.10.1"
+    assert version.features == expected["features"]
+
+
 # --- completeness ------------------------------------------------------------------------------
 
 EXERCISED = {
@@ -548,6 +610,11 @@ EXERCISED = {
     "bank_templates/04-import",
     "bank_templates/05-imported-config",
     "bank_config/02-get-config",
+    "research_template/01-import-dry-run",
+    "research_template/02-import",
+    "research_template/03-imported-config",
+    "monitoring/01-health",
+    "monitoring/02-version",
     "mental_models/01-create",
     "mental_models/03-get",
     "mental_models/04-refresh",
@@ -574,6 +641,6 @@ NOT_CALLED_BY_ATLAS = {
 
 
 def test_every_recording_is_classified() -> None:
-    assert len(RECORDINGS) == 58
+    assert len(RECORDINGS) == 63
     assert EXERCISED.isdisjoint(NOT_CALLED_BY_ATLAS)
     assert EXERCISED | set(NOT_CALLED_BY_ATLAS) == set(RECORDINGS)

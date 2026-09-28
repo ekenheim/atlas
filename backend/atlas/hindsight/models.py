@@ -424,3 +424,24 @@ class LlmRequestStats(_Result):
     trunc: str
     start: datetime
     buckets: list[LlmRequestBucket]
+
+
+# --- server (not bank-scoped) ------------------------------------------------------------------
+
+
+class ServerHealth(_Result):
+    """`GET /health`: whether the server can reach its database (an error status when not)."""
+
+    status: str
+    database: str | None = None
+
+    @property
+    def is_healthy(self) -> bool:
+        return self.status == "healthy"
+
+
+class ServerVersion(_Result):
+    """`GET /version`: the API version (e.g. `0.10.1`) and its enabled feature flags."""
+
+    api_version: str
+    features: dict[str, bool] = {}

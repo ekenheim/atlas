@@ -68,6 +68,7 @@ jobs:
           load: true
           tags: atlas:release
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: ATLAS_CODE_VERSION=${{ github.sha }}
       - name: Smoke the image
         run: scripts/image-smoke.sh atlas:release
       - uses: docker/login-action@v4
@@ -84,3 +85,4 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: ATLAS_CODE_VERSION=${{ github.sha }}
