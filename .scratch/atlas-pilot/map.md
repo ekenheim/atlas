@@ -12,7 +12,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - **Skills:** grilling tickets call `grilling` + `domain-modeling`. Research tickets call `research` and write to `docs/research/`.
 - **Standing preferences:**
   - All LLM traffic goes through LiteLLM, including Atlas Hindsight's extraction and reflect. Never call providers directly.
-  - Use what's already paid for (ChatGPT Plus, MiniMax Plus, Anthropic subscription, self-hosted models); flag anything that would need a new paid service.
+  - Use what's already paid for (ChatGPT Plus, MiniMax Plus, Anthropic subscription, self-hosted models); **no pay-as-you-go**. Subscription terms ambiguity and model drift are accepted. MiniMax is the preferred LLM. Flag anything that would need a new paid service.
   - Research that needs the cluster uses the canonical home-ops checkout at `/mnt/c/Users/ekenh/home-ops-upgrade` (not the `Documents/` duplicate).
 - **Settled in the charting session (2026-09-28):**
   - Anchor companies: Lumentum (Phase 1) and Coherent (Phase 2 cross-company gate).
@@ -34,6 +34,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - [Hindsight releases after 0.10.1: anything Phase 2 needs?](issues/01-hindsight-release-delta.md): keep 0.10.1 (latest release); upsert is a chunk-level delta, reflect citations need a per-memory lookup, and the mental-model refresh-loop risk needs a mitigation.
 - [Home-ops wiring facts for the Atlas deploy](issues/08-home-ops-wiring.md): MinIO needs module work for versioning/lock and there is no R2 replication to reuse (→ ticket 10); scope the `llm` secret store to `datasci`; Atlas image bumps would auto-deploy under current Renovate rules.
 - [Which LiteLLM routes can Hindsight 0.10.1 use for extraction?](issues/02-hindsight-llm-compat.md): the bake-off candidates are MiniMax-M3/M2.7, Ornith (`fast`) and Gemma 3 (`translate`, extraction only); ChatGPT and Anthropic subscriptions are not viable; no candidate has a dated ID.
+- [Local dev access to LiteLLM](issues/03-cluster-access.md): `litellm.<domain>` and `search.<domain>` work from WSL with the `atlas-dev` key in `.env`; MiniMax-M3/M2.7 pass non-streaming, JSON-schema and forced-tool probes.
 
 ## Not yet specified
 
@@ -49,4 +50,5 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - Phases 3–6a (discovery, entity resolution, research workflow, financial scenarios, snapshots/replay): the next map, charted once this spec exists.
 - Authentik forward-auth/OIDC on the internal gateway: ruled out for the pilot (Q16). No cluster pattern exists yet.
 - Exa, Firecrawl, OpenBB and any market-data provider: optional or post-pilot per the spec.
+- [Pay-as-you-go extraction providers](issues/11-paygo-extraction-providers.md): the owner ruled out pay-as-you-go; use the existing subscriptions.
 - A broad local-model benchmark beyond the extraction bake-off in ticket 04.

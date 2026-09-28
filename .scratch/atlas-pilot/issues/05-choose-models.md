@@ -2,7 +2,7 @@
 
 Type: grilling
 Status: open
-Blocked by: 04, 11
+Blocked by: 04
 
 ## Question
 
@@ -14,3 +14,11 @@ Inputs from ticket 02 that need the owner:
 - whether MiniMax's name-plus-date counts as a stable identifier
 - MiniMax's grey terms for batch use and the quota it shares with coding use (pay-as-you-go would be a new cost)
 - whether an Anthropic API key (a new cost) is worth it
+
+**Owner direction (2026-09-28), which supersedes the ticket 02 inputs above:**
+
+- Use the subscriptions already paid for; no pay-as-you-go.
+- MiniMax is preferred, if the bake-off shows it works.
+- Model drift and terms ambiguity are accepted.
+
+What remains to decide: M3 vs M2.7 for each of extraction and reflect, the alias names, the fallback behavior, and how the concrete routed model is recorded per run (the `x-litellm-model-id` header or the spend logs).

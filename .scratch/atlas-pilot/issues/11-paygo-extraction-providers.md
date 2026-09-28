@@ -1,7 +1,7 @@
 # Pay-as-you-go extraction providers: Kimi, MiniMax, Anthropic, GLM
 
 Type: research
-Status: claimed
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -25,6 +25,6 @@ Options:
 
 Rough scale for pricing: Phases 0–2 extract two companies' filings over 2–3 years, likely a few million input tokens in total.
 
-## Context
+## Closed: out of scope
 
-Research in progress on branch `research/paygo-extraction-providers`; findings in `docs/research/paygo-extraction-providers.md` on that branch.
+The owner ruled out pay-as-you-go providers (2026-09-28): the subscriptions already paid for are to be used, with their terms ambiguity and model drift accepted. The research was stopped before it produced findings.
