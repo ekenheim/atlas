@@ -1,7 +1,7 @@
 # Hindsight 0.10.1 feature check → feature matrix + recorded fixtures
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01, 04
 
 ## Question
