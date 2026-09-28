@@ -551,10 +551,702 @@
           }
         }
       }
+    },
+    "/api/v1/assertions": {
+      "get": {
+        "tags": [
+          "assertions"
+        ],
+        "summary": "Assertions",
+        "operationId": "assertions_api_v1_assertions_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the company as subject or object",
+              "title": "Company Id"
+            },
+            "description": "the company as subject or object"
+          },
+          {
+            "name": "review_state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "unreviewed",
+                    "corroborated",
+                    "disputed",
+                    "rejected",
+                    "superseded"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Review State"
+            }
+          },
+          {
+            "name": "source_version_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Version Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Assertion_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "assertions"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_assertions_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssertionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssertionRecorded"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/assertions/{assertion_id}": {
+      "get": {
+        "tags": [
+          "assertions"
+        ],
+        "summary": "Assertion",
+        "operationId": "assertion_api_v1_assertions__assertion_id__get",
+        "parameters": [
+          {
+            "name": "assertion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Assertion Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assertion"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/assertions/{assertion_id}/review": {
+      "post": {
+        "tags": [
+          "assertions"
+        ],
+        "summary": "Review",
+        "operationId": "review_api_v1_assertions__assertion_id__review_post",
+        "parameters": [
+          {
+            "name": "assertion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Assertion Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssertionReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssertionRecorded"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/source-versions/{version_id}/memory": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Source Version Memory Documents",
+        "operationId": "source_version_memory_documents_api_v1_source_versions__version_id__memory_get",
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceVersionMemory"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Assertion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "subject_company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Subject Company Id"
+          },
+          "predicate": {
+            "type": "string",
+            "title": "Predicate"
+          },
+          "object_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Company Id"
+          },
+          "value_json": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "type": "integer",
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "title": "Span End"
+          },
+          "page_or_anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Or Anchor"
+          },
+          "event_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Start"
+          },
+          "event_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event End"
+          },
+          "epistemic_type": {
+            "type": "string",
+            "enum": [
+              "direct_source_statement",
+              "company_claim",
+              "third_party_report",
+              "agent_inference",
+              "quantitative_derived"
+            ],
+            "title": "Epistemic Type"
+          },
+          "review_state": {
+            "type": "string",
+            "enum": [
+              "unreviewed",
+              "corroborated",
+              "disputed",
+              "rejected",
+              "superseded"
+            ],
+            "title": "Review State"
+          },
+          "independence_family_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Independence Family Id"
+          },
+          "extracted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Extracted At"
+          },
+          "extractor_version": {
+            "type": "string",
+            "title": "Extractor Version"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "reviewer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Id"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "subject_company_id",
+          "predicate",
+          "object_company_id",
+          "value_json",
+          "source_version_id",
+          "quote",
+          "span_start",
+          "span_end",
+          "page_or_anchor",
+          "event_start",
+          "event_end",
+          "epistemic_type",
+          "review_state",
+          "independence_family_id",
+          "extracted_at",
+          "extractor_version",
+          "created_by",
+          "reviewer_id",
+          "reviewed_at",
+          "superseded_by"
+        ],
+        "title": "Assertion"
+      },
+      "AssertionCreate": {
+        "properties": {
+          "subject_company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Subject Company Id"
+          },
+          "predicate": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Predicate"
+          },
+          "object_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Company Id"
+          },
+          "value_json": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Quote",
+            "description": "exactly the parsed text at the offsets"
+          },
+          "span_start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Span Start",
+            "description": "first character of the quote in the parse"
+          },
+          "span_end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Span End",
+            "description": "one past the quote's last character"
+          },
+          "page_or_anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Or Anchor"
+          },
+          "event_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Start"
+          },
+          "event_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event End"
+          },
+          "epistemic_type": {
+            "type": "string",
+            "enum": [
+              "direct_source_statement",
+              "company_claim",
+              "third_party_report",
+              "agent_inference",
+              "quantitative_derived"
+            ],
+            "title": "Epistemic Type"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "subject_company_id",
+          "predicate",
+          "source_version_id",
+          "quote",
+          "span_start",
+          "span_end",
+          "epistemic_type"
+        ],
+        "title": "AssertionCreate",
+        "description": "A researcher's new Assertion. Review fields are not accepted: it starts unreviewed."
+      },
+      "AssertionRecorded": {
+        "properties": {
+          "assertion": {
+            "$ref": "#/components/schemas/Assertion"
+          },
+          "audit_event_id": {
+            "type": "integer",
+            "title": "Audit Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assertion",
+          "audit_event_id"
+        ],
+        "title": "AssertionRecorded",
+        "description": "A mutation's result: the Assertion as it now is, and the audit event recording it."
+      },
+      "AssertionReview": {
+        "properties": {
+          "review_state": {
+            "type": "string",
+            "enum": [
+              "unreviewed",
+              "corroborated",
+              "disputed",
+              "rejected",
+              "superseded"
+            ],
+            "title": "Review State"
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By",
+            "description": "the successor; required exactly when superseding"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "review_state"
+        ],
+        "title": "AssertionReview"
+      },
       "Company": {
         "properties": {
           "id": {
@@ -1015,6 +1707,254 @@
         "title": "JobFailure"
       },
       "JsonValue": {},
+      "MemoryDocument": {
+        "properties": {
+          "section_anchor": {
+            "type": "string",
+            "title": "Section Anchor"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "sectioner_version": {
+            "type": "string",
+            "title": "Sectioner Version"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "retain_state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "completed",
+              "failed",
+              "zero_fact",
+              "linked"
+            ],
+            "title": "Retain State"
+          },
+          "fact_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Count"
+          },
+          "reprocess_count": {
+            "type": "integer",
+            "title": "Reprocess Count"
+          },
+          "template_version": {
+            "type": "string",
+            "title": "Template Version"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
+          },
+          "linked_to_source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked To Source Version Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "section_anchor",
+          "section_heading",
+          "char_start",
+          "char_end",
+          "sectioner_version",
+          "document_id",
+          "retain_state",
+          "fact_count",
+          "reprocess_count",
+          "template_version",
+          "operation_id",
+          "linked_to_source_version_id",
+          "error",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MemoryDocument",
+        "description": "One section of the Source Version, as retained (or linked) into the bank."
+      },
+      "MemoryOperation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count"
+          },
+          "document_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Document Ids"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          },
+          "last_polled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Polled At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "error_message",
+          "retry_count",
+          "document_ids",
+          "submitted_at",
+          "last_polled_at",
+          "completed_at"
+        ],
+        "title": "MemoryOperation",
+        "description": "A Hindsight operation that retained (or reprocessed) some of the version's sections."
+      },
+      "Page_Assertion_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Assertion"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Assertion]"
+      },
       "Page_Company_": {
         "properties": {
           "items": {
@@ -1524,6 +2464,81 @@
         ],
         "title": "SourceVersionDetail",
         "description": "A Source Version's full provenance."
+      },
+      "SourceVersionMemory": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "retained": {
+            "type": "boolean",
+            "title": "Retained"
+          },
+          "linked_to_source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked To Source Version Id"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "pending",
+                "completed",
+                "failed",
+                "zero_fact",
+                "linked"
+              ]
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "fact_count": {
+            "type": "integer",
+            "title": "Fact Count"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryDocument"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryOperation"
+            },
+            "type": "array",
+            "title": "Operations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "bank_id",
+          "retained",
+          "linked_to_source_version_id",
+          "counts",
+          "fact_count",
+          "documents",
+          "operations"
+        ],
+        "title": "SourceVersionMemory"
       },
       "SourceVersionSummary": {
         "properties": {

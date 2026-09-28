@@ -191,10 +191,210 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assertions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assertions */
+        get: operations["assertions_api_v1_assertions_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_assertions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assertions/{assertion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assertion */
+        get: operations["assertion_api_v1_assertions__assertion_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assertions/{assertion_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review */
+        post: operations["review_api_v1_assertions__assertion_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-versions/{version_id}/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Source Version Memory Documents */
+        get: operations["source_version_memory_documents_api_v1_source_versions__version_id__memory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Assertion */
+        Assertion: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Subject Company Id
+             * Format: uuid
+             */
+            subject_company_id: string;
+            /** Predicate */
+            predicate: string;
+            /** Object Company Id */
+            object_company_id: string | null;
+            value_json: components["schemas"]["JsonValue"];
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /** Page Or Anchor */
+            page_or_anchor: string | null;
+            /** Event Start */
+            event_start: string | null;
+            /** Event End */
+            event_end: string | null;
+            /**
+             * Epistemic Type
+             * @enum {string}
+             */
+            epistemic_type: "direct_source_statement" | "company_claim" | "third_party_report" | "agent_inference" | "quantitative_derived";
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "unreviewed" | "corroborated" | "disputed" | "rejected" | "superseded";
+            /** Independence Family Id */
+            independence_family_id: string | null;
+            /**
+             * Extracted At
+             * Format: date-time
+             */
+            extracted_at: string;
+            /** Extractor Version */
+            extractor_version: string;
+            /** Created By */
+            created_by: string;
+            /** Reviewer Id */
+            reviewer_id: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Superseded By */
+            superseded_by: string | null;
+        };
+        /**
+         * AssertionCreate
+         * @description A researcher's new Assertion. Review fields are not accepted: it starts unreviewed.
+         */
+        AssertionCreate: {
+            /**
+             * Subject Company Id
+             * Format: uuid
+             */
+            subject_company_id: string;
+            /** Predicate */
+            predicate: string;
+            /** Object Company Id */
+            object_company_id?: string | null;
+            value_json?: components["schemas"]["JsonValue"];
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Quote
+             * @description exactly the parsed text at the offsets
+             */
+            quote: string;
+            /**
+             * Span Start
+             * @description first character of the quote in the parse
+             */
+            span_start: number;
+            /**
+             * Span End
+             * @description one past the quote's last character
+             */
+            span_end: number;
+            /** Page Or Anchor */
+            page_or_anchor?: string | null;
+            /** Event Start */
+            event_start?: string | null;
+            /** Event End */
+            event_end?: string | null;
+            /**
+             * Epistemic Type
+             * @enum {string}
+             */
+            epistemic_type: "direct_source_statement" | "company_claim" | "third_party_report" | "agent_inference" | "quantitative_derived";
+        };
+        /**
+         * AssertionRecorded
+         * @description A mutation's result: the Assertion as it now is, and the audit event recording it.
+         */
+        AssertionRecorded: {
+            assertion: components["schemas"]["Assertion"];
+            /** Audit Event Id */
+            audit_event_id: number;
+        };
+        /** AssertionReview */
+        AssertionReview: {
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "unreviewed" | "corroborated" | "disputed" | "rejected" | "superseded";
+            /**
+             * Superseded By
+             * @description the successor; required exactly when superseding
+             */
+            superseded_by?: string | null;
+        };
         /** Company */
         Company: {
             /**
@@ -359,6 +559,89 @@ export interface components {
             at: string;
         };
         JsonValue: unknown;
+        /**
+         * MemoryDocument
+         * @description One section of the Source Version, as retained (or linked) into the bank.
+         */
+        MemoryDocument: {
+            /** Section Anchor */
+            section_anchor: string;
+            /** Section Heading */
+            section_heading: string | null;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Sectioner Version */
+            sectioner_version: string;
+            /** Document Id */
+            document_id: string | null;
+            /**
+             * Retain State
+             * @enum {string}
+             */
+            retain_state: "pending" | "completed" | "failed" | "zero_fact" | "linked";
+            /** Fact Count */
+            fact_count: number | null;
+            /** Reprocess Count */
+            reprocess_count: number;
+            /** Template Version */
+            template_version: string;
+            /** Operation Id */
+            operation_id: string | null;
+            /** Linked To Source Version Id */
+            linked_to_source_version_id: string | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * MemoryOperation
+         * @description A Hindsight operation that retained (or reprocessed) some of the version's sections.
+         */
+        MemoryOperation: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /** Error Message */
+            error_message: string | null;
+            /** Retry Count */
+            retry_count: number;
+            /** Document Ids */
+            document_ids: string[];
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /** Last Polled At */
+            last_polled_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+        };
+        /** Page[Assertion] */
+        Page_Assertion_: {
+            /** Items */
+            items: components["schemas"]["Assertion"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[Company] */
         Page_Company_: {
             /** Items */
@@ -534,6 +817,30 @@ export interface components {
             content: components["schemas"]["ContentLinks"];
             /** Fetches */
             fetches: components["schemas"]["FetchObservation"][];
+        };
+        /** SourceVersionMemory */
+        SourceVersionMemory: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Retained */
+            retained: boolean;
+            /** Linked To Source Version Id */
+            linked_to_source_version_id: string | null;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Fact Count */
+            fact_count: number;
+            /** Documents */
+            documents: components["schemas"]["MemoryDocument"][];
+            /** Operations */
+            operations: components["schemas"]["MemoryOperation"][];
         };
         /** SourceVersionSummary */
         SourceVersionSummary: {
@@ -967,6 +1274,210 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assertions_api_v1_assertions_get: {
+        parameters: {
+            query?: {
+                /** @description the company as subject or object */
+                company_id?: string | null;
+                review_state?: ("unreviewed" | "corroborated" | "disputed" | "rejected" | "superseded") | null;
+                source_version_id?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Assertion_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_api_v1_assertions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssertionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssertionRecorded"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    assertion_api_v1_assertions__assertion_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assertion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assertion"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    review_api_v1_assertions__assertion_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assertion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssertionReview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssertionRecorded"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    source_version_memory_documents_api_v1_source_versions__version_id__memory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceVersionMemory"];
+                };
             };
             /** @description Not Found */
             404: {
