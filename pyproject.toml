@@ -24,6 +24,7 @@ atlas = "atlas.cli:main"
 [dependency-groups]
 dev = [
     "boto3-stubs[s3]>=1.43.104",
+    "minio>=7.2.20",
     "pyright>=1.1.380",
     "pytest>=8.3",
     "pytest-socket>=0.7",
@@ -50,7 +51,7 @@ ignore = ["S101"]  # asserts are fine in tests
 "tests/**" = ["S", "B"]
 
 [tool.pyright]
-include = ["backend", "tests"]
+include = ["backend", "tests", "scripts"]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"
 venvPath = "."

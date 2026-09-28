@@ -4,8 +4,8 @@
 
 **Blocked by:** 05 (Archive (filesystem + S3))
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The script creates `atlas-archive` with object lock, Governance mode and 10-year default retention, plus an `atlas` user and policy without bypass rights, and prints credentials for Bitwarden
-- [ ] Running it twice changes nothing
-- [ ] It's verified against Silo; the runbook documents running it with root credentials
+- [x] The script creates `atlas-archive` with object lock, Governance mode and 10-year default retention, plus an `atlas` user and policy without bypass rights, and prints credentials for Bitwarden
+- [x] Running it twice changes nothing
+- [x] It's verified against Silo; the runbook documents running it with root credentials

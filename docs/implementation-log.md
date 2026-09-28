@@ -357,3 +357,40 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
 - **Behavior:** every formatted log record (message, extras and tracebacks) is redacted before it reaches stderr: credentials in URLs, `Bearer` tokens, `sk-` API keys, and `password|secret|token|api_key|access_key=…` values.
 - **Tests (TDD):** 5 new; 4 went red first, then green. Unit suite 117 passed; ruff and strict pyright clean.
 - **Limits:** pattern-based. A secret logged in an unrecognized shape isn't caught; don't log secrets at all, and treat redaction as the safety net.
+## 2026-09-29: ticket 19, archive provisioning script
+
+- **Built:**
+  - `scripts/provision_archive.py`: a re-runnable minio-py (`Minio` + `MinioAdmin`) command, run as `uv run scripts/provision_archive.py --endpoint <url>`. Root credentials come from `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` only.
+    - **Bucket:** `--bucket` (default `atlas-archive`), made with object lock at creation. Default retention is GOVERNANCE for `--retention-days` days (default 3650), and versioning is checked to be Enabled.
+    - **Policy:** `--policy` (default `<bucket>-app`), scoped to the bucket. It allows `s3:GetBucketLocation`, `s3:ListBucket`, `s3:GetObject` and `s3:PutObject`, grants no delete, and explicitly denies `s3:BypassGovernanceRetention`.
+    - **User:** `--user` (default `atlas`), with the policy attached. A 40-character secret is generated and printed once, as Bitwarden field lines (`S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`), and is never written to disk. It's printed as soon as the user exists, so a later failure can't lose it.
+    - **Idempotent:** each step reports `ok` / `up to date` or the change it made. A run with no changes ends `No changes: already provisioned.`
+      - It **refuses** (exit 1) an existing bucket without object lock, or with a different default retention, rather than change a lock.
+      - A lock-enabled bucket with no rule, left by a crash between create and configure, gets the rule.
+      - A policy that differs from the script's is updated. Extra policies on the user are reported as a warning.
+    - `--rotate-secret` issues a new secret for an existing user, as the recovery path for lost credentials.
+  - `minio` 7.2.20 is a **dev** dependency. The Dockerfile's `uv sync --no-dev` keeps it out of the app image, and the owner runs the script from a checkout.
+  - `scripts/` is now covered by ruff (`scripts/ci.sh`) and strict pyright (`pyproject.toml` include).
+  - Docs: the "Archive bucket provisioning" section in `docs/runbooks.md` (root credentials via `read -s`, storing the output in Bitwarden, rotation, Silo use), linked from rollout step 5. Plus one command line in `AGENTS.md`.
+- **Tests:** `tests/integration/test_archive_provisioning.py`, 10 passing. They run the script as a subprocess against the Compose Silo as root, with unique names and 1-day retention:
+  - the bucket has object lock `Enabled`, default retention `{Mode: GOVERNANCE, Days: 1}`, and versioning Enabled
+  - the printed credentials are the scoped user's
+  - the scoped user can put, get, head and check readiness through `open_archive` (the S3 backend), and the stored object carries GOVERNANCE retention
+  - the scoped user **cannot** permanently delete a locked version, even with `BypassGovernanceRetention=True`; the version survives
+  - the scoped user can't write to another bucket
+  - **second run:** exit 0, `No changes`, no credentials printed, and the first secret still works
+  - a run asking for a different retention is refused, and the lock is unchanged
+  - an existing unlocked bucket is refused before any user is created
+  - `--rotate-secret` prints a new secret; the new one works and the old one is rejected
+  - missing root credentials exit 2 and name both variables
+  - **Cleanup:** users and policies are removed, and Silo was checked afterwards: no `atlas-test*` users or policies left. Locked buckets are emptied with the root bypass where possible; otherwise their 1-day retention expires.
+  - Red first: all 10 failed before the script existed.
+- **CI:** `scripts/ci.sh --no-image` passed: ruff and pyright clean, frontend gates, 202 passed, 1 deselected.
+- **Fixture vs live:** verified live against Silo (a MinIO fork) only. **Not run against the cluster MinIO**; the owner runs it in rollout step 5. The 3650-day default was not exercised live, since tests use 1 day. The admin API (`user-info`, `add-canned-policy`, `idp/builtin/policy/attach`) and error codes (`XMinioAdminNoSuchUser`/`NoSuchPolicy`, `ObjectLockConfigurationNotFoundError`) were observed on Silo and are MinIO's.
+- **Deviations:**
+  - A script under `scripts/`, not an `atlas` subcommand, so the app image needs no `minio`.
+  - The mode is fixed to Governance (decision Q16), and only the days are configurable.
+  - The bypass permission is also *explicitly* denied, not just omitted.
+  - `--rotate-secret` was added beyond the ticket, as the only recovery path now that `mc` is gone.
+- **Credentials:** none needed. The tests use the Compose dev root (`atlas-dev`), not a real secret.
+- **Next:** the owner runs the script in rollout step 5. The app release (step 6) needs an ExternalSecret mapping the Bitwarden `S3_*` fields to `ATLAS_S3_*`, plus `ATLAS_ARCHIVE_BACKEND=s3`. The R2 copy CronJob needs its own read credentials; this policy is for the app only.

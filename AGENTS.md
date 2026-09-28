@@ -8,6 +8,7 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 - `uv run pytest`: unit tests (network blocked by pytest-socket) and integration tests (localhost only; needs `docker compose up -d --wait postgres-app silo`).
 - `uv run atlas api | worker [--once] | migrate`: the three roles of the one image.
 - `uv run atlas audit verify`: check the audit hash chain; exits 1 if it is broken.
+- `uv run scripts/provision_archive.py --endpoint <url>`: the owner's one-off archive bucket/user provisioning (root credentials from `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`; see `docs/runbooks.md`).
 - `npm --prefix frontend run lint | typecheck | build`: the frontend gates; `build` writes the static export to `frontend/out/`.
 
 ## Layout
