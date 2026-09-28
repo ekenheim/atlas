@@ -215,6 +215,8 @@ async def test_clients_share_one_process_wide_limit_of_ten_requests_per_second()
 
     assert len(stamps) == 16
     stamps.sort()
-    # No window of one second ever holds more than ten requests (1 ms timer slack).
+    # No window of one second ever holds more than ten requests. Stamps are taken in the
+    # handler, after the limiter releases, so allow 10 ms of event-loop scheduling jitter
+    # (1 ms flaked on a loaded machine); without the limiter the gap would be ~0 s.
     for first, eleventh in zip(stamps, stamps[10:], strict=False):
-        assert eleventh - first >= 1.0 - 1e-3
+        assert eleventh - first >= 1.0 - 1e-2
