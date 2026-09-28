@@ -13,8 +13,8 @@ step "python: sync locked dependencies"
 uv sync --frozen
 
 step "python: format, lint, types"
-uv run ruff format --check backend tests
-uv run ruff check backend tests
+uv run ruff format --check backend tests scripts
+uv run ruff check backend tests scripts
 uv run pyright
 
 step "frontend: install, lint, types, static export"
