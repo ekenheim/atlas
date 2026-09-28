@@ -1,7 +1,7 @@
 # Spec: Atlas pilot, Phases 0–2
 
 Status: ready-for-agent
-Map: [Map: Atlas pilot, Phases 0–2](./map.md). Part A covers Phases 0–1 (the skeleton and the SEC provenance slice). Part B covers Phase 2 (Hindsight integration and the first cluster deploy). Part B builds on Part A; implement them in order.
+Map: [Map: Atlas pilot, Phases 0–2](./map.md). Part A covers Phases 0–1 (the skeleton and the SEC provenance slice). Part B covers Phase 2 (Hindsight integration and the first cluster deploy). Part B builds on Part A. Implementation tickets: `.scratch/atlas-pilot-build/issues/` (22 tickets, with blocking edges).
 
 Vocabulary follows `CONTEXT.md`. The authoritative product spec is `hindsight_investment_research_build_plan.md` v1.1; deviations are recorded in `docs/decisions.md`.
 
