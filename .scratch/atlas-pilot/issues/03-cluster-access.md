@@ -1,4 +1,4 @@
-# Restore cluster access and confirm dev-machine reachability
+# Local dev access to LiteLLM (and a Hindsight space to try)
 
 Type: task
 Status: open
@@ -6,12 +6,13 @@ Blocked by: none
 
 ## Question
 
-kubectl rejects the `admin@home-kubernetes` credentials. Before the bake-off and the deploy decisions:
+Reframed 2026-09-28 (Q21): no kubectl. Flux deploys from Git, so live-state checks come from the home-ops repo. What the dev loop needs:
 
-1. **(Human)** Refresh the kubeconfig credentials for `admin@home-kubernetes` (e.g. re-export from talos/the cluster bootstrap, or however this cluster issues them).
-2. **(Agent, after 1)**
-   - Confirm the live Hindsight image tag in `llm`.
-   - Confirm that the LiteLLM proxy (`litellm.llm:4000` or its internal route) and SearXNG are reachable **from WSL**, so local Compose can use them.
-   - Record the URLs, and whether a LiteLLM dev key is needed for local use.
+1. **(Human)** Mint a dev virtual key `atlas-dev` via a `LiteLLMVirtualKey` in home-ops, separate from the production `atlas` key, with:
+   - a small `maxBudget` / `budgetDuration`
+   - a model allowlist: MiniMax-M3, MiniMax-M2.7, `fast`, `translate`, `qwen3-embedding-0.6b`
+2. **(Human)** Put the key and the LAN-reachable LiteLLM base URL in the repo's untracked `.env` as `LITELLM_BASE_URL` / `LITELLM_API_KEY`. Never commit it or paste it in chat.
+3. **(Agent)** From WSL, confirm that LiteLLM answers `/v1/models` with the key, that each allowlisted model serves a non-streaming call, and that SearXNG's JSON API answers. Record the URLs.
+4. **Hindsight space:** local Compose runs the pinned 0.10.1 with its LLM pointed at LiteLLM through the dev key (the Q12 decision). A bank on the shared `llm/hindsight` can't run the bake-off, because its server-wide LLM is `openai-codex`. Also, its single tenant key opens every bank.
 
-Resolved when access works; the answer records the reachable URLs and where the dev credentials live.
+Resolved when step 3 passes; the answer records the working URLs and where the dev credentials live.
