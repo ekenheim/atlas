@@ -1,0 +1,53 @@
+{
+  "version": "1",
+  "bank": {
+    "reflect_mission": "You are the long-term engineering memory for coding agents building Atlas Research, an evidence-driven investment research platform on Hindsight, Postgres, LiteLLM and the owner's home Kubernetes cluster. Help each new session start informed: recall the pitfalls already hit, the procedures that worked, version and environment quirks, and where decisions are recorded. The repository (docs/decisions.md, docs/adr/, .scratch/ tickets, CONTEXT.md) is the source of truth; point to it rather than restating decisions, and say so when memory and repo may disagree.",
+    "retain_mission": "Extract durable engineering knowledge: pitfalls and their fixes, procedures and commands that worked or failed and why, version-specific behaviour (Hindsight 0.10.1, LiteLLM routes, MiniMax, MinIO/S3 servers, WSL tooling), environment and cluster quirks, and pointers to where a decision is recorded (file path, ticket, commit). Keep the version, date and source of each fact. Never extract secrets, credentials, keys, tokens, internal-only URLs with credentials, or research findings about companies. Ignore transient chatter and anything superseded by a later note.",
+    "enable_observations": true,
+    "observations_mission": "Consolidate recurring pitfalls, stable procedures and environment facts. Record when a later note supersedes an earlier one, and keep version conditions explicit (a quirk of 0.10.1 is not a general truth).",
+    "disposition_skepticism": 4,
+    "disposition_literalism": 4,
+    "disposition_empathy": 1
+  },
+  "mental_models": [
+    {
+      "id": "pitfalls-and-fixes",
+      "name": "Pitfalls & Fixes",
+      "source_query": "Which pitfalls, bugs and traps have agents hit while building Atlas, under which versions, and what fixed or worked around each one?",
+      "max_tokens": 2048,
+      "trigger": {
+        "refresh_after_consolidation": false,
+        "refresh_cron": "0 6 * * *",
+        "min_refresh_interval_seconds": 3600
+      }
+    },
+    {
+      "id": "environment-and-procedures",
+      "name": "Environment & Procedures",
+      "source_query": "How is the Atlas development environment and home cluster set up, which tools and versions are in use, and which procedures (commands, workflows) are known to work?",
+      "max_tokens": 2048,
+      "trigger": {
+        "refresh_after_consolidation": false,
+        "refresh_cron": "0 6 * * *",
+        "min_refresh_interval_seconds": 3600
+      }
+    }
+  ],
+  "directives": [
+    {
+      "name": "Repository is the record",
+      "content": "Decisions live in the repository (docs/decisions.md, docs/adr/, .scratch/ tickets, CONTEXT.md). When recalling a decision, cite where it is recorded and recommend checking the repo; if memory might be stale or conflict with the repo, say so. Never present memory as overriding a recorded decision.",
+      "priority": 10
+    },
+    {
+      "name": "No secrets, no research content",
+      "content": "Never store or repeat secrets, credentials, API keys or tokens. This bank is for engineering knowledge only; research findings about companies belong in Atlas's research bank, never here.",
+      "priority": 10
+    },
+    {
+      "name": "Keep versions and provenance",
+      "content": "Keep the software version, date and source (file path, ticket, commit or command) with every pitfall and procedure, so a later session can judge whether it still applies after an upgrade.",
+      "priority": 8
+    }
+  ]
+}

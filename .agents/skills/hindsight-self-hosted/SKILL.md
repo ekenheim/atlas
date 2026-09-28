@@ -11,6 +11,7 @@ Upstream skill vendored from `vectorize-io/hindsight@v0.10.1:skills/hindsight-se
 
 - **Server:** the owner's shared self-hosted Hindsight (`llm/hindsight` in the home cluster), at `https://hindsight.ekenhome.se`, configured in `~/.hindsight/config`. The CLI is `hindsight` 0.10.1 (`~/.local/bin/hindsight`, a wrapper that runs it on Linuxbrew's glibc).
 - **Bank:** use **`atlas-dev`** only. Never retain to, recall from, or reflect on `atlas-ai-infrastructure`, any `atlas-replay-*` bank, or any other consumer's bank. The research banks must hold source material only (Memory is not Evidence; see `CONTEXT.md`), and the shared tenant key can reach every bank.
+- **Bank configuration:** `configs/hindsight/atlas-dev-bank-template.json` (adapted from Hindsight's research-assistant template). Apply changes with `POST /v1/default/banks/atlas-dev/import?dry_run=true`, then without `dry_run`. Mental models refresh on a daily cron, never after consolidation (refresh-loop bug #4532 in 0.10.1).
 - **What to store:** development learnings, procedures, pitfalls and outcomes (e.g. "Hindsight 0.10.1 starves retain when `WORKER_MAX_SLOTS` ≤ 2").
 - **What not to store:** secrets, credentials, keys or `.env` values; licensed source text; research findings about companies.
 - **The repo stays the source of truth.** Decisions go in `docs/decisions.md`, ADRs in `docs/adr/`, and questions in the `.scratch/` tickets. Hindsight is recall, not the record. If a recalled memory conflicts with the repo, the repo wins; correct the memory.
