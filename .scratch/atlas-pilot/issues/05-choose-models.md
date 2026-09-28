@@ -1,7 +1,7 @@
 # Choose and pin the extraction and reflect models
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 04
 
 ## Question

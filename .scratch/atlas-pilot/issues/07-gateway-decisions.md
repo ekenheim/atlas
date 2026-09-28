@@ -1,7 +1,7 @@
 # Hindsight gateway and bank-policy decisions from the matrix
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 06
 
 ## Question
