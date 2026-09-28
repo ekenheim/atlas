@@ -33,6 +33,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 
 - [Hindsight releases after 0.10.1: anything Phase 2 needs?](issues/01-hindsight-release-delta.md): keep 0.10.1 (latest release); upsert is a chunk-level delta, reflect citations need a per-memory lookup, and the mental-model refresh-loop risk needs a mitigation.
 - [Home-ops wiring facts for the Atlas deploy](issues/08-home-ops-wiring.md): MinIO needs module work for versioning/lock and there is no R2 replication to reuse (→ ticket 10); scope the `llm` secret store to `datasci`; Atlas image bumps would auto-deploy under current Renovate rules.
+- [Which LiteLLM routes can Hindsight 0.10.1 use for extraction?](issues/02-hindsight-llm-compat.md): the bake-off candidates are MiniMax-M3/M2.7, Ornith (`fast`) and Gemma 3 (`translate`, extraction only); ChatGPT and Anthropic subscriptions are not viable; no candidate has a dated ID.
 
 ## Not yet specified
 
@@ -40,6 +41,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - **The two curated mental models for Phase 2:** which two of the §6.5 standing questions, their refresh trigger, and whether knowledge pages are used at all (depends on the matrix).
 - **CI Hindsight strategy:** whether a real Hindsight container with a fixture LLM is feasible in CI, beyond the recorded-response fake.
 - **Home-ops rollout order:** the PR sequencing across the Crunchy users, the OpenTofu bucket, the LiteLLM key, the Hindsight release and the app release, given that PRs auto-merge.
+- **Recording Hindsight's concrete model per run:** LiteLLM rewrites `model` to the alias, and Atlas can't see Hindsight's response headers, so the routed model must come from the LiteLLM spend logs. How Atlas reads them (admin API access, key scope) is open.
 - **Threat model and gold-fixture format:** Phase 0 deliverables. Their content likely comes straight from the spec, but may surface decisions once the Hindsight matrix exists.
 
 ## Out of scope
