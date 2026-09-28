@@ -20,6 +20,8 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/ backend/
 RUN uv sync --frozen --no-dev
+# Versioned config (the company universe), read relative to WORKDIR /app.
+COPY configs/ configs/
 COPY --from=frontend /build/out /app/frontend
 
 RUN useradd --system --uid 10001 --no-create-home atlas \

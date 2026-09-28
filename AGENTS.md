@@ -8,15 +8,17 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 - `uv run pytest`: unit tests (network blocked by pytest-socket) and integration tests (localhost only; needs `docker compose up -d --wait postgres-app silo`).
 - `uv run atlas api | worker [--once] | migrate`: the three roles of the one image.
 - `uv run atlas audit verify`: check the audit hash chain; exits 1 if it is broken.
+- `uv run atlas companies seed`: create or update the companies in `configs/themes/ai-infrastructure.yaml` (idempotent).
+- `uv run atlas ingest --company lumentum [--key K]`: enqueue an ingest job; `atlas worker --once` runs it. Fixture mode needs `ATLAS_SEC_FIXTURES_DIR=tests/fixtures/edgar`; `ATLAS_SEC_LIVE=true` fetches from SEC.
 - `npm --prefix frontend run lint | typecheck | build`: the frontend gates; `build` writes the static export to `frontend/out/`.
 
 ## Layout
 
-- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `audit.py` hash-chained audit trail, `db/` migrations, `hindsight/` the only Hindsight HTTP client, `jobs/` Postgres job queue and worker, `sources/` source adapters (SEC EDGAR), `settings.py`, `health.py`, `cli.py`)
+- `backend/atlas/`: the Python package (`api/` FastAPI app, `archive/` content-addressed archive (filesystem + S3), `audit.py` hash-chained audit trail, `companies.py` the company universe from config, `ledger/` the source ledger (Source Documents, Source Versions, fetch observations) and the `ingest` job, `parsing.py` the deterministic HTML/text parser, `db/` migrations, `hindsight/` the only Hindsight HTTP client, `jobs/` Postgres job queue and worker, `sources/` source adapters (SEC EDGAR), `settings.py`, `health.py`, `cli.py`)
 - `tests/fakes/hindsight.py`: the recorded Hindsight fake (an `httpx2.MockTransport` replaying `spikes/hindsight/recordings/`)
 - `frontend/`: Next.js static export, served by FastAPI
 - `tests/unit`, `tests/integration`: tests at the agreed seams (HTTP API, CLI entry, migrations)
-- `configs/`: versioned config (e.g. Hindsight bank templates)
+- `configs/`: versioned config (Hindsight bank templates; `themes/` the company universe and themes)
 - `spikes/hindsight/`: the Hindsight 0.10.1 spike, fixtures and recordings (contract-test source)
 - `.scratch/`: the local issue tracker (the decision map and build tickets)
 

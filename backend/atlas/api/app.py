@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 
 from atlas import __version__
 from atlas.api.jobs import jobs_router
+from atlas.api.sources import sources_router
 from atlas.archive import open_archive
 from atlas.health import NOT_CONFIGURED, OK, check_archive, check_database
 from atlas.jobs import JobQueue
@@ -46,6 +47,7 @@ def create_app(settings: Settings) -> FastAPI:
         return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
 
     app.include_router(jobs_router(JobQueue(engine)))
+    app.include_router(sources_router(engine, archive))
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:

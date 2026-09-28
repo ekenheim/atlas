@@ -350,3 +350,63 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - The ClusterSecretStore is named `litellm-key-secrets` (after `crunchy-pgo-secrets`), not `litellm-keys` as the research note suggested, to avoid confusion with the `litellm-keys` Flux Kustomization.
 - **Credentials:** none needed.
 - **Next:** the owner fixes the object-store ownership and commits `atlas/litellm`, reviews the three branches, then pushes and opens them in the order in `docs/runbooks.md`. After PR 1, run the `vector` step. PR 4 (`atlas-hindsight` release) and PR 6 (the app) are later tickets.
+## 2026-09-29: ticket 07, ingest a Lumentum filing end to end
+
+- **Built:**
+  - Alembic revision `0004` (down_revision `0003`), with five tables:
+    - `company`: slug, CIK, deterministic UUIDv5 ID
+    - `security`: effective-dated, with a `btree_gist` exclusion constraint against overlapping (exchange, ticker) listings
+    - `source_document`: unique (provider, canonical URL); immutable
+    - `source_version`: `UNIQUE (document, raw_sha256)`, NOT NULL `available_at` and basis, `version_number`, `comparison_sha256`/`comparison_rule`, a unique `supersedes_version_id`
+    - `fetch_observation`: append-only
+
+    Triggers (ENABLE ALWAYS) enforce:
+    - immutable content columns, no DELETE and no TRUNCATE
+    - parse columns writable only while `pending`/`failed`
+    - supersedes = the previous version of the same document
+
+    Grants go to `atlas_app` when that role exists.
+  - `configs/themes/ai-infrastructure.yaml` (version 1): Lumentum (CIK 0001633978, LITE on XNAS from 2015-08-04), a Coherent stub, and the photonics theme. `atlas.companies` loads and validates it and seeds idempotently; only real changes are audited.
+  - `atlas.parsing`: the deterministic `html-text-v1` HTML/text normalizer (its rules are in the module docstring). JSON is `not_applicable`.
+  - `atlas.ledger`:
+    - `SourceLedger.record` resolves → hashes → archives raw → compares → creates a version (parsed and archived separately) or records an observation. Each row created gets an audit event in the same transaction.
+    - `reads` covers the API queries.
+    - `ingest` is the `ingest` job: it seeds the company, uses fixture replay (`ATLAS_SEC_FIXTURES_DIR/<slug>`) or live SEC (`ATLAS_SEC_LIVE`), makes conditional requests from the latest observation's validators, and returns artifacts (counts, new Source Version IDs, observations).
+  - CLI: `atlas ingest --company SLUG [--key] [--forms] [--limit] [--max-attempts]` and `atlas companies seed`. `builtin_registry(settings)` registers `ingest`.
+  - API (`/api/v1`, error envelope, `limit`/`offset` pages):
+    - `GET /companies`, `/companies/{id}`, `/companies/{id}/sources`
+    - `/sources/{id}`, `/sources/{id}/versions`
+    - `/source-versions/{id}` (provenance + fetches)
+    - `/source-versions/{id}/content?kind=raw|parsed` (streamed; raw served as a sandboxed attachment)
+  - The SEC edge-script decision is in `docs/decisions.md`.
+- **Files:**
+  - new: `backend/atlas/{companies,parsing}.py`, `backend/atlas/ledger/{__init__,service,reads,ingest}.py`, `backend/atlas/api/{common,sources}.py`, `backend/atlas/db/migrations/versions/0004_source_ledger.py`, `configs/themes/ai-infrastructure.yaml`, `tests/integration/test_ingest.py`, `tests/unit/test_parsing.py`, `tests/fixtures/parser/golden.json`
+  - small edits: `api/app.py` (router), `api/jobs.py` (envelope moved to `api/common.py`, re-exported), `audit.py` (`content_hash`), `cli.py`, `jobs/handlers.py`, `settings.py` (`sec_fixtures_dir`, `themes_config`), `Dockerfile` (`COPY configs/`), `.env.example`, `AGENTS.md`, `docs/data-model.md`, `docs/decisions.md`, `tests/integration/test_migrations.py` (head `0004`), `pyproject.toml`/`uv.lock` (`pyyaml` runtime, `types-pyyaml` dev)
+- **Tests:** 31 new: 16 integration (real Postgres, a fresh DB each) and 15 unit.
+  - Written first: the integration suite, red on missing settings and CLI.
+  - The parser tests were written just after the parser, and then checked by mutation.
+  - Gate tests at the CLI + single-pass worker + API seam:
+    - unchanged ×2 → one version (4×304 + 1 hash-unchanged)
+    - changed fixture → v2 supersedes v1
+    - a varied SEC script → no new version, and the fetch's own hash recorded
+    - raw bytes identical to the fixture files and equal to `raw_sha256`
+    - `available_at` = the submissions `acceptanceDateTime`, basis `sec_acceptance`, with clock ordering checked
+    - parse hash = the pinned golden, and the parsed object is separate
+    - audit events match every entity 1:1, and `atlas audit verify` exits 0
+  - Also: idempotent seeding, unknown company (exit 2), a company without fixtures fails visibly, 404 envelopes, 422 on a bad `kind`, pagination, DB-level rejection of UPDATE/DELETE/TRUNCATE, duplicate raw hash, a cross-document supersedes, NULL `available_at`, overlapping securities.
+  - Mutation checks went red as expected: disabling the edge-script rule fails the script test, and dropping the conditional validators fails the unchanged test.
+  - `scripts/ci.sh --no-image` **passed**: ruff, pyright strict 0 errors, frontend gates, **223 passed, 1 deselected** (live), 168 s.
+- **Fixture vs live:** every ingest test replays the recorded EDGAR fixtures. The live path (`ATLAS_SEC_LIVE=true` → `SecHttpClient` with the configured User-Agent) is wired but **not run**. The only live request was one SEC call to verify Coherent's CIK (`data.sec.gov/submissions/CIK0000820318.json`, User-Agent `Atlas Research ekenheim@gmail.com`). The S3 archive backend is not exercised by the ingest tests (filesystem only). The contract suite covers S3.
+- **Deviations:**
+  - `source_document.accession` is not unique: an 8-K and its EX-99.1 share an accession. Identity is (provider, canonical URL).
+  - PKs are named `id`.
+  - New columns: `company.slug`, `source_document.{document_type,title}`, `source_version.{version_number,comparison_sha256,comparison_rule,byte_size,parse_error}`, and `parse_status` `not_applicable`.
+  - `fetch_observation` resolves the per-fetch open point.
+  - The re-parse table is deferred.
+  - Two extra read routes (`/companies/{id}/sources`, `/sources/{id}`).
+  - `published_at` is null for SEC.
+  - LITE's `valid_from` day comes from Lumentum's separation announcement; the 10-K fixture only confirms August 2015.
+  - Coherent's security is a TODO.
+  - Not built: the submissions index as its own Source Version (the adapter doesn't return it) and fetch/parse/archive metrics (spec story 8).
+- **Credentials:** none.
+- **Next:** ticket 08 (Assertions) binds quotes to `source_version.parsed_object_uri` text. The viewer ticket uses the new read routes. Metrics for fetches, parses and archive writes remain open. Coherent fixtures and its security arrive in Phase 2.

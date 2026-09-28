@@ -3,11 +3,15 @@
 import argparse
 import logging
 import sys
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
 from atlas.logs import configure_logging
 from atlas.settings import Settings
+
+if TYPE_CHECKING:
+    from atlas.companies import Universe
 
 log = logging.getLogger("atlas")
 
@@ -52,7 +56,7 @@ def run_worker(settings: Settings, once: bool) -> None:
     engine = create_engine(settings.database_url, pool_pre_ping=True)
     worker = Worker(
         JobQueue(engine),
-        builtin_registry(),
+        builtin_registry(settings),
         lease=timedelta(seconds=settings.job_lease_seconds),
     )
     try:
@@ -87,7 +91,7 @@ def enqueue_job(
 
     from atlas.jobs import JobQueue, builtin_registry
 
-    kinds = builtin_registry().kinds()
+    kinds = builtin_registry(settings).kinds()
     if kind not in kinds:
         print(f"atlas: unknown job kind {kind!r} (known: {', '.join(kinds)})", file=sys.stderr)
         raise SystemExit(2)
@@ -107,6 +111,83 @@ def enqueue_job(
     job = enqueued.job
     summary = {"id": str(job.id), "kind": job.kind, "idempotency_key": job.idempotency_key}
     print(json.dumps({**summary, "status": job.status, "created": enqueued.created}))
+
+
+def _universe(settings: Settings) -> "Universe":
+    from atlas.companies import UniverseConfigError, load_universe
+
+    try:
+        return load_universe(settings.themes_config)
+    except UniverseConfigError as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        raise SystemExit(2) from None
+
+
+def enqueue_ingest(
+    settings: Settings,
+    company: str,
+    key: str | None,
+    forms: str | None,
+    limit: int | None,
+    max_attempts: int,
+) -> None:
+    import json
+    from datetime import UTC, datetime
+
+    from sqlalchemy import create_engine
+
+    from atlas.jobs import JobQueue
+    from atlas.ledger.ingest import INGEST_KIND, ingest_payload
+
+    universe = _universe(settings)
+    if company not in universe.companies:
+        known = ", ".join(sorted(universe.companies))
+        print(
+            f"atlas: company {company!r} is not configured in {settings.themes_config}"
+            f" (known: {known})",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if (limit is not None and limit < 1) or max_attempts < 1:
+        print("atlas: --limit and --max-attempts must be at least 1", file=sys.stderr)
+        raise SystemExit(2)
+    form_list = [form.strip() for form in forms.split(",") if form.strip()] if forms else None
+    # Without --key, each invocation is a new ingest run; reuse a key to make it idempotent.
+    key = key or f"ingest:{company}:{datetime.now(UTC).isoformat(timespec='seconds')}"
+    engine = create_engine(settings.database_url)
+    try:
+        enqueued = JobQueue(engine).enqueue(
+            INGEST_KIND,
+            key,
+            ingest_payload(company, form_list, limit),
+            max_attempts=max_attempts,
+        )
+    finally:
+        engine.dispose()
+    job = enqueued.job
+    summary = {"id": str(job.id), "kind": job.kind, "idempotency_key": job.idempotency_key}
+    print(json.dumps({**summary, "status": job.status, "created": enqueued.created}))
+
+
+def seed_companies(settings: Settings) -> None:
+    import json
+
+    from sqlalchemy import create_engine
+
+    from atlas.audit import Actor
+    from atlas.companies import seed
+
+    universe = _universe(settings)
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.begin() as connection:
+            seeded = seed(connection, Actor.from_settings(settings), universe)
+    finally:
+        engine.dispose()
+    for each in seeded:
+        print(
+            json.dumps({"company": each.slug, "id": str(each.company_id), "changes": each.changes})
+        )
 
 
 def run_audit_verify(settings: Settings) -> int:
@@ -146,6 +227,17 @@ def main(argv: list[str] | None = None) -> None:
     enqueue.add_argument("--key", required=True, help="idempotency key: same key, same job")
     enqueue.add_argument("--payload", default="{}", help="job payload as a JSON object")
     enqueue.add_argument("--max-attempts", type=int, default=3, help="retry bound (default 3)")
+    ingest = commands.add_parser(
+        "ingest", help="enqueue an ingest job for a configured company (run by the worker)"
+    )
+    ingest.add_argument("--company", required=True, help="company slug from the theme config")
+    ingest.add_argument("--key", help="idempotency key (default: a new run each time)")
+    ingest.add_argument("--forms", help="comma-separated SEC forms (default 10-K,10-Q,8-K)")
+    ingest.add_argument("--limit", type=int, help="at most this many recent filings")
+    ingest.add_argument("--max-attempts", type=int, default=3, help="retry bound (default 3)")
+    companies = commands.add_parser("companies", help="the configured company universe")
+    companies_commands = companies.add_subparsers(dest="companies_command", required=True)
+    companies_commands.add_parser("seed", help="create or update companies from the config")
     args = parser.parse_args(argv)
 
     configure_logging()
@@ -163,5 +255,9 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(run_audit_verify(settings))
     elif args.command == "jobs":
         enqueue_job(settings, args.kind, args.key, args.payload, args.max_attempts)
+    elif args.command == "ingest":
+        enqueue_ingest(settings, args.company, args.key, args.forms, args.limit, args.max_attempts)
+    elif args.command == "companies":
+        seed_companies(settings)
     else:
         run_worker(settings, once=args.once)
