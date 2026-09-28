@@ -4,8 +4,8 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] A release tag triggers build and push of the multi-stage image (frontend export + Python) to GHCR with the version tag
-- [ ] The image runs non-root with a read-only root filesystem and a writable /tmp
-- [ ] The workflow runs the CI entrypoint before publishing
+- [x] The image runs non-root with a read-only root filesystem and a writable /tmp
+- [x] The workflow runs the CI entrypoint before publishing

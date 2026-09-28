@@ -72,3 +72,27 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - Tickets 07 and 08 call `record` with `Actor.from_settings(settings)` in the same transaction as each mutation.
   - Ticket 04's migration will be re-chained after `0002`, and `test_migrations` must then expect its head.
   - The deployment creates `atlas_app` (tickets 20–22), and later migrations grant it minimal privileges.
+## 2026-09-28: ticket 18, release pipeline
+
+- **Built:**
+  - `.github/workflows/release.yml`: runs on push of a tag `v*.*.*`, in two jobs:
+    - `ci` (`contents: read`) runs `scripts/ci.sh --no-image`.
+    - `publish` (`needs: ci`, `packages: write`) builds the existing multi-stage Dockerfile for `linux/amd64` only, loads it locally and runs `scripts/image-smoke.sh` on it. Only then does it log in to GHCR with `GITHUB_TOKEN` and push `ghcr.io/ekenheim/atlas` (the second build is served from the buildx cache).
+  - Tags: `{{version}}` (the full semver without the `v`, e.g. `1.2.3`) and `sha-<full commit SHA>`. No `latest` tag.
+  - OCI labels come from `docker/metadata-action`: `org.opencontainers.image.version` and `.revision`, plus `.source` pinned explicitly to `https://github.com/ekenheim/atlas`.
+  - Actions are pinned to their current majors: `docker/setup-buildx-action@v4`, `docker/metadata-action@v6`, `docker/login-action@v4` and `docker/build-push-action@v7` (all the Node 24 majors of March 2026). The checkout, uv and node setup steps match `ci.yml` (`actions/checkout@v4`, `astral-sh/setup-uv@v6`, `actions/setup-node@v4`).
+  - `docs/deployment.md` (new): the release process, the tag scheme, how to cut a release, the one-time step of making the GHCR package public, and the Renovate deploy path. There's also a short "Releases" section in the README.
+- **Tests and results (actual):**
+  - `actionlint` 1.7.12 (`docker run --rm -v <worktree>:/repo -w /repo rhysd/actionlint:latest`): 0 errors in `ci.yml` and `release.yml`.
+  - Local image: `docker buildx build --platform linux/amd64 --load -t atlas:release-test` with the three OCI labels passed by hand. Then `ATLAS_SMOKE_PORT=58318 scripts/image-smoke.sh atlas:release-test` printed `image smoke OK (uid 10001, read-only root)`, and `docker image inspect` showed the labels, arch `amd64` and user `10001`.
+  - The worker role in the same image (`--read-only --tmpfs /tmp`, `worker --once` against the local Postgres) exited 0 with the disabled-provider notices.
+  - `scripts/ci.sh --no-image`: passed, with 11 tests passing. The first attempt failed at the pytest step with a transient `Current directory does not exist` on the `/mnt/c` worktree; a direct `uv run pytest` and a full rerun both passed.
+- **Unverified:** the publish path has never run on GitHub. That covers the GHCR login, the push, the tags and labels as metadata-action actually computes them, and the package-to-repo link. No tag has been pushed; that is the owner's step. The first acceptance box stays unticked until the first real `v*.*.*` tag publishes successfully. After that first release, the package must be made public once in GitHub's UI (`docs/deployment.md`).
+- **Deviations and notes:**
+  - The ticket asks for "the version tag". I publish `X.Y.Z` (the full semver, no `v`) and the SHA tag, with no floating `X.Y`, `X` or `latest` tags, so Renovate tracks exact versions.
+  - The publish job smokes the image before pushing it. This goes beyond the ticket, but the non-root/read-only acceptance box is then checked on every release.
+  - Provenance attestations are left at the build-push-action default. GHCR may list an extra `unknown/unknown` attestation manifest, which is harmless.
+- **Credentials:** none (`GITHUB_TOKEN` only).
+- **Next:**
+  - The owner tags the first release (e.g. `v0.1.0`), checks the run and the package, and sets the package to Public.
+  - Then ticket 21 (home-ops releases/Renovate).

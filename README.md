@@ -28,3 +28,7 @@ scripts/ci.sh                              # full CI: gates, tests, image build 
 ```
 
 The app is one image with three roles: `atlas api`, `atlas worker [--once]` and `atlas migrate`.
+
+## Releases
+
+Push a tag `vX.Y.Z` to publish `ghcr.io/ekenheim/atlas:X.Y.Z` (amd64). The release workflow runs `scripts/ci.sh --no-image` first and smokes the image before pushing it. After the very first release, set the GHCR package to **Public** once in GitHub's package settings; new packages start private. See `docs/deployment.md`.
