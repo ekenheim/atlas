@@ -4,8 +4,8 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Put is idempotent by hash, round-trips exactly, and never overwrites
-- [ ] Against Silo with an object-locked bucket: an overwrite creates a new version, a plain delete adds a delete marker, and a permanent version delete is refused without bypass. Tests assert behavior, not exact error codes
-- [ ] Archive locations are internal application URIs; no object-store credentials are exposed
+- [x] Put is idempotent by hash, round-trips exactly, and never overwrites
+- [x] Against Silo with an object-locked bucket: an overwrite creates a new version, a plain delete adds a delete marker, and a permanent version delete is refused without bypass. Tests assert behavior, not exact error codes
+- [x] Archive locations are internal application URIs; no object-store credentials are exposed

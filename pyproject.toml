@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.13",
+    "boto3>=1.43.104",
     "fastapi>=0.115",
     "prometheus-client>=0.20",
     "psycopg[binary]>=3.2",
@@ -21,6 +22,7 @@ atlas = "atlas.cli:main"
 
 [dependency-groups]
 dev = [
+    "boto3-stubs[s3]>=1.43.104",
     "httpx2>=2.13.1",
     "pyright>=1.1.380",
     "pytest>=8.3",

@@ -22,6 +22,34 @@ def test_crlf_env_file_values_are_loaded_without_trailing_whitespace(tmp_path: P
     assert settings.litellm_url == "https://litellm.example"
 
 
+def test_archive_backend_defaults_to_the_filesystem(tmp_path: Path) -> None:
+    settings = Settings.model_validate(
+        {"database_url": "postgresql+psycopg://x@db/atlas", "actor": "a", "archive_root": tmp_path}
+    )
+
+    assert settings.archive_backend == "filesystem"
+
+
+def test_s3_secret_is_never_rendered_by_the_settings(tmp_path: Path) -> None:
+    settings = Settings.model_validate(
+        {
+            "database_url": "postgresql+psycopg://x@db/atlas",
+            "actor": "a",
+            "archive_root": tmp_path,
+            "archive_backend": "s3",
+            "s3_endpoint_url": "http://s3.internal:9000",
+            "s3_bucket": "atlas-archive",
+            "s3_access_key_id": "atlas",
+            "s3_secret_access_key": "do-not-print-this-secret\r",
+        }
+    )
+
+    assert "do-not-print-this-secret" not in repr(settings)
+    assert "do-not-print-this-secret" not in str(settings.model_dump())
+    assert settings.s3_secret_access_key is not None
+    assert settings.s3_secret_access_key.get_secret_value() == "do-not-print-this-secret"
+
+
 def test_environment_values_with_carriage_returns_are_stripped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
