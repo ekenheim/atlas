@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Two concurrent workers never claim the same job (`FOR UPDATE SKIP LOCKED`)
-- [ ] Re-enqueuing with the same idempotency key does not create a second job
-- [ ] An expired lease is reclaimed, and retries stop at the bound with the failure recorded
-- [ ] `GET /api/v1/jobs/{id}` shows status, attempts, failures and produced artifacts
+- [x] Two concurrent workers never claim the same job (`FOR UPDATE SKIP LOCKED`)
+- [x] Re-enqueuing with the same idempotency key does not create a second job
+- [x] An expired lease is reclaimed, and retries stop at the bound with the failure recorded
+- [x] `GET /api/v1/jobs/{id}` shows status, attempts, failures and produced artifacts

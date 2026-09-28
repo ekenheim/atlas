@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     actor: str
     archive_root: Path
     frontend_dir: Path | None = None
+
+    # Job queue: how often an idle continuous worker polls, and how long a claim is held
+    # before another worker may reclaim it (a crashed worker's job is retried after this).
+    worker_poll_seconds: float = Field(default=5.0, gt=0)
+    job_lease_seconds: float = Field(default=300.0, gt=0)
 
     # Optional providers: when unset, the feature is disabled (logged once at startup).
     hindsight_url: str | None = None

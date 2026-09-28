@@ -9,7 +9,9 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Info, gene
 from sqlalchemy import create_engine
 
 from atlas import __version__
+from atlas.api.jobs import jobs_router
 from atlas.health import NOT_CONFIGURED, OK, check_archive, check_database
+from atlas.jobs import JobQueue
 from atlas.settings import Settings
 
 
@@ -39,6 +41,8 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/metrics")
     def metrics() -> Response:  # pyright: ignore[reportUnusedFunction]
         return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
+
+    app.include_router(jobs_router(JobQueue(engine)))
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:

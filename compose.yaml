@@ -66,8 +66,8 @@ services:
 
   worker:
     build: .
-    # Until the job queue lands (ticket 04) the worker only checks in and exits.
-    command: ["worker", "--once"]
+    # Polls the job queue continuously (ATLAS_WORKER_POLL_SECONDS); SIGTERM stops it cleanly.
+    command: ["worker"]
     environment: *app-env
     read_only: true
     tmpfs: [/tmp]

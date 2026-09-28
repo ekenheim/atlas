@@ -35,10 +35,14 @@ def valid_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def test_worker_once_exits_cleanly_and_reports_each_disabled_provider_once(tmp_path: Path) -> None:
+def test_worker_reports_each_disabled_provider_once_and_fails_cleanly_without_a_database(
+    tmp_path: Path,
+) -> None:
     result = run_atlas(["worker", "--once"], cwd=tmp_path, env=valid_env(tmp_path))
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 1
+    assert "database unavailable" in result.stderr
+    assert "Traceback" not in result.stderr
     for provider, setting in [
         ("hindsight", "ATLAS_HINDSIGHT_URL"),
         ("litellm", "ATLAS_LITELLM_URL"),
