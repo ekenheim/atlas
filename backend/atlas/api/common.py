@@ -2,7 +2,8 @@
 
 from typing import Any
 
-from fastapi import Query
+from fastapi import Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -26,6 +27,17 @@ def not_found(what: str) -> JSONResponse:
 
 
 NOT_FOUND: dict[int | str, dict[str, Any]] = {404: {"model": ErrorEnvelope}}
+
+
+def invalid_request(request: Request, exc: Exception) -> JSONResponse:
+    """FastAPI's request validation errors, in the error envelope (code `invalid_request`)."""
+    if not isinstance(exc, RequestValidationError):
+        raise exc
+    problems = [
+        f"{'.'.join(str(part) for part in error.get('loc', ()))}: {error.get('msg', 'invalid')}"
+        for error in exc.errors()
+    ]
+    return error_response(422, "invalid_request", "; ".join(problems) or "invalid request")
 
 
 class Page[T](BaseModel):

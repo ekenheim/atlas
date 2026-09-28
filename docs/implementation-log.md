@@ -566,3 +566,65 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
 
 - A read-only `GET /model/info` against the cluster LiteLLM with the `atlas-dev` key returned `{"data": [...]}` with 32 rows of `{model_name, litellm_params: {model, api_base, …}, model_info: {id, …}}`. That **matches** the shape ticket 12 assumed and faked in CI.
 - The `atlas-extract` / `atlas-reflect` aliases are **not present yet**. They arrive with the home-ops `atlas/litellm` branch, which is still uncommitted: root-owned objects in home-ops `.git/objects`; see the ticket 20 entry. Until then, Atlas readiness reports LiteLLM as not routed.
+## 2026-09-29: ticket 08, Assertions and review
+
+- **Built:**
+  - Alembic revision `0006` (down_revision `0005`): the `assertion` table with the §5.4 fields:
+    - subject/object company, predicate, `value_json`
+    - Source Version, `quote`, character offsets `span_start`/`span_end`, `page_or_anchor`
+    - `event_start`/`event_end`, `epistemic_type`, `verification_status`
+    - `independence_family_id` (reserved), `extracted_at`, `extractor_version` (`manual`), `created_by`
+    - `reviewer_id`, `reviewed_at`, `superseded_by`
+
+    It has CHECKs for the span length, the reviewed ⇔ reviewer/reviewed-at pairing, and superseded ⇔ `superseded_by` (never itself). Triggers (ENABLE ALWAYS) enforce:
+    - an immutable statement
+    - new rows `unreviewed`, citing a parsed Source Version
+    - the review transitions
+    - a live successor
+    - no DELETE or TRUNCATE
+
+    `atlas_app` gets SELECT/INSERT/UPDATE.
+  - `atlas.assertions`:
+    - `Assertions.create` reads the archived parse and requires `parsed[span_start:span_end] == quote` exactly. Offsets are code points; a refusal names where the quote does occur.
+    - `Assertions.review` locks the Assertion and its successor in ID order, checks the transition and the successor, and updates only the review columns.
+    - `list_assertions` and `get_assertion`.
+    - Each mutation writes `assertion.created` / `assertion.reviewed` (old/new content hashes) in the same transaction, with `Actor.from_settings`.
+  - API (`/api/v1`):
+    - `POST /assertions` (201)
+    - `POST /assertions/{id}/review`
+    - `GET /assertions?company_id=&review_state=&source_version_id=` (paginated, oldest first)
+    - `GET /assertions/{id}`
+
+    Mutations return `{assertion, audit_event_id}`. Refusals use the error envelope: 422 `quote_mismatch` / `no_parsed_text` / `unknown_company` / `unknown_source_version` / `invalid_successor`, 409 `invalid_transition`, 404 `not_found`.
+  - App-wide: FastAPI request validation errors now use the error envelope (`invalid_request`, 422).
+- **Files:**
+  - new: `backend/atlas/assertions.py`, `backend/atlas/api/assertions.py`, `backend/atlas/db/migrations/versions/0006_assertion.py`, `tests/integration/test_assertions.py`
+  - small edits: `backend/atlas/api/app.py` (router and validation handler), `backend/atlas/api/common.py` (`invalid_request`), `tests/integration/test_migrations.py` (head `0006`), `docs/data-model.md` (§2.5 as built), `docs/decisions.md`, `AGENTS.md`
+- **Tests:** 46 new integration tests (real Postgres, a fresh DB each, with Lumentum's 8-K accession ingested through the fixture `ingest` job and one worker pass), all at the API seam. They were written first and went red on the missing route. Quotes and offsets are hard-coded from the recorded EX-99.1, whose parse hash is checked against `golden.json`.
+  - An exact span is accepted, including non-ASCII quotes, and starts `unreviewed` with the configured actor.
+  - Rejected with `quote_mismatch`, with no row and no audit event: altered text, shifted offsets, UTF-8 byte offsets, a short or long span, whitespace or case differences, past the end, and text not in the source.
+  - Also refused: a Source Version without a parse (companyfacts), unknown references, and malformed bodies (including a client-chosen review state or actor).
+  - Transitions: an allowed path (disputed → corroborated → disputed → rejected) leaves the statement untouched. Six disallowed transitions each return 409 and change nothing.
+  - Supersession links to the successor without editing; the superseded Assertion is final. Five invalid successors are refused.
+  - The database refuses edits, deletes, TRUNCATE, invalid transitions and reviewed inserts.
+  - Filters: company as subject or object, review state, both together, `source_version_id`, pagination, and an invalid state.
+  - Audit: events are 1:1 with creates and reviews, with the configured actor and IDs matching the responses. The old/new hashes chain, refusals write nothing, and `atlas audit verify` exits 0.
+  - Mutation checks went red as expected:
+    - accepting any quote
+    - prefix instead of exact match (after I added the span-longer case, which the first run missed)
+    - allowing re-review of final states
+    - subject-only company filter
+    - the wrong audit action
+
+  I also round-tripped the migration by hand (`0006` → `0005` → `0006`).
+  - `scripts/ci.sh --no-image` **passed**: ruff, pyright strict 0 errors, frontend gates, **317 passed, 1 deselected** (live), 264 s. The first run had one failure in `tests/unit/test_sec_http.py::test_clients_share_one_process_wide_limit_of_ten_requests_per_second` (0.99899 s against a 0.999 s bound: a timing flake under load, unrelated). It passed 3/3 in isolation and in the full rerun.
+- **Fixture vs live:** everything ran against the local Compose Postgres, with the filesystem archive and recorded EDGAR fixtures. No live SEC or S3 calls.
+- **Deviations:**
+  - §5.4 defines the states but not the transitions; the transition rules chosen are in `docs/decisions.md`.
+  - `page_or_anchor` is a free label, because `html-text-v1` has no section anchors; the offsets are the binding.
+  - I added a `source_version_id` list filter for the viewer.
+  - `quote_or_span` is stored as `quote` plus offsets.
+  - Subject and object are companies only (as `docs/data-model.md` planned).
+  - The OpenAPI 422 schema of the pre-existing routes still shows FastAPI's default shape, although the body is now the envelope.
+- **Credentials:** none.
+- **Next:** ticket 10 (the viewer) creates and reviews Assertions through these routes. It must send code-point offsets, converting from the UTF-16 selection indices. If the retention ticket defines section anchors, `page_or_anchor` could then be validated against them.

@@ -3,15 +3,19 @@
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Info, generate_latest
 from sqlalchemy import create_engine
 
 from atlas import __version__
+from atlas.api.assertions import assertions_router
+from atlas.api.common import invalid_request
 from atlas.api.jobs import jobs_router
 from atlas.api.sources import sources_router
 from atlas.archive import open_archive
+from atlas.audit import Actor
 from atlas.health import (
     NOT_CONFIGURED,
     OK,
@@ -28,6 +32,8 @@ from atlas.settings import Settings
 
 def create_app(settings: Settings) -> FastAPI:
     app = FastAPI(title="Atlas Research")
+    # Request validation errors use the same error envelope as every other API error.
+    app.add_exception_handler(RequestValidationError, invalid_request)
     app.state.settings = settings
     engine = create_engine(settings.database_url, pool_pre_ping=True)
     archive = open_archive(settings)
@@ -59,6 +65,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     app.include_router(jobs_router(JobQueue(engine)))
     app.include_router(sources_router(engine, archive))
+    app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:

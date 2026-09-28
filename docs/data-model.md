@@ -155,15 +155,15 @@ A statement bound to one Source Version and an exact quote span (build plan §5.
 
 | Column | Type | Notes |
 |---|---|---|
-| `assertion_id` | uuid PK | |
+| `id` | uuid PK | The spec's `assertion_id` (primary keys are named `id`) |
 | `subject_company_id` | uuid not null FK → company | The spec's `subject_entity_id`. Only companies are entities in Phases 1–2; products, technologies and themes arrive in Phase 3 |
 | `predicate` | text not null | Free text in Phase 1; the Relationship predicate whitelist applies to Relationships (Phase 3), not to Assertions |
 | `object_company_id` | uuid null FK → company | The spec's `object_entity_id` |
 | `value_json` | jsonb null | A value instead of, or as well as, an object |
-| `source_version_id` | uuid not null FK → source_version | |
-| `quote` | text not null | Must occur exactly in the archived parse |
-| `span_start`, `span_end` | integer not null | Character offsets into the parsed text; `quote = parsed_text[span_start:span_end]` is validated on create |
-| `page_or_anchor` | text null | Section anchor or page |
+| `source_version_id` | uuid not null FK → source_version | Must have parsed text (`parse_status` `parsed` or `incomplete`; insert trigger) |
+| `quote` | text not null | The spec's `quote_or_span`. Must occur exactly at the span in the archived parse |
+| `span_start`, `span_end` | integer not null | Character (Unicode code point) offsets into the parsed text, `[span_start, span_end)`; `quote = parsed_text[span_start:span_end]` is validated on create, and `span_end - span_start = char_length(quote)` is a CHECK |
+| `page_or_anchor` | text null | A label for people; `html-text-v1` defines no section anchors, so the offsets are the binding |
 | `event_start`, `event_end` | timestamptz null | When the asserted state held |
 | `epistemic_type` | text not null | `direct_source_statement`, `company_claim`, `third_party_report`, `agent_inference`, `quantitative_derived` |
 | `verification_status` | text not null default `unreviewed` | `unreviewed`, `corroborated`, `disputed`, `rejected`, `superseded`. The API calls this `review_state` |
@@ -171,11 +171,18 @@ A statement bound to one Source Version and an exact quote span (build plan §5.
 | `extracted_at` | timestamptz not null | |
 | `extractor_version` | text not null | `manual` for researcher-created Assertions in Phase 1 |
 | `created_by` | text not null | Actor |
-| `reviewer_id` | text null | Actor of the latest review |
-| `reviewed_at` | timestamptz null | |
-| `superseded_by` | uuid null FK → assertion | Set only together with `verification_status = superseded` |
+| `reviewer_id` | text null | Actor of the latest review; set exactly when reviewed |
+| `reviewed_at` | timestamptz null | Set exactly when reviewed |
+| `superseded_by` | uuid null FK → assertion | Set exactly when `verification_status = superseded`; never the row itself |
 
-Invariants: the statement columns (`subject_company_id`, `predicate`, `object_company_id`, `value_json`, `source_version_id`, `quote`, `span_*`, `page_or_anchor`, `epistemic_type`) are immutable after insert (trigger). Only the review columns change, and each change writes an audit event. `CHECK ((verification_status = 'superseded') = (superseded_by IS NOT NULL))`. A correction is a new Assertion plus supersession, never an edit.
+Invariants (migration `0006`, triggers ENABLE ALWAYS):
+
+- Every column except the review columns (`verification_status`, `reviewer_id`, `reviewed_at`, `superseded_by`) is immutable after insert. A correction is a new Assertion plus supersession, never an edit.
+- New rows are `unreviewed`.
+- Review transitions: `unreviewed`, `corroborated` and `disputed` may move to any other state except `unreviewed`; `rejected` and `superseded` are final.
+- A successor must not itself be `rejected` or `superseded`, so supersession never forms a cycle.
+- No DELETE or TRUNCATE.
+- Each create writes an `assertion.created` audit event, and each review an `assertion.reviewed` event, in the same transaction.
 
 ### 2.6 `audit_event`
 
@@ -418,7 +425,7 @@ erDiagram
     text last_modified
   }
   assertion {
-    uuid assertion_id PK
+    uuid id PK
     uuid subject_company_id FK
     text predicate
     uuid object_company_id FK
