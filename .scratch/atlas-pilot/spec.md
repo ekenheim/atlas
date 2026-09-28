@@ -106,7 +106,7 @@ Re-fetching unchanged material creates nothing new. Changed material creates a n
 ### Shape
 
 - One Python 3.12 application managed with `uv` and a committed lockfile, plus one TypeScript frontend. One container image serves the FastAPI API (which also serves the frontend's static export) or runs the worker, selected by its command.
-- Local stack in Compose: API, worker, application Postgres, and an S3-compatible server (MinIO images are no longer publicly pullable; the server is chosen by the map's ticket 13). The Hindsight service and its pgvector database are added to Compose by the feature-check ticket, not by this spec's slice.
+- Local stack in Compose: API, worker, application Postgres, and an S3-compatible server: PGSTY Silo, a maintained MinIO fork pinned by digest (`docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb…`), with RustFS as fallback. MinIO no longer publishes images (map ticket 13). The Hindsight service and its pgvector database are added to Compose by the feature-check ticket, not by this spec's slice.
 - Configuration comes from environment and versioned config files (themes, providers, research policies), validated at startup with typed settings. Company universe and theme membership are config-only; no company is hard-coded.
 
 ### Modules (deep modules with small interfaces)
@@ -211,7 +211,7 @@ The Hindsight feature matrix comes from the map's feature-check ticket.
   - A direct UPDATE/DELETE on `audit_event` fails at the database level.
   - Two workers never claim the same job.
   - Migrations upgrade cleanly from empty.
-- **Archive contract suite:** one parametrized suite runs against both the filesystem backend and the S3-compatible server in Compose (ticket 13), including versioning and object-lock behavior. It covers idempotent put by hash, exact round-trip, and no overwrite.
+- **Archive contract suite:** one parametrized suite runs against both the filesystem backend and the S3-compatible server in Compose (ticket 13), including versioning and object-lock behavior: an overwrite creates a new version, a plain delete adds a delete marker, and a permanent version delete is refused without bypass. Tests assert this behavior, not exact error codes, which differ between servers. It covers idempotent put by hash, exact round-trip, and no overwrite.
 - **Parser:** unit tests on fixtures assert determinism (same input and version give the same content hash).
 - **Frontend:** one Playwright smoke test against the static export served by FastAPI. It opens a Source Version, sees its provenance and parsed text, and creates an Assertion.
 - **Prior art:** none. This is a new repository, so these tests establish the conventions for later phases.
@@ -480,5 +480,4 @@ Audit events are written for template applications and research answers, as for 
   - a minimal `run` record in Phase 2 (Part A deferred run/task to Phase 4)
   - quote normalization rules (whitespace and typographic quotes only)
 - The Phase 2 gate "the same flow works against the in-cluster deployment" is met by the owner running the smoke script after the rollout, not by CI.
-- Research ticket 13 (an S3-compatible server for dev/CI) is still open when this was written. It changes only Part A's Compose image choice, not Part B.
 - Per `START_HERE.md`, the implementation log must say which integrations were tested live (spike or cluster) and which only against recordings.

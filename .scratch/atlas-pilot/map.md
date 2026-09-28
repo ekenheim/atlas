@@ -6,7 +6,7 @@ Label: wayfinder:map
 
 A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service skeleton, SEC provenance vertical slice, Hindsight integration against the verified feature matrix, and the first home-ops deployment. The spec will be at `.scratch/atlas-pilot/spec.md`.
 
-**Status (2026-09-28): destination reached.** `spec.md` covers Phases 0–2 (Part A: Phases 0–1, Part B: Phase 2) and is `ready-for-agent`. Only research ticket 13 (the dev/CI S3 server) is still open; it affects Part A's Compose image only.
+**Status (2026-09-28): destination reached.** `spec.md` covers Phases 0–2 (Part A: Phases 0–1, Part B: Phase 2) and is `ready-for-agent`. All tickets are resolved.
 
 ## Notes
 
@@ -20,7 +20,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - **Settled in the charting session (2026-09-28):**
   - Anchor companies: Lumentum (Phase 1) and Coherent (Phase 2 cross-company gate).
   - The SEC User-Agent contact is set in env, never committed.
-  - The CI gate is one local entrypoint that GitHub Actions also calls; the remote `ekenheim/atlas-research` is added before Phase 2.
+  - The CI gate is one local entrypoint that GitHub Actions also calls; the remote `ekenheim/atlas` is added before Phase 2.
   - LLM budget: $25/month on the `atlas` key, $2 default per run.
   - The Hindsight feature check records real request/response pairs as CI fixtures and runs in local Compose on the pinned version.
   - Embeddings: reuse `qwen3-embedding-0.6b` via LiteLLM (1024 dims).
@@ -45,6 +45,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - [Hindsight gateway and bank-policy decisions](issues/07-gateway-decisions.md): per-version-and-section document IDs (ADR-0001), strict tags only, a versioned bank template, resolved/unverified/broken citations, zero-fact reprocess-then-flag, Theme status + Bottlenecks mental models.
 - [Archive durability: versioning, object lock and the off-cluster copy](issues/10-archive-durability.md): the bucket is created by a minio-py provisioning script (not OpenTofu), with a Governance lock for 10 y and an app user that can't bypass it; nightly copy-only to R2; snapshots in the same bucket; dev/CI needs a non-MinIO S3 server (→ ticket 13); Spegel mitigates the unpullable MinIO image.
 - [Phase 2 deploy shape and PR sequencing](issues/09-deploy-shape.md): `datasci/atlas/` with two Kustomizations; the Hindsight API is in-cluster only; 6-step PR order; Renovate automerge off (merge = deploy); the owner opens the PRs; public images; CI replays recordings only.
+- [S3-compatible server for dev/CI archive contract tests](issues/13-s3-dev-server.md): PGSTY Silo (a MinIO fork, pinned digest), with RustFS as fallback; overwrite = new version, and only permanent version deletes are refused; assert behavior, not error codes.
 
 ## Not yet specified
 
