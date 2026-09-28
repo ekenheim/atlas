@@ -42,3 +42,10 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **Release deployment:** Renovate automerge is off for Atlas and for the dedicated Hindsight, so the owner's merge is the deploy. Home-ops PRs are prepared and validated locally and opened by the owner.
 - **GHCR images are public for now** (can be made private later; that would need `ghcr-pull` in `datasci`).
 - **CI replays the recorded Hindsight fixtures only.** Live Hindsight tests are manual.
+
+## 2026-09-28: audit trail (ticket 03)
+
+- **The database assigns the chain.** A BEFORE INSERT trigger on `audit_event` sets the gapless `id`, `occurred_at`, `prev_hash` and `event_hash` under a transaction-scoped advisory lock, so no code path can fork or forge the chain. Audit writers serialize until commit, so audited transactions must stay short. The hash format is documented in migration `0002`; `atlas audit verify` recomputes it independently in Python.
+- **Append-only by trigger and by role.** Triggers (ENABLE ALWAYS) reject UPDATE, DELETE and TRUNCATE for every role, superusers included. Only the table owner can disable them, so the intended role split is: a migration role owns the schema and runs `atlas migrate`; the runtime role `atlas_app` (API, worker) holds only the privileges it needs, and on `audit_event` that is SELECT and INSERT. Migration `0002` grants these when `atlas_app` exists at migrate time; the deployment creates the role (and must re-run the grant if the role is created later). Later migrations should grant `atlas_app` the minimum on their own tables.
+- **Tail truncation is out of the chain's reach.** Deleting the newest events (with the triggers disabled by the owner) leaves a valid shorter chain. `atlas audit verify` prints the head hash, so an external copy of it can detect this; anchoring it off-database is not built yet.
+- **Content hashes are SHA-256 hex.** `old_hash` / `new_hash` must be 64 lowercase hex characters (a CHECK constraint), matching `raw_sha256` elsewhere.

@@ -44,11 +44,34 @@ def run_worker(settings: Settings, once: bool) -> None:
         raise SystemExit("atlas worker: continuous mode needs the job queue (ticket 04)")
 
 
+def run_audit_verify(settings: Settings) -> int:
+    from sqlalchemy import create_engine
+
+    from atlas.audit import verify_chain
+
+    engine = create_engine(settings.database_url)
+    try:
+        with engine.connect() as connection:
+            report = verify_chain(connection)
+    finally:
+        engine.dispose()
+    if report.ok:
+        print(f"audit chain ok: {report.events} events, head {report.head_hash or '-'}")
+        return 0
+    lines = [f"audit chain broken: {len(report.breaks)} problem(s) in {report.events} events"]
+    lines += [f"  event {each.event_id}: {each.reason}" for each in report.breaks]
+    print("\n".join(lines), file=sys.stderr)
+    return 1
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="atlas")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("api", help="serve the HTTP API and the static frontend")
     commands.add_parser("migrate", help="upgrade the database schema to the latest revision")
+    audit = commands.add_parser("audit", help="inspect the audit trail")
+    audit_commands = audit.add_subparsers(dest="audit_command", required=True)
+    audit_commands.add_parser("verify", help="verify the hash chain; exit 1 if it is broken")
     worker = commands.add_parser("worker", help="run background jobs")
     worker.add_argument("--once", action="store_true", help="process available work, then exit")
     args = parser.parse_args(argv)
@@ -64,5 +87,7 @@ def main(argv: list[str] | None = None) -> None:
 
         upgrade(settings.database_url)
         log.info("database migrated to head")
+    elif args.command == "audit":
+        raise SystemExit(run_audit_verify(settings))
     else:
         run_worker(settings, once=args.once)

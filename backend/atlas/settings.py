@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ATLAS_", env_file=".env", extra="ignore")
 
     database_url: str
-    actor: str
+    actor: str = Field(min_length=1)  # recorded on every audit event
     archive_root: Path
     frontend_dir: Path | None = None
 

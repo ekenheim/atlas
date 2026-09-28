@@ -7,6 +7,7 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 - `scripts/ci.sh`: the one CI entrypoint (GitHub Actions runs exactly this). `--no-image` skips the image build.
 - `uv run pytest`: unit tests (network blocked by pytest-socket) and integration tests (localhost only; needs `docker compose up -d --wait postgres-app silo`).
 - `uv run atlas api | worker [--once] | migrate`: the three roles of the one image.
+- `uv run atlas audit verify`: check the audit hash chain; exits 1 if it is broken.
 - `npm --prefix frontend run lint | typecheck | build`: the frontend gates; `build` writes the static export to `frontend/out/`.
 
 ## Layout
