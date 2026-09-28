@@ -13,4 +13,11 @@ The spec wants the `atlas-archive` bucket versioned, object-locked where possibl
 - what immutability guarantee the R2 side offers, given it has no object lock
 - whether published Research Snapshots (content-addressed JSON) need anything stronger than Source Versions
 
-Also note where the OpenTofu state lives, since it isn't in the repo; that is a question for the owner.
+## Facts so far (2026-09-28)
+
+- MinIO runs in the `storage` namespace (app-template 5.2.1, image `RELEASE.2025-09-07T16-13-09Z`), with its S3 API at `s3.<domain>` and data on the PVC `minio-data`. Source: the wiki's storage-and-backups page and `kubernetes/apps/storage/minio/`.
+- **To verify:** whether this single-node deployment's on-disk format supports bucket versioning and object lock. Single-drive erasure mode does; legacy FS mode does not. A one-off `mc version info` / `mc retention` probe answers it.
+- OpenTofu: the `terraform/minio` module exists, but no OpenTofu custom resources exist, and the owner says tofu-controller isn't running (it could be turned on). So the bucket's creation path is part of this decision:
+  - (a) enable tofu-controller and add an OpenTofu CR for `terraform/minio`
+  - (b) apply `terraform/minio` by hand (the state location must then be settled)
+  - (c) create the bucket and its user with `mc`, outside the OpenTofu convention

@@ -26,6 +26,6 @@ Done 2026-09-28.
 - `qwen3-embedding-0.6b` returns 1024 dimensions.
 - SearXNG: `https://search.<domain>`, JSON works. The default engines are partly broken, so name engines explicitly.
 - `.env` has CRLF line endings, so config loading must strip values.
-- The key appeared once in local tool output because of the CRLF issue; rotating `atlas-dev` is advised.
+- The key appeared once in local tool output because of the CRLF issue. The owner confirmed that LiteLLM is reachable only locally, so no rotation is needed.
 
 Details: `docs/research/litellm-dev-probe.md`.

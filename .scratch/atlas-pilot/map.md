@@ -10,6 +10,7 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 
 - **Domain:** evidence-driven investment research on Hindsight. Glossary: `CONTEXT.md`. The build plan (`hindsight_investment_research_build_plan.md` v1.1) is authoritative. Grilling fills its gaps; it doesn't relitigate it. Deviations go in `docs/decisions.md`.
 - **Skills:** grilling tickets call `grilling` + `domain-modeling`. Research tickets call `research` and write to `docs/research/`.
+- **Cluster reference:** the home-ops wiki at https://wikis.<domain> (reachable from WSL; it appears to be generated from the repo, so treat it as secondary and let repo files win).
 - **Standing preferences:**
   - All LLM traffic goes through LiteLLM, including Atlas Hindsight's extraction and reflect. Never call providers directly.
   - Use what's already paid for (ChatGPT Plus, MiniMax Plus, Anthropic subscription, self-hosted models); **no pay-as-you-go**. Subscription terms ambiguity and model drift are accepted. MiniMax is the preferred LLM. Flag anything that would need a new paid service.
