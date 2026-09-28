@@ -17,3 +17,12 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **Bank configuration uses versioned templates (§6.2):** 0.10.1 supports template export, dry-run and import, so the config-API fallback isn't needed.
 - **Response schemas avoid union types:** 0.10.1 returns 500 on `"type": [..., "null"]`.
 - **Worker slots ≥ 3:** consolidation reserves 2; pacing uses `HINDSIGHT_API_LLM_MAX_CONCURRENT`.
+
+## 2026-09-28: models, pacing and Hindsight integration (tickets 05 and 07)
+
+- **LLM:** MiniMax-M3 with thinking disabled for both extraction and reflect, behind the LiteLLM aliases `atlas-extract` / `atlas-reflect`. There is no fallback model; on 429 or an outage the ingest queue pauses with backoff. Routed models are recorded per run from LiteLLM `/model/info`.
+- **Pacing:** Hindsight runs 2 concurrent LLM calls with 4 worker slots, and the backfill runs in a nightly window.
+- **Document IDs** are per Source Version UUID and section (ADR-0001), which deviates from the spec's `srcv:<sha256>` example.
+- **Only strict tag matching** is allowed through the gateway.
+- **Citation states:** resolved / unverified / broken. Only resolved citations count as Evidence.
+- **Phase 2 mental models:** Theme status and Bottlenecks, refreshed on a daily cron (not after consolidation). No knowledge pages in Phase 2.

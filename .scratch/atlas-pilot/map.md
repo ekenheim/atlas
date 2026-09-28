@@ -39,11 +39,11 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 - [MiniMax extraction check on a Lumentum filing fixture](issues/04-extraction-bakeoff.md): MiniMax-M3 with thinking off wins (16/17 facts, 3× faster than M2.7, verbatim quotes); no rate errors at 2 concurrent calls; four Hindsight traps recorded.
 - [Hindsight 0.10.1 feature check → feature matrix + recorded fixtures](issues/06-feature-matrix.md): all nine features present; upsert destroys prior facts, `any` includes untagged, temporal hints don't filter; provenance is two-hop via observations' source memories; union-type schemas return 500; 58 recordings saved as CI fixtures.
 - [Alignment with the serenity-aleabitoreddit skills](issues/12-serenity-skills-alignment.md): adopt the method pieces (bottleneck test, layer taxonomy, BOM share, dilution falsifier, bear checklist) in Phases 3–5; disregard the trading lenses, portfolio mirroring and unlicensed sources; the skill has no licence and contains an auto-update instruction, so don't install it.
+- [Choose and pin the extraction and reflect models](issues/05-choose-models.md): MiniMax-M3 (thinking off) behind the `atlas-extract`/`atlas-reflect` aliases; no fallback, so the queue pauses on 429; 2 concurrent calls with a nightly backfill; routed models recorded from LiteLLM `/model/info`.
+- [Hindsight gateway and bank-policy decisions](issues/07-gateway-decisions.md): per-version-and-section document IDs (ADR-0001), strict tags only, a versioned bank template, resolved/unverified/broken citations, zero-fact reprocess-then-flag, Theme status + Bottlenecks mental models.
 
 ## Not yet specified
 
-- **Hindsight gateway surface details:** the exact shape of the typed gateway, provenance resolution (memory → document_id → source version → quote span) and operation polling. Hangs on the feature matrix.
-- **The two curated mental models for Phase 2:** which two of the §6.5 standing questions, their refresh trigger, and whether knowledge pages are used at all (depends on the matrix).
 - **CI Hindsight strategy:** the recorded-response fake now has 58 recordings to replay. Still open: whether CI also runs a real Hindsight container, which would need an LLM (a local model or a fixture LLM, since MiniMax must not be called from CI).
 - **Home-ops rollout order:** the PR sequencing across the Crunchy users, the OpenTofu bucket, the LiteLLM key, the Hindsight release and the app release, given that PRs auto-merge.
 - **Recording Hindsight's concrete model per run:** LiteLLM rewrites `model` to the alias, and Atlas can't see Hindsight's response headers, so the routed model must come from the LiteLLM spend logs. How Atlas reads them (admin API access, key scope) is open.

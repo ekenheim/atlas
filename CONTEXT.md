@@ -36,6 +36,10 @@ _Avoid_: Evidence, knowledge (unqualified)
 
 ### Research objects
 
+**Bottleneck**:
+An input, process or capacity that cannot meet demand within the relevant timeframe because no qualified second source or substitute exists, giving its holder pricing power. It is a claim that needs Evidence, not a conclusion drawn from demand growth alone.
+_Avoid_: Shortage, chokepoint, constraint (as a synonym)
+
 **Candidate**:
 A (company, theme) pair under investigation, with its own lifecycle from lead to rejected or closed. Kept even when rejected, so evaluation isn't winner-only. A Candidate may produce zero or more Hypotheses.
 _Avoid_: Idea, pick, opportunity

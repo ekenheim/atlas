@@ -1,7 +1,7 @@
 # Choose and pin the extraction and reflect models
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: 04
 
 ## Question
@@ -33,3 +33,17 @@ What remains to decide: M3 vs M2.7 for each of extraction and reflect, the alias
 **Privacy (Q22):** MiniMax is allowed for all Atlas traffic, both extraction and reflect; see `docs/decisions.md`.
 
 **Bake-off result (ticket 04):** MiniMax-M3 with thinking disabled beat M2.7 on every measure (facts, speed, verbatim quotes, observations); see `docs/research/extraction-bakeoff.md`. The obvious candidate for both extraction and reflect, pending this ticket's grilling.
+
+## Answer
+
+Grilled 2026-09-28, all recommendations accepted:
+
+1. **Extraction:** MiniMax-M3, with thinking disabled (`HINDSIGHT_API_LLM_EXTRA_BODY={"thinking":{"type":"disabled"}}`).
+2. **Reflect:** the same model and setting. Thinking-on reflect is a later experiment, measured on the same fixture.
+3. **Aliases:** the LiteLLM aliases `atlas-extract` and `atlas-reflect` both point at MiniMax-M3, so a model change is a home-ops commit (→ ticket 09).
+4. **When MiniMax is unavailable or capped (429):** no fallback model. Atlas pauses its ingest queue with backoff (capped at 1 h) and shows the pause.
+5. **Pacing:**
+   - Hindsight: `LLM_MAX_CONCURRENT=2`, `WORKER_MAX_SLOTS=4`
+   - LiteLLM: a parallel-request cap of 3 on the `atlas` key, if the CRD supports it (→ ticket 09)
+   - the backfill runs in a nightly window (e.g. 01:00–07:00)
+6. **Model recording:** at the start of each run, Atlas reads LiteLLM `/model/info` with its own key and records what its aliases resolve to. Per-call tokens come from Hindsight's `/llm-requests`.

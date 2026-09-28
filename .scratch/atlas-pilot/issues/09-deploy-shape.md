@@ -18,4 +18,5 @@ Decide:
 - the scoping of the `llm` secret store: a Role in `llm`, restricted to `datasci` (ticket 08 §2)
 - how `ghcr-pull` in `datasci` is confirmed, or whether images are public (ticket 08 §6)
 - amending the LiteLLM configmap's PRIVACY comment to record Atlas's exception (Q22); note that a configmap edit restarts LiteLLM via reloader
+- LiteLLM aliases `atlas-extract` / `atlas-reflect` → MiniMax-M3, and a parallel-request cap of 3 on the `atlas` key, if `LiteLLMVirtualKey` supports it (ticket 05)
 - how validation (`flux-local`, `kubeconform`, `yamllint`) is run before each PR is opened

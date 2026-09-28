@@ -1,7 +1,7 @@
 # Hindsight gateway and bank-policy decisions from the matrix
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: 06
 
 ## Question
@@ -36,3 +36,25 @@ Record spec deviations in `docs/decisions.md`.
 - no union types in schemas
 
 **Input from ticket 12:** the candidate glossary term *Bottleneck* (a constrained input with no qualified second source or substitute in the relevant timeframe, where the owner has pricing power), and the proposed wording for the Bottlenecks mental model. Both are in `docs/research/serenity-skills-alignment.md`.
+
+## Answer
+
+Grilled 2026-09-28, all recommendations accepted:
+
+7. **Document IDs:** `srcv:<source_version_uuid>:<section-anchor>`. A Source Version whose raw hash is already retained is linked, not re-retained. See `docs/adr/0001-hindsight-document-id-per-source-version.md`.
+8. **Granularity:** one retain item per filing section, submitted as one batch per Source Version. The metadata carries `source_version_id`, the anchor and character offsets.
+9. **Tags:** `company:<canonical-uuid>`, `theme:<slug>`, `source:<provider>`, `doctype:<kind>`, `form:<form>`. The gateway uses only `any_strict` / `all_strict` and rejects `any`.
+10. **Bank configuration:** a versioned template file in the repo, applied on deploy (dry run first, then for real), with its version recorded per run.
+11. **Citation states:**
+    - **resolved:** two-hop resolution reaches a Source Version and the quote validates against the archived parse. Only these count as Evidence.
+    - **unverified:** the text came from a raw chunk with no memory ID, or the quote doesn't match.
+    - **broken:** a cited memory has been deleted.
+12. **Operations:**
+    - outcomes are decided by `status` only, with a polling timeout
+    - after completion, memories are counted per `document_id`
+    - a zero-fact section gets one reprocess, then is marked `zero_fact`
+13. **Mental models:**
+    - Phase 2 ships **Theme status** and **Bottlenecks** (worded with ticket 12's test)
+    - both refresh daily on a cron with `min_refresh_interval_seconds`, and `refresh_after_consolidation` stays off (#4532)
+    - no knowledge pages in Phase 2
+14. **Glossary:** **Bottleneck** was added to `CONTEXT.md`.
