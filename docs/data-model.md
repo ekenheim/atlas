@@ -567,6 +567,44 @@ An investigation (`atlas.investigations`) runs a theme question as a fixed plan 
 
 `claim_extraction.continues_id` (uuid FK, unique): the budget-exhausted extraction this one continues with its remaining passages.
 
+### 3.1g Hypotheses (Phases 3–6a, migration 0027)
+
+A Hypothesis (`atlas.hypotheses`, spec §5.6) is an investigation's result saved as a versioned, falsifiable research object. `POST /api/v1/hypotheses` saves one; the `draft_hypothesis` job writes version 1.
+
+`hypothesis`: one per saved investigation (`investigation_id` unique).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `theme_id` | text | The investigation's theme |
+| `investigation_id` | uuid FK → `investigation`, unique | |
+| `related_company_ids` | uuid[] | The seed companies whose premise wasn't disproven |
+| `status` | text | §5.6: `draft`, `researching`, `evidence_ready`, `reviewed`, `paper_tracking`, `closed`, `rejected`, `needs_more_evidence` |
+| `author` | text | Who saved it |
+| `draft_status`, `draft_error` | text | The Editor's draft of version 1: `queued`, `drafted` or `failed` (with its reason) |
+| `draft_job_id` | uuid FK → `job` | The `draft_hypothesis` job |
+| `draft_run_id` | uuid FK → `run`, unique | The draft's run (kind `hypothesis_draft`), kept across retries |
+| `created_at`, `updated_at`, `first_published_at`, `next_review_at` | timestamptz | |
+
+`hypothesis_version`: **never changes** (a trigger, `ENABLE ALWAYS`, allows only setting `published_at`/`published_by` on an unpublished version and refuses deletes and truncation).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `hypothesis_id`, `version` | | Unique; numbered from 1 |
+| `based_on_version` | integer | The version a correction was made from (NULL for the Editor's draft) |
+| `origin` | text | `editor_draft` or `correction` |
+| `content` | jsonb | Thesis statement, mechanism, predictions, catalysts, falsifiers, required Evidence, alternatives, unresolved questions, findings (§7.2 claim shape, citing accepted Claims and their Assertions), unsupported findings |
+| `content_sha256` | text | SHA-256 of the content's canonical JSON |
+| `provenance` | jsonb | Investigation, its run and research-card Editor call; the draft run and Editor call |
+| `note` | text | A correction's reason |
+| `created_by`, `created_at` | | `atlas-editor` for the draft |
+| `published_at`, `published_by` | | Set together, once |
+
+`hypothesis_transition`: **insert-only** (triggers `ENABLE ALWAYS`): `seq`, `hypothesis_id`, `from_status`, `to_status`, `action` (`transition` or `publish`), `version` (for a publish), `actor`, `note`, `at`.
+
+Audit events: `hypothesis.created`, `hypothesis.transitioned` (by the actor); `hypothesis.drafted`, `hypothesis.version_drafted`, `hypothesis.draft_failed` (by `atlas-editor`); `hypothesis.version_created`, `hypothesis.corrected` (a new version from a published one), `hypothesis.version_published` (its content hash).
+
 ### 3.1b `bank_template_application`
 
 One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.

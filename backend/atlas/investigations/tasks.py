@@ -459,7 +459,7 @@ class TaskRunner:
 
     def _editor(self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID) -> _Outcome:
         with self._engine.connect() as connection:
-            claims = _accepted_claims(connection, investigation["id"], run_id)
+            claims = accepted_claims(connection, investigation["id"], run_id)
             leads = connection.execute(
                 text(
                     "SELECT l.id, l.url, l.title, l.snippet FROM investigation_lead il"
@@ -549,7 +549,9 @@ class TaskRunner:
                     )
                 )
                 continue
-            findings.append(_finding(finding.statement, [by_id[each] for each in cited], finding))
+            findings.append(
+                card_finding(finding.statement, [by_id[each] for each in cited], finding)
+            )
         if draft.verdict == "answered" and findings and not unsupported:
             stop_reason = "answered"
             stop_detail = f"the Editor judged the question answered by {len(findings)} findings"
@@ -655,7 +657,7 @@ def _take_leads(
     return taken, len(fresh) - taken, len(found)
 
 
-def _accepted_claims(
+def accepted_claims(
     connection: Connection, investigation_id: uuid.UUID, run_id: uuid.UUID
 ) -> list[RowMapping]:
     """The run's accepted Claims on the investigation's documents, excluding those read by a
@@ -695,7 +697,7 @@ def _family(claim: RowMapping) -> str:
     return f"family:{family}" if family is not None else f"version:{claim['source_version_id']}"
 
 
-def _finding(statement: str, cited: list[RowMapping], finding: Any) -> CardFinding:
+def card_finding(statement: str, cited: list[RowMapping], finding: Any) -> CardFinding:
     available: list[datetime] = [c["available_at"] for c in cited]
     entities = dict.fromkeys(
         each

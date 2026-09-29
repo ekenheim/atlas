@@ -18,7 +18,9 @@ transaction. When every task is done the investigation stops: with the Editor's 
 independent Evidence to edit), or `premise_disproven` (the Editor was cancelled).
 
 **Stops.** Each stop records its reason in the investigation and as a `stopped` event. A
-final stop finishes the run with its token totals and cancels what hadn't started. A
+final stop finishes the run with its token totals, cancels what hadn't started and, in the
+same transaction, enqueues `review_relationships` for the Assertions the Investigator tasks'
+accepted Claims created (`relationship_review_queued`; the review starts its own run). A
 `budget_exhausted` stop (the run's token budget ran out) is resumable: its run stays open
 and its unfinished tasks stay as they were, and `resume` with a larger budget continues them
 in the same run. An LLM quota or outage is not a stop: the task's job is requeued by the
@@ -45,6 +47,7 @@ from atlas.investigations.model import (
     TaskRole,
 )
 from atlas.jobs.queue import JobQueue
+from atlas.relationships.review import MAX_ASSERTIONS, REVIEW_RELATIONSHIPS_KIND
 from atlas.roles import run_usage
 
 QUESTION_PREMISE = "question"
@@ -567,6 +570,7 @@ def stop(
                 {"id": run_id, "tokens_in": totals.tokens_in, "tokens_out": totals.tokens_out},
             )
             tokens = (totals.tokens_in, totals.tokens_out)
+            _queue_relationship_review(connection, investigation_id, run_id)
     event(
         connection,
         investigation_id,
@@ -575,6 +579,47 @@ def stop(
         detail=detail,
         tokens_in=tokens[0] if tokens else None,
         tokens_out=tokens[1] if tokens else None,
+    )
+
+
+def _queue_relationship_review(
+    connection: Connection, investigation_id: uuid.UUID, run_id: uuid.UUID
+) -> None:
+    """Enqueue `review_relationships` for the Assertions the Investigator tasks' accepted
+    Claims created (at most `MAX_ASSERTIONS` a job), in the stop's transaction. The review
+    starts its own run: the investigation's is finished by then."""
+    assertion_ids = [
+        str(each)
+        for each in connection.execute(
+            text(
+                "SELECT c.assertion_id FROM claim c"
+                " JOIN investigation_document doc ON doc.investigation_id = :id"
+                "  AND doc.source_version_id = c.source_version_id"
+                " WHERE c.run_id = :run AND c.outcome = 'accepted'"
+                " ORDER BY c.created_at, c.id"
+            ),
+            {"id": investigation_id, "run": run_id},
+        ).scalars()
+    ]
+    if not assertion_ids:
+        return
+    queue = JobQueue(connection.engine)
+    job_ids: list[JsonValue] = []
+    for start in range(0, len(assertion_ids), MAX_ASSERTIONS):
+        chunk: list[JsonValue] = [*assertion_ids[start : start + MAX_ASSERTIONS]]
+        job = queue.enqueue_within(
+            connection,
+            REVIEW_RELATIONSHIPS_KIND,
+            f"investigation:{investigation_id}:{start // MAX_ASSERTIONS}",
+            {"assertion_ids": chunk},
+        ).job
+        job_ids.append(str(job.id))
+    event(
+        connection,
+        investigation_id,
+        "relationship_review_queued",
+        assertions=len(assertion_ids),
+        job_ids=job_ids,
     )
 
 

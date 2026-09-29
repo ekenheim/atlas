@@ -6,9 +6,9 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 14 (Investigation orchestration)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Hypothesis and version schema with the lifecycle enforced
-- [ ] Editor role produces a draft from an investigation
-- [ ] `hypotheses` create/get/diff/export API
-- [ ] Gate test: an end-to-end fixture investigation reaches a reviewable Hypothesis with a source trail, ≥1 falsifier and ≥1 unresolved question; no unsupported claim is promoted
+- [x] Hypothesis and version schema with the lifecycle enforced
+- [x] Editor role produces a draft from an investigation
+- [x] `hypotheses` create/get/diff/export API
+- [x] Gate test: an end-to-end fixture investigation reaches a reviewable Hypothesis with a source trail, ≥1 falsifier and ≥1 unresolved question; no unsupported claim is promoted

@@ -1,5 +1,6 @@
 """The Research Editor role (spec §7.1): an investigation's accepted Claims in, a draft
-research card out.
+research card out; and, when the researcher saves the investigation, a Hypothesis draft
+(`HYPOTHESIS_EDITOR`, below).
 
 The request lists the accepted Claims (their resolved subject, predicate and object, and the
 Source Version each quotes) and the investigation's Tier C leads; each Claim's quote and each
@@ -68,5 +69,57 @@ EDITOR = Role(
     prompt=Prompt.load(PROMPTS_DIR, "editor", EDITOR_PROMPT_VERSION),
     request=EditorRequest,
     response=ResearchCardDraft,
+    max_output_tokens=4096,
+)
+
+
+# --- the Hypothesis draft (spec §5.6, §8.1) ------------------------------------------------------
+
+HYPOTHESIS_EDITOR_PROMPT_VERSION = 1
+
+
+class CardFindingSummary(_Request):
+    """A research card finding as the Hypothesis Editor is sent it."""
+
+    statement: str
+    claim_ids: list[str]
+    limitations: list[str]
+    open_questions: list[str]
+
+
+class HypothesisEditorRequest(_Request):
+    theme_id: str
+    theme_title: str
+    research_question: str
+    card_findings: list[CardFindingSummary]
+    card_open_questions: list[str]
+    claims: list[EditorClaim]
+    disproven_premises: list[str]
+
+
+class Mechanism(RoleOutput):
+    demand_driver: str | None
+    possible_constraint: str | None
+    economic_capture_question: str | None
+
+
+class HypothesisDraft(RoleOutput):
+    thesis_statement: str
+    mechanism: Mechanism
+    measurable_predictions: list[str]
+    catalysts: list[str]
+    falsifiers: list[str]
+    required_evidence: list[str]
+    alternative_explanations: list[str]
+    unresolved_questions: list[str]
+    findings: list[EditorFinding]
+
+
+# The same Editor role (its calls are recorded as `editor`), with its own versioned prompt.
+HYPOTHESIS_EDITOR = Role(
+    name="editor",
+    prompt=Prompt.load(PROMPTS_DIR, "editor-hypothesis", HYPOTHESIS_EDITOR_PROMPT_VERSION),
+    request=HypothesisEditorRequest,
+    response=HypothesisDraft,
     max_output_tokens=4096,
 )
