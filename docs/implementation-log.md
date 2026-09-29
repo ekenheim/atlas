@@ -1191,3 +1191,22 @@ A behavior-preserving refactor from the Standards review of tickets 14–17, reb
     - `HindsightGateway.get_document`, which is a Hindsight memory document, not a Source Document
 - **Credentials:** none.
 - **Next:** nothing from this axis.
+
+## 2026-09-29: ticket 17, first live run of the Phase 2 gate suite
+
+Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compose `hindsight` profile, small profile = the two 10-Qs). Results: `.scratch/live-runs/20260929T062648Z-live/` (gitignored). Before it, the free rehearsal passed (7 passed, 1 skipped) and a stop-before-LLM stack check passed (2 passed, 6 skipped).
+
+- **Stack:** Hindsight **0.10.1** at `127.0.0.1:58888`; alias `MiniMax-M3` routed to deployment `minimax/MiniMax-M3` (id `9317e83f…`); bank `atlas-live-20260929-062657`; template **1.1.0** applied with a dry run, then import (both mental models created).
+- **Result: 7 passed, 1 skipped, in 3 min 24 s.** These paths are now **verified live**, not just against the fake:
+  - preflight
+  - template apply
+  - ingest of both companies (no queue pauses)
+  - retention: every section reached a final state through completed operations. Lumentum's 10-Q gave 2 sections and 41 facts (cover 8, Part I Item 1 33), with no reprocess.
+  - cross-company recall: 55 memories (46 world, 9 observations; Lumentum 39, Coherent 16), **all 55 resolved** to Source Version sections, and 0 broken. This confirms the two-hop observation → source-memory → section path against a real server.
+  - reflect: completed in 64 s with a recorded run. Citations: **87 resolved, 16 unverified, 0 broken**; 4 evidence sections.
+  - LLM usage recorded: 20 calls, all success, 211k input / 20k output tokens (25k cached).
+- **Skipped:** the zero-fact scenario, because no section produced zero facts. The zero-fact path is still **fixture-only**.
+- **Unverified quotes:** 16, and they fall into two kinds.
+  - Phrases the model put in quotation marks but that were its own words ("near-doubling of revenue", "deleveraging"). Unverified is the correct outcome.
+  - Financial-table figures ("$144.2", "Net cash provided by operating activities $ 388.4 $ 62.3"). These probably differ from the parse only in table spacing, e.g. "$ 144.2". That would be a false negative of the quote rule `whitespace-and-typographic-quotes-v1`, which is conservative rather than unsafe. **Follow-up:** inspect those against the parsed text, and decide whether to normalize space after currency symbols and between table cells.
+- **Not yet run live:** the full profile (`--profile full`, ~470k chars, est. ~1M input tokens); zero-fact reprocess; the queue pause on a real 429; the mental-model refresh on Hindsight's own cron.

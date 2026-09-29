@@ -4,8 +4,8 @@
 
 **Blocked by:** 15 (Recall and reflect with resolved citations)
 
-**Status:** ready-for-human (built and rehearsed against the recorded fakes; the live run awaits the owner's go-ahead, because it spends MiniMax quota: `scripts/live-tests.sh`, see `docs/runbooks.md`)
+**Status:** done (live run 2026-09-29, small profile: 7 passed, 1 skipped; see the implementation log)
 
-- [ ] An opt-in marker runs the gate scenarios against the local spike-style stack (built, and rehearsed end to end against the recorded fakes; **not yet run against the real stack**)
+- [x] An opt-in marker runs the gate scenarios against the local spike-style stack (run live 2026-09-29 against the Compose `hindsight` profile with MiniMax-M3)
 - [x] The suite is excluded from CI and refuses to run without explicit opt-in
-- [ ] Results are recorded in the implementation log, stating clearly which paths were live-tested (the log records that nothing ran live yet; a live run's `summary.md` is the input for this)
+- [x] Results are recorded in the implementation log, stating clearly which paths were live-tested
