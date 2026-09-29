@@ -352,10 +352,13 @@ def investigate(
         {"query": SUBSTRATE, "purpose": "InP substrate capacity"},
         {"query": SECOND_SOURCE, "purpose": "second sources"},
     ]
+    # The Skeptic's and the Financial Analyst's jobs run in parallel, in either order: their
+    # answers are scripted by role.
+    llm.script_role("skeptic", *skeptic)
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_chat(
         ChatReply.json({"queries": queries}, tokens=(900, 120)),
         ChatReply.answer(quoting(*claims), tokens=(9000, 700)),
-        *skeptic,
         ChatReply.answer(card_editor, tokens=(3000, 400)),
         ChatReply.answer(reviewing, tokens=(800, 100)),
     )
@@ -428,8 +431,24 @@ def audit_actions(atlas: Atlas, entity_type: str) -> list[str]:
         )
 
 
+# The Skeptic and the Financial Analyst run in parallel, in either order: compared in plan order.
+PARALLEL_ORDER = {"skeptic": 0, "financial_analyst": 1}
+
+
 def roles(llm: FakeLiteLLM) -> list[str]:
-    return [body["metadata"]["role"] for body in llm.chat_requests()]
+    """The roles of the chat requests, oldest first, with each run of consecutive Skeptic and
+    Analyst requests in plan order (the Skeptic's first)."""
+    ordered: list[str] = []
+    run: list[str] = []
+    for role in [*(body["metadata"]["role"] for body in llm.chat_requests()), None]:
+        if role in PARALLEL_ORDER:
+            run.append(role)
+            continue
+        ordered.extend(sorted(run, key=PARALLEL_ORDER.__getitem__))
+        run = []
+        if role is not None:
+            ordered.append(role)
+    return ordered
 
 
 # --- the gate test: an investigation reaches a reviewable Hypothesis ------------------------------
@@ -521,7 +540,15 @@ def test_an_investigation_is_saved_as_a_reviewable_hypothesis_with_a_source_trai
     ]
     assert len(version["content_sha256"]) == 64
     # The Editor was sent the research card, the accepted Claims and their quotes as data.
-    assert roles(llm) == ["scout", "investigator", "skeptic", "editor", "reviewer", "editor"]
+    assert roles(llm) == [
+        "scout",
+        "investigator",
+        "skeptic",
+        "financial_analyst",
+        "editor",
+        "reviewer",
+        "editor",
+    ]
     assert content["contradictions"] == []
     assert finding["counterevidence_ids"] == []
     body = llm.chat_requests()[-1]

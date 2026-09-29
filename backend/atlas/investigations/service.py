@@ -6,7 +6,7 @@ and resume (spec Phase 4, "Research workflow"; §7.3, §7.4).
     scout -> investigator:<company> (one per seed company) -> skeptic || financial_analyst -> editor
 
 The Skeptic (atlas.investigations.skeptic) searches independently for counterevidence; the
-Financial Analyst is a slot, skipped until its ticket builds it. Each task depends on
+Financial Analyst proposes scenario inputs (atlas.scenarios.analyst). Each task depends on
 premises: every task on the question itself (`question`), and each Investigator task also on
 its company belonging in the question (`company:<slug>`). A premise is disproven by the
 researcher, or by the Skeptic's accepted, independent counterevidence (a company premise
@@ -26,7 +26,8 @@ same transaction, enqueues `review_relationships` for the Assertions the Investi
 accepted Claims created (`relationship_review_queued`; the review starts its own run). A
 `budget_exhausted` stop (the run's token budget ran out) is resumable: its run stays open
 and its unfinished tasks stay as they were, and `resume` with a larger budget continues them
-in the same run. An LLM quota or outage is not a stop: the task's job is requeued by the
+in the same run (a parallel sibling whose job the worker reached after the stop gets a new
+job). An LLM quota or outage is not a stop: the task's job is requeued by the
 queue pause and the investigation continues when it lifts.
 """
 
@@ -119,13 +120,7 @@ def plan(seeds: Sequence[_Seed]) -> list[_PlannedTask]:
             for key, seed in zip(investigators, seeds, strict=True)
         ),
         _PlannedTask("skeptic", "skeptic", investigators, [QUESTION_PREMISE]),
-        _PlannedTask(
-            "financial_analyst",
-            "financial_analyst",
-            investigators,
-            [QUESTION_PREMISE],
-            skipped="not built yet: the Financial Analyst's scenario inputs join later",
-        ),
+        _PlannedTask("financial_analyst", "financial_analyst", investigators, [QUESTION_PREMISE]),
         _PlannedTask(
             "editor",
             "editor",
@@ -384,11 +379,16 @@ class Investigations:
                 .mappings()
                 .one()
             )
+            # The budget-exhausted tasks, and any sibling left queued whose job the worker
+            # finished without running it (it was claimed after the stop, e.g. the Financial
+            # Analyst after the Skeptic spent the budget): both need a new job.
             resumed = connection.execute(
                 text(
                     "UPDATE investigation_task SET status = 'pending',"
                     " generation = generation + 1, updated_at = now()"
-                    " WHERE investigation_id = :id AND status = 'budget_exhausted'"
+                    " WHERE investigation_id = :id AND (status = 'budget_exhausted'"
+                    "  OR (status = 'queued' AND job_id IN"
+                    "   (SELECT id FROM job WHERE status IN ('succeeded', 'failed'))))"
                     " RETURNING key"
                 ),
                 {"id": investigation_id},

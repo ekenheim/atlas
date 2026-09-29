@@ -7,10 +7,12 @@ everything is observed through `/api/v1` (the investigation, its events, runs' r
 discoveries, claim extractions, `/metrics`) and the requests the fakes received. The
 Source Versions are the recorded Coherent EDGAR filings (a 10-K and a 10-Q), ingested and
 retained through the fixture path, Hindsight the recorded fake with `derive_memories`.
-LiteLLM is the scripted chat fake: **the Scout's, Investigator's, Skeptic's and Editor's
-answers are written here** (the Investigator's quote the recorded Coherent 10-K; the Skeptic's
-quote the passages it is sent; the Editor's cite the Claim IDs it is sent; the Reviewer,
-chained after a final stop, confirms what it is sent).
+LiteLLM is the scripted chat fake: **the Scout's, Investigator's, Skeptic's, Financial
+Analyst's and Editor's answers are written here** (the Investigator's quote the recorded
+Coherent 10-K; the Skeptic's quote the passages it is sent; the Analyst proposes no scenario;
+the Editor's cite the Claim IDs it is sent; the Reviewer, chained after a final stop, confirms
+what it is sent). The Skeptic's and the Analyst's jobs run in parallel, in either order, so
+their answers are scripted by role (`script_role`) and their calls compared in plan order.
 SearXNG is the scripted fake over `tests/fixtures/searxng/`. The
 test universe is the repo's plus NVIDIA, which the 10-K names. Nothing live is called.
 """
@@ -237,8 +239,38 @@ def asked(body: dict[str, Any]) -> dict[str, Any]:
     return json.loads(body["messages"][1]["content"])
 
 
+# The Skeptic and the Financial Analyst run in parallel, in either order: compared in plan order.
+PARALLEL_ORDER = {"skeptic": 0, "financial_analyst": 1}
+
+
+def in_plan_order[T](items: list[T], role: Callable[[T], str]) -> list[T]:
+    """`items` with each run of consecutive Skeptic and Analyst items put in plan order (the
+    Skeptic's first; each role's own items keep their order)."""
+    ordered: list[T] = []
+    run: list[T] = []
+    for item in [*items, None]:
+        if item is not None and role(item) in PARALLEL_ORDER:
+            run.append(item)
+            continue
+        ordered.extend(sorted(run, key=lambda each: PARALLEL_ORDER[role(each)]))
+        run = []
+        if item is not None:
+            ordered.append(item)
+    return ordered
+
+
+def requests(llm: FakeLiteLLM) -> list[dict[str, Any]]:
+    """The chat requests, oldest first, with the parallel roles' in plan order."""
+    return in_plan_order(llm.chat_requests(), lambda body: body["metadata"]["role"])
+
+
 def roles(llm: FakeLiteLLM) -> list[str]:
-    return [body["metadata"]["role"] for body in llm.chat_requests()]
+    return [body["metadata"]["role"] for body in requests(llm)]
+
+
+def call_roles(calls: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """A run's role calls as (role, status), with the parallel roles' in plan order."""
+    return [(c["role"], c["status"]) for c in in_plan_order(calls, lambda c: c["role"])]
 
 
 def scout_reply(tokens: tuple[int, int] = (900, 120)) -> ChatReply:
@@ -336,6 +368,17 @@ def reviewing(body: dict[str, Any]) -> JsonValue:
 
 
 REVIEWED = ChatReply.answer(reviewing, tokens=(700, 90))
+# The Financial Analyst (between the Investigators and the Editor when a Claim is accepted)
+# proposes no scenario here; its proposals are ticket 19's tests (test_scenarios.py).
+ANALYSED = ChatReply.json({"scenarios": []}, tokens=(1500, 200))
+
+
+def script_parallel(
+    llm: FakeLiteLLM, skeptic: ChatReply = NOTHING_TO_READ, analyst: ChatReply = ANALYSED
+) -> None:
+    """Script the Skeptic's and the Financial Analyst's answers by role: their jobs are queued
+    together and run in either order."""
+    llm.script_role("skeptic", skeptic).script_role("financial_analyst", analyst)
 
 
 def metric(atlas: Atlas, name: str, **labels: str) -> float:
@@ -373,8 +416,7 @@ def test_an_investigation_starts_with_a_fixed_visible_plan_and_its_7_2_request(
     for key in ("investigator:coherent", "investigator:lumentum", "editor"):
         assert plan[key]["status"] == "pending"
     assert plan["skeptic"]["status"] == "pending"
-    assert plan["financial_analyst"]["status"] == "skipped"
-    assert "not built yet" in plan["financial_analyst"]["detail"]
+    assert plan["financial_analyst"]["status"] == "pending"
     assert plan["investigator:coherent"]["depends_on"] == ["scout"]
     assert plan["investigator:coherent"]["company_id"] == coherent
     assert (
@@ -416,7 +458,6 @@ def test_an_investigation_starts_with_a_fixed_visible_plan_and_its_7_2_request(
     assert request["available_budget"] == started["budgets"]
     assert [(e["type"], e["task_key"]) for e in events(atlas, started["id"])] == [
         ("created", None),
-        ("task_skipped", "financial_analyst"),
         ("task_queued", "scout"),
     ]
 
@@ -451,10 +492,10 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
 ) -> None:
     atlas = services.start()
     started = seeded(atlas, "coherent", "lumentum")
+    script_parallel(llm)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas)), tokens=(9000, 700)),
-        NOTHING_TO_READ,
         ChatReply.answer(editing(), tokens=(3000, 400)),
         REVIEWED,
     )
@@ -471,12 +512,19 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         "investigator:coherent": "succeeded",
         "investigator:lumentum": "succeeded",
         "skeptic": "succeeded",
-        "financial_analyst": "skipped",
+        "financial_analyst": "succeeded",
         "editor": "succeeded",
     }
     # Lumentum has nothing archived: its Investigator task makes no LLM call.
     assert "no parsed Source Version" in tasks(found)["investigator:lumentum"]["detail"]
-    assert roles(llm) == ["scout", "investigator", "skeptic", "editor", "reviewer"]
+    assert roles(llm) == [
+        "scout",
+        "investigator",
+        "skeptic",
+        "financial_analyst",
+        "editor",
+        "reviewer",
+    ]
     # The Skeptic planned no search and no reading: it found no counterevidence.
     skeptic = tasks(found)["skeptic"]["artifacts"]
     assert (skeptic["supporting_claims"], skeptic["passages"]) == (1, 0)
@@ -486,25 +534,26 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     # relationship review has its own).
     run_id = found["run_id"]
     assert run_id is not None and found["request"]["run_id"] == run_id
-    assert {body["metadata"]["run_id"] for body in llm.chat_requests()[:4]} == {run_id}
+    assert {body["metadata"]["run_id"] for body in llm.chat_requests()[:5]} == {run_id}
     calls = atlas.get(f"/api/v1/runs/{run_id}/role-calls")
-    assert [(c["role"], c["status"]) for c in calls["role_calls"]] == [
+    assert call_roles(calls["role_calls"]) == [
         ("scout", "accepted"),
         ("investigator", "accepted"),
         ("skeptic", "accepted"),
+        ("financial_analyst", "accepted"),
         ("editor", "accepted"),
     ]
-    assert (calls["tokens_in"], calls["tokens_out"]) == (13_400, 1_270)
+    assert (calls["tokens_in"], calls["tokens_out"]) == (14_900, 1_470)
     assert found["usage"] == {
         "rounds": 1,
         "leads": 3,
         "documents": 2,
-        "tokens_in": 13_400,
-        "tokens_out": 1_270,
+        "tokens_in": 14_900,
+        "tokens_out": 1_470,
     }
     tokens = "atlas_llm_tokens_total"
-    assert metric(atlas, tokens, kind="investigation", direction="input") == 13_400
-    assert metric(atlas, tokens, kind="investigation", direction="output") == 1_270
+    assert metric(atlas, tokens, kind="investigation", direction="input") == 14_900
+    assert metric(atlas, tokens, kind="investigation", direction="output") == 1_470
     discovery = atlas.get(
         f"/api/v1/discoveries/{tasks(found)['scout']['artifacts']['discovery_id']}"
     )
@@ -525,7 +574,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert [d["source_version_id"] for d in found["documents"]] == [ten_k, ten_q]
     assert extraction["source_version_ids"] == [ten_k, ten_q]
     # The Editor was sent the accepted Claim (its quote as low-trust data) and the leads.
-    editor = asked(llm.chat_requests()[3])
+    editor = asked(requests(llm)[4])
     assert editor["request"]["counterevidence"] == []
     [sent] = editor["request"]["claims"]
     [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
@@ -570,7 +619,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert finding["counterevidence_ids"] == []
     assert card["contradictions"] == []
     assert finding["limitations"] == ["A company's own statement; no volumes or prices."]
-    assert card["editor_role_call_id"] == calls["role_calls"][3]["id"]
+    assert card["editor_role_call_id"] == calls["role_calls"][-1]["id"]
     # The event log tells the story in order, ending with the stop and its reason.
     log = events(atlas, started["id"])
     assert [(e["type"], e["task_key"]) for e in log if e["task_key"] == "scout"] == [
@@ -582,8 +631,8 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert log[-1]["detail"] == {
         "reason": "answered",
         "detail": found["stop_detail"],
-        "tokens_in": 13_400,
-        "tokens_out": 1_270,
+        "tokens_in": 14_900,
+        "tokens_out": 1_470,
     }
     assert metric(atlas, "atlas_investigation_stops_total", reason="answered") == 1
 
@@ -611,10 +660,10 @@ def test_an_editor_finding_that_cites_no_accepted_claim_is_dropped_and_needs_rev
         citing: dict[str, JsonValue] = {**lead_citing, "claim_ids": [lead_id]}
         return editing(extra=[citing, invented])(body)
 
+    script_parallel(llm)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        NOTHING_TO_READ,
         ChatReply.answer(cite_a_lead),
         REVIEWED,
     )
@@ -647,10 +696,10 @@ def test_a_final_stop_queues_the_relationship_review_of_the_investigation_s_asse
 ) -> None:
     atlas = services.start()
     started = seeded(atlas, "coherent")
+    script_parallel(llm)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        NOTHING_TO_READ,
         ChatReply.answer(editing()),
         REVIEWED,
     )
@@ -766,7 +815,7 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
         "scout": "succeeded",
         "investigator:coherent": "budget_exhausted",
         "skeptic": "pending",
-        "financial_analyst": "skipped",
+        "financial_analyst": "pending",
         "editor": "pending",
     }
     # A partial investigation: what was found is kept, nothing was invented.
@@ -815,7 +864,7 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
     assert (continuation["continues_id"], continuation["run_id"]) == (first, run_id)
     assert (continuation["status"], continuation["batches_total"]) == ("completed", 2)
     calls = atlas.get(f"/api/v1/runs/{run_id}/role-calls")
-    assert [(c["role"], c["status"]) for c in calls["role_calls"]] == [
+    assert call_roles(calls["role_calls"]) == [
         ("scout", "accepted"),
         ("investigator", "accepted"),
         ("investigator", "budget_exhausted"),
@@ -834,7 +883,7 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
         assert metric(atlas, "atlas_investigation_stops_total", reason=reason) == count
 
 
-def test_a_budget_spent_before_the_skeptic_resumes_into_the_skeptic_and_the_editor(
+def test_a_budget_spent_before_the_skeptic_and_the_analyst_resumes_into_them_and_the_editor(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
     atlas = services.start()
@@ -848,19 +897,24 @@ def test_a_budget_spent_before_the_skeptic_resumes_into_the_skeptic_and_the_edit
     atlas.worker_pass()
 
     stopped = investigation(atlas, started["id"])
-    assert (stopped["stop_reason"], tasks(stopped)["skeptic"]["status"]) == (
+    # The Skeptic's and the Analyst's jobs are queued together; whichever runs first finds
+    # the budget spent and stops the investigation, and the other's job then doesn't run.
+    parallel = {key: tasks(stopped)[key]["status"] for key in ("skeptic", "financial_analyst")}
+    assert sorted(parallel.values()) == ["budget_exhausted", "queued"]
+    [spent] = [key for key, status in parallel.items() if status == "budget_exhausted"]
+    assert (stopped["stop_reason"], tasks(stopped)["editor"]["status"]) == (
         "budget_exhausted",
-        "budget_exhausted",
+        "pending",
     )
-    assert tasks(stopped)["editor"]["status"] == "pending"
-    assert "before the skeptic's call" in stopped["stop_detail"]
+    assert f"before the {spent}'s call" in stopped["stop_detail"]
     assert stopped["research_card"] is None
     assert roles(llm) == ["scout", "investigator"]
 
     # A resumable stop doesn't chain the relationship review: the run isn't over.
     assert "relationship_review_queued" not in [e["type"] for e in events(atlas, started["id"])]
 
-    llm.script_chat(NOTHING_TO_READ, ChatReply.answer(editing()), REVIEWED)
+    script_parallel(llm)
+    llm.script_chat(ChatReply.answer(editing()), REVIEWED)
     resumed = atlas.api.post(
         f"/api/v1/investigations/{started['id']}/resume", json={"token_budget": 20_000}
     )
@@ -871,7 +925,15 @@ def test_a_budget_spent_before_the_skeptic_resumes_into_the_skeptic_and_the_edit
     assert found["stop_reason"] == "answered"
     assert tasks(found)["skeptic"]["status"] == "succeeded"
     assert len(found["research_card"]["findings"]) == 1
-    assert roles(llm) == ["scout", "investigator", "skeptic", "editor", "reviewer"]
+    assert tasks(found)["financial_analyst"]["status"] == "succeeded"
+    assert roles(llm) == [
+        "scout",
+        "investigator",
+        "skeptic",
+        "financial_analyst",
+        "editor",
+        "reviewer",
+    ]
 
 
 # --- an LLM outage --------------------------------------------------------------------------------
@@ -884,10 +946,10 @@ def test_an_llm_outage_pauses_the_investigation_and_it_resumes_with_nothing_inve
     clock = Clock(datetime.now(UTC))
     worker = paced(atlas, clock)
     started = seeded(atlas, "coherent")
+    script_parallel(llm)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        NOTHING_TO_READ,
         ChatReply.error(503, "Service Unavailable"),
     )
     script_searches(searxng)
@@ -919,10 +981,11 @@ def test_an_llm_outage_pauses_the_investigation_and_it_resumes_with_nothing_inve
         False,
     )
     calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
-    assert [(c["role"], c["status"]) for c in calls] == [
+    assert call_roles(calls) == [
         ("scout", "accepted"),
         ("investigator", "accepted"),
         ("skeptic", "accepted"),
+        ("financial_analyst", "accepted"),
         ("editor", "failed"),
         ("editor", "accepted"),
     ]
@@ -957,7 +1020,7 @@ def test_a_disproven_premise_cancels_only_the_tasks_that_depend_on_it(
         "investigator:coherent": "pending",
         "investigator:lumentum": "cancelled",
         "skeptic": "pending",
-        "financial_analyst": "skipped",
+        "financial_analyst": "pending",
         "editor": "pending",
     }
     assert tasks(disproven)["investigator:lumentum"]["detail"] == (
@@ -966,10 +1029,10 @@ def test_a_disproven_premise_cancels_only_the_tasks_that_depend_on_it(
     premise = {p["key"]: p for p in disproven["premises"]}["company:lumentum"]
     assert (premise["status"], premise["disproven_by"]) == ("disproven", "local-researcher")
 
+    script_parallel(llm)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        NOTHING_TO_READ,
         ChatReply.answer(editing()),
         REVIEWED,
     )
@@ -981,7 +1044,7 @@ def test_a_disproven_premise_cancels_only_the_tasks_that_depend_on_it(
     assert found["research_card"]["disproven_premises"] == [
         "Lumentum is part of the supply chain the question is about"
     ]
-    assert asked(llm.chat_requests()[3])["request"]["disproven_premises"] == [
+    assert asked(requests(llm)[4])["request"]["disproven_premises"] == [
         "Lumentum is part of the supply chain the question is about"
     ]
     again = atlas.api.post(
@@ -1007,7 +1070,8 @@ def test_disproving_the_question_cancels_the_plan_and_stops_premise_disproven(
     found = investigation(atlas, started["id"])
     assert (found["status"], found["stop_reason"]) == ("stopped", "premise_disproven")
     assert found["stop_detail"].startswith("premise 'question' was disproven")
-    assert set(statuses(found).values()) == {"cancelled", "skipped"}
+    # No slot of the plan is skipped any more: every task is cancelled.
+    assert set(statuses(found).values()) == {"cancelled"}
     assert llm.chat_requests() == []
     job = atlas.get(f"/api/v1/jobs/{tasks(found)['scout']['job_id']}")
     assert (job["status"], job["artifacts"]["ran"]) == ("succeeded", False)
@@ -1265,6 +1329,7 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
     started = seeded(atlas, "coherent")
     paraphrase = "Coherent's share count rose sharply in fiscal 2026."
+    llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
@@ -1286,15 +1351,23 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     atlas.worker_pass()
 
     found = investigation(atlas, started["id"])
-    # The Skeptic ran between the Investigator and the Editor, beside the Analyst slot.
+    # The Skeptic ran between the Investigator and the Editor, beside the Analyst.
     assert statuses(found) == {
         "scout": "succeeded",
         "investigator:coherent": "succeeded",
         "skeptic": "succeeded",
-        "financial_analyst": "skipped",
+        "financial_analyst": "succeeded",
         "editor": "succeeded",
     }
-    assert roles(llm) == ["scout", "investigator", "skeptic", "skeptic", "editor", "reviewer"]
+    assert roles(llm) == [
+        "scout",
+        "investigator",
+        "skeptic",
+        "skeptic",
+        "financial_analyst",
+        "editor",
+        "reviewer",
+    ]
     calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
     assert [(c["role"], c["prompt_name"]) for c in calls if c["role"] == "skeptic"] == [
         ("skeptic", "skeptic-plan"),
@@ -1373,7 +1446,7 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     assert artifacts["independent_evidence_families"] == 1
     # The Editor was sent it (its quote as low-trust data); the card shows it as a
     # contradiction of the finding, which needs review, and so does the investigation.
-    editor = asked(llm.chat_requests()[4])
+    editor = asked(requests(llm)[5])
     [sent] = editor["request"]["counterevidence"]
     assert (sent["counterevidence_id"], sent["independent"], sent["subject"]) == (
         dilution["id"],
@@ -1426,6 +1499,7 @@ def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_no
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
     assert copy != ten_k and family(atlas, copy) == family(atlas, ten_k)
     started = seeded(atlas, "coherent")
+    llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
@@ -1493,6 +1567,7 @@ def test_memory_and_other_roles_output_are_never_witnesses(
     ]
     recalls = len(fake.requests("POST", "memories/recall"))
     started = seeded(atlas, "coherent")
+    llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
@@ -1552,6 +1627,7 @@ def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
     coherent = company_id(atlas, "coherent")
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
     started = seeded(atlas, "coherent")
+    llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),

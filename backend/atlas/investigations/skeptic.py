@@ -2,7 +2,7 @@
 independent search for counterevidence against the investigation's supporting Claims, driven
 by the bear checklist (atlas.roles.skeptic).
 
-It runs after every Investigator task, beside the Financial Analyst slot, in the
+It runs after every Investigator task, beside the Financial Analyst (in either order), in the
 investigation's run and within its budgets. The task runner skips it, without an LLM call,
 when the Investigators accepted no Claim (there is nothing to challenge). Otherwise one
 `skeptic_search` row holds its progress, so a retried, paused or budget-resumed task

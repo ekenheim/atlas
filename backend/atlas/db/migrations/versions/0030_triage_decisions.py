@@ -17,13 +17,13 @@ Insert-only (never updated or deleted, like the source ledger): a later decision
 same section (an on-demand retain of a skipped one) is a new row, and the section's
 **effective** decision is its latest (`seq`).
 
-Revision ID: 0033
+Revision ID: 0030
 Revises: 0029 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0033"
+revision = "0030"
 down_revision = "0029"
 branch_labels = None
 depends_on = None

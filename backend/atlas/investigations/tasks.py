@@ -19,6 +19,11 @@ One attempt:
      queries and reading of the Source Versions it chose, for counterevidence. Its accepted,
      independent counterevidence may disprove a company premise, applied when the task is
      recorded (by `atlas-skeptic`), which cancels only what depends on it.
+   - **Financial Analyst:** the seed companies the accepted Claims name, with their as-of
+     XBRL figures, and the Claims; with none it is skipped without an LLM call. One call
+     proposes scenario inputs; code keeps only the inputs whose source or basis stands
+     (atlas.scenarios.analyst) and records the assumption tables in the task's artifacts,
+     for scenarios on the Hypothesis versions (atlas.scenarios).
    - **Editor:** the investigation's accepted Claims (excluding those from a task whose
      premise was disproven). With no new independent Evidence (no Evidence Family that an
      earlier round's Claims hadn't used) it is skipped without an LLM call. Otherwise one
@@ -51,6 +56,7 @@ from atlas.claims.handlers import claim_extractor
 from atlas.companies import load_universe
 from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import Scout
+from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
 from atlas.investigations.model import (
     RUN_KIND,
@@ -80,7 +86,9 @@ from atlas.roles.editor import (
     EditorLead,
     EditorRequest,
 )
+from atlas.roles.financial_analyst import FINANCIAL_ANALYST
 from atlas.runs import RunRecorder
+from atlas.scenarios.analyst import analyst_companies, analyst_context, keep_proposals
 from atlas.settings import Settings
 
 _ERROR_LIMIT = 500
@@ -324,6 +332,8 @@ class TaskRunner:
             return self._investigator(job, investigation, task, run_id)
         if role == "skeptic":
             return self._skeptic(investigation, task, run_id)
+        if role == "financial_analyst":
+            return self._financial_analyst(investigation, run_id)
         if role == "editor":
             return self._editor(investigation, task, run_id)
         raise RoleCallFailed(f"the {role} role is not built yet")
@@ -553,6 +563,46 @@ class TaskRunner:
             detail=found.detail,
             artifacts={"supporting_claims": len(claims), **found.artifacts},
             disproofs=found.disproofs,
+        )
+
+    def _financial_analyst(self, investigation: RowMapping, run_id: uuid.UUID) -> _Outcome:
+        with self._engine.connect() as connection:
+            claims = accepted_claims(connection, investigation["id"], run_id)
+            companies = analyst_companies(connection, investigation["seed_company_ids"], claims)
+            if not companies:
+                return _Outcome(
+                    "skipped",
+                    detail=(
+                        "nothing to quantify: the Investigators accepted no Claims"
+                        if not claims
+                        else "nothing to quantify: no accepted Claim names a seed company"
+                    ),
+                    artifacts={"claims": len(claims), "companies": 0},
+                )
+            context = analyst_context(
+                connection,
+                theme_id=investigation["theme"],
+                question=investigation["question"],
+                as_of=investigation["as_of"],
+                companies=companies,
+                claims=claims,
+                catalog=load_metric_catalog(self._settings.financial_metrics_config),
+            )
+        with self._caller(investigation) as caller:
+            proposal, role_call_id = caller.call_recorded(
+                FINANCIAL_ANALYST, context.request, run_id=run_id, retrieved=context.retrieved
+            )
+        with self._engine.connect() as connection:
+            kept = keep_proposals(connection, context, proposal, investigation["as_of"])
+        return _Outcome(
+            "succeeded",
+            artifacts={
+                "role_call_id": str(role_call_id),
+                "claims": len(claims),
+                "companies": len(companies),
+                "scenario_proposals": [table.canonical() for table in kept.tables],
+                "rejected_inputs": list[JsonValue](kept.rejected),
+            },
         )
 
     def _editor(self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID) -> _Outcome:

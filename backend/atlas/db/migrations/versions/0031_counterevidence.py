@@ -10,14 +10,14 @@
   the supporting Claims' families. Memory and other roles' outputs can't be witnesses: an item
   must quote a passage of a Source Version the Skeptic chose.
 
-Revision ID: 0030
-Revises: 0033 (re-chained at merge)
+Revision ID: 0031
+Revises: 0030 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0030"
-down_revision = "0033"
+revision = "0031"
+down_revision = "0030"
 branch_labels = None
 depends_on = None
 
