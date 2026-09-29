@@ -31,6 +31,8 @@ It ends in the spec §15 demo. The spec will be at `.scratch/atlas-phase3-6a/spe
 
 <!-- one line per closed ticket -->
 
+- [Atlas LiteLLM key](issues/02-atlas-litellm-key.md): home-ops PR #7086 (key, a store scoped to development, the Atlas ExternalSecret and envs; MiniMax-M3 directly, no configmap change); release version stamping merged.
+
 - [Seed list](issues/01-seed-list.md): 12 companies across 7 layers (Marvell added for DSP); Innolight via HKEXnews (HKEX-listed since 2026-07); most US IR sites block automation, so non-SEC names need HKEXnews/RNS/Euronext-style adapters.
 
 - [XBRL normalization](issues/04-xbrl-normalization.md): as-of by filing availability, never `frame`; tag precedence per concept (revenue tags drift); no segment facts in companyfacts, so product exposure comes from text; restatement plus suspect flag; found the after-hours dissemination bug (→ ticket 10).
