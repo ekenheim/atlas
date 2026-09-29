@@ -41,7 +41,7 @@ A legal entity, not a ticker (build plan §5.1). Built by ticket 07 (migration `
 | `cik` | text null, unique | Zero-padded 10 digits. The 12 photonics companies are seeded from config (Phase 3); the three exchange-disclosed ones have none |
 | `country` | text not null | ISO 3166-1 alpha-2 |
 | `website` | text null | |
-| `layer` | text null | Primary photonics supply-chain layer: `substrate`, `epi`, `chip-laser`, `dsp`, `module`, `contract-manufacturing`, `system` (migration `0013`) |
+| `layer` | text null | Primary photonics supply-chain layer: `substrate`, `epi`, `chip-laser`, `dsp`, `module`, `contract-manufacturing`, `system` (migration `0015`) |
 | `source_path` | text null | `sec`, or `exchange:<hkex\|lse-rns\|euronext>`. Only `sec` companies are fetched by the SEC ingest; `sec` requires a `cik`. Unsponsored-ADR CIKs (Soitec, IQE, Innolight) are listed as `ignored_ciks` in config, never stored as a company's `cik` |
 | `sec_forms` | text[] null | SEC forms to ingest (e.g. `20-F`, `6-K` for STMicroelectronics); NULL means 10-K/10-Q/8-K. Only for `sec` companies |
 | (config only) `exchange` | | For an `exchange:*` company: `issuer_code` (e.g. HKEX stock code `03308`) and `feed_id` (the feed's own ID, e.g. HKEXnews `stockId`). Read by the exchange ingest; not a column |
@@ -192,11 +192,11 @@ One row per fetch of a Source Document that returned or confirmed content, inclu
 | `object_uri` | text null | Set when this fetch's exact bytes differ from the matched version's (only non-content bytes changed), so they stay archived |
 | `etag`, `last_modified` | text null | The HTTP validators. The latest observation's are sent on the next fetch (a conditional request) |
 | `attempts` | integer not null | HTTP attempts it took |
-| `gate_decision_id` | uuid null FK → fetch_gate_decision | The `allowed` fetch gate decision the fetch was made under (exchange sources; migration `0021`). NULL for SEC EDGAR. A trigger refuses one that names a `blocked` decision |
+| `gate_decision_id` | uuid null FK → fetch_gate_decision | The `allowed` fetch gate decision the fetch was made under (exchange sources; migration `0023`). NULL for SEC EDGAR. A trigger refuses one that names a `blocked` decision |
 
 So an **unchanged re-fetch** (same raw hash, same comparison hash, or HTTP 304) creates no Source Version. It creates an observation, an audit event (`fetch.unchanged` or `fetch.not_modified`) and a job artifact. Fetch errors and permission denials that produce no bytes are recorded as job failures that list each failed URL (spec story 22).
 
-### 2.4c `fetch_gate_decision` (migration `0021`)
+### 2.4c `fetch_gate_decision` (migration `0023`)
 
 One row per URL an exchange ingest asked the fetch gate about (`atlas.sources.gate`), before any request to it: the feed's search (`purpose = discovery`) and each document (`document`). Append-only, like the ledger. A `blocked` decision has no fetch observation, since nothing was requested; it is how a source that forbids automation stays visible (`GET /api/v1/companies/{id}/fetch-gate-decisions?status=blocked`, `GET /api/v1/fetch-gate-decisions/{id}`).
 
@@ -340,7 +340,7 @@ Extended into the full run/task model in Phase 4 (spec Part B "Schema").
 | `tokens_in`, `tokens_out` | bigint not null default 0 | Totals |
 | `started_at`, `finished_at` | timestamptz | |
 
-### 3.1a `role_call` and `llm_call` (Phases 3–6a, migration 0015)
+### 3.1a `role_call` and `llm_call` (Phases 3–6a, migration 0013)
 
 Every research role's LLM call in a run (`atlas.roles`). A run's usage, which its token budget counts, is the sum of its `llm_call` rows. `GET /api/v1/runs/{id}/role-calls` reads both.
 
@@ -374,7 +374,7 @@ Every research role's LLM call in a run (`atlas.roles`). A run's usage, which it
 | `validation_errors` | jsonb | Pydantic errors (`type`, `loc`, `msg`, no input); null when it validated |
 | `called_at` | timestamptz | |
 
-### 3.1c `claim_extraction` and `claim` (Phases 3–6a, migration 0019)
+### 3.1c `claim_extraction` and `claim` (Phases 3–6a, migration 0018)
 
 The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and `GET /api/v1/claim-extractions/{id}` read them.
 
@@ -417,7 +417,7 @@ The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and 
 Each Claim writes a `claim.accepted` or `claim.rejected` audit event; an accepted one is recorded with its Assertion (and its `assertion.created` event) in one transaction.
 
 
-### 3.1d `discovery`, `discovery_query`, `lead` and `lead_sighting` (Phases 3–6a, migration 0018)
+### 3.1d `discovery`, `discovery_query`, `lead` and `lead_sighting` (Phases 3–6a, migration 0019)
 
 Discovery (`atlas.discovery`): the Scout's SearXNG queries and the Tier C leads they found. `GET /api/v1/discoveries[/{id}]` and `GET /api/v1/leads` read them. A lead is never Evidence: no Source Version, Assertion or memory document references it, and nothing retains it.
 
@@ -466,7 +466,7 @@ Discovery (`atlas.discovery`): the Scout's SearXNG queries and the Tier C leads 
 
 `lead_sighting`: each query result that returned a lead (primary key lead + query): position, URL, title, snippet, engines, published date and `seen_at`, as that result gave them.
 
-### 3.1e `relationship`, `relationship_assertion`, `relationship_review` and `relationship_review_job` (Phases 3–6a, migration 0022)
+### 3.1e `relationship`, `relationship_assertion`, `relationship_review` and `relationship_review_job` (Phases 3–6a, migration 0021)
 
 Relationships (`atlas.relationships`; ticket 12): build plan §5.5's typed, directed, layer-tagged edges, backed by Assertions and machine-reviewed by the `review_relationships` job. `GET /api/v1/relationships[/{id}]`, `GET /api/v1/relationships/exceptions` and `POST /api/v1/relationships/{id}/review` read and review them.
 
@@ -509,7 +509,7 @@ Unique `(subject_company_id, predicate, object_key, layer)`: the edge's identity
 
 Audit events: `relationship_review.recorded` (each review row), `relationship.created`, `relationship.evidence_added`, `relationship.machine_reviewed` (an exception lifted by a passing witness), all by `atlas-reviewer`; `relationship.approved` and `relationship.rejected` by the owner. Each relationship event hashes the row with its supporting Assertion IDs.
 
-### 3.1f Investigations (Phases 3–6a, migration 0023)
+### 3.1f Investigations (Phases 3–6a, migration 0022)
 
 An investigation (`atlas.investigations`) runs a theme question as a fixed plan of role tasks on the job queue, all in one `run` (kind `investigation`). `POST /api/v1/investigations` starts one; `GET /api/v1/investigations/{id}[/events]` reads it.
 

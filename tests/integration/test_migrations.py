@@ -34,7 +34,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0021"
+    assert revision == "0023"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:

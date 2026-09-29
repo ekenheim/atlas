@@ -10,14 +10,14 @@
   nothing references it from the source ledger, Assertions or memory documents.
 - `lead_sighting`: each time a query returned a lead, with what that result said.
 
-Revision ID: 0018
-Revises: 0019 (re-chained at merge)
+Revision ID: 0019
+Revises: 0018 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0018"
-down_revision = "0019"
+revision = "0019"
+down_revision = "0018"
 branch_labels = None
 depends_on = None
 

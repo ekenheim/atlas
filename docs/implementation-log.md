@@ -1553,3 +1553,20 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
 - **Fixture-only vs live:** only the rehearsal ran. **No chat completion was made against LiteLLM/MiniMax.** The live run (ticket box 2) is for the lead, with the owner's go-ahead; the decision entry (box 3) depends on its numbers.
 - **Deviations:** the test builds the `extract_claims` handler itself, to stub the recall. It does not use `builtin_registry`, whose recall needs Hindsight. The run record's Hindsight version is the fake's.
 - **Next:** run `scripts/live-extraction-smoke.sh --model MiniMax-M3` and record `summary.md` here. If the `quote_mismatch` share is over 20%, write the decision entry on locating exactly-once quotes, citing the `exactly_once`/`located_would_be_accepted` counts.
+
+## 2026-09-29: Migrations renumbered (Phase 3-6a batch 1-2)
+
+Tickets 01–04, 07, 08, 10–12, 14 were built in parallel with reserved revision IDs, then chained at merge in merge order, so the IDs ran out of numeric order. Nothing had been deployed, so they were renumbered to follow the chain. Earlier entries in this log use the old IDs; the mapping, old → new:
+- 0015 → 0013 (role calls)
+- 0014 → 0014 (PDF and language)
+- 0013 → 0015 (company layer and source path)
+- 0016 → 0016 (Evidence Families)
+- 0017 → 0017 (financial observations)
+- 0019 → 0018 (Claims)
+- 0018 → 0019 (leads)
+- 0020 → 0020 (identity)
+- 0022 → 0021 (relationships)
+- 0023 → 0022 (investigations)
+- 0021 → 0023 (fetch gate)
+
+The chain is now 0012 → 0013 → … → 0023.

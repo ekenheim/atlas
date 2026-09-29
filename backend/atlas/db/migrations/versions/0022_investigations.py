@@ -19,14 +19,14 @@
   remaining passages, in the same run), so a resumed investigation doesn't send a passage
   twice.
 
-Revision ID: 0023
-Revises: 0022 (re-chained at merge)
+Revision ID: 0022
+Revises: 0021 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0023"
-down_revision = "0022"
+revision = "0022"
+down_revision = "0021"
 branch_labels = None
 depends_on = None
 

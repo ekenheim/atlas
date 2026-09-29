@@ -9,14 +9,14 @@
   for SEC EDGAR fetches, whose access terms are its fair-access policy). A trigger refuses
   an observation that names a `blocked` decision.
 
-Revision ID: 0021
-Revises: 0023 (re-chained at merge)
+Revision ID: 0023
+Revises: 0022 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0021"
-down_revision = "0023"
+revision = "0023"
+down_revision = "0022"
 branch_labels = None
 depends_on = None
 

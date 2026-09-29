@@ -17,13 +17,13 @@ Like the other parse columns, `page_anchors` and `language` can be written again
 the parse is `pending` or `failed` (`source_version_guard_update`).
 
 Revision ID: 0014
-Revises: 0015
+Revises: 0013
 """
 
 from alembic import op
 
 revision = "0014"
-down_revision = "0015"
+down_revision = "0013"
 branch_labels = None
 depends_on = None
 
