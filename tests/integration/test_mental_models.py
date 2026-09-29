@@ -13,8 +13,7 @@ chosen to match, or not match, the recorded Lumentum EDGAR fixture. No LLM is ca
 import hashlib
 import json
 from collections.abc import Iterator
-from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -23,22 +22,23 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from atlas.api.app import create_app
-from atlas.db.migrate import upgrade
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry, builtin_schedules, job_id_for
 from atlas.mental_models import REFRESH_KIND, refresh_key
-from atlas.settings import Settings
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import FakeLiteLLM, model_info_fixture
 from tests.fakes.serve import Served, serve
-from tests.integration.test_queue_pause import QUOTA_ERROR
-from tests.integration.test_research import (
+from tests.harness import (
     BANK,
     ITEM_1,
     LITE_10K,
     LITE_APOSTROPHE,
+    QUOTA_ERROR,
     TEMPLATE,
     Atlas,
+    Clock,
     assert_source,
+    at,
+    make_settings,
 )
 
 TEMPLATE_FILE: dict[str, Any] = json.loads(TEMPLATE.read_text(encoding="utf-8"))
@@ -60,21 +60,6 @@ PLACEHOLDER = "Generating content...\n"  # what 0.10.1 showed before a model's f
 ITEM_1A = "part-i-item-1a"
 
 
-@dataclass
-class Clock:
-    now: datetime
-
-    def __call__(self) -> datetime:
-        return self.now
-
-    def advance(self, **delta: float) -> None:
-        self.now += timedelta(**delta)
-
-
-def at(timestamp: str) -> datetime:
-    return datetime.fromisoformat(timestamp)
-
-
 def sha256(content: str) -> str:
     return hashlib.sha256(content.encode()).hexdigest()
 
@@ -84,20 +69,15 @@ class Models(Atlas):
 
     def __init__(self, database_url: str, tmp_path: Path, hindsight: str, litellm: str) -> None:
         self.clock = Clock(at("2026-10-01T05:00:00+00:00"))
-        super().__init__(database_url, tmp_path, hindsight, litellm)
-        self.api = TestClient(create_app(self.settings(), clock=self.clock))
-
-    def settings(self) -> Settings:
-        return (
-            super()
-            .settings()
-            .model_copy(
-                update={
-                    "mental_model_poll_timeout_seconds": 0.3,
-                    "mental_model_poll_interval_seconds": 0.01,
-                }
-            )
+        super().__init__(
+            database_url,
+            tmp_path,
+            hindsight,
+            litellm,
+            mental_model_poll_timeout_seconds=0.3,
+            mental_model_poll_interval_seconds=0.01,
         )
+        self.api = TestClient(create_app(self.settings(), clock=self.clock))
 
     def scheduled_pass(self) -> int:
         """One `atlas worker` pass: the schedules, then the jobs, on the clock."""
@@ -109,11 +89,6 @@ class Models(Atlas):
             schedules=builtin_schedules(settings, self.engine),
         )
         return worker.run_once()
-
-    def enqueue(self, *args: str) -> str:
-        enqueued = self.cli(*args)
-        assert enqueued.returncode == 0, enqueued.stderr
-        return json.loads(enqueued.stdout)["id"]
 
     def model(self, mental_model_id: str) -> dict[str, Any]:
         return self.get(f"/api/v1/mental-models/{mental_model_id}")
@@ -134,23 +109,10 @@ class Models(Atlas):
 
 
 @pytest.fixture
-def database_url(empty_database_url: str) -> str:
-    upgrade(empty_database_url)
-    return empty_database_url
-
-
-@pytest.fixture
-def hindsight() -> Iterator[tuple[RecordedHindsight, Served]]:
+def hindsight_fake() -> RecordedHindsight:
     fake = RecordedHindsight()
     fake.derive_memories()
-    with serve(fake.transport.handle_request) as served:
-        yield fake, served
-        served.raise_errors()
-
-
-@pytest.fixture
-def fake(hindsight: tuple[RecordedHindsight, Served]) -> RecordedHindsight:
-    return hindsight[0]
+    return fake
 
 
 @pytest.fixture
@@ -159,9 +121,8 @@ def models(
 ) -> Iterator[Models]:
     with serve(FakeLiteLLM().handle) as litellm:
         harness = Models(database_url, tmp_path, hindsight[1].url, litellm.url)
-        applied = harness.cli("hindsight", "apply-template")
-        assert applied.returncode == 0, applied.stderr
-        harness.ingest("lumentum")
+        harness.apply_template()
+        harness.ingest_company("lumentum")
         yield harness
         harness.engine.dispose()
         litellm.raise_errors()
@@ -317,7 +278,7 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
 
     # Day 2, 06:00: Hindsight's own cron refreshes Theme status after Coherent is retained.
     models.clock.now = at("2026-10-02T06:00:00+00:00")
-    models.ingest("coherent")
+    models.ingest_company("coherent")
     fake.apply_refresh("theme-status", "Theme, day 2.", [fact], refreshed_at=models.clock.now)
     # 06:30: Atlas finds that refresh inside the interval and records it; Bottlenecks has
     # new memory in scope, so it is refreshed.
@@ -499,9 +460,7 @@ def test_an_unknown_model_is_404_without_asking_hindsight(
 
 
 def test_mental_models_need_hindsight(database_url: str, tmp_path: Path) -> None:
-    settings = Settings.model_validate(
-        {"database_url": database_url, "actor": "local-researcher", "archive_root": tmp_path}
-    )
+    settings = make_settings(tmp_path, database_url=database_url)
     api = TestClient(create_app(settings))
 
     for path in ("/api/v1/mental-models", "/api/v1/mental-models/theme-status"):

@@ -1,4 +1,4 @@
-"""Shared API shapes: the error envelope and paginated lists."""
+"""Shared API shapes: the error envelope (its responses and OpenAPI maps) and paginated lists."""
 
 from typing import Any
 
@@ -6,6 +6,8 @@ from fastapi import Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightUnavailable
 
 
 class ErrorDetail(BaseModel):
@@ -26,7 +28,29 @@ def not_found(what: str) -> JSONResponse:
     return error_response(404, "not_found", f"{what} not found")
 
 
-NOT_FOUND: dict[int | str, dict[str, Any]] = {404: {"model": ErrorEnvelope}}
+def hindsight_not_configured() -> JSONResponse:
+    return error_response(503, "hindsight_not_configured", HINDSIGHT_NOT_CONFIGURED)
+
+
+def hindsight_failed(error: HindsightError) -> JSONResponse:
+    """502: `hindsight_unavailable` (unreachable, timed out) or `hindsight_error`."""
+    code = "hindsight_unavailable" if isinstance(error, HindsightUnavailable) else "hindsight_error"
+    return error_response(502, code, str(error))
+
+
+type ErrorResponses = dict[int | str, dict[str, Any]]
+
+
+def error_responses(*status_codes: int) -> ErrorResponses:
+    """OpenAPI `responses` documenting the error envelope for each status code."""
+    return {status_code: {"model": ErrorEnvelope} for status_code in status_codes}
+
+
+NOT_FOUND = error_responses(404)
+INVALID = error_responses(422)
+CONFLICT = error_responses(409)
+# The Hindsight failures: 502 (unavailable or an error) and 503 (not configured).
+HINDSIGHT_FAILURES = error_responses(502, 503)
 
 
 def invalid_request(request: Request, exc: Exception) -> JSONResponse:

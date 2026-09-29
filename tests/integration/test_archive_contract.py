@@ -21,7 +21,7 @@ from atlas.archive import (
     ObjectNotFound,
     open_archive,
 )
-from atlas.settings import Settings
+from tests.harness import make_settings
 from tests.integration.conftest import (
     S3_ACCESS_KEY_ID,
     S3_ENDPOINT_URL,
@@ -47,16 +47,6 @@ class Backend:
     secrets: list[str]
 
 
-def base_settings(tmp_path: Path, **overrides: object) -> Settings:
-    values: dict[str, object] = {
-        "database_url": "postgresql+psycopg://atlas:atlas@127.0.0.1:1/atlas",
-        "actor": "local-researcher",
-        "archive_root": tmp_path / "archive",
-    }
-    values.update(overrides)
-    return Settings.model_validate(values)
-
-
 def filesystem_backend(tmp_path: Path) -> Backend:
     root = tmp_path / "archive"
     root.mkdir()
@@ -73,7 +63,9 @@ def filesystem_backend(tmp_path: Path) -> Backend:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
 
-    return Backend(open_archive(base_settings(tmp_path)), stored_state, plant, [str(root)])
+    return Backend(
+        open_archive(make_settings(tmp_path / "archive")), stored_state, plant, [str(root)]
+    )
 
 
 def s3_backend(tmp_path: Path, admin: S3Client, bucket: str) -> Backend:
@@ -89,7 +81,7 @@ def s3_backend(tmp_path: Path, admin: S3Client, bucket: str) -> Backend:
     def plant(key: str, data: bytes) -> None:
         admin.put_object(Bucket=bucket, Key=key, Body=data)
 
-    archive = open_archive(base_settings(tmp_path, **s3_settings(bucket)))
+    archive = open_archive(make_settings(tmp_path / "archive", **s3_settings(bucket)))
     secrets = [bucket, S3_ENDPOINT_URL, "127.0.0.1", S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY]
     return Backend(archive, stored_state, plant, secrets)
 

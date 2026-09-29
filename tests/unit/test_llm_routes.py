@@ -7,8 +7,8 @@ import httpx2
 import pytest
 
 from atlas.llm_routes import AliasNotRouted, LiteLLMRoutes, LiteLLMUnavailable, RoutedDeployment
-from atlas.settings import Settings
 from tests.fakes.litellm import API_KEY, FakeLiteLLM, model_info_fixture
+from tests.harness import make_settings
 
 ALIASES = ["atlas-extract", "atlas-reflect"]
 
@@ -73,23 +73,18 @@ def test_an_unexpected_response_shape_is_unavailable() -> None:
         recorder(fake).routes(ALIASES)
 
 
-def settings(tmp_path: Path, **values: object) -> Settings:
-    base: dict[str, object] = {"database_url": "postgresql+psycopg://x@db/atlas", "actor": "a"}
-    return Settings.model_validate({**base, "archive_root": tmp_path, **values})
-
-
 def test_litellm_needs_both_its_url_and_key(tmp_path: Path) -> None:
     url = {"litellm_url": "http://litellm.test"}
     key = {"litellm_api_key": API_KEY}
 
-    assert LiteLLMRoutes.from_settings(settings(tmp_path)) is None
-    assert LiteLLMRoutes.from_settings(settings(tmp_path, **url)) is None
-    assert LiteLLMRoutes.from_settings(settings(tmp_path, **key)) is None
-    assert LiteLLMRoutes.from_settings(settings(tmp_path, **url, **key)) is not None
+    assert LiteLLMRoutes.from_settings(make_settings(tmp_path)) is None
+    assert LiteLLMRoutes.from_settings(make_settings(tmp_path, **url)) is None
+    assert LiteLLMRoutes.from_settings(make_settings(tmp_path, **key)) is None
+    assert LiteLLMRoutes.from_settings(make_settings(tmp_path, **url, **key)) is not None
 
 
 def test_the_aliases_come_from_config(tmp_path: Path) -> None:
-    custom = settings(tmp_path, llm_extract_alias="x-extract", llm_reflect_alias="x-reflect")
+    custom = make_settings(tmp_path, llm_extract_alias="x-extract", llm_reflect_alias="x-reflect")
 
-    assert settings(tmp_path).llm_aliases() == ALIASES
+    assert make_settings(tmp_path).llm_aliases() == ALIASES
     assert custom.llm_aliases() == ["x-extract", "x-reflect"]

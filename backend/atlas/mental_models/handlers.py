@@ -3,14 +3,14 @@
 import logging
 from datetime import time
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine
 
 from atlas.audit import Actor
 from atlas.bank_template import BankTemplate, InvalidTemplate
-from atlas.hindsight import HindsightGateway
 from atlas.jobs.handlers import HandlerRegistry, Schedule
 from atlas.jobs.pacing import Clock
 from atlas.jobs.queue import Artifacts, Job
+from atlas.jobs.resources import hindsight_resources, run_recorder
 from atlas.mental_models.refresh import (
     REFRESH_KIND,
     MentalModelRefresher,
@@ -18,14 +18,9 @@ from atlas.mental_models.refresh import (
     RefreshSchedule,
     RefreshTimings,
 )
-from atlas.runs import RunRecorder
 from atlas.settings import Settings
 
 log = logging.getLogger("atlas.mental_models")
-
-
-class HindsightNotConfigured(Exception):
-    """A refresh job ran without ATLAS_HINDSIGHT_URL."""
 
 
 def register_mental_model_handlers(
@@ -33,12 +28,10 @@ def register_mental_model_handlers(
 ) -> None:
     def refresh(job: Job) -> Artifacts:
         payload = RefreshPayload.model_validate(job.payload)
-        gateway = HindsightGateway.from_settings(settings)
-        if gateway is None:
-            raise HindsightNotConfigured("Hindsight is not configured (ATLAS_HINDSIGHT_URL)")
-        engine = create_engine(settings.database_url, pool_pre_ping=True)
-        runs = RunRecorder.from_settings(settings, engine)
-        try:
+        with (
+            hindsight_resources(settings) as (gateway, engine),
+            run_recorder(settings, engine) as runs,
+        ):
             refresher = MentalModelRefresher(
                 engine,
                 gateway,
@@ -52,11 +45,6 @@ def register_mental_model_handlers(
                 runs=runs,
             )
             return refresher.refresh(payload, job)
-        finally:
-            if runs is not None:
-                runs.close()
-            gateway.close()
-            engine.dispose()
 
     # Pausable: a refresh is an LLM run, so quota and outages pause it like a retain.
     registry.register(REFRESH_KIND, refresh, pausable=True)

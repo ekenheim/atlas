@@ -1140,3 +1140,54 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - Pauses and scheduled enqueues are audited as `atlas-system`, not the configured actor.
 - **Credentials:** none.
 - **Next:** the owner's decision on A→B→A (`docs/decisions.md`); record the document-filtered memory list and a real refresh operation in the live run, and replace their derivations.
+## 2026-09-29: code review fix-up (standards axis)
+
+A behavior-preserving refactor from the Standards review of tickets 14–17, rebased onto the spec-axis fix-up (`a19fa77`) and applied to its new code as well. It adds no migrations and changes no API contract: the exported OpenAPI schema is byte-identical, so the client didn't need regenerating.
+
+- **What changed:**
+  - **Glossary:**
+    - in `mental_models/refresh.py`, `_snapshot`/`snapshot` became `_refresh_record`/`recorded` ("snapshot" is reserved for Research Snapshot)
+    - `ledger.list_documents`/`get_document` became `list_source_documents`/`get_source_document`
+    - in the frontend `company`, `source` and `version` pages, `document` variables and params became `sourceDocument`, so they no longer shadow the DOM global
+  - **Job handlers:**
+    - one `HindsightNotConfigured` (in `atlas.hindsight.errors`, next to the one `HINDSIGHT_NOT_CONFIGURED` message, which the CLI and the API also use)
+    - one context manager, `atlas.jobs.resources.hindsight_resources(settings)`: it builds the gateway (raising when unconfigured) and the engine, then closes and disposes both
+    - `reflect`, `refresh_mental_model` and the retention handlers use it; `_retention` is now a thin wrapper
+    - `run_recorder(settings, engine)` does the same for the run recorder (closing it before the gateway and engine), which the `reflect` and `refresh_mental_model` handlers now share
+  - **Engine factory:** `atlas.db.create_engine(settings)` (`pool_pre_ping=True`), used by `cli.py`, `api/app.py`, `ledger/ingest.py` and the handlers
+  - **API error maps:** `api/common.py` now has `error_responses(*codes)`, `NOT_FOUND`, `INVALID`, `CONFLICT`, `HINDSIGHT_FAILURES` (502/503), `hindsight_not_configured()` and `hindsight_failed(error)` (502 `hindsight_unavailable`/`hindsight_error`). The assertions, research, mental-models and jobs routers use them, and `jobs.py` dropped its unused re-exports.
+  - **Test harness:**
+    - `tests/harness.py` holds `make_settings(archive_root, **overrides)` (built from values only, never from the environment), the shared `Atlas` harness (the union of the retention and research harnesses; research's `ingest(company)` is now `ingest_company`), `Clock`, `at`, `assert_source`, `scrape_metrics` (used by the `Atlas`, `Paced` and ingest harnesses' `metrics()`), and `REPO`/`THEMES`/`TEMPLATE`/`EDGAR_FIXTURES`/`BANK`/`LITE_10K`/`TEN_K_ANCHORS`/`ITEM_1`/`LITE_APOSTROPHE`/`QUOTA_ERROR`
+    - `tests/integration/conftest.py` holds `database_url` (migrated), `engine`, `hindsight_fake` (default `derive_retains`; the research and mental-model modules override it with `derive_memories`), `hindsight` and `fake`
+    - no test module imports from another test module any more
+    - every `Settings.model_validate({...})` builder in `tests/unit` and `tests/integration` goes through `make_settings`
+  - **Frontend:** `components/source-document.tsx` `SourceDocumentRows` (the accession, form with its document type, and "publisher via provider; tier, licence" rows), shared by the source and version pages; `Row` moved to `components/ui.tsx`
+- **Files:**
+  - new: `backend/atlas/db/engine.py`, `backend/atlas/jobs/resources.py`, `tests/harness.py`, `frontend/components/source-document.tsx`
+  - edited backend: `backend/atlas/{cli,db/__init__,hindsight/__init__,hindsight/errors,ledger/__init__,ledger/reads,ledger/ingest,mental_models/refresh,mental_models/handlers,research/handlers,retention/handlers}.py`, `backend/atlas/api/{app,assertions,common,jobs,mental_models,research,sources}.py`
+  - edited tests: `tests/integration/{conftest,test_archive_contract,test_archive_object_lock,test_archive_provisioning,test_assertions,test_audit,test_bank_template,test_ingest,test_jobs,test_mental_models,test_queue_pause,test_readiness,test_research,test_retention,test_runs}.py`, `tests/unit/{test_health,test_hindsight_gateway,test_llm_routes}.py`
+  - edited frontend: `frontend/app/{company,source,version}/page.tsx`, `frontend/components/ui.tsx`
+  - docs: `AGENTS.md` (layout)
+- **Tests:** none added or removed; the existing suite is the safety net.
+  - Before (on `5b519a9`): `uv run pytest` gave **402 passed, 9 deselected**. After the rebase onto `main` (`a19fa77`, 407 tests): 407 collected.
+  - After: `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64 scripts/ci.sh --no-image` **passed**:
+    - ruff format/lint clean, pyright strict 0 errors
+    - frontend lint, typecheck, unit tests (10 passed) and build
+    - "API client is current"
+    - **407 passed, 9 deselected** in 633 s
+    - e2e 3 passed
+  - The exported OpenAPI schema was re-checked after the rebase: still byte-identical.
+  - An intermediate run caught one harness slip (`test_runs`' settings builder passed `hindsight_url` twice), fixed before the green run.
+- **Fixture-tested vs live:** nothing new; everything is fixture or localhost, as before.
+- **Deviations and notes:**
+  - The CLI's one-shot commands (enqueue, ingest, seed, audit verify, apply-template) used a plain engine; through the factory they now get `pool_pre_ping=True` too. That is one cheap ping per checkout on a short-lived engine, and pooling is otherwise unchanged.
+  - `HindsightNotConfigured` stays a plain `Exception`, not a `HindsightError`, so failure classification and the API's `except HindsightError` are unchanged.
+  - `test_bank_template.py` keeps its own `hindsight` fixture on purpose: one test makes the fake fail the dry run, and the shared fixture would re-raise that. It is documented as an override.
+  - The module-local harnesses of `test_ingest.py` (no Hindsight) and `test_assertions.py` (its own actor) stay local. Only their settings, paths and database fixture are now shared.
+  - Not changed:
+    - the live suite's settings builder (`tests/live`, never run here)
+    - `tests/unit/test_settings.py` (it tests `Settings` itself)
+    - the `/sources/{document_id}` path parameter, which is API contract
+    - `HindsightGateway.get_document`, which is a Hindsight memory document, not a Source Document
+- **Credentials:** none.
+- **Next:** nothing from this axis.

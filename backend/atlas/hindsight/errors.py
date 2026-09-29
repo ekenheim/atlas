@@ -1,4 +1,17 @@
-"""Everything the Hindsight gateway raises; callers catch `HindsightError` and its subclasses."""
+"""Everything the Hindsight gateway raises; callers catch `HindsightError` and its subclasses.
+
+`HindsightNotConfigured` is not a gateway error: it is raised where Hindsight is needed but
+disabled, before any gateway exists.
+"""
+
+HINDSIGHT_NOT_CONFIGURED = "Hindsight is not configured (ATLAS_HINDSIGHT_URL)"
+
+
+class HindsightNotConfigured(Exception):
+    """Hindsight is needed (e.g. by a job) but ATLAS_HINDSIGHT_URL is not set."""
+
+    def __init__(self) -> None:
+        super().__init__(HINDSIGHT_NOT_CONFIGURED)
 
 
 class HindsightError(Exception):

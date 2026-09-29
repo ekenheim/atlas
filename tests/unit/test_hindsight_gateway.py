@@ -16,8 +16,8 @@ from atlas.hindsight import (
     RetainItem,
     TagScope,
 )
-from atlas.settings import Settings
 from tests.fakes.hindsight import RecordedHindsight
+from tests.harness import make_settings
 
 BANK = "atlas-fm-1790615064"
 RETAIN_OPERATION = "b77ff7af-0eef-4f06-a368-49bd408313e1"  # retain/05-batch-final
@@ -256,23 +256,13 @@ def test_an_unreachable_hindsight_raises_unavailable() -> None:
 # --- settings ----------------------------------------------------------------------------------
 
 
-def settings(tmp_path: Path, **values: str) -> Settings:
-    return Settings(
-        _env_file=None,  # pyright: ignore[reportCallIssue]
-        database_url="postgresql+psycopg://atlas:atlas@db/atlas",
-        actor="local-researcher",
-        archive_root=tmp_path,
-        **values,  # pyright: ignore[reportArgumentType]
-    )
-
-
 def test_no_gateway_when_hindsight_is_not_configured(tmp_path: Path) -> None:
-    assert HindsightGateway.from_settings(settings(tmp_path)) is None
+    assert HindsightGateway.from_settings(make_settings(tmp_path)) is None
 
 
 def test_the_gateway_uses_the_configured_bank_and_key(tmp_path: Path) -> None:
     fake = RecordedHindsight()
-    configured = settings(
+    configured = make_settings(
         tmp_path,
         hindsight_url="http://hindsight.test",
         hindsight_api_key="tenant-key",
@@ -288,8 +278,8 @@ def test_the_gateway_uses_the_configured_bank_and_key(tmp_path: Path) -> None:
 
 
 def test_the_research_bank_is_the_default_bank(tmp_path: Path) -> None:
-    assert settings(tmp_path).hindsight_bank_id == "atlas-ai-infrastructure"
-    assert settings(tmp_path).hindsight_api_key is None
+    assert make_settings(tmp_path).hindsight_bank_id == "atlas-ai-infrastructure"
+    assert make_settings(tmp_path).hindsight_api_key is None
 
 
 # --- a document's memories ---------------------------------------------------------------------

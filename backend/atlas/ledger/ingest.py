@@ -18,11 +18,11 @@ import uuid
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
-from sqlalchemy import create_engine
 
 from atlas.archive import open_archive
 from atlas.audit import Actor
 from atlas.companies import load_universe, seed
+from atlas.db import create_engine
 from atlas.jobs.handlers import JobHandler
 from atlas.jobs.queue import Artifacts, Job
 from atlas.ledger.service import RecordedFetch, SourceLedger
@@ -76,7 +76,7 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
     if config.cik is None:
         raise ValueError(f"company {payload.company!r} has no SEC CIK configured")
     actor = Actor.from_settings(settings)
-    engine = create_engine(settings.database_url, pool_pre_ping=True)
+    engine = create_engine(settings)
     try:
         with engine.begin() as connection:
             (seeded,) = seed(connection, actor, universe, [payload.company])

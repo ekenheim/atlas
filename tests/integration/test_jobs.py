@@ -20,15 +20,8 @@ from pydantic import JsonValue
 from sqlalchemy import create_engine
 
 from atlas.api.app import create_app
-from atlas.db.migrate import upgrade
 from atlas.jobs import HandlerRegistry, Job, JobQueue, Worker, builtin_registry
-from atlas.settings import Settings
-
-
-@pytest.fixture
-def database_url(empty_database_url: str) -> str:
-    upgrade(empty_database_url)
-    return empty_database_url
+from tests.harness import make_settings
 
 
 @pytest.fixture
@@ -65,9 +58,7 @@ def run_atlas(args: list[str], env: dict[str, str], cwd: Path) -> subprocess.Com
 def api(database_url: str, tmp_path: Path) -> TestClient:
     archive = tmp_path / "archive"
     archive.mkdir(exist_ok=True)
-    settings = Settings.model_validate(
-        {"database_url": database_url, "actor": "local-researcher", "archive_root": archive}
-    )
+    settings = make_settings(archive, database_url=database_url)
     return TestClient(create_app(settings))
 
 

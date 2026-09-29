@@ -1,8 +1,10 @@
 """Hindsight 0.10.1 access. Everything outside this package goes through `HindsightGateway`."""
 
 from atlas.hindsight.errors import (
+    HINDSIGHT_NOT_CONFIGURED,
     HindsightError,
     HindsightHTTPError,
+    HindsightNotConfigured,
     HindsightNotFound,
     HindsightProtocolError,
     HindsightRuleViolation,
@@ -41,6 +43,7 @@ from atlas.hindsight.models import (
 )
 
 __all__ = [
+    "HINDSIGHT_NOT_CONFIGURED",
     "BankConfig",
     "Budget",
     "CitedMemory",
@@ -48,6 +51,7 @@ __all__ = [
     "HindsightError",
     "HindsightGateway",
     "HindsightHTTPError",
+    "HindsightNotConfigured",
     "HindsightNotFound",
     "HindsightProtocolError",
     "HindsightRuleViolation",

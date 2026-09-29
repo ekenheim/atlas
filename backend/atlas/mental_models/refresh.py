@@ -185,7 +185,7 @@ class MentalModelRefresher:
                     "skip_reason": reason,
                     "operation_id": None,
                     "run_id": None,
-                    **_snapshot(model),
+                    **_refresh_record(model),
                     "completed_at": now,
                 }
             )
@@ -275,7 +275,7 @@ class MentalModelRefresher:
                 )
             return base | {"outcome": "failed", "error": error}
         model = self._gateway.get_mental_model(row["mental_model_id"])
-        snapshot = _snapshot(model)
+        recorded = _refresh_record(model)
         with self._engine.begin() as connection:
             previous = connection.execute(
                 text(
@@ -295,7 +295,7 @@ class MentalModelRefresher:
                     "status": operation.status,
                     "metadata": json.dumps(operation.result_metadata),
                     "now": now,
-                    **snapshot,
+                    **recorded,
                 },
                 connection=connection,
             )
@@ -306,7 +306,7 @@ class MentalModelRefresher:
                 entity_type="mental_model",
                 entity_id=f"{self.bank_id}:{row['mental_model_id']}",
                 old_hash=previous,
-                new_hash=str(snapshot["content_sha256"]),
+                new_hash=str(recorded["content_sha256"]),
             )
         return base | {
             "outcome": "completed",
@@ -391,7 +391,7 @@ class MentalModelRefresher:
             own.execute(statement, {"id": refresh_id, **params})
 
 
-def _snapshot(model: MentalModel) -> dict[str, object]:
+def _refresh_record(model: MentalModel) -> dict[str, object]:
     """The model's content and raw citations as Hindsight returned them."""
     content = model.content or ""
     raw: Sequence[object] = [memory.model_dump(mode="json") for memory in model.based_on]

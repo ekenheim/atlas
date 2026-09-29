@@ -23,14 +23,10 @@ from sqlalchemy.exc import DBAPIError
 
 from atlas.api.app import create_app
 from atlas.audit import Actor
-from atlas.db.migrate import upgrade
 from atlas.jobs import JobQueue, Worker, builtin_registry
 from atlas.ledger.ingest import INGEST_KIND, ingest_payload
-from atlas.settings import Settings
+from tests.harness import EDGAR_FIXTURES, REPO, THEMES, make_settings
 
-REPO = Path(__file__).parents[2]
-THEMES = REPO / "configs" / "themes" / "ai-infrastructure.yaml"
-EDGAR_FIXTURES = REPO / "tests" / "fixtures" / "edgar"
 GOLDEN_PARSES = json.loads((REPO / "tests" / "fixtures" / "parser" / "golden.json").read_text())
 
 ARCHIVES = "https://www.sec.gov/Archives/edgar/data/1633978"
@@ -57,14 +53,12 @@ class Atlas:
         self.archive = tmp_path / "archive"
         self.archive.mkdir(exist_ok=True)
         self.engine = create_engine(database_url)
-        self.settings = Settings.model_validate(
-            {
-                "database_url": database_url,
-                "actor": ACTOR,
-                "archive_root": self.archive,
-                "themes_config": THEMES,
-                "sec_fixtures_dir": EDGAR_FIXTURES,
-            }
+        self.settings = make_settings(
+            self.archive,
+            database_url=database_url,
+            actor=ACTOR,
+            themes_config=THEMES,
+            sec_fixtures_dir=EDGAR_FIXTURES,
         )
         self.api = TestClient(create_app(self.settings))
 
@@ -151,9 +145,8 @@ class Atlas:
 
 
 @pytest.fixture
-def atlas(empty_database_url: str, tmp_path: Path) -> Iterator[Atlas]:
-    upgrade(empty_database_url)
-    harness = Atlas(empty_database_url, tmp_path)
+def atlas(database_url: str, tmp_path: Path) -> Iterator[Atlas]:
+    harness = Atlas(database_url, tmp_path)
     harness.ingest_lumentum()
     yield harness
     harness.engine.dispose()

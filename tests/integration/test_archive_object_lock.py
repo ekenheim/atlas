@@ -16,7 +16,7 @@ from botocore.exceptions import ClientError
 from mypy_boto3_s3 import S3Client
 
 from atlas.archive import Archive, ArchiveIntegrityError, Namespace, open_archive
-from atlas.settings import Settings
+from tests.harness import make_settings
 from tests.integration.conftest import (
     delete_bucket_with_versions,
     s3_admin_client,
@@ -51,15 +51,7 @@ def locked_bucket() -> Iterator[str]:
 
 @pytest.fixture
 def archive(tmp_path: Path, locked_bucket: str) -> Archive:
-    settings = Settings.model_validate(
-        {
-            "database_url": "postgresql+psycopg://atlas:atlas@127.0.0.1:1/atlas",
-            "actor": "local-researcher",
-            "archive_root": tmp_path,
-            **s3_settings(locked_bucket),
-        }
-    )
-    return open_archive(settings)
+    return open_archive(make_settings(tmp_path, **s3_settings(locked_bucket)))
 
 
 def archived(archive: Archive) -> tuple[str, bytes, str]:

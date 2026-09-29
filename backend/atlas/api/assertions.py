@@ -11,15 +11,16 @@ Mutations return the Assertion and the ID of the audit event that recorded the c
 """
 
 import uuid
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 
 from atlas.api.common import (
+    CONFLICT,
+    INVALID,
     NOT_FOUND,
-    ErrorEnvelope,
     Page,
     Pagination,
     error_response,
@@ -44,9 +45,6 @@ from atlas.audit import Actor
 
 Paged = Annotated[Pagination, Depends(pagination)]
 
-_INVALID: dict[int | str, dict[str, Any]] = {422: {"model": ErrorEnvelope}}
-_CONFLICT: dict[int | str, dict[str, Any]] = {409: {"model": ErrorEnvelope}}
-
 
 def _refused(refusal: AssertionRefused) -> JSONResponse:
     if isinstance(refusal, AssertionNotFound):
@@ -62,7 +60,7 @@ def assertions_router(engine: Engine, archive: Archive, actor: Actor) -> APIRout
     router = APIRouter(prefix="/api/v1/assertions", tags=["assertions"])
     service = Assertions(engine, archive, actor)
 
-    @router.get("", response_model=Page[Assertion], responses=_INVALID)
+    @router.get("", response_model=Page[Assertion], responses=INVALID)
     def assertions(  # pyright: ignore[reportUnusedFunction]
         page: Paged,
         company_id: Annotated[
@@ -82,13 +80,13 @@ def assertions_router(engine: Engine, archive: Archive, actor: Actor) -> APIRout
             )
         return Page(items=items, total=total, limit=page.limit, offset=page.offset)
 
-    @router.get("/{assertion_id}", response_model=Assertion, responses={**NOT_FOUND, **_INVALID})
+    @router.get("/{assertion_id}", response_model=Assertion, responses={**NOT_FOUND, **INVALID})
     def assertion(assertion_id: uuid.UUID) -> Assertion | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         with engine.connect() as connection:
             found = get_assertion(connection, assertion_id)
         return found if found is not None else not_found("assertion")
 
-    @router.post("", status_code=201, response_model=AssertionRecorded, responses=_INVALID)
+    @router.post("", status_code=201, response_model=AssertionRecorded, responses=INVALID)
     def create(request: AssertionCreate) -> AssertionRecorded | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         try:
             return service.create(request)
@@ -98,7 +96,7 @@ def assertions_router(engine: Engine, archive: Archive, actor: Actor) -> APIRout
     @router.post(
         "/{assertion_id}/review",
         response_model=AssertionRecorded,
-        responses={**NOT_FOUND, **_CONFLICT, **_INVALID},
+        responses={**NOT_FOUND, **CONFLICT, **INVALID},
     )
     def review(  # pyright: ignore[reportUnusedFunction]
         assertion_id: uuid.UUID, request: AssertionReview

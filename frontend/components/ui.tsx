@@ -43,3 +43,13 @@ export function Code({ children }: { children: ReactNode }) {
 export function Missing({ children = "none" }: { children?: ReactNode }) {
   return <span className="muted">{children}</span>;
 }
+
+/** A table row: a header cell naming the value, then the value. */
+export function Row({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <tr>
+      <th scope="row">{name}</th>
+      <td>{children}</td>
+    </tr>
+  );
+}

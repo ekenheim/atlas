@@ -58,18 +58,24 @@ function Company() {
                 </tr>
               </thead>
               <tbody>
-                {page.items.map((document) => (
-                  <tr key={document.id}>
+                {page.items.map((sourceDocument) => (
+                  <tr key={sourceDocument.id}>
                     <td>
-                      <Link href={routes.source(document.id)}>{document.title}</Link>
+                      <Link href={routes.source(sourceDocument.id)}>{sourceDocument.title}</Link>
                     </td>
-                    <td>{document.form_type ?? <Missing />}</td>
-                    <td>{document.accession ? <Code>{document.accession}</Code> : <Missing />}</td>
-                    <td>{document.source_type}</td>
+                    <td>{sourceDocument.form_type ?? <Missing />}</td>
                     <td>
-                      <Timestamp value={document.first_seen_at} />
+                      {sourceDocument.accession ? (
+                        <Code>{sourceDocument.accession}</Code>
+                      ) : (
+                        <Missing />
+                      )}
                     </td>
-                    <td>{document.version_count}</td>
+                    <td>{sourceDocument.source_type}</td>
+                    <td>
+                      <Timestamp value={sourceDocument.first_seen_at} />
+                    </td>
+                    <td>{sourceDocument.version_count}</td>
                   </tr>
                 ))}
               </tbody>

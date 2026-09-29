@@ -14,8 +14,6 @@ import json
 import re
 import socket
 import uuid
-from collections.abc import Iterator
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -24,37 +22,28 @@ from zoneinfo import ZoneInfo
 import pytest
 import yaml
 from fastapi.testclient import TestClient
-from prometheus_client.parser import text_string_to_metric_families
 
 from atlas.api.app import create_app
-from atlas.db.migrate import upgrade
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry, job_id_for
-from atlas.settings import Settings
 from tests.fakes.hindsight import RecordedHindsight
-from tests.fakes.serve import Served, serve
-from tests.integration.test_retention import LITE_10K, TEN_K_ANCHORS, Atlas
+from tests.fakes.serve import Served
+from tests.harness import (
+    LITE_10K,
+    QUOTA_ERROR,
+    REPO,
+    TEN_K_ANCHORS,
+    Atlas,
+    Clock,
+    Metrics,
+    at,
+    make_settings,
+    scrape_metrics,
+)
 
-REPO = Path(__file__).parents[2]
 ALERT_RULES = REPO / "configs" / "prometheus" / "atlas-alerts.yaml"
 PAUSABLE_KINDS = ["poll_operation", "refresh_mental_model", "reprocess", "retain"]
-# What LiteLLM (behind Hindsight's `openai` provider) reports when MiniMax is capped out.
-QUOTA_ERROR = (
-    "Error code: 429 - {'error': {'message': 'litellm.RateLimitError: RateLimitError:"
-    " MinimaxException - rate limit exceeded', 'type': None, 'param': None, 'code': '429'}}"
-)
 UNRELATED_ERROR = "ValueError: document exceeds the extraction schema's maximum length"
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
-
-
-@dataclass
-class Clock:
-    now: datetime
-
-    def __call__(self) -> datetime:
-        return self.now
-
-    def advance(self, **delta: float) -> None:
-        self.now += timedelta(**delta)
 
 
 class Paced:
@@ -104,14 +93,8 @@ class Paced:
             ).all()
         return [(row[0], row[1]) for row in rows]
 
-    def metrics(self) -> dict[tuple[str, frozenset[tuple[str, str]]], float]:
-        response = self.api.get("/metrics")
-        assert response.status_code == 200
-        return {
-            (sample.name, frozenset(sample.labels.items())): sample.value
-            for family in text_string_to_metric_families(response.text)
-            for sample in family.samples
-        }
+    def metrics(self) -> Metrics:
+        return scrape_metrics(self.api)
 
 
 def is_10k_batch(document_ids: list[str] | Any) -> bool:
@@ -120,30 +103,6 @@ def is_10k_batch(document_ids: list[str] | Any) -> bool:
 
 def ten_k_batches(fake: RecordedHindsight) -> list[list[dict[str, Any]]]:
     return [batch for batch in fake.retained() if is_10k_batch([i["document_id"] for i in batch])]
-
-
-def at(timestamp: str) -> datetime:
-    return datetime.fromisoformat(timestamp)
-
-
-@pytest.fixture
-def database_url(empty_database_url: str) -> str:
-    upgrade(empty_database_url)
-    return empty_database_url
-
-
-@pytest.fixture
-def hindsight() -> Iterator[tuple[RecordedHindsight, Served]]:
-    fake = RecordedHindsight()
-    fake.derive_retains()
-    with serve(fake.transport.handle_request) as served:
-        yield fake, served
-        served.raise_errors()
-
-
-@pytest.fixture
-def fake(hindsight: tuple[RecordedHindsight, Served]) -> RecordedHindsight:
-    return hindsight[0]
 
 
 @pytest.fixture
@@ -476,14 +435,7 @@ def test_metrics_report_pauses_operations_retains_zero_facts_and_queue_depth(
 
 
 def test_metrics_report_the_database_as_unreadable_instead_of_failing(tmp_path: Path) -> None:
-    settings = Settings.model_validate(
-        {
-            "database_url": "postgresql+psycopg://atlas:atlas@127.0.0.1:1/none",
-            "actor": "local-researcher",
-            "archive_root": tmp_path,
-        }
-    )
-    client = TestClient(create_app(settings))
+    client = TestClient(create_app(make_settings(tmp_path)))
 
     response = client.get("/metrics")
 

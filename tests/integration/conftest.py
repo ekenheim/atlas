@@ -8,8 +8,12 @@ import boto3
 import pytest
 from botocore.config import Config
 from mypy_boto3_s3 import S3Client
-from sqlalchemy import create_engine, text
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
+
+from atlas.db.migrate import upgrade
+from tests.fakes.hindsight import RecordedHindsight
+from tests.fakes.serve import Served, serve
 
 LOCAL_HOSTS = ["127.0.0.1", "localhost", "::1"]
 ADMIN_DATABASE_URL = os.environ.get(
@@ -38,6 +42,47 @@ def empty_database_url() -> Iterator[str]:
         with admin.connect() as connection:
             connection.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
         admin.dispose()
+
+
+@pytest.fixture
+def database_url(empty_database_url: str) -> str:
+    """A fresh database, migrated to the latest revision."""
+    upgrade(empty_database_url)
+    return empty_database_url
+
+
+@pytest.fixture
+def engine(database_url: str) -> Iterator[Engine]:
+    engine = create_engine(database_url)
+    yield engine
+    engine.dispose()
+
+
+# --- Hindsight: the recorded fake, served on localhost ---
+
+
+@pytest.fixture
+def hindsight_fake() -> RecordedHindsight:
+    """The fake `hindsight` serves, with `derive_retains` on (tests/fakes/hindsight.py).
+
+    A module whose tests need more derived (e.g. `derive_memories`) overrides this fixture.
+    """
+    fake = RecordedHindsight()
+    fake.derive_retains()
+    return fake
+
+
+@pytest.fixture
+def hindsight(hindsight_fake: RecordedHindsight) -> Iterator[tuple[RecordedHindsight, Served]]:
+    """`hindsight_fake` served on localhost; a request it couldn't answer fails the test."""
+    with serve(hindsight_fake.transport.handle_request) as served:
+        yield hindsight_fake, served
+        served.raise_errors()
+
+
+@pytest.fixture
+def fake(hindsight: tuple[RecordedHindsight, Served]) -> RecordedHindsight:
+    return hindsight[0]
 
 
 # --- S3: the Compose Silo server ---

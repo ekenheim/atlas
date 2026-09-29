@@ -115,7 +115,7 @@ _VERSION = """
 """
 
 
-def list_documents(
+def list_source_documents(
     connection: Connection, company_id: uuid.UUID, *, limit: int, offset: int
 ) -> tuple[list[SourceDocument], int]:
     total = connection.execute(
@@ -132,7 +132,7 @@ def list_documents(
     return [SourceDocument.model_validate(dict(row)) for row in rows], total
 
 
-def get_document(connection: Connection, document_id: uuid.UUID) -> SourceDocument | None:
+def get_source_document(connection: Connection, document_id: uuid.UUID) -> SourceDocument | None:
     row = (
         connection.execute(text(f"{_DOCUMENT} WHERE d.id = :id"), {"id": document_id})
         .mappings()
@@ -167,7 +167,7 @@ def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionD
     )
     if row is None:
         return None
-    document = get_document(connection, row["source_document_id"])
+    source_document = get_source_document(connection, row["source_document_id"])
     fetches = connection.execute(
         text(
             "SELECT id, outcome, url, fetched_at, observed_at, raw_sha256, comparison_sha256,"
@@ -180,7 +180,7 @@ def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionD
     return SourceVersionDetail.model_validate(
         {
             **row,
-            "source_document": document,
+            "source_document": source_document,
             "content": ContentLinks(
                 raw=f"{base}?kind=raw",
                 parsed=f"{base}?kind=parsed" if row["parsed_object_uri"] else None,
