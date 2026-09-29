@@ -94,7 +94,16 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
             since=payload.since,
         )
         recorded, errors = asyncio.run(
-            _fetch_all(client, ledger, config.cik, query, seeded.company_id, job.id)
+            _fetch_all(
+                client,
+                ledger,
+                config.cik,
+                query,
+                seeded.company_id,
+                job.id,
+                eight_k_items=settings.eight_k_items(),
+                exhibits_only_items=settings.eight_k_exhibits_only_items(),
+            )
         )
         # Every new parsed version is retained into memory, when Hindsight is configured;
         # also for a partial ingest, whose recorded versions are kept.
@@ -147,11 +156,19 @@ async def _fetch_all(
     query: SearchQuery,
     company_id: uuid.UUID,
     job_id: uuid.UUID,
+    *,
+    eight_k_items: tuple[str, ...] | None = None,
+    exhibits_only_items: tuple[str, ...] = (),
 ) -> tuple[list[RecordedFetch], list[tuple[str, str]]]:
     recorded: list[RecordedFetch] = []
     errors: list[tuple[str, str]] = []
     async with client:
-        adapter = EdgarAdapter(client, ciks=[cik])
+        adapter = EdgarAdapter(
+            client,
+            ciks=[cik],
+            eight_k_items=eight_k_items,
+            exhibits_only_items=exhibits_only_items,
+        )
         for candidate in await adapter.discover(query):
             validators = ledger.validators_for(candidate)
             if validators is not None:

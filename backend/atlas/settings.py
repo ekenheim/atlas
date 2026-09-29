@@ -73,6 +73,20 @@ class Settings(BaseSettings):
     # ingest is bounded when it is enqueued, so the nightly window rolls forward; every
     # filing in the window is extracted by an LLM, so a wider window costs tokens.
     ingest_lookback_days: int = Field(default=730, ge=1)
+    # 8-Ks are selected for bottleneck relevance (docs/decisions.md): only these items are
+    # ingested (comma-separated; "*" keeps every 8-K) ...
+    sec_8k_items: str = "1.01,1.02,2.01,2.02,2.05,7.01,8.01"
+    # ... and an 8-K whose items all fall here is a press release: only its exhibits are kept.
+    sec_8k_exhibits_only_items: str = "2.02,7.01,8.01,9.01"
+
+    def eight_k_items(self) -> tuple[str, ...] | None:
+        if self.sec_8k_items.strip() == "*":
+            return None
+        return tuple(i.strip() for i in self.sec_8k_items.split(",") if i.strip())
+
+    def eight_k_exhibits_only_items(self) -> tuple[str, ...]:
+        return tuple(i.strip() for i in self.sec_8k_exhibits_only_items.split(",") if i.strip())
+
     # SEC fair-access policy: a requester name and contact email, e.g. "Atlas Research ops@x.com".
     sec_user_agent: str | None = Field(default=None, validate_default=True)
     # Fixture mode: recorded EDGAR responses, one directory per company slug

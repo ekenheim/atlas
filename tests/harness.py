@@ -138,6 +138,10 @@ class Atlas:
             "database_url": self.database_url,
             "themes_config": THEMES,
             "sec_fixtures_dir": self.fixtures,
+            # Ledger and retention mechanics use every recorded document, the 8-K cover
+            # included; 8-K selection is tested on its own (test_edgar_adapter, test_ingest).
+            "sec_8k_items": "*",
+            "sec_8k_exhibits_only_items": "",
             "hindsight_url": self.hindsight_url,
             "hindsight_bank_id": BANK,
             "retain_poll_timeout_seconds": 0.3,
@@ -154,6 +158,8 @@ class Atlas:
             "ATLAS_ARCHIVE_ROOT": str(self.archive),
             "ATLAS_THEMES_CONFIG": str(THEMES),
             "ATLAS_SEC_FIXTURES_DIR": str(self.fixtures),
+            "ATLAS_SEC_8K_ITEMS": "*",
+            "ATLAS_SEC_8K_EXHIBITS_ONLY_ITEMS": "",
             "ATLAS_HINDSIGHT_URL": self.hindsight_url,
             "ATLAS_HINDSIGHT_BANK_ID": BANK,
             "ATLAS_HINDSIGHT_TEMPLATE_PATH": str(TEMPLATE),

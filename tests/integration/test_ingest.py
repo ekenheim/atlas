@@ -68,7 +68,17 @@ def acceptance_of(accession: str) -> datetime:
 
 
 class Atlas:
-    def __init__(self, database_url: str, tmp_path: Path, fixtures: Path) -> None:
+    def __init__(
+        self,
+        database_url: str,
+        tmp_path: Path,
+        fixtures: Path,
+        eight_k_items: str = "*",
+        exhibits_only_items: str = "",
+    ) -> None:
+        # By default no 8-K selection: ledger mechanics use every recorded document.
+        self.eight_k_items = eight_k_items
+        self.exhibits_only_items = exhibits_only_items
         self.database_url = database_url
         self.tmp_path = tmp_path
         self.archive = tmp_path / "archive"
@@ -83,6 +93,8 @@ class Atlas:
             database_url=self.database_url,
             themes_config=THEMES,
             sec_fixtures_dir=self.fixtures,
+            sec_8k_items=self.eight_k_items,
+            sec_8k_exhibits_only_items=self.exhibits_only_items,
         )
 
     def env(self) -> dict[str, str]:
@@ -94,6 +106,8 @@ class Atlas:
             "ATLAS_ARCHIVE_ROOT": str(self.archive),
             "ATLAS_THEMES_CONFIG": str(THEMES),
             "ATLAS_SEC_FIXTURES_DIR": str(self.fixtures),
+            "ATLAS_SEC_8K_ITEMS": self.eight_k_items,
+            "ATLAS_SEC_8K_EXHIBITS_ONLY_ITEMS": self.exhibits_only_items,
         }
 
     def cli(self, *args: str) -> subprocess.CompletedProcess[str]:
@@ -711,3 +725,24 @@ def test_ingest_all_history_sets_no_lookback(atlas: Atlas) -> None:
     assert enqueued.returncode == 0, enqueued.stderr
 
     assert "since" not in json.loads(enqueued.stdout)["payload"]
+
+
+def test_by_default_only_the_press_release_exhibit_of_a_results_8k_is_ingested(
+    database_url: str, tmp_path: Path
+) -> None:
+    defaults = Settings.model_fields
+    atlas = Atlas(
+        database_url,
+        tmp_path,
+        EDGAR_FIXTURES,
+        eight_k_items=defaults["sec_8k_items"].default,
+        exhibits_only_items=defaults["sec_8k_exhibits_only_items"].default,
+    )
+
+    atlas.ingest("default-selection")
+
+    documents = atlas.documents()
+    # The fixture 8-K is items 2.02,9.01: its earnings release is kept, its cover is not.
+    assert URL_EX991 in documents
+    assert URL_8K not in documents
+    assert {URL_10K, URL_10Q} <= set(documents)

@@ -260,3 +260,67 @@ async def test_a_document_missing_from_sec_fails_without_retrying() -> None:
     assert raised.value.status == 404
     assert raised.value.retryable is False
     assert len(raised.value.attempts) == 1
+
+
+# --- 8-K selection for bottleneck relevance ---
+
+RELEVANT_8K_ITEMS = ("1.01", "1.02", "2.01", "2.02", "2.05", "7.01", "8.01")
+PRESS_RELEASE_ITEMS = ("2.02", "7.01", "8.01", "9.01")
+
+
+def fixtures_with_8k_items(tmp_path: Path, items: str) -> Path:
+    """A copy of the fixtures whose one 8-K lists `items` instead of 2.02,9.01."""
+    import json
+    import shutil
+
+    root = tmp_path / "lumentum"
+    shutil.copytree(FIXTURES, root)
+    path = root / "data.sec.gov" / "submissions" / "CIK0001633978.json"
+    index = json.loads(path.read_text())
+    recent = index["filings"]["recent"]
+    for i, accession in enumerate(recent["accessionNumber"]):
+        if accession == "0001628280-26-055726":
+            recent["items"][i] = items
+    path.write_text(json.dumps(index))
+    return root
+
+
+def selecting_adapter(root: Path) -> EdgarAdapter:
+    return fixture_edgar_adapter(
+        root,
+        ciks=[LUMENTUM],
+        now=lambda: NOW,
+        eight_k_items=RELEVANT_8K_ITEMS,
+        exhibits_only_items=PRESS_RELEASE_ITEMS,
+    )
+
+
+async def test_a_press_release_8k_contributes_only_its_exhibits() -> None:
+    candidates = await selecting_adapter(FIXTURES).discover(SearchQuery(cik=LUMENTUM))
+
+    urls = [c.url for c in candidates]
+    assert URL_EX991 in urls  # items 2.02,9.01: the earnings release is the substance
+    assert URL_8K not in urls  # the cover document is boilerplate
+
+
+async def test_an_8k_with_only_governance_items_is_not_discovered(tmp_path: Path) -> None:
+    root = fixtures_with_8k_items(tmp_path, "5.02,5.07")
+
+    urls = [c.url for c in await selecting_adapter(root).discover(SearchQuery(cik=LUMENTUM))]
+
+    assert URL_8K not in urls and URL_EX991 not in urls
+    assert URL_10K in urls and URL_10Q in urls  # periodic reports are unaffected
+
+
+async def test_a_material_agreement_8k_keeps_its_body_and_exhibits(tmp_path: Path) -> None:
+    root = fixtures_with_8k_items(tmp_path, "1.01,9.01")
+
+    urls = [c.url for c in await selecting_adapter(root).discover(SearchQuery(cik=LUMENTUM))]
+
+    assert URL_8K in urls and URL_EX991 in urls  # an agreement's terms are in the body
+
+
+async def test_without_selection_every_8k_and_its_cover_are_discovered() -> None:
+    urls = [c.url for c in await adapter().discover(SearchQuery(cik=LUMENTUM))]
+
+    assert URL_8K in urls and URL_EX991 in urls

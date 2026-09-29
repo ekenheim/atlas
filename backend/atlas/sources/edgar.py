@@ -120,6 +120,8 @@ class EdgarAdapter:
         ciks: Sequence[str],
         forms: Sequence[str] = DEFAULT_FORMS,
         exhibit_prefixes: Sequence[str] = DEFAULT_EXHIBIT_PREFIXES,
+        eight_k_items: Sequence[str] | None = None,
+        exhibits_only_items: Sequence[str] = (),
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
         data_base_url: str = "https://data.sec.gov",
         archives_base_url: str = "https://www.sec.gov",
@@ -128,6 +130,11 @@ class EdgarAdapter:
         self._ciks = [normalize_cik(cik) for cik in ciks]
         self._forms = tuple(forms)
         self._exhibit_prefixes = tuple(exhibit_prefixes)
+        # 8-K selection: None keeps every 8-K; otherwise only 8-Ks listing one of these items.
+        self._eight_k_items = frozenset(eight_k_items) if eight_k_items is not None else None
+        # An 8-K whose items all fall in this set is a press release: its exhibits carry the
+        # substance and its cover document is skipped (when it has exhibits to keep).
+        self._exhibits_only_items = frozenset(exhibits_only_items)
         self._now = now
         self._data = data_base_url.rstrip("/")
         self._archives = archives_base_url.rstrip("/")
@@ -186,6 +193,7 @@ class EdgarAdapter:
             for filing in await self.filings(cik)
             if (filing.form in forms or filing.form.removesuffix("/A") in forms)
             and (query.since is None or filing.acceptance_datetime > query.since)
+            and self._selected_8k(filing)
         ]
         selected.sort(key=lambda filing: filing.acceptance_datetime, reverse=True)
         if query.limit is not None:
@@ -193,14 +201,25 @@ class EdgarAdapter:
 
         candidates: list[SourceCandidate] = []
         for filing in selected:
-            candidates.append(
-                self._document(filing, filing.form, filing.primary_document, discovered_at)
-            )
-            if filing.form.removesuffix("/A") == "8-K" and self._exhibit_prefixes:
-                candidates += await self._exhibits(filing, discovered_at)
+            body = self._document(filing, filing.form, filing.primary_document, discovered_at)
+            if _is_8k(filing) and self._exhibit_prefixes:
+                exhibits = await self._exhibits(filing, discovered_at)
+                press_release = (
+                    bool(filing.items) and set(filing.items) <= self._exhibits_only_items
+                )
+                if not (press_release and exhibits):
+                    candidates.append(body)
+                candidates += exhibits
+            else:
+                candidates.append(body)
         if selected or companyfacts_always:
             candidates.append(self._companyfacts(cik, discovered_at))
         return candidates
+
+    def _selected_8k(self, filing: SecFiling) -> bool:
+        if self._eight_k_items is None or not _is_8k(filing):
+            return True
+        return bool(self._eight_k_items.intersection(filing.items))
 
     def _folder(self, filing: SecFiling) -> str:
         accession = filing.accession_number.replace("-", "")
@@ -243,6 +262,10 @@ class EdgarAdapter:
             available_at=discovered_at,
             available_at_basis="observed_discovery",
         )
+
+
+def _is_8k(filing: SecFiling) -> bool:
+    return filing.form.removesuffix("/A") == "8-K"
 
 
 def live_edgar_adapter(user_agent: str, *, ciks: Sequence[str]) -> EdgarAdapter:

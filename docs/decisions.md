@@ -200,3 +200,16 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 
 - **Default ingest lookback: `ATLAS_INGEST_LOOKBACK_DAYS=730`** (spec §3, "a rolling two to three years"). `atlas ingest` bounds each job with `since = now - lookback` when it's enqueued, so the nightly CronJob's window rolls forward. `--since DATE` overrides it; `--all-history` removes it (costly). **Why:** the first cluster bootstrap had no bound and queued ~543 documents (every recent 10-K/10-Q/8-K + exhibits), 1,397 Hindsight operations and ~1.27M Codex tokens in minutes. Every filing in the window is LLM-extracted, so the window is a cost control. The owner cancelled that backlog.
 - **`atlas retention retry-failed [--since|--all-history] [--backfill]`:** resets failed sections of Source Versions in the window to `pending` (audited as `memory_document.retry`; the failed operation stays recorded) and enqueues fresh retain jobs (`retain:<id>:retry:<stamp>`). This is how the cancelled backlog is re-run within the window, rather than all history.
+- **8-Ks are selected for bottleneck relevance** (owner delegated the call, 2026-09-29).
+  - **Kept items:** `ATLAS_SEC_8K_ITEMS=1.01,1.02,2.01,2.02,2.05,7.01,8.01`
+    - material agreements (supply and capacity deals, i.e. scarcity and Relationships)
+    - terminations
+    - acquisitions (consolidation of scarce capacity)
+    - earnings results (the earliest public statement of allocation, lead times and capex)
+    - exits and restructuring (capacity removed)
+    - Reg FD (investor decks and capacity roadmaps)
+    - other events
+  - **Dropped:** governance (5.xx); pure financing (2.03, 3.02). Those return in Phase 4 as falsifiers.
+  - **Press-release 8-Ks** (items only within `ATLAS_SEC_8K_EXHIBITS_ONLY_ITEMS=2.02,7.01,8.01,9.01`) keep only their EX-99 exhibits; the cover document is boilerplate. 1.01 and 2.01 keep their body, where the terms are.
+  - `ATLAS_SEC_8K_ITEMS=*` disables selection.
+  - **Measured on the 2-year window:** Lumentum keeps 13 of 21 8-Ks, Coherent 17 of 23. The window drops from ~98 parsed documents (~2M tokens est.) to ~45–55 (~0.7–1M est.).

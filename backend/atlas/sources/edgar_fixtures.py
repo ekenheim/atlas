@@ -87,6 +87,8 @@ def fixture_edgar_adapter(
     ciks: Sequence[str],
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     user_agent: str = FIXTURE_USER_AGENT,
+    eight_k_items: Sequence[str] | None = None,
+    exhibits_only_items: Sequence[str] = (),
 ) -> EdgarAdapter:
     """The EDGAR adapter over recorded responses. Replays are local, so they skip the
     process-wide SEC rate limiter (which exists to protect SEC)."""
@@ -95,4 +97,10 @@ def fixture_edgar_adapter(
         transport=FixtureReplay(root).transport(),
         limiter=TokenBucket(rate_per_s=math.inf),
     )
-    return EdgarAdapter(client, ciks=ciks, now=now)
+    return EdgarAdapter(
+        client,
+        ciks=ciks,
+        now=now,
+        eight_k_items=eight_k_items,
+        exhibits_only_items=exhibits_only_items,
+    )
