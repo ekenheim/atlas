@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ingest-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plans */
+        get: operations["get_plans_api_v1_ingest_plans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies": {
         parameters: {
             query?: never;
@@ -1885,6 +1902,50 @@ export interface components {
              */
             created_at: string;
         };
+        /** IngestPlan */
+        IngestPlan: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company */
+            company: string;
+            /** Since */
+            since: string | null;
+            /** Forms */
+            forms: string[] | null;
+            /** Documents */
+            documents: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Document Count */
+            document_count: number;
+            /** Estimated Retain Operations */
+            estimated_retain_operations: number;
+            /** Max Retains */
+            max_retains: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** IngestPlans */
+        IngestPlans: {
+            /** Items */
+            items: components["schemas"]["IngestPlan"][];
+        };
         /** Investigation */
         Investigation: {
             /**
@@ -2657,6 +2718,8 @@ export interface components {
             backfill_queued: number;
             /** Paused */
             paused: boolean;
+            /** Budget Held */
+            budget_held: number;
         };
         /** Premise */
         Premise: {
@@ -2677,6 +2740,40 @@ export interface components {
             disproven_by: string | null;
             /** Disproven At */
             disproven_at: string | null;
+        };
+        /**
+         * ProviderBudget
+         * @description One provider's rolling window as the queue sees it now.
+         */
+        ProviderBudget: {
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "codex" | "minimax";
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "operations" | "tokens";
+            /** Window Seconds */
+            window_seconds: number;
+            /** Used */
+            used: number;
+            /** Budget */
+            budget: number;
+            /** Backfill Limit */
+            backfill_limit: number;
+            /** Interactive Held */
+            interactive_held: boolean;
+            /** Backfill Held */
+            backfill_held: boolean;
+            /** Interactive Resumes At */
+            interactive_resumes_at: string | null;
+            /** Backfill Resumes At */
+            backfill_resumes_at: string | null;
+            /** Kinds */
+            kinds: string[];
         };
         /**
          * QueuePause
@@ -2717,6 +2814,8 @@ export interface components {
             now: string;
             pause: components["schemas"]["QueuePause"];
             backfill_window: components["schemas"]["BackfillWindowStatus"];
+            /** Budgets */
+            budgets: components["schemas"]["ProviderBudget"][];
             /** Pending */
             pending: components["schemas"]["PendingKind"][];
         };
@@ -3695,6 +3794,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueStatus"];
+                };
+            };
+        };
+    };
+    get_plans_api_v1_ingest_plans_get: {
+        parameters: {
+            query?: {
+                company?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestPlans"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

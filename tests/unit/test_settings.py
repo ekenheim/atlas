@@ -111,11 +111,22 @@ def _base(tmp_path: Path) -> dict[str, object]:
     }
 
 
-def test_the_backfill_window_defaults_to_one_to_seven_utc(tmp_path: Path) -> None:
+def test_backfill_runs_at_any_time_by_default_under_five_hour_budgets(tmp_path: Path) -> None:
     settings = Settings.model_validate(_base(tmp_path))
 
-    assert (settings.backfill_window, settings.backfill_timezone) == ("01:00-07:00", "UTC")
+    assert (settings.backfill_window, settings.backfill_timezone) == ("", "UTC")
     assert (settings.queue_pause_base_seconds, settings.queue_pause_max_seconds) == (60, 3600)
+    assert settings.budget_window_hours == 5
+    assert (settings.codex_budget_operations, settings.minimax_budget_tokens) == (40, 400_000)
+    assert settings.budget_interactive_reserve == 0.3
+
+
+def test_the_backfill_window_accepts_several_ranges(tmp_path: Path) -> None:
+    window = "01:00-07:00, 13:00-15:00,22:30-23:00"
+
+    settings = Settings.model_validate(_base(tmp_path) | {"backfill_window": window})
+
+    assert settings.backfill_window == window
 
 
 @pytest.mark.parametrize(
@@ -124,6 +135,12 @@ def test_the_backfill_window_defaults_to_one_to_seven_utc(tmp_path: Path) -> Non
         ({"backfill_window": "1-7"}, "HH:MM-HH:MM"),
         ({"backfill_window": "25:00-07:00"}, "not a time of day"),
         ({"backfill_window": "03:00-03:00"}, "is empty"),
+        ({"backfill_window": "01:00-07:00,13:00"}, "HH:MM-HH:MM"),
+        ({"backfill_window": "01:00-07:00,,13:00-15:00"}, "HH:MM-HH:MM"),
+        ({"budget_window_hours": 0}, "greater than 0"),
+        ({"codex_budget_operations": 0}, "greater than or equal to 1"),
+        ({"minimax_budget_tokens": 0}, "greater than or equal to 1"),
+        ({"budget_interactive_reserve": 1}, "less than 1"),
         ({"backfill_timezone": "Mars/Olympus"}, "unknown timezone"),
         ({"queue_pause_max_seconds": 7200}, "less than or equal to 3600"),
         ({"queue_pause_base_seconds": 600, "queue_pause_max_seconds": 300}, "must not exceed"),

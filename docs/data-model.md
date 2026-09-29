@@ -307,7 +307,7 @@ The Postgres job queue (build plan §5.8; spec Part A "Jobs"; ticket 04). `run` 
 | `job_id` | uuid PK | UUIDv5 of `idempotency_key` |
 | `idempotency_key` | text not null, unique | Re-enqueuing the same key returns the existing job |
 | `kind` | text not null | Phase 1: `ingest`. Phase 2 adds `retain`, `poll_operation`, `reprocess`, `reflect`, `refresh_mental_model` |
-| `job_class` | text not null default `interactive` | `interactive` or `backfill`; backfill is claimed only in the nightly window. Migration 0008 (ticket 14); set at enqueue (`--backfill`), inherited by a backfill ingest's retains and their reprocesses |
+| `job_class` | text not null default `interactive` | `interactive` or `backfill`; backfill is claimed only in the backfill window (if set) and below its provider's backfill limit (ticket 27). Migration 0008 (ticket 14); set at enqueue (`--backfill`), inherited by a backfill ingest's retains and their reprocesses |
 | `payload_json` | jsonb not null | |
 | `status` | text not null | `queued`, `running`, `succeeded`, `failed` (retries exhausted), `cancelled` |
 | `attempts` | integer not null default 0 | |
@@ -321,7 +321,7 @@ The Postgres job queue (build plan §5.8; spec Part A "Jobs"; ticket 04). `run` 
 | `trace_id` | text null | |
 | `created_at`, `started_at`, `finished_at` | timestamptz | |
 
-Claiming uses `SELECT … FOR UPDATE SKIP LOCKED` on queued jobs (or expired leases), so two workers never claim the same job. It skips jobs of a kind the queue pause holds back, and backfill jobs outside the window.
+Claiming uses `SELECT … FOR UPDATE SKIP LOCKED` on queued jobs (or expired leases), so two workers never claim the same job. It skips jobs of a kind the queue pause holds back, backfill jobs outside the window, and jobs whose provider's rolling-window budget is spent for their class (§3.5a).
 
 ## 3. Phase 2 tables
 
@@ -672,6 +672,19 @@ The queue-level pause (ticket 14, migration 0008). It's resolved as a **single-r
 A check requires the pause fields when `level > 0`. The paused flag is derived (`level > 0 AND resume_after > now`), not stored.
 
 `queue_pause_event`: `id`, `level`, `error_class`, `reason`, `kinds`, `backoff_seconds`, `paused_at`, `resume_after`, `job_id`, `job_kind`, one row per pause entered.
+
+### 3.5a `provider_usage` and `ingest_plan` (Phases 3–6a, ticket 27, migration 0028)
+
+`provider_usage`: one row per unit of subscription quota counted against a provider's rolling-window budget (`atlas.jobs.budget`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `provider` | text not null | `codex` or `minimax` |
+| `source_id` | text not null | The `hindsight_operation.id` (codex) or `llm_call.id` (minimax) it counts; PK with `provider`, so each is counted once |
+| `units` | bigint not null ≥ 0 | 1 per operation; `tokens_in + tokens_out` per LLM call |
+| `recorded_at` | timestamptz not null | The pacing clock when the queue first counted it (at a claim); rows from before 0028 keep their submission/call time |
+
+`ingest_plan`: what a company's first backfill ingest discovered, recorded before any fetch (`atlas.ledger.plans`); append-only, one per ingest job (`job_id` unique), audited as `ingest_plan.recorded`. Columns: `id`, `job_id` FK → job, `company_id` FK → company, `since`, `forms` (jsonb array or null), `documents` (jsonb array of `{url, kind, title, document_type, available_at, retained, form?, accession_number?}`), `document_count`, `estimated_retain_operations` (≤ `document_count`), `max_retains` (null: no cap), `created_at`.
 
 ### 3.6 `financial_observation` and `financial_normalization` (Phase 5, ticket 18)
 

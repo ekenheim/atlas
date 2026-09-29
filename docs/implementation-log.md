@@ -1570,3 +1570,20 @@ Tickets 01–04, 07, 08, 10–12, 14 were built in parallel with reserved revisi
 - 0021 → 0023 (fetch gate)
 
 The chain is now 0012 → 0013 → … → 0023.
+
+## 2026-09-29: Phase 3-6a ticket 27, quota-window pacing and staged universe rollout
+
+- **Built:**
+  - `atlas.jobs.budget`: job kinds by provider (`codex`: retain, poll_operation, reprocess, refresh_mental_model, reflect; `minimax`: discover, extract_claims, review_relationships, investigation_task), rolling-window budgets (Codex in Hindsight operations submitted, MiniMax in recorded `llm_call` tokens), the interactive reserve for backfill, and when each class resumes. Every claim records unseen usage in `provider_usage` at the pacing clock, then skips kinds whose provider window is spent for the job's class. `poll_operation` is never held.
+  - `atlas.jobs.pacing`: `ATLAS_BACKFILL_WINDOW` is now empty by default (any time) and accepts comma-separated ranges; `Pacing` carries the budgets.
+  - Settings: `ATLAS_BUDGET_WINDOW_HOURS` (5), `ATLAS_CODEX_BUDGET_OPERATIONS` (40), `ATLAS_MINIMAX_BUDGET_TOKENS` (400000), `ATLAS_BUDGET_INTERACTIVE_RESERVE` (0.3).
+  - Migration `0028` (down_revision `0023`): `provider_usage` (existing operations and LLM calls recorded at their own times) and `ingest_plan`.
+  - `atlas.ledger.plans` + `GET /api/v1/ingest-plans[?company=]`: a company's first backfill SEC ingest records the discovered documents, their count and the estimated retain operations before any fetch (audited `ingest_plan.recorded`).
+  - `atlas ingest --max-retains N` (SEC filers only): retains at most N not-yet-retained versions of the company, newest first; artifacts show `retains_deferred`; a rerun takes the next N (`atlas.retention.service.unretained_versions`).
+  - `GET /api/v1/queue`: `budgets` per provider and `budget_held` per pending kind. Metrics: `atlas_budget_used`, `atlas_budget_limit`, `atlas_budget_window_seconds`, `atlas_budget_usage_total`, `atlas_queue_jobs_held_by_budget`.
+  - Docs: `docs/runbooks.md` "Universe rollout and quota budgets" (reading the view, tuning, the order for the ten remaining companies), `docs/decisions.md`, data model, architecture, threat model, `.env.example`, AGENTS.md; API client regenerated.
+- **Files:** `backend/atlas/jobs/{budget,pacing,queue,__init__}.py`, `backend/atlas/ledger/{plans,ingest}.py`, `backend/atlas/retention/service.py`, `backend/atlas/api/{queue,ingest_plans,app}.py`, `backend/atlas/{metrics,settings,cli}.py`, `backend/atlas/db/migrations/versions/0028_quota_windows.py`, `tests/integration/test_quota_pacing.py` (new), `tests/integration/{test_queue_pause,test_migrations}.py`, `tests/unit/test_settings.py`, `frontend/lib/api/`.
+- **Tests (worker-pass seam, injectable clock):** `test_quota_pacing.py` 6 passed locally: a backfill over the Codex budget spreads over two windows while an interactive ingest runs in the reserve (queue view, metrics, resume time); a 429 still pauses under the budgets; MiniMax role calls held by their recorded tokens (backfill held, interactive in the reserve, resumes after 5 h); the first backfill ingest records its plan before any fetch or retain and honours the cap, a rerun retains the deferred version; only a first backfill ingest records a plan; the cap is refused for a non-SEC company. `test_queue_pause.py` window tests 3 passed (a multi-range case added); `test_settings.py` 26 passed. ruff and strict pyright clean. The full suite runs on the owner's GitHub runners (below).
+- **Fixture-tested only:** everything; Hindsight, LiteLLM and SearXNG are the recorded/scripted fakes. The default budgets are not calibrated against the real subscriptions.
+- **Deviations:** a job may overshoot its provider's limit by what it spends itself (its cost is known only afterwards), once per concurrent worker. Mental-model refreshes and Hindsight consolidation spend Codex without an operation Atlas can count, so they aren't in the Codex usage (they are held when the window is spent). Exchange ingests record no plan and take no cap yet.
+- **Next:** the owner runs the rollout per the runbook; calibrate the budgets after a few windows.

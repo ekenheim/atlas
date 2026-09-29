@@ -1,12 +1,15 @@
 """The `ingest` job: fetch a configured company's SEC material into the source ledger.
 
-Payload: `{"company": "<slug>", "forms": [...]?, "limit": N?}`. The job seeds the company
-from the theme config, discovers its filings (fixture replay, or live SEC when
-`ATLAS_SEC_LIVE` is on), fetches each document (conditionally, with the validators of its
-last fetch) and records it in the ledger. Re-running is safe: unchanged material makes
-no new Source Version. When Hindsight is configured, each new parsed Source Version gets a
-`retain` job (`atlas.retention`). The company's companyfacts Source Version is then normalized
-into as-of financial observations (`atlas.financials`) unless it already was, with each
+Payload: `{"company": "<slug>", "forms": [...]?, "limit": N?, "since": T?, "max_retains": N?}`.
+The job seeds the company from the theme config, discovers its filings (fixture replay, or
+live SEC when `ATLAS_SEC_LIVE` is on), fetches each document (conditionally, with the
+validators of its last fetch) and records it in the ledger. Re-running is safe: unchanged
+material makes no new Source Version. When Hindsight is configured, each new parsed Source
+Version gets a `retain` job (`atlas.retention`); with a retain cap (`max_retains`), the
+company's newest not-yet-retained versions up to the cap instead. A first backfill ingest
+of a company records its ingest plan (`atlas.ledger.plans`) before fetching anything. The
+company's companyfacts Source Version is then normalized into as-of financial observations
+(`atlas.financials`) unless it already was, with each
 fact's availability taken from its filing in the submissions index.
 
 The job dispatches on the company's source path: `sec` runs the SEC ingest below;
@@ -38,8 +41,9 @@ from atlas.financials import NormalizationSummary, is_normalized, normalize_sour
 from atlas.jobs.handlers import JobHandler
 from atlas.jobs.queue import Artifacts, Job
 from atlas.ledger.exchange_ingest import exchange_refusal, run_exchange_ingest
+from atlas.ledger.plans import record_plan
 from atlas.ledger.service import RecordedFetch, SourceLedger
-from atlas.retention.service import enqueue_retains
+from atlas.retention.service import enqueue_retains, unretained_versions
 from atlas.settings import Settings
 from atlas.sources import (
     EdgarAdapter,
@@ -48,6 +52,7 @@ from atlas.sources import (
     SearchQuery,
     SecFiling,
     SecHttpClient,
+    SourceCandidate,
     TokenBucket,
 )
 from atlas.sources.edgar_fixtures import FIXTURE_USER_AGENT
@@ -62,6 +67,9 @@ class IngestPayload(BaseModel):
     forms: list[str] | None = None  # default: the adapter's (10-K, 10-Q, 8-K and amendments)
     limit: int | None = Field(default=None, ge=1)  # at most this many recent filings
     since: AwareDatetime | None = None  # only filings accepted after this (None: all history)
+    # Retain at most this many of the company's not-yet-retained versions (newest first),
+    # earlier deferred ones included; the rest wait for the next capped ingest.
+    max_retains: int | None = Field(default=None, ge=1)
 
 
 class IngestIncomplete(Exception):
@@ -84,8 +92,11 @@ def ingest_payload(
     forms: list[str] | None,
     limit: int | None,
     since: datetime | None = None,
+    max_retains: int | None = None,
 ) -> dict[str, JsonValue]:
-    payload = IngestPayload(company=company, forms=forms, limit=limit, since=since)
+    payload = IngestPayload(
+        company=company, forms=forms, limit=limit, since=since, max_retains=max_retains
+    )
     return payload.model_dump(mode="json", exclude_none=True)
 
 
@@ -108,6 +119,8 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
             raise NotAnSecFiler(refusal)
         if payload.forms:
             raise ValueError(f"company {payload.company!r} is not an SEC filer: forms don't apply")
+        if payload.max_retains is not None:
+            raise ValueError(f"company {payload.company!r} is not an SEC filer: no retain cap yet")
         return run_exchange_ingest(
             settings, job, universe, payload.company, since=payload.since, limit=payload.limit
         )
@@ -134,6 +147,25 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
             limit=payload.limit,
             since=payload.since,
         )
+        plan_ids: list[uuid.UUID] = []
+
+        def plan(candidates: list[SourceCandidate]) -> None:
+            # A first backfill ingest of the company: record the plan before any fetch.
+            if job.job_class != "backfill":
+                return
+            plan_id = record_plan(
+                engine,
+                actor,
+                job_id=job.id,
+                company_id=seeded.company_id,
+                candidates=candidates,
+                since=payload.since,
+                forms=list(query.forms) if query.forms else None,
+                max_retains=payload.max_retains,
+            )
+            if plan_id is not None:
+                plan_ids.append(plan_id)
+
         recorded, errors, companyfacts = asyncio.run(
             _fetch_all(
                 client,
@@ -145,14 +177,22 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
                 eight_k_items=settings.eight_k_items(),
                 exhibits_only_items=settings.eight_k_exhibits_only_items(),
                 is_normalized=lambda version_id: _is_normalized(engine, version_id),
+                on_discovered=plan,
             )
         )
         # Every new parsed version is retained into memory, when Hindsight is configured;
-        # also for a partial ingest, whose recorded versions are kept.
+        # also for a partial ingest, whose recorded versions are kept. With a retain cap, the
+        # company's newest not-yet-retained versions instead, up to the cap.
+        to_retain = [f.source_version_id for f in recorded if f.outcome == "new_version"]
+        deferred: int | None = None
+        if payload.max_retains is not None:
+            unretained = unretained_versions(engine, seeded.company_id)
+            to_retain = unretained[: payload.max_retains]
+            deferred = len(unretained) - len(to_retain)
         retain_jobs = (
             enqueue_retains(
                 engine,
-                [f.source_version_id for f in recorded if f.outcome == "new_version"],
+                to_retain,
                 job_class=job.job_class,  # a backfill ingest's retains are backfill too
                 actor=actor,
             )
@@ -179,8 +219,12 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
             f"{len(errors)} of {len(errors) + len(recorded)} documents not fetched ({failed})"
         )
     artifacts = _artifacts(seeded.company_id, recorded)
+    if plan_ids:
+        artifacts["ingest_plan_id"] = str(plan_ids[0])
     if retain_jobs is not None:
         artifacts["retain_jobs"] = list[JsonValue](retain_jobs)
+        if deferred is not None:
+            artifacts["retains_deferred"] = deferred
     if normalization is not None:
         artifacts["financial_normalization"] = _normalization_artifact(normalization)
     return artifacts
@@ -216,6 +260,7 @@ async def _fetch_all(
     eight_k_items: tuple[str, ...] | None = None,
     exhibits_only_items: tuple[str, ...] = (),
     is_normalized: Callable[[uuid.UUID], bool] = lambda _: False,
+    on_discovered: Callable[[list[SourceCandidate]], None] = lambda _: None,
 ) -> tuple[
     list[RecordedFetch],
     list[tuple[str, str]],
@@ -233,7 +278,9 @@ async def _fetch_all(
             eight_k_items=eight_k_items,
             exhibits_only_items=exhibits_only_items,
         )
-        for candidate in await adapter.discover(query):
+        candidates = await adapter.discover(query)
+        on_discovered(candidates)
+        for candidate in candidates:
             validators = ledger.validators_for(candidate)
             if validators is not None:
                 candidate = candidate.model_copy(update={"validators": validators})

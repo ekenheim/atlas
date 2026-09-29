@@ -250,3 +250,53 @@ atlas ledger assign-families
 It prints `{"assigned": [<source version ids>], "families_created": N}`, oldest ingested first, each version in its own audited transaction (`evidence_family.created`, `evidence_family.member_added`). It is idempotent. `ATLAS_EVIDENCE_FAMILY_MAX_HAMMING_DISTANCE` (default 3) is the threshold new families are founded with.
 
 The holiday table ends on 2027-12-31. When SEC publishes its next EDGAR Calendar (<https://www.sec.gov/submit-filings/filer-support-resources/edgar-calendar>), add that year and any announced closures, and move `EDGAR_CALENDAR_RANGE`. Past the end, ingest of a new filing fails with `EdgarCalendarRangeError`.
+
+## Universe rollout and quota budgets (ticket 27)
+
+The owner's ChatGPT/Codex subscription (spent by the shared Hindsight's retain, consolidation and mental models) and MiniMax subscription (spent by Atlas's roles through LiteLLM) each renew in rolling 5-hour windows. The queue rations both (`atlas.jobs.budget`; rules in `docs/decisions.md`, "Quota-window pacing"), so the ten companies not yet ingested come in **one company per window**, never in one bootstrap like the 2026-09 incident (1,397 operations, ~1.27M Codex tokens in minutes).
+
+### Reading the budget view
+
+`GET /api/v1/queue` has one `budgets` entry per provider:
+
+```
+{"provider": "codex", "unit": "operations", "window_seconds": 18000,
+ "used": 28, "budget": 40, "backfill_limit": 28,
+ "interactive_held": false, "backfill_held": true,
+ "interactive_resumes_at": null, "backfill_resumes_at": "2026-09-30T02:14:05Z",
+ "kinds": ["reflect", "refresh_mental_model", "reprocess", "retain"]}
+```
+
+- `used`: what the last `window_seconds` spent: Hindsight operations submitted (codex) or recorded LLM tokens (minimax).
+- `backfill_held`: backfill jobs of `kinds` wait; `backfill_resumes_at` is when enough usage leaves the window for them to run again. `interactive_held` is the same for everything (the owner's own work included) once the whole budget is spent.
+- Each `pending` kind shows `budget_held`, the queued jobs the budget holds now. `pause` is the separate 429/outage backstop: if it shows a `quota` pause while `used` is well under `budget`, the budget is too high for the subscription.
+- Metrics: `atlas_budget_used{provider,unit}`, `atlas_budget_limit{provider,job_class}`, `increase(atlas_budget_usage_total[5h])` and `atlas_queue_jobs_held_by_budget{provider,kind,job_class}`.
+
+### Tuning
+
+Defaults are deliberately low: `ATLAS_CODEX_BUDGET_OPERATIONS=40`, `ATLAS_MINIMAX_BUDGET_TOKENS=400000`, `ATLAS_BUDGET_WINDOW_HOURS=5`, `ATLAS_BUDGET_INTERACTIVE_RESERVE=0.3` (backfill stops at 70%: 28 operations, 280,000 tokens). Raise a budget only after a few windows in which the provider's own usage page shows headroom at the end of a window and no `quota` pause was entered (`atlas_queue_pauses_total{error_class="quota"}` flat). Raise in steps of about 25%, one provider at a time; lower it at once after a quota pause. The reserve is what the owner's own investigations can still use when a backfill has run to its limit. `ATLAS_BACKFILL_WINDOW` is optional: empty (the default) lets backfill run whenever the budget allows; set ranges (for example `01:00-07:00,13:00-15:00`, in `ATLAS_BACKFILL_TIMEZONE`) only to keep backfill out of hours the owner works in.
+
+### Rollout, one company per window
+
+Done: Lumentum, Coherent. Remaining, smallest filer first (a company's own ingest plan shows its real size before the next is started; reorder if a plan surprises):
+
+| # | Company | Path | How |
+|---|---|---|---|
+| 1 | AXT (`axt`) | SEC 10-K/10-Q/8-K | `atlas ingest --company axt --backfill --max-retains 20` |
+| 2 | Applied Optoelectronics (`applied-optoelectronics`) | SEC | same, `--company applied-optoelectronics` |
+| 3 | Fabrinet (`fabrinet`) | SEC | same |
+| 4 | MACOM (`macom`) | SEC | same |
+| 5 | Ciena (`ciena`) | SEC | same |
+| 6 | Marvell (`marvell`) | SEC | same |
+| 7 | STMicroelectronics (`stmicroelectronics`) | SEC 20-F/6-K (many 6-Ks): largest, last of the SEC filers | same |
+| 8 | Zhongji Innolight (`innolight`) | HKEXnews is blocked (terms) | manual import only: `atlas sources import --company innolight ...`, a few documents per window |
+| 9 | IQE (`iqe`) | FCA NSM | waits for ticket 05's adapter |
+| 10 | Soitec (`soitec`) | AMF open API | waits for ticket 06's adapter |
+
+For each SEC company, in its own window:
+
+1. Check `GET /api/v1/queue`: no pause, `codex.backfill_held` false, nothing of the previous company still `budget_held`.
+2. Enqueue it with a cap below the backfill limit (20 of 28 leaves room for zero-fact reprocesses): `atlas ingest --company <slug> --backfill --max-retains 20`. The worker runs the ingest (SEC fetching isn't budgeted) and its retains within the budget.
+3. Read the plan: `GET /api/v1/ingest-plans?company=<slug>`: `document_count`, `estimated_retain_operations` and the documents (forms, dates). If the estimate is far above the cap, the company needs several windows.
+4. The ingest job's artifacts show `retains_deferred`. While it's above 0, in the next window run the same command again with a new key (the default, without `--key`): it fetches only what changed and retains the next 20 not-yet-retained versions, newest first. Move to the next company when `retains_deferred` is 0 and its retains have completed (`GET /api/v1/source-versions/{id}/memory`).
+5. Mental-model refreshes and consolidation also spend Codex on the shared server without an operation Atlas counts; if `quota` pauses appear while `used` stays low, lower `ATLAS_CODEX_BUDGET_OPERATIONS`.

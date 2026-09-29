@@ -1,8 +1,9 @@
 """The Postgres job table as a work queue: idempotent enqueue, leased claims, bounded retries.
 
 Lease clocks are the database's (`now()`), so lease expiry means the same thing to every
-worker. Pacing (the queue-level pause and the backfill window, `atlas.jobs.pacing`) reads the
-application clock, which tests can control.
+worker. Pacing (the queue-level pause, the backfill window and the provider budgets,
+`atlas.jobs.pacing` and `atlas.jobs.budget`) reads the application clock, which tests can
+control.
 
 Audited, in the same transaction as the change: a new job (`job.enqueued`, by the queue's
 actor: the configured one, or the system actor for work Atlas schedules itself), and the
@@ -21,6 +22,15 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection, Engine, text
 
 from atlas.audit import SYSTEM_ACTOR, Actor, content_hash, record
+from atlas.jobs.budget import (
+    PROVIDER_KINDS,
+    Holds,
+    Provider,
+    ProviderBudget,
+    holds,
+    sweep,
+    window_usage,
+)
 from atlas.jobs.pacing import Clock, FailureClass, JobClass, Pacing, utc_now
 
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
@@ -97,6 +107,14 @@ class QueuePause(BaseModel):
 
 
 @dataclass(frozen=True)
+class HeldJobs:
+    provider: Provider
+    kind: str
+    job_class: JobClass
+    count: int
+
+
+@dataclass(frozen=True)
 class PendingJobs:
     kind: str
     job_class: JobClass
@@ -143,7 +161,8 @@ class JobQueue:
     ) -> Enqueued:
         """Add a job, or return the existing one for the same kind and idempotency key.
 
-        A `backfill` job is claimed only inside the backfill window.
+        A `backfill` job is claimed only inside the backfill window (if one is set) and below
+        its provider's backfill limit.
         """
         with self._engine.begin() as connection:
             return self.enqueue_within(
@@ -203,12 +222,16 @@ class JobQueue:
         """Lease the oldest runnable job to `owner`, or return None if there is none.
 
         Runnable means queued, or running under an expired lease (its worker is presumed
-        dead), and held back neither by the queue pause (its kind is paused) nor by the
-        backfill window (a backfill job outside it). Reclaiming records the lost attempt as a
-        failure; if that attempt was the last one, the job fails instead of running again.
+        dead), and held back neither by the queue pause (its kind is paused), nor by the
+        backfill window (a backfill job outside it), nor by its provider's budget (the
+        window's usage is at the limit for its class; `atlas.jobs.budget`). Provider usage
+        recorded since the last claim is counted first, at the pacing clock's now.
+        Reclaiming records the lost attempt as a failure; if that attempt was the last one,
+        the job fails instead of running again.
         """
         while True:
             now = self.clock()
+            held = self._budget_holds(now)
             with self._engine.begin() as connection:
                 candidate = connection.execute(
                     text(
@@ -218,10 +241,17 @@ class JobQueue:
                         "  AND NOT EXISTS (SELECT FROM queue_pause p WHERE p.level > 0"
                         "      AND p.resume_after > :now AND job.kind = ANY(p.kinds)) "
                         "  AND (job.job_class <> 'backfill' OR :window_open) "
+                        "  AND job.kind <> ALL(:held_all) "
+                        "  AND (job.job_class <> 'backfill' OR job.kind <> ALL(:held_backfill)) "
                         "ORDER BY created_at, id LIMIT 1 "
                         "FOR UPDATE OF job SKIP LOCKED"
                     ),
-                    {"now": now, "window_open": self.pacing.window_open(now)},
+                    {
+                        "now": now,
+                        "window_open": self.pacing.window_open(now),
+                        "held_all": held.all_classes,
+                        "held_backfill": held.backfill,
+                    },
                 ).one_or_none()
                 if candidate is None:
                     return None
@@ -253,6 +283,41 @@ class JobQueue:
                     .one()
                 )
                 return _job(row)
+
+    def budget_usage(self) -> list[ProviderBudget]:
+        """Each provider's rolling window now (empty without budgets); reads only."""
+        budgets = self.pacing.budgets
+        if budgets is None:
+            return []
+        with self._engine.connect() as connection:
+            return list(window_usage(connection, budgets, self.clock()).values())
+
+    def held_by_budget(self) -> list[HeldJobs]:
+        """Queued jobs the budgets hold back now, counted by provider, kind and class."""
+        held = holds(self.budget_usage())
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    "SELECT kind, job_class, count(*) AS count FROM job WHERE status = 'queued'"
+                    " AND (kind = ANY(:held_all)"
+                    "      OR (job_class = 'backfill' AND kind = ANY(:held_backfill)))"
+                    " GROUP BY kind, job_class ORDER BY kind, job_class"
+                ),
+                {"held_all": held.all_classes, "held_backfill": held.backfill},
+            ).mappings()
+            return [
+                HeldJobs(provider=PROVIDER_KINDS[row["kind"]], **row)  # pyright: ignore[reportArgumentType]
+                for row in rows
+            ]
+
+    def _budget_holds(self, now: datetime) -> Holds:
+        """Count new provider usage, then the kinds the budgets hold (none without budgets)."""
+        budgets = self.pacing.budgets
+        if budgets is None:
+            return Holds([], [])
+        with self._engine.begin() as connection:
+            sweep(connection, now)
+            return holds(window_usage(connection, budgets, now).values())
 
     def complete(self, job: Job, owner: str, artifacts: Artifacts) -> bool:
         """Record success. False if `owner` no longer holds this attempt's lease."""

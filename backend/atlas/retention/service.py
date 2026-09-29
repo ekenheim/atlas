@@ -96,7 +96,8 @@ def enqueue_retains(
     """Enqueue a retain job for each given Source Version that has a parse in a retainable
     language; returns job IDs.
 
-    A backfill ingest enqueues backfill retains, which run only in the nightly window.
+    A backfill ingest enqueues backfill retains (held by the backfill window, if one is
+    set, and by the Codex budget's interactive reserve).
     Each new job is audited as `actor`'s.
     """
     if not source_version_ids:
@@ -124,6 +125,37 @@ def enqueue_retains(
         )
         for i in ids
     ]
+
+
+def unretained_versions(engine: Engine, company_id: uuid.UUID) -> list[uuid.UUID]:
+    """The company's retainable Source Versions that were never retained nor queued for it,
+    newest first by availability: each Source Document's latest version, with a parse in a
+    retainable language, no memory documents and no `retain` job. An ingest with a retain
+    cap retains the first of these, and a later capped ingest the next (ticket 27)."""
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT latest.id FROM ("
+                "  SELECT DISTINCT ON (v.source_document_id) v.id, v.available_at, v.ingested_at,"
+                "    v.parse_status, v.language"
+                "  FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
+                "  WHERE d.company_id = :company"
+                "  ORDER BY v.source_document_id, v.version_number DESC"
+                ") latest WHERE parse_status = ANY(:parses) AND language = ANY(:languages)"
+                " AND NOT EXISTS (SELECT FROM memory_document m"
+                "   WHERE m.source_version_id = latest.id)"
+                " AND NOT EXISTS (SELECT FROM job j WHERE j.kind = :kind"
+                "   AND j.payload ->> 'source_version_id' = CAST(latest.id AS text))"
+                " ORDER BY latest.available_at DESC, latest.ingested_at, latest.id"
+            ),
+            {
+                "company": company_id,
+                "parses": list(RETAINABLE_PARSES),
+                "languages": list(RETAINABLE_LANGUAGES),
+                "kind": RETAIN_KIND,
+            },
+        ).scalars()
+        return list(rows)
 
 
 def retry_failed(

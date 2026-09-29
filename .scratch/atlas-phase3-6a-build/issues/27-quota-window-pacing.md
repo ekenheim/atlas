@@ -6,12 +6,12 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`. Owner direction (2026-09-29): "we have
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A rolling-window budget per provider (`codex` for Hindsight-backed job kinds, `minimax` for role calls). Settings: the window length (default 5 h), and the budget per window in submitted retain operations (Codex) and in LLM tokens (MiniMax, from recorded usage). A job kind that would exceed its provider's budget is held until the window rolls. This is visible in `GET /api/v1/queue`: per provider used/budget, and when capacity next frees.
-- [ ] `ATLAS_BACKFILL_WINDOW` becomes optional (empty = any time) and accepts several ranges; the budgets apply whether or not a window is set.
-- [ ] Interactive work (an owner's investigation) takes priority over backfill inside the same budget: backfill never uses the last configurable share (default 30%) of a window.
-- [ ] Staged rollout: `atlas ingest --company X --backfill` for a company not yet ingested records an ingest plan (the discovered documents after lookback and 8-K selection, with a count and an estimated retain-op count) before anything is retained. A `--max-retains N` cap applies per company.
-- [ ] Runbook: the rollout order for the ten remaining companies (one per window, largest last) and how to read the queue's budget view.
-- [ ] Metrics: budget used per provider and window; jobs held by budget.
-- [ ] Tests at the worker-pass seam with the injectable clock: a backfill that exceeds the budget spreads over two windows, interactive work runs while backfill is held, and a 429 still pauses.
+- [x] A rolling-window budget per provider (`codex` for Hindsight-backed job kinds, `minimax` for role calls). Settings: the window length (default 5 h), and the budget per window in submitted retain operations (Codex) and in LLM tokens (MiniMax, from recorded usage). A job kind that would exceed its provider's budget is held until the window rolls. This is visible in `GET /api/v1/queue`: per provider used/budget, and when capacity next frees.
+- [x] `ATLAS_BACKFILL_WINDOW` becomes optional (empty = any time) and accepts several ranges; the budgets apply whether or not a window is set.
+- [x] Interactive work (an owner's investigation) takes priority over backfill inside the same budget: backfill never uses the last configurable share (default 30%) of a window.
+- [x] Staged rollout: `atlas ingest --company X --backfill` for a company not yet ingested records an ingest plan (the discovered documents after lookback and 8-K selection, with a count and an estimated retain-op count) before anything is retained. A `--max-retains N` cap applies per company.
+- [x] Runbook: the rollout order for the ten remaining companies (one per window, largest last) and how to read the queue's budget view.
+- [x] Metrics: budget used per provider and window; jobs held by budget.
+- [x] Tests at the worker-pass seam with the injectable clock: a backfill that exceeds the budget spreads over two windows, interactive work runs while backfill is held, and a 429 still pauses.

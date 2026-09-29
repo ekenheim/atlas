@@ -133,6 +133,55 @@
         }
       }
     },
+    "/api/v1/ingest-plans": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Get Plans",
+        "operationId": "get_plans_api_v1_ingest_plans_get",
+        "parameters": [
+          {
+            "name": "company",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestPlans"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/companies": {
       "get": {
         "tags": [
@@ -6215,6 +6264,120 @@
         ],
         "title": "IdentityMapping"
       },
+      "IngestPlan": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "forms": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forms"
+          },
+          "documents": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "document_count": {
+            "type": "integer",
+            "title": "Document Count"
+          },
+          "estimated_retain_operations": {
+            "type": "integer",
+            "title": "Estimated Retain Operations"
+          },
+          "max_retains": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retains"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "job_id",
+          "company_id",
+          "company",
+          "since",
+          "forms",
+          "documents",
+          "document_count",
+          "estimated_retain_operations",
+          "max_retains",
+          "created_at"
+        ],
+        "title": "IngestPlan"
+      },
+      "IngestPlans": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IngestPlan"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "IngestPlans"
+      },
       "Investigation": {
         "properties": {
           "id": {
@@ -8496,6 +8659,10 @@
           "paused": {
             "type": "boolean",
             "title": "Paused"
+          },
+          "budget_held": {
+            "type": "integer",
+            "title": "Budget Held"
           }
         },
         "type": "object",
@@ -8504,7 +8671,8 @@
           "queued",
           "running",
           "backfill_queued",
-          "paused"
+          "paused",
+          "budget_held"
         ],
         "title": "PendingKind"
       },
@@ -8584,6 +8752,97 @@
           "disproven_at"
         ],
         "title": "Premise"
+      },
+      "ProviderBudget": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "codex",
+              "minimax"
+            ],
+            "title": "Provider"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "operations",
+              "tokens"
+            ],
+            "title": "Unit"
+          },
+          "window_seconds": {
+            "type": "number",
+            "title": "Window Seconds"
+          },
+          "used": {
+            "type": "integer",
+            "title": "Used"
+          },
+          "budget": {
+            "type": "integer",
+            "title": "Budget"
+          },
+          "backfill_limit": {
+            "type": "integer",
+            "title": "Backfill Limit"
+          },
+          "interactive_held": {
+            "type": "boolean",
+            "title": "Interactive Held"
+          },
+          "backfill_held": {
+            "type": "boolean",
+            "title": "Backfill Held"
+          },
+          "interactive_resumes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interactive Resumes At"
+          },
+          "backfill_resumes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backfill Resumes At"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kinds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "unit",
+          "window_seconds",
+          "used",
+          "budget",
+          "backfill_limit",
+          "interactive_held",
+          "backfill_held",
+          "interactive_resumes_at",
+          "backfill_resumes_at",
+          "kinds"
+        ],
+        "title": "ProviderBudget",
+        "description": "One provider's rolling window as the queue sees it now."
       },
       "QueuePause": {
         "properties": {
@@ -8735,6 +8994,13 @@
           "backfill_window": {
             "$ref": "#/components/schemas/BackfillWindowStatus"
           },
+          "budgets": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderBudget"
+            },
+            "type": "array",
+            "title": "Budgets"
+          },
           "pending": {
             "items": {
               "$ref": "#/components/schemas/PendingKind"
@@ -8748,6 +9014,7 @@
           "now",
           "pause",
           "backfill_window",
+          "budgets",
           "pending"
         ],
         "title": "QueueStatus"

@@ -66,7 +66,7 @@ Each is a deep module with a small interface (spec Part A and Part B, "Modules")
 | **Settings** | `ATLAS_*` env vars and versioned config files (`configs/`), validated at startup | Typed settings; optional providers log `<provider> disabled: missing <VAR>` once | 0 / 01 |
 | **Audit** | The append-only, hash-chained `audit_event` table | `record(actor, action, entity, old_hash, new_hash)` in the caller's transaction; chain verification | 1 / 03 |
 | **Actor** | The identity behind every mutation | From config in local and pilot deployments (`ATLAS_ACTOR`); every mutating service takes it explicitly so an authenticated principal can replace it later | 1 / 03 |
-| **Jobs** | The Postgres job table as the queue | Deterministic job IDs from idempotency keys, leases, `FOR UPDATE SKIP LOCKED` claiming, bounded retries, recorded failures and artifacts. Phase 2 adds job kinds, a queue-level **pause** and a nightly window for backfill jobs | 1 / 04; 2 / 14 |
+| **Jobs** | The Postgres job table as the queue | Deterministic job IDs from idempotency keys, leases, `FOR UPDATE SKIP LOCKED` claiming, bounded retries, recorded failures and artifacts. Phase 2 adds job kinds, a queue-level **pause** and a window for backfill jobs; ticket 27 adds rolling-window **provider budgets** (Codex, MiniMax) | 1 / 04; 2 / 14 |
 | **Archive** | Immutable, content-addressed raw and parsed objects | `put(bytes) -> uri` (idempotent by SHA-256, never overwrites), `get(uri) -> bytes`. Filesystem and S3 backends pass one contract suite. Callers only ever see internal application URIs | 1 / 05 |
 | **Source adapters** | Fetching source material politely | The async `SourceAdapter` protocol (build plan §4.2): `discover`, `fetch`, `updates`. Phase 1: the SEC EDGAR adapter and a fixture adapter replaying recorded EDGAR responses | 1 / 06 |
 | **Parser** | Deterministic HTML/text normalization | Explicit parser version; same input and version give identical output and content hash. Never calls an LLM | 1 / 07 |
@@ -155,7 +155,7 @@ The researcher then opens the Source Version in the viewer, checks the provenanc
 2. The retention service checks whether a Source Version with the same raw hash is already retained. If so, it records a `linked` mapping and stops (ADR-0001).
 3. Otherwise it splits the parse into sections with anchors and character offsets, and submits **one batch per Source Version** through the gateway. Document IDs are `srcv:<source_version_uuid>:<section-anchor>` and never reused. Tags: `company:<uuid>`, `theme:<slug>`, `source:<provider>`, `doctype:<kind>`, `form:<form>`. Metadata carries `source_version_id`, the anchor, the offsets and `available_at`.
 4. A polling job follows the Hindsight operation to a terminal `status`. On completion, memories are counted per document. A zero-fact section is reprocessed once, then flagged `zero_fact`.
-5. A 429 or outage-classified failure pauses the ingest queue with backoff capped at 1 h, instead of failing jobs or switching models. Backfill-class jobs run only in the nightly window.
+5. A 429 or outage-classified failure pauses the ingest queue with backoff capped at 1 h, instead of failing jobs or switching models. Backfill-class jobs run only in the backfill window, when one is set, and every LLM-backed kind is held while its provider's rolling-window budget is spent (backfill stops short of an interactive reserve).
 
 ### 4.3 Phase 2: recall and reflect to Evidence
 
