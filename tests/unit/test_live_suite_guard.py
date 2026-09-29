@@ -1,8 +1,8 @@
-"""The live Phase 2 suite stays out of CI and refuses to run without its explicit opt-in.
+"""The live suites stay out of CI and refuse to run without their explicit opt-in.
 
 Each check runs pytest itself in a subprocess, as CI and the owner would, with the opt-in
-variables removed from the environment. Only the Phase 2 file and the extraction smoke test
-are ever selected, so the live SEC smoke test can't run from here.
+variables removed from the environment. Only the Phase 2 file, the extraction smoke test and
+the live verification are ever selected, so the live SEC smoke test can't run from here.
 """
 
 import os
@@ -77,3 +77,32 @@ def test_an_opted_in_extraction_smoke_run_under_ci_is_refused_before_any_call() 
     )
     assert ran.returncode == 4, ran.stdout + ran.stderr
     assert "live extraction smoke test refused: CI is set" in ran.stdout + ran.stderr
+
+
+VERIFY = "tests/live/test_live_verify.py"
+VERIFY_PARTS = 7
+
+
+def test_the_live_verification_is_deselected_and_skipped_without_its_opt_in() -> None:
+    collected = pytest_run(VERIFY, "--collect-only", "-q")
+    assert f"no tests collected ({VERIFY_PARTS} deselected)" in collected.stdout, collected.stdout
+    ran = pytest_run("-m", "live", VERIFY, "-q", "-rs")
+    assert ran.returncode == 0, ran.stdout + ran.stderr
+    assert f"{VERIFY_PARTS} skipped" in ran.stdout
+    assert "live verification not enabled" in ran.stdout
+
+
+def test_an_opted_in_live_verification_under_ci_is_refused_before_any_call() -> None:
+    ran = pytest_run(
+        "-m",
+        "live",
+        VERIFY,
+        "-q",
+        ATLAS_LIVE_TESTS="1",
+        CI="true",
+        ATLAS_LITELLM_URL="http://127.0.0.1:9",
+        ATLAS_LITELLM_API_KEY="not-a-key",
+        ATLAS_LIVE_HINDSIGHT_URL="http://127.0.0.1:9",
+    )
+    assert ran.returncode == 4, ran.stdout + ran.stderr
+    assert "live verification refused: CI is set" in ran.stdout + ran.stderr

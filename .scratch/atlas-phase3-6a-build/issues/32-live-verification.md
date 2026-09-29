@@ -14,10 +14,10 @@ Each check runs against a throwaway local Postgres and archive. Hindsight is eit
 
 **Blocked by:** the wave-4 merge (06, 15, 19, 23, 30, the triage fix, 31). Parts 6 and 7 extend as 20–22 land.
 
-**Status:** ready-for-agent
+**Status:** done (the harness; the live run and its LIVE log entry are the lead's, the last two boxes)
 
-- [ ] `scripts/live-verify.sh [--only <part>] [--rehearse]` with the same two locks as the live suite (`live` marker plus `ATLAS_LIVE_TESTS=1`). It never runs in CI. It refuses to start without `.env` LiteLLM settings, and it prints no secrets.
-- [ ] Hard caps: at most ~40 MiniMax calls and ~25 Hindsight retain operations per full run. Each part has its own budget, reported.
-- [ ] `--rehearse` runs every part against the fakes, so the harness itself is CI-verifiable.
+- [x] `scripts/live-verify.sh [--only <part>] [--rehearse]` with the same two locks as the live suite (`live` marker plus `ATLAS_LIVE_TESTS=1`). It never runs in CI. It refuses to start without `.env` LiteLLM settings, and it prints no secrets.
+- [x] Hard caps: at most ~40 MiniMax calls and ~25 Hindsight retain operations per full run. Each part has its own budget, reported.
+- [x] `--rehearse` runs every part against the fakes, so the harness itself is CI-verifiable.
 - [ ] Report (JSON plus a Markdown table) under the gitignored `.scratch/live-runs/`. Results go into `docs/implementation-log.md` as LIVE, with exactly what ran.
 - [ ] The lead runs it with the owner's go-ahead (given 2026-09-30) and fixes what fails.

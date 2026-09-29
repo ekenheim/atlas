@@ -1861,3 +1861,39 @@ The chain is now 0012 → 0013 → … → 0023.
 - **Fixture-tested only:** everything; no LLM or Hindsight call was made.
 - **Deviations:** a `Requeue`d job is claimable again straight away. It has no delay of its own; only the `minimax` window budget (and the backfill window) hold it. Each retry starts a fresh run, whose first call always goes out, so every requeue makes progress.
 - **Next:** an alert rule on `atlas_triage_failed_jobs > 0` in `configs/prometheus/atlas-alerts.yaml` if the owner wants paging.
+
+## 2026-09-30: Phase 3-6a ticket 32, live verification harness
+
+- **Built:**
+  - `scripts/live-verify.sh [--only <part>] [--rehearse] [--companies …] [--limit N] [--max-chat-calls N] [--stack cluster|compose|none] [--model M] [--keep-db] [--keep-bank] [--results DIR] [--yes] [--dry-run]`. It follows `scripts/live-tests.sh`: it dies under `CI`, and without LiteLLM settings in the environment or `.env`. It reads `.env` CRLF-safe and never prints a secret. It asks before a live run, and the default stack is the cluster Hindsight. A live run also needs `ATLAS_SEC_USER_AGENT` when `sec`, `discovery` or `identity` is selected. Reports go to `.scratch/live-runs/<stamp>-verify[-rehearse]/`.
+  - `tests/live/test_live_verify.py` has seven parts, one test each, in order. The preflight, fresh database, throwaway bank (deleted unless kept) and bank deletion are `tests/live/stack.py`'s. The template is applied once, and the universe (the repo's plus NVIDIA) is seeded once.
+    1. `sec`: live ingest with `--limit` and `--max-retains`, and triage on. Then it waits for consolidation and runs a recall and a reflect with citation counts and the companies cited.
+    2. `exchanges`: IQE on the FCA NSM and Soitec on the AMF, `--limit 1` each, with retention off. It reports gate decisions and documents.
+    3. `tradingview`: a hook. It is skipped unless the build registers `tradingview_catalog`/`tradingview_transcripts` and `ATLAS_TRADINGVIEW_ENABLED` is set.
+    4. `discovery`: Scout, SearXNG and leads, then `propose_candidates` with live resolution. It is skipped without SearXNG.
+    5. `relationships`: `extract_claims` on the recorded Coherent 10-K, then `review_relationships`.
+    6. `investigation`: runs on Coherent and Lumentum to a stop. Then a Hypothesis draft and a scenario: the Analyst's table, or an all-estimated researcher table after a 409. The scenario is recomputed and resent, and both must be byte-identical. Last, it publishes version 1 and reports whether a snapshot exists.
+    7. `identity`: `atlas companies resolve` for Lumentum and Coherent, then the pending reviews.
+  - `tests/live/verify.py`:
+    - `CappedProxy`: a forwarding proxy on localhost that counts chat completions and retain batches per part and per run. Over a cap it answers HTTP 400, and the part is `aborted`. Its leftover jobs are then failed without retry.
+    - `PART_BUDGETS`: chat 12/0/0/8/6/14/0 (sum 40); retains 25 for `sec`, 0 elsewhere.
+    - `VerifyReport`: `results.json` and a `summary.md` table. Each part has a status, reason, budget, the proxies' counts, what the database recorded since the part began (`llm_call`, `role_call`, `hindsight_operation`), numbers and seconds.
+    - `RehearsalModel`: scripted answers for every role.
+  - Settings bound the rest: 30 sections per triage call, 8 passages per extraction, a 150,000-token run budget, 3 discovery queries, and 5 leads and 6 documents per investigation.
+  - `tests/live/stack.py`: `Rehearsal` keeps its `FakeLiteLLM` (`llm`), so a suite can script chat replies. `tests/live/conftest.py` adds the suite's opt-in skip.
+  - Docs: `docs/runbooks.md` "Live verification (ticket 32)" and an `AGENTS.md` command and layout line.
+- **Files:** `scripts/live-verify.sh`, `tests/live/{test_live_verify,verify}.py`, `tests/live/{stack,conftest}.py`, `tests/unit/test_live_suite_guard.py`, `docs/runbooks.md`, `AGENTS.md`, this log, the ticket.
+- **Tests:**
+  - `scripts/live-verify.sh --rehearse` covers every part against the fakes on localhost. Those fakes are the recorded Hindsight, the scripted LiteLLM, SearXNG over `tests/fixtures/searxng`, identity over `tests/fixtures/identity`, and the EDGAR, FCA NSM and AMF fixtures. Result: **6 passed, 1 skipped** (tradingview: not in this build), 16/40 chat completions and 4/25 retain operations, about 75 s.
+  - The abort was checked by hand. `ATLAS_LIVE_VERIFY_MAX_CHAT_CALLS=5`, with `sec` and `investigation` selected, left `sec` passed and `investigation` **aborted** ("LiteLLM chat cap reached").
+  - `tests/unit/test_live_suite_guard.py` +2: the suite is deselected by default and skipped without the opt-in, and a live run under `CI` is refused with exit 4. Result: 7 passed.
+  - The Phase 2 rehearsal still passes after the `Rehearsal` change (7 passed, 1 skipped).
+  - ruff format and check (backend, tests, scripts) and strict pyright are clean. The harness was written with its rehearsal, not test-first; it is test infrastructure, not a product seam.
+- **Fixture-only vs live:** **nothing was run live.** Every number above comes from a rehearsal against fakes. The live run is the lead's, with the owner's go-ahead of 2026-09-30.
+- **Deviations:**
+  - The caps are enforced at the transport by counting proxies, as well as by settings. `--max-retains` bounds versions, not operations, and the role caller has no call cap of its own. Hindsight's own LLM use (retain extraction, consolidation, mental-model refreshes after the template import, reflect) is on the Hindsight side. It is outside the 40; after a live `sec` part the report adds the bank's `llm_request_stats`.
+  - `relationships` and `investigation` read the recorded Coherent (and Lumentum) EDGAR filings, ingested with retention off, so they need no retain budget and have a known supplier-rich passage. In a live run, `sec` ingests the live filings into the same database first.
+  - The rehearsal is "CI-verifiable", but CI doesn't run it: the `live` marker is deselected there, as for the other rehearsals.
+  - Publishing is reported, not required. Ticket 20's Research Snapshot isn't on this base, so the report says "none in this build".
+  - The TradingView hook guesses ticket 31's payloads (`{"company"}`, `{"company", "limit": 1}`). Check them when 31 lands.
+- **Next:** the lead runs `scripts/live-verify.sh` (the owner's go-ahead is given), records the table here as LIVE and fixes what fails. Extend part 6 when tickets 20–22 land.

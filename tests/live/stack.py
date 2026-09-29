@@ -92,6 +92,8 @@ class Rehearsal:
     fake: RecordedHindsight
     hindsight: Served
     litellm: Served
+    # The LiteLLM fake behind `litellm`, for suites that script chat replies (live verify).
+    llm: FakeLiteLLM = field(default_factory=FakeLiteLLM)
 
     # Verbatim in the recorded 10-Q fixtures' Item 1 (the quote rule folds the line break).
     LITE_QUOTE = "LUMENTUM HOLDINGS INC. CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS"
@@ -104,9 +106,10 @@ class Rehearsal:
         fake = RecordedHindsight()
         fake.derive_memories()
         fake.report_zero_facts(lambda document_id: document_id.endswith(":cover"))
+        llm = FakeLiteLLM()
         with serve(fake.transport.handle_request) as hindsight:
-            with serve(FakeLiteLLM().handle) as litellm:
-                yield cls(fake, hindsight, litellm)
+            with serve(llm.handle) as litellm:
+                yield cls(fake, hindsight, litellm, llm)
                 litellm.raise_errors()
             hindsight.raise_errors()
 

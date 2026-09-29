@@ -1,11 +1,12 @@
 """Live tests call real external services. They are excluded by default (`-m 'not live'`)
 and never run in CI; run them explicitly, e.g. `uv run pytest -m live tests/live`.
 
-The Phase 2 gate suite (`test_phase2_gate_live.py`) and the extraction smoke test
-(`test_extraction_smoke_live.py`) need a second opt-in, `ATLAS_LIVE_TESTS` (see
+The Phase 2 gate suite (`test_phase2_gate_live.py`), the extraction smoke test
+(`test_extraction_smoke_live.py`) and the live verification (`test_live_verify.py`) need a
+second opt-in, `ATLAS_LIVE_TESTS` (see
 `tests/live/stack.py`); without it their tests are collected and skipped. Rehearsals
-(`ATLAS_LIVE_TESTS=rehearse`) may reach localhost only. Run them with `scripts/live-tests.sh`
-and `scripts/live-extraction-smoke.sh`.
+(`ATLAS_LIVE_TESTS=rehearse`) may reach localhost only. Run them with `scripts/live-tests.sh`,
+`scripts/live-extraction-smoke.sh` and `scripts/live-verify.sh`.
 """
 
 from collections.abc import Generator
@@ -16,6 +17,7 @@ from tests.live.stack import OUTCOMES, live_mode
 
 PHASE2_SUITE = "test_phase2_gate_live.py"
 EXTRACTION_SMOKE = "test_extraction_smoke_live.py"
+LIVE_VERIFY = "test_live_verify.py"
 LOCAL_HOSTS = ["127.0.0.1", "localhost", "::1"]
 NOT_ENABLED = (
     "live Phase 2 suite not enabled: set ATLAS_LIVE_TESTS=1 (spends MiniMax quota) or "
@@ -28,6 +30,10 @@ OPT_IN_SUITES = {
         "live extraction smoke test not enabled: set ATLAS_LIVE_TESTS=1 (spends MiniMax "
         "quota) or ATLAS_LIVE_TESTS=rehearse (scripted fake), or use "
         "scripts/live-extraction-smoke.sh"
+    ),
+    LIVE_VERIFY: (
+        "live verification not enabled: set ATLAS_LIVE_TESTS=1 (spends MiniMax quota) or "
+        "ATLAS_LIVE_TESTS=rehearse (every part against the fakes), or use scripts/live-verify.sh"
     ),
 }
 
