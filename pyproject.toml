@@ -17,6 +17,7 @@ dependencies = [
     "python-json-logger>=2.0",
     "pyyaml>=6.0",
     "sqlalchemy>=2.0",
+    "tzdata>=2026.4",
     "uvicorn[standard]>=0.30",
 ]
 

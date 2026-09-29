@@ -360,7 +360,9 @@ def test_both_companies_fixtures_are_ingested_as_parsed_source_versions(
     for slug in COMPANIES:
         parsed = [v for v in ingested[slug] if v["parse_status"] == "parsed"]
         assert parsed, f"{slug}: no parsed Source Version"
-        assert all(v["available_at_basis"] == "sec_acceptance" for v in parsed)
+        assert all(
+            v["available_at_basis"] in {"sec_acceptance", "sec_dissemination"} for v in parsed
+        )
 
 
 def test_every_retained_section_reaches_a_final_state_through_completed_operations(

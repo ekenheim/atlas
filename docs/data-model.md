@@ -111,7 +111,7 @@ One immutable, hash-identified copy of a Source Document (build plan §5.3, §4.
 | `event_at` | timestamptz null | When the underlying development happened, if known (null for SEC filings in Phase 1) |
 | `published_at` | timestamptz null | The publisher's release time, when it gives one distinct from availability. Null for SEC: EDGAR's release time is the acceptance time, recorded as `available_at`, and the filing date is in `metadata` |
 | `available_at` | timestamptz **not null** | Earliest public availability |
-| `available_at_basis` | text **not null** | `sec_acceptance`, `publisher_timestamp`, `observed_discovery`, `observed_revision` (0011) |
+| `available_at_basis` | text **not null** | `sec_acceptance`, `sec_dissemination` (0012), `publisher_timestamp`, `observed_discovery`, `observed_revision` (0011) |
 | `fetched_at` | timestamptz not null | When these bytes were fetched |
 | `ingested_at` | timestamptz not null | When the ledger committed the row (build plan §9.1 strict-replay clock) |
 | `supersedes_version_id` | uuid null, unique, FK → source_version | The version this one replaces: the previous version of the same Source Document |
@@ -121,7 +121,7 @@ One immutable, hash-identified copy of a Source Document (build plan §5.3, §4.
 Invariants enforced in the database:
 
 - `UNIQUE (source_document_id, raw_sha256)`: the same bytes are never two versions of a document.
-- `available_at` and `available_at_basis` are `NOT NULL`, and the basis is checked against the enumeration. SEC filing documents use `sec_acceptance`; companyfacts has no acceptance time and uses `observed_discovery`. A version that supersedes an earlier one uses its fetch time, basis `observed_revision` (migration `0011`; `docs/decisions.md`).
+- `available_at` and `available_at_basis` are `NOT NULL`, and the basis is checked against the enumeration. SEC filing documents use `sec_acceptance`, or `sec_dissemination` when EDGAR held the filing to the next business day (migration `0012`; readers take availability from the `source_version_availability` view, which applies any recorded `source_version_availability_correction`); companyfacts has no acceptance time and uses `observed_discovery`. A version that supersedes an earlier one uses its fetch time, basis `observed_revision` (migration `0011`; `docs/decisions.md`).
 - A trigger rejects any `UPDATE` of the content columns (everything except the parse columns) and any `DELETE` or `TRUNCATE`. The parse columns (`content_sha256`, `parsed_object_uri`, `parser_version`, `parse_status`, `parse_error`) may be written again only while `parse_status` is `pending` or `failed`; a recorded parse is never overwritten.
 - `supersedes_version_id` is the previous version (`version_number - 1`) of the same Source Document (trigger). It is unique, so the chain never forks, and it is null exactly for version 1.
 - The parse columns are consistent: `content_sha256` and `parsed_object_uri` are set iff the status is `parsed` or `incomplete`.

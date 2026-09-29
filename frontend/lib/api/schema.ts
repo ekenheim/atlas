@@ -1356,6 +1356,13 @@ export interface components {
             /** Available At Basis */
             available_at_basis: string;
             /**
+             * Recorded Available At
+             * Format: date-time
+             */
+            recorded_available_at: string;
+            /** Recorded Available At Basis */
+            recorded_available_at_basis: string;
+            /**
              * Fetched At
              * Format: date-time
              */
@@ -1451,6 +1458,13 @@ export interface components {
             available_at: string;
             /** Available At Basis */
             available_at_basis: string;
+            /**
+             * Recorded Available At
+             * Format: date-time
+             */
+            recorded_available_at: string;
+            /** Recorded Available At Basis */
+            recorded_available_at_basis: string;
             /**
              * Fetched At
              * Format: date-time

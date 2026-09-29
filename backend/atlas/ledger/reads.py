@@ -41,8 +41,10 @@ class SourceVersionSummary(BaseModel):
     content_sha256: str | None
     parser_version: str | None
     parse_status: str
-    available_at: datetime
+    available_at: datetime  # effective: a recorded correction's, else the version's own
     available_at_basis: str
+    recorded_available_at: datetime  # as the immutable version recorded it
+    recorded_available_at_basis: str
     fetched_at: datetime
     ingested_at: datetime
     supersedes_version_id: uuid.UUID | None
@@ -109,10 +111,24 @@ _DOCUMENT = """
 """
 
 _VERSION = """
-    SELECT v.*, (SELECT n.id FROM source_version n WHERE n.supersedes_version_id = v.id)
+    SELECT v.*, a.available_at AS effective_available_at,
+           a.available_at_basis AS effective_available_at_basis,
+           (SELECT n.id FROM source_version n WHERE n.supersedes_version_id = v.id)
                AS superseded_by_version_id
     FROM source_version v
+    JOIN source_version_availability a ON a.source_version_id = v.id
 """
+
+
+def _version_fields(row: Any) -> dict[str, Any]:
+    """A version row with its effective availability (docs/decisions.md)."""
+    return {
+        **row,
+        "available_at": row["effective_available_at"],
+        "available_at_basis": row["effective_available_at_basis"],
+        "recorded_available_at": row["available_at"],
+        "recorded_available_at_basis": row["available_at_basis"],
+    }
 
 
 def list_source_documents(
@@ -156,7 +172,7 @@ def list_versions(
         ),
         {"document": document_id, "limit": limit, "offset": offset},
     ).mappings()
-    return [SourceVersionSummary.model_validate(dict(row)) for row in rows], total
+    return [SourceVersionSummary.model_validate(_version_fields(row)) for row in rows], total
 
 
 def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionDetail | None:
@@ -179,7 +195,7 @@ def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionD
     base = f"/api/v1/source-versions/{version_id}/content"
     return SourceVersionDetail.model_validate(
         {
-            **row,
+            **_version_fields(row),
             "source_document": source_document,
             "content": ContentLinks(
                 raw=f"{base}?kind=raw",

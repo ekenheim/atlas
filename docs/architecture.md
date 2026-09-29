@@ -139,7 +139,7 @@ sequenceDiagram
     L->>Au: fetch observed, no new version
   else new or changed bytes
     L->>A: put raw (content-addressed)
-    L->>L: new Source Version (available_at = acceptanceDateTime, basis sec_acceptance, supersedes previous)
+    L->>L: new Source Version (available_at = EDGAR dissemination time, basis sec_acceptance or sec_dissemination, supersedes previous)
     L->>P: parse (parser_version)
     P->>A: put parsed text (content-addressed)
     L->>Au: source version created (same transaction)
@@ -175,7 +175,7 @@ Kept distinct everywhere (build plan §4.3, §9.1; spec story 30):
 |---|---|---|
 | `event_at` | When the underlying development happened | From the document, when known |
 | `published_at` | The publisher's release time | Publisher metadata |
-| `available_at` + `available_at_basis` | Earliest time the material was publicly obtainable | SEC: `acceptanceDateTime`, basis `sec_acceptance`. Otherwise a reliable publisher timestamp (`publisher_timestamp`) or, conservatively, the observed discovery time (`observed_discovery`) |
+| `available_at` + `available_at_basis` | Earliest time the material was publicly obtainable | SEC: `acceptanceDateTime` (basis `sec_acceptance`), or the next business day's 06:00 ET opening if EDGAR held it (basis `sec_dissemination`). Otherwise a reliable publisher timestamp (`publisher_timestamp`) or, conservatively, the observed discovery time (`observed_discovery`) |
 | `first_seen_at` | When Atlas first saw the Source Document | Ledger |
 | `fetched_at` | When this copy was fetched | Ledger |
 | `ingested_at` / `analyzed_at` | When Atlas processed it | Ledger, runs |

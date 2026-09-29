@@ -266,4 +266,4 @@ def assert_source(source: dict[str, Any], section: dict[str, Any], company: dict
     assert source["section_char_start"] == section["char_start"]
     assert source["section_char_end"] == section["char_end"]
     assert source["available_at"] == version["available_at"]
-    assert source["available_at_basis"] == "sec_acceptance"
+    assert source["available_at_basis"] == version["available_at_basis"]

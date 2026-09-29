@@ -10,8 +10,11 @@ from typing import Literal, Protocol
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict
 
-# How `available_at` was determined (spec Part A, Source ledger).
-AvailabilityBasis = Literal["sec_acceptance", "publisher_timestamp", "observed_discovery"]
+# How `available_at` was determined (spec Part A, Source ledger). `sec_dissemination`: an
+# EDGAR filing accepted outside the dissemination window, public at the next opening.
+AvailabilityBasis = Literal[
+    "sec_acceptance", "sec_dissemination", "publisher_timestamp", "observed_discovery"
+]
 CandidateKind = Literal["sec_filing_document", "sec_companyfacts"]
 
 

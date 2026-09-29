@@ -257,6 +257,22 @@ def run_retry_failed(
     print(json.dumps(summary | {"since": cutoff.isoformat() if cutoff else None}))
 
 
+def run_correct_availability(settings: Settings) -> None:
+    import dataclasses
+    import json
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.ledger import correct_availability
+
+    engine = create_engine(settings)
+    try:
+        summary = correct_availability(engine, Actor.from_settings(settings))
+    finally:
+        engine.dispose()
+    print(json.dumps(dataclasses.asdict(summary)))
+
+
 def seed_companies(settings: Settings) -> None:
     import json
 
@@ -409,6 +425,12 @@ def main(argv: list[str] | None = None) -> None:
     retry.add_argument("--since", help="only versions available after this date")
     retry.add_argument("--all-history", action="store_true", help="every failed section")
     retry.add_argument("--backfill", action="store_true", help="run in the nightly window")
+    ledger = commands.add_parser("ledger", help="source ledger maintenance")
+    ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
+    ledger_commands.add_parser(
+        "correct-availability",
+        help="record availability corrections for versions an earlier rule dated too early",
+    )
     companies = commands.add_parser("companies", help="the configured company universe")
     companies_commands = companies.add_subparsers(dest="companies_command", required=True)
     companies_commands.add_parser("seed", help="create or update companies from the config")
@@ -456,6 +478,8 @@ def main(argv: list[str] | None = None) -> None:
             since=args.since,
             all_history=args.all_history,
         )
+    elif args.command == "ledger":
+        run_correct_availability(settings)
     elif args.command == "retention":
         run_retry_failed(settings, args.since, args.all_history, args.backfill)
     elif args.command == "companies":
