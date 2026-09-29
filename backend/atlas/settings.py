@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     # many to a call.
     investigator_max_passages: int = Field(default=24, gt=0)
     investigator_passages_per_call: int = Field(default=6, gt=0)
+    # The Reviewer (atlas.relationships): Assertions reviewed per call.
+    reviewer_assertions_per_call: int = Field(default=5, gt=0, le=25)
 
     # Discovery (atlas.discovery): SearXNG's base URL (optional; without it the `discover`
     # job fails), the engines every search names (comma-separated; the instance's defaults

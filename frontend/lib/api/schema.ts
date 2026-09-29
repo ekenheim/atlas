@@ -549,6 +549,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Relationships */
+        get: operations["relationships_api_v1_relationships_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/relationships/exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exceptions */
+        get: operations["exceptions_api_v1_relationships_exceptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/relationships/{relationship_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Relationship */
+        get: operations["relationship_api_v1_relationships__relationship_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/relationships/{relationship_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review */
+        post: operations["review_api_v1_relationships__relationship_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1071,6 +1139,44 @@ export interface components {
             quotes: components["schemas"]["QuoteSpan"][];
         };
         /**
+         * EvidenceAssertion
+         * @description The supporting Assertion and the span it quotes (open it in the source viewer).
+         */
+        EvidenceAssertion: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /** Page Or Anchor */
+            page_or_anchor: string | null;
+            /**
+             * Epistemic Type
+             * @enum {string}
+             */
+            epistemic_type: "direct_source_statement" | "company_claim" | "third_party_report" | "agent_inference" | "quantitative_derived";
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "unreviewed" | "corroborated" | "disputed" | "rejected" | "superseded";
+            /** Extractor Version */
+            extractor_version: string;
+            /** Created By */
+            created_by: string;
+        };
+        /**
          * EvidenceFamily
          * @description Source Versions that are copies of one announcement: one witness.
          */
@@ -1502,6 +1608,57 @@ export interface components {
              */
             last_seen_at: string;
         };
+        /** MachineReview */
+        MachineReview: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Verbatim Span */
+            verbatim_span: boolean | null;
+            /** Tier A */
+            tier_a: boolean | null;
+            /** Directional Language */
+            directional_language: ("explicit" | "hedged" | "absent") | null;
+            /** Directional Cue */
+            directional_cue: string | null;
+            /** Hedge */
+            hedge: string | null;
+            /**
+             * Reviewer Status
+             * @enum {string}
+             */
+            reviewer_status: "answered" | "skipped" | "quarantined" | "no_answer";
+            /** Reviewer Verdict */
+            reviewer_verdict: ("confirmed" | "rejected" | "uncertain") | null;
+            /** Reviewer Direction */
+            reviewer_direction: ("as_proposed" | "reversed" | "undirected" | "not_stated") | null;
+            /** Reviewer Layer */
+            reviewer_layer: ("correct" | "wrong" | "unclear") | null;
+            /** Reviewer Suggested Layer */
+            reviewer_suggested_layer: string | null;
+            /** Reviewer Reasoning */
+            reviewer_reasoning: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "machine_reviewed" | "needs_human_review" | "not_eligible";
+            /** Reasons */
+            reasons: string[];
+            /** Job Id */
+            job_id: string | null;
+            /** Run Id */
+            run_id: string | null;
+            /** Role Call Id */
+            role_call_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * MemoryDocument
          * @description One section of the Source Version, as retained (or linked) into the bank.
@@ -1694,6 +1851,19 @@ export interface components {
             /** Refreshes */
             refreshes: components["schemas"]["MentalModelRefresh"][];
         };
+        /** OwnerReview */
+        OwnerReview: {
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "approved" | "rejected";
+            /**
+             * Note
+             * @description why, for the record
+             */
+            note?: string | null;
+        };
         /**
          * PageAnchor
          * @description One PDF page's place in the parsed text: `text[start:end]`, in code points.
@@ -1767,6 +1937,17 @@ export interface components {
         Page_Lead_: {
             /** Items */
             items: components["schemas"]["Lead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[Relationship] */
+        Page_Relationship_: {
+            /** Items */
+            items: components["schemas"]["Relationship"][];
             /** Total */
             total: number;
             /** Limit */
@@ -1986,6 +2167,146 @@ export interface components {
             refresh_cron: string;
             /** Min Refresh Interval Seconds */
             min_refresh_interval_seconds: number;
+        };
+        /** Relationship */
+        Relationship: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Subject Company Id
+             * Format: uuid
+             */
+            subject_company_id: string;
+            /** Subject Name */
+            subject_name: string;
+            /** Predicate */
+            predicate: string;
+            /** Object Company Id */
+            object_company_id: string | null;
+            /** Object Name */
+            object_name: string | null;
+            /** Object Text */
+            object_text: string | null;
+            layer: components["schemas"]["Layer"];
+            /** Products */
+            products: string[];
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "machine_reviewed" | "needs_human_review" | "approved" | "rejected";
+            /** Review Reasons */
+            review_reasons: string[];
+            /** Evidence Count */
+            evidence_count: number;
+            /** Family Count */
+            family_count: number;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Review Note */
+            review_note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** RelationshipDetail */
+        RelationshipDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Subject Company Id
+             * Format: uuid
+             */
+            subject_company_id: string;
+            /** Subject Name */
+            subject_name: string;
+            /** Predicate */
+            predicate: string;
+            /** Object Company Id */
+            object_company_id: string | null;
+            /** Object Name */
+            object_name: string | null;
+            /** Object Text */
+            object_text: string | null;
+            layer: components["schemas"]["Layer"];
+            /** Products */
+            products: string[];
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "machine_reviewed" | "needs_human_review" | "approved" | "rejected";
+            /** Review Reasons */
+            review_reasons: string[];
+            /** Evidence Count */
+            evidence_count: number;
+            /** Family Count */
+            family_count: number;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Review Note */
+            review_note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Evidence */
+            evidence: components["schemas"]["RelationshipEvidence"][];
+        };
+        /** RelationshipEvidence */
+        RelationshipEvidence: {
+            assertion: components["schemas"]["EvidenceAssertion"];
+            /**
+             * Source Document Id
+             * Format: uuid
+             */
+            source_document_id: string;
+            /** Source Title */
+            source_title: string;
+            /** Publisher */
+            publisher: string;
+            /** Source Tier */
+            source_tier: string;
+            /** Evidence Family Id */
+            evidence_family_id: string | null;
+            /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
+            review: components["schemas"]["MachineReview"] | null;
+        };
+        /**
+         * RelationshipRecorded
+         * @description A mutation's result: the Relationship as it now is, and the audit event recording it.
+         */
+        RelationshipRecorded: {
+            relationship: components["schemas"]["Relationship"];
+            /** Audit Event Id */
+            audit_event_id: number;
         };
         /** ResearchAnswer */
         ResearchAnswer: {
@@ -3707,6 +4028,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    relationships_api_v1_relationships_get: {
+        parameters: {
+            query?: {
+                layer?: components["schemas"]["Layer"] | null;
+                review_state?: ("machine_reviewed" | "needs_human_review" | "approved" | "rejected") | null;
+                predicate?: string | null;
+                /** @description the company as subject or object */
+                company_id?: string | null;
+                sort?: "subject" | "predicate" | "object" | "layer" | "review_state" | "evidence_count" | "family_count" | "created_at" | "updated_at";
+                order?: "asc" | "desc";
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Relationship_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    exceptions_api_v1_relationships_exceptions_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Relationship_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    relationship_api_v1_relationships__relationship_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                relationship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    review_api_v1_relationships__relationship_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                relationship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnerReview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipRecorded"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

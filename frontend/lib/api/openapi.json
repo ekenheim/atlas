@@ -2060,6 +2060,360 @@
           }
         }
       }
+    },
+    "/api/v1/relationships": {
+      "get": {
+        "tags": [
+          "relationships"
+        ],
+        "summary": "Relationships",
+        "operationId": "relationships_api_v1_relationships_get",
+        "parameters": [
+          {
+            "name": "layer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Layer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Layer"
+            }
+          },
+          {
+            "name": "review_state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "machine_reviewed",
+                    "needs_human_review",
+                    "approved",
+                    "rejected"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Review State"
+            }
+          },
+          {
+            "name": "predicate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Predicate"
+            }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the company as subject or object",
+              "title": "Company Id"
+            },
+            "description": "the company as subject or object"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "subject",
+                "predicate",
+                "object",
+                "layer",
+                "review_state",
+                "evidence_count",
+                "family_count",
+                "created_at",
+                "updated_at"
+              ],
+              "type": "string",
+              "default": "created_at",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Relationship_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/relationships/exceptions": {
+      "get": {
+        "tags": [
+          "relationships"
+        ],
+        "summary": "Exceptions",
+        "operationId": "exceptions_api_v1_relationships_exceptions_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Relationship_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/relationships/{relationship_id}": {
+      "get": {
+        "tags": [
+          "relationships"
+        ],
+        "summary": "Relationship",
+        "operationId": "relationship_api_v1_relationships__relationship_id__get",
+        "parameters": [
+          {
+            "name": "relationship_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Relationship Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelationshipDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/relationships/{relationship_id}/review": {
+      "post": {
+        "tags": [
+          "relationships"
+        ],
+        "summary": "Review",
+        "operationId": "review_api_v1_relationships__relationship_id__review_post",
+        "parameters": [
+          {
+            "name": "relationship_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Relationship Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelationshipRecorded"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3605,6 +3959,88 @@
         "title": "Evidence",
         "description": "A Source Version section that resolved citations lead to (Evidence, not Memory)."
       },
+      "EvidenceAssertion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "type": "integer",
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "title": "Span End"
+          },
+          "page_or_anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Or Anchor"
+          },
+          "epistemic_type": {
+            "type": "string",
+            "enum": [
+              "direct_source_statement",
+              "company_claim",
+              "third_party_report",
+              "agent_inference",
+              "quantitative_derived"
+            ],
+            "title": "Epistemic Type"
+          },
+          "review_state": {
+            "type": "string",
+            "enum": [
+              "unreviewed",
+              "corroborated",
+              "disputed",
+              "rejected",
+              "superseded"
+            ],
+            "title": "Review State"
+          },
+          "extractor_version": {
+            "type": "string",
+            "title": "Extractor Version"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_version_id",
+          "quote",
+          "span_start",
+          "span_end",
+          "page_or_anchor",
+          "epistemic_type",
+          "review_state",
+          "extractor_version",
+          "created_by"
+        ],
+        "title": "EvidenceAssertion",
+        "description": "The supporting Assertion and the span it quotes (open it in the source viewer)."
+      },
       "EvidenceFamily": {
         "properties": {
           "id": {
@@ -4724,6 +5160,235 @@
         ],
         "title": "Lead"
       },
+      "MachineReview": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "verbatim_span": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbatim Span"
+          },
+          "tier_a": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier A"
+          },
+          "directional_language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "explicit",
+                  "hedged",
+                  "absent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directional Language"
+          },
+          "directional_cue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directional Cue"
+          },
+          "hedge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hedge"
+          },
+          "reviewer_status": {
+            "type": "string",
+            "enum": [
+              "answered",
+              "skipped",
+              "quarantined",
+              "no_answer"
+            ],
+            "title": "Reviewer Status"
+          },
+          "reviewer_verdict": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "confirmed",
+                  "rejected",
+                  "uncertain"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Verdict"
+          },
+          "reviewer_direction": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "as_proposed",
+                  "reversed",
+                  "undirected",
+                  "not_stated"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Direction"
+          },
+          "reviewer_layer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "correct",
+                  "wrong",
+                  "unclear"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Layer"
+          },
+          "reviewer_suggested_layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Suggested Layer"
+          },
+          "reviewer_reasoning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Reasoning"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "machine_reviewed",
+              "needs_human_review",
+              "not_eligible"
+            ],
+            "title": "Outcome"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Call Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "verbatim_span",
+          "tier_a",
+          "directional_language",
+          "directional_cue",
+          "hedge",
+          "reviewer_status",
+          "reviewer_verdict",
+          "reviewer_direction",
+          "reviewer_layer",
+          "reviewer_suggested_layer",
+          "reviewer_reasoning",
+          "outcome",
+          "reasons",
+          "job_id",
+          "run_id",
+          "role_call_id",
+          "created_at"
+        ],
+        "title": "MachineReview"
+      },
       "MemoryDocument": {
         "properties": {
           "section_anchor": {
@@ -5380,6 +6045,37 @@
         ],
         "title": "MentalModelView"
       },
+      "OwnerReview": {
+        "properties": {
+          "review_state": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "title": "Review State"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "why, for the record"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "review_state"
+        ],
+        "title": "OwnerReview"
+      },
       "PageAnchor": {
         "properties": {
           "page": {
@@ -5594,6 +6290,37 @@
           "offset"
         ],
         "title": "Page[Lead]"
+      },
+      "Page_Relationship_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Relationship]"
       },
       "Page_SourceDocument_": {
         "properties": {
@@ -6201,6 +6928,409 @@
         ],
         "title": "RefreshTrigger",
         "description": "When the model is refreshed, as the bank template defines it."
+      },
+      "Relationship": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "subject_company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Subject Company Id"
+          },
+          "subject_name": {
+            "type": "string",
+            "title": "Subject Name"
+          },
+          "predicate": {
+            "type": "string",
+            "title": "Predicate"
+          },
+          "object_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Company Id"
+          },
+          "object_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Name"
+          },
+          "object_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Text"
+          },
+          "layer": {
+            "$ref": "#/components/schemas/Layer"
+          },
+          "products": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Products"
+          },
+          "review_state": {
+            "type": "string",
+            "enum": [
+              "machine_reviewed",
+              "needs_human_review",
+              "approved",
+              "rejected"
+            ],
+            "title": "Review State"
+          },
+          "review_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Review Reasons"
+          },
+          "evidence_count": {
+            "type": "integer",
+            "title": "Evidence Count"
+          },
+          "family_count": {
+            "type": "integer",
+            "title": "Family Count"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "subject_company_id",
+          "subject_name",
+          "predicate",
+          "object_company_id",
+          "object_name",
+          "object_text",
+          "layer",
+          "products",
+          "review_state",
+          "review_reasons",
+          "evidence_count",
+          "family_count",
+          "reviewed_by",
+          "reviewed_at",
+          "review_note",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Relationship"
+      },
+      "RelationshipDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "subject_company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Subject Company Id"
+          },
+          "subject_name": {
+            "type": "string",
+            "title": "Subject Name"
+          },
+          "predicate": {
+            "type": "string",
+            "title": "Predicate"
+          },
+          "object_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Company Id"
+          },
+          "object_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Name"
+          },
+          "object_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Text"
+          },
+          "layer": {
+            "$ref": "#/components/schemas/Layer"
+          },
+          "products": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Products"
+          },
+          "review_state": {
+            "type": "string",
+            "enum": [
+              "machine_reviewed",
+              "needs_human_review",
+              "approved",
+              "rejected"
+            ],
+            "title": "Review State"
+          },
+          "review_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Review Reasons"
+          },
+          "evidence_count": {
+            "type": "integer",
+            "title": "Evidence Count"
+          },
+          "family_count": {
+            "type": "integer",
+            "title": "Family Count"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/RelationshipEvidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "subject_company_id",
+          "subject_name",
+          "predicate",
+          "object_company_id",
+          "object_name",
+          "object_text",
+          "layer",
+          "products",
+          "review_state",
+          "review_reasons",
+          "evidence_count",
+          "family_count",
+          "reviewed_by",
+          "reviewed_at",
+          "review_note",
+          "created_at",
+          "updated_at",
+          "evidence"
+        ],
+        "title": "RelationshipDetail"
+      },
+      "RelationshipEvidence": {
+        "properties": {
+          "assertion": {
+            "$ref": "#/components/schemas/EvidenceAssertion"
+          },
+          "source_document_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Document Id"
+          },
+          "source_title": {
+            "type": "string",
+            "title": "Source Title"
+          },
+          "publisher": {
+            "type": "string",
+            "title": "Publisher"
+          },
+          "source_tier": {
+            "type": "string",
+            "title": "Source Tier"
+          },
+          "evidence_family_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Family Id"
+          },
+          "added_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Added At"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MachineReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "assertion",
+          "source_document_id",
+          "source_title",
+          "publisher",
+          "source_tier",
+          "evidence_family_id",
+          "added_at",
+          "review"
+        ],
+        "title": "RelationshipEvidence"
+      },
+      "RelationshipRecorded": {
+        "properties": {
+          "relationship": {
+            "$ref": "#/components/schemas/Relationship"
+          },
+          "audit_event_id": {
+            "type": "integer",
+            "title": "Audit Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "relationship",
+          "audit_event_id"
+        ],
+        "title": "RelationshipRecorded",
+        "description": "A mutation's result: the Relationship as it now is, and the audit event recording it."
       },
       "ResearchAnswer": {
         "properties": {
