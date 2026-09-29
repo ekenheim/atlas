@@ -1,0 +1,22 @@
+{
+  "description": "Entity-resolution fixtures for SEC company_tickers_exchange.json and submissions, the GLEIF API and OpenFIGI /v3/mapping, served by tests/fakes/identity.py.",
+  "provenance": "HAND-WRITTEN, not recorded by Atlas: no SEC, GLEIF or OpenFIGI request was made from tests or while writing them. Values come from the trimmed live responses quoted in docs/research/identity-apis.md (branch research/identity-apis, 5aba8ee; live calls of 2026-09-29) and docs/research/seed-list.md (branch research/seed-list), in the shapes the providers document (SEC: https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data; GLEIF JSON:API: https://api.gleif.org/docs; OpenFIGI: https://www.openfigi.com/api/documentation).",
+  "reused_recordings": [
+    "Lumentum's and Coherent's submissions are the recorded EDGAR fixtures in tests/fixtures/edgar/{lumentum,coherent}/data.sec.gov/submissions/ (see their manifests)."
+  ],
+  "sec": {
+    "company_tickers_exchange.json": "rows quoted in the research (LITE, COHR, TSM, IFNNY, BRK-B, AYR null exchange) and the seed-list's unsponsored-ADR rows (SLOIF, IQEPF, ZHILF); GOOG/GOOGL, BRK-A and ASML rows are hand-written from their well-known CIKs, trimmed to 13 rows",
+    "submissions/CIK0001046179.json": "TSMC header keys only; stateOfIncorporation F5 is assumed (EDGAR's code for Taiwan is not verified here), forms trimmed",
+    "submissions/CIK0001445214.json": "Soitec's unsponsored-ADR CIK: only F-6EF forms (seed-list finding 3); other keys assumed"
+  },
+  "gleif": {
+    "records/": "one JSON:API lei-records item per LEI, trimmed to the attributes the resolver reads (lei, entity.legalName/otherNames/transliteratedOtherNames/jurisdiction/status/successorEntities, registration.status)",
+    "queries.json": "filter → the LEIs returned. Recorded in the research: isin=US55024U1097 (by the same LEI's /isins), isin=US8740391003, entity.legalName=COHERENT CORP., fulltext=Lumentum (three records). Assumed: the other legal-name and full-text answers (whether GLEIF's legalName filter is case-insensitive, and what full text returns for 'Soitec SA' and TSMC's SEC name, was not checked).",
+    "synthetic": [
+      "5493000SYNTHETIC0133 'Lumentum Operations LLC' (LAPSED): the research names this full-text hit but not its LEI; the LEI is made up with valid check digits"
+    ]
+  },
+  "openfigi": {
+    "mapping.json": "job → answer. Recorded in the research: TICKER LITE exchCode US (composite BBG0073F9RT7), LITE micCode XNAS (No identifier found.), LITE micCode XNGS (venue BBG0073F9SD2, UW), ID_ISIN US55024U1097 exchCode US, COHR micCode XNYS (venue BBG000BLW3R9, UN, composite BBG000BLW102), COMPOSITE_ID_BB_GLOBAL BBG000BLW102 → COHR, IIVI not found, TSM exchCode US and ID_ISIN US8740391003 (BBG000BD8ZK0, ADR, share class BBG001S5WWW4), the CIK error and the invalid-ISIN error. Assumed: LITE on XNMS/XNCM not found; COHR exchCode US as its composite row; Coherent's share-class FIGI (null here); TSM micCode XNYS (venue FIGI BBG000BD8ZL9 is made up); the BRK/B row's FIGIs; LITE's share class BBG0073F9RS8 comes from the ISIN result."
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "fields": [
+    "cik",
+    "name",
+    "ticker",
+    "exchange"
+  ],
+  "data": [
+    [
+      1633978,
+      "Lumentum Holdings Inc.",
+      "LITE",
+      "Nasdaq"
+    ],
+    [
+      820318,
+      "COHERENT CORP.",
+      "COHR",
+      "NYSE"
+    ],
+    [
+      1046179,
+      "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
+      "TSM",
+      "NYSE"
+    ],
+    [
+      1107457,
+      "INFINEON TECHNOLOGIES AG",
+      "IFNNY",
+      "OTC"
+    ],
+    [
+      1652044,
+      "Alphabet Inc.",
+      "GOOGL",
+      "Nasdaq"
+    ],
+    [
+      1652044,
+      "Alphabet Inc.",
+      "GOOG",
+      "Nasdaq"
+    ],
+    [
+      1067983,
+      "BERKSHIRE HATHAWAY INC",
+      "BRK-B",
+      "NYSE"
+    ],
+    [
+      1067983,
+      "BERKSHIRE HATHAWAY INC",
+      "BRK-A",
+      "NYSE"
+    ],
+    [
+      937966,
+      "ASML HOLDING NV",
+      "ASML",
+      "Nasdaq"
+    ],
+    [
+      1362988,
+      "Aircastle LTD",
+      "AYR",
+      null
+    ],
+    [
+      1445214,
+      "Soitec SA",
+      "SLOIF",
+      "OTC"
+    ],
+    [
+      1550405,
+      "IQE PLC/ADR",
+      "IQEPF",
+      "OTC"
+    ],
+    [
+      2150915,
+      "Zhongji Innolight Co., Ltd./ADR",
+      "ZHILF",
+      "OTC"
+    ]
+  ]
+}

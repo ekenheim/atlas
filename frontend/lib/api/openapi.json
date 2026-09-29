@@ -2060,6 +2060,315 @@
           }
         }
       }
+    },
+    "/api/v1/identity-mappings": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Mappings",
+        "operationId": "mappings_api_v1_identity_mappings_get",
+        "parameters": [
+          {
+            "name": "review_state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReviewState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Review State"
+            }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(cik|lei|listing)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_IdentityMapping_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/identity-mappings/{mapping_id}": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Mapping",
+        "operationId": "mapping_api_v1_identity_mappings__mapping_id__get",
+        "parameters": [
+          {
+            "name": "mapping_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Mapping Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityMapping"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/identity-mappings/{mapping_id}/confirm": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Confirm",
+        "operationId": "confirm_api_v1_identity_mappings__mapping_id__confirm_post",
+        "parameters": [
+          {
+            "name": "mapping_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Mapping Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingReviewed"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/identity-mappings/{mapping_id}/reject": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Reject",
+        "operationId": "reject_api_v1_identity_mappings__mapping_id__reject_post",
+        "parameters": [
+          {
+            "name": "mapping_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Mapping Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingReject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingReviewed"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3186,6 +3495,13 @@
             "type": "array",
             "title": "Securities"
           },
+          "aliases": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyAlias"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3213,10 +3529,76 @@
           "parent_company_id",
           "review_state",
           "securities",
+          "aliases",
           "created_at",
           "updated_at"
         ],
         "title": "Company"
+      },
+      "CompanyAlias": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "legal",
+              "former",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "valid_from",
+          "valid_to",
+          "source",
+          "source_url",
+          "observed_at"
+        ],
+        "title": "CompanyAlias"
       },
       "ContentLinks": {
         "properties": {
@@ -3801,6 +4183,35 @@
         "title": "EvidenceFamilyMembership",
         "description": "How a Source Version joined its Evidence Family (atlas.ledger.families)."
       },
+      "Fact": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "url",
+          "observed_at",
+          "statement"
+        ],
+        "title": "Fact",
+        "description": "One external fact the resolution used: where it came from and when it was read."
+      },
       "FetchObservation": {
         "properties": {
           "id": {
@@ -4347,6 +4758,166 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "IdentityMapping": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_slug": {
+            "type": "string",
+            "title": "Company Slug"
+          },
+          "security_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cik",
+              "lei",
+              "listing"
+            ],
+            "title": "Kind"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "the CIK, the LEI, or TICKER@MIC for a listing"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "corroborated",
+              "candidate"
+            ],
+            "title": "Tier"
+          },
+          "review_state": {
+            "$ref": "#/components/schemas/ReviewState"
+          },
+          "owner_confirmation": {
+            "type": "boolean",
+            "title": "Owner Confirmation",
+            "description": "only the owner commits it (CIK↔LEI links)"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sec",
+              "gleif",
+              "openfigi"
+            ],
+            "title": "Source"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Fact"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "company_id",
+          "company_slug",
+          "security_id",
+          "kind",
+          "value",
+          "tier",
+          "review_state",
+          "owner_confirmation",
+          "source",
+          "source_url",
+          "observed_at",
+          "reasons",
+          "details",
+          "evidence",
+          "reviewed_by",
+          "reviewed_at",
+          "review_note",
+          "created_at"
+        ],
+        "title": "IdentityMapping"
+      },
       "Job": {
         "properties": {
           "id": {
@@ -4723,6 +5294,57 @@
           "last_seen_at"
         ],
         "title": "Lead"
+      },
+      "MappingConfirm": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "MappingConfirm"
+      },
+      "MappingReject": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "MappingReject"
+      },
+      "MappingReviewed": {
+        "properties": {
+          "mapping": {
+            "$ref": "#/components/schemas/IdentityMapping"
+          },
+          "audit_event_id": {
+            "type": "integer",
+            "title": "Audit Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mapping",
+          "audit_event_id"
+        ],
+        "title": "MappingReviewed"
       },
       "MemoryDocument": {
         "properties": {
@@ -5563,6 +6185,37 @@
           "offset"
         ],
         "title": "Page[FinancialObservation]"
+      },
+      "Page_IdentityMapping_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IdentityMapping"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[IdentityMapping]"
       },
       "Page_Lead_": {
         "properties": {
@@ -6471,6 +7124,15 @@
         "type": "object",
         "title": "ResearchScope"
       },
+      "ReviewState": {
+        "type": "string",
+        "enum": [
+          "committed",
+          "pending",
+          "confirmed",
+          "rejected"
+        ]
+      },
       "RoleCallRecord": {
         "properties": {
           "id": {
@@ -6638,7 +7300,20 @@
           },
           "exchange_mic": {
             "type": "string",
-            "title": "Exchange Mic"
+            "title": "Exchange Mic",
+            "description": "ISO 10383 operating MIC"
+          },
+          "segment_mic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Mic",
+            "description": "the segment MIC OpenFIGI matched, e.g. XNGS"
           },
           "instrument_type": {
             "type": "string",
@@ -6668,7 +7343,47 @@
                 "type": "null"
               }
             ],
-            "title": "Figi"
+            "title": "Figi",
+            "description": "composite (country-level) FIGI"
+          },
+          "share_class_figi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Class Figi"
+          },
+          "underlying_security_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Underlying Security Id",
+            "description": "an ADR's underlying line"
+          },
+          "adr_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adr Ratio"
+          },
+          "review_state": {
+            "type": "string",
+            "title": "Review State"
           },
           "valid_from": {
             "type": "string",
@@ -6693,10 +7408,15 @@
           "id",
           "ticker",
           "exchange_mic",
+          "segment_mic",
           "instrument_type",
           "currency",
           "isin",
           "figi",
+          "share_class_figi",
+          "underlying_security_id",
+          "adr_ratio",
+          "review_state",
           "valid_from",
           "valid_to"
         ],
@@ -6720,6 +7440,15 @@
           "reason"
         ],
         "title": "SkippedVersion"
+      },
+      "Source": {
+        "type": "string",
+        "enum": [
+          "sec",
+          "gleif",
+          "openfigi",
+          "atlas"
+        ]
       },
       "SourceDocument": {
         "properties": {

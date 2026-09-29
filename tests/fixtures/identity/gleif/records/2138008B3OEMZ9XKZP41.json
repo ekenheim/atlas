@@ -1,0 +1,25 @@
+{
+  "type": "lei-records",
+  "id": "2138008B3OEMZ9XKZP41",
+  "attributes": {
+    "lei": "2138008B3OEMZ9XKZP41",
+    "entity": {
+      "legalName": {
+        "name": "LUMENTUM TECHNOLOGY UK LIMITED",
+        "language": "en"
+      },
+      "otherNames": [],
+      "transliteratedOtherNames": [],
+      "legalAddress": {
+        "city": "",
+        "country": "GB"
+      },
+      "jurisdiction": "GB",
+      "status": "ACTIVE",
+      "successorEntities": []
+    },
+    "registration": {
+      "status": "ISSUED"
+    }
+  }
+}

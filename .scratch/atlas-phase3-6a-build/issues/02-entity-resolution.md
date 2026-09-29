@@ -6,10 +6,10 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 01 (Photonics universe)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Transport-injectable clients for SEC `company_tickers*.json`, GLEIF (never `fuzzycompletions`) and OpenFIGI (keyless, jobs of 10, segment MICs such as `XNGS`), each with its rate limit and recorded fixtures
-- [ ] Migration extends `security` and adds alias and identity-mapping tables with provenance (source, observed_at) and review state; uniqueness per (MIC, ticker, validity)
-- [ ] Unit tests of the tiers from recorded fixtures, including the XNGS/XNAS, lapsed-LEI and ADR cases
-- [ ] API lists pending mappings and lets the owner confirm or reject one (audited); CIK↔LEI is never auto-committed
-- [ ] An `atlas companies resolve` (or equivalent) command resolves the universe; no live calls in CI
+- [x] Transport-injectable clients for SEC `company_tickers*.json`, GLEIF (never `fuzzycompletions`) and OpenFIGI (keyless, jobs of 10, segment MICs such as `XNGS`), each with its rate limit and recorded fixtures
+- [x] Migration extends `security` and adds alias and identity-mapping tables with provenance (source, observed_at) and review state; uniqueness per (MIC, ticker, validity)
+- [x] Unit tests of the tiers from recorded fixtures, including the XNGS/XNAS, lapsed-LEI and ADR cases
+- [x] API lists pending mappings and lets the owner confirm or reject one (audited); CIK↔LEI is never auto-committed
+- [x] An `atlas companies resolve` (or equivalent) command resolves the universe; no live calls in CI
