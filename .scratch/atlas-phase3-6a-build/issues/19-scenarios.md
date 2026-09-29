@@ -6,9 +6,9 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 16 (Hypotheses); 18 (XBRL normalization)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Pure scenario function with hashed outputs; unit tests of the math
-- [ ] Analyst role fills the investigation's Analyst slot
-- [ ] `hypotheses/{id}/scenarios` API
-- [ ] Gate tests: byte-identical recompute; no source-free financial figure passes validation
+- [x] Pure scenario function with hashed outputs; unit tests of the math
+- [x] Analyst role fills the investigation's Analyst slot
+- [x] `hypotheses/{id}/scenarios` API
+- [x] Gate tests: byte-identical recompute; no source-free financial figure passes validation

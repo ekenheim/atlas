@@ -308,6 +308,7 @@ def investigate(
     llm.script_chat(
         ChatReply.json({"queries": queries}, tokens=(900, 120)),
         ChatReply.answer(quoting(*claims), tokens=(9000, 700)),
+        ChatReply.json({"scenarios": []}, tokens=(1500, 200)),  # the Financial Analyst
         ChatReply.answer(card_editor, tokens=(3000, 400)),
         ChatReply.answer(reviewing, tokens=(800, 100)),
     )
@@ -472,7 +473,14 @@ def test_an_investigation_is_saved_as_a_reviewable_hypothesis_with_a_source_trai
     ]
     assert len(version["content_sha256"]) == 64
     # The Editor was sent the research card, the accepted Claims and their quotes as data.
-    assert roles(llm) == ["scout", "investigator", "editor", "reviewer", "editor"]
+    assert roles(llm) == [
+        "scout",
+        "investigator",
+        "financial_analyst",
+        "editor",
+        "reviewer",
+        "editor",
+    ]
     body = llm.chat_requests()[-1]
     sent = asked(body)
     assert sent["request"]["research_question"] == QUESTION

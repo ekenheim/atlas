@@ -605,6 +605,29 @@ A Hypothesis (`atlas.hypotheses`, spec §5.6) is an investigation's result saved
 
 Audit events: `hypothesis.created`, `hypothesis.transitioned` (by the actor); `hypothesis.drafted`, `hypothesis.version_drafted`, `hypothesis.draft_failed` (by `atlas-editor`); `hypothesis.version_created`, `hypothesis.corrected` (a new version from a published one), `hypothesis.version_published` (its content hash).
 
+### 3.1h Scenarios (Phases 3–6a, migration 0031)
+
+A scenario (`atlas.scenarios`, spec §5.7 "scenario", §8.2) is a deterministic low/base/high exposure computation attached to a Hypothesis version. `POST /api/v1/hypotheses/{id}/scenarios` makes one; the Financial Analyst's proposed assumption tables live in its investigation task's `artifacts.scenario_proposals` until then.
+
+`scenario`: **insert-only** (triggers `ENABLE ALWAYS`); a new table is a new row.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `hypothesis_id` | uuid FK → `hypothesis` | |
+| `hypothesis_version_id` | uuid FK → `hypothesis_version` | The version it is attached to |
+| `company_id` | uuid FK → `company` | The company whose exposure it sizes |
+| `as_of` | timestamptz | The cutoff its sources were checked at (default the investigation's `as_of`) |
+| `model_version` | text | The scenario code's version (`scenario-v1`) |
+| `assumptions` | jsonb | The canonical assumption table: company, product, currency, and every input (`sourced` with its XBRL observation or Assertion, `estimated` with its basis, or `missing` with its reason), numbers as decimal strings |
+| `assumptions_sha256` | text | SHA-256 of the table's canonical JSON |
+| `outputs` | text | The outputs' **canonical JSON bytes** (every line per case, blocked lines with their missing inputs, the ±20% sensitivity); text, not jsonb, so the stored bytes are the hashed bytes |
+| `outputs_sha256` | text | SHA-256 of `outputs` |
+| `origin` | text | `financial_analyst` (with `investigation_task_id` and `role_call_id`) or `researcher` |
+| `note`, `created_by`, `created_at` | | |
+
+Audit events: `scenario.created` (the version, both hashes, the origin).
+
 ### 3.1b `bank_template_application`
 
 One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.

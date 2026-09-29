@@ -5,7 +5,8 @@ and resume (spec Phase 4, "Research workflow"; §7.3, §7.4).
 
     scout -> investigator:<company> (one per seed company) -> skeptic || financial_analyst -> editor
 
-The Skeptic and Financial Analyst are slots, skipped until their tickets build them. Each
+The Skeptic is a slot, skipped until its ticket builds it; the Financial Analyst proposes
+scenario inputs (atlas.scenarios.analyst). Each
 task depends on premises: every task on the question itself (`question`), and each
 Investigator task also on its company belonging in the question (`company:<slug>`).
 
@@ -122,13 +123,7 @@ def plan(seeds: Sequence[_Seed]) -> list[_PlannedTask]:
             [QUESTION_PREMISE],
             skipped="not built yet: the Skeptic's independent counterevidence search joins later",
         ),
-        _PlannedTask(
-            "financial_analyst",
-            "financial_analyst",
-            investigators,
-            [QUESTION_PREMISE],
-            skipped="not built yet: the Financial Analyst's scenario inputs join later",
-        ),
+        _PlannedTask("financial_analyst", "financial_analyst", investigators, [QUESTION_PREMISE]),
         _PlannedTask(
             "editor",
             "editor",

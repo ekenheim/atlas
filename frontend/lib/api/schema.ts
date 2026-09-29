@@ -1009,6 +1009,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hypotheses/{hypothesis_id}/scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_hypotheses__hypothesis_id__scenarios_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_hypotheses__hypothesis_id__scenarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/scenarios/{scenario_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scenario */
+        get: operations["scenario_api_v1_hypotheses__hypothesis_id__scenarios__scenario_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1173,6 +1208,39 @@ export interface components {
              * @description the successor; required exactly when superseding
              */
             superseded_by?: string | null;
+        };
+        /** AssertionSource */
+        AssertionSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "assertion";
+            /**
+             * Assertion Id
+             * Format: uuid
+             */
+            assertion_id: string;
+        };
+        /**
+         * AssumptionTable
+         * @description One company's exposure through one product, in one currency. An input left out is
+         *     missing.
+         */
+        AssumptionTable: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Product */
+            product: string;
+            /** Currency */
+            currency: string;
+            /** Inputs */
+            inputs?: {
+                [key: string]: components["schemas"]["SourcedInput"] | components["schemas"]["EstimatedInput"] | components["schemas"]["MissingInput"];
+            };
         };
         /** BackfillWindowStatus */
         BackfillWindowStatus: {
@@ -1786,6 +1854,22 @@ export interface components {
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorDetail"];
+        };
+        /** EstimatedInput */
+        EstimatedInput: {
+            /** Low */
+            low: number | string;
+            /** Base */
+            base: number | string;
+            /** High */
+            high: number | string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "estimated";
+            /** Basis */
+            basis: string;
         };
         /**
          * Evidence
@@ -2976,6 +3060,13 @@ export interface components {
              */
             last_seen_at: string;
         };
+        /** LineResult */
+        LineResult: {
+            /** Value */
+            value: string | null;
+            /** Missing */
+            missing: ("addressable_units" | "company_share" | "downstream_unit_price" | "bom_share" | "operating_margin" | "ev_multiple" | "reported_revenue" | "total_debt" | "cash" | "diluted_shares")[];
+        };
         /** Listing */
         Listing: {
             /** Ticker */
@@ -3293,6 +3384,16 @@ export interface components {
             country?: string | null;
             /** As Of */
             as_of?: string | null;
+        };
+        /** MissingInput */
+        MissingInput: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "missing";
+            /** Reason */
+            reason?: string | null;
         };
         /** OwnerReview */
         OwnerReview: {
@@ -4040,6 +4141,54 @@ export interface components {
             /** Matched By */
             matched_by?: string | null;
         };
+        /**
+         * ResolvedAssertion
+         * @description An Assertion span a scenario input cites.
+         */
+        ResolvedAssertion: {
+            /**
+             * Type
+             * @default assertion
+             * @constant
+             */
+            type: "assertion";
+            /**
+             * Assertion Id
+             * Format: uuid
+             */
+            assertion_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /** Verification Status */
+            verification_status: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+        };
+        /**
+         * ResolvedObservation
+         * @description An XBRL observation a scenario input cites, with its full source.
+         */
+        ResolvedObservation: {
+            /**
+             * Type
+             * @default xbrl_observation
+             * @constant
+             */
+            type: "xbrl_observation";
+            observation: components["schemas"]["FinancialObservation"];
+        };
         /** ResumeRequest */
         ResumeRequest: {
             /**
@@ -4161,6 +4310,151 @@ export interface components {
             /** Role Calls */
             role_calls: components["schemas"]["RoleCallRecord"][];
         };
+        /** Scenario */
+        Scenario: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Hypothesis Id
+             * Format: uuid
+             */
+            hypothesis_id: string;
+            /** Hypothesis Version */
+            hypothesis_version: number;
+            /**
+             * Hypothesis Version Id
+             * Format: uuid
+             */
+            hypothesis_version_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Product */
+            product: string;
+            /** Currency */
+            currency: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Model Version */
+            model_version: string;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "financial_analyst" | "researcher";
+            /** Investigation Task Id */
+            investigation_task_id: string | null;
+            /** Role Call Id */
+            role_call_id: string | null;
+            /** Note */
+            note: string | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Inputs */
+            inputs: components["schemas"]["ScenarioInputView"][];
+            /** Assumptions */
+            assumptions: {
+                [key: string]: unknown;
+            };
+            /** Assumptions Sha256 */
+            assumptions_sha256: string;
+            outputs: components["schemas"]["ScenarioOutputs"];
+            /** Outputs Json */
+            outputs_json: string;
+            /** Outputs Sha256 */
+            outputs_sha256: string;
+            /** Recomputed Outputs Sha256 */
+            recomputed_outputs_sha256: string;
+            /** Recomputes Identically */
+            recomputes_identically: boolean;
+        };
+        /** ScenarioCreate */
+        ScenarioCreate: {
+            /**
+             * Version
+             * @description the Hypothesis version the scenarios attach to
+             */
+            version: number;
+            /**
+             * As Of
+             * @description the cutoff for the sources; default the investigation's
+             */
+            as_of?: string | null;
+            /** Note */
+            note?: string | null;
+            /** @description the researcher's assumption table; omitted: the Financial Analyst's */
+            assumptions?: components["schemas"]["AssumptionTable"] | null;
+        };
+        /**
+         * ScenarioInputView
+         * @description One input as the scenario used it, with its provenance.
+         */
+        ScenarioInputView: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "addressable_units" | "company_share" | "downstream_unit_price" | "bom_share" | "operating_margin" | "ev_multiple" | "reported_revenue" | "total_debt" | "cash" | "diluted_shares";
+            /**
+             * Measure
+             * @enum {string}
+             */
+            measure: "count" | "fraction" | "margin" | "money" | "multiple" | "shares";
+            /** Meaning */
+            meaning: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "sourced" | "estimated" | "missing";
+            /** Low */
+            low: string | null;
+            /** Base */
+            base: string | null;
+            /** High */
+            high: string | null;
+            /** Basis */
+            basis: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Source */
+            source: components["schemas"]["ResolvedObservation"] | components["schemas"]["ResolvedAssertion"] | null;
+        };
+        /** ScenarioList */
+        ScenarioList: {
+            /** Items */
+            items: components["schemas"]["Scenario"][];
+        };
+        /** ScenarioOutputs */
+        ScenarioOutputs: {
+            /** Model Version */
+            model_version: string;
+            /** Assumptions Sha256 */
+            assumptions_sha256: string;
+            /** Currency */
+            currency: string;
+            /** Cases */
+            cases: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["LineResult"];
+                };
+            };
+            /** Sensitivity */
+            sensitivity: components["schemas"]["SensitivityRow"][];
+        };
         /** Security */
         Security: {
             /**
@@ -4209,6 +4503,27 @@ export interface components {
             valid_from: string;
             /** Valid To */
             valid_to: string | null;
+        };
+        /** SensitivityRow */
+        SensitivityRow: {
+            /**
+             * Input
+             * @enum {string}
+             */
+            input: "addressable_units" | "company_share" | "downstream_unit_price" | "bom_share" | "operating_margin" | "ev_multiple" | "reported_revenue" | "total_debt" | "cash" | "diluted_shares";
+            /**
+             * Change
+             * @enum {string}
+             */
+            change: "-20%" | "+20%";
+            /** Input Value */
+            input_value: string;
+            /** Capped */
+            capped: boolean;
+            /** Lines */
+            lines: {
+                [key: string]: string | null;
+            };
         };
         /** SkippedVersion */
         SkippedVersion: {
@@ -4459,6 +4774,22 @@ export interface components {
             /** Evidence Family Id */
             evidence_family_id: string | null;
         };
+        /** SourcedInput */
+        SourcedInput: {
+            /** Low */
+            low: number | string;
+            /** Base */
+            base: number | string;
+            /** High */
+            high: number | string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "sourced";
+            /** Source */
+            source: components["schemas"]["XbrlSource"] | components["schemas"]["AssertionSource"];
+        };
         /** @enum {string} */
         TagMatch: "any_strict" | "all_strict";
         /**
@@ -4641,6 +4972,19 @@ export interface components {
             draft_run_id: string | null;
             /** Editor Role Call Id */
             editor_role_call_id: string | null;
+        };
+        /** XbrlSource */
+        XbrlSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "xbrl_observation";
+            /**
+             * Observation Id
+             * Format: uuid
+             */
+            observation_id: string;
         };
         /** Citation */
         atlas__hypotheses__export__Citation: {
@@ -7278,6 +7622,142 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HypothesisExport"];
                     "text/markdown": string;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listing_api_v1_hypotheses__hypothesis_id__scenarios_get: {
+        parameters: {
+            query?: {
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_hypotheses__hypothesis_id__scenarios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    scenario_api_v1_hypotheses__hypothesis_id__scenarios__scenario_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Scenario"];
                 };
             };
             /** @description Not Found */
