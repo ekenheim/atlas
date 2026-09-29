@@ -1953,3 +1953,5 @@ The chain is now 0012 → 0013 → … → 0023.
   - The saved Hypothesis is shown by ID only (the Hypothesis page is ticket 24).
   - The e2e harness imports `tests.fakes` and `tests.harness`.
 - **Next:** link the saved Hypothesis to ticket 24's page. Show ticket 19's scenario summary on the workbench if its artifacts need more than the generic output. Let the follow-up's Skeptic target the round's new Claims only.
+
+Migration renumbering at the wave-5 merge (none deployed): 0037 → 0033 (evaluations), 0036 → 0034 (investigation follow-up); chain 0032 → 0033 → 0034.

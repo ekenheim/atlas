@@ -5,14 +5,14 @@
   and when, and the research card as it stood when the round began, so the round's own card
   never hides what the earlier one said. **Insert-only.**
 
-Revision ID: 0036
-Revises: 0037 (re-chained at merge)
+Revision ID: 0034
+Revises: 0033 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0036"
-down_revision = "0037"
+revision = "0034"
+down_revision = "0033"
 branch_labels = None
 depends_on = None
 
