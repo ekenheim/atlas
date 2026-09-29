@@ -98,6 +98,14 @@ class Settings(BaseSettings):
     retain_poll_timeout_seconds: float = Field(default=240.0, gt=0)
     retain_poll_interval_seconds: float = Field(default=5.0, gt=0)
     retain_poll_attempts: int = Field(default=5, ge=1)
+    # Retention triage (atlas.retention.triage): `on` reads each new Source Version section
+    # by section (deterministic rules, then the Triage role through LiteLLM) and retains only
+    # the sections worth retaining; `off` retains every section; `auto` (the default) is `on`
+    # when LiteLLM is configured. The role sees each section's first triage_excerpt_chars
+    # characters, triage_sections_per_call sections to a call.
+    retention_triage: Literal["auto", "on", "off"] = "auto"
+    triage_excerpt_chars: int = Field(default=1500, ge=200, le=20_000)
+    triage_sections_per_call: int = Field(default=15, ge=1, le=50)
     # Mental models: the worker enqueues each template model's daily refresh from this UTC
     # time of day on (HH:MM; empty: never scheduled). The template's own refresh_cron runs
     # at 06:00 UTC, so by default Atlas's job finds and records its refresh. A refresh job
@@ -221,6 +229,12 @@ class Settings(BaseSettings):
     def llm_aliases(self) -> list[str]:
         """The LiteLLM aliases whose routed deployments each run records."""
         return list(dict.fromkeys([self.llm_extract_alias, self.llm_reflect_alias]))
+
+    def triage_enabled(self) -> bool:
+        """Whether retention triage runs (ATLAS_RETENTION_TRIAGE; `auto`: with LiteLLM)."""
+        if self.retention_triage == "auto":
+            return bool(self.litellm_url and self.litellm_api_key)
+        return self.retention_triage == "on"
 
     def searxng_engine_list(self) -> list[str]:
         return [engine.strip() for engine in self.searxng_engines.split(",") if engine.strip()]

@@ -186,3 +186,29 @@ def test_the_exchange_user_agent_is_generic_and_never_carries_personal_data(
     assert settings.exchange_user_agent == "AtlasResearch"
     with pytest.raises(ValidationError, match="personal data"):
         Settings.model_validate({**base, "exchange_user_agent": "Atlas me@example.com"})
+
+
+@pytest.mark.parametrize(
+    ("value", "litellm", "enabled"),
+    [
+        (None, True, True),  # on by default when LiteLLM is configured
+        (None, False, False),
+        ("on", False, True),
+        ("off", True, False),
+    ],
+)
+def test_retention_triage_is_on_by_default_only_with_litellm(
+    tmp_path: Path, value: str | None, litellm: bool, enabled: bool
+) -> None:
+    values: dict[str, object] = dict(_base(tmp_path))
+    if litellm:
+        values |= {"litellm_url": "https://litellm.example", "litellm_api_key": "sk-test"}
+    if value is not None:
+        values["retention_triage"] = value
+
+    assert Settings.model_validate(values).triage_enabled() is enabled
+
+
+def test_an_unknown_retention_triage_mode_is_rejected_at_startup(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError, match="retention_triage"):
+        Settings.model_validate(_base(tmp_path) | {"retention_triage": "sometimes"})

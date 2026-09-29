@@ -29,7 +29,13 @@ from tests.harness import QUOTA_ERROR, Atlas, Clock, Metrics, at, scrape_metrics
 
 FIVE_HOURS = timedelta(hours=5)
 CODEX_KINDS = ["reflect", "refresh_mental_model", "reprocess", "retain"]
-MINIMAX_KINDS = ["discover", "extract_claims", "investigation_task", "review_relationships"]
+MINIMAX_KINDS = [
+    "discover",
+    "extract_claims",
+    "investigation_task",
+    "review_relationships",
+    "triage",
+]
 LUMENTUM = "https://www.sec.gov/Archives/edgar/data/1633978"
 LUMENTUM_DOCUMENTS = {
     f"{LUMENTUM}/000162828026055726/lite-20260811.htm",  # 8-K, filed 2026-08-11

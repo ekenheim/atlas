@@ -53,6 +53,7 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "extract_claims": "minimax",
     "review_relationships": "minimax",
     "investigation_task": "minimax",
+    "triage": "minimax",
 }
 # Watches an operation already submitted and counted; holding it would only delay the result.
 BUDGET_EXEMPT_KINDS = frozenset({"poll_operation"})

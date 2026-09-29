@@ -147,6 +147,9 @@ class Atlas:
             "hindsight_bank_id": BANK,
             "retain_poll_timeout_seconds": 0.3,
             "retain_poll_interval_seconds": 0.01,
+            # Every section is retained unless a test turns retention triage on
+            # (`retention_triage="on"`), so modules with LiteLLM configured retain as before.
+            "retention_triage": "off",
         }
         return make_settings(self.archive, **(values | providers | self.overrides))
 

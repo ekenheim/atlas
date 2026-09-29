@@ -1460,6 +1460,253 @@
         }
       }
     },
+    "/api/v1/triage": {
+      "get": {
+        "tags": [
+          "triage"
+        ],
+        "summary": "Triage Decisions",
+        "operationId": "triage_decisions_api_v1_triage_get",
+        "parameters": [
+          {
+            "name": "source_version_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Version Id"
+            }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "decision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "retain",
+                    "skip"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decision"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "rule",
+                    "inherited",
+                    "role",
+                    "default",
+                    "on_demand"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Method"
+            }
+          },
+          {
+            "name": "effective",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "only each section's latest decision",
+              "default": false,
+              "title": "Effective"
+            },
+            "description": "only each section's latest decision"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_TriageDecision_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/source-versions/{version_id}/sections/{anchor}/retain": {
+      "post": {
+        "tags": [
+          "triage"
+        ],
+        "summary": "Retain Section",
+        "operationId": "retain_section_api_v1_source_versions__version_id__sections__anchor__retain_post",
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Version Id"
+            }
+          },
+          {
+            "name": "anchor",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Anchor"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetainOnDemand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetainRequested"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/api/v1/memory/recall": {
       "post": {
         "tags": [
@@ -11563,6 +11810,37 @@
         ],
         "title": "Page[SourceVersionSummary]"
       },
+      "Page_TriageDecision_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TriageDecision"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[TriageDecision]"
+      },
       "Passage": {
         "properties": {
           "id": {
@@ -13253,6 +13531,54 @@
         ],
         "title": "ResumeRequest"
       },
+      "RetainOnDemand": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "RetainOnDemand",
+        "description": "Why a section should be retained now, and (optionally) the investigation asking."
+      },
+      "RetainRequested": {
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/TriageDecision"
+          },
+          "retain_job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Retain Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision",
+          "retain_job_id"
+        ],
+        "title": "RetainRequested",
+        "description": "The on-demand decision recorded and the retain job that carries it out."
+      },
       "ReviewState": {
         "type": "string",
         "enum": [
@@ -14807,6 +15133,180 @@
           "to"
         ],
         "title": "TransitionRequest"
+      },
+      "TriageDecision": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "section_anchor": {
+            "type": "string",
+            "title": "Section Anchor"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "sectioner_version": {
+            "type": "string",
+            "title": "Sectioner Version"
+          },
+          "content_sha256": {
+            "type": "string",
+            "title": "Content Sha256"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "retain",
+              "skip"
+            ],
+            "title": "Decision"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "rule",
+              "inherited",
+              "role",
+              "default",
+              "on_demand"
+            ],
+            "title": "Method"
+          },
+          "rubric_version": {
+            "type": "string",
+            "title": "Rubric Version"
+          },
+          "rules_version": {
+            "type": "string",
+            "title": "Rules Version"
+          },
+          "role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Call Id"
+          },
+          "inherited_from_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inherited From Id"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Decided At"
+          },
+          "effective": {
+            "type": "boolean",
+            "title": "Effective"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_version_id",
+          "company_id",
+          "section_anchor",
+          "section_heading",
+          "char_start",
+          "char_end",
+          "sectioner_version",
+          "content_sha256",
+          "decision",
+          "category",
+          "reason",
+          "method",
+          "rubric_version",
+          "rules_version",
+          "role_call_id",
+          "inherited_from_id",
+          "requested_by",
+          "investigation_id",
+          "decided_at",
+          "effective"
+        ],
+        "title": "TriageDecision",
+        "description": "One decision about one section of a Source Version."
       },
       "UnresolvedReason": {
         "type": "string",

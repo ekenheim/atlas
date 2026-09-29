@@ -10,6 +10,10 @@ Three jobs carry a Source Version into the research bank:
    parse into sections (`atlas.retention.sections`), records each as a `pending` memory
    document with the ID `srcv:<source_version_uuid>:<section-anchor>`, and submits them as
    **one** batch. The operation is recorded and a `poll_operation` job follows it.
+   With retention triage on (`atlas.retention.triage`), a version whose sections aren't all
+   decided yet is handed to a `triage` job first, and only the sections decided `retain`
+   are recorded and submitted; a section retained on demand later is recorded and
+   submitted by the next retain (triage on or off). With triage off, every section is.
 2. `poll_operation` (`{"operation_id"}`) waits for the operation's `status` (the only basis
    for an outcome) with a timeout. A timeout fails the attempt, so it is retried. A failed
    operation's error is classified (`error_class`): a `permanent` one marks its sections
@@ -53,10 +57,12 @@ from atlas.hindsight import (
 )
 from atlas.jobs.pacing import FailureClass, JobClass, TransientFailure, classify_error_text
 from atlas.jobs.queue import Artifacts, JobQueue
+from atlas.retention.decisions import effective_decisions
 from atlas.retention.sections import SECTIONER_VERSION, Section, split_sections
 from atlas.sources import keep_8k_document
 
 RETAIN_KIND = "retain"
+TRIAGE_KIND = "triage"
 POLL_KIND = "poll_operation"
 REPROCESS_KIND = "reprocess"
 
@@ -247,7 +253,9 @@ def retain_payload(source_version_id: uuid.UUID) -> dict[str, JsonValue]:
 
 
 @dataclass(frozen=True)
-class _Version:
+class SourceVersionInfo:
+    """What retention (and triage) read about a Source Version."""
+
     id: uuid.UUID
     raw_sha256: str
     parse_status: str
@@ -263,6 +271,48 @@ class _Version:
     company_slug: str | None
 
 
+def load_version(engine: Engine, source_version_id: uuid.UUID) -> SourceVersionInfo:
+    """The version's retention facts; LookupError if it doesn't exist."""
+    with engine.connect() as connection:
+        row = (
+            connection.execute(
+                text(
+                    "SELECT v.id, v.raw_sha256, v.parse_status, v.parsed_object_uri,"
+                    " v.language, a.available_at, d.provider, d.source_type, d.form_type,"
+                    " d.document_type, d.title, d.company_id, c.slug AS company_slug"
+                    " FROM source_version v"
+                    " JOIN source_version_availability a ON a.source_version_id = v.id"
+                    " JOIN source_document d ON d.id = v.source_document_id"
+                    " LEFT JOIN company c ON c.id = d.company_id WHERE v.id = :id"
+                ),
+                {"id": source_version_id},
+            )
+            .mappings()
+            .one_or_none()
+        )
+    if row is None:
+        raise LookupError(f"source version {source_version_id} does not exist")
+    return SourceVersionInfo(**row)
+
+
+def version_sections(version: SourceVersionInfo, parsed_text: str) -> list[Section]:
+    """The version's sections under the current sectioner."""
+    return split_sections(
+        parsed_text,
+        form=version.form_type,
+        primary=version.document_type is not None and version.document_type == version.form_type,
+    )
+
+
+def is_retainable(version: SourceVersionInfo) -> bool:
+    """A parse in a retainable language (English in the pilot)."""
+    return (
+        version.parse_status in RETAINABLE_PARSES
+        and version.parsed_object_uri is not None
+        and version.language in RETAINABLE_LANGUAGES
+    )
+
+
 class Retention:
     def __init__(
         self,
@@ -272,6 +322,8 @@ class Retention:
         actor: Actor,
         universe: Universe,
         timings: RetainTimings,
+        *,
+        triage: bool = False,
     ) -> None:
         self._engine = engine
         self._archive = archive
@@ -279,6 +331,7 @@ class Retention:
         self._actor = actor
         self._universe = universe
         self._timings = timings
+        self._triage = triage
         self._queue = JobQueue(engine, actor=actor)
 
     @property
@@ -287,8 +340,22 @@ class Retention:
 
     # --- retain --------------------------------------------------------------------------------
 
-    def retain(self, source_version_id: uuid.UUID, job_id: uuid.UUID | None) -> Artifacts:
-        version = self._version(source_version_id)
+    def retain(
+        self,
+        source_version_id: uuid.UUID,
+        job_id: uuid.UUID | None,
+        job_class: JobClass = "interactive",
+    ) -> Artifacts:
+        """Retain the version's sections (see the module).
+
+        With triage on, a version with no memory documents whose sections aren't all decided
+        yet gets a `triage` job instead (in this job's class), which enqueues the retain of
+        its `retain` sections once it has decided; only those are recorded and submitted.
+        Sections decided `retain` later (on demand) are recorded and submitted by the next
+        retain, whether or not triage is on. With triage off, a version with no memory
+        documents has every section recorded, as before triage existed.
+        """
+        version = load_version(self._engine, source_version_id)
         base: Artifacts = {"source_version_id": str(version.id), "bank_id": self.bank_id}
         if version.parse_status not in RETAINABLE_PARSES or version.parsed_object_uri is None:
             return base | {"outcome": "not_retainable", "parse_status": version.parse_status}
@@ -311,10 +378,28 @@ class Retention:
                         "documents": [*self._link(connection, version, target)],
                     }
                     return base | linked
+            decisions = effective_decisions(connection, version.id)
+            if not existing and not self._triage:
                 existing = self._record_sections(connection, version)
                 outcome = "submitted"
+            elif not existing and self._undecided(version, decisions):
+                triage_job = self._queue.enqueue_within(
+                    connection,
+                    TRIAGE_KIND,
+                    f"triage:{version.id}",
+                    retain_payload(version.id),
+                    job_class=job_class,
+                ).job.id
+                return base | {"outcome": "awaiting_triage", "triage_job": str(triage_job)}
             else:
-                outcome = "already_retained"
+                recorded = self._record_decided(connection, version, existing, decisions)
+                if recorded:
+                    outcome = "submitted"
+                elif existing:
+                    outcome = "already_retained"
+                else:
+                    return base | {"outcome": "nothing_to_retain", "documents": []}
+                existing = [*existing, *recorded]
 
         unsubmitted = [row for row in existing if row["operation_id"] is None and _retainable(row)]
         if unsubmitted:
@@ -332,27 +417,46 @@ class Retention:
         }
         return base | result
 
-    def _version(self, source_version_id: uuid.UUID) -> _Version:
-        with self._engine.connect() as connection:
-            row = (
-                connection.execute(
-                    text(
-                        "SELECT v.id, v.raw_sha256, v.parse_status, v.parsed_object_uri,"
-                        " v.language, a.available_at, d.provider, d.source_type, d.form_type,"
-                        " d.document_type, d.title, d.company_id, c.slug AS company_slug"
-                        " FROM source_version v"
-                        " JOIN source_version_availability a ON a.source_version_id = v.id"
-                        " JOIN source_document d ON d.id = v.source_document_id"
-                        " LEFT JOIN company c ON c.id = d.company_id WHERE v.id = :id"
-                    ),
-                    {"id": source_version_id},
-                )
-                .mappings()
-                .one_or_none()
+    def _undecided(self, version: SourceVersionInfo, decisions: dict[str, RowMapping]) -> bool:
+        sections = version_sections(version, self._parsed_text(version))
+        return any(section.anchor not in decisions for section in sections)
+
+    def _record_decided(
+        self,
+        connection: Connection,
+        version: SourceVersionInfo,
+        existing: Sequence[RowMapping],
+        decisions: dict[str, RowMapping],
+    ) -> list[RowMapping]:
+        """Record a pending memory document for each section decided `retain` without one."""
+        have = {row["section_anchor"] for row in existing}
+        wanted = sorted(
+            (
+                decision
+                for anchor, decision in decisions.items()
+                if decision["decision"] == "retain" and anchor not in have
+            ),
+            key=lambda decision: (decision["char_start"], decision["section_anchor"]),
+        )
+        if not wanted:
+            return []
+        template_version = self._template_version(connection)
+        return [
+            self._insert_document(
+                connection,
+                version.id,
+                anchor=decision["section_anchor"],
+                heading=decision["section_heading"],
+                start=decision["char_start"],
+                end=decision["char_end"],
+                sectioner_version=decision["sectioner_version"],
+                document_id=f"srcv:{version.id}:{decision['section_anchor']}",
+                state="pending",
+                template_version=template_version,
+                linked_to=None,
             )
-        if row is None:
-            raise LookupError(f"source version {source_version_id} does not exist")
-        return _Version(**row)
+            for decision in wanted
+        ]
 
     def _documents(self, connection: Connection, version_id: uuid.UUID) -> list[RowMapping]:
         return list(
@@ -366,7 +470,9 @@ class Retention:
             ).mappings()
         )
 
-    def _retained_twin(self, connection: Connection, version: _Version) -> uuid.UUID | None:
+    def _retained_twin(
+        self, connection: Connection, version: SourceVersionInfo
+    ) -> uuid.UUID | None:
         """Another Source Version with the same raw bytes, retained here and not failed."""
         return connection.execute(
             text(
@@ -389,7 +495,9 @@ class Retention:
             )
         return template_version
 
-    def _link(self, connection: Connection, version: _Version, target: uuid.UUID) -> list[str]:
+    def _link(
+        self, connection: Connection, version: SourceVersionInfo, target: uuid.UUID
+    ) -> list[str]:
         template_version = self._template_version(connection)
         anchors: list[str] = []
         for section in self._documents(connection, target):
@@ -409,14 +517,11 @@ class Retention:
             anchors.append(row["section_anchor"])
         return anchors
 
-    def _record_sections(self, connection: Connection, version: _Version) -> list[RowMapping]:
+    def _record_sections(
+        self, connection: Connection, version: SourceVersionInfo
+    ) -> list[RowMapping]:
         template_version = self._template_version(connection)
-        sections = split_sections(
-            self._parsed_text(version),
-            form=version.form_type,
-            primary=version.document_type is not None
-            and version.document_type == version.form_type,
-        )
+        sections = version_sections(version, self._parsed_text(version))
         return [
             self._insert_document(
                 connection,
@@ -480,11 +585,11 @@ class Retention:
         self._audit(connection, "memory_document.created", "memory_document", row["id"], row)
         return row
 
-    def _parsed_text(self, version: _Version) -> str:
+    def _parsed_text(self, version: SourceVersionInfo) -> str:
         assert version.parsed_object_uri is not None
         return self._archive.get(version.parsed_object_uri).decode("utf-8")
 
-    def _items(self, version: _Version, rows: Sequence[RowMapping]) -> list[RetainItem]:
+    def _items(self, version: SourceVersionInfo, rows: Sequence[RowMapping]) -> list[RetainItem]:
         parsed = self._parsed_text(version)
         tags = self._tags(version)
         return [
@@ -505,7 +610,7 @@ class Retention:
             for row in rows
         ]
 
-    def _tags(self, version: _Version) -> list[str]:
+    def _tags(self, version: SourceVersionInfo) -> list[str]:
         tags: list[str] = []
         if version.company_id is not None:
             tags.append(f"company:{version.company_id}")
@@ -522,7 +627,7 @@ class Retention:
 
     def _submit(
         self,
-        version: _Version,
+        version: SourceVersionInfo,
         rows: Sequence[RowMapping],
         *,
         kind: str,
@@ -774,7 +879,7 @@ class Retention:
         rows = self._pending_rows(operation_id)
         if not rows:
             return {"outcome": "already_resubmitted", "status": recorded["status"]}
-        version = self._version(recorded["source_version_id"])
+        version = load_version(self._engine, recorded["source_version_id"])
         # The new operation keeps the original submitting job, whose class (backfill or
         # interactive) its follow-up reprocess inherits.
         new_operation = self._submit(
@@ -840,7 +945,7 @@ class Retention:
         ]
         if not rows:
             return {"operation_id": operation_id, "outcome": "nothing_to_reprocess"}
-        version = self._version(rows[0]["source_version_id"])
+        version = load_version(self._engine, rows[0]["source_version_id"])
         new_operation = self._submit(version, rows, kind="reprocess", job_id=job_id)
         return {
             "operation_id": operation_id,
