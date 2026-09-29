@@ -6,8 +6,8 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 12 (Relationships and review)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] API list with sorting and filtering by layer and review state
-- [ ] Frontend page, accessible like the viewer; API client regenerated
-- [ ] Playwright test: filter, open an edge, land on its highlighted span
+- [x] API list with sorting and filtering by layer and review state
+- [x] Frontend page, accessible like the viewer; API client regenerated
+- [x] Playwright test: filter, open an edge, land on its highlighted span

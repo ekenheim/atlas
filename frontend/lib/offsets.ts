@@ -128,3 +128,14 @@ export function selectedSpan(root: Node, text: string, selection: Selection): Sp
   if (end > text.length) return null; // the element no longer shows this text
   return spanFromUtf16(text, start, end);
 }
+
+/**
+ * `text` split around the code-point span [`start`, `end`) (an Assertion's offsets): the
+ * text before it, the span itself and the text after, as UTF-16 strings to render.
+ */
+export function splitAtSpan(text: string, start: number, end: number): [string, string, string] {
+  if (end < start) throw new RangeError(`[${start}, ${end}) ends before it starts`);
+  const from = utf16Index(text, start);
+  const to = utf16Index(text, end);
+  return [text.slice(0, from), text.slice(from, to), text.slice(to)];
+}

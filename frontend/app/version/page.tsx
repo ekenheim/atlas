@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 
 import { VersionAssertions } from "../../components/assertions";
 import { SourceDocumentRows } from "../../components/source-document";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
-import { api, type SourceVersionDetail } from "../../lib/api/client";
-import { domPosition, utf16Index } from "../../lib/offsets";
+import { api, type Assertion, type SourceVersionDetail } from "../../lib/api/client";
+import { domPosition, splitAtSpan, utf16Index } from "../../lib/offsets";
 import { routes } from "../../lib/routes";
-import { useApi, useIdParam } from "../../lib/use-api";
+import { useApi, useIdParam, type Loaded } from "../../lib/use-api";
 
 export default function VersionPage() {
   return (
@@ -285,11 +286,76 @@ function PageAnchors({
   );
 }
 
+/**
+ * The Assertion named by `?assertion=`, whose span the parsed text highlights (an edge's
+ * Evidence links here), or null when none is named.
+ */
+function useHighlightedAssertion(): Loaded<Assertion> | null {
+  const id = useSearchParams().get("assertion");
+  const loaded = useApi(id, api.assertion);
+  return id ? loaded : null;
+}
+
+/** Where the highlighted span is, or why it can't be shown. */
+function HighlightNote({
+  assertion,
+  version,
+  inside,
+}: {
+  assertion: Loaded<Assertion>;
+  version: SourceVersionDetail;
+  inside: string | null;
+}) {
+  if (assertion.state === "loading") return null;
+  if (assertion.state === "error") {
+    return <p role="alert">Could not load the Assertion to highlight: {assertion.message}</p>;
+  }
+  const { data } = assertion;
+  if (data.source_version_id !== version.id) {
+    return (
+      <p role="alert">
+        The Assertion to highlight quotes another Source Version:{" "}
+        <Link href={routes.span(data.source_version_id, data.id)}>open it there</Link>.
+      </p>
+    );
+  }
+  if (inside !== data.quote) {
+    return (
+      <p role="alert">
+        The Assertion&apos;s quote is not at characters {data.span_start}–{data.span_end} of this
+        text, so no span is highlighted.
+      </p>
+    );
+  }
+  return (
+    <p id="highlighted-span-hint">
+      Highlighted: the span of the <Code>{data.predicate}</Code> Assertion, characters{" "}
+      {data.span_start}–{data.span_end}
+      {data.page_or_anchor && <> ({data.page_or_anchor})</>}.
+    </p>
+  );
+}
+
 function Content({ version }: { version: SourceVersionDetail }) {
   const parsed = version.content_sha256 !== null;
   const text = useApi(parsed ? version.id : null, api.parsedText);
+  const highlighted = useHighlightedAssertion();
   // The rendered text, where a selection makes a new Assertion's quote span.
   const [textElement, setTextElement] = useState<HTMLPreElement | null>(null);
+  const [mark, setMark] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!mark || !textElement) return;
+    // Scroll the span to the middle of the text box, and the box into view.
+    const offset = mark.getBoundingClientRect().top - textElement.getBoundingClientRect().top;
+    textElement.scrollBy({ top: offset - textElement.clientHeight / 3 });
+    textElement.scrollIntoView({ block: "start" });
+  }, [mark, textElement]);
+  const split = (whole: string) => {
+    if (highlighted?.state !== "ready") return null;
+    const assertion = highlighted.data;
+    if (assertion.source_version_id !== version.id) return null;
+    return splitAtSpan(whole, assertion.span_start, assertion.span_end);
+  };
   return (
     <>
       <section aria-labelledby="parsed-text">
@@ -304,30 +370,55 @@ function Content({ version }: { version: SourceVersionDetail }) {
         </p>
         {parsed ? (
           <Load loaded={text} what="the parsed text">
-            {(text) => (
-              <>
-                <p id="parsed-text-hint">
-                  Select a passage to quote it in a new Assertion (below).
-                </p>
-                {version.page_anchors && (
-                  <PageAnchors
-                    anchors={version.page_anchors}
-                    text={text}
-                    textElement={textElement}
-                  />
-                )}
-                {/* One text node, verbatim: selection offsets index the parsed text. */}
-                <pre
-                  ref={setTextElement}
-                  className="document"
-                  tabIndex={0}
-                  aria-label="Parsed text of this Source Version"
-                  aria-describedby="parsed-text-hint"
-                >
-                  {text}
-                </pre>
-              </>
-            )}
+            {(text) => {
+              const parts = split(text);
+              const quote = highlighted?.state === "ready" ? highlighted.data.quote : null;
+              const shown = parts && parts[1] === quote ? parts : null;
+              return (
+                <>
+                  <p id="parsed-text-hint">
+                    Select a passage to quote it in a new Assertion (below).
+                  </p>
+                  {highlighted && (
+                    <HighlightNote
+                      assertion={highlighted}
+                      version={version}
+                      inside={parts ? parts[1] : null}
+                    />
+                  )}
+                  {version.page_anchors && (
+                    <PageAnchors
+                      anchors={version.page_anchors}
+                      text={text}
+                      textElement={textElement}
+                    />
+                  )}
+                  {/* The text verbatim: one text node, or three around a highlighted span.
+                      Selection offsets index the parsed text either way. */}
+                  <pre
+                    ref={setTextElement}
+                    className="document"
+                    tabIndex={0}
+                    aria-label="Parsed text of this Source Version"
+                    aria-describedby={
+                      shown ? "parsed-text-hint highlighted-span-hint" : "parsed-text-hint"
+                    }
+                  >
+                    {shown ? (
+                      <>
+                        {shown[0]}
+                        <mark ref={setMark} className="span">
+                          {shown[1]}
+                        </mark>
+                        {shown[2]}
+                      </>
+                    ) : (
+                      text
+                    )}
+                  </pre>
+                </>
+              );
+            }}
           </Load>
         ) : (
           <p>
