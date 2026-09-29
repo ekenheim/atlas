@@ -21,12 +21,18 @@ before any section is retained:
 nothing by default. A section is undecided until a rule, its predecessor or the role decides
 it, and the version's retain waits for every section:
 
-- An outage or quota failure of LiteLLM, or the run's token budget spent, fails the attempt
-  as a `TransientFailure`: the queue pauses and requeues the job without using an attempt,
-  and the `minimax` rolling-window budget holds it until the window has room.
+- An outage or quota failure of LiteLLM fails the attempt as a `TransientFailure` (from the
+  role caller): the queue pauses and requeues the job without using an attempt.
+- The triage run's own token budget spent is not a provider failure: the job is requeued
+  (`Requeue`) without using an attempt and without pausing anything. Its next attempt starts
+  a fresh run once the `minimax` rolling-window budget has room (ticket 27 holds it till then).
 - A quarantined answer, or one that leaves a section out, leaves those sections undecided;
   the other batches go on, then the attempt fails (`TriageIncomplete`, an ordinary failure),
-  so the queue retries it up to the job's `max_attempts` and then fails it visibly.
+  so the queue retries it up to the job's `max_attempts` and then fails it visibly. If the
+  run's budget runs out after such a section, the attempt fails the same way (a requeue
+  would ask the same batch again without ever using an attempt).
+- A job failed after its attempts is re-enqueued by `retry_failed_triage` (`atlas triage
+  retry`); `atlas_triage_failed_jobs` counts the versions waiting on one.
 
 Decisions are inserted as they are made (insert-only, audited), so a retried or resumed job
 decides only the sections still undecided and never duplicates one. Once every section is
@@ -48,8 +54,8 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 from atlas.archive import Archive
 from atlas.audit import Actor
 from atlas.companies import Universe
-from atlas.jobs.pacing import JobClass, TransientFailure
-from atlas.jobs.queue import Artifacts, JobQueue
+from atlas.jobs.pacing import JobClass, Requeue
+from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.retention.decisions import (
     TriageDecision,
     effective_decisions,
@@ -62,6 +68,7 @@ from atlas.retention.decisions import (
 from atlas.retention.sections import SECTIONER_VERSION, Section
 from atlas.retention.service import (
     RETAIN_KIND,
+    TRIAGE_KIND,
     SourceVersionInfo,
     is_retainable,
     load_version,
@@ -251,7 +258,8 @@ class Triage:
 
     def _ask_role(self, version: SourceVersionInfo, undecided: list[_Pending]) -> int:
         """Ask the role about the undecided sections, batch by batch, inserting each decision
-        it returns; raises `TriageIncomplete` at the end if any section is left undecided."""
+        it returns. Raises `TriageIncomplete` if any section is left undecided, and `Requeue`
+        if the run's token budget ran out with nothing left undecided so far (see the module)."""
         if self._caller is None or self._runs is None:
             raise RoleCallFailed(
                 "retention triage needs LiteLLM and Hindsight configured"
@@ -261,6 +269,7 @@ class Triage:
         run_id = self._runs.start(RUN_KIND).id
         by_role = 0
         left: list[str] = []
+        exhausted: TokenBudgetExhausted | None = None
         try:
             for batch in _batches(undecided, self._per_call):
                 answers, role_call_id, why = self._call(version, batch, run_id)
@@ -281,13 +290,21 @@ class Triage:
                             method="role",
                             role_call_id=role_call_id,
                         )
+        except TokenBudgetExhausted as error:
+            exhausted = error
         finally:
             self._finish(run_id)
         if left:
+            spent = f"; then {exhausted}" if exhausted is not None else ""
             raise TriageIncomplete(
                 f"{len(left)} section(s) of Source Version {version.id} left undecided,"
-                f" retried later and not retained meanwhile: {'; '.join(left)}"
+                f" retried later and not retained meanwhile: {'; '.join(left)}{spent}"
             )
+        if exhausted is not None:
+            raise Requeue(
+                f"retention triage of Source Version {version.id} continues in a fresh run:"
+                f" the triage run's token budget is spent ({exhausted})"
+            ) from exhausted
         return by_role
 
     def _call(
@@ -295,9 +312,7 @@ class Triage:
     ) -> tuple[dict[str, TriageSectionDecision], uuid.UUID | None, str]:
         """The role's answers by anchor (the first for each anchor it was asked about), the
         role call (None: quarantined), and why a section of the batch may be left undecided.
-
-        The run's token budget spent is a `TransientFailure` (quota): the job is requeued and
-        held like any other quota failure, never decided by default."""
+        `TokenBudgetExhausted` propagates to `_ask_role`."""
         assert self._caller is not None
         request = TriageRequest(
             document=self._document(version),
@@ -325,10 +340,6 @@ class Triage:
             )
         except RoleOutputQuarantined as quarantined:
             return {}, None, f"role call {quarantined.role_call_id} quarantined"
-        except TokenBudgetExhausted as exhausted:
-            raise TransientFailure(
-                "quota", f"retention triage held: the triage run's token budget: {exhausted}"
-            ) from exhausted
         asked = {each.section.anchor for each in batch}
         answers: dict[str, TriageSectionDecision] = {}
         for answer in output.decisions:
@@ -535,3 +546,64 @@ def request_retain(
         decision = get_decision(connection, row["id"])
     assert decision is not None
     return RetainRequested(decision=decision, retain_job_id=job.id)
+
+
+# --- retrying a failed triage -------------------------------------------------------------------
+
+# Each Source Version's latest `triage` job (the one that says whether its triage is done).
+LATEST_TRIAGE_JOBS = (
+    "SELECT DISTINCT ON (payload->>'source_version_id') id, status, job_class, max_attempts,"
+    " (payload->>'source_version_id')::uuid AS source_version_id FROM job WHERE kind = 'triage'"
+    " ORDER BY payload->>'source_version_id', created_at DESC, id DESC"
+)
+
+
+class TriageRetryRefused(Exception):
+    pass
+
+
+def retry_failed_triage(
+    engine: Engine, actor: Actor, source_version_id: uuid.UUID | None = None
+) -> list[Job]:
+    """Re-enqueue the triage of each Source Version whose latest `triage` job failed after its
+    attempts (or of just `source_version_id`), in the failed job's class and with its
+    `max_attempts`. The new job decides only the sections still undecided.
+
+    Refused (`TriageRetryRefused`) for a version whose latest triage job didn't fail (or that
+    has none). With no version given, every failed one is retried (none: an empty list).
+    """
+    queue = JobQueue(engine, actor=actor)
+    with engine.connect() as connection:
+        rows = (
+            connection.execute(
+                text(
+                    "SELECT l.*, (SELECT count(*) FROM job j WHERE j.kind = 'triage'"  # noqa: S608 (constant fragments)
+                    "   AND j.payload->>'source_version_id' = l.source_version_id::text) AS jobs"
+                    f" FROM ({LATEST_TRIAGE_JOBS}) AS l"
+                    " WHERE CAST(:version AS uuid) IS NULL OR l.source_version_id = :version"
+                    " ORDER BY l.source_version_id"
+                ),
+                {"version": source_version_id},
+            )
+            .mappings()
+            .all()
+        )
+    if source_version_id is not None:
+        if not rows:
+            raise TriageRetryRefused(f"Source Version {source_version_id} has no triage job")
+        if rows[0]["status"] != "failed":
+            raise TriageRetryRefused(
+                f"the latest triage job of Source Version {source_version_id}"
+                f" is {rows[0]['status']}, not failed"
+            )
+    return [
+        queue.enqueue(
+            TRIAGE_KIND,
+            f"triage:{row['source_version_id']}:retry:{row['jobs']}",
+            retain_payload(row["source_version_id"]),
+            max_attempts=row["max_attempts"],
+            job_class=row["job_class"],
+        ).job
+        for row in rows
+        if row["status"] == "failed"
+    ]

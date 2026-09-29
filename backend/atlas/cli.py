@@ -292,6 +292,40 @@ def run_retry_failed(
     print(json.dumps(summary | {"since": cutoff.isoformat() if cutoff else None}))
 
 
+def run_triage_retry(settings: Settings, source_version: str | None, failed: bool) -> None:
+    import json
+    import uuid
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.retention import TriageRetryRefused, retry_failed_triage
+
+    if (source_version is None) == (not failed):
+        print("atlas: give exactly one of --source-version and --failed", file=sys.stderr)
+        raise SystemExit(2)
+    version: uuid.UUID | None = None
+    if source_version is not None:
+        try:
+            version = uuid.UUID(source_version)
+        except ValueError:
+            print(
+                f"atlas: --source-version must be a UUID, not {source_version!r}", file=sys.stderr
+            )
+            raise SystemExit(2) from None
+    engine = create_engine(settings)
+    try:
+        jobs = retry_failed_triage(engine, Actor.from_settings(settings), version)
+    except TriageRetryRefused as refused:
+        print(f"atlas: {refused}", file=sys.stderr)
+        raise SystemExit(2) from None
+    finally:
+        engine.dispose()
+    enqueued = [
+        {"id": str(job.id), "source_version_id": job.payload["source_version_id"]} for job in jobs
+    ]
+    print(json.dumps({"enqueued": enqueued}))
+
+
 def run_correct_availability(settings: Settings) -> None:
     import dataclasses
     import json
@@ -580,6 +614,15 @@ def main(argv: list[str] | None = None) -> None:
     retry.add_argument("--since", help="only versions available after this date")
     retry.add_argument("--all-history", action="store_true", help="every failed section")
     retry.add_argument("--backfill", action="store_true", help="backfill class (see ingest)")
+    triage = commands.add_parser("triage", help="retention triage maintenance")
+    triage_commands = triage.add_subparsers(dest="triage_command", required=True)
+    triage_retry = triage_commands.add_parser(
+        "retry", help="re-enqueue a triage job that failed after its attempts"
+    )
+    triage_retry.add_argument("--source-version", help="the Source Version (UUID) to retry")
+    triage_retry.add_argument(
+        "--failed", action="store_true", help="every version whose latest triage job failed"
+    )
     ledger = commands.add_parser("ledger", help="source ledger maintenance")
     ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
     ledger_commands.add_parser(
@@ -669,6 +712,8 @@ def main(argv: list[str] | None = None) -> None:
         run_assign_families(settings)
     elif args.command == "ledger":
         run_correct_availability(settings)
+    elif args.command == "triage":
+        run_triage_retry(settings, args.source_version, args.failed)
     elif args.command == "retention":
         run_retry_failed(settings, args.since, args.all_history, args.backfill)
     elif args.command == "companies" and args.companies_command == "resolve":

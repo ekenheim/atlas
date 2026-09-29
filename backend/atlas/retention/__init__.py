@@ -37,7 +37,9 @@ from atlas.retention.triage import (
     RetainOnDemand,
     RetainRefused,
     RetainRequested,
+    TriageRetryRefused,
     request_retain,
+    retry_failed_triage,
 )
 
 __all__ = [
@@ -59,12 +61,14 @@ __all__ = [
     "Section",
     "SourceVersionMemory",
     "TriageDecision",
+    "TriageRetryRefused",
     "enqueue_retains",
     "list_decisions",
     "register_retention_handlers",
     "request_retain",
     "retain_payload",
     "retry_failed",
+    "retry_failed_triage",
     "source_version_memory",
     "split_sections",
 ]

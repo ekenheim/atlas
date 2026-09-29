@@ -493,6 +493,30 @@ def test_a_quarantined_triage_retains_nothing_and_fails_visibly_after_its_attemp
     assert {decision["method"] for decision in triage(atlas)} == {"rule"}
     assert fake.retained() == []
     assert atlas.memory(atlas.version(LITE_10K)["id"])["documents"] == []
+    assert failed_triage_jobs(atlas) == 4
+
+    # The owner retries one version once the model answers again: only it is triaged.
+    llm.script_chat(*[ChatReply.answer(triage_answer)] * 4)
+    ten_k = atlas.version(LITE_10K)["id"]
+    retried = retry(atlas, "--source-version", ten_k)
+    assert [each["source_version_id"] for each in retried] == [ten_k]
+    atlas.worker_pass()
+    assert triage_jobs(atlas)[ten_k]["status"] == "succeeded"
+    assert effective(atlas, ten_k)["part-i-item-1"]["method"] == "role"
+    assert retained_anchors(fake, ten_k) == [["part-i-item-1"]]
+    assert failed_triage_jobs(atlas) == 3
+    # Its latest triage job succeeded, so it can't be retried again.
+    refused = atlas.cli("triage", "retry", "--source-version", ten_k)
+    assert refused.returncode == 2
+    assert "succeeded, not failed" in refused.stderr
+
+    # --failed retries the rest; afterwards there is nothing left to retry.
+    assert len(retry(atlas, "--failed")) == 3
+    atlas.worker_pass()
+    assert all(each["status"] == "succeeded" for each in triage_jobs(atlas).values())
+    assert failed_triage_jobs(atlas) == 0
+    assert retry(atlas, "--failed") == []
+    assert len(llm.chat_requests()) == 24 + 4
 
 
 def test_a_section_the_answer_leaves_out_is_asked_again_on_retry_without_duplicating_decisions(
@@ -582,10 +606,12 @@ def test_a_spent_budget_holds_triage_until_the_window_rolls_and_nothing_is_retai
     atlas.enqueue("ingest", "--company", "lumentum", "--key", "lumentum")
     assert paced_pass() == 1
     part_decided = check_held_versions_retain_nothing()
-    # The window is spent: once any pause has passed, triage is still held, with no call.
+    # Nothing is paused, but the window is spent: triage is held, with no call.
     clock.advance(minutes=2)
     assert paced_pass() == 0
-    (pending,) = [p for p in api.get("/api/v1/queue").json()["pending"] if p["kind"] == "triage"]
+    queue = api.get("/api/v1/queue").json()
+    assert queue["pause"]["pauses_total"] == 0
+    (pending,) = [p for p in queue["pending"] if p["kind"] == "triage"]
     assert pending["budget_held"] == pending["queued"] > 0
 
     windows = 0
@@ -596,12 +622,17 @@ def test_a_spent_budget_holds_triage_until_the_window_rolls_and_nothing_is_retai
         assert paced_pass() == 1  # one call per window, each asking only what's undecided
         part_decided = check_held_versions_retain_nothing() or part_decided
 
-    # The 10-K's second call ran out of its run's budget: its job was held (not failed,
-    # not retained by default) and resumed in a later window with only what was left.
+    # The 10-K's second call ran out of its run's budget: its job was requeued (no attempt
+    # used, not retained by default, nothing paused) and resumed in a later window with a
+    # fresh run, asking only what was left.
     assert part_decided
     ten_k = atlas.version(LITE_10K)
     ten_k_job = triage_jobs(atlas)[ten_k["id"]]
-    assert any("token budget" in failure["error"] for failure in ten_k_job["failures"])
+    requeued = [f for f in ten_k_job["failures"] if f["classification"] == "requeued"]
+    assert requeued
+    assert all("token budget" in failure["error"] for failure in requeued)
+    assert ten_k_job["attempts"] == 1
+    assert api.get("/api/v1/queue").json()["pause"]["pauses_total"] == 0
     calls = [
         (message["request"]["document"]["source_version_id"], section["anchor"])
         for message in asked(llm)
@@ -617,11 +648,25 @@ def test_a_spent_budget_holds_triage_until_the_window_rolls_and_nothing_is_retai
 # --- helpers ------------------------------------------------------------------------------------
 
 
+def retry(atlas: Atlas, *args: str) -> list[dict[str, str]]:
+    """`atlas triage retry ...`: the triage jobs it enqueued."""
+    retried = atlas.cli("triage", "retry", *args)
+    assert retried.returncode == 0, retried.stderr
+    return cast(list[dict[str, str]], json.loads(retried.stdout)["enqueued"])
+
+
+def failed_triage_jobs(atlas: Atlas) -> float:
+    return atlas.metrics()[("atlas_triage_failed_jobs", frozenset())]
+
+
 def triage_jobs(atlas: Atlas) -> dict[str, dict[str, Any]]:
-    """Each `triage` job (read through the API), by its Source Version."""
+    """Each Source Version's latest `triage` job (read through the API)."""
     with atlas.engine.connect() as connection:
         rows = connection.execute(
-            text("SELECT id, payload->>'source_version_id' FROM job WHERE kind = 'triage'")
+            text(
+                "SELECT id, payload->>'source_version_id' FROM job WHERE kind = 'triage'"
+                " ORDER BY created_at, id"
+            )
         ).all()
     return {version_id: atlas.get(f"/api/v1/jobs/{job_id}") for job_id, version_id in rows}
 

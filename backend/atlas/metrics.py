@@ -25,6 +25,7 @@ from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from atlas.jobs import JobQueue
+from atlas.retention.triage import LATEST_TRIAGE_JOBS
 
 # Final retain states of a section: they never change again.
 _FINAL_SECTION_STATES = ("completed", "zero_fact", "failed", "linked")
@@ -361,7 +362,7 @@ class StateCollector(Collector):
         decisions = CounterMetricFamily(
             "atlas_triage_decisions",
             "Triage decisions recorded, by how they were made (rule, inherited, role,"
-            " default, on_demand)",
+            " on_demand; default only in rows recorded before triage held and retried)",
             labels=["method"],
         )
         for method, count in connection.execute(
@@ -392,6 +393,18 @@ class StateCollector(Collector):
         saved.add_metric(["documents"], documents)
         saved.add_metric(["batches"], batches)
         yield saved
+        failed = GaugeMetricFamily(
+            "atlas_triage_failed_jobs",
+            "Source Versions whose latest triage job failed after its attempts (nothing of"
+            " theirs is retained until `atlas triage retry` re-enqueues it)",
+        )
+        failed.add_metric(
+            [],
+            connection.execute(
+                text(f"SELECT count(*) FROM ({LATEST_TRIAGE_JOBS}) AS l WHERE status = 'failed'")  # noqa: S608 (constant fragments)
+            ).scalar_one(),
+        )
+        yield failed
 
     def _research(self, connection: Connection) -> Iterator[Metric]:
         buckets = ", ".join(
