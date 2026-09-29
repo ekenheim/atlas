@@ -1,0 +1,25 @@
+{
+  "cik": "0001046179",
+  "entityType": "operating",
+  "name": "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
+  "tickers": [
+    "TSM"
+  ],
+  "exchanges": [
+    "NYSE"
+  ],
+  "ein": null,
+  "lei": null,
+  "stateOfIncorporation": "F5",
+  "formerNames": [],
+  "filings": {
+    "recent": {
+      "form": [
+        "6-K",
+        "6-K",
+        "20-F",
+        "6-K"
+      ]
+    }
+  }
+}

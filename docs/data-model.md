@@ -59,14 +59,54 @@ Effective-dated listing identifiers, so ticker changes, ADRs and multiple listin
 | `id` | uuid PK | UUIDv5 of (company, exchange, ticker, `valid_from`) |
 | `company_id` | uuid not null FK → company | |
 | `ticker` | text not null | |
-| `exchange_mic` | text not null | ISO 10383 |
-| `isin`, `figi` | text null | External mappings |
+| `exchange_mic` | text not null | ISO 10383 **operating** MIC (`XNAS`, `XNYS`) |
+| `segment_mic` | text null | The segment MIC OpenFIGI matched (`XNGS` for Nasdaq Global Select); migration `0020` |
+| `isin` | text null | External mapping |
+| `figi` | text null | The **composite** (country-level) FIGI: it matches `exchange_mic` granularity for US listings and survives a ticker change. Venue FIGIs are not stored |
+| `share_class_figi` | text null | Connects one class's listings across countries (`0020`) |
+| `underlying_security_id`, `adr_ratio` | uuid null FK → security, numeric null | An ADR's underlying line and ratio; no source gives the ratio, so both are the owner's (`0020`) |
+| `review_state` | text not null | `unreviewed`, `needs_review`, `reviewed` (`0020`) |
 | `instrument_type` | text not null | `common`, `adr`, `preferred`, … |
-| `currency` | text not null | ISO 4217 |
-| `valid_from` | date not null | |
+| `currency` | text not null | ISO 4217; from the venue for resolved listings (OpenFIGI returns none) |
+| `valid_from` | date not null | For a listing entity resolution found and no config names: the day Atlas observed it (no source gives a start date) |
 | `valid_to` | date null | Null means current |
 
-Constraint: no overlapping `[valid_from, valid_to)` for the same (`exchange_mic`, `ticker`), via an exclusion constraint (`btree_gist`). Seeding never deletes a row; an ended listing gets a `valid_to` in config.
+Constraint: no overlapping `[valid_from, valid_to)` for the same (`exchange_mic`, `ticker`), via an exclusion constraint (`btree_gist`): the uniqueness per (MIC, ticker, validity). Seeding never deletes a row; an ended listing gets a `valid_to` in config. Seeding sets `isin`/`figi` (and `company.cik`/`lei`) only when config names them, so it never erases what entity resolution set.
+
+### 2.2a `company_alias` and `identity_mapping` (Phases 3–6a, migration `0020`)
+
+Entity resolution (`atlas.identity`, `docs/decisions.md` "Entity resolution").
+
+`company_alias` (insert-only): a company's legal, former and other names.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | UUIDv5 of (company, source, kind, name, `valid_from`) |
+| `company_id` | uuid not null FK → company | |
+| `name`, `normalized_name` | text not null | `normalized_name` is `normalize_name(name)`, what lookups compare |
+| `kind` | text not null | `legal`, `former`, `other` (GLEIF other and transliterated names) |
+| `valid_from`, `valid_to` | date null | SEC `formerNames` intervals; null is open |
+| `source`, `source_url`, `observed_at` | text, text, timestamptz not null | `sec` or `gleif`, the response it came from, and when |
+
+Unique (NULLS NOT DISTINCT) per (company, source, kind, name, `valid_from`).
+
+`identity_mapping`: each identifier the resolver proposed for a company.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | UUIDv5 of (company, kind, value); unique (company, kind, value) |
+| `company_id` | uuid not null FK → company | |
+| `security_id` | uuid null FK → security | The listing it set, once applied |
+| `kind`, `value` | text not null | `cik`, `lei`, or `listing` (`TICKER@MIC`) |
+| `tier` | text not null | `exact`, `corroborated`, `candidate` (a conflict proposes nothing) |
+| `review_state` | text not null | `committed` (applied automatically), `pending` (the owner's queue), `confirmed`, `rejected` |
+| `owner_confirmation` | boolean not null | Only the owner commits it (every CIK↔LEI link, every candidate). CHECK: never `committed` |
+| `source`, `source_url`, `observed_at` | text, text, timestamptz not null | `sec`, `gleif` or `openfigi`; provenance |
+| `reasons` | text[] not null | Why it needs review |
+| `details` | jsonb not null | The LEI record's names, jurisdiction and status; a listing's fields |
+| `evidence` | jsonb not null | The resolution's facts: `{source, url, observed_at, statement}` |
+| `reviewed_by`, `reviewed_at`, `review_note` | null | Set together on confirm/reject; a rejection needs its reason |
+| `created_at` | timestamptz not null | |
 
 ### 2.3 `source_document`
 

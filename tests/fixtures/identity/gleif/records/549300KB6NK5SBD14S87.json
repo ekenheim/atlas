@@ -1,0 +1,30 @@
+{
+  "type": "lei-records",
+  "id": "549300KB6NK5SBD14S87",
+  "attributes": {
+    "lei": "549300KB6NK5SBD14S87",
+    "entity": {
+      "legalName": {
+        "name": "台灣積體電路製造股份有限公司",
+        "language": "en"
+      },
+      "otherNames": [],
+      "transliteratedOtherNames": [
+        {
+          "name": "Taiwan Semiconductor Manufacturing Company Limited",
+          "type": "PREFERRED_ASCII_TRANSLITERATED_LEGAL_NAME"
+        }
+      ],
+      "legalAddress": {
+        "city": "",
+        "country": "TW"
+      },
+      "jurisdiction": "TW",
+      "status": "ACTIVE",
+      "successorEntities": []
+    },
+    "registration": {
+      "status": "ISSUED"
+    }
+  }
+}

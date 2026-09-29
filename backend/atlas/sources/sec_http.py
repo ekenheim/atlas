@@ -59,6 +59,12 @@ class TokenBucket:
         if delay > 0:
             await asyncio.sleep(delay)
 
+    def wait(self, sleep: Callable[[float], None] = time.sleep) -> None:
+        """`acquire` for synchronous callers (the identity clients); same slots, same bucket."""
+        delay = self._reserve()
+        if delay > 0:
+            sleep(delay)
+
 
 # The one limiter for all SEC traffic in this process (SEC allows at most 10 requests/s).
 SEC_RATE_LIMITER = TokenBucket(rate_per_s=10)

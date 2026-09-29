@@ -115,6 +115,12 @@ class Settings(BaseSettings):
 
     # SEC fair-access policy: a requester name and contact email, e.g. "Atlas Research ops@x.com".
     sec_user_agent: str | None = Field(default=None, validate_default=True)
+    # Entity resolution (atlas.identity, `atlas companies resolve`): the sources' base URLs.
+    # SEC's ticker file and submissions use sec_user_agent and the shared SEC rate limit.
+    sec_files_url: str = "https://www.sec.gov/files"
+    sec_data_url: str = "https://data.sec.gov"
+    gleif_url: str = "https://api.gleif.org/api/v1"
+    openfigi_url: str = "https://api.openfigi.com"
     # Fixture mode: recorded EDGAR responses, one directory per company slug
     # (e.g. tests/fixtures/edgar/lumentum). Unused when sec_live is on.
     sec_fixtures_dir: Path | None = None

@@ -1,0 +1,25 @@
+{
+  "type": "lei-records",
+  "id": "969500ZR92SQCU9TST26",
+  "attributes": {
+    "lei": "969500ZR92SQCU9TST26",
+    "entity": {
+      "legalName": {
+        "name": "SOITEC",
+        "language": "en"
+      },
+      "otherNames": [],
+      "transliteratedOtherNames": [],
+      "legalAddress": {
+        "city": "",
+        "country": "FR"
+      },
+      "jurisdiction": "FR",
+      "status": "ACTIVE",
+      "successorEntities": []
+    },
+    "registration": {
+      "status": "ISSUED"
+    }
+  }
+}

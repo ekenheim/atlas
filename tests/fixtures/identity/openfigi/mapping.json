@@ -1,0 +1,313 @@
+[
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "LITE",
+      "exchCode": "US"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG0073F9RT7",
+          "name": "LUMENTUM HOLDINGS INC",
+          "ticker": "LITE",
+          "exchCode": "US",
+          "compositeFIGI": "BBG0073F9RT7",
+          "shareClassFIGI": "BBG0073F9RS8",
+          "securityType": "Common Stock",
+          "securityType2": "Common Stock",
+          "marketSector": "Equity",
+          "securityDescription": "LITE"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "LITE",
+      "micCode": "XNAS"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "LITE",
+      "micCode": "XNGS"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG0073F9SD2",
+          "name": "LUMENTUM HOLDINGS INC",
+          "ticker": "LITE",
+          "exchCode": "UW",
+          "compositeFIGI": "BBG0073F9RT7",
+          "shareClassFIGI": "BBG0073F9RS8",
+          "securityType": "Common Stock",
+          "securityType2": "Common Stock",
+          "marketSector": "Equity",
+          "securityDescription": "LITE"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "LITE",
+      "micCode": "XNMS"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "LITE",
+      "micCode": "XNCM"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
+  },
+  {
+    "job": {
+      "idType": "ID_ISIN",
+      "idValue": "US55024U1097",
+      "exchCode": "US"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG0073F9RT7",
+          "name": "LUMENTUM HOLDINGS INC",
+          "ticker": "LITE",
+          "exchCode": "US",
+          "compositeFIGI": "BBG0073F9RT7",
+          "shareClassFIGI": "BBG0073F9RS8",
+          "securityType": "Common Stock",
+          "securityType2": "Common Stock",
+          "marketSector": "Equity",
+          "securityDescription": "LITE"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "ID_CUSIP",
+      "idValue": "55024U109",
+      "exchCode": "US"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG0073F9RT7",
+          "name": "LUMENTUM HOLDINGS INC",
+          "ticker": "LITE",
+          "exchCode": "US",
+          "compositeFIGI": "BBG0073F9RT7",
+          "shareClassFIGI": "BBG0073F9RS8",
+          "securityType": "Common Stock",
+          "securityType2": "Common Stock",
+          "marketSector": "Equity",
+          "securityDescription": "LITE"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "COHR",
+      "exchCode": "US"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG000BLW102",
+          "name": "COHERENT CORP",
+          "ticker": "COHR",
+          "exchCode": "US",
+          "compositeFIGI": "BBG000BLW102",
+          "shareClassFIGI": null,
+          "securityType": "Common Stock",
+          "securityType2": "Common Stock",
+          "marketSector": "Equity",
+          "securityDescription": "COHR"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "COHR",
+      "micCode": "XNYS"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG000BLW3R9",
+          "name": "COHERENT CORP",
+          "ticker": "COHR",
+          "exchCode": "UN",
+          "compositeFIGI": "BBG000BLW102",
+          "shareClassFIGI": null,
+          "securityType": "Common Stock",
+          "securityType2": "Common Stock",
+          "marketSector": "Equity",
+          "securityDescription": "COHR"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "COMPOSITE_ID_BB_GLOBAL",
+      "idValue": "BBG000BLW102",
+      "exchCode": "US"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG000BLW102",
+          "name": "COHERENT CORP",
+          "ticker": "COHR",
+          "exchCode": "US",
+          "compositeFIGI": "BBG000BLW102",
+          "shareClassFIGI": null,
+          "securityType": "Common Stock",
+          "securityType2": "Common Stock",
+          "marketSector": "Equity",
+          "securityDescription": "COHR"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "IIVI",
+      "exchCode": "US"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "TSM",
+      "exchCode": "US"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG000BD8ZK0",
+          "name": "TAIWAN SEMICONDUCTOR-SP ADR",
+          "ticker": "TSM",
+          "exchCode": "US",
+          "compositeFIGI": "BBG000BD8ZK0",
+          "shareClassFIGI": "BBG001S5WWW4",
+          "securityType": "ADR",
+          "securityType2": "Depositary Receipt",
+          "marketSector": "Equity",
+          "securityDescription": "TSM"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "TSM",
+      "micCode": "XNYS"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG000BD8ZL9",
+          "name": "TAIWAN SEMICONDUCTOR-SP ADR",
+          "ticker": "TSM",
+          "exchCode": "UN",
+          "compositeFIGI": "BBG000BD8ZK0",
+          "shareClassFIGI": "BBG001S5WWW4",
+          "securityType": "ADR",
+          "securityType2": "Depositary Receipt",
+          "marketSector": "Equity",
+          "securityDescription": "TSM"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "ID_ISIN",
+      "idValue": "US8740391003",
+      "exchCode": "US"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG000BD8ZK0",
+          "name": "TAIWAN SEMICONDUCTOR-SP ADR",
+          "ticker": "TSM",
+          "exchCode": "US",
+          "compositeFIGI": "BBG000BD8ZK0",
+          "shareClassFIGI": "BBG001S5WWW4",
+          "securityType": "ADR",
+          "securityType2": "Depositary Receipt",
+          "marketSector": "Equity",
+          "securityDescription": "TSM"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "BRK/B",
+      "exchCode": "US"
+    },
+    "answer": {
+      "data": [
+        {
+          "figi": "BBG000DWG505",
+          "name": "BERKSHIRE HATHAWAY INC-CL B",
+          "ticker": "BRK/B",
+          "exchCode": "US",
+          "compositeFIGI": "BBG000DWG505",
+          "shareClassFIGI": "BBG001S5TB78",
+          "securityType": "Common Stock",
+          "securityType2": "Common Stock",
+          "marketSector": "Equity",
+          "securityDescription": "BRK/B"
+        }
+      ]
+    }
+  },
+  {
+    "job": {
+      "idType": "CIK",
+      "idValue": "1633978"
+    },
+    "answer": {
+      "error": "Invalid value for idType."
+    }
+  },
+  {
+    "job": {
+      "idType": "ID_ISIN",
+      "idValue": "US0000000000"
+    },
+    "answer": {
+      "error": "Invalid idValue format."
+    }
+  }
+]

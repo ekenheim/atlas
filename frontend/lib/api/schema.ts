@@ -549,6 +549,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/identity-mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mappings */
+        get: operations["mappings_api_v1_identity_mappings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity-mappings/{mapping_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mapping */
+        get: operations["mapping_api_v1_identity_mappings__mapping_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity-mappings/{mapping_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm */
+        post: operations["confirm_api_v1_identity_mappings__mapping_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity-mappings/{mapping_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject */
+        post: operations["reject_api_v1_identity_mappings__mapping_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -930,6 +998,8 @@ export interface components {
             review_state: string;
             /** Securities */
             securities: components["schemas"]["Security"][];
+            /** Aliases */
+            aliases: components["schemas"]["CompanyAlias"][];
             /**
              * Created At
              * Format: date-time
@@ -940,6 +1010,29 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CompanyAlias */
+        CompanyAlias: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "legal" | "former" | "other";
+            /** Valid From */
+            valid_from: string | null;
+            /** Valid To */
+            valid_to: string | null;
+            /** Source */
+            source: string;
+            /** Source Url */
+            source_url: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
         };
         /** ContentLinks */
         ContentLinks: {
@@ -1161,6 +1254,22 @@ export interface components {
             assigned_at: string;
         };
         /**
+         * Fact
+         * @description One external fact the resolution used: where it came from and when it was read.
+         */
+        Fact: {
+            source: components["schemas"]["Source"];
+            /** Url */
+            url: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Statement */
+            statement: string;
+        };
+        /**
          * FetchObservation
          * @description One fetch of the document that produced or matched this version.
          */
@@ -1358,6 +1467,75 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** IdentityMapping */
+        IdentityMapping: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Slug */
+            company_slug: string;
+            /** Security Id */
+            security_id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cik" | "lei" | "listing";
+            /**
+             * Value
+             * @description the CIK, the LEI, or TICKER@MIC for a listing
+             */
+            value: string;
+            /**
+             * Tier
+             * @enum {string}
+             */
+            tier: "exact" | "corroborated" | "candidate";
+            review_state: components["schemas"]["ReviewState"];
+            /**
+             * Owner Confirmation
+             * @description only the owner commits it (CIK↔LEI links)
+             */
+            owner_confirmation: boolean;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "sec" | "gleif" | "openfigi";
+            /** Source Url */
+            source_url: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Reasons */
+            reasons: string[];
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+            /** Evidence */
+            evidence: components["schemas"]["Fact"][];
+            /** Reviewed By */
+            reviewed_by: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Review Note */
+            review_note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** Job */
         Job: {
             /**
@@ -1501,6 +1679,22 @@ export interface components {
              * Format: date-time
              */
             last_seen_at: string;
+        };
+        /** MappingConfirm */
+        MappingConfirm: {
+            /** Note */
+            note?: string | null;
+        };
+        /** MappingReject */
+        MappingReject: {
+            /** Reason */
+            reason: string;
+        };
+        /** MappingReviewed */
+        MappingReviewed: {
+            mapping: components["schemas"]["IdentityMapping"];
+            /** Audit Event Id */
+            audit_event_id: number;
         };
         /**
          * MemoryDocument
@@ -1756,6 +1950,17 @@ export interface components {
         Page_FinancialObservation_: {
             /** Items */
             items: components["schemas"]["FinancialObservation"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[IdentityMapping] */
+        Page_IdentityMapping_: {
+            /** Items */
+            items: components["schemas"]["IdentityMapping"][];
             /** Total */
             total: number;
             /** Limit */
@@ -2057,6 +2262,8 @@ export interface components {
              */
             theme_ids?: string[];
         };
+        /** @enum {string} */
+        ReviewState: "committed" | "pending" | "confirmed" | "rejected";
         /**
          * RoleCallRecord
          * @description One call of a role. A quarantined call's outputs are visible in its attempts only;
@@ -2128,16 +2335,38 @@ export interface components {
             id: string;
             /** Ticker */
             ticker: string;
-            /** Exchange Mic */
+            /**
+             * Exchange Mic
+             * @description ISO 10383 operating MIC
+             */
             exchange_mic: string;
+            /**
+             * Segment Mic
+             * @description the segment MIC OpenFIGI matched, e.g. XNGS
+             */
+            segment_mic: string | null;
             /** Instrument Type */
             instrument_type: string;
             /** Currency */
             currency: string;
             /** Isin */
             isin: string | null;
-            /** Figi */
+            /**
+             * Figi
+             * @description composite (country-level) FIGI
+             */
             figi: string | null;
+            /** Share Class Figi */
+            share_class_figi: string | null;
+            /**
+             * Underlying Security Id
+             * @description an ADR's underlying line
+             */
+            underlying_security_id: string | null;
+            /** Adr Ratio */
+            adr_ratio: number | null;
+            /** Review State */
+            review_state: string;
             /**
              * Valid From
              * Format: date
@@ -2156,6 +2385,8 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** @enum {string} */
+        Source: "sec" | "gleif" | "openfigi" | "atlas";
         /** SourceDocument */
         SourceDocument: {
             /**
@@ -3707,6 +3938,189 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mappings_api_v1_identity_mappings_get: {
+        parameters: {
+            query?: {
+                review_state?: components["schemas"]["ReviewState"] | null;
+                company_id?: string | null;
+                kind?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_IdentityMapping_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    mapping_api_v1_identity_mappings__mapping_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapping_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityMapping"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    confirm_api_v1_identity_mappings__mapping_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapping_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MappingConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MappingReviewed"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    reject_api_v1_identity_mappings__mapping_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapping_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MappingReject"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MappingReviewed"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

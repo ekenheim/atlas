@@ -1,0 +1,20 @@
+{
+  "cik": "0001445214",
+  "entityType": "other",
+  "name": "Soitec SA",
+  "tickers": [
+    "SLOIF"
+  ],
+  "exchanges": [],
+  "ein": null,
+  "lei": null,
+  "stateOfIncorporation": "",
+  "formerNames": [],
+  "filings": {
+    "recent": {
+      "form": [
+        "F-6EF"
+      ]
+    }
+  }
+}

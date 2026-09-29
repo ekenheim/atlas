@@ -1,0 +1,32 @@
+{
+  "_comment": "filter → the LEIs GLEIF returned, in order (records in records/)",
+  "isin=US55024U1097": [
+    "549300JLWRRC38DWEF52"
+  ],
+  "isin=US8740391003": [
+    "549300KB6NK5SBD14S87"
+  ],
+  "entity.legalName=COHERENT CORP.": [
+    "549300O5C25A0MMHHU33"
+  ],
+  "entity.legalName=Coherent Corp.": [
+    "549300O5C25A0MMHHU33"
+  ],
+  "entity.legalName=Lumentum Holdings Inc.": [
+    "549300JLWRRC38DWEF52"
+  ],
+  "entity.legalName=Lumentum": [],
+  "fulltext=Lumentum": [
+    "549300JLWRRC38DWEF52",
+    "5493000SYNTHETIC0133",
+    "2138008B3OEMZ9XKZP41"
+  ],
+  "entity.legalName=TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD": [],
+  "fulltext=TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD": [
+    "549300KB6NK5SBD14S87"
+  ],
+  "entity.legalName=Soitec SA": [],
+  "fulltext=Soitec SA": [
+    "969500ZR92SQCU9TST26"
+  ]
+}

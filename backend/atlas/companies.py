@@ -200,15 +200,40 @@ def seed(
     return [_seed_company(connection, actor, slug, universe.companies[slug]) for slug in wanted]
 
 
+# Identifiers entity resolution may set (atlas.identity): config sets them only when it
+# names them, so a re-seed never erases a confirmed LEI or a resolved FIGI.
+_RESOLVED_FIELDS = frozenset({"cik", "lei", "isin", "figi"})
+
+
+def _config_fields(fields: tuple[str, ...], desired: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(f for f in fields if not (f in _RESOLVED_FIELDS and desired.get(f) is None))
+
+
 def _seed_company(connection: Connection, actor: Actor, slug: str, config: CompanyConfig) -> Seeded:
     company_id = company_id_for(slug, config)
     desired: dict[str, Any] = {"slug": slug} | config.model_dump(include=set(_COMPANY_FIELDS))
     desired["sec_forms"] = list(config.sec_forms) if config.sec_forms is not None else None
-    changes = _upsert(connection, actor, "company", company_id, desired, _COMPANY_FIELDS)
+    changes = _upsert(
+        connection,
+        actor,
+        "company",
+        company_id,
+        desired,
+        _COMPANY_FIELDS,
+        _config_fields(_COMPANY_FIELDS, desired),
+    )
     for security in config.securities:
         fields = {"company_id": company_id} | security.model_dump()
         security_id = _security_id(company_id, security)
-        changes += _upsert(connection, actor, "security", security_id, fields, _SECURITY_FIELDS)
+        changes += _upsert(
+            connection,
+            actor,
+            "security",
+            security_id,
+            fields,
+            _SECURITY_FIELDS,
+            _config_fields(_SECURITY_FIELDS, fields),
+        )
     return Seeded(slug, company_id, changes)
 
 
@@ -219,7 +244,9 @@ def _upsert(
     entity_id: uuid.UUID,
     desired: dict[str, Any],
     fields: tuple[str, ...],
+    managed: tuple[str, ...],
 ) -> int:
+    """Insert the row with every field, or bring the `managed` fields up to date."""
     columns = ", ".join(fields)
     values = ", ".join(f":{field}" for field in fields)
     created = connection.execute(
@@ -229,7 +256,6 @@ def _upsert(
         ),
         {"id": entity_id, **desired},
     ).one_or_none()
-    new_hash = content_hash(desired)
     if created is not None:
         record(
             connection,
@@ -237,12 +263,13 @@ def _upsert(
             f"{table}.created",
             entity_type=table,
             entity_id=str(entity_id),
-            new_hash=new_hash,
+            new_hash=content_hash(desired),
         )
         return 1
+    managed_columns = ", ".join(managed)
     current = (
         connection.execute(
-            text(f"SELECT {columns} FROM {table} WHERE id = :id FOR UPDATE"),  # noqa: S608
+            text(f"SELECT {managed_columns} FROM {table} WHERE id = :id FOR UPDATE"),  # noqa: S608
             {"id": entity_id},
         )
         .mappings()
@@ -252,9 +279,10 @@ def _upsert(
         # The conflict was on another unique key (e.g. the slug under a different CIK).
         raise UniverseConfigError(f"{table} {desired.get('slug', entity_id)} conflicts with a row")
     old_hash = content_hash(dict(current))
+    new_hash = content_hash({field: desired[field] for field in managed})
     if old_hash == new_hash:
         return 0
-    assignments = ", ".join(f"{field} = :{field}" for field in fields)
+    assignments = ", ".join(f"{field} = :{field}" for field in managed)
     touch = ", updated_at = now()" if table == "company" else ""
     connection.execute(
         text(f"UPDATE {table} SET {assignments}{touch} WHERE id = :id"),  # noqa: S608
@@ -278,13 +306,28 @@ def _upsert(
 class Security(BaseModel):
     id: uuid.UUID
     ticker: str
-    exchange_mic: str
+    exchange_mic: str = Field(description="ISO 10383 operating MIC")
+    segment_mic: str | None = Field(description="the segment MIC OpenFIGI matched, e.g. XNGS")
     instrument_type: str
     currency: str
     isin: str | None
-    figi: str | None
+    figi: str | None = Field(description="composite (country-level) FIGI")
+    share_class_figi: str | None
+    underlying_security_id: uuid.UUID | None = Field(description="an ADR's underlying line")
+    adr_ratio: float | None
+    review_state: str
     valid_from: date
     valid_to: date | None
+
+
+class CompanyAlias(BaseModel):
+    name: str
+    kind: Literal["legal", "former", "other"]
+    valid_from: date | None
+    valid_to: date | None
+    source: str
+    source_url: str
+    observed_at: datetime
 
 
 class Company(BaseModel):
@@ -302,6 +345,7 @@ class Company(BaseModel):
     parent_company_id: uuid.UUID | None
     review_state: str
     securities: list[Security]
+    aliases: list[CompanyAlias]
     created_at: datetime
     updated_at: datetime
 
@@ -339,12 +383,25 @@ def get_company(connection: Connection, company_id: uuid.UUID) -> Company | None
 def _company(connection: Connection, row: Any) -> Company:
     securities = connection.execute(
         text(
-            "SELECT id, ticker, exchange_mic, instrument_type, currency, isin, figi,"
+            "SELECT id, ticker, exchange_mic, segment_mic, instrument_type, currency, isin, figi,"
+            " share_class_figi, underlying_security_id, adr_ratio, review_state,"
             " valid_from, valid_to FROM security WHERE company_id = :id"
             " ORDER BY valid_from, exchange_mic, ticker"
         ),
         {"id": row["id"]},
     ).mappings()
+    aliases = connection.execute(
+        text(
+            "SELECT name, kind, valid_from, valid_to, source, source_url, observed_at"
+            " FROM company_alias WHERE company_id = :id"
+            " ORDER BY kind, valid_from NULLS FIRST, name, source"
+        ),
+        {"id": row["id"]},
+    ).mappings()
     return Company.model_validate(
-        {**row, "securities": [Security.model_validate(dict(s)) for s in securities]}
+        {
+            **row,
+            "securities": [Security.model_validate(dict(s)) for s in securities],
+            "aliases": [CompanyAlias.model_validate(dict(a)) for a in aliases],
+        }
     )

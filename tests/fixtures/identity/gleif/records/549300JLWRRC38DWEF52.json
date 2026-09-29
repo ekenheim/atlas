@@ -1,0 +1,25 @@
+{
+  "type": "lei-records",
+  "id": "549300JLWRRC38DWEF52",
+  "attributes": {
+    "lei": "549300JLWRRC38DWEF52",
+    "entity": {
+      "legalName": {
+        "name": "LUMENTUM HOLDINGS INC.",
+        "language": "en"
+      },
+      "otherNames": [],
+      "transliteratedOtherNames": [],
+      "legalAddress": {
+        "city": "FELTON",
+        "country": "US"
+      },
+      "jurisdiction": "US-DE",
+      "status": "ACTIVE",
+      "successorEntities": []
+    },
+    "registration": {
+      "status": "ISSUED"
+    }
+  }
+}

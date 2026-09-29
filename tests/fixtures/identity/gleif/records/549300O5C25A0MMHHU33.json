@@ -1,0 +1,31 @@
+{
+  "type": "lei-records",
+  "id": "549300O5C25A0MMHHU33",
+  "attributes": {
+    "lei": "549300O5C25A0MMHHU33",
+    "entity": {
+      "legalName": {
+        "name": "Coherent Corp.",
+        "language": "en"
+      },
+      "otherNames": [
+        {
+          "name": "II-VI Incorporated",
+          "language": "en",
+          "type": "PREVIOUS_LEGAL_NAME"
+        }
+      ],
+      "transliteratedOtherNames": [],
+      "legalAddress": {
+        "city": "",
+        "country": "US"
+      },
+      "jurisdiction": "US-PA",
+      "status": "ACTIVE",
+      "successorEntities": []
+    },
+    "registration": {
+      "status": "LAPSED"
+    }
+  }
+}

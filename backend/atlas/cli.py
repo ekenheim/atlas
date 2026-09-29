@@ -319,6 +319,41 @@ def seed_companies(settings: Settings) -> None:
         )
 
 
+def resolve_companies(settings: Settings, slugs: list[str] | None) -> int:
+    import dataclasses
+    import json
+
+    from atlas.audit import Actor
+    from atlas.companies import seed
+    from atlas.db import create_engine
+    from atlas.identity import EntityResolver, IdentitySourceError
+    from atlas.identity.service import resolve_universe
+
+    universe = _universe(settings)
+    unknown = [slug for slug in slugs or [] if slug not in universe.companies]
+    if unknown:
+        print(f"atlas: not configured: {', '.join(unknown)}", file=sys.stderr)
+        return 2
+    if not settings.sec_user_agent:
+        print("atlas: entity resolution calls SEC: set ATLAS_SEC_USER_AGENT", file=sys.stderr)
+        return 2
+    actor = Actor.from_settings(settings)
+    engine = create_engine(settings)
+    try:
+        with engine.begin() as connection:
+            seed(connection, actor, universe, slugs)
+        with EntityResolver.from_settings(settings) as resolver:
+            results = resolve_universe(engine, actor, resolver, universe, slugs)
+    except IdentitySourceError as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        return 1
+    finally:
+        engine.dispose()
+    for result in results:
+        print(json.dumps(dataclasses.asdict(result), default=str))
+    return 0
+
+
 def run_audit_verify(settings: Settings) -> int:
     from atlas.audit import verify_chain
     from atlas.db import create_engine
@@ -464,6 +499,14 @@ def main(argv: list[str] | None = None) -> None:
     companies = commands.add_parser("companies", help="the configured company universe")
     companies_commands = companies.add_subparsers(dest="companies_command", required=True)
     companies_commands.add_parser("seed", help="create or update companies from the config")
+    resolve = companies_commands.add_parser(
+        "resolve",
+        help="resolve companies to their CIK, LEI and listings (SEC, GLEIF, OpenFIGI);"
+        " exact and corroborated identifiers commit, the rest wait for review",
+    )
+    resolve.add_argument(
+        "--company", action="append", dest="slugs", help="only this company (repeatable)"
+    )
     hindsight = commands.add_parser("hindsight", help="configure the research bank")
     hindsight_commands = hindsight.add_subparsers(dest="hindsight_command", required=True)
     apply = hindsight_commands.add_parser(
@@ -514,6 +557,8 @@ def main(argv: list[str] | None = None) -> None:
         run_correct_availability(settings)
     elif args.command == "retention":
         run_retry_failed(settings, args.since, args.all_history, args.backfill)
+    elif args.command == "companies" and args.companies_command == "resolve":
+        raise SystemExit(resolve_companies(settings, args.slugs))
     elif args.command == "companies":
         seed_companies(settings)
     else:
