@@ -1,0 +1,5 @@
+Synthetic test fixture: a hand-written note, not a Lumentum document.
+
+Lumentum supplies NVIDIA with EML lasers for 1.6T transceivers under a qualification completed in August 2026.
+
+The note names no volumes, prices or contract terms.

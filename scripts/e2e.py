@@ -14,14 +14,23 @@ static export (`npm --prefix frontend run build`). In order, it:
    It then records the synthetic annual-report PDF (`tests/fixtures/pdf`) for Lumentum
    through the ledger, and builds three Relationships through the Assertions service and a
    `review_relationships` job (hedged quotes, so no Reviewer call), approving one.
-3. starts the API with uvicorn on a free localhost port, serving `frontend/out` on the
-   same origin (`ATLAS_FRONTEND_DIR`), and runs `playwright test` against it.
-4. stops the API and drops the database.
+3. creates a second database for the research workbench, whose investigations need the
+   recorded fakes (`tests/fakes`: Hindsight, LiteLLM with scripted role answers, SearXNG)
+   served on localhost: it migrates it, applies the bank template, seeds the universe (plus
+   NVIDIA, which the Coherent 10-K names), ingests and retains Coherent from the EDGAR
+   fixtures, then runs two investigations through the API and worker passes to answered
+   research cards with open questions (`seed_workbench`).
+4. starts the API with uvicorn on a free localhost port, serving `frontend/out` on the
+   same origin (`ATLAS_FRONTEND_DIR`), and a second one on the workbench database with the
+   fakes configured, and runs `playwright test` against them (`ATLAS_E2E_BASE_URL`,
+   `ATLAS_E2E_WORKBENCH_URL`).
+5. stops the APIs and the fakes and drops the databases.
 """
 
 # The commands run here are fixed (npm, node and the atlas CLI), never user input.
 # ruff: noqa: S603, S607
 
+import json
 import os
 import shutil
 import socket
@@ -33,11 +42,14 @@ import time
 import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx2
 import uvicorn
+import yaml
 from pydantic import JsonValue
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
@@ -60,6 +72,15 @@ from atlas.settings import Settings
 from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 
 REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))  # the recorded fakes and the test harness, in `tests`
+
+from tests.fakes.hindsight import RecordedHindsight  # noqa: E402
+from tests.fakes.litellm import ChatReply, FakeLiteLLM  # noqa: E402
+from tests.fakes.searxng import FakeSearXNG, SearchReply  # noqa: E402
+from tests.fakes.serve import Served, serve  # noqa: E402
+from tests.harness import Atlas  # noqa: E402
+
 FRONTEND = REPO / "frontend"
 STATIC_EXPORT = FRONTEND / "out"
 THEMES = REPO / "configs" / "themes" / "ai-infrastructure.yaml"
@@ -91,7 +112,12 @@ def main() -> int:
         )
         return 0
 
-    with tempfile.TemporaryDirectory(prefix="atlas-e2e-") as tmp, fresh_database() as url:
+    with (
+        tempfile.TemporaryDirectory(prefix="atlas-e2e-") as tmp,
+        fresh_database() as url,
+        fresh_database() as workbench_url,
+        workbench_fakes() as fakes,
+    ):
         workdir = Path(tmp)  # the CLI runs here, so no developer .env is picked up
         archive = workdir / "archive"
         archive.mkdir()
@@ -105,9 +131,17 @@ def main() -> int:
                 "frontend_dir": STATIC_EXPORT,
             }
         )
-        with running_api(settings) as base_url:
-            print(f"e2e: API and static export at {base_url}", flush=True)
-            env = {**os.environ, "ATLAS_E2E_BASE_URL": base_url}
+        workbench = workdir / "workbench"
+        workbench.mkdir()
+        workbench_settings = seed_workbench(workbench_url, workbench, fakes)
+        with running_api(settings) as base_url, running_api(workbench_settings) as bench_url:
+            print(f"e2e: API and static export at {base_url}; workbench at {bench_url}")
+            env = {
+                **os.environ,
+                "ATLAS_E2E_BASE_URL": base_url,
+                "ATLAS_E2E_WORKBENCH_URL": bench_url,
+            }
+            sys.stdout.flush()
             return subprocess.run(npx("playwright", "test"), cwd=FRONTEND, env=env).returncode
 
 
@@ -334,6 +368,187 @@ def seed_pdf(database_url: str, archive: Path) -> None:
         ledger.record(fetched, company_id=company_id)
     finally:
         engine.dispose()
+
+
+# --- the research workbench's database -----------------------------------------------------------
+
+WORKBENCH_QUESTION = "Who supplies the lasers in AI data-center optics, and to whom?"
+HYPOTHESIS_QUESTION = "Which laser makers does NVIDIA depend on?"
+OPEN_QUESTION = "Does NVIDIA qualify a second laser source?"
+CARD_QUESTION = "Is InP substrate capacity a constraint for 2027?"
+SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
+# From the Coherent FY2026 10-K (the recorded fixture's parsed text).
+COHERENT_QUOTE = (
+    "we announced the expansion of our Sherman, Texas, manufacturing facility, entered into a"
+    " strategic multi-year supply agreement with NVIDIA for advanced lasers and optical"
+    " networking products"
+)
+
+
+@dataclass
+class Fakes:
+    hindsight: Served
+    litellm: Served
+    searxng: Served
+    llm: FakeLiteLLM
+    search: FakeSearXNG
+
+
+@contextmanager
+def workbench_fakes() -> Generator[Fakes]:
+    """The recorded Hindsight, LiteLLM and SearXNG fakes, served on localhost."""
+    hindsight = RecordedHindsight()
+    hindsight.derive_memories()
+    llm, search = FakeLiteLLM(), FakeSearXNG()
+    with (
+        serve(hindsight.transport.handle_request) as hindsight_served,
+        serve(llm.handle) as litellm_served,
+        serve(search.handle) as searxng_served,
+    ):
+        yield Fakes(hindsight_served, litellm_served, searxng_served, llm, search)
+
+
+def asked(body: dict[str, Any]) -> dict[str, Any]:
+    """A role call's user message: `{"request": ..., "retrieved_data": [...]}`."""
+    return json.loads(body["messages"][1]["content"])
+
+
+def seed_workbench(database_url: str, root: Path, fakes: Fakes) -> Settings:
+    """Two investigations, each stopped `answered` with a research card and open questions,
+    through the API and worker passes with scripted role answers; returns the settings the
+    workbench's API is started with."""
+    themes = root / "themes.yaml"
+    universe = yaml.safe_load(THEMES.read_text(encoding="utf-8"))
+    universe["companies"]["nvidia"] = {
+        "legal_name": "NVIDIA Corporation",
+        "display_name": "NVIDIA",
+        "cik": "0001045810",
+        "country": "US",
+        "source_path": "sec",
+    }
+    themes.write_text(yaml.safe_dump(universe), encoding="utf-8")
+    env = {
+        "PATH": os.environ["PATH"],
+        "HOME": str(root),
+        "ATLAS_DATABASE_URL": database_url,
+        "ATLAS_ACTOR": "e2e-smoke",
+        "ATLAS_ARCHIVE_ROOT": str(root / "archive"),
+        "ATLAS_THEMES_CONFIG": str(themes),
+    }
+    for args in (["migrate"], ["companies", "seed"]):
+        done = subprocess.run(
+            [sys.executable, "-m", "atlas", *args],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if done.returncode != 0:
+            raise SystemExit(f"e2e: workbench `atlas {' '.join(args)}` failed:\n{done.stderr}")
+    atlas = Atlas(
+        database_url,
+        root,
+        fakes.hindsight.url,
+        fakes.litellm.url,
+        themes_config=themes,
+        searxng_url=fakes.searxng.url,
+        investigator_passages_per_call=50,
+        actor="e2e-smoke",
+    )
+    try:
+        atlas.apply_template()
+        atlas.ingest_company("coherent")
+        companies = {each["slug"]: each["id"] for each in atlas.get("/api/v1/companies")["items"]}
+        for question in (WORKBENCH_QUESTION, HYPOTHESIS_QUESTION):
+            investigate(atlas, fakes, companies, question)
+        for served in (fakes.hindsight, fakes.litellm, fakes.searxng):
+            served.raise_errors()
+        return atlas.settings().model_copy(update={"frontend_dir": STATIC_EXPORT})
+    finally:
+        atlas.engine.dispose()
+
+
+def investigate(atlas: Atlas, fakes: Fakes, companies: dict[str, str], question: str) -> None:
+    """One investigation of Coherent and Lumentum: the Scout's one query, the Investigator's
+    supply Claim (the Coherent 10-K), a Skeptic that reads nothing, an Editor answering with
+    open questions, then the chained Reviewer."""
+    started = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": question,
+            "seed_company_ids": [companies["coherent"], companies["lumentum"]],
+        },
+    )
+    if started.status_code != 202:
+        raise SystemExit(f"e2e: the workbench investigation was refused: {started.text}")
+    claim: dict[str, JsonValue] = {
+        "subject_company_id": companies["coherent"],
+        "predicate": "supplies",
+        "object_company_id": companies["nvidia"],
+        "object_text": None,
+        "product": "advanced lasers",
+        "layer": "chip-laser",
+        "quote": COHERENT_QUOTE,
+        "epistemic_type": "company_claim",
+    }
+
+    def quoting(body: dict[str, Any]) -> JsonValue:
+        for passage in asked(body)["retrieved_data"]:
+            if COHERENT_QUOTE in passage["text"]:
+                at = passage["text"].index(COHERENT_QUOTE)
+                end = at + len(COHERENT_QUOTE)
+                return {
+                    "claims": [
+                        claim | {"passage_id": passage["id"], "quote_start": at, "quote_end": end}
+                    ]
+                }
+        return {"claims": []}
+
+    def editing(body: dict[str, Any]) -> JsonValue:
+        claims = asked(body)["request"]["claims"]
+        return {
+            "findings": [
+                {
+                    "statement": "Coherent supplies NVIDIA with advanced lasers under a"
+                    " multi-year supply agreement.",
+                    "claim_ids": [each["claim_id"] for each in claims],
+                    "limitations": ["A company's own statement; no volumes or prices."],
+                    "open_questions": [OPEN_QUESTION],
+                }
+            ],
+            "open_questions": [CARD_QUESTION],
+            "verdict": "answered",
+        }
+
+    def reviewing(body: dict[str, Any]) -> JsonValue:
+        return {
+            "reviews": [
+                {
+                    "item_id": item["item_id"],
+                    "verdict": "confirmed",
+                    "direction": "as_proposed",
+                    "layer": "correct",
+                    "suggested_layer": None,
+                    "reasoning": "the quote states it",
+                }
+                for item in asked(body)["request"]["items"]
+            ]
+        }
+
+    fakes.llm.script_chat(
+        ChatReply.json({"queries": [{"query": SUBSTRATE, "purpose": "InP substrate capacity"}]}),
+        ChatReply.answer(quoting),
+        ChatReply.json({"queries": [], "documents": []}),
+        ChatReply.answer(editing),
+        ChatReply.answer(reviewing),
+    )
+    fakes.search.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    atlas.worker_pass()
+    found = atlas.get(f"/api/v1/investigations/{started.json()['id']}")
+    if (found["stop_reason"], len(found["evidence"])) != ("answered", 1):
+        raise SystemExit(f"e2e: the workbench investigation ended {found['stop_reason']}: {found}")
 
 
 def free_port() -> int:

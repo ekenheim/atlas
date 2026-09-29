@@ -34,6 +34,15 @@ export type Candidate = Schemas["Candidate"];
 export type CompanyDossier = Schemas["CompanyDossier"];
 export type FinancialFigure = Schemas["FinancialFigure"];
 export type EpistemicType = Assertion["epistemic_type"];
+export type Investigation = Schemas["Investigation"];
+export type InvestigationSummary = Schemas["InvestigationSummary"];
+export type InvestigationEvent = Schemas["InvestigationEvent"];
+export type InvestigationCreate = Schemas["InvestigationCreate"];
+export type InvestigationTask = Schemas["Task"];
+export type EvidenceItem = Schemas["EvidenceItem"];
+export type ResearchCard = Schemas["ResearchCard"];
+export type Counterevidence = Schemas["Counterevidence"];
+export type Hypothesis = Schemas["Hypothesis"];
 export type ContentKind =
   Params<"/api/v1/source-versions/{version_id}/content">["query"]["kind"];
 
@@ -58,10 +67,11 @@ type Body<P extends PostPath> = PostOperation<P> extends {
 }
   ? B
   : never;
-/** The route's success body: 200, or 201 for a create. */
+/** The route's success body: 200, 201 for a create, or 202 for work accepted. */
 type Posted<P extends PostPath> = PostOperation<P>["responses"] extends
   | { 200: { content: { "application/json": infer T } } }
   | { 201: { content: { "application/json": infer T } } }
+  | { 202: { content: { "application/json": infer T } } }
   ? T
   : never;
 
@@ -178,6 +188,44 @@ export const api = {
       { path: { relationship_id: id } },
       body,
     ),
+  /** Investigations, newest first (the workbench's first 500). */
+  investigations: () => get("/api/v1/investigations", { query: PAGE }),
+  /** Start an investigation: its fixed plan is queued at once. */
+  startInvestigation: (body: InvestigationCreate) => post("/api/v1/investigations", {}, body),
+  investigation: (id: string) =>
+    get("/api/v1/investigations/{investigation_id}", { path: { investigation_id: id } }),
+  /** What happened, in order (the first 500 events). */
+  investigationEvents: (id: string) =>
+    get("/api/v1/investigations/{investigation_id}/events", {
+      path: { investigation_id: id },
+      query: PAGE,
+    }),
+  /** Continue a budget-exhausted investigation with a larger token budget. */
+  resumeInvestigation: (id: string, tokenBudget: number) =>
+    post(
+      "/api/v1/investigations/{investigation_id}/resume",
+      { path: { investigation_id: id } },
+      { token_budget: tokenBudget },
+    ),
+  /** Mark a premise disproven: only the unstarted tasks that depend on it are cancelled. */
+  disprovePremise: (id: string, premiseKey: string, reason: string) =>
+    post(
+      "/api/v1/investigations/{investigation_id}/premises/{premise_key}/disprove",
+      { path: { investigation_id: id, premise_key: premiseKey } },
+      { reason },
+    ),
+  /** The one bounded follow-up round, on one of the research card's open questions. */
+  followUp: (id: string, question: string) =>
+    post(
+      "/api/v1/investigations/{investigation_id}/follow-up",
+      { path: { investigation_id: id } },
+      { question },
+    ),
+  /** Save a stopped investigation's research card as a draft Hypothesis. */
+  saveHypothesis: (investigationId: string) =>
+    post("/api/v1/hypotheses", {}, { investigation_id: investigationId }),
+  hypothesis: (id: string) =>
+    get("/api/v1/hypotheses/{hypothesis_id}", { path: { hypothesis_id: id } }),
   /** Review an Assertion; a transition not allowed is refused (`invalid_transition`). */
   reviewAssertion: (id: string, body: AssertionReview) =>
     post("/api/v1/assertions/{assertion_id}/review", { path: { assertion_id: id } }, body),

@@ -67,7 +67,7 @@ from atlas.investigations.model import (
     UnsupportedFinding,
     ValidityDates,
 )
-from atlas.investigations.service import Investigations, event, lock, stop
+from atlas.investigations.service import Investigations, event, lock, round_question, stop
 from atlas.investigations.skeptic import (
     SKEPTIC_ACTOR,
     Disproof,
@@ -327,7 +327,7 @@ class TaskRunner:
     ) -> _Outcome:
         role: str = task["role"]
         if role == "scout":
-            return self._scout(job, investigation, run_id)
+            return self._scout(job, investigation, task, run_id)
         if role == "investigator":
             return self._investigator(job, investigation, task, run_id)
         if role == "skeptic":
@@ -356,7 +356,14 @@ class TaskRunner:
             raise InvestigationNotConfigured("an investigation needs LiteLLM and Hindsight")
         return runs
 
-    def _scout(self, job: Job, investigation: RowMapping, run_id: uuid.UUID) -> _Outcome:
+    def _question(self, investigation: RowMapping, task: RowMapping) -> str:
+        """The question the task's round pursues (a follow-up round's open question)."""
+        with self._engine.connect() as connection:
+            return round_question(connection, investigation, task["round"])
+
+    def _scout(
+        self, job: Job, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
+    ) -> _Outcome:
         theme_id: str = investigation["theme"]
         theme = load_universe(self._settings.themes_config).themes.get(theme_id)
         if theme is None:
@@ -376,7 +383,7 @@ class TaskRunner:
                     max_queries=self._settings.discovery_max_queries,
                 )
                 found = scout.discover(
-                    job, theme_id, theme, investigation["question"], run_id=run_id
+                    job, theme_id, theme, self._question(investigation, task), run_id=run_id
                 )
             finally:
                 runs.close()
@@ -419,6 +426,7 @@ class TaskRunner:
                     if dropped
                     else "no parsed Source Version of the company is available as of"
                     f" {investigation['as_of'].isoformat()}"
+                    + (" that an earlier round hasn't read" if task["round"] > 1 else "")
                 ),
                 artifacts={"documents": 0, "documents_dropped": dropped},
             )
@@ -430,7 +438,7 @@ class TaskRunner:
         )
         payload = ExtractClaimsPayload(
             source_version_ids=documents,
-            question=investigation["question"],
+            question=self._question(investigation, task),
             run_id=run_id,
             continues=continues,
         )
@@ -484,9 +492,16 @@ class TaskRunner:
                         " AND v.parse_status IN ('parsed', 'incomplete')"
                         " AND v.parsed_object_uri IS NOT NULL"
                         " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
+                        # An earlier round's (or another task's) reading isn't repeated.
+                        " WHERE NOT EXISTS (SELECT FROM investigation_document r"
+                        "  WHERE r.investigation_id = :id AND r.source_version_id = latest.id)"
                         " ORDER BY available_at DESC, id"
                     ),
-                    {"company": task["company_id"], "as_of": investigation["as_of"]},
+                    {
+                        "company": task["company_id"],
+                        "as_of": investigation["as_of"],
+                        "id": investigation["id"],
+                    },
                 ).scalars()
             )
             room = max(investigation["max_documents"] - int(used), 0)

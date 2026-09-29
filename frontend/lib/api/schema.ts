@@ -777,7 +777,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Investigations List */
+        get: operations["investigations_list_api_v1_investigations_get"];
         put?: never;
         /** Create */
         post: operations["create_api_v1_investigations_post"];
@@ -849,6 +850,23 @@ export interface paths {
         put?: never;
         /** Disprove */
         post: operations["disprove_api_v1_investigations__investigation_id__premises__premise_key__disprove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investigations/{investigation_id}/follow-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Follow Up */
+        post: operations["follow_up_api_v1_investigations__investigation_id__follow_up_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2465,6 +2483,73 @@ export interface components {
              */
             assigned_at: string;
         };
+        /**
+         * EvidenceItem
+         * @description An accepted Claim of the investigation (the Evidence tray): the Assertion it became and
+         *     its source span. `excluded`: read by a task whose premise was disproven, so the Editor
+         *     leaves it out.
+         */
+        EvidenceItem: {
+            /**
+             * Claim Id
+             * Format: uuid
+             */
+            claim_id: string;
+            /**
+             * Assertion Id
+             * Format: uuid
+             */
+            assertion_id: string;
+            /** Round */
+            round: number;
+            /** Task Key */
+            task_key: string;
+            /**
+             * Subject Company Id
+             * Format: uuid
+             */
+            subject_company_id: string;
+            /** Subject Name */
+            subject_name: string;
+            /** Predicate */
+            predicate: string;
+            /** Object Company Id */
+            object_company_id: string | null;
+            /** Object Name */
+            object_name: string | null;
+            /** Object Text */
+            object_text: string | null;
+            /** Product */
+            product: string | null;
+            /** Layer */
+            layer: string;
+            /** Epistemic Type */
+            epistemic_type: string;
+            /** Quote */
+            quote: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /** Source Title */
+            source_title: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Evidence Family */
+            evidence_family: string;
+            /** Verification Status */
+            verification_status: string;
+            /** Excluded */
+            excluded: boolean;
+        };
         /** ExportCompany */
         ExportCompany: {
             /**
@@ -2805,6 +2890,33 @@ export interface components {
             limitations?: string[];
             /** Open Questions */
             open_questions?: string[];
+        };
+        /**
+         * FollowUp
+         * @description A follow-up round: the open question it pursues, and the research card as it stood
+         *     when the round began.
+         */
+        FollowUp: {
+            /** Round */
+            round: number;
+            /** Question */
+            question: string;
+            /** Requested By */
+            requested_by: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            card_before: components["schemas"]["ResearchCard"];
+        };
+        /** FollowUpRequest */
+        FollowUpRequest: {
+            /**
+             * Question
+             * @description one of the research card's open questions
+             */
+            question: string;
         };
         /**
          * FxBasis
@@ -3210,6 +3322,10 @@ export interface components {
             /** Counterevidence */
             counterevidence: components["schemas"]["Counterevidence"][];
             research_card: components["schemas"]["ResearchCard"] | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceItem"][];
+            /** Follow Ups */
+            follow_ups: components["schemas"]["FollowUp"][];
             /** Created By */
             created_by: string;
             /**
@@ -3348,6 +3464,41 @@ export interface components {
             relevant_hindsight_bank: string;
             /** Hypothesis Id */
             hypothesis_id: string | null;
+        };
+        /**
+         * InvestigationSummary
+         * @description An investigation as the workbench lists it.
+         */
+        InvestigationSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Theme */
+            theme: string;
+            /** Question */
+            question: string;
+            /** Seed Company Ids */
+            seed_company_ids: string[];
+            /** Round */
+            round: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "stopped";
+            /** Stop Reason */
+            stop_reason: ("answered" | "no_new_independent_evidence" | "budget_exhausted" | "needs_review" | "premise_disproven") | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Stopped At */
+            stopped_at: string | null;
         };
         /** Job */
         Job: {
@@ -3969,6 +4120,17 @@ export interface components {
         Page_InvestigationEvent_: {
             /** Items */
             items: components["schemas"]["InvestigationEvent"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[InvestigationSummary] */
+        Page_InvestigationSummary_: {
+            /** Items */
+            items: components["schemas"]["InvestigationSummary"][];
             /** Total */
             total: number;
             /** Limit */
@@ -7596,6 +7758,40 @@ export interface operations {
             };
         };
     };
+    investigations_list_api_v1_investigations_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_InvestigationSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_api_v1_investigations_post: {
         parameters: {
             query?: never;
@@ -7789,6 +7985,59 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DisproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Investigation"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    follow_up_api_v1_investigations__investigation_id__follow_up_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                investigation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowUpRequest"];
             };
         };
         responses: {

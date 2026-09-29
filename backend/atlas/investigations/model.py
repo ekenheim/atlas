@@ -3,6 +3,7 @@
 the Editor's research card, and the event log."""
 
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
@@ -286,6 +287,50 @@ class ResearchCard(BaseModel):
     contradictions: list[CardContradiction] = Field(default_factory=list[CardContradiction])
 
 
+class EvidenceItem(BaseModel):
+    """An accepted Claim of the investigation (the Evidence tray): the Assertion it became and
+    its source span. `excluded`: read by a task whose premise was disproven, so the Editor
+    leaves it out."""
+
+    model_config = ConfigDict(frozen=True)
+
+    claim_id: uuid.UUID
+    assertion_id: uuid.UUID
+    round: int
+    task_key: str
+    subject_company_id: uuid.UUID
+    subject_name: str
+    predicate: str
+    object_company_id: uuid.UUID | None
+    object_name: str | None
+    object_text: str | None
+    product: str | None
+    layer: str
+    epistemic_type: str
+    quote: str
+    source_version_id: uuid.UUID
+    span_start: int
+    span_end: int
+    source_title: str
+    available_at: datetime
+    evidence_family: str  # a family ID, or a lone Source Version's ID
+    verification_status: str  # the Assertion's review state
+    excluded: bool
+
+
+class FollowUp(BaseModel):
+    """A follow-up round: the open question it pursues, and the research card as it stood
+    when the round began."""
+
+    model_config = ConfigDict(frozen=True)
+
+    round: int
+    question: str
+    requested_by: str
+    requested_at: datetime
+    card_before: ResearchCard
+
+
 class Investigation(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -307,6 +352,25 @@ class Investigation(BaseModel):
     documents: list[InvestigationDocument]
     counterevidence: list[Counterevidence]
     research_card: ResearchCard | None
+    evidence: list[EvidenceItem]  # the Evidence tray
+    follow_ups: list[FollowUp]
+    created_by: str
+    created_at: datetime
+    stopped_at: datetime | None
+
+
+class InvestigationSummary(BaseModel):
+    """An investigation as the workbench lists it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: uuid.UUID
+    theme: str
+    question: str
+    seed_company_ids: list[uuid.UUID]
+    round: int
+    status: InvestigationStatus
+    stop_reason: StopReason | None
     created_by: str
     created_at: datetime
     stopped_at: datetime | None
@@ -397,21 +461,88 @@ def get_investigation(
             params,
         ).mappings()
     ]
+    follow_ups = [
+        FollowUp.model_validate(dict(each))
+        for each in connection.execute(
+            text(
+                "SELECT round, question, requested_by, requested_at, card_before"
+                " FROM investigation_follow_up WHERE investigation_id = :id ORDER BY round"
+            ),
+            params,
+        ).mappings()
+    ]
+    hypothesis_id: uuid.UUID | None = connection.execute(
+        text("SELECT id FROM hypothesis WHERE investigation_id = :id"), params
+    ).scalar_one_or_none()
     return _investigation(
-        row, premises, tasks, leads, documents, counterevidence, connection, queue_paused
+        row,
+        _Parts(
+            premises=premises,
+            tasks=tasks,
+            leads=leads,
+            documents=documents,
+            counterevidence=counterevidence,
+            evidence=_evidence(connection, investigation_id, row["run_id"]),
+            follow_ups=follow_ups,
+            hypothesis_id=hypothesis_id,
+        ),
+        connection,
+        queue_paused,
     )
 
 
+@dataclass(frozen=True)
+class _Parts:
+    premises: list[Premise]
+    tasks: list[Task]
+    leads: list[InvestigationLead]
+    documents: list[InvestigationDocument]
+    counterevidence: list[Counterevidence]
+    evidence: list[EvidenceItem]
+    follow_ups: list[FollowUp]
+    hypothesis_id: uuid.UUID | None
+
+
+def _evidence(
+    connection: Connection, investigation_id: uuid.UUID, run_id: uuid.UUID | None
+) -> list[EvidenceItem]:
+    """The run's accepted Claims on the investigation's documents, oldest first."""
+    if run_id is None:
+        return []
+    rows = connection.execute(
+        text(
+            "SELECT c.id AS claim_id, c.assertion_id, t.round, t.key AS task_key,"
+            " c.subject_company_id, s.display_name AS subject_name, c.predicate,"
+            " c.object_company_id, o.display_name AS object_name, c.object_text, c.product,"
+            " c.layer, c.epistemic_type, c.quote, c.source_version_id, c.span_start,"
+            " c.span_end, d.title AS source_title, v.available_at,"
+            " coalesce('family:' || m.evidence_family_id::text,"
+            "  'version:' || c.source_version_id::text) AS evidence_family,"
+            " a.verification_status,"
+            " EXISTS (SELECT FROM investigation_premise p WHERE p.investigation_id = :id"
+            "  AND p.status = 'disproven' AND p.key = ANY(t.premise_keys)) AS excluded"
+            " FROM claim c"
+            " JOIN investigation_document doc ON doc.investigation_id = :id"
+            "  AND doc.source_version_id = c.source_version_id"
+            " JOIN investigation_task t ON t.id = doc.task_id"
+            " JOIN assertion a ON a.id = c.assertion_id"
+            " JOIN source_version v ON v.id = c.source_version_id"
+            " JOIN source_document d ON d.id = v.source_document_id"
+            " JOIN company s ON s.id = c.subject_company_id"
+            " LEFT JOIN company o ON o.id = c.object_company_id"
+            " LEFT JOIN evidence_family_member m ON m.source_version_id = c.source_version_id"
+            " WHERE c.run_id = :run AND c.outcome = 'accepted'"
+            " ORDER BY c.created_at, c.id"
+        ),
+        {"id": investigation_id, "run": run_id},
+    ).mappings()
+    return [EvidenceItem.model_validate(dict(each)) for each in rows]
+
+
 def _investigation(
-    row: RowMapping,
-    premises: list[Premise],
-    tasks: list[Task],
-    leads: list[InvestigationLead],
-    documents: list[InvestigationDocument],
-    counterevidence: list[Counterevidence],
-    connection: Connection,
-    queue_paused: bool,
+    row: RowMapping, parts: _Parts, connection: Connection, queue_paused: bool
 ) -> Investigation:
+    tasks = parts.tasks
     budgets = Budgets(
         max_rounds=row["max_rounds"],
         max_leads=row["max_leads"],
@@ -447,26 +578,44 @@ def _investigation(
             max_new_leads=row["max_leads"],
             approved_tool_list=APPROVED_TOOLS,
             relevant_hindsight_bank=row["bank_id"],
-            hypothesis_id=None,
+            hypothesis_id=parts.hypothesis_id,
         ),
         budgets=budgets,
         usage=Usage(
             rounds=row["round"],
-            leads=len(leads),
-            documents=len(documents),
+            leads=len(parts.leads),
+            documents=len(parts.documents),
             tokens_in=tokens_in,
             tokens_out=tokens_out,
         ),
-        premises=premises,
+        premises=parts.premises,
         tasks=tasks,
-        leads=leads,
-        documents=documents,
-        counterevidence=counterevidence,
+        leads=parts.leads,
+        documents=parts.documents,
+        counterevidence=parts.counterevidence,
         research_card=None if card is None else ResearchCard.model_validate(card),
+        evidence=parts.evidence,
+        follow_ups=parts.follow_ups,
         created_by=row["created_by"],
         created_at=row["created_at"],
         stopped_at=row["stopped_at"],
     )
+
+
+def list_investigations(
+    connection: Connection, *, limit: int, offset: int
+) -> tuple[list[InvestigationSummary], int]:
+    """Investigations, newest first."""
+    total = connection.execute(text("SELECT count(*) FROM investigation")).scalar_one()
+    rows = connection.execute(
+        text(
+            "SELECT id, theme, question, seed_company_ids, round, status, stop_reason,"
+            " created_by, created_at, stopped_at FROM investigation"
+            " ORDER BY created_at DESC, id LIMIT :limit OFFSET :offset"
+        ),
+        {"limit": limit, "offset": offset},
+    ).mappings()
+    return [InvestigationSummary.model_validate(dict(each)) for each in rows], int(total)
 
 
 def list_events(
