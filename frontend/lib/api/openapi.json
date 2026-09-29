@@ -4572,6 +4572,210 @@
           }
         }
       }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/scenarios": {
+      "post": {
+        "tags": [
+          "scenarios"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_hypotheses__hypothesis_id__scenarios_post",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioList"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "scenarios"
+        ],
+        "summary": "Listing",
+        "operationId": "listing_api_v1_hypotheses__hypothesis_id__scenarios_get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioList"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/scenarios/{scenario_id}": {
+      "get": {
+        "tags": [
+          "scenarios"
+        ],
+        "summary": "Scenario",
+        "operationId": "scenario_api_v1_hypotheses__hypothesis_id__scenarios__scenario_id__get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scenario"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5028,6 +5232,96 @@
           "review_state"
         ],
         "title": "AssertionReview"
+      },
+      "AssertionSource": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "assertion",
+            "title": "Type"
+          },
+          "assertion_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assertion Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "assertion_id"
+        ],
+        "title": "AssertionSource"
+      },
+      "AssumptionTable": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "product": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Product"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/SourcedInput"
+                },
+                {
+                  "$ref": "#/components/schemas/EstimatedInput"
+                },
+                {
+                  "$ref": "#/components/schemas/MissingInput"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "estimated": "#/components/schemas/EstimatedInput",
+                  "missing": "#/components/schemas/MissingInput",
+                  "sourced": "#/components/schemas/SourcedInput"
+                }
+              }
+            },
+            "propertyNames": {
+              "enum": [
+                "addressable_units",
+                "company_share",
+                "downstream_unit_price",
+                "bom_share",
+                "operating_margin",
+                "ev_multiple",
+                "reported_revenue",
+                "total_debt",
+                "cash",
+                "diluted_shares"
+              ]
+            },
+            "type": "object",
+            "title": "Inputs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "company_id",
+          "product",
+          "currency"
+        ],
+        "title": "AssumptionTable",
+        "description": "One company's exposure through one product, in one currency. An input left out is\nmissing."
       },
       "BackfillWindowStatus": {
         "properties": {
@@ -5630,6 +5924,83 @@
           "rejected",
           "closed"
         ]
+      },
+      "CardContradiction": {
+        "properties": {
+          "counterevidence_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Counterevidence Id"
+          },
+          "checklist_item": {
+            "type": "string",
+            "title": "Checklist Item"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "subject_company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Subject Company Id"
+          },
+          "contradicts_claim_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Contradicts Claim Ids"
+          },
+          "disproves_premise": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disproves Premise"
+          },
+          "source_span": {
+            "$ref": "#/components/schemas/SourceSpan"
+          },
+          "evidence_family": {
+            "type": "string",
+            "title": "Evidence Family"
+          },
+          "independent": {
+            "type": "boolean",
+            "title": "Independent"
+          },
+          "independence_detail": {
+            "type": "string",
+            "title": "Independence Detail"
+          },
+          "evidence_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evidence Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counterevidence_id",
+          "checklist_item",
+          "statement",
+          "subject_company_id",
+          "contradicts_claim_ids",
+          "disproves_premise",
+          "source_span",
+          "evidence_family",
+          "independent",
+          "independence_detail",
+          "evidence_available_at"
+        ],
+        "title": "CardContradiction",
+        "description": "Accepted counterevidence, as the research card and a Hypothesis carry it."
       },
       "CardFinding": {
         "properties": {
@@ -6589,6 +6960,229 @@
         ],
         "title": "Contradiction"
       },
+      "Counterevidence": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "task_key": {
+            "type": "string",
+            "title": "Task Key"
+          },
+          "role_call_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Role Call Id"
+          },
+          "checklist_item": {
+            "type": "string",
+            "title": "Checklist Item"
+          },
+          "passage_id": {
+            "type": "string",
+            "title": "Passage Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "subject_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Company Id"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Start"
+          },
+          "span_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span End"
+          },
+          "epistemic_type": {
+            "type": "string",
+            "title": "Epistemic Type"
+          },
+          "contradicts_claim_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Contradicts Claim Ids"
+          },
+          "disproves_premise": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disproves Premise"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected"
+            ],
+            "title": "Outcome"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "assertion_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assertion Id"
+          },
+          "evidence_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Family"
+          },
+          "independent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Independent"
+          },
+          "independence_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Independence Detail"
+          },
+          "proposed": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Proposed"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "round",
+          "task_key",
+          "role_call_id",
+          "checklist_item",
+          "passage_id",
+          "statement",
+          "subject_company_id",
+          "source_version_id",
+          "quote",
+          "span_start",
+          "span_end",
+          "epistemic_type",
+          "contradicts_claim_ids",
+          "disproves_premise",
+          "outcome",
+          "reason_code",
+          "reason",
+          "assertion_id",
+          "evidence_family",
+          "independent",
+          "independence_detail",
+          "proposed",
+          "created_at"
+        ],
+        "title": "Counterevidence",
+        "description": "One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an\nAssertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`\nsays whether its Evidence Family differs from every supporting Claim's (a Source Version\noutside any family is its own). `proposed` is the item exactly as the model answered."
+      },
       "CoverageGap": {
         "type": "string",
         "enum": [
@@ -7036,6 +7630,68 @@
           "error"
         ],
         "title": "ErrorEnvelope"
+      },
+      "EstimatedInput": {
+        "properties": {
+          "low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Low"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Base"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "High"
+          },
+          "kind": {
+            "type": "string",
+            "const": "estimated",
+            "title": "Kind"
+          },
+          "basis": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Basis"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "low",
+          "base",
+          "high",
+          "kind",
+          "basis"
+        ],
+        "title": "EstimatedInput"
       },
       "Evidence": {
         "properties": {
@@ -8641,6 +9297,13 @@
             },
             "type": "array",
             "title": "Unsupported Findings"
+          },
+          "contradictions": {
+            "items": {
+              "$ref": "#/components/schemas/CardContradiction"
+            },
+            "type": "array",
+            "title": "Contradictions"
           }
         },
         "type": "object",
@@ -8657,7 +9320,7 @@
           "unsupported_findings"
         ],
         "title": "HypothesisContent",
-        "description": "A version's content. Only `findings` state facts, each citing accepted Claims (and so\ntheir Assertions and spans); the rest is the Editor's or the researcher's proposal.\n`unsupported_findings` records what was dropped for citing no accepted Claim: never\npromoted to a finding."
+        "description": "A version's content. Only `findings` state facts, each citing accepted Claims (and so\ntheir Assertions and spans); the rest is the Editor's or the researcher's proposal.\n`unsupported_findings` records what was dropped for citing no accepted Claim: never\npromoted to a finding. `contradictions` is the Skeptic's accepted counterevidence from the\ninvestigation's research card (each finding lists the independent items against its\nClaims in `counterevidence_ids`); versions drafted before ticket 15 have none."
       },
       "HypothesisCreate": {
         "properties": {
@@ -9402,6 +10065,13 @@
             "type": "array",
             "title": "Documents"
           },
+          "counterevidence": {
+            "items": {
+              "$ref": "#/components/schemas/Counterevidence"
+            },
+            "type": "array",
+            "title": "Counterevidence"
+          },
           "research_card": {
             "anyOf": [
               {
@@ -9452,6 +10122,7 @@
           "tasks",
           "leads",
           "documents",
+          "counterevidence",
           "research_card",
           "created_by",
           "created_at",
@@ -10141,6 +10812,47 @@
           "last_seen_at"
         ],
         "title": "Lead"
+      },
+      "LineResult": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "missing": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "addressable_units",
+                "company_share",
+                "downstream_unit_price",
+                "bom_share",
+                "operating_margin",
+                "ev_multiple",
+                "reported_revenue",
+                "total_debt",
+                "cash",
+                "diluted_shares"
+              ]
+            },
+            "type": "array",
+            "title": "Missing"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "missing"
+        ],
+        "title": "LineResult"
       },
       "Listing": {
         "properties": {
@@ -11315,6 +12027,33 @@
         "type": "object",
         "title": "Mention",
         "description": "What a source said about a company. Any field may be missing; `mic` may be an\noperating (XNAS) or segment (XNGS) MIC; `as_of` bounds historical names and listings."
+      },
+      "MissingInput": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "missing",
+            "title": "Kind"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "MissingInput"
       },
       "OwnerReview": {
         "properties": {
@@ -13375,6 +14114,13 @@
             "type": "string",
             "format": "uuid",
             "title": "Editor Role Call Id"
+          },
+          "contradictions": {
+            "items": {
+              "$ref": "#/components/schemas/CardContradiction"
+            },
+            "type": "array",
+            "title": "Contradictions"
           }
         },
         "type": "object",
@@ -13514,6 +14260,78 @@
           "dropped"
         ],
         "title": "Resolution"
+      },
+      "ResolvedAssertion": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "assertion",
+            "title": "Type",
+            "default": "assertion"
+          },
+          "assertion_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assertion Id"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "type": "integer",
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "title": "Span End"
+          },
+          "verification_status": {
+            "type": "string",
+            "title": "Verification Status"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assertion_id",
+          "source_version_id",
+          "quote",
+          "span_start",
+          "span_end",
+          "verification_status",
+          "available_at"
+        ],
+        "title": "ResolvedAssertion",
+        "description": "An Assertion span a scenario input cites."
+      },
+      "ResolvedObservation": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "xbrl_observation",
+            "title": "Type",
+            "default": "xbrl_observation"
+          },
+          "observation": {
+            "$ref": "#/components/schemas/FinancialObservation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "observation"
+        ],
+        "title": "ResolvedObservation",
+        "description": "An XBRL observation a scenario input cites, with its full source."
       },
       "ResumeRequest": {
         "properties": {
@@ -13870,6 +14688,424 @@
         ],
         "title": "RunRoleCalls"
       },
+      "Scenario": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "hypothesis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Id"
+          },
+          "hypothesis_version": {
+            "type": "integer",
+            "title": "Hypothesis Version"
+          },
+          "hypothesis_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Version Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "product": {
+            "type": "string",
+            "title": "Product"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "financial_analyst",
+              "researcher"
+            ],
+            "title": "Origin"
+          },
+          "investigation_task_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Task Id"
+          },
+          "role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Call Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "inputs": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioInputView"
+            },
+            "type": "array",
+            "title": "Inputs"
+          },
+          "assumptions": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Assumptions"
+          },
+          "assumptions_sha256": {
+            "type": "string",
+            "title": "Assumptions Sha256"
+          },
+          "outputs": {
+            "$ref": "#/components/schemas/ScenarioOutputs"
+          },
+          "outputs_json": {
+            "type": "string",
+            "title": "Outputs Json"
+          },
+          "outputs_sha256": {
+            "type": "string",
+            "title": "Outputs Sha256"
+          },
+          "recomputed_outputs_sha256": {
+            "type": "string",
+            "title": "Recomputed Outputs Sha256"
+          },
+          "recomputes_identically": {
+            "type": "boolean",
+            "title": "Recomputes Identically"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "hypothesis_id",
+          "hypothesis_version",
+          "hypothesis_version_id",
+          "company_id",
+          "product",
+          "currency",
+          "as_of",
+          "model_version",
+          "origin",
+          "investigation_task_id",
+          "role_call_id",
+          "note",
+          "created_by",
+          "created_at",
+          "inputs",
+          "assumptions",
+          "assumptions_sha256",
+          "outputs",
+          "outputs_json",
+          "outputs_sha256",
+          "recomputed_outputs_sha256",
+          "recomputes_identically"
+        ],
+        "title": "Scenario"
+      },
+      "ScenarioCreate": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "the Hypothesis version the scenarios attach to"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of",
+            "description": "the cutoff for the sources; default the investigation's"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "assumptions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssumptionTable"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the researcher's assumption table; omitted: the Financial Analyst's"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "ScenarioCreate"
+      },
+      "ScenarioInputView": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "addressable_units",
+              "company_share",
+              "downstream_unit_price",
+              "bom_share",
+              "operating_margin",
+              "ev_multiple",
+              "reported_revenue",
+              "total_debt",
+              "cash",
+              "diluted_shares"
+            ],
+            "title": "Name"
+          },
+          "measure": {
+            "type": "string",
+            "enum": [
+              "count",
+              "fraction",
+              "margin",
+              "money",
+              "multiple",
+              "shares"
+            ],
+            "title": "Measure"
+          },
+          "meaning": {
+            "type": "string",
+            "title": "Meaning"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sourced",
+              "estimated",
+              "missing"
+            ],
+            "title": "Kind"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedObservation"
+              },
+              {
+                "$ref": "#/components/schemas/ResolvedAssertion"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "measure",
+          "meaning",
+          "kind",
+          "low",
+          "base",
+          "high",
+          "basis",
+          "reason",
+          "source"
+        ],
+        "title": "ScenarioInputView",
+        "description": "One input as the scenario used it, with its provenance."
+      },
+      "ScenarioList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Scenario"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ScenarioList"
+      },
+      "ScenarioOutputs": {
+        "properties": {
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "assumptions_sha256": {
+            "type": "string",
+            "title": "Assumptions Sha256"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "cases": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/LineResult"
+              },
+              "propertyNames": {
+                "enum": [
+                  "component_price",
+                  "incremental_revenue",
+                  "incremental_contribution",
+                  "scenario_enterprise_value",
+                  "net_debt",
+                  "illustrative_equity_value",
+                  "equity_value_per_share",
+                  "revenue_exposure"
+                ]
+              },
+              "type": "object"
+            },
+            "propertyNames": {
+              "enum": [
+                "low",
+                "base",
+                "high"
+              ]
+            },
+            "type": "object",
+            "title": "Cases"
+          },
+          "sensitivity": {
+            "items": {
+              "$ref": "#/components/schemas/SensitivityRow"
+            },
+            "type": "array",
+            "title": "Sensitivity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model_version",
+          "assumptions_sha256",
+          "currency",
+          "cases",
+          "sensitivity"
+        ],
+        "title": "ScenarioOutputs"
+      },
       "Security": {
         "properties": {
           "id": {
@@ -14004,6 +15240,78 @@
           "valid_to"
         ],
         "title": "Security"
+      },
+      "SensitivityRow": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "enum": [
+              "addressable_units",
+              "company_share",
+              "downstream_unit_price",
+              "bom_share",
+              "operating_margin",
+              "ev_multiple",
+              "reported_revenue",
+              "total_debt",
+              "cash",
+              "diluted_shares"
+            ],
+            "title": "Input"
+          },
+          "change": {
+            "type": "string",
+            "enum": [
+              "-20%",
+              "+20%"
+            ],
+            "title": "Change"
+          },
+          "input_value": {
+            "type": "string",
+            "title": "Input Value"
+          },
+          "capped": {
+            "type": "boolean",
+            "title": "Capped"
+          },
+          "lines": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "propertyNames": {
+              "enum": [
+                "component_price",
+                "incremental_revenue",
+                "incremental_contribution",
+                "scenario_enterprise_value",
+                "net_debt",
+                "illustrative_equity_value",
+                "equity_value_per_share",
+                "revenue_exposure"
+              ]
+            },
+            "type": "object",
+            "title": "Lines"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "input",
+          "change",
+          "input_value",
+          "capped",
+          "lines"
+        ],
+        "title": "SensitivityRow"
       },
       "SkippedVersion": {
         "properties": {
@@ -14708,6 +16016,79 @@
           "evidence_family_id"
         ],
         "title": "SourceVersionSummary"
+      },
+      "SourcedInput": {
+        "properties": {
+          "low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Low"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Base"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "High"
+          },
+          "kind": {
+            "type": "string",
+            "const": "sourced",
+            "title": "Kind"
+          },
+          "source": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/XbrlSource"
+              },
+              {
+                "$ref": "#/components/schemas/AssertionSource"
+              }
+            ],
+            "title": "Source",
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "assertion": "#/components/schemas/AssertionSource",
+                "xbrl_observation": "#/components/schemas/XbrlSource"
+              }
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "low",
+          "base",
+          "high",
+          "kind",
+          "source"
+        ],
+        "title": "SourcedInput"
       },
       "TagMatch": {
         "type": "string",
@@ -15700,6 +17081,27 @@
         ],
         "title": "VersionProvenance",
         "description": "Where a version came from: the investigation and its run (the research card's Editor\ncall), and for the Editor's draft its own run and call."
+      },
+      "XbrlSource": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "xbrl_observation",
+            "title": "Type"
+          },
+          "observation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Observation Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "observation_id"
+        ],
+        "title": "XbrlSource"
       },
       "atlas__hypotheses__export__Citation": {
         "properties": {

@@ -99,6 +99,7 @@ class FakeLiteLLM:
     api_key: str = API_KEY
     calls: list[httpx2.Request] = field(default_factory=list[httpx2.Request])
     chat_replies: deque[ChatReply] = field(default_factory=deque[ChatReply])
+    role_replies: dict[str, deque[ChatReply]] = field(default_factory=dict[str, deque[ChatReply]])
 
     @property
     def transport(self) -> httpx2.MockTransport:
@@ -113,6 +114,13 @@ class FakeLiteLLM:
     def script_chat(self, *replies: ChatReply) -> "FakeLiteLLM":
         """Queue replies for the next chat completions, answered in order."""
         self.chat_replies.extend(replies)
+        return self
+
+    def script_role(self, role: str, *replies: ChatReply) -> "FakeLiteLLM":
+        """Queue replies for the next chat completions of `role` (the request's
+        `metadata.role`), answered in order before the `script_chat` queue: for roles whose
+        jobs run in parallel (the Skeptic and the Financial Analyst), in either order."""
+        self.role_replies.setdefault(role, deque[ChatReply]()).extend(replies)
         return self
 
     def chat_requests(self) -> list[dict[str, Any]]:
@@ -135,14 +143,19 @@ class FakeLiteLLM:
         return self._chat(request)
 
     def _chat(self, request: httpx2.Request) -> httpx2.Response:
-        if not self.chat_replies:
+        body = cast(dict[str, Any], json.loads(request.content))
+        role = cast(dict[str, Any], body.get("metadata") or {}).get("role")
+        for_role = self.role_replies.get(role) if isinstance(role, str) else None
+        if for_role:
+            reply = for_role.popleft()
+        elif self.chat_replies:
+            reply = self.chat_replies.popleft()
+        else:
             raise UnexpectedLiteLLMCall("POST /chat/completions with no reply scripted")
-        reply = self.chat_replies.popleft()
         if reply.drop_connection:
             raise httpx2.ConnectError("connection refused", request=request)
         if reply.status != 200:
             return httpx2.Response(reply.status, json=reply.error_body)
-        body = cast(dict[str, Any], json.loads(request.content))
         content = reply.content if reply.responder is None else json.dumps(reply.responder(body))
         headers = {"x-litellm-model-id": reply.model_id} if reply.model_id else {}
         completion = {

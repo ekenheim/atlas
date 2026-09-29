@@ -27,6 +27,7 @@ from atlas.api.queue import queue_router
 from atlas.api.relationships import relationships_router
 from atlas.api.research import research_router
 from atlas.api.runs import runs_router
+from atlas.api.scenarios import scenarios_router
 from atlas.api.sources import sources_router
 from atlas.api.themes import themes_router
 from atlas.api.triage import triage_router
@@ -142,6 +143,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
             engine, settings.financial_metrics_config, lambda: load_universe(settings.themes_config)
         )
     )
+    app.include_router(scenarios_router(engine, Actor.from_settings(settings)))
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:
