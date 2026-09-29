@@ -104,3 +104,95 @@ Store these in the Bitwarden item `atlas` now; they are not shown again and are 
 **Against the Compose Silo (dev):**
 - the same command, with `--endpoint http://127.0.0.1:59000` and the root `atlas-dev` / `atlas-dev-secret` from `compose.yaml`
 - use a throwaway `--bucket` and `--retention-days 1`, because locked versions can't be removed without the root bypass. `tests/integration/test_archive_provisioning.py` does exactly this.
+
+## Live test suite (Phase 2 gate)
+
+**What:** `tests/live/test_phase2_gate_live.py` runs the Phase 2 gate scenarios end to end against a real Hindsight 0.10.1 with MiniMax-M3 (thinking off) through LiteLLM. It is **never run in CI** (spec Part B, Testing Decisions: live tests; `docs/decisions.md`). `scripts/live-tests.sh` brings up the stack, runs the suite, records the results and, if asked, tears down.
+
+**When:** by hand, with the owner's go-ahead. It is worth running after changes to retention or research, and before a release that touches them. **A live run spends MiniMax quota.**
+
+**Prerequisites:**
+- LiteLLM settings: `ATLAS_LITELLM_URL`/`ATLAS_LITELLM_API_KEY` in the environment, or the repo `.env`'s `LITELLM_URL`/`LITELLM_API_KEY` (the spike's names, read CRLF-safe and never printed).
+- Docker. The runner starts `postgres-app` only if nothing answers on 55432; it never touches Silo.
+- Routed aliases. Until the home-ops `atlas/litellm` step routes `atlas-extract`/`atlas-reflect`, pass `--model MiniMax-M3`. Without it, the preflight refuses and names the missing alias.
+
+**Opt-in:** two locks, both required.
+- the `live` marker: the pytest addopts in `pyproject.toml` deselect it
+- `ATLAS_LIVE_TESTS`: `1` for a live run, `rehearse` for the fakes. Without it, `pytest -m live` still skips every scenario.
+
+A live run's preflight refuses (pytest exit status 4) when:
+- `CI` is set
+- Hindsight isn't healthy, or isn't 0.10.1
+- an alias isn't routed in LiteLLM
+- the app Postgres is unreachable
+
+The preflight reads only `/health`, `/version` and `/model/info`, so it calls no model. The runner also asks for confirmation before a live run, unless `--yes`.
+
+**Steps, cheapest first:**
+
+1. Rehearse, which is free. It runs the same scenarios against the recorded Hindsight fake and the `/model/info` fake on localhost. No container, no `.env`, no quota. It checks the suite's own wiring, not Hindsight:
+   ```sh
+   scripts/live-tests.sh --rehearse
+   ```
+2. Check the stack without spending quota. This starts the Compose `hindsight` profile and runs the preflight. It then applies the template, config only; it skips the import if the template has mental models, whose import would queue refreshes. Finally it ingests the fixtures with retention off. The LLM-backed scenarios are skipped.
+   ```sh
+   scripts/live-tests.sh --stop-before-llm --model MiniMax-M3
+   ```
+3. Run it live:
+   ```sh
+   scripts/live-tests.sh --model MiniMax-M3            # small profile: the two 10-Qs
+   scripts/live-tests.sh --model MiniMax-M3 --profile full --down
+   ```
+
+**Options:**
+
+| Option | Default | What it does |
+|---|---|---|
+| `--stack compose` | yes | The Compose `hindsight` profile on `127.0.0.1:58888`, the production-like config (per-role aliases). |
+| `--stack spike` | | `spikes/hindsight/run.sh MiniMax-M3 '{"thinking":{"type":"disabled"}}'` on `:8888`. It uses one alias and needs `.env`. |
+| `--stack none` | | Uses the Hindsight at `ATLAS_LIVE_HINDSIGHT_URL` as it is. |
+| `--profile small` | yes | `ATLAS_LIVE_FORMS=10-Q`: about 18k characters, which costs roughly what the extraction bake-off did. The 10-Qs are mostly cover pages and financial tables, so expect few facts, and possibly zero-fact sections. |
+| `--profile full` | | Every recorded filing (`10-K,10-Q,8-K`): about 470k characters. Est. **~40 min of retain and ~1M input tokens**, extrapolated from the bake-off's rate and not measured. |
+| `--down` | | Stops and removes the Hindsight containers afterwards, even when the suite fails. The volume is kept. |
+| `--purge` | | With `--down`, also deletes the `hindsight-db` volume. Each run uses a new bank, `atlas-live-<UTC stamp>`, so banks otherwise accumulate there. |
+| `--keep-db` | | Keeps the run's app database, `atlas_live_*`, which is otherwise dropped. |
+| `--results DIR` | `.scratch/live-runs/<stamp>-<mode>/` | Where the results go (gitignored). |
+| `--dry-run` | | Prints the commands and runs nothing. |
+
+Further knobs are environment variables, all in `tests/live/stack.py`:
+- `ATLAS_LIVE_RETAIN_DEADLINE_SECONDS` (default 3600)
+- `ATLAS_LIVE_CONSOLIDATION_WAIT_SECONDS` (default 300)
+- `ATLAS_LIVE_BANK_ID`
+
+**What it checks.** The scenarios share one run, in this order:
+- preflight
+- the bank template is applied (the bank config matches the file)
+- both companies' fixtures are ingested as parsed Source Versions
+- every section reaches a final state through completed operations, waiting out queue pauses
+- cross-company recall returns both companies, with every memory resolved to its Source Version, section offsets and `available_at`
+- a reflect over the photonics theme completes with a recorded run. None of its citations is broken, and every cited memory resolves. **Unverified chunks and quotes are reported, not failed.**
+- zero-fact sections show `zero_fact` after exactly one reprocess, and match the metric. If the run produced none, this scenario is **skipped** and says so.
+- Hindsight's LLM request stats, for the record
+
+The model's answers aren't scripted, so the suite asserts only what must hold for any correct answer.
+
+**Results:** `summary.md` (to copy into the log), `results.json` (everything seen), `junit.xml` and `pytest.log`.
+
+**Exit status:**
+
+| Status | Meaning |
+|---|---|
+| 0 | passed |
+| 1 | a scenario failed |
+| 2 | a usage error, or not confirmed |
+| 4 | refused by the preflight: nothing was sent to a model |
+
+**Record it:** add an entry to `docs/implementation-log.md` from `summary.md`. The entry says:
+- the date and the stack
+- the aliases and their routed deployments
+- the profile
+- each scenario's outcome
+- the unverified citations and zero-fact sections
+- the token usage
+
+It also says plainly which paths ran live. A rehearsal is not a live run.

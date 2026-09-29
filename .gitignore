@@ -37,3 +37,6 @@ Thumbs.db
 
 # Local Hindsight CLI config (holds an API key)
 .hindsight/
+
+# Live test suite results (scripts/live-tests.sh)
+.scratch/live-runs/
