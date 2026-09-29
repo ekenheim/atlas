@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ingest-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plans */
+        get: operations["get_plans_api_v1_ingest_plans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies": {
         parameters: {
             query?: never;
@@ -872,6 +889,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hypotheses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_hypotheses_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_hypotheses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hypothesis */
+        get: operations["hypothesis_api_v1_hypotheses__hypothesis_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transition */
+        post: operations["transition_api_v1_hypotheses__hypothesis_id__transitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Correct */
+        post: operations["correct_api_v1_hypotheses__hypothesis_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/publish-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish */
+        post: operations["publish_api_v1_hypotheses__hypothesis_id__publish_version_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Diff */
+        get: operations["diff_api_v1_hypotheses__hypothesis_id__diff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export */
+        get: operations["export_api_v1_hypotheses__hypothesis_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1255,25 +1392,6 @@ export interface components {
             /** Open Questions */
             open_questions: string[];
         };
-        /** Citation */
-        Citation: {
-            kind: components["schemas"]["CitationKind"];
-            state: components["schemas"]["CitationState"];
-            reason: components["schemas"]["UnresolvedReason"] | null;
-            /** Detail */
-            detail: string | null;
-            /** Memory Id */
-            memory_id: string | null;
-            /** Memory Type */
-            memory_type: string | null;
-            /** Text */
-            text: string;
-            /** Sources */
-            sources: components["schemas"]["CitationSource"][];
-            /** Missing Memory Ids */
-            missing_memory_ids: string[];
-            quote: components["schemas"]["QuoteSpan"] | null;
-        };
         /** @enum {string} */
         CitationKind: "memory" | "chunk" | "quote";
         /**
@@ -1519,6 +1637,42 @@ export interface components {
             raw: string;
             /** Parsed */
             parsed: string | null;
+        };
+        /** Contradiction */
+        Contradiction: {
+            /** Assertion Id */
+            assertion_id: string | null;
+            /** Verification Status */
+            verification_status: string | null;
+            /** Counterevidence Id */
+            counterevidence_id: string | null;
+        };
+        /** DiffClaim */
+        DiffClaim: {
+            /**
+             * Change
+             * @enum {string}
+             */
+            change: "new" | "contradicted" | "unchanged" | "removed";
+            /** Claim Text */
+            claim_text: string;
+            /** Claim Ids */
+            claim_ids: string[];
+            /** Assertion Ids */
+            assertion_ids: string[];
+            /** Contradictions */
+            contradictions: components["schemas"]["Contradiction"][];
+        };
+        /** DiffCounts */
+        DiffCounts: {
+            /** New */
+            new: number;
+            /** Contradicted */
+            contradicted: number;
+            /** Unchanged */
+            unchanged: number;
+            /** Removed */
+            removed: number;
         };
         /** Discovery */
         Discovery: {
@@ -1800,6 +1954,89 @@ export interface components {
              */
             assigned_at: string;
         };
+        /** ExportCompany */
+        ExportCompany: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+        };
+        /** ExportFinding */
+        ExportFinding: {
+            /** Claim Text */
+            claim_text: string;
+            /** Citations */
+            citations: number[];
+            /** Independent Evidence Families */
+            independent_evidence_families: string[];
+            /** Limitations */
+            limitations: string[];
+            /** Open Questions */
+            open_questions: string[];
+            /** Needs Review */
+            needs_review: boolean;
+            /** Counterevidence Ids */
+            counterevidence_ids: string[];
+            /**
+             * Evidence Available At
+             * Format: date-time
+             */
+            evidence_available_at: string;
+        };
+        /** ExportInvestigation */
+        ExportInvestigation: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Theme */
+            theme: string;
+            /** Question */
+            question: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Stop Reason */
+            stop_reason: string | null;
+            /** Stop Detail */
+            stop_detail: string | null;
+            budgets: components["schemas"]["Budgets"];
+            /** Run Id */
+            run_id: string | null;
+        };
+        /** ExportRoleCall */
+        ExportRoleCall: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Role */
+            role: string;
+            /** Prompt Name */
+            prompt_name: string;
+            /** Prompt Version */
+            prompt_version: number;
+            /** Prompt Sha256 */
+            prompt_sha256: string;
+            /** Model */
+            model: string;
+            /** Status */
+            status: string;
+        };
         /**
          * Fact
          * @description One external fact the resolution used: where it came from and when it was read.
@@ -2044,6 +2281,20 @@ export interface components {
             /** History */
             history: components["schemas"]["FinancialObservation"][];
         };
+        /** FindingEdit */
+        FindingEdit: {
+            /** Claim Text */
+            claim_text: string;
+            /**
+             * Claim Ids
+             * @description accepted Claims of the investigation
+             */
+            claim_ids: string[];
+            /** Limitations */
+            limitations?: string[];
+            /** Open Questions */
+            open_questions?: string[];
+        };
         /**
          * FxBasis
          * @description How a value was converted from its reporting currency. Atlas has no FX source yet, so
@@ -2064,6 +2315,232 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Hypothesis */
+        Hypothesis: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Theme Id */
+            theme_id: string;
+            /**
+             * Investigation Id
+             * Format: uuid
+             */
+            investigation_id: string;
+            /** Related Company Ids */
+            related_company_ids: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence";
+            /** Allowed Transitions */
+            allowed_transitions: ("draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence")[];
+            /** Author */
+            author: string;
+            /**
+             * Draft Status
+             * @enum {string}
+             */
+            draft_status: "queued" | "drafted" | "failed";
+            /**
+             * Draft Job Id
+             * Format: uuid
+             */
+            draft_job_id: string;
+            /** Draft Run Id */
+            draft_run_id: string | null;
+            /** Draft Error */
+            draft_error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** First Published At */
+            first_published_at: string | null;
+            /** Next Review At */
+            next_review_at: string | null;
+            /** Latest Version */
+            latest_version: number | null;
+            /** Versions */
+            versions: components["schemas"]["HypothesisVersion"][];
+            /** Transitions */
+            transitions: components["schemas"]["HypothesisTransition"][];
+        };
+        /**
+         * HypothesisContent
+         * @description A version's content. Only `findings` state facts, each citing accepted Claims (and so
+         *     their Assertions and spans); the rest is the Editor's or the researcher's proposal.
+         *     `unsupported_findings` records what was dropped for citing no accepted Claim: never
+         *     promoted to a finding.
+         */
+        HypothesisContent: {
+            /** Thesis Statement */
+            thesis_statement: string;
+            mechanism: components["schemas"]["Mechanism"];
+            /** Measurable Predictions */
+            measurable_predictions: string[];
+            /** Catalysts */
+            catalysts: string[];
+            /** Falsifiers */
+            falsifiers: string[];
+            /** Required Evidence */
+            required_evidence: string[];
+            /** Alternative Explanations */
+            alternative_explanations: string[];
+            /** Unresolved Questions */
+            unresolved_questions: string[];
+            /** Findings */
+            findings: components["schemas"]["CardFinding"][];
+            /** Unsupported Findings */
+            unsupported_findings: components["schemas"]["UnsupportedFinding"][];
+        };
+        /** HypothesisCreate */
+        HypothesisCreate: {
+            /**
+             * Investigation Id
+             * Format: uuid
+             * @description a stopped investigation with a research card
+             */
+            investigation_id: string;
+        };
+        /** HypothesisDiff */
+        HypothesisDiff: {
+            /**
+             * Hypothesis Id
+             * Format: uuid
+             */
+            hypothesis_id: string;
+            /** From Version */
+            from_version: number;
+            /** To Version */
+            to_version: number;
+            /** From Sha256 */
+            from_sha256: string;
+            /** To Sha256 */
+            to_sha256: string;
+            /** Claims */
+            claims: components["schemas"]["DiffClaim"][];
+            counts: components["schemas"]["DiffCounts"];
+            /** Fields Changed */
+            fields_changed: string[];
+        };
+        /** HypothesisExport */
+        HypothesisExport: {
+            /**
+             * Format
+             * @constant
+             */
+            format: "atlas.hypothesis-dossier";
+            /** Format Version */
+            format_version: number;
+            /**
+             * Exported At
+             * Format: date-time
+             */
+            exported_at: string;
+            /**
+             * Hypothesis Id
+             * Format: uuid
+             */
+            hypothesis_id: string;
+            /** Theme Id */
+            theme_id: string;
+            /** Status */
+            status: string;
+            /** Author */
+            author: string;
+            /** Related Companies */
+            related_companies: components["schemas"]["ExportCompany"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** First Published At */
+            first_published_at: string | null;
+            version: components["schemas"]["HypothesisVersion"];
+            /** Findings */
+            findings: components["schemas"]["ExportFinding"][];
+            /** Citations */
+            citations: components["schemas"]["atlas__hypotheses__export__Citation"][];
+            run_metadata: components["schemas"]["RunMetadata"];
+        };
+        /** HypothesisTransition */
+        HypothesisTransition: {
+            /** Seq */
+            seq: number;
+            /**
+             * From Status
+             * @enum {string}
+             */
+            from_status: "draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence";
+            /**
+             * To Status
+             * @enum {string}
+             */
+            to_status: "draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence";
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "transition" | "publish";
+            /** Version */
+            version: number | null;
+            /** Actor */
+            actor: string;
+            /** Note */
+            note: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /** HypothesisVersion */
+        HypothesisVersion: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /** Based On Version */
+            based_on_version: number | null;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "editor_draft" | "correction";
+            content: components["schemas"]["HypothesisContent"];
+            /** Content Sha256 */
+            content_sha256: string;
+            provenance: components["schemas"]["VersionProvenance"];
+            /** Note */
+            note: string | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Published */
+            published: boolean;
+            /** Published At */
+            published_at: string | null;
+            /** Published By */
+            published_by: string | null;
         };
         /** IdentityMapping */
         IdentityMapping: {
@@ -2133,6 +2610,50 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** IngestPlan */
+        IngestPlan: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company */
+            company: string;
+            /** Since */
+            since: string | null;
+            /** Forms */
+            forms: string[] | null;
+            /** Documents */
+            documents: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Document Count */
+            document_count: number;
+            /** Estimated Retain Operations */
+            estimated_retain_operations: number;
+            /** Max Retains */
+            max_retains: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** IngestPlans */
+        IngestPlans: {
+            /** Items */
+            items: components["schemas"]["IngestPlan"][];
         };
         /** Investigation */
         Investigation: {
@@ -2544,6 +3065,18 @@ export interface components {
             audit_event_id: number;
         };
         /**
+         * Mechanism
+         * @description §8.1's mechanism: what drives demand, what may constrain it, who may capture value.
+         */
+        Mechanism: {
+            /** Demand Driver */
+            demand_driver: string | null;
+            /** Possible Constraint */
+            possible_constraint: string | null;
+            /** Economic Capture Question */
+            economic_capture_question: string | null;
+        };
+        /**
          * MemoryDocument
          * @description One section of the Source Version, as retained (or linked) into the bank.
          */
@@ -2693,7 +3226,7 @@ export interface components {
             /** Previous Content */
             previous_content: string | null;
             /** Citations */
-            citations: components["schemas"]["Citation"][];
+            citations: components["schemas"]["atlas__research__provenance__Citation"][];
             /** Counts */
             counts: {
                 [key: string]: number;
@@ -2719,7 +3252,7 @@ export interface components {
             /** Is Stale */
             is_stale: boolean | null;
             /** Citations */
-            citations: components["schemas"]["Citation"][];
+            citations: components["schemas"]["atlas__research__provenance__Citation"][];
             /** Counts */
             counts: {
                 [key: string]: number;
@@ -2865,6 +3398,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[Hypothesis] */
+        Page_Hypothesis_: {
+            /** Items */
+            items: components["schemas"]["Hypothesis"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[IdentityMapping] */
         Page_IdentityMapping_: {
             /** Items */
@@ -2964,6 +3508,8 @@ export interface components {
             backfill_queued: number;
             /** Paused */
             paused: boolean;
+            /** Budget Held */
+            budget_held: number;
         };
         /** Premise */
         Premise: {
@@ -3025,6 +3571,50 @@ export interface components {
         /** @enum {string} */
         ProposalTier: "exact" | "corroborated" | "candidate";
         /**
+         * ProviderBudget
+         * @description One provider's rolling window as the queue sees it now.
+         */
+        ProviderBudget: {
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "codex" | "minimax";
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "operations" | "tokens";
+            /** Window Seconds */
+            window_seconds: number;
+            /** Used */
+            used: number;
+            /** Budget */
+            budget: number;
+            /** Backfill Limit */
+            backfill_limit: number;
+            /** Interactive Held */
+            interactive_held: boolean;
+            /** Backfill Held */
+            backfill_held: boolean;
+            /** Interactive Resumes At */
+            interactive_resumes_at: string | null;
+            /** Backfill Resumes At */
+            backfill_resumes_at: string | null;
+            /** Kinds */
+            kinds: string[];
+        };
+        /** PublishRequest */
+        PublishRequest: {
+            /**
+             * Version
+             * @description the latest version, which must be unpublished
+             */
+            version: number;
+            /** Note */
+            note?: string | null;
+        };
+        /**
          * QueuePause
          * @description The queue-level pause: which kinds are held back, why, and until when.
          */
@@ -3063,6 +3653,8 @@ export interface components {
             now: string;
             pause: components["schemas"]["QueuePause"];
             backfill_window: components["schemas"]["BackfillWindowStatus"];
+            /** Budgets */
+            budgets: components["schemas"]["ProviderBudget"][];
             /** Pending */
             pending: components["schemas"]["PendingKind"][];
         };
@@ -3143,7 +3735,7 @@ export interface components {
             occurred_end: string | null;
             /** Mentioned At */
             mentioned_at: string | null;
-            provenance: components["schemas"]["Citation"];
+            provenance: components["schemas"]["atlas__research__provenance__Citation"];
         };
         /** ReflectAccepted */
         ReflectAccepted: {
@@ -3351,7 +3943,7 @@ export interface components {
                 [key: string]: components["schemas"]["JsonValue"];
             }[] | null;
             /** Citations */
-            citations: components["schemas"]["Citation"][] | null;
+            citations: components["schemas"]["atlas__research__provenance__Citation"][] | null;
             /** Counts */
             counts: {
                 [key: string]: number;
@@ -3505,6 +4097,55 @@ export interface components {
             finished_at: string | null;
             /** Attempts */
             attempts: components["schemas"]["LLMAttempt"][];
+        };
+        /**
+         * RoutedDeployment
+         * @description One deployment behind an alias: the provider model and LiteLLM's deployment ID.
+         */
+        RoutedDeployment: {
+            /** Model */
+            model: string;
+            /** Model Id */
+            model_id: string | null;
+        };
+        /** Run */
+        Run: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Code Version */
+            code_version: string;
+            /** Hindsight Version */
+            hindsight_version: string;
+            /** Template Version */
+            template_version: string;
+            /** Routed Models */
+            routed_models: {
+                [key: string]: components["schemas"]["RoutedDeployment"][];
+            };
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** RunMetadata */
+        RunMetadata: {
+            investigation: components["schemas"]["ExportInvestigation"];
+            /** Runs */
+            runs: components["schemas"]["Run"][];
+            /** Role Calls */
+            role_calls: components["schemas"]["ExportRoleCall"][];
         };
         /** RunRoleCalls */
         RunRoleCalls: {
@@ -3877,6 +4518,16 @@ export interface components {
         };
         /** @enum {string} */
         Tier: "exact" | "corroborated" | "candidate" | "conflict" | "unresolved";
+        /** TransitionRequest */
+        TransitionRequest: {
+            /**
+             * To
+             * @enum {string}
+             */
+            to: "draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence";
+            /** Note */
+            note?: string | null;
+        };
         /** @enum {string} */
         UnresolvedReason: "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
         /** UnresponsiveEngine */
@@ -3937,6 +4588,130 @@ export interface components {
             evidence_available_at: string;
             /** Valid Until */
             valid_until: string | null;
+        };
+        /**
+         * VersionCreate
+         * @description A correction: the fields given replace the latest version's; the rest are kept.
+         */
+        VersionCreate: {
+            /**
+             * Based On Version
+             * @description the latest version
+             */
+            based_on_version: number;
+            /**
+             * Note
+             * @description why this version corrects the last
+             */
+            note: string;
+            /** Thesis Statement */
+            thesis_statement?: string | null;
+            mechanism?: components["schemas"]["Mechanism"] | null;
+            /** Measurable Predictions */
+            measurable_predictions?: string[] | null;
+            /** Catalysts */
+            catalysts?: string[] | null;
+            /** Falsifiers */
+            falsifiers?: string[] | null;
+            /** Required Evidence */
+            required_evidence?: string[] | null;
+            /** Alternative Explanations */
+            alternative_explanations?: string[] | null;
+            /** Unresolved Questions */
+            unresolved_questions?: string[] | null;
+            /** Findings */
+            findings?: components["schemas"]["FindingEdit"][] | null;
+        };
+        /**
+         * VersionProvenance
+         * @description Where a version came from: the investigation and its run (the research card's Editor
+         *     call), and for the Editor's draft its own run and call.
+         */
+        VersionProvenance: {
+            /**
+             * Investigation Id
+             * Format: uuid
+             */
+            investigation_id: string;
+            /** Investigation Run Id */
+            investigation_run_id: string | null;
+            /** Research Card Role Call Id */
+            research_card_role_call_id: string | null;
+            /** Draft Run Id */
+            draft_run_id: string | null;
+            /** Editor Role Call Id */
+            editor_role_call_id: string | null;
+        };
+        /** Citation */
+        atlas__hypotheses__export__Citation: {
+            /** Number */
+            number: number;
+            /**
+             * Claim Id
+             * Format: uuid
+             */
+            claim_id: string;
+            /**
+             * Assertion Id
+             * Format: uuid
+             */
+            assertion_id: string;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /** Verification Status */
+            verification_status: string;
+            /** Verification Status Now */
+            verification_status_now: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Source Document Id
+             * Format: uuid
+             */
+            source_document_id: string;
+            /** Title */
+            title: string;
+            /** Publisher */
+            publisher: string;
+            /** Url */
+            url: string;
+            /** Form Type */
+            form_type: string | null;
+            /** Accession */
+            accession: string | null;
+            /** Source Tier */
+            source_tier: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+        };
+        /** Citation */
+        atlas__research__provenance__Citation: {
+            kind: components["schemas"]["CitationKind"];
+            state: components["schemas"]["CitationState"];
+            reason: components["schemas"]["UnresolvedReason"] | null;
+            /** Detail */
+            detail: string | null;
+            /** Memory Id */
+            memory_id: string | null;
+            /** Memory Type */
+            memory_type: string | null;
+            /** Text */
+            text: string;
+            /** Sources */
+            sources: components["schemas"]["CitationSource"][];
+            /** Missing Memory Ids */
+            missing_memory_ids: string[];
+            quote: components["schemas"]["QuoteSpan"] | null;
         };
     };
     responses: never;
@@ -4065,6 +4840,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueStatus"];
+                };
+            };
+        };
+    };
+    get_plans_api_v1_ingest_plans_get: {
+        parameters: {
+            query?: {
+                company?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestPlans"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -6108,6 +6914,388 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listing_api_v1_hypotheses_get: {
+        parameters: {
+            query?: {
+                theme_id?: string | null;
+                status?: ("draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence") | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Hypothesis_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_hypotheses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HypothesisCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hypothesis"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    hypothesis_api_v1_hypotheses__hypothesis_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hypothesis"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_api_v1_hypotheses__hypothesis_id__transitions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hypothesis"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    correct_api_v1_hypotheses__hypothesis_id__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hypothesis"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    publish_api_v1_hypotheses__hypothesis_id__publish_version_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hypothesis"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    diff_api_v1_hypotheses__hypothesis_id__diff_get: {
+        parameters: {
+            query?: {
+                from_version?: number | null;
+                to_version?: number | null;
+            };
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HypothesisDiff"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    export_api_v1_hypotheses__hypothesis_id__export_get: {
+        parameters: {
+            query?: {
+                format?: "json" | "markdown";
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HypothesisExport"];
+                    "text/markdown": string;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

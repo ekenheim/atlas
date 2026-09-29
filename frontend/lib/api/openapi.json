@@ -133,6 +133,55 @@
         }
       }
     },
+    "/api/v1/ingest-plans": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Get Plans",
+        "operationId": "get_plans_api_v1_ingest_plans_get",
+        "parameters": [
+          {
+            "name": "company",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestPlans"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/companies": {
       "get": {
         "tags": [
@@ -3508,6 +3557,625 @@
           }
         }
       }
+    },
+    "/api/v1/hypotheses": {
+      "post": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_hypotheses_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HypothesisCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hypothesis"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Listing",
+        "operationId": "listing_api_v1_hypotheses_get",
+        "parameters": [
+          {
+            "name": "theme_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "researching",
+                    "evidence_ready",
+                    "reviewed",
+                    "paper_tracking",
+                    "closed",
+                    "rejected",
+                    "needs_more_evidence"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Hypothesis_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}": {
+      "get": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Hypothesis",
+        "operationId": "hypothesis_api_v1_hypotheses__hypothesis_id__get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hypothesis"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/transitions": {
+      "post": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Transition",
+        "operationId": "transition_api_v1_hypotheses__hypothesis_id__transitions_post",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hypothesis"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/versions": {
+      "post": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Correct",
+        "operationId": "correct_api_v1_hypotheses__hypothesis_id__versions_post",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hypothesis"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/publish-version": {
+      "post": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Publish",
+        "operationId": "publish_api_v1_hypotheses__hypothesis_id__publish_version_post",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hypothesis"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/diff": {
+      "get": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Diff",
+        "operationId": "diff_api_v1_hypotheses__hypothesis_id__diff_get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "from_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Version"
+            }
+          },
+          {
+            "name": "to_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HypothesisDiff"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/export": {
+      "get": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Export",
+        "operationId": "export_api_v1_hypotheses__hypothesis_id__export_get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "markdown"
+              ],
+              "type": "string",
+              "default": "json",
+              "title": "Format"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HypothesisExport"
+                }
+              },
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4624,101 +5292,6 @@
         "title": "CardFinding",
         "description": "A research card finding in the §7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
       },
-      "Citation": {
-        "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/CitationKind"
-          },
-          "state": {
-            "$ref": "#/components/schemas/CitationState"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/UnresolvedReason"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "detail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Detail"
-          },
-          "memory_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Memory Id"
-          },
-          "memory_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Memory Type"
-          },
-          "text": {
-            "type": "string",
-            "title": "Text"
-          },
-          "sources": {
-            "items": {
-              "$ref": "#/components/schemas/CitationSource"
-            },
-            "type": "array",
-            "title": "Sources"
-          },
-          "missing_memory_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Missing Memory Ids"
-          },
-          "quote": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/QuoteSpan"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "kind",
-          "state",
-          "reason",
-          "detail",
-          "memory_id",
-          "memory_type",
-          "text",
-          "sources",
-          "missing_memory_ids",
-          "quote"
-        ],
-        "title": "Citation"
-      },
       "CitationKind": {
         "type": "string",
         "enum": [
@@ -5444,6 +6017,130 @@
           "parsed"
         ],
         "title": "ContentLinks"
+      },
+      "Contradiction": {
+        "properties": {
+          "assertion_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assertion Id"
+          },
+          "verification_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Status"
+          },
+          "counterevidence_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterevidence Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assertion_id",
+          "verification_status",
+          "counterevidence_id"
+        ],
+        "title": "Contradiction"
+      },
+      "DiffClaim": {
+        "properties": {
+          "change": {
+            "type": "string",
+            "enum": [
+              "new",
+              "contradicted",
+              "unchanged",
+              "removed"
+            ],
+            "title": "Change"
+          },
+          "claim_text": {
+            "type": "string",
+            "title": "Claim Text"
+          },
+          "claim_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Claim Ids"
+          },
+          "assertion_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Assertion Ids"
+          },
+          "contradictions": {
+            "items": {
+              "$ref": "#/components/schemas/Contradiction"
+            },
+            "type": "array",
+            "title": "Contradictions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "change",
+          "claim_text",
+          "claim_ids",
+          "assertion_ids",
+          "contradictions"
+        ],
+        "title": "DiffClaim"
+      },
+      "DiffCounts": {
+        "properties": {
+          "new": {
+            "type": "integer",
+            "title": "New"
+          },
+          "contradicted": {
+            "type": "integer",
+            "title": "Contradicted"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "removed": {
+            "type": "integer",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new",
+          "contradicted",
+          "unchanged",
+          "removed"
+        ],
+        "title": "DiffCounts"
       },
       "Discovery": {
         "properties": {
@@ -6186,6 +6883,216 @@
         "title": "EvidenceFamilyMembership",
         "description": "How a Source Version joined its Evidence Family (atlas.ledger.families)."
       },
+      "ExportCompany": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ],
+        "title": "ExportCompany"
+      },
+      "ExportFinding": {
+        "properties": {
+          "claim_text": {
+            "type": "string",
+            "title": "Claim Text"
+          },
+          "citations": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "independent_evidence_families": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Independent Evidence Families"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "open_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Open Questions"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          },
+          "counterevidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Counterevidence Ids"
+          },
+          "evidence_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evidence Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_text",
+          "citations",
+          "independent_evidence_families",
+          "limitations",
+          "open_questions",
+          "needs_review",
+          "counterevidence_ids",
+          "evidence_available_at"
+        ],
+        "title": "ExportFinding"
+      },
+      "ExportInvestigation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          },
+          "stop_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Detail"
+          },
+          "budgets": {
+            "$ref": "#/components/schemas/Budgets"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme",
+          "question",
+          "as_of",
+          "stop_reason",
+          "stop_detail",
+          "budgets",
+          "run_id"
+        ],
+        "title": "ExportInvestigation"
+      },
+      "ExportRoleCall": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "prompt_name": {
+            "type": "string",
+            "title": "Prompt Name"
+          },
+          "prompt_version": {
+            "type": "integer",
+            "title": "Prompt Version"
+          },
+          "prompt_sha256": {
+            "type": "string",
+            "title": "Prompt Sha256"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "role",
+          "prompt_name",
+          "prompt_version",
+          "prompt_sha256",
+          "model",
+          "status"
+        ],
+        "title": "ExportRoleCall"
+      },
       "Fact": {
         "properties": {
           "source": {
@@ -6873,6 +7780,54 @@
         ],
         "title": "FinancialObservationHistory"
       },
+      "FindingEdit": {
+        "properties": {
+          "claim_text": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Claim Text"
+          },
+          "claim_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Claim Ids",
+            "description": "accepted Claims of the investigation"
+          },
+          "limitations": {
+            "items": {
+              "type": "string",
+              "maxLength": 4000,
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "open_questions": {
+            "items": {
+              "type": "string",
+              "maxLength": 4000,
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "type": "array",
+            "title": "Open Questions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "claim_text",
+          "claim_ids"
+        ],
+        "title": "FindingEdit"
+      },
       "FxBasis": {
         "properties": {
           "rate_source": {
@@ -6910,6 +7865,627 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Hypothesis": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme_id": {
+            "type": "string",
+            "title": "Theme Id"
+          },
+          "investigation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Investigation Id"
+          },
+          "related_company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Related Company Ids"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "researching",
+              "evidence_ready",
+              "reviewed",
+              "paper_tracking",
+              "closed",
+              "rejected",
+              "needs_more_evidence"
+            ],
+            "title": "Status"
+          },
+          "allowed_transitions": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "researching",
+                "evidence_ready",
+                "reviewed",
+                "paper_tracking",
+                "closed",
+                "rejected",
+                "needs_more_evidence"
+              ]
+            },
+            "type": "array",
+            "title": "Allowed Transitions"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
+          },
+          "draft_status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "drafted",
+              "failed"
+            ],
+            "title": "Draft Status"
+          },
+          "draft_job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Draft Job Id"
+          },
+          "draft_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Run Id"
+          },
+          "draft_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published At"
+          },
+          "next_review_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review At"
+          },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/HypothesisVersion"
+            },
+            "type": "array",
+            "title": "Versions"
+          },
+          "transitions": {
+            "items": {
+              "$ref": "#/components/schemas/HypothesisTransition"
+            },
+            "type": "array",
+            "title": "Transitions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme_id",
+          "investigation_id",
+          "related_company_ids",
+          "status",
+          "allowed_transitions",
+          "author",
+          "draft_status",
+          "draft_job_id",
+          "draft_run_id",
+          "draft_error",
+          "created_at",
+          "updated_at",
+          "first_published_at",
+          "next_review_at",
+          "latest_version",
+          "versions",
+          "transitions"
+        ],
+        "title": "Hypothesis"
+      },
+      "HypothesisContent": {
+        "properties": {
+          "thesis_statement": {
+            "type": "string",
+            "title": "Thesis Statement"
+          },
+          "mechanism": {
+            "$ref": "#/components/schemas/Mechanism"
+          },
+          "measurable_predictions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Measurable Predictions"
+          },
+          "catalysts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Catalysts"
+          },
+          "falsifiers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Falsifiers"
+          },
+          "required_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Evidence"
+          },
+          "alternative_explanations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alternative Explanations"
+          },
+          "unresolved_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unresolved Questions"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/CardFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "unsupported_findings": {
+            "items": {
+              "$ref": "#/components/schemas/UnsupportedFinding"
+            },
+            "type": "array",
+            "title": "Unsupported Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "thesis_statement",
+          "mechanism",
+          "measurable_predictions",
+          "catalysts",
+          "falsifiers",
+          "required_evidence",
+          "alternative_explanations",
+          "unresolved_questions",
+          "findings",
+          "unsupported_findings"
+        ],
+        "title": "HypothesisContent",
+        "description": "A version's content. Only `findings` state facts, each citing accepted Claims (and so\ntheir Assertions and spans); the rest is the Editor's or the researcher's proposal.\n`unsupported_findings` records what was dropped for citing no accepted Claim: never\npromoted to a finding."
+      },
+      "HypothesisCreate": {
+        "properties": {
+          "investigation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Investigation Id",
+            "description": "a stopped investigation with a research card"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "investigation_id"
+        ],
+        "title": "HypothesisCreate"
+      },
+      "HypothesisDiff": {
+        "properties": {
+          "hypothesis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Id"
+          },
+          "from_version": {
+            "type": "integer",
+            "title": "From Version"
+          },
+          "to_version": {
+            "type": "integer",
+            "title": "To Version"
+          },
+          "from_sha256": {
+            "type": "string",
+            "title": "From Sha256"
+          },
+          "to_sha256": {
+            "type": "string",
+            "title": "To Sha256"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/DiffClaim"
+            },
+            "type": "array",
+            "title": "Claims"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/DiffCounts"
+          },
+          "fields_changed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fields Changed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hypothesis_id",
+          "from_version",
+          "to_version",
+          "from_sha256",
+          "to_sha256",
+          "claims",
+          "counts",
+          "fields_changed"
+        ],
+        "title": "HypothesisDiff"
+      },
+      "HypothesisExport": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "const": "atlas.hypothesis-dossier",
+            "title": "Format"
+          },
+          "format_version": {
+            "type": "integer",
+            "title": "Format Version"
+          },
+          "exported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Exported At"
+          },
+          "hypothesis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Id"
+          },
+          "theme_id": {
+            "type": "string",
+            "title": "Theme Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
+          },
+          "related_companies": {
+            "items": {
+              "$ref": "#/components/schemas/ExportCompany"
+            },
+            "type": "array",
+            "title": "Related Companies"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published At"
+          },
+          "version": {
+            "$ref": "#/components/schemas/HypothesisVersion"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ExportFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/atlas__hypotheses__export__Citation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "run_metadata": {
+            "$ref": "#/components/schemas/RunMetadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "format",
+          "format_version",
+          "exported_at",
+          "hypothesis_id",
+          "theme_id",
+          "status",
+          "author",
+          "related_companies",
+          "created_at",
+          "first_published_at",
+          "version",
+          "findings",
+          "citations",
+          "run_metadata"
+        ],
+        "title": "HypothesisExport"
+      },
+      "HypothesisTransition": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "from_status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "researching",
+              "evidence_ready",
+              "reviewed",
+              "paper_tracking",
+              "closed",
+              "rejected",
+              "needs_more_evidence"
+            ],
+            "title": "From Status"
+          },
+          "to_status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "researching",
+              "evidence_ready",
+              "reviewed",
+              "paper_tracking",
+              "closed",
+              "rejected",
+              "needs_more_evidence"
+            ],
+            "title": "To Status"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "transition",
+              "publish"
+            ],
+            "title": "Action"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "from_status",
+          "to_status",
+          "action",
+          "version",
+          "actor",
+          "note",
+          "at"
+        ],
+        "title": "HypothesisTransition"
+      },
+      "HypothesisVersion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "based_on_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Based On Version"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "editor_draft",
+              "correction"
+            ],
+            "title": "Origin"
+          },
+          "content": {
+            "$ref": "#/components/schemas/HypothesisContent"
+          },
+          "content_sha256": {
+            "type": "string",
+            "title": "Content Sha256"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/VersionProvenance"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "published": {
+            "type": "boolean",
+            "title": "Published"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "published_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "based_on_version",
+          "origin",
+          "content",
+          "content_sha256",
+          "provenance",
+          "note",
+          "created_by",
+          "created_at",
+          "published",
+          "published_at",
+          "published_by"
+        ],
+        "title": "HypothesisVersion"
       },
       "IdentityMapping": {
         "properties": {
@@ -7070,6 +8646,120 @@
           "created_at"
         ],
         "title": "IdentityMapping"
+      },
+      "IngestPlan": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "forms": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forms"
+          },
+          "documents": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "document_count": {
+            "type": "integer",
+            "title": "Document Count"
+          },
+          "estimated_retain_operations": {
+            "type": "integer",
+            "title": "Estimated Retain Operations"
+          },
+          "max_retains": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retains"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "job_id",
+          "company_id",
+          "company",
+          "since",
+          "forms",
+          "documents",
+          "document_count",
+          "estimated_retain_operations",
+          "max_retains",
+          "created_at"
+        ],
+        "title": "IngestPlan"
+      },
+      "IngestPlans": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IngestPlan"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "IngestPlans"
       },
       "Investigation": {
         "properties": {
@@ -8295,6 +9985,52 @@
         ],
         "title": "MappingReviewed"
       },
+      "Mechanism": {
+        "properties": {
+          "demand_driver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demand Driver"
+          },
+          "possible_constraint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Possible Constraint"
+          },
+          "economic_capture_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Economic Capture Question"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "demand_driver",
+          "possible_constraint",
+          "economic_capture_question"
+        ],
+        "title": "Mechanism",
+        "description": "§8.1's mechanism: what drives demand, what may constrain it, who may capture value."
+      },
       "MemoryDocument": {
         "properties": {
           "section_anchor": {
@@ -8791,7 +10527,7 @@
           },
           "citations": {
             "items": {
-              "$ref": "#/components/schemas/Citation"
+              "$ref": "#/components/schemas/atlas__research__provenance__Citation"
             },
             "type": "array",
             "title": "Citations"
@@ -8878,7 +10614,7 @@
           },
           "citations": {
             "items": {
-              "$ref": "#/components/schemas/Citation"
+              "$ref": "#/components/schemas/atlas__research__provenance__Citation"
             },
             "type": "array",
             "title": "Citations"
@@ -9325,6 +11061,37 @@
         ],
         "title": "Page[FinancialObservation]"
       },
+      "Page_Hypothesis_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Hypothesis"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Hypothesis]"
+      },
       "Page_IdentityMapping_": {
         "properties": {
           "items": {
@@ -9575,6 +11342,10 @@
           "paused": {
             "type": "boolean",
             "title": "Paused"
+          },
+          "budget_held": {
+            "type": "integer",
+            "title": "Budget Held"
           }
         },
         "type": "object",
@@ -9583,7 +11354,8 @@
           "queued",
           "running",
           "backfill_queued",
-          "paused"
+          "paused",
+          "budget_held"
         ],
         "title": "PendingKind"
       },
@@ -9733,6 +11505,125 @@
           "corroborated",
           "candidate"
         ]
+      },
+      "ProviderBudget": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "codex",
+              "minimax"
+            ],
+            "title": "Provider"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "operations",
+              "tokens"
+            ],
+            "title": "Unit"
+          },
+          "window_seconds": {
+            "type": "number",
+            "title": "Window Seconds"
+          },
+          "used": {
+            "type": "integer",
+            "title": "Used"
+          },
+          "budget": {
+            "type": "integer",
+            "title": "Budget"
+          },
+          "backfill_limit": {
+            "type": "integer",
+            "title": "Backfill Limit"
+          },
+          "interactive_held": {
+            "type": "boolean",
+            "title": "Interactive Held"
+          },
+          "backfill_held": {
+            "type": "boolean",
+            "title": "Backfill Held"
+          },
+          "interactive_resumes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interactive Resumes At"
+          },
+          "backfill_resumes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backfill Resumes At"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kinds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "unit",
+          "window_seconds",
+          "used",
+          "budget",
+          "backfill_limit",
+          "interactive_held",
+          "backfill_held",
+          "interactive_resumes_at",
+          "backfill_resumes_at",
+          "kinds"
+        ],
+        "title": "ProviderBudget",
+        "description": "One provider's rolling window as the queue sees it now."
+      },
+      "PublishRequest": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "the latest version, which must be unpublished"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "PublishRequest"
       },
       "QueuePause": {
         "properties": {
@@ -9884,6 +11775,13 @@
           "backfill_window": {
             "$ref": "#/components/schemas/BackfillWindowStatus"
           },
+          "budgets": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderBudget"
+            },
+            "type": "array",
+            "title": "Budgets"
+          },
           "pending": {
             "items": {
               "$ref": "#/components/schemas/PendingKind"
@@ -9897,6 +11795,7 @@
           "now",
           "pause",
           "backfill_window",
+          "budgets",
           "pending"
         ],
         "title": "QueueStatus"
@@ -10104,7 +12003,7 @@
             "title": "Mentioned At"
           },
           "provenance": {
-            "$ref": "#/components/schemas/Citation"
+            "$ref": "#/components/schemas/atlas__research__provenance__Citation"
           }
         },
         "type": "object",
@@ -10698,7 +12597,7 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/Citation"
+                  "$ref": "#/components/schemas/atlas__research__provenance__Citation"
                 },
                 "type": "array"
               },
@@ -11199,6 +13098,134 @@
         ],
         "title": "RoleCallRecord",
         "description": "One call of a role. A quarantined call's outputs are visible in its attempts only;\n`output` is set only for an accepted call."
+      },
+      "RoutedDeployment": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "model_id"
+        ],
+        "title": "RoutedDeployment",
+        "description": "One deployment behind an alias: the provider model and LiteLLM's deployment ID."
+      },
+      "Run": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "code_version": {
+            "type": "string",
+            "title": "Code Version"
+          },
+          "hindsight_version": {
+            "type": "string",
+            "title": "Hindsight Version"
+          },
+          "template_version": {
+            "type": "string",
+            "title": "Template Version"
+          },
+          "routed_models": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/RoutedDeployment"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Routed Models"
+          },
+          "tokens_in": {
+            "type": "integer",
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "type": "integer",
+            "title": "Tokens Out"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "code_version",
+          "hindsight_version",
+          "template_version",
+          "routed_models",
+          "tokens_in",
+          "tokens_out",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "Run"
+      },
+      "RunMetadata": {
+        "properties": {
+          "investigation": {
+            "$ref": "#/components/schemas/ExportInvestigation"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/Run"
+            },
+            "type": "array",
+            "title": "Runs"
+          },
+          "role_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ExportRoleCall"
+            },
+            "type": "array",
+            "title": "Role Calls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "investigation",
+          "runs",
+          "role_calls"
+        ],
+        "title": "RunMetadata"
       },
       "RunRoleCalls": {
         "properties": {
@@ -12224,6 +14251,42 @@
           "unresolved"
         ]
       },
+      "TransitionRequest": {
+        "properties": {
+          "to": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "researching",
+              "evidence_ready",
+              "reviewed",
+              "paper_tracking",
+              "closed",
+              "rejected",
+              "needs_more_evidence"
+            ],
+            "title": "To"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "to"
+        ],
+        "title": "TransitionRequest"
+      },
       "UnresolvedReason": {
         "type": "string",
         "enum": [
@@ -12383,6 +14446,446 @@
           "valid_until"
         ],
         "title": "ValidityDates"
+      },
+      "VersionCreate": {
+        "properties": {
+          "based_on_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Based On Version",
+            "description": "the latest version"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Note",
+            "description": "why this version corrects the last"
+          },
+          "thesis_statement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000,
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Statement"
+          },
+          "mechanism": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Mechanism"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "measurable_predictions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurable Predictions"
+          },
+          "catalysts": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalysts"
+          },
+          "falsifiers": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Falsifiers"
+          },
+          "required_evidence": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Evidence"
+          },
+          "alternative_explanations": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alternative Explanations"
+          },
+          "unresolved_questions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unresolved Questions"
+          },
+          "findings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FindingEdit"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Findings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "based_on_version",
+          "note"
+        ],
+        "title": "VersionCreate",
+        "description": "A correction: the fields given replace the latest version's; the rest are kept."
+      },
+      "VersionProvenance": {
+        "properties": {
+          "investigation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Investigation Id"
+          },
+          "investigation_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Run Id"
+          },
+          "research_card_role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Research Card Role Call Id"
+          },
+          "draft_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Run Id"
+          },
+          "editor_role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor Role Call Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "investigation_id",
+          "investigation_run_id",
+          "research_card_role_call_id",
+          "draft_run_id",
+          "editor_role_call_id"
+        ],
+        "title": "VersionProvenance",
+        "description": "Where a version came from: the investigation and its run (the research card's Editor\ncall), and for the Editor's draft its own run and call."
+      },
+      "atlas__hypotheses__export__Citation": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "claim_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Claim Id"
+          },
+          "assertion_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assertion Id"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "type": "integer",
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "title": "Span End"
+          },
+          "verification_status": {
+            "type": "string",
+            "title": "Verification Status"
+          },
+          "verification_status_now": {
+            "type": "string",
+            "title": "Verification Status Now"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_document_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Document Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "publisher": {
+            "type": "string",
+            "title": "Publisher"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "form_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Type"
+          },
+          "accession": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accession"
+          },
+          "source_tier": {
+            "type": "string",
+            "title": "Source Tier"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "claim_id",
+          "assertion_id",
+          "quote",
+          "span_start",
+          "span_end",
+          "verification_status",
+          "verification_status_now",
+          "source_version_id",
+          "source_document_id",
+          "title",
+          "publisher",
+          "url",
+          "form_type",
+          "accession",
+          "source_tier",
+          "available_at"
+        ],
+        "title": "Citation"
+      },
+      "atlas__research__provenance__Citation": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CitationKind"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CitationState"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnresolvedReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "memory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Id"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CitationSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "missing_memory_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Memory Ids"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteSpan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "state",
+          "reason",
+          "detail",
+          "memory_id",
+          "memory_type",
+          "text",
+          "sources",
+          "missing_memory_ids",
+          "quote"
+        ],
+        "title": "Citation"
       }
     }
   }
