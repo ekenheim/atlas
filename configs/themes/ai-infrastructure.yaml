@@ -8,10 +8,11 @@
 #   dsp, module, contract-manufacturing or system. Vertically integrated companies span
 #   several; Relationships carry the layer of each link.
 # - `source_path`: where its primary disclosures come from. `sec` (SEC EDGAR: 10-K/10-Q/8-K
-#   by default, or the `sec_forms` listed) or `exchange:<hkex|lse-rns|euronext>`. Only `sec`
+#   by default, or the `sec_forms` listed) or `exchange:<hkex|fca-nsm|euronext>`. Only `sec`
 #   companies are fetched by the SEC ingest; `exchange:hkex` ones by the HKEXnews adapter,
-#   which needs `exchange` (the issuer's code and its HKEXnews stockId). The other
-#   exchanges' adapters are later work.
+#   which needs `exchange` (the issuer's code and its HKEXnews stockId); `exchange:fca-nsm`
+#   ones by the FCA National Storage Mechanism adapter, which needs `exchange` (the
+#   issuer's code and its LEI as `feed_id`). The Euronext/AMF adapter is later work.
 # - `ignored_ciks`: CIKs that SEC's ticker files map to the company but that are only
 #   unsponsored-ADR shells (depositary F-6EF registrations, no issuer reports). They are
 #   never used as the company's filer; the config refuses a company whose `cik` is one.
@@ -22,7 +23,7 @@
 # Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 3
+version: 4
 name: ai-infrastructure
 
 companies:
@@ -57,11 +58,15 @@ companies:
     legal_name: IQE plc
     display_name: IQE
     # IQE on AIM (XLON, segment AIMX), moving to the Main Market. LEI 213800Y33WHD3ESJJP16
-    # (ISSUED). Regulatory news via LSE RNS.
+    # (ISSUED). Regulatory news from the FCA National Storage Mechanism (LSE RNS and IQE's
+    # Brighter IR pages are not allowed: configs/sources/sites.yaml).
     country: GB
     website: https://www.iqep.com
     layer: epi  # InP and GaAs epitaxial wafers
-    source_path: exchange:lse-rns
+    source_path: exchange:fca-nsm
+    exchange:
+      issuer_code: IQE  # LSE TIDM
+      feed_id: 213800Y33WHD3ESJJP16  # LEI: the NSM searches by it
     ignored_ciks:
       - cik: "0001550405"
         reason: unsponsored-ADR shell (OTC IQEPF, "IQE PLC/ADR"); depositary F-6EF filing only

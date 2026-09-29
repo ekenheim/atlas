@@ -10297,7 +10297,7 @@
         "enum": [
           "sec",
           "exchange:hkex",
-          "exchange:lse-rns",
+          "exchange:fca-nsm",
           "exchange:euronext"
         ]
       },

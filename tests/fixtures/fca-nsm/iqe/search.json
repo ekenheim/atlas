@@ -1,0 +1,135 @@
+{
+ "took": 7,
+ "timed_out": false,
+ "_shards": {
+  "failed": 0.0,
+  "skipped": 0.0,
+  "successful": 4.0,
+  "total": 4.0
+ },
+ "hits": {
+  "total": {
+   "relation": "eq",
+   "value": 4
+  },
+  "hits": [
+   {
+    "_index": "fca-nsm-searchdata",
+    "_id": "5a1f0c3e-0000-4000-8000-000000000001",
+    "_source": {
+     "submitted_date": "2026-09-07T06:12:29Z",
+     "tag_esef": "",
+     "classifications_code": "",
+     "document_date": "2026-09-07T06:12:29Z",
+     "source": "RNS",
+     "type": "Half-year Financial Report",
+     "related_org": [],
+     "lei_remediation_flag": "N",
+     "document_format": "Plain text",
+     "category_group": "Financial Results",
+     "classifications": "",
+     "lei": "213800Y33WHD3ESJJP16",
+     "download_link": "NSM/RNS/5a1f0c3e-0000-4000-8000-000000000001.html",
+     "disclosure_id": "5a1f0c3e-0000-4000-8000-000000000001",
+     "latest_flag": "Y",
+     "hist_seq": "1",
+     "publication_date": "2026-09-07T06:00:06Z",
+     "seq_id": "5a1f0c3e-0000-4000-8000-000000000001",
+     "company": "IQE PLC",
+     "last_updated_date": "2026-09-07T06:00:06Z",
+     "headline": "IQE plc: H1 2026 Interim Results",
+     "type_code": "IR"
+    }
+   },
+   {
+    "_index": "fca-nsm-searchdata",
+    "_id": "5a1f0c3e-0000-4000-8000-000000000002",
+    "_source": {
+     "submitted_date": "2026-09-01T15:12:19Z",
+     "tag_esef": "",
+     "classifications_code": "",
+     "document_date": "2026-09-01T15:12:19Z",
+     "source": "RNS",
+     "type": "Total Voting Rights",
+     "related_org": [],
+     "lei_remediation_flag": "N",
+     "document_format": "Plain text",
+     "category_group": "Holdings",
+     "classifications": "",
+     "lei": "213800Y33WHD3ESJJP16",
+     "download_link": "NSM/RNS/5a1f0c3e-0000-4000-8000-000000000002.html",
+     "disclosure_id": "5a1f0c3e-0000-4000-8000-000000000002",
+     "latest_flag": "Y",
+     "hist_seq": "1",
+     "publication_date": "2026-09-01T15:00:00Z",
+     "seq_id": "5a1f0c3e-0000-4000-8000-000000000002",
+     "company": "IQE PLC",
+     "last_updated_date": "2026-09-01T15:00:00Z",
+     "headline": "IQE plc: Total Voting Rights",
+     "type_code": "TVR"
+    }
+   },
+   {
+    "_index": "fca-nsm-searchdata",
+    "_id": "5a1f0c3e-0000-4000-8000-000000000003",
+    "_source": {
+     "submitted_date": "2026-06-10T14:06:25Z",
+     "tag_esef": "",
+     "classifications_code": "",
+     "document_date": "2026-06-10T14:06:25Z",
+     "source": "RNS",
+     "type": "Form 8.3",
+     "related_org": [
+      {
+       "lei": "213800Y33WHD3ESJJP16",
+       "company": "IQE PLC"
+      }
+     ],
+     "lei_remediation_flag": "N",
+     "document_format": "Plain text",
+     "category_group": "Mergers and acquisitions",
+     "classifications": "",
+     "lei": "213800LBQA1Y9L22JB70",
+     "download_link": "NSM/RNS/5a1f0c3e-0000-4000-8000-000000000003.html",
+     "disclosure_id": "5a1f0c3e-0000-4000-8000-000000000003",
+     "latest_flag": "Y",
+     "hist_seq": "1",
+     "publication_date": "2026-06-10T13:55:44Z",
+     "seq_id": "5a1f0c3e-0000-4000-8000-000000000003",
+     "company": "BARCLAYS PLC",
+     "last_updated_date": "2026-06-10T13:55:44Z",
+     "headline": "Form 8.3 IQE PLC",
+     "type_code": "RET"
+    }
+   },
+   {
+    "_index": "fca-nsm-searchdata",
+    "_id": "5a1f0c3e-0000-4000-8000-000000000004",
+    "_source": {
+     "submitted_date": "2026-05-29T14:41:07.123456789Z",
+     "tag_esef": "",
+     "classifications_code": "",
+     "document_date": "2026-05-29T14:41:07.123456789Z",
+     "source": "Direct upload",
+     "type": "Annual Financial Report",
+     "related_org": [],
+     "lei_remediation_flag": "N",
+     "document_format": "Plain text",
+     "category_group": "Financial Results",
+     "classifications": "",
+     "lei": "213800Y33WHD3ESJJP16",
+     "download_link": "NSM/Portal/NI-000900001/NI-000900001.pdf",
+     "disclosure_id": "5a1f0c3e-0000-4000-8000-000000000004",
+     "latest_flag": "Y",
+     "hist_seq": "1",
+     "publication_date": "2026-05-29T14:30:00Z",
+     "seq_id": "5a1f0c3e-0000-4000-8000-000000000004",
+     "company": "IQE PLC",
+     "last_updated_date": "2026-05-29T14:30:00Z",
+     "headline": "IQE plc: Annual Report and Accounts 2025",
+     "type_code": "ACS"
+    }
+   }
+  ]
+ }
+}

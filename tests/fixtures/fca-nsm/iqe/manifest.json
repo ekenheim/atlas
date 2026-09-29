@@ -1,0 +1,52 @@
+{
+  "note": "Hand-written in the shapes the FCA NSM served on 2026-09-29, not recorded (scripts/make_fca_nsm_fixtures.py). Identifiers, times and documents are synthetic.",
+  "responses": [
+    {
+      "url": "https://api.data.fca.org.uk/robots.txt",
+      "file": "robots-403-api.json",
+      "status": 403,
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "url": "https://data.fca.org.uk/robots.txt",
+      "file": "robots-403-data.xml",
+      "status": 403,
+      "headers": {
+        "Content-Type": "application/xml"
+      }
+    },
+    {
+      "url": "https://api.data.fca.org.uk/search?index=nsm-search",
+      "file": "search.json",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "url": "https://data.fca.org.uk/artefacts/NSM/RNS/5a1f0c3e-0000-4000-8000-000000000001.html",
+      "file": "NSM/RNS/5a1f0c3e-0000-4000-8000-000000000001.html",
+      "headers": {
+        "Content-Type": "text/html;charset=UTF-8",
+        "Last-Modified": "Mon, 07 Sep 2026 06:12:57 GMT"
+      }
+    },
+    {
+      "url": "https://data.fca.org.uk/artefacts/NSM/RNS/5a1f0c3e-0000-4000-8000-000000000002.html",
+      "file": "NSM/RNS/5a1f0c3e-0000-4000-8000-000000000002.html",
+      "headers": {
+        "Content-Type": "text/html;charset=UTF-8",
+        "Last-Modified": "Tue, 01 Sep 2026 15:12:40 GMT"
+      }
+    },
+    {
+      "url": "https://data.fca.org.uk/artefacts/NSM/Portal/NI-000900001/NI-000900001.pdf",
+      "file": "NSM/Portal/NI-000900001/NI-000900001.pdf",
+      "headers": {
+        "Content-Type": "application/pdf",
+        "Last-Modified": "Fri, 29 May 2026 14:41:30 GMT"
+      }
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import DBAPIError
 
 from atlas.db.migrate import upgrade
 
@@ -34,7 +35,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0024"
+    assert revision == "0025"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -77,3 +78,31 @@ def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> N
     engine.dispose()
     assert (row.language, row.page_anchors) == ("en", None)
     assert default is None  # later versions get their language from the ledger only
+
+
+def test_a_company_on_lse_rns_moves_to_the_fca_nsm(empty_database_url: str) -> None:
+    # 0025: LSE RNS is not allowed (docs/decisions.md); IQE comes from the FCA NSM.
+    upgrade(empty_database_url, "0023")
+    engine = create_engine(empty_database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO company (id, slug, legal_name, display_name, country, source_path)"
+                " VALUES (gen_random_uuid(), 'iqe', 'IQE plc', 'IQE', 'GB', 'exchange:lse-rns')"
+            )
+        )
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        path = connection.execute(text("SELECT source_path FROM company")).scalar_one()
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE company SET source_path = 'exchange:lse-rns'"))
+    except DBAPIError as error:
+        refused = "company_source_path_check" in str(error)
+    else:
+        refused = False
+    engine.dispose()
+    assert path == "exchange:fca-nsm"
+    assert refused
