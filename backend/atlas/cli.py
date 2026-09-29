@@ -170,7 +170,7 @@ def enqueue_ingest(
     from atlas.audit import Actor
     from atlas.db import create_engine
     from atlas.jobs import JobQueue
-    from atlas.ledger.ingest import INGEST_KIND, ingest_payload
+    from atlas.ledger.ingest import INGEST_KIND, ingest_payload, not_an_sec_filer_message
 
     universe = _universe(settings)
     if company not in universe.companies:
@@ -180,6 +180,10 @@ def enqueue_ingest(
             f" (known: {known})",
             file=sys.stderr,
         )
+        raise SystemExit(2)
+    source_path = universe.companies[company].source_path
+    if source_path != "sec":
+        print(f"atlas: {not_an_sec_filer_message(company, source_path)}", file=sys.stderr)
         raise SystemExit(2)
     if (limit is not None and limit < 1) or max_attempts < 1:
         print("atlas: --limit and --max-attempts must be at least 1", file=sys.stderr)

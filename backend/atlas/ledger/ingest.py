@@ -7,6 +7,11 @@ last fetch) and records it in the ledger. Re-running is safe: unchanged material
 no new Source Version. When Hindsight is configured, each new parsed Source Version gets a
 `retain` job (`atlas.retention`).
 
+Only companies whose source path is `sec` are ingested; any other (an exchange-disclosed
+company such as Soitec) is refused before anything is seeded or fetched. The company's
+configured `sec_forms` (e.g. 20-F/6-K for a foreign private issuer) apply when the job
+names no forms.
+
 A document whose fetch fails is skipped and the others are still recorded; the attempt
 then fails listing every failed URL, so a gap in coverage is never silent, and the retry
 re-checks only cheaply (unchanged documents cost a 304 or a hash comparison).
@@ -55,6 +60,17 @@ class IngestIncomplete(Exception):
     """Some documents could not be fetched; the rest were recorded."""
 
 
+class NotAnSecFiler(ValueError):
+    """The company's source path isn't `sec`, so the SEC ingest refuses it without fetching."""
+
+
+def not_an_sec_filer_message(company: str, source_path: str) -> str:
+    return (
+        f"company {company!r} is not an SEC filer (source path {source_path!r}):"
+        " the SEC ingest refuses it and fetches nothing; its exchange adapter ingests it"
+    )
+
+
 def ingest_payload(
     company: str,
     forms: list[str] | None,
@@ -78,8 +94,8 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
     config = universe.companies.get(payload.company)
     if config is None:
         raise ValueError(f"company {payload.company!r} is not in {settings.themes_config}")
-    if config.cik is None:
-        raise ValueError(f"company {payload.company!r} has no SEC CIK configured")
+    if config.source_path != "sec" or config.cik is None:
+        raise NotAnSecFiler(not_an_sec_filer_message(payload.company, config.source_path))
     actor = Actor.from_settings(settings)
     engine = create_engine(settings)
     try:
@@ -89,7 +105,9 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
         client = _sec_client(settings, payload.company)
         query = SearchQuery(
             cik=config.cik,
-            forms=tuple(payload.forms) if payload.forms else None,
+            # The job's forms, else the company's configured ones (e.g. 20-F/6-K), else the
+            # adapter's default.
+            forms=tuple(payload.forms or config.sec_forms or ()) or None,
             limit=payload.limit,
             since=payload.since,
         )
