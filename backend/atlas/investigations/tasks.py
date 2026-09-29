@@ -1,0 +1,742 @@
+"""Running one investigation task (an `investigation_task` job): the role's work, then the
+task's outcome and the next step of the plan (atlas.investigations.service).
+
+One attempt:
+
+1. **Start.** Under the investigation's lock: a task that isn't queued for this job (it was
+   cancelled, or the investigation stopped) does nothing. Otherwise it is marked running
+   (`task_started`, or `task_resumed` after a pause). The investigation's run (kind
+   `investigation`) is started by the first task that needs it.
+2. **The role**, within the investigation's run and token budget:
+   - **Scout:** a discovery (atlas.discovery) in the run; the leads its queries returned, in
+     the order found, are taken up to the lead budget (the rest counted as dropped).
+   - **Investigator** (one per seed company): the company's latest parsed Source Versions
+     available at the investigation's as-of time, newest first, up to what is left of the
+     document budget; then an extraction (atlas.claims) of them in the run, with the
+     question for recall. A resumed task continues its budget-exhausted extraction.
+   - **Editor:** the investigation's accepted Claims (excluding those from a task whose
+     premise was disproven). With no new independent Evidence (no Evidence Family that an
+     earlier round's Claims hadn't used) it is skipped without an LLM call. Otherwise one
+     Editor call drafts the research card; code keeps only findings citing accepted Claims
+     and fills in their spans (atlas.roles.editor).
+3. **Outcome.** Under the lock, the task's outcome is recorded and the plan advanced. When
+   the run's token budget runs out, the task and the investigation stop `budget_exhausted`
+   (resumable). An LLM quota or outage (a pausable failure) records `task_paused` and
+   re-raises, so the worker pauses the queue and requeues the job; nothing is written for
+   the role. Any other failure is retried; on the job's last attempt the task fails and the
+   investigation stops `needs_review`.
+"""
+
+import json
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import JsonValue
+from sqlalchemy import Connection, Engine, RowMapping, text
+
+from atlas.claims.extraction import ExtractClaimsPayload
+from atlas.claims.handlers import claim_extractor
+from atlas.companies import load_universe
+from atlas.discovery.searxng import SearXNGClient
+from atlas.discovery.service import Scout
+from atlas.hindsight import HindsightGateway
+from atlas.investigations.model import (
+    RUN_KIND,
+    CardFinding,
+    ResearchCard,
+    SourceSpan,
+    UnsupportedFinding,
+    ValidityDates,
+)
+from atlas.investigations.service import Investigations, event, lock, stop
+from atlas.jobs.pacing import classify_failure
+from atlas.jobs.queue import Artifacts, Job, JobQueue
+from atlas.jobs.resources import run_recorder
+from atlas.roles import QuotedText, RoleCaller, RoleCallFailed, TokenBudgetExhausted
+from atlas.roles.editor import EDITOR, EditorClaim, EditorLead, EditorRequest
+from atlas.runs import RunRecorder
+from atlas.settings import Settings
+
+_ERROR_LIMIT = 500
+
+
+class InvestigationNotConfigured(RuntimeError):
+    """A provider an investigation needs (LiteLLM, Hindsight, SearXNG) isn't configured."""
+
+
+class UnknownInvestigationTheme(LookupError):
+    """The investigation's theme is no longer in the universe config."""
+
+
+@dataclass
+class _Outcome:
+    status: Literal["succeeded", "skipped", "budget_exhausted"]
+    detail: str | None = None
+    artifacts: dict[str, JsonValue] = field(default_factory=dict[str, JsonValue])
+    card: ResearchCard | None = None
+
+
+class TaskRunner:
+    """Runs investigation tasks with the given resources (owned by the caller)."""
+
+    def __init__(self, settings: Settings, engine: Engine, gateway: HindsightGateway) -> None:
+        self._settings = settings
+        self._engine = engine
+        self._gateway = gateway
+        self._investigations = Investigations(engine, JobQueue(engine))
+
+    def run(self, job: Job) -> Artifacts:
+        task_id = uuid.UUID(str(job.payload["task_id"]))
+        with self._engine.begin() as connection:
+            task = _task(connection, task_id)
+            investigation = lock(connection, task["investigation_id"])
+            task = _task(connection, task_id, for_update=True)
+            if (
+                investigation["status"] != "running"
+                or task["status"] not in ("queued", "running")
+                or task["job_id"] != job.id
+            ):
+                return {"task_id": str(task_id), "status": task["status"], "ran": False}
+            self._start(connection, investigation, task)
+        try:
+            run_id = self._ensure_run(investigation["id"])
+            with self._engine.connect() as connection:
+                investigation = (
+                    connection.execute(
+                        text("SELECT * FROM investigation WHERE id = :id"),
+                        {"id": investigation["id"]},
+                    )
+                    .mappings()
+                    .one()
+                )
+            outcome = self._role(job, investigation, task, run_id)
+        except TokenBudgetExhausted as error:
+            outcome = _Outcome("budget_exhausted", detail=_budget_detail(task["role"], error))
+        except Exception as error:
+            self._failed(job, investigation["id"], task, error)
+            raise
+        with self._engine.begin() as connection:
+            self._finish(connection, investigation["id"], task_id, job, outcome)
+        return {
+            "task_id": str(task_id),
+            "investigation_id": str(investigation["id"]),
+            "status": outcome.status,
+            "ran": True,
+            **outcome.artifacts,
+        }
+
+    # --- start and finish -------------------------------------------------------------------
+
+    def _start(self, connection: Connection, investigation: RowMapping, task: RowMapping) -> None:
+        last = connection.execute(
+            text(
+                "SELECT type FROM investigation_event WHERE investigation_id = :id"
+                " AND task_key = :key AND round = :round ORDER BY seq DESC LIMIT 1"
+            ),
+            {"id": investigation["id"], "key": task["key"], "round": task["round"]},
+        ).scalar_one_or_none()
+        connection.execute(
+            text(
+                "UPDATE investigation_task SET status = 'running', updated_at = now()"
+                " WHERE id = :id"
+            ),
+            {"id": task["id"]},
+        )
+        event(
+            connection,
+            investigation["id"],
+            "task_resumed" if last == "task_paused" else "task_started",
+            round=task["round"],
+            task_key=task["key"],
+            generation=task["generation"],
+        )
+
+    def _ensure_run(self, investigation_id: uuid.UUID) -> uuid.UUID:
+        with self._engine.connect() as connection:
+            run_id: uuid.UUID | None = connection.execute(
+                text("SELECT run_id FROM investigation WHERE id = :id"), {"id": investigation_id}
+            ).scalar_one()
+        if run_id is not None:
+            return run_id
+        with run_recorder(self._settings, self._engine) as runs:
+            if runs is None:
+                raise InvestigationNotConfigured(
+                    "an investigation records a run: it needs LiteLLM (ATLAS_LITELLM_URL,"
+                    " ATLAS_LITELLM_API_KEY) and Hindsight configured"
+                )
+            run = runs.start(RUN_KIND)
+        with self._engine.begin() as connection:
+            lock(connection, investigation_id)
+            started: uuid.UUID = connection.execute(
+                text(
+                    "UPDATE investigation SET run_id = coalesce(run_id, :run) WHERE id = :id"
+                    " RETURNING run_id"
+                ),
+                {"id": investigation_id, "run": run.id},
+            ).scalar_one()
+            if started == run.id:
+                event(connection, investigation_id, "run_started", run_id=str(run.id))
+        return started
+
+    def _finish(
+        self,
+        connection: Connection,
+        investigation_id: uuid.UUID,
+        task_id: uuid.UUID,
+        job: Job,
+        outcome: _Outcome,
+    ) -> None:
+        investigation = lock(connection, investigation_id)
+        task = _task(connection, task_id, for_update=True)
+        if task["status"] != "running" or task["job_id"] != job.id:
+            return  # recorded by an earlier attempt
+        connection.execute(
+            text(
+                "UPDATE investigation_task SET status = :status, detail = :detail,"
+                " artifacts = artifacts || CAST(:artifacts AS jsonb), updated_at = now()"
+                " WHERE id = :id"
+            ),
+            {
+                "id": task_id,
+                "status": outcome.status,
+                "detail": outcome.detail,
+                "artifacts": _json(outcome.artifacts),
+            },
+        )
+        detail: dict[str, JsonValue] = {"generation": task["generation"], **outcome.artifacts}
+        if outcome.detail:
+            detail["reason"] = outcome.detail
+        event(
+            connection,
+            investigation_id,
+            f"task_{outcome.status}",
+            round=task["round"],
+            task_key=task["key"],
+            **detail,
+        )
+        if outcome.card is not None:
+            connection.execute(
+                text(
+                    "UPDATE investigation SET research_card = CAST(:card AS jsonb) WHERE id = :id"
+                ),
+                {"id": investigation_id, "card": outcome.card.model_dump_json()},
+            )
+        if investigation["status"] != "running":
+            return
+        if outcome.status == "budget_exhausted":
+            stop(connection, investigation_id, "budget_exhausted", outcome.detail or "")
+        else:
+            self._investigations.advance(connection, investigation_id)
+
+    def _failed(
+        self, job: Job, investigation_id: uuid.UUID, task: RowMapping, error: Exception
+    ) -> None:
+        message = f"{type(error).__name__}: {error}"[:_ERROR_LIMIT]
+        failure_class = classify_failure(error)
+        with self._engine.begin() as connection:
+            lock(connection, investigation_id)
+            where = {"round": task["round"], "task_key": task["key"]}
+            if failure_class is not None:
+                # The worker pauses the queue and requeues the job without using the attempt.
+                _set_status(connection, task["id"], "queued")
+                event(
+                    connection,
+                    investigation_id,
+                    "task_paused",
+                    **where,
+                    error_class=failure_class,
+                    error=message,
+                )
+                return
+            if job.attempts < job.max_attempts:
+                _set_status(connection, task["id"], "queued")
+                event(
+                    connection,
+                    investigation_id,
+                    "task_attempt_failed",
+                    **where,
+                    attempt=job.attempts,
+                    error=message,
+                )
+                return
+            _set_status(connection, task["id"], "failed", detail=message)
+            event(connection, investigation_id, "task_failed", **where, error=message)
+            stop(
+                connection,
+                investigation_id,
+                "needs_review",
+                f"the {task['key']} task failed after {job.attempts} attempts: {message}",
+            )
+
+    # --- the roles --------------------------------------------------------------------------
+
+    def _role(
+        self, job: Job, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
+    ) -> _Outcome:
+        role: str = task["role"]
+        if role == "scout":
+            return self._scout(job, investigation, run_id)
+        if role == "investigator":
+            return self._investigator(job, investigation, task, run_id)
+        if role == "editor":
+            return self._editor(investigation, task, run_id)
+        raise RoleCallFailed(f"the {role} role is not built yet")
+
+    def _caller(self, investigation: RowMapping) -> RoleCaller:
+        settings = self._settings.model_copy(
+            update={"run_token_budget": investigation["token_budget"]}
+        )
+        caller = RoleCaller.from_settings(settings, self._engine)
+        if caller is None:
+            raise InvestigationNotConfigured(
+                "an investigation's roles need LiteLLM: set ATLAS_LITELLM_URL and"
+                " ATLAS_LITELLM_API_KEY"
+            )
+        return caller
+
+    def _runs(self) -> RunRecorder:
+        runs = RunRecorder.from_settings(self._settings, self._engine)
+        if runs is None:
+            raise InvestigationNotConfigured("an investigation needs LiteLLM and Hindsight")
+        return runs
+
+    def _scout(self, job: Job, investigation: RowMapping, run_id: uuid.UUID) -> _Outcome:
+        theme_id: str = investigation["theme"]
+        theme = load_universe(self._settings.themes_config).themes.get(theme_id)
+        if theme is None:
+            raise UnknownInvestigationTheme(f"no theme {theme_id!r} in the universe config")
+        searxng = SearXNGClient.from_settings(self._settings)
+        if searxng is None:
+            raise InvestigationNotConfigured("the Scout needs SearXNG: set ATLAS_SEARXNG_URL")
+        runs = self._runs()
+        with searxng, self._caller(investigation) as caller:
+            try:
+                scout = Scout(
+                    self._engine,
+                    runs,
+                    caller,
+                    self._gateway,
+                    searxng,
+                    max_queries=self._settings.discovery_max_queries,
+                )
+                found = scout.discover(
+                    job, theme_id, theme, investigation["question"], run_id=run_id
+                )
+            finally:
+                runs.close()
+        discovery_id = uuid.UUID(str(found["discovery_id"]))
+        with self._engine.begin() as connection:
+            lock(connection, investigation["id"])
+            taken, dropped, total = _take_leads(
+                connection, investigation["id"], discovery_id, investigation["max_leads"]
+            )
+            if dropped:
+                event(
+                    connection,
+                    investigation["id"],
+                    "lead_budget_reached",
+                    round=investigation["round"],
+                    task_key="scout",
+                    max_leads=investigation["max_leads"],
+                    dropped=dropped,
+                )
+        return _Outcome(
+            "succeeded",
+            artifacts={
+                "discovery_id": str(discovery_id),
+                "queries": found["queries"],
+                "leads_found": total,
+                "leads_taken": taken,
+                "leads_dropped": dropped,
+            },
+        )
+
+    def _investigator(
+        self, job: Job, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
+    ) -> _Outcome:
+        documents, dropped = self._documents(investigation, task)
+        if not documents:
+            return _Outcome(
+                "succeeded",
+                detail=(
+                    "the document budget is spent"
+                    if dropped
+                    else "no parsed Source Version of the company is available as of"
+                    f" {investigation['as_of'].isoformat()}"
+                ),
+                artifacts={"documents": 0, "documents_dropped": dropped},
+            )
+        artifacts: dict[str, Any] = task["artifacts"]
+        continues = (
+            uuid.UUID(str(artifacts["extraction_id"]))
+            if task["generation"] > 0 and artifacts.get("extraction_status") == "budget_exhausted"
+            else None
+        )
+        payload = ExtractClaimsPayload(
+            source_version_ids=documents,
+            question=investigation["question"],
+            run_id=run_id,
+            continues=continues,
+        )
+        with self._caller(investigation) as caller:
+            # The run is the investigation's, so the extractor never starts or finishes one.
+            extractor = claim_extractor(self._settings, self._engine, self._gateway, caller, None)
+            extracted = extractor.extract(job, payload)
+        result: dict[str, JsonValue] = {
+            "documents": len(documents),
+            "documents_dropped": dropped,
+            "extraction_id": extracted["extraction_id"],
+            "extraction_status": extracted["status"],
+            "passages": extracted["passages"],
+            "accepted": extracted["accepted"],
+            "rejected": extracted["rejected"],
+        }
+        if extracted["status"] == "budget_exhausted":
+            return _Outcome(
+                "budget_exhausted",
+                detail="the run's token budget ran out during the Investigator's extraction",
+                artifacts=result,
+            )
+        return _Outcome("succeeded", artifacts=result)
+
+    def _documents(
+        self, investigation: RowMapping, task: RowMapping
+    ) -> tuple[list[uuid.UUID], int]:
+        """The task's Source Versions (chosen once, within the document budget); and how many
+        available ones the budget left out."""
+        with self._engine.begin() as connection:
+            lock(connection, investigation["id"])
+            chosen = list(
+                connection.execute(
+                    text("SELECT source_version_id FROM investigation_document WHERE task_id = :t"),
+                    {"t": task["id"]},
+                ).scalars()
+            )
+            if chosen or task["artifacts"].get("documents") is not None:
+                return chosen, int(task["artifacts"].get("documents_dropped") or 0)
+            used = connection.execute(
+                text("SELECT count(*) FROM investigation_document WHERE investigation_id = :id"),
+                {"id": investigation["id"]},
+            ).scalar_one()
+            available = list(
+                connection.execute(
+                    text(
+                        "SELECT id FROM (SELECT DISTINCT ON (v.source_document_id) v.id,"
+                        " v.available_at FROM source_version v"
+                        " JOIN source_document d ON d.id = v.source_document_id"
+                        " WHERE d.company_id = :company AND v.available_at <= :as_of"
+                        " AND v.parse_status IN ('parsed', 'incomplete')"
+                        " AND v.parsed_object_uri IS NOT NULL"
+                        " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
+                        " ORDER BY available_at DESC, id"
+                    ),
+                    {"company": task["company_id"], "as_of": investigation["as_of"]},
+                ).scalars()
+            )
+            room = max(investigation["max_documents"] - int(used), 0)
+            chosen, dropped = available[:room], max(len(available) - room, 0)
+            for version_id in chosen:
+                connection.execute(
+                    text(
+                        "INSERT INTO investigation_document (investigation_id, source_version_id,"
+                        " task_id) VALUES (:id, :version, :task)"
+                    ),
+                    {"id": investigation["id"], "version": version_id, "task": task["id"]},
+                )
+            if dropped:
+                event(
+                    connection,
+                    investigation["id"],
+                    "document_budget_reached",
+                    round=task["round"],
+                    task_key=task["key"],
+                    max_documents=investigation["max_documents"],
+                    dropped=dropped,
+                )
+            return chosen, dropped
+
+    def _editor(self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID) -> _Outcome:
+        with self._engine.connect() as connection:
+            claims = _accepted_claims(connection, investigation["id"], run_id)
+            leads = connection.execute(
+                text(
+                    "SELECT l.id, l.url, l.title, l.snippet FROM investigation_lead il"
+                    " JOIN lead l ON l.id = il.lead_id WHERE il.investigation_id = :id"
+                    " ORDER BY il.rank"
+                ),
+                {"id": investigation["id"]},
+            ).all()
+            disproven = list(
+                connection.execute(
+                    text(
+                        "SELECT statement FROM investigation_premise"
+                        " WHERE investigation_id = :id AND status = 'disproven' ORDER BY key"
+                    ),
+                    {"id": investigation["id"]},
+                ).scalars()
+            )
+        round_ = task["round"]
+        earlier = {_family(c) for c in claims if c["round"] < round_}
+        new_families = sorted({_family(c) for c in claims if c["round"] == round_} - earlier)
+        if not new_families:
+            return _Outcome(
+                "skipped",
+                detail=(
+                    "no new independent Evidence: the Investigator accepted no Claims"
+                    if not claims
+                    else "no new independent Evidence: every accepted Claim's Evidence Family"
+                    " was already used"
+                ),
+                artifacts={"claims": len(claims), "new_evidence_families": 0},
+            )
+        theme = load_universe(self._settings.themes_config).themes.get(investigation["theme"])
+        request = EditorRequest(
+            theme_id=investigation["theme"],
+            theme_title=theme.title if theme else investigation["theme"],
+            research_question=investigation["question"],
+            claims=[
+                EditorClaim(
+                    claim_id=str(c["id"]),
+                    subject=c["subject_name"],
+                    predicate=c["predicate"],
+                    object=c["object_name"] or c["object_text"] or "",
+                    product=c["product"],
+                    layer=c["layer"],
+                    epistemic_type=c["epistemic_type"],
+                    source_title=c["source_title"],
+                    source_version_id=str(c["source_version_id"]),
+                )
+                for c in claims
+            ],
+            leads=[
+                EditorLead(lead_id=str(lead.id), title=lead.title, url=lead.url) for lead in leads
+            ],
+            disproven_premises=disproven,
+        )
+        retrieved = [
+            QuotedText(
+                id=str(c["id"]),
+                source=f"{c['source_version_id']}#{c['span_start']}-{c['span_end']}",
+                text=c["quote"],
+            )
+            for c in claims
+        ] + [
+            QuotedText(id=str(lead.id), source=lead.url, text=f"{lead.title}\n{lead.snippet}")
+            for lead in leads
+        ]
+        with self._caller(investigation) as caller:
+            draft, role_call_id = caller.call_recorded(
+                EDITOR, request, run_id=run_id, retrieved=retrieved
+            )
+        by_id = {str(c["id"]): c for c in claims}
+        findings: list[CardFinding] = []
+        unsupported: list[UnsupportedFinding] = []
+        for finding in draft.findings:
+            cited = list(dict.fromkeys(finding.claim_ids))
+            unknown = [each for each in cited if each not in by_id]
+            if not cited or unknown:
+                reason = (
+                    "cites no Claim"
+                    if not cited
+                    else "cites what isn't an accepted Claim of this investigation: "
+                    + ", ".join(unknown)
+                )
+                unsupported.append(
+                    UnsupportedFinding(
+                        statement=finding.statement, claim_ids=finding.claim_ids, reason=reason
+                    )
+                )
+                continue
+            findings.append(_finding(finding.statement, [by_id[each] for each in cited], finding))
+        if draft.verdict == "answered" and findings and not unsupported:
+            stop_reason = "answered"
+            stop_detail = f"the Editor judged the question answered by {len(findings)} findings"
+        else:
+            stop_reason = "needs_review"
+            problems: list[str] = []
+            if unsupported:
+                problems.append(f"{len(unsupported)} unsupported findings were dropped")
+            if not findings:
+                problems.append("no finding cites an accepted Claim")
+            if draft.verdict != "answered":
+                problems.append("the Editor asks for review")
+            stop_detail = "; ".join(problems)
+        card = ResearchCard(
+            status="draft",
+            question=investigation["question"],
+            findings=findings,
+            open_questions=draft.open_questions,
+            unsupported_findings=unsupported,
+            editor_verdict=draft.verdict,
+            claims_considered=len(claims),
+            lead_ids=[lead.id for lead in leads],
+            disproven_premises=disproven,
+            editor_role_call_id=role_call_id,
+        )
+        return _Outcome(
+            "succeeded",
+            artifacts={
+                "role_call_id": str(role_call_id),
+                "claims": len(claims),
+                "new_evidence_families": len(new_families),
+                "findings": len(findings),
+                "unsupported_findings": len(unsupported),
+                "stop_reason": stop_reason,
+                "stop_detail": stop_detail,
+            },
+            card=card,
+        )
+
+
+# --- helpers ------------------------------------------------------------------------------------
+
+
+def _task(connection: Connection, task_id: uuid.UUID, *, for_update: bool = False) -> RowMapping:
+    suffix = " FOR UPDATE" if for_update else ""
+    return (
+        connection.execute(
+            text(f"SELECT * FROM investigation_task WHERE id = :id{suffix}"),  # noqa: S608 (constant)
+            {"id": task_id},
+        )
+        .mappings()
+        .one()
+    )
+
+
+def _set_status(
+    connection: Connection, task_id: uuid.UUID, status: str, *, detail: str | None = None
+) -> None:
+    connection.execute(
+        text(
+            "UPDATE investigation_task SET status = :status, detail = coalesce(:detail, detail),"
+            " updated_at = now() WHERE id = :id"
+        ),
+        {"id": task_id, "status": status, "detail": detail},
+    )
+
+
+def _take_leads(
+    connection: Connection, investigation_id: uuid.UUID, discovery_id: uuid.UUID, max_leads: int
+) -> tuple[int, int, int]:
+    """Keep the discovery's leads, in the order found, up to the budget; (taken, dropped,
+    found)."""
+    found = list(
+        connection.execute(
+            text(
+                "SELECT lead_id FROM (SELECT DISTINCT ON (s.lead_id) s.lead_id,"
+                " q.position AS query_position, s.position AS result_position"
+                " FROM lead_sighting s JOIN discovery_query q ON q.id = s.discovery_query_id"
+                " WHERE q.discovery_id = :discovery"
+                " ORDER BY s.lead_id, q.position, s.position) first"
+                " ORDER BY query_position, result_position, lead_id"
+            ),
+            {"discovery": discovery_id},
+        ).scalars()
+    )
+    held = set(
+        connection.execute(
+            text("SELECT lead_id FROM investigation_lead WHERE investigation_id = :id"),
+            {"id": investigation_id},
+        ).scalars()
+    )
+    fresh = [lead for lead in found if lead not in held]
+    room = max(max_leads - len(held), 0)
+    for rank, lead_id in enumerate(fresh[:room], start=len(held) + 1):
+        connection.execute(
+            text(
+                "INSERT INTO investigation_lead (investigation_id, lead_id, rank, discovery_id)"
+                " VALUES (:id, :lead, :rank, :discovery)"
+            ),
+            {"id": investigation_id, "lead": lead_id, "rank": rank, "discovery": discovery_id},
+        )
+    taken = min(len(fresh), room)
+    return taken, len(fresh) - taken, len(found)
+
+
+def _accepted_claims(
+    connection: Connection, investigation_id: uuid.UUID, run_id: uuid.UUID
+) -> list[RowMapping]:
+    """The run's accepted Claims on the investigation's documents, excluding those read by a
+    task whose premise was disproven; oldest first."""
+    return list(
+        connection.execute(
+            text(
+                "SELECT c.id, c.assertion_id, c.source_version_id, c.quote, c.span_start,"
+                " c.span_end, c.predicate, c.product, c.layer, c.epistemic_type, c.object_text,"
+                " c.subject_company_id, c.object_company_id, s.display_name AS subject_name,"
+                " o.display_name AS object_name, a.verification_status, d.title AS source_title,"
+                " v.available_at, m.evidence_family_id, t.round"
+                " FROM claim c"
+                " JOIN investigation_document doc ON doc.investigation_id = :id"
+                "  AND doc.source_version_id = c.source_version_id"
+                " JOIN investigation_task t ON t.id = doc.task_id"
+                " JOIN assertion a ON a.id = c.assertion_id"
+                " JOIN source_version v ON v.id = c.source_version_id"
+                " JOIN source_document d ON d.id = v.source_document_id"
+                " JOIN company s ON s.id = c.subject_company_id"
+                " LEFT JOIN company o ON o.id = c.object_company_id"
+                " LEFT JOIN evidence_family_member m ON m.source_version_id = c.source_version_id"
+                " WHERE c.run_id = :run AND c.outcome = 'accepted'"
+                " AND NOT EXISTS (SELECT FROM investigation_premise p"
+                "  WHERE p.investigation_id = :id AND p.status = 'disproven'"
+                "  AND p.key = ANY(t.premise_keys))"
+                " ORDER BY c.created_at, c.id"
+            ),
+            {"id": investigation_id, "run": run_id},
+        ).mappings()
+    )
+
+
+def _family(claim: RowMapping) -> str:
+    """The claim's Evidence Family (a Source Version outside any family is its own)."""
+    family = claim["evidence_family_id"]
+    return f"family:{family}" if family is not None else f"version:{claim['source_version_id']}"
+
+
+def _finding(statement: str, cited: list[RowMapping], finding: Any) -> CardFinding:
+    available: list[datetime] = [c["available_at"] for c in cited]
+    entities = dict.fromkeys(
+        each
+        for c in cited
+        for each in (c["subject_company_id"], c["object_company_id"])
+        if each is not None
+    )
+    return CardFinding(
+        claim_text=statement,
+        epistemic_type="agent_inference",
+        cited_epistemic_types=list(dict.fromkeys(c["epistemic_type"] for c in cited)),
+        claim_ids=[c["id"] for c in cited],
+        original_source_version_ids=list(dict.fromkeys(c["source_version_id"] for c in cited)),
+        source_spans=[
+            SourceSpan(
+                claim_id=c["id"],
+                assertion_id=c["assertion_id"],
+                source_version_id=c["source_version_id"],
+                span_start=c["span_start"],
+                span_end=c["span_end"],
+                quote=c["quote"],
+                verification_status=c["verification_status"],
+            )
+            for c in cited
+        ],
+        independent_evidence_families=sorted({_family(c) for c in cited}),
+        entity_ids=list(entities),
+        validity_dates=ValidityDates(evidence_available_at=max(available), valid_until=None),
+        limitations=finding.limitations,
+        counterevidence_ids=[],
+        needs_review=any(c["verification_status"] != "corroborated" for c in cited),
+        open_questions=finding.open_questions,
+    )
+
+
+def _budget_detail(role: str, error: TokenBudgetExhausted) -> str:
+    return (
+        f"the run's token budget ran out before the {role}'s call"
+        f" ({error.spent} of {error.budget} tokens spent)"
+    )
+
+
+def _json(value: dict[str, JsonValue]) -> str:
+    return json.dumps(value)

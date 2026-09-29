@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     searxng_engines: str = Field(default="bing,brave", pattern=r"^\s*[\w-]+(\s*,\s*[\w-]+)*\s*$")
     searxng_timeout_seconds: float = Field(default=30.0, gt=0)
     discovery_max_queries: int = Field(default=10, ge=1, le=10)
+    # Investigations (atlas.investigations): the default per-run lead and document budgets
+    # (spec §7.4: at most 10 new leads and 25 fetched documents); a request may lower them.
+    # The token ceiling is run_token_budget.
+    investigation_max_leads: int = Field(default=10, ge=1, le=10)
+    investigation_max_documents: int = Field(default=25, ge=1, le=25)
     # Retention: how long one poll job waits for a retain operation to reach a terminal
     # status (keep it below job_lease_seconds), and how often it asks. A poll that times out
     # fails its attempt and is retried, up to retain_poll_attempts.

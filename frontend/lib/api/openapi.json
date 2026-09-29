@@ -2060,6 +2060,345 @@
           }
         }
       }
+    },
+    "/api/v1/investigations": {
+      "post": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_investigations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestigationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Investigation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/investigations/{investigation_id}": {
+      "get": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Investigation",
+        "operationId": "investigation_api_v1_investigations__investigation_id__get",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Investigation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Investigation"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/investigations/{investigation_id}/events": {
+      "get": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Events",
+        "operationId": "events_api_v1_investigations__investigation_id__events_get",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Investigation Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_InvestigationEvent_"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/investigations/{investigation_id}/resume": {
+      "post": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Resume",
+        "operationId": "resume_api_v1_investigations__investigation_id__resume_post",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Investigation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Investigation"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/investigations/{investigation_id}/premises/{premise_key}/disprove": {
+      "post": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Disprove",
+        "operationId": "disprove_api_v1_investigations__investigation_id__premises__premise_key__disprove_post",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Investigation Id"
+            }
+          },
+          {
+            "name": "premise_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Premise Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisproveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Investigation"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2523,6 +2862,193 @@
           "mid",
           "high"
         ]
+      },
+      "BudgetRequest": {
+        "properties": {
+          "max_rounds": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Max Rounds",
+            "default": 2
+          },
+          "max_leads": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Leads"
+          },
+          "max_documents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 25.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Documents"
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BudgetRequest",
+        "description": "Per-run budgets (spec §7.4); unset ones take the configured defaults."
+      },
+      "Budgets": {
+        "properties": {
+          "max_rounds": {
+            "type": "integer",
+            "title": "Max Rounds"
+          },
+          "max_leads": {
+            "type": "integer",
+            "title": "Max Leads"
+          },
+          "max_documents": {
+            "type": "integer",
+            "title": "Max Documents"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_rounds",
+          "max_leads",
+          "max_documents",
+          "token_budget"
+        ],
+        "title": "Budgets",
+        "description": "Per-run limits (spec §7.4)."
+      },
+      "CardFinding": {
+        "properties": {
+          "claim_text": {
+            "type": "string",
+            "title": "Claim Text"
+          },
+          "epistemic_type": {
+            "type": "string",
+            "const": "agent_inference",
+            "title": "Epistemic Type"
+          },
+          "cited_epistemic_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cited Epistemic Types"
+          },
+          "claim_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Claim Ids"
+          },
+          "original_source_version_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Original Source Version Ids"
+          },
+          "source_spans": {
+            "items": {
+              "$ref": "#/components/schemas/SourceSpan"
+            },
+            "type": "array",
+            "title": "Source Spans"
+          },
+          "independent_evidence_families": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Independent Evidence Families"
+          },
+          "entity_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Entity Ids"
+          },
+          "validity_dates": {
+            "$ref": "#/components/schemas/ValidityDates"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "counterevidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Counterevidence Ids"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          },
+          "open_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Open Questions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_text",
+          "epistemic_type",
+          "cited_epistemic_types",
+          "claim_ids",
+          "original_source_version_ids",
+          "source_spans",
+          "independent_evidence_families",
+          "entity_ids",
+          "validity_dates",
+          "limitations",
+          "counterevidence_ids",
+          "needs_review",
+          "open_questions"
+        ],
+        "title": "CardFinding",
+        "description": "A research card finding in the §7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
       },
       "Citation": {
         "properties": {
@@ -3021,6 +3547,18 @@
             "type": "integer",
             "title": "Batches Done"
           },
+          "continues_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Continues Id"
+          },
           "batches_quarantined": {
             "type": "integer",
             "title": "Batches Quarantined"
@@ -3065,6 +3603,7 @@
           "skipped",
           "batches_total",
           "batches_done",
+          "continues_id",
           "batches_quarantined",
           "accepted",
           "rejected",
@@ -3474,6 +4013,23 @@
           "searched_at"
         ],
         "title": "DiscoveryQuery"
+      },
+      "DisproveRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "DisproveRequest"
       },
       "ErrorDetail": {
         "properties": {
@@ -4346,6 +4902,478 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Investigation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "stopped"
+            ],
+            "title": "Status"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "answered",
+                  "no_new_independent_evidence",
+                  "budget_exhausted",
+                  "needs_review",
+                  "premise_disproven"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          },
+          "stop_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Detail"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "resumable": {
+            "type": "boolean",
+            "title": "Resumable"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "request": {
+            "$ref": "#/components/schemas/InvestigationRequest"
+          },
+          "budgets": {
+            "$ref": "#/components/schemas/Budgets"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          },
+          "premises": {
+            "items": {
+              "$ref": "#/components/schemas/Premise"
+            },
+            "type": "array",
+            "title": "Premises"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
+            "type": "array",
+            "title": "Tasks"
+          },
+          "leads": {
+            "items": {
+              "$ref": "#/components/schemas/InvestigationLead"
+            },
+            "type": "array",
+            "title": "Leads"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/InvestigationDocument"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "research_card": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchCard"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "stopped_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme",
+          "question",
+          "status",
+          "stop_reason",
+          "stop_detail",
+          "paused",
+          "resumable",
+          "run_id",
+          "request",
+          "budgets",
+          "usage",
+          "premises",
+          "tasks",
+          "leads",
+          "documents",
+          "research_card",
+          "created_by",
+          "created_at",
+          "stopped_at"
+        ],
+        "title": "Investigation"
+      },
+      "InvestigationCreate": {
+        "properties": {
+          "theme": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Theme",
+            "description": "a theme in the universe config"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Question",
+            "description": "the research question"
+          },
+          "seed_company_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 25,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Company Ids",
+            "description": "the companies to investigate; default: the theme's companies"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of",
+            "description": "only Source Versions available by then are read; default now"
+          },
+          "budgets": {
+            "$ref": "#/components/schemas/BudgetRequest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "theme",
+          "question"
+        ],
+        "title": "InvestigationCreate"
+      },
+      "InvestigationDocument": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "task_key": {
+            "type": "string",
+            "title": "Task Key"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "task_key",
+          "company_id",
+          "title",
+          "available_at"
+        ],
+        "title": "InvestigationDocument",
+        "description": "A Source Version an Investigator task read (counted against `max_documents`)."
+      },
+      "InvestigationEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "round": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round"
+          },
+          "task_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Key"
+          },
+          "detail": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Detail"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "type",
+          "round",
+          "task_key",
+          "detail",
+          "at"
+        ],
+        "title": "InvestigationEvent"
+      },
+      "InvestigationLead": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "lead_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lead Id"
+          },
+          "discovery_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Discovery Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "canonical_url": {
+            "type": "string",
+            "title": "Canonical Url"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "snippet": {
+            "type": "string",
+            "title": "Snippet"
+          },
+          "tier": {
+            "type": "string",
+            "const": "C",
+            "title": "Tier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "lead_id",
+          "discovery_id",
+          "url",
+          "canonical_url",
+          "title",
+          "snippet",
+          "tier"
+        ],
+        "title": "InvestigationLead",
+        "description": "A Tier C lead the Scout found and the investigation kept (never Evidence)."
+      },
+      "InvestigationRequest": {
+        "properties": {
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "research_question": {
+            "type": "string",
+            "title": "Research Question"
+          },
+          "theme_id": {
+            "type": "string",
+            "title": "Theme Id"
+          },
+          "seed_entity_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Seed Entity Ids"
+          },
+          "as_of_utc": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of Utc"
+          },
+          "allowed_source_tiers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Source Tiers"
+          },
+          "available_budget": {
+            "$ref": "#/components/schemas/Budgets"
+          },
+          "max_depth": {
+            "type": "integer",
+            "title": "Max Depth"
+          },
+          "max_new_leads": {
+            "type": "integer",
+            "title": "Max New Leads"
+          },
+          "approved_tool_list": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Approved Tool List"
+          },
+          "relevant_hindsight_bank": {
+            "type": "string",
+            "title": "Relevant Hindsight Bank"
+          },
+          "hypothesis_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "research_question",
+          "theme_id",
+          "seed_entity_ids",
+          "as_of_utc",
+          "allowed_source_tiers",
+          "available_budget",
+          "max_depth",
+          "max_new_leads",
+          "approved_tool_list",
+          "relevant_hindsight_bank",
+          "hypothesis_id"
+        ],
+        "title": "InvestigationRequest",
+        "description": "The shared agent contract's request (spec §7.2), as every role of the run works to."
       },
       "Job": {
         "properties": {
@@ -5564,6 +6592,37 @@
         ],
         "title": "Page[FinancialObservation]"
       },
+      "Page_InvestigationEvent_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InvestigationEvent"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[InvestigationEvent]"
+      },
       "Page_Lead_": {
         "properties": {
           "items": {
@@ -5732,6 +6791,83 @@
           "paused"
         ],
         "title": "PendingKind"
+      },
+      "Premise": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "disproven"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "disproven_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disproven By"
+          },
+          "disproven_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disproven At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "statement",
+          "company_id",
+          "status",
+          "reason",
+          "disproven_by",
+          "disproven_at"
+        ],
+        "title": "Premise"
       },
       "QueuePause": {
         "properties": {
@@ -6446,6 +7582,87 @@
         ],
         "title": "ResearchAnswer"
       },
+      "ResearchCard": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "draft",
+            "title": "Status"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/CardFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "open_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Open Questions"
+          },
+          "unsupported_findings": {
+            "items": {
+              "$ref": "#/components/schemas/UnsupportedFinding"
+            },
+            "type": "array",
+            "title": "Unsupported Findings"
+          },
+          "editor_verdict": {
+            "type": "string",
+            "enum": [
+              "answered",
+              "needs_review"
+            ],
+            "title": "Editor Verdict"
+          },
+          "claims_considered": {
+            "type": "integer",
+            "title": "Claims Considered"
+          },
+          "lead_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Lead Ids"
+          },
+          "disproven_premises": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Disproven Premises"
+          },
+          "editor_role_call_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Editor Role Call Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "question",
+          "findings",
+          "open_questions",
+          "unsupported_findings",
+          "editor_verdict",
+          "claims_considered",
+          "lead_ids",
+          "disproven_premises",
+          "editor_role_call_id"
+        ],
+        "title": "ResearchCard",
+        "description": "The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10)."
+      },
       "ResearchScope": {
         "properties": {
           "company_ids": {
@@ -6470,6 +7687,22 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ResearchScope"
+      },
+      "ResumeRequest": {
+        "properties": {
+          "token_budget": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Token Budget",
+            "description": "the new token budget; larger than the old one"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token_budget"
+        ],
+        "title": "ResumeRequest"
       },
       "RoleCallRecord": {
         "properties": {
@@ -6856,6 +8089,52 @@
           "exchange:lse-rns",
           "exchange:euronext"
         ]
+      },
+      "SourceSpan": {
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Claim Id"
+          },
+          "assertion_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assertion Id"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "span_start": {
+            "type": "integer",
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "title": "Span End"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "verification_status": {
+            "type": "string",
+            "title": "Verification Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_id",
+          "assertion_id",
+          "source_version_id",
+          "span_start",
+          "span_end",
+          "quote",
+          "verification_status"
+        ],
+        "title": "SourceSpan"
       },
       "SourceVersionDetail": {
         "properties": {
@@ -7358,6 +8637,142 @@
           "all_strict"
         ]
       },
+      "Task": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "scout",
+              "investigator",
+              "skeptic",
+              "financial_analyst",
+              "editor"
+            ],
+            "title": "Role"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Depends On"
+          },
+          "premise_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Premise Keys"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "queued",
+              "running",
+              "succeeded",
+              "skipped",
+              "cancelled",
+              "failed",
+              "budget_exhausted"
+            ],
+            "title": "Status"
+          },
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "artifacts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Artifacts"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "round",
+          "position",
+          "key",
+          "role",
+          "company_id",
+          "depends_on",
+          "premise_keys",
+          "status",
+          "generation",
+          "job_id",
+          "detail",
+          "artifacts",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Task",
+        "description": "One role task of the plan. `depends_on` names tasks of the same round by key; a task\nruns once each of them is done, and is cancelled when one of its premises is disproven or\nevery task it depends on was cancelled."
+      },
       "UnresolvedReason": {
         "type": "string",
         "enum": [
@@ -7389,6 +8804,67 @@
           "reason"
         ],
         "title": "UnresponsiveEngine"
+      },
+      "UnsupportedFinding": {
+        "properties": {
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "claim_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Claim Ids"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "statement",
+          "claim_ids",
+          "reason"
+        ],
+        "title": "UnsupportedFinding",
+        "description": "A finding the Editor wrote that cites no accepted Claim of the investigation (or cites\nsomething else): recorded, never shown as a finding."
+      },
+      "Usage": {
+        "properties": {
+          "rounds": {
+            "type": "integer",
+            "title": "Rounds"
+          },
+          "leads": {
+            "type": "integer",
+            "title": "Leads"
+          },
+          "documents": {
+            "type": "integer",
+            "title": "Documents"
+          },
+          "tokens_in": {
+            "type": "integer",
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "type": "integer",
+            "title": "Tokens Out"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rounds",
+          "leads",
+          "documents",
+          "tokens_in",
+          "tokens_out"
+        ],
+        "title": "Usage",
+        "description": "How much of each budget the investigation has used."
       },
       "ValidationError": {
         "properties": {
@@ -7429,6 +8905,33 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "ValidityDates": {
+        "properties": {
+          "evidence_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evidence Available At"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_available_at",
+          "valid_until"
+        ],
+        "title": "ValidityDates"
       }
     }
   }

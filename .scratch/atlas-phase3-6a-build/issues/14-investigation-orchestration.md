@@ -6,10 +6,10 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 08 (Scout and leads); 10 (Investigator Claims → Assertions)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Run and task model (task rows per role) extending the minimal run
-- [ ] `POST investigations`, `GET investigations/{id}`, `GET investigations/{id}/events`
-- [ ] Stop reasons `answered | no_new_independent_evidence | budget_exhausted | needs_review | premise_disproven` recorded
-- [ ] Gate test: budget exhaustion and an LLM outage produce a resumable partial investigation; no invented text
-- [ ] Metrics: investigation stops by reason
+- [x] Run and task model (task rows per role) extending the minimal run
+- [x] `POST investigations`, `GET investigations/{id}`, `GET investigations/{id}/events`
+- [x] Stop reasons `answered | no_new_independent_evidence | budget_exhausted | needs_review | premise_disproven` recorded
+- [x] Gate test: budget exhaustion and an LLM outage produce a resumable partial investigation; no invented text
+- [x] Metrics: investigation stops by reason

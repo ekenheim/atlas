@@ -145,39 +145,53 @@ class JobQueue:
 
         A `backfill` job is claimed only inside the backfill window.
         """
-        job_id = job_id_for(kind, idempotency_key)
         with self._engine.begin() as connection:
-            row = (
-                connection.execute(
-                    text(
-                        "INSERT INTO job (id, kind, idempotency_key, job_class, payload,"
-                        " max_attempts) VALUES (:id, :kind, :key, :job_class,"
-                        " CAST(:payload AS jsonb), :max_attempts) "
-                        "ON CONFLICT DO NOTHING RETURNING *"
-                    ),
-                    {
-                        "id": job_id,
-                        "kind": kind,
-                        "key": idempotency_key,
-                        "job_class": job_class,
-                        "payload": json.dumps(payload or {}),
-                        "max_attempts": max_attempts,
-                    },
-                )
-                .mappings()
-                .one_or_none()
+            return self.enqueue_within(
+                connection, kind, idempotency_key, payload, max_attempts, job_class
             )
-            if row is not None:
-                record(
-                    connection,
-                    self.actor,
-                    "job.enqueued",
-                    entity_type="job",
-                    entity_id=str(job_id),
-                    new_hash=content_hash(dict(row)),
-                )
-                return Enqueued(_job(row), created=True)
-            existing = _select(connection, job_id)
+
+    def enqueue_within(
+        self,
+        connection: Connection,
+        kind: str,
+        idempotency_key: str,
+        payload: dict[str, JsonValue] | None = None,
+        max_attempts: int = 3,
+        job_class: JobClass = "interactive",
+    ) -> Enqueued:
+        """`enqueue` within the caller's transaction: the job exists only if it commits."""
+        job_id = job_id_for(kind, idempotency_key)
+        row = (
+            connection.execute(
+                text(
+                    "INSERT INTO job (id, kind, idempotency_key, job_class, payload,"
+                    " max_attempts) VALUES (:id, :kind, :key, :job_class,"
+                    " CAST(:payload AS jsonb), :max_attempts) "
+                    "ON CONFLICT DO NOTHING RETURNING *"
+                ),
+                {
+                    "id": job_id,
+                    "kind": kind,
+                    "key": idempotency_key,
+                    "job_class": job_class,
+                    "payload": json.dumps(payload or {}),
+                    "max_attempts": max_attempts,
+                },
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is not None:
+            record(
+                connection,
+                self.actor,
+                "job.enqueued",
+                entity_type="job",
+                entity_id=str(job_id),
+                new_hash=content_hash(dict(row)),
+            )
+            return Enqueued(_job(row), created=True)
+        existing = _select(connection, job_id)
         assert existing is not None  # the conflicting row exists; jobs are never deleted
         return Enqueued(existing, created=False)
 

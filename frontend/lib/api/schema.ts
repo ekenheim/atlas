@@ -549,6 +549,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/investigations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_investigations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investigations/{investigation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Investigation */
+        get: operations["investigation_api_v1_investigations__investigation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investigations/{investigation_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events */
+        get: operations["events_api_v1_investigations__investigation_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investigations/{investigation_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume */
+        post: operations["resume_api_v1_investigations__investigation_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investigations/{investigation_id}/premises/{premise_key}/disprove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disprove */
+        post: operations["disprove_api_v1_investigations__investigation_id__premises__premise_key__disprove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -712,6 +797,72 @@ export interface components {
         };
         /** @enum {string} */
         Budget: "low" | "mid" | "high";
+        /**
+         * BudgetRequest
+         * @description Per-run budgets (spec §7.4); unset ones take the configured defaults.
+         */
+        BudgetRequest: {
+            /**
+             * Max Rounds
+             * @default 2
+             */
+            max_rounds: number;
+            /** Max Leads */
+            max_leads?: number | null;
+            /** Max Documents */
+            max_documents?: number | null;
+            /** Token Budget */
+            token_budget?: number | null;
+        };
+        /**
+         * Budgets
+         * @description Per-run limits (spec §7.4).
+         */
+        Budgets: {
+            /** Max Rounds */
+            max_rounds: number;
+            /** Max Leads */
+            max_leads: number;
+            /** Max Documents */
+            max_documents: number;
+            /** Token Budget */
+            token_budget: number;
+        };
+        /**
+         * CardFinding
+         * @description A research card finding in the §7.2 claim shape. The statement is the Editor's; every
+         *     other field is filled in by code from the accepted Claims it cites.
+         */
+        CardFinding: {
+            /** Claim Text */
+            claim_text: string;
+            /**
+             * Epistemic Type
+             * @constant
+             */
+            epistemic_type: "agent_inference";
+            /** Cited Epistemic Types */
+            cited_epistemic_types: string[];
+            /** Claim Ids */
+            claim_ids: string[];
+            /** Original Source Version Ids */
+            original_source_version_ids: string[];
+            /** Source Spans */
+            source_spans: components["schemas"]["SourceSpan"][];
+            /** Independent Evidence Families */
+            independent_evidence_families: string[];
+            /** Entity Ids */
+            entity_ids: string[];
+            validity_dates: components["schemas"]["ValidityDates"];
+            /** Limitations */
+            limitations: string[];
+            /** Counterevidence Ids */
+            counterevidence_ids: string[];
+            /** Needs Review */
+            needs_review: boolean;
+            /** Open Questions */
+            open_questions: string[];
+        };
         /** Citation */
         Citation: {
             kind: components["schemas"]["CitationKind"];
@@ -885,6 +1036,8 @@ export interface components {
             batches_total: number;
             /** Batches Done */
             batches_done: number;
+            /** Continues Id */
+            continues_id: string | null;
             /** Batches Quarantined */
             batches_quarantined: number;
             /** Accepted */
@@ -1019,6 +1172,11 @@ export interface components {
             error: string | null;
             /** Searched At */
             searched_at: string | null;
+        };
+        /** DisproveRequest */
+        DisproveRequest: {
+            /** Reason */
+            reason: string;
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -1357,6 +1515,183 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Investigation */
+        Investigation: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Theme */
+            theme: string;
+            /** Question */
+            question: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "stopped";
+            /** Stop Reason */
+            stop_reason: ("answered" | "no_new_independent_evidence" | "budget_exhausted" | "needs_review" | "premise_disproven") | null;
+            /** Stop Detail */
+            stop_detail: string | null;
+            /** Paused */
+            paused: boolean;
+            /** Resumable */
+            resumable: boolean;
+            /** Run Id */
+            run_id: string | null;
+            request: components["schemas"]["InvestigationRequest"];
+            budgets: components["schemas"]["Budgets"];
+            usage: components["schemas"]["Usage"];
+            /** Premises */
+            premises: components["schemas"]["Premise"][];
+            /** Tasks */
+            tasks: components["schemas"]["Task"][];
+            /** Leads */
+            leads: components["schemas"]["InvestigationLead"][];
+            /** Documents */
+            documents: components["schemas"]["InvestigationDocument"][];
+            research_card: components["schemas"]["ResearchCard"] | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Stopped At */
+            stopped_at: string | null;
+        };
+        /** InvestigationCreate */
+        InvestigationCreate: {
+            /**
+             * Theme
+             * @description a theme in the universe config
+             */
+            theme: string;
+            /**
+             * Question
+             * @description the research question
+             */
+            question: string;
+            /**
+             * Seed Company Ids
+             * @description the companies to investigate; default: the theme's companies
+             */
+            seed_company_ids?: string[] | null;
+            /**
+             * As Of
+             * @description only Source Versions available by then are read; default now
+             */
+            as_of?: string | null;
+            budgets?: components["schemas"]["BudgetRequest"];
+        };
+        /**
+         * InvestigationDocument
+         * @description A Source Version an Investigator task read (counted against `max_documents`).
+         */
+        InvestigationDocument: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Task Key */
+            task_key: string;
+            /** Company Id */
+            company_id: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+        };
+        /** InvestigationEvent */
+        InvestigationEvent: {
+            /** Seq */
+            seq: number;
+            /** Type */
+            type: string;
+            /** Round */
+            round: number | null;
+            /** Task Key */
+            task_key: string | null;
+            /** Detail */
+            detail: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /**
+         * InvestigationLead
+         * @description A Tier C lead the Scout found and the investigation kept (never Evidence).
+         */
+        InvestigationLead: {
+            /** Rank */
+            rank: number;
+            /**
+             * Lead Id
+             * Format: uuid
+             */
+            lead_id: string;
+            /**
+             * Discovery Id
+             * Format: uuid
+             */
+            discovery_id: string;
+            /** Url */
+            url: string;
+            /** Canonical Url */
+            canonical_url: string;
+            /** Title */
+            title: string;
+            /** Snippet */
+            snippet: string;
+            /**
+             * Tier
+             * @constant
+             */
+            tier: "C";
+        };
+        /**
+         * InvestigationRequest
+         * @description The shared agent contract's request (spec §7.2), as every role of the run works to.
+         */
+        InvestigationRequest: {
+            /** Run Id */
+            run_id: string | null;
+            /** Research Question */
+            research_question: string;
+            /** Theme Id */
+            theme_id: string;
+            /** Seed Entity Ids */
+            seed_entity_ids: string[];
+            /**
+             * As Of Utc
+             * Format: date-time
+             */
+            as_of_utc: string;
+            /** Allowed Source Tiers */
+            allowed_source_tiers: string[];
+            available_budget: components["schemas"]["Budgets"];
+            /** Max Depth */
+            max_depth: number;
+            /** Max New Leads */
+            max_new_leads: number;
+            /** Approved Tool List */
+            approved_tool_list: string[];
+            /** Relevant Hindsight Bank */
+            relevant_hindsight_bank: string;
+            /** Hypothesis Id */
+            hypothesis_id: string | null;
         };
         /** Job */
         Job: {
@@ -1763,6 +2098,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[InvestigationEvent] */
+        Page_InvestigationEvent_: {
+            /** Items */
+            items: components["schemas"]["InvestigationEvent"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[Lead] */
         Page_Lead_: {
             /** Items */
@@ -1829,6 +2175,26 @@ export interface components {
             backfill_queued: number;
             /** Paused */
             paused: boolean;
+        };
+        /** Premise */
+        Premise: {
+            /** Key */
+            key: string;
+            /** Statement */
+            statement: string;
+            /** Company Id */
+            company_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "disproven";
+            /** Reason */
+            reason: string | null;
+            /** Disproven By */
+            disproven_by: string | null;
+            /** Disproven At */
+            disproven_at: string | null;
         };
         /**
          * QueuePause
@@ -2047,6 +2413,41 @@ export interface components {
             /** Answered At */
             answered_at: string | null;
         };
+        /**
+         * ResearchCard
+         * @description The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10).
+         */
+        ResearchCard: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "draft";
+            /** Question */
+            question: string;
+            /** Findings */
+            findings: components["schemas"]["CardFinding"][];
+            /** Open Questions */
+            open_questions: string[];
+            /** Unsupported Findings */
+            unsupported_findings: components["schemas"]["UnsupportedFinding"][];
+            /**
+             * Editor Verdict
+             * @enum {string}
+             */
+            editor_verdict: "answered" | "needs_review";
+            /** Claims Considered */
+            claims_considered: number;
+            /** Lead Ids */
+            lead_ids: string[];
+            /** Disproven Premises */
+            disproven_premises: string[];
+            /**
+             * Editor Role Call Id
+             * Format: uuid
+             */
+            editor_role_call_id: string;
+        };
         /** ResearchScope */
         ResearchScope: {
             /** Company Ids */
@@ -2056,6 +2457,14 @@ export interface components {
              * @description theme slugs, e.g. photonics
              */
             theme_ids?: string[];
+        };
+        /** ResumeRequest */
+        ResumeRequest: {
+            /**
+             * Token Budget
+             * @description the new token budget; larger than the old one
+             */
+            token_budget: number;
         };
         /**
          * RoleCallRecord
@@ -2199,6 +2608,32 @@ export interface components {
         };
         /** @enum {string} */
         SourcePath: "sec" | "exchange:hkex" | "exchange:lse-rns" | "exchange:euronext";
+        /** SourceSpan */
+        SourceSpan: {
+            /**
+             * Claim Id
+             * Format: uuid
+             */
+            claim_id: string;
+            /**
+             * Assertion Id
+             * Format: uuid
+             */
+            assertion_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /** Quote */
+            quote: string;
+            /** Verification Status */
+            verification_status: string;
+        };
         /**
          * SourceVersionDetail
          * @description A Source Version's full provenance.
@@ -2369,6 +2804,61 @@ export interface components {
         };
         /** @enum {string} */
         TagMatch: "any_strict" | "all_strict";
+        /**
+         * Task
+         * @description One role task of the plan. `depends_on` names tasks of the same round by key; a task
+         *     runs once each of them is done, and is cancelled when one of its premises is disproven or
+         *     every task it depends on was cancelled.
+         */
+        Task: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Round */
+            round: number;
+            /** Position */
+            position: number;
+            /** Key */
+            key: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "scout" | "investigator" | "skeptic" | "financial_analyst" | "editor";
+            /** Company Id */
+            company_id: string | null;
+            /** Depends On */
+            depends_on: string[];
+            /** Premise Keys */
+            premise_keys: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "queued" | "running" | "succeeded" | "skipped" | "cancelled" | "failed" | "budget_exhausted";
+            /** Generation */
+            generation: number;
+            /** Job Id */
+            job_id: string | null;
+            /** Detail */
+            detail: string | null;
+            /** Artifacts */
+            artifacts: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** @enum {string} */
         UnresolvedReason: "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
         /** UnresponsiveEngine */
@@ -2377,6 +2867,35 @@ export interface components {
             engine: string;
             /** Reason */
             reason: string;
+        };
+        /**
+         * UnsupportedFinding
+         * @description A finding the Editor wrote that cites no accepted Claim of the investigation (or cites
+         *     something else): recorded, never shown as a finding.
+         */
+        UnsupportedFinding: {
+            /** Statement */
+            statement: string;
+            /** Claim Ids */
+            claim_ids: string[];
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * Usage
+         * @description How much of each budget the investigation has used.
+         */
+        Usage: {
+            /** Rounds */
+            rounds: number;
+            /** Leads */
+            leads: number;
+            /** Documents */
+            documents: number;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -2390,6 +2909,16 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** ValidityDates */
+        ValidityDates: {
+            /**
+             * Evidence Available At
+             * Format: date-time
+             */
+            evidence_available_at: string;
+            /** Valid Until */
+            valid_until: string | null;
         };
     };
     responses: never;
@@ -3707,6 +4236,240 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_investigations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestigationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Investigation"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    investigation_api_v1_investigations__investigation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                investigation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Investigation"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    events_api_v1_investigations__investigation_id__events_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                investigation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_InvestigationEvent_"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_api_v1_investigations__investigation_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                investigation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Investigation"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    disprove_api_v1_investigations__investigation_id__premises__premise_key__disprove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                investigation_id: string;
+                premise_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Investigation"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

@@ -36,6 +36,13 @@ _DISCOVERY_QUERY_OUTCOMES = ("searched", "failed")
 _RECALL_BUCKETS = (0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)
 RECALL_OUTCOMES = ("ok", "refused", "error")
 _CLAIM_OUTCOMES = ("accepted", "rejected")
+_STOP_REASONS = (
+    "answered",
+    "no_new_independent_evidence",
+    "budget_exhausted",
+    "needs_review",
+    "premise_disproven",
+)
 
 
 def recall_latency(registry: CollectorRegistry) -> Histogram:
@@ -82,6 +89,7 @@ class StateCollector(Collector):
             yield from self._claims(connection)
 
             yield from self._discovery(connection)
+            yield from self._investigations(connection)
 
     def _pause(self) -> Iterator[Metric]:
         pause = self._queue.pause_state()
@@ -369,3 +377,24 @@ class StateCollector(Collector):
         )
         leads.add_metric([], connection.execute(text("SELECT count(*) FROM lead")).scalar_one())
         yield leads
+
+    def _investigations(self, connection: Connection) -> Iterator[Metric]:
+        # Stops are counted from the insert-only event log, so a resumed investigation's
+        # budget stop stays counted.
+        stops = CounterMetricFamily(
+            "atlas_investigation_stops",
+            "Investigation stops, by reason (a budget stop that is later resumed counts too)",
+            labels=["reason"],
+        )
+        by_reason: dict[str, int] = {
+            reason: count
+            for reason, count in connection.execute(
+                text(
+                    "SELECT detail ->> 'reason', count(*) FROM investigation_event"
+                    " WHERE type = 'stopped' GROUP BY 1"
+                )
+            ).all()
+        }
+        for reason in _STOP_REASONS:
+            stops.add_metric([reason], by_reason.get(reason, 0))
+        yield stops

@@ -399,6 +399,35 @@ Discovery (`atlas.discovery`): the Scout's SearXNG queries and the Tier C leads 
 | `first_seen_at`, `last_seen_at` | timestamptz | |
 
 `lead_sighting`: each query result that returned a lead (primary key lead + query): position, URL, title, snippet, engines, published date and `seen_at`, as that result gave them.
+
+### 3.1e Investigations (Phases 3–6a, migration 0023)
+
+An investigation (`atlas.investigations`) runs a theme question as a fixed plan of role tasks on the job queue, all in one `run` (kind `investigation`). `POST /api/v1/investigations` starts one; `GET /api/v1/investigations/{id}[/events]` reads it.
+
+`investigation`: one per investigation.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `theme`, `question` | text not null | The theme (config slug) and the research question |
+| `seed_company_ids` | uuid[] not null | The companies investigated (default: the theme's) |
+| `as_of` | timestamptz not null | Only Source Versions available by then are read |
+| `bank_id` | text | The research bank (§7.2 `relevant_hindsight_bank`) |
+| `max_rounds`, `max_leads`, `max_documents`, `token_budget` | | Budgets: 1–2, 1–10, 1–25, > 0 |
+| `round` | smallint | The current round (1 until a follow-up, ticket 17) |
+| `run_id` | uuid FK → `run`, unique | Set by the first task; every role call is in it |
+| `status` | text | `running` or `stopped` |
+| `stop_reason`, `stop_detail`, `stopped_at` | | Set iff stopped: `answered`, `no_new_independent_evidence`, `budget_exhausted` (resumable), `needs_review`, `premise_disproven` |
+| `research_card` | jsonb | The Editor's draft card (findings in the §7.2 claim shape, open questions, unsupported findings) |
+| `created_by`, `created_at` | | |
+
+`investigation_premise`: what tasks assume (`question`; `company:<slug>` per seed company): `status` `open` or `disproven` with `reason`, `disproven_by`, `disproven_at`.
+
+`investigation_task`: one per role task per round (unique by key and by position): `role` (`scout`, `investigator` (with `company_id`), `skeptic`, `financial_analyst`, `editor`), `depends_on` (task keys), `premise_keys`, `status` (`pending`, `queued`, `running`, `succeeded`, `skipped`, `cancelled`, `failed`, `budget_exhausted`), `generation` (resumes), `job_id` (the current `investigation_task` job), `detail` and `artifacts`.
+
+`investigation_lead` (the leads taken, ranked, ≤ `max_leads`) and `investigation_document` (the Source Versions an Investigator task read, ≤ `max_documents` in all) count the budgets. `investigation_event` is **insert-only** (triggers `ENABLE ALWAYS`): `seq`, `type`, `round`, `task_key`, `detail`, `at`; `atlas_investigation_stops_total{reason}` counts its `stopped` events.
+
+`claim_extraction.continues_id` (uuid FK, unique): the budget-exhausted extraction this one continues with its remaining passages.
 ### 3.1b `bank_template_application`
 
 One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.
