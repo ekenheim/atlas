@@ -290,3 +290,31 @@ def test_the_gateway_uses_the_configured_bank_and_key(tmp_path: Path) -> None:
 def test_the_research_bank_is_the_default_bank(tmp_path: Path) -> None:
     assert settings(tmp_path).hindsight_bank_id == "atlas-ai-infrastructure"
     assert settings(tmp_path).hindsight_api_key is None
+
+
+# --- a document's memories ---------------------------------------------------------------------
+
+
+def test_a_documents_memories_are_listed_page_by_page_through_the_memory_list() -> None:
+    recorded = RecordedHindsight().recording("observations/04-list-via-memories")
+    items = cast(list[dict[str, Any]], recorded.response_object()["items"])
+    requests: list[httpx2.Request] = []
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        offset = int(request.url.params.get("offset", "0"))
+        limit = int(request.url.params["limit"])
+        page = items[offset : offset + limit]
+        body = {"items": page, "total": len(items), "limit": limit, "offset": offset}
+        return httpx2.Response(200, json=body)
+
+    client = HindsightGateway("http://hindsight.test", BANK, transport=httpx2.MockTransport(handle))
+
+    memories = client.document_memories("srcv:x:cover", page_size=4)
+
+    assert [m.id for m in memories] == [i["id"] for i in items]
+    assert [dict(r.url.params) for r in requests] == [
+        {"document_id": "srcv:x:cover", "limit": "4"},
+        {"document_id": "srcv:x:cover", "limit": "4", "offset": "4"},
+    ]
+    assert {r.url.path for r in requests} == {f"/v1/default/banks/{BANK}/memories/list"}

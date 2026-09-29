@@ -18,10 +18,11 @@ import sys
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
+from prometheus_client.parser import text_string_to_metric_families
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError
 
@@ -160,6 +161,15 @@ class Atlas:
         )
         assert response.status_code == 202, response.text
         return response.json()
+
+    def metrics(self) -> dict[tuple[str, frozenset[tuple[str, str]]], float]:
+        response = self.api.get("/metrics")
+        assert response.status_code == 200
+        return {
+            (sample.name, frozenset(sample.labels.items())): sample.value
+            for family in text_string_to_metric_families(response.text)
+            for sample in family.samples
+        }
 
     def reflect(self, question: str, **body: Any) -> dict[str, Any]:
         """Ask, run the worker, and return the stored answer."""
@@ -345,7 +355,9 @@ def test_recalled_observations_resolve_through_their_source_memories(
     looked_up = [
         r.url.path.rsplit("/", 1)[1]
         for r in fake.calls
-        if r.method == "GET" and "/memories/" in r.url.path
+        if r.method == "GET"
+        and "/memories/" in r.url.path
+        and r.url.path.rsplit("/", 1)[1] != "list"
     ]
     assert looked_up[:3] == [observation_id, lite_source["memory_id"], cohr_source["memory_id"]]
 
@@ -724,3 +736,46 @@ def test_unknown_answers_and_unconfigured_hindsight(database_url: str, tmp_path:
         503,
         "hindsight_not_configured",
     )
+
+
+# --- metrics (spec Part B story 34) ---------------------------------------------------------
+
+
+def labels(**pairs: str) -> frozenset[tuple[str, str]]:
+    return frozenset(pairs.items())
+
+
+def test_metrics_report_recall_and_reflect_latency_and_llm_tokens(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    recall_ok = ("atlas_recall_latency_seconds_count", labels(outcome="ok"))
+    recall_refused = ("atlas_recall_latency_seconds_count", labels(outcome="refused"))
+    reflects = ("atlas_reflect_latency_seconds_count", labels())
+    tokens_in = ("atlas_llm_tokens_total", labels(kind="reflect", direction="input"))
+    tokens_out = ("atlas_llm_tokens_total", labels(kind="reflect", direction="output"))
+    retain_tokens = ("atlas_llm_tokens_total", labels(kind="retain", direction="total"))
+    before = atlas.metrics()
+    assert (before[recall_ok], before[recall_refused], before[reflects]) == (0, 0, 0)
+    assert tokens_in not in before
+    # Each retain operation's tokens, as Hindsight reported them (the recorded final status).
+    final = fake.recording("retain/05-batch-final").response_object()["result_metadata"]
+    per_operation = cast(dict[str, int], final)["total_tokens"]
+    assert before[retain_tokens] == per_operation * len(fake.retained())
+
+    atlas.recall("optical components", theme_ids=["photonics"])
+    refused = atlas.api.post(
+        "/api/v1/memory/recall", json={"query": "q", "scope": {"theme_ids": ["no-such-theme"]}}
+    )
+    assert refused.status_code == 422
+    section = atlas.section(LITE_10K, "lumentum")
+    fake.script_reflect("Lumentum makes components.", [fake.derived_fact(section["document_id"])])
+    answer = atlas.reflect("What does Lumentum make?")
+    assert answer["status"] == "completed"
+
+    after = atlas.metrics()
+    assert (after[recall_ok], after[recall_refused]) == (1, 1)
+    assert after[("atlas_recall_latency_seconds_sum", labels(outcome="ok"))] > 0
+    assert after[reflects] == 1
+    assert after[("atlas_reflect_latency_seconds_bucket", labels(le="+Inf"))] == 1
+    usage = cast(dict[str, int], fake.recording("reflect/01-provenance").response_object()["usage"])
+    assert (after[tokens_in], after[tokens_out]) == (usage["input_tokens"], usage["output_tokens"])

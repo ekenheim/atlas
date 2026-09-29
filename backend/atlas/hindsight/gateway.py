@@ -181,6 +181,20 @@ class HindsightGateway:
             params["offset"] = offset
         return self._parse(ObservationPage, self._get("/memories/list", params=params))
 
+    def document_memories(self, document_id: str, *, page_size: int = 100) -> list[Memory]:
+        """Every memory extracted from a retained document (the memory list, filtered by
+        `document_id`, page by page). Observations carry no `document_id`, so they aren't in it.
+        """
+        memories: list[Memory] = []
+        while True:
+            params: dict[str, str | int] = {"document_id": document_id, "limit": page_size}
+            if memories:
+                params["offset"] = len(memories)
+            page = self._parse(ObservationPage, self._get("/memories/list", params=params))
+            memories.extend(page.items)
+            if not page.items or len(memories) >= page.total:
+                return memories
+
     def get_document(self, document_id: str) -> RetainedDocument:
         """A retained document, with its memory count per fact type."""
         return self._parse(RetainedDocument, self._get(f"/documents/{_segment(document_id)}"))

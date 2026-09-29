@@ -13,9 +13,12 @@
    never filed content (rule `sec-edge-script-v1`; docs/decisions.md). Other material uses
    the raw hash itself (rule `identity`).
 4. Unchanged (same raw hash, same comparison hash, or HTTP 304): record a fetch
-   observation only. Changed: create a new Source Version superseding the latest one,
-   with `available_at` from the candidate (SEC filings: `acceptanceDateTime`, basis
-   `sec_acceptance`), then parse it and archive the parse separately.
+   observation only. Changed: create a new Source Version superseding the latest one, then
+   parse it and archive the parse separately. A document's first version takes
+   `available_at` from the candidate (SEC filings: `acceptanceDateTime`, basis
+   `sec_acceptance`). A version that supersedes an earlier one takes the time Atlas fetched
+   it (basis `observed_revision`): its bytes weren't public at the original acceptance, and
+   availability is never overstated (spec Part A story 31; docs/decisions.md).
 5. Write an audit event for each row created, in the same transaction.
 
 Only this service writes Source Documents, Source Versions and fetch observations.
@@ -39,6 +42,8 @@ from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 from atlas.sources.edgar import PROVIDER_ID as SEC_EDGAR
 
 FetchOutcome = Literal["new_version", "unchanged", "not_modified"]
+# The basis of a superseding version's `available_at`: when Atlas observed the change.
+OBSERVED_REVISION = "observed_revision"
 
 IDENTITY_RULE = "identity"
 SEC_EDGE_SCRIPT_RULE = "sec-edge-script-v1"
@@ -326,6 +331,10 @@ class SourceLedger:
     ) -> dict[str, Any]:
         candidate = fetched.candidate
         parse_fields = self._parse(raw, media_type)
+        if latest is None:
+            available_at, basis = candidate.available_at, candidate.available_at_basis
+        else:
+            available_at, basis = fetched.fetched_at, OBSERVED_REVISION
         version: dict[str, Any] = {
             "id": uuid.uuid4(),
             "source_document_id": document_id,
@@ -340,8 +349,8 @@ class SourceLedger:
             **parse_fields,
             "event_at": None,
             "published_at": None,
-            "available_at": candidate.available_at,
-            "available_at_basis": candidate.available_at_basis,
+            "available_at": available_at,
+            "available_at_basis": basis,
             "fetched_at": fetched.fetched_at,
             "fetch_status": "ok",
             "metadata": _metadata(fetched),

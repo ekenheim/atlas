@@ -821,6 +821,8 @@ export interface components {
             retain_state: "pending" | "completed" | "failed" | "zero_fact" | "linked";
             /** Fact Count */
             fact_count: number | null;
+            /** Memory Ids */
+            memory_ids: string[] | null;
             /** Reprocess Count */
             reprocess_count: number;
             /** Template Version */
@@ -910,6 +912,8 @@ export interface components {
             skip_reason: ("min_interval" | "not_stale") | null;
             /** Operation Id */
             operation_id: string | null;
+            /** Run Id */
+            run_id: string | null;
             /** Operation Status */
             operation_status: string | null;
             /** Error */

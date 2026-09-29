@@ -18,6 +18,7 @@ from atlas.mental_models.refresh import (
     RefreshSchedule,
     RefreshTimings,
 )
+from atlas.runs import RunRecorder
 from atlas.settings import Settings
 
 log = logging.getLogger("atlas.mental_models")
@@ -36,6 +37,7 @@ def register_mental_model_handlers(
         if gateway is None:
             raise HindsightNotConfigured("Hindsight is not configured (ATLAS_HINDSIGHT_URL)")
         engine = create_engine(settings.database_url, pool_pre_ping=True)
+        runs = RunRecorder.from_settings(settings, engine)
         try:
             refresher = MentalModelRefresher(
                 engine,
@@ -47,9 +49,12 @@ def register_mental_model_handlers(
                     poll_timeout=settings.mental_model_poll_timeout_seconds,
                     poll_interval=settings.mental_model_poll_interval_seconds,
                 ),
+                runs=runs,
             )
             return refresher.refresh(payload, job)
         finally:
+            if runs is not None:
+                runs.close()
             gateway.close()
             engine.dispose()
 

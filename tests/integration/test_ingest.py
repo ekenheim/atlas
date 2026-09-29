@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from prometheus_client.parser import text_string_to_metric_families
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
@@ -55,6 +56,10 @@ def recorded(url: str) -> dict[str, Any]:
 
 def recorded_bytes(url: str, root: Path = LUMENTUM_FIXTURES) -> bytes:
     return (root / recorded(url)["file"]).read_bytes()
+
+
+def labels(**pairs: str) -> frozenset[tuple[str, str]]:
+    return frozenset(pairs.items())
 
 
 def acceptance_of(accession: str) -> datetime:
@@ -150,6 +155,15 @@ class Atlas:
         versions = self.versions(url)
         assert len(versions) == 1
         return self.get(f"/api/v1/source-versions/{versions[0]['id']}")
+
+    def metrics(self) -> dict[tuple[str, frozenset[tuple[str, str]]], float]:
+        response = self.api.get("/metrics")
+        assert response.status_code == 200
+        return {
+            (sample.name, frozenset(sample.labels.items())): sample.value
+            for family in text_string_to_metric_families(response.text)
+            for sample in family.samples
+        }
 
     def audit_events(self) -> list[dict[str, Any]]:
         with self.engine.connect() as connection:
@@ -286,7 +300,15 @@ def test_a_changed_filing_yields_a_new_source_version_linked_via_supersedes(
     assert job["artifacts"]["source_versions"] == [second["id"]]
     detail = atlas.get(f"/api/v1/source-versions/{second['id']}")
     assert detail["raw_sha256"] == hashlib.sha256(changed).hexdigest()
-    assert detail["available_at"] == original["available_at"]  # same filing, same acceptance
+    # The revision's bytes weren't public at the filing's acceptance: it is available from
+    # when Atlas observed it (spec story 31), while the first version keeps its acceptance.
+    assert original["available_at_basis"] == "sec_acceptance"
+    assert detail["available_at_basis"] == "observed_revision"
+    assert detail["available_at"] == detail["fetched_at"]
+    assert datetime.fromisoformat(detail["available_at"]) > datetime.fromisoformat(
+        original["fetched_at"]
+    )
+    assert detail["metadata"]["acceptance_datetime"] == original["metadata"]["acceptance_datetime"]
     raw = atlas.api.get(f"/api/v1/source-versions/{second['id']}/content", params={"kind": "raw"})
     assert raw.content == changed
     parsed = atlas.api.get(
@@ -411,8 +433,7 @@ def test_the_parse_is_deterministic_archived_separately_and_versioned(atlas: Atl
 
 def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> None:
     assert atlas.cli("companies", "seed").returncode == 0
-    atlas.ingest("first")
-    atlas.ingest("second")
+    jobs = [atlas.ingest("first"), atlas.ingest("second")]
 
     events = atlas.audit_events()
     company = atlas.company()
@@ -426,6 +447,7 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
         + [("source_document", document["id"]) for document in documents.values()]
         + [("source_version", version["id"]) for version in versions]
         + [("fetch_observation", fetch["id"]) for fetch in fetches]
+        + [("job", job["id"]) for job in jobs]
     )
 
     assert Counter((e["entity_type"], e["entity_id"]) for e in events) == expected
@@ -439,6 +461,7 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
         "fetch.new_version": 5,
         "fetch.not_modified": 4,
         "fetch.unchanged": 1,
+        "job.enqueued": 2,  # by `atlas ingest`; running them is the jobs' own history
     }
     verify = atlas.cli("audit", "verify")
     assert verify.returncode == 0, verify.stderr
@@ -611,3 +634,67 @@ def test_securities_cannot_overlap_for_the_same_listing(atlas: Atlas) -> None:
             {"company": coherent["id"]},
         )
     assert len(atlas.get(f"/api/v1/companies/{lumentum['id']}")["securities"]) == 1
+
+
+# --- metrics (spec story 8) ---
+
+
+def throttle_once(root: Path, url: str) -> None:
+    """SEC answers the first request for `url` with a 429 (Retry-After: 0), then as recorded:
+    a URL listed twice in the manifest is replayed in order."""
+    manifest_path = root / "lumentum" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    throttled = root / "lumentum" / "throttled.html"
+    throttled.write_text("<html><body>Request Rate Threshold Exceeded</body></html>")
+    entry = {"url": url, "file": "throttled.html", "status": 429, "headers": {"retry-after": "0"}}
+    index = next(i for i, e in enumerate(manifest["responses"]) if e["url"] == url)
+    manifest["responses"].insert(index, entry)
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+
+
+def test_metrics_count_fetches_parses_retries_and_archive_writes(
+    database_url: str, tmp_path: Path
+) -> None:
+    fixtures = editable_fixtures(tmp_path)
+    throttle_once(fixtures, URL_8K)
+    shutil.rmtree(fixtures / "coherent")
+    atlas = Atlas(database_url, tmp_path, fixtures)
+    empty = atlas.metrics()
+    for outcome in ("new_version", "unchanged", "not_modified"):
+        assert empty[("atlas_fetches_total", labels(outcome=outcome))] == 0
+    for status in ("parsed", "incomplete", "failed", "not_applicable"):
+        assert empty[("atlas_parses_total", labels(status=status))] == 0
+    assert empty[("atlas_archive_writes_total", labels(namespace="raw"))] == 0
+    assert empty[("atlas_archive_writes_total", labels(namespace="parsed"))] == 0
+    assert empty[("atlas_fetch_retries_total", labels())] == 0
+
+    atlas.ingest("first")
+
+    first = atlas.metrics()
+    versions = [atlas.version(url) for url in ALL_URLS]
+    assert first[("atlas_fetches_total", labels(outcome="new_version"))] == len(ALL_URLS)
+    parsed = sum(v["parse_status"] == "parsed" for v in versions)
+    assert parsed == len(FILING_URLS)
+    assert first[("atlas_parses_total", labels(status="parsed"))] == parsed
+    assert first[("atlas_parses_total", labels(status="not_applicable"))] == 1  # companyfacts
+    assert first[("atlas_archive_writes_total", labels(namespace="raw"))] == len(ALL_URLS)
+    assert first[("atlas_archive_writes_total", labels(namespace="parsed"))] == parsed
+    assert first[("atlas_fetch_retries_total", labels())] == 1  # the 8-K's 429
+    assert atlas.version(URL_8K)["fetches"][0]["attempts"] == 2
+
+    atlas.ingest("second")
+
+    second = atlas.metrics()
+    assert second[("atlas_fetches_total", labels(outcome="new_version"))] == len(ALL_URLS)
+    assert second[("atlas_fetches_total", labels(outcome="not_modified"))] == len(FILING_URLS)
+    assert second[("atlas_fetches_total", labels(outcome="unchanged"))] == 1
+    assert second[("atlas_archive_writes_total", labels(namespace="raw"))] == len(ALL_URLS)
+    assert second[("atlas_fetch_retries_total", labels())] == 2  # throttled again, then 304
+
+    # A job's failed attempts that were retried, and its final failure.
+    failed = atlas.ingest("coherent", company="coherent")
+    assert (failed["status"], failed["attempts"]) == ("failed", 3)
+    last = atlas.metrics()
+    assert last[("atlas_job_retries_total", labels(kind="ingest"))] == 2
+    assert last[("atlas_jobs_failed_total", labels(kind="ingest"))] == 1
+    atlas.engine.dispose()

@@ -15,8 +15,9 @@ Three jobs carry a Source Version into the research bank:
    leaves them `pending` and raises `TransientFailure`, so the queue pauses and this job is
    requeued; once the pause lifts, its next attempt resubmits the same sections as a new
    batch under the same document IDs (never another model). On completion it counts each
-   section's memories: sections with facts are `completed`; a zero-fact section that was
-   never reprocessed gets a `reprocess` job; one that was is `zero_fact`.
+   section's memories and records their IDs (the memory list, by document): sections with
+   facts are `completed`; a zero-fact section that was never reprocessed gets a `reprocess`
+   job; one that was is `zero_fact`.
 3. `reprocess` (`{"operation_id"}`) re-retains that operation's zero-fact sections once, as
    one batch under the same document IDs, and polls the new operation. Hindsight 0.10.1 has a
    `documents/{id}/reprocess` route, but no interaction with it is recorded, so Atlas re-retains
@@ -38,7 +39,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive
-from atlas.audit import Actor, content_hash, record
+from atlas.audit import SYSTEM_ACTOR, Actor, content_hash, record
 from atlas.bank_template import applied_template_version
 from atlas.companies import Universe
 from atlas.hindsight import (
@@ -84,10 +85,12 @@ def enqueue_retains(
     engine: Engine,
     source_version_ids: Sequence[uuid.UUID],
     job_class: JobClass = "interactive",
+    actor: Actor = SYSTEM_ACTOR,
 ) -> list[str]:
     """Enqueue a retain job for each given Source Version that has a parse; returns job IDs.
 
     A backfill ingest enqueues backfill retains, which run only in the nightly window.
+    Each new job is audited as `actor`'s.
     """
     if not source_version_ids:
         return []
@@ -100,7 +103,7 @@ def enqueue_retains(
             {"ids": list(source_version_ids), "parses": list(RETAINABLE_PARSES)},
         ).scalars()
         ids: list[uuid.UUID] = list(retainable)
-    queue = JobQueue(engine)
+    queue = JobQueue(engine, actor=actor)
     return [
         str(
             queue.enqueue(RETAIN_KIND, f"retain:{i}", retain_payload(i), job_class=job_class).job.id
@@ -145,7 +148,7 @@ class Retention:
         self._actor = actor
         self._universe = universe
         self._timings = timings
-        self._queue = JobQueue(engine)
+        self._queue = JobQueue(engine, actor=actor)
 
     @property
     def bank_id(self) -> str:
@@ -438,7 +441,8 @@ class Retention:
                 self._change(
                     connection,
                     row["id"],
-                    "operation_id = :operation, reprocess_count = :reprocess, fact_count = NULL",
+                    "operation_id = :operation, reprocess_count = :reprocess, fact_count = NULL,"
+                    " memory_ids = NULL",
                     {
                         "operation": operation_id,
                         "reprocess": row["reprocess_count"] + bump,
@@ -550,13 +554,21 @@ class Retention:
             return base | {"outcome": operation.status, "error": error, "failed": len(rows)}
 
         counts: dict[uuid.UUID, int | None] = {}
+        memory_ids: dict[uuid.UUID, list[str]] = {}
         for row in rows:
+            document = row["hindsight_document_id"]
             try:
-                counts[row["id"]] = self._gateway.get_document(
-                    row["hindsight_document_id"]
-                ).memory_unit_count
+                counts[row["id"]] = self._gateway.get_document(document).memory_unit_count
             except HindsightNotFound:
                 counts[row["id"]] = None
+                continue
+            # The memories returned for the section (story 10), so provenance never depends
+            # on Hindsight alone.
+            memory_ids[row["id"]] = (
+                [memory.id for memory in self._gateway.document_memories(document)]
+                if counts[row["id"]]
+                else []
+            )
         tally = {"completed": 0, "reprocess": 0, "zero_fact": 0, "failed": 0}
         with self._engine.begin() as connection:
             self._record_terminal(connection, operation)
@@ -578,8 +590,9 @@ class Retention:
                     state, assignments = "zero_fact", "retain_state = 'zero_fact'"
                     params = {}
                 if count is not None:
-                    assignments += ", fact_count = :count"
+                    assignments += ", fact_count = :count, memory_ids = CAST(:memory_ids AS jsonb)"
                     params["count"] = count
+                    params["memory_ids"] = json.dumps(memory_ids[row["id"]])
                 tally[state] += 1
                 self._change(
                     connection,

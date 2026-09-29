@@ -2534,6 +2534,20 @@
             ],
             "title": "Fact Count"
           },
+          "memory_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Ids"
+          },
           "reprocess_count": {
             "type": "integer",
             "title": "Reprocess Count"
@@ -2597,6 +2611,7 @@
           "document_id",
           "retain_state",
           "fact_count",
+          "memory_ids",
           "reprocess_count",
           "template_version",
           "operation_id",
@@ -2807,6 +2822,18 @@
             ],
             "title": "Operation Id"
           },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
           "operation_status": {
             "anyOf": [
               {
@@ -2908,6 +2935,7 @@
           "status",
           "skip_reason",
           "operation_id",
+          "run_id",
           "operation_status",
           "error",
           "error_class",

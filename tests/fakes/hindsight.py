@@ -20,8 +20,13 @@ Derived behaviours (each serves a recorded response with only the named fields c
   Polling that
   operation serves `retain/05-batch-final` with only `operation_id` changed, and reading one
   of its documents serves `upsert/09-get-document` with only `id`, `bank_id`, `tags` and
-  `document_metadata` changed to the retained item's. Recorded requests still replay as
-  recorded.
+  `document_metadata` changed to the retained item's. Listing a derived document's memories
+  (`GET .../memories/list?document_id=<id>&limit=N[&offset=M]`) serves
+  `observations/04-list-via-memories` with only `items` (the document's one derived world
+  fact, none for a zero-fact document; each item the recorded first one with only `id`,
+  `text`, `context`, `fact_type`, `document_id`, `chunk_id`, `tags`, `metadata`,
+  `mentioned_at` and `source_memory_ids` changed), `total`, `limit` and `offset` changed.
+  Recorded requests still replay as recorded.
 - `report_zero_facts` and `hold_retains` (need `derive_retains`): a zero-fact document and a
   failed or stuck retain were never recorded. `report_zero_facts` serves a derived document
   with its memory counts set to zero; `hold_retains` applies `hold_operation` to each derived
@@ -268,6 +273,7 @@ DERIVED_DOCUMENT = "upsert/09-get-document"
 DERIVED_FACT = "reflect/06-resolve-source-memory"
 DERIVED_OBSERVATION = "reflect/02-resolve-memory"
 DERIVED_RECALL = "tags/02-tags-any_strict"
+DERIVED_MEMORY_LIST = "observations/04-list-via-memories"
 DERIVED_REFLECT = "reflect/01-provenance"
 DERIVED_TEMPLATE_DRY_RUN = "research_template/01-import-dry-run"
 DERIVED_TEMPLATE_IMPORT = "research_template/02-import"
@@ -532,6 +538,10 @@ class RecordedHindsight:
         if request.method == "GET" and len(route) == 2 and route[0] == "documents":
             if route[1] in self._derived_documents:
                 return self._derived_document(bank, route[1])
+        if request.method == "GET" and route == ["memories", "list"]:
+            listed = self._derived_memory_list(bank, request)
+            if listed is not None:
+                return listed
         if not self._derive_memories:
             return None
         if request.method == "GET" and len(route) == 2 and route[0] == "memories":
@@ -590,6 +600,26 @@ class RecordedHindsight:
             response["memory_unit_count"] = 0
             response["nodes_by_fact_type"] = dict.fromkeys(counts, 0)
         self.served.append(f"{DERIVED_DOCUMENT} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _derived_memory_list(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
+        params = dict(request.url.params)
+        document_id = params.pop("document_id", None)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if document_id not in self._derived_documents or limit is None or params:
+            return None
+        recording = self.recording(DERIVED_MEMORY_LIST)
+        response = copy.deepcopy(recording.response_object())
+        first = cast(list[dict[str, JsonValue]], response["items"])[0]
+        facts = [
+            copy.deepcopy(first) | fact | {"fact_type": "world", "source_memory_ids": []}
+            for fact in self._facts(bank).values()
+            if fact["document_id"] == document_id
+        ]
+        page: list[JsonValue] = list[JsonValue](facts[offset : offset + int(limit)])
+        response |= {"items": page, "total": len(facts), "limit": int(limit), "offset": offset}
+        self.served.append(f"{DERIVED_MEMORY_LIST} (derived)")
         return httpx2.Response(recording.status, json=response)
 
     # --- derived memories, recall and reflect (see the module docstring) -----------------------

@@ -3,6 +3,12 @@
 Lease clocks are the database's (`now()`), so lease expiry means the same thing to every
 worker. Pacing (the queue-level pause and the backfill window, `atlas.jobs.pacing`) reads the
 application clock, which tests can control.
+
+Audited, in the same transaction as the change: a new job (`job.enqueued`, by the queue's
+actor: the configured one, or the system actor for work Atlas schedules itself), and the
+queue pause entered and cleared (`queue.paused`, `queue.pause_cleared`). Claims, leases,
+retries, requeues and completions are not: they are operational churn, kept in the job
+row's own history (`attempts`, `failures`, `lease_owner`, timestamps; docs/decisions.md).
 """
 
 import json
@@ -14,6 +20,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection, Engine, text
 
+from atlas.audit import SYSTEM_ACTOR, Actor, content_hash, record
 from atlas.jobs.pacing import Clock, FailureClass, JobClass, Pacing, utc_now
 
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
@@ -114,11 +121,17 @@ _RECORD_LOST_LEASE = _record_failure(
 
 class JobQueue:
     def __init__(
-        self, engine: Engine, *, pacing: Pacing | None = None, clock: Clock = utc_now
+        self,
+        engine: Engine,
+        *,
+        pacing: Pacing | None = None,
+        clock: Clock = utc_now,
+        actor: Actor = SYSTEM_ACTOR,
     ) -> None:
         self._engine = engine
         self.pacing = pacing or Pacing()
         self.clock = clock
+        self.actor = actor  # who new jobs and pause changes are audited as
 
     def enqueue(
         self,
@@ -155,6 +168,14 @@ class JobQueue:
                 .one_or_none()
             )
             if row is not None:
+                record(
+                    connection,
+                    self.actor,
+                    "job.enqueued",
+                    entity_type="job",
+                    entity_id=str(job_id),
+                    new_hash=content_hash(dict(row)),
+                )
                 return Enqueued(_job(row), created=True)
             existing = _select(connection, job_id)
         assert existing is not None  # the conflicting row exists; jobs are never deleted
@@ -265,7 +286,7 @@ class JobQueue:
             current = (
                 connection.execute(
                     text(
-                        "SELECT level, level > 0 AND resume_after > :now AS active"
+                        "SELECT *, level > 0 AND resume_after > :now AS active"
                         " FROM queue_pause WHERE id = 1 FOR UPDATE"
                     ),
                     {"now": now},
@@ -319,6 +340,8 @@ class JobQueue:
                         "job_kind": job.kind,
                     },
                 )
+                old = {k: v for k, v in current.items() if k != "active"}
+                self._audit_pause(connection, "queue.paused", old, dict(paused))
             requeued = self._update_fenced(
                 connection,
                 job,
@@ -333,15 +356,45 @@ class JobQueue:
         """A pausable job succeeded: reset the pause level, once the backoff has passed."""
         now = self.clock()
         with self._engine.begin() as connection:
-            result = connection.execute(
-                text(
-                    "UPDATE queue_pause SET level = 0, episode_started_at = NULL,"
-                    " cleared_at = :now, updated_at = now()"
-                    " WHERE id = 1 AND level > 0 AND resume_after <= :now"
-                ),
-                {"now": now},
+            old = (
+                connection.execute(
+                    text(
+                        "SELECT * FROM queue_pause"
+                        " WHERE id = 1 AND level > 0 AND resume_after <= :now FOR UPDATE"
+                    ),
+                    {"now": now},
+                )
+                .mappings()
+                .one_or_none()
             )
-            return result.rowcount == 1
+            if old is None:
+                return False
+            new = (
+                connection.execute(
+                    text(
+                        "UPDATE queue_pause SET level = 0, episode_started_at = NULL,"
+                        " cleared_at = :now, updated_at = now() WHERE id = 1 RETURNING *"
+                    ),
+                    {"now": now},
+                )
+                .mappings()
+                .one()
+            )
+            self._audit_pause(connection, "queue.pause_cleared", dict(old), dict(new))
+            return True
+
+    def _audit_pause(
+        self, connection: Connection, action: str, old: dict[str, Any], new: dict[str, Any]
+    ) -> None:
+        record(
+            connection,
+            self.actor,
+            action,
+            entity_type="queue_pause",
+            entity_id="queue",
+            old_hash=content_hash(old),
+            new_hash=content_hash(new),
+        )
 
     def pause_state(self) -> QueuePause:
         now = self.clock()

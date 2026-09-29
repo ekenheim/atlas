@@ -1,6 +1,7 @@
 """The recorded fake's derived retains change only the fields its docstring names."""
 
 from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 
@@ -8,6 +9,7 @@ from atlas.hindsight import HindsightGateway, HindsightNotFound, RetainItem, Tag
 from tests.fakes.hindsight import (
     DERIVED_DOCUMENT,
     DERIVED_FACT,
+    DERIVED_MEMORY_LIST,
     DERIVED_MENTAL_MODEL,
     DERIVED_OBSERVATION,
     DERIVED_RECALL,
@@ -318,3 +320,27 @@ def test_an_imported_mental_model_is_derived_until_and_after_its_refreshes() -> 
     client.retain_batch(ITEMS[:1])  # a later write makes it stale
     assert client.get_mental_model("theme-status").is_stale is True
     assert fake.refreshes_requested() == ["theme-status", "theme-status"]
+
+
+def test_a_derived_documents_memories_are_listed_by_document() -> None:
+    fake = RecordedHindsight()
+    fake.derive_retains()
+    fake.report_zero_facts(lambda document_id: document_id.endswith(":cover"))
+    client = gateway(fake)
+    client.retain_batch(ITEMS)
+
+    listed = client.document_memories(ITEMS[1].document_id)
+    empty = client.document_memories(ITEMS[0].document_id)
+
+    recorded = fake.recording(DERIVED_MEMORY_LIST).response_object()
+    first = cast(list[dict[str, Any]], recorded["items"])[0]
+    (fact,) = listed
+    assert fact.id == fake.derived_fact(ITEMS[1].document_id) != first["id"]
+    assert (fact.type, fact.document_id) == ("world", ITEMS[1].document_id)
+    assert (fact.tags, fact.metadata) == (ITEMS[1].tags, ITEMS[1].metadata)
+    assert fact.source_memory_ids == []
+    assert fact.state == first["state"]  # as recorded
+    assert empty == []  # a zero-fact document holds no memories
+    assert fake.served[-1] == f"{DERIVED_MEMORY_LIST} (derived)"
+    with pytest.raises(UnrecordedRequest):
+        client.document_memories("srcv:never-retained:cover")

@@ -248,7 +248,7 @@ class Research:
                 new_hash=content_hash(dict(row)),
             )
         payload = ReflectPayload(research_answer_id=answer_id).model_dump(mode="json")
-        JobQueue(self._engine).enqueue(REFLECT_KIND, key, payload)
+        JobQueue(self._engine, actor=self._actor).enqueue(REFLECT_KIND, key, payload)
         return answer_id, job_id, event
 
     def answer(self, answer_id: uuid.UUID, job: Job, runs: RunRecorder | None) -> Artifacts:

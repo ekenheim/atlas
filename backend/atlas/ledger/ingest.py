@@ -97,6 +97,7 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
                 engine,
                 [f.source_version_id for f in recorded if f.outcome == "new_version"],
                 job_class=job.job_class,  # a backfill ingest's retains are backfill too
+                actor=actor,
             )
             if settings.hindsight_url
             else None
