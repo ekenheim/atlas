@@ -43,6 +43,7 @@ from tests.harness import (
 ALERT_RULES = REPO / "configs" / "prometheus" / "atlas-alerts.yaml"
 PAUSABLE_KINDS = [
     "discover",
+    "draft_hypothesis",
     "extract_claims",
     "investigation_task",
     "poll_operation",

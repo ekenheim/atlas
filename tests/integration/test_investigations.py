@@ -9,7 +9,8 @@ Source Versions are the recorded Coherent EDGAR filings (a 10-K and a 10-Q), ing
 retained through the fixture path, Hindsight the recorded fake with `derive_memories`.
 LiteLLM is the scripted chat fake: **the Scout's, Investigator's and Editor's answers are
 written here** (the Investigator's quote the recorded Coherent 10-K; the Editor's cite the
-Claim IDs it is sent). SearXNG is the scripted fake over `tests/fixtures/searxng/`. The
+Claim IDs it is sent; the Reviewer, chained after a final stop, confirms what it is sent).
+SearXNG is the scripted fake over `tests/fixtures/searxng/`. The
 test universe is the repo's plus NVIDIA, which the 10-K names. Nothing live is called.
 """
 
@@ -312,6 +313,26 @@ def editing(
     return respond
 
 
+def reviewing(body: dict[str, Any]) -> JsonValue:
+    """The Reviewer (chained after a final stop) confirms every edge it is sent."""
+    return {
+        "reviews": [
+            {
+                "item_id": item["item_id"],
+                "verdict": "confirmed",
+                "direction": "as_proposed",
+                "layer": "correct",
+                "suggested_layer": None,
+                "reasoning": "the quote states it",
+            }
+            for item in asked(body)["request"]["items"]
+        ]
+    }
+
+
+REVIEWED = ChatReply.answer(reviewing, tokens=(700, 90))
+
+
 def metric(atlas: Atlas, name: str, **labels: str) -> float:
     return atlas.metrics().get((name, frozenset(labels.items())), 0.0)
 
@@ -430,6 +451,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas)), tokens=(9000, 700)),
         ChatReply.answer(editing(), tokens=(3000, 400)),
+        REVIEWED,
     )
     script_searches(searxng)
 
@@ -449,11 +471,12 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     }
     # Lumentum has nothing archived: its Investigator task makes no LLM call.
     assert "no parsed Source Version" in tasks(found)["investigator:lumentum"]["detail"]
-    assert roles(llm) == ["scout", "investigator", "editor"]
-    # Every role call is in the investigation's run, which the stop finished.
+    assert roles(llm) == ["scout", "investigator", "editor", "reviewer"]
+    # Every role call is in the investigation's run, which the stop finished (the chained
+    # relationship review has its own).
     run_id = found["run_id"]
     assert run_id is not None and found["request"]["run_id"] == run_id
-    assert {body["metadata"]["run_id"] for body in llm.chat_requests()} == {run_id}
+    assert {body["metadata"]["run_id"] for body in llm.chat_requests()[:3]} == {run_id}
     calls = atlas.get(f"/api/v1/runs/{run_id}/role-calls")
     assert [(c["role"], c["status"]) for c in calls["role_calls"]] == [
         ("scout", "accepted"),
@@ -579,6 +602,7 @@ def test_an_editor_finding_that_cites_no_accepted_claim_is_dropped_and_needs_rev
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
         ChatReply.answer(cite_a_lead),
+        REVIEWED,
     )
     script_searches(searxng)
 
@@ -602,6 +626,45 @@ def test_an_editor_finding_that_cites_no_accepted_claim_is_dropped_and_needs_rev
             "reason": "cites no Claim",
         },
     ]
+
+
+def test_a_final_stop_queues_the_relationship_review_of_the_investigation_s_assertions(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    started = seeded(atlas, "coherent")
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert found["stop_reason"] == "answered"
+    [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    log = events(atlas, started["id"])
+    assert [e["type"] for e in log[-2:]] == ["relationship_review_queued", "stopped"]
+    queued = log[-2]["detail"]
+    assert queued["assertions"] == 1
+    [job_id] = queued["job_ids"]
+    job = atlas.get(f"/api/v1/jobs/{job_id}")
+    assert (job["kind"], job["status"]) == ("review_relationships", "succeeded")
+    assert job["payload"] == {"assertion_ids": [accepted["assertion_id"]]}
+    # The Reviewer ran in its own run (the investigation's was finished by the stop).
+    reviewer = llm.chat_requests()[-1]
+    assert reviewer["metadata"]["role"] == "reviewer"
+    assert reviewer["metadata"]["run_id"] != found["run_id"]
+    [edge] = atlas.get("/api/v1/relationships")["items"]
+    assert (edge["subject_name"], edge["predicate"], edge["object_name"]) == (
+        "Coherent",
+        "supplies",
+        "NVIDIA",
+    )
+    assert (edge["review_state"], edge["evidence_count"]) == ("machine_reviewed", 1)
 
 
 # --- budgets and no new evidence ------------------------------------------------------------------
@@ -778,7 +841,10 @@ def test_a_budget_spent_before_the_editor_resumes_into_the_editor(
     assert stopped["research_card"] is None
     assert roles(llm) == ["scout", "investigator"]
 
-    llm.script_chat(ChatReply.answer(editing()))
+    # A resumable stop doesn't chain the relationship review: the run isn't over.
+    assert "relationship_review_queued" not in [e["type"] for e in events(atlas, started["id"])]
+
+    llm.script_chat(ChatReply.answer(editing()), REVIEWED)
     resumed = atlas.api.post(
         f"/api/v1/investigations/{started['id']}/resume", json={"token_budget": 20_000}
     )
@@ -788,7 +854,7 @@ def test_a_budget_spent_before_the_editor_resumes_into_the_editor(
     found = investigation(atlas, started["id"])
     assert found["stop_reason"] == "answered"
     assert len(found["research_card"]["findings"]) == 1
-    assert roles(llm) == ["scout", "investigator", "editor"]
+    assert roles(llm) == ["scout", "investigator", "editor", "reviewer"]
 
 
 # --- an LLM outage --------------------------------------------------------------------------------
@@ -825,7 +891,7 @@ def test_an_llm_outage_pauses_the_investigation_and_it_resumes_with_nothing_inve
     )
 
     clock.advance(hours=2)
-    llm.script_chat(ChatReply.answer(editing()))
+    llm.script_chat(ChatReply.answer(editing()), REVIEWED)
     worker.run_once()
 
     found = investigation(atlas, started["id"])
@@ -885,6 +951,7 @@ def test_a_disproven_premise_cancels_only_the_tasks_that_depend_on_it(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
         ChatReply.answer(editing()),
+        REVIEWED,
     )
     script_searches(searxng)
     atlas.worker_pass()
