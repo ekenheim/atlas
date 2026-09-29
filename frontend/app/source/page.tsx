@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { Code, Load, Missing, Timestamp } from "../../components/ui";
+import { SourceDocumentRows } from "../../components/source-document";
+import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { api } from "../../lib/api/client";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
@@ -23,53 +24,28 @@ function SourceDocument() {
   return (
     <>
       <Load loaded={source} what="the Source Document">
-        {(document) => (
+        {(sourceDocument) => (
           <>
             <p className="crumbs">
               <Link href={routes.companies}>Companies</Link>
-              {document.company_id && (
+              {sourceDocument.company_id && (
                 <>
                   {" / "}
-                  <Link href={routes.company(document.company_id)}>Company</Link>
+                  <Link href={routes.company(sourceDocument.company_id)}>Company</Link>
                 </>
               )}
             </p>
-            <h1>{document.title}</h1>
+            <h1>{sourceDocument.title}</h1>
             <table>
               <caption>Source Document</caption>
               <tbody>
-                <tr>
-                  <th scope="row">URL</th>
-                  <td>
-                    <Code>{document.canonical_url}</Code>
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">Accession</th>
-                  <td>{document.accession ? <Code>{document.accession}</Code> : <Missing />}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Form</th>
-                  <td>
-                    {document.form_type ?? <Missing />}
-                    {document.document_type &&
-                      document.document_type !== document.form_type &&
-                      ` (${document.document_type})`}
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">Publisher</th>
-                  <td>
-                    {document.publisher} via {document.provider}; tier {document.source_tier},
-                    licence {document.license_class}
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">first_seen_at</th>
-                  <td>
-                    <Timestamp value={document.first_seen_at} />
-                  </td>
-                </tr>
+                <Row name="URL">
+                  <Code>{sourceDocument.canonical_url}</Code>
+                </Row>
+                <SourceDocumentRows sourceDocument={sourceDocument} />
+                <Row name="first_seen_at">
+                  <Timestamp value={sourceDocument.first_seen_at} />
+                </Row>
               </tbody>
             </table>
           </>

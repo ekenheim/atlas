@@ -25,6 +25,7 @@ from mypy_boto3_s3 import S3Client
 
 from atlas.archive import Namespace, open_archive
 from atlas.settings import Settings
+from tests.harness import make_settings
 from tests.integration.conftest import (
     S3_ACCESS_KEY_ID,
     S3_ENDPOINT_URL,
@@ -124,17 +125,13 @@ def scoped_client(p: Provisioned) -> S3Client:
 
 
 def scoped_archive_settings(p: Provisioned, tmp_path: Path) -> Settings:
-    return Settings.model_validate(
-        {
-            "database_url": "postgresql+psycopg://atlas:atlas@127.0.0.1:1/atlas",
-            "actor": "local-researcher",
-            "archive_root": tmp_path,
-            "archive_backend": "s3",
-            "s3_endpoint_url": S3_ENDPOINT_URL,
-            "s3_bucket": p.bucket,
-            "s3_access_key_id": p.access_key_id,
-            "s3_secret_access_key": p.secret_access_key,
-        }
+    return make_settings(
+        tmp_path,
+        archive_backend="s3",
+        s3_endpoint_url=S3_ENDPOINT_URL,
+        s3_bucket=p.bucket,
+        s3_access_key_id=p.access_key_id,
+        s3_secret_access_key=p.secret_access_key,
     )
 
 

@@ -20,18 +20,14 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from prometheus_client.parser import text_string_to_metric_families
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from atlas.api.app import create_app
-from atlas.db.migrate import upgrade
 from atlas.jobs import JobQueue, Worker, builtin_registry
 from atlas.settings import Settings
+from tests.harness import EDGAR_FIXTURES, REPO, THEMES, Metrics, make_settings, scrape_metrics
 
-REPO = Path(__file__).parents[2]
-THEMES = REPO / "configs" / "themes" / "ai-infrastructure.yaml"
-EDGAR_FIXTURES = REPO / "tests" / "fixtures" / "edgar"
 LUMENTUM_FIXTURES = EDGAR_FIXTURES / "lumentum"
 MANIFEST = json.loads((LUMENTUM_FIXTURES / "manifest.json").read_text())
 SUBMISSIONS = json.loads(
@@ -82,14 +78,11 @@ class Atlas:
         self.api = TestClient(create_app(self.settings()))
 
     def settings(self) -> Settings:
-        return Settings.model_validate(
-            {
-                "database_url": self.database_url,
-                "actor": "local-researcher",
-                "archive_root": self.archive,
-                "themes_config": THEMES,
-                "sec_fixtures_dir": self.fixtures,
-            }
+        return make_settings(
+            self.archive,
+            database_url=self.database_url,
+            themes_config=THEMES,
+            sec_fixtures_dir=self.fixtures,
         )
 
     def env(self) -> dict[str, str]:
@@ -156,14 +149,8 @@ class Atlas:
         assert len(versions) == 1
         return self.get(f"/api/v1/source-versions/{versions[0]['id']}")
 
-    def metrics(self) -> dict[tuple[str, frozenset[tuple[str, str]]], float]:
-        response = self.api.get("/metrics")
-        assert response.status_code == 200
-        return {
-            (sample.name, frozenset(sample.labels.items())): sample.value
-            for family in text_string_to_metric_families(response.text)
-            for sample in family.samples
-        }
+    def metrics(self) -> Metrics:
+        return scrape_metrics(self.api)
 
     def audit_events(self) -> list[dict[str, Any]]:
         with self.engine.connect() as connection:
@@ -171,12 +158,6 @@ class Atlas:
                 text("SELECT actor, action, entity_type, entity_id FROM audit_event ORDER BY id")
             )
             return [dict(row._mapping) for row in rows]  # pyright: ignore[reportPrivateUsage]
-
-
-@pytest.fixture
-def database_url(empty_database_url: str) -> str:
-    upgrade(empty_database_url)
-    return empty_database_url
 
 
 @pytest.fixture

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Suspense, useState, type ReactNode } from "react";
 
 import { VersionAssertions } from "../../components/assertions";
-import { Code, Load, Missing, Timestamp } from "../../components/ui";
+import { SourceDocumentRows } from "../../components/source-document";
+import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { api, type SourceVersionDetail } from "../../lib/api/client";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
@@ -47,21 +48,12 @@ function SourceVersion() {
   );
 }
 
-function Row({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <tr>
-      <th scope="row">{name}</th>
-      <td>{children}</td>
-    </tr>
-  );
-}
-
 function VersionLink({ id, label }: { id: string | null; label: string }) {
   return id ? <Link href={routes.version(id)}>{label}</Link> : <Missing />;
 }
 
 function Provenance({ version }: { version: SourceVersionDetail }) {
-  const document = version.source_document;
+  const sourceDocument = version.source_document;
   return (
     <section aria-labelledby="provenance">
       <h2 id="provenance">Provenance</h2>
@@ -69,26 +61,14 @@ function Provenance({ version }: { version: SourceVersionDetail }) {
         <caption>Source and content</caption>
         <tbody>
           <Row name="URL">
-            <Code>{document.canonical_url}</Code>
+            <Code>{sourceDocument.canonical_url}</Code>
           </Row>
-          {document.origin_url !== document.canonical_url && (
+          {sourceDocument.origin_url !== sourceDocument.canonical_url && (
             <Row name="Origin URL">
-              <Code>{document.origin_url}</Code>
+              <Code>{sourceDocument.origin_url}</Code>
             </Row>
           )}
-          <Row name="Accession">
-            {document.accession ? <Code>{document.accession}</Code> : <Missing />}
-          </Row>
-          <Row name="Form">
-            {document.form_type ?? <Missing />}
-            {document.document_type &&
-              document.document_type !== document.form_type &&
-              ` (${document.document_type})`}
-          </Row>
-          <Row name="Publisher">
-            {document.publisher} via {document.provider}; tier {document.source_tier}, licence{" "}
-            {document.license_class}
-          </Row>
+          <SourceDocumentRows sourceDocument={sourceDocument} />
           <Row name="Raw SHA-256">
             <Code>{version.raw_sha256}</Code>
           </Row>
@@ -151,7 +131,7 @@ function Provenance({ version }: { version: SourceVersionDetail }) {
           <Clock name="fetched_at" value={version.fetched_at}>
             when Atlas fetched these bytes
           </Clock>
-          <Clock name="first_seen_at" value={document.first_seen_at}>
+          <Clock name="first_seen_at" value={sourceDocument.first_seen_at}>
             when Atlas first saw the Source Document (the adapter&apos;s discovery time)
           </Clock>
           <Clock name="ingested_at" value={version.ingested_at}>

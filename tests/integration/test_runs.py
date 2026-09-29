@@ -4,51 +4,35 @@ Hindsight is the recorded fake and LiteLLM the `/model/info` fake, both at the t
 """
 
 import uuid
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from pydantic import JsonValue
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, text
 
 from atlas import __version__
 from atlas.audit import Actor
 from atlas.bank_template import BankTemplate, apply_template
-from atlas.db.migrate import upgrade
 from atlas.hindsight import HindsightGateway
 from atlas.llm_routes import AliasNotRouted
 from atlas.runs import RunNotFound, RunNotStartable, RunRecorder
 from atlas.settings import Settings
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import API_KEY, FakeLiteLLM, model_info_fixture
+from tests.harness import BANK, TEMPLATE, make_settings
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = BankTemplate.load(REPO_ROOT / "configs" / "hindsight" / "bank-template.json")
-BANK_ID = RecordedHindsight().recording("research_template/01-import-dry-run").bank_id
-
-
-@pytest.fixture
-def engine(empty_database_url: str) -> Iterator[Engine]:
-    upgrade(empty_database_url)
-    engine = create_engine(empty_database_url)
-    yield engine
-    engine.dispose()
+BANK_TEMPLATE = BankTemplate.load(TEMPLATE)
 
 
 def settings(database_url: str, tmp_path: Path, **values: object) -> Settings:
-    return Settings.model_validate(
-        {
-            "database_url": database_url,
-            "actor": "local-researcher",
-            "archive_root": tmp_path,
-            "hindsight_url": "http://hindsight.test",
-            "hindsight_bank_id": BANK_ID,
-            "litellm_url": "http://litellm.test",
-            "litellm_api_key": API_KEY,
-            **values,
-        }
-    )
+    providers: dict[str, object] = {
+        "hindsight_url": "http://hindsight.test",
+        "hindsight_bank_id": BANK,
+        "litellm_url": "http://litellm.test",
+        "litellm_api_key": API_KEY,
+    }
+    return make_settings(tmp_path, database_url=database_url, **(providers | values))
 
 
 def recorder(
@@ -70,8 +54,8 @@ def recorder(
 
 
 def apply_research_template(engine: Engine, hindsight: RecordedHindsight) -> None:
-    gateway = HindsightGateway("http://hindsight.test", BANK_ID, transport=hindsight.transport)
-    apply_template(engine, gateway, TEMPLATE, Actor("local-researcher"))
+    gateway = HindsightGateway("http://hindsight.test", BANK, transport=hindsight.transport)
+    apply_template(engine, gateway, BANK_TEMPLATE, Actor("local-researcher"))
 
 
 def fixture_routes(alias: str) -> list[dict[str, JsonValue]]:
@@ -104,7 +88,7 @@ def test_a_run_records_code_hindsight_template_and_routed_models_at_start(
     assert stored["kind"] == "ingest"
     assert stored["code_version"] == "0123abc"
     assert stored["hindsight_version"] == recorded_version["api_version"]
-    assert stored["template_version"] == TEMPLATE.template_version
+    assert stored["template_version"] == BANK_TEMPLATE.template_version
     assert stored["routed_models"] == expected_routes
     assert (stored["tokens_in"], stored["tokens_out"], stored["finished_at"]) == (0, 0, None)
     assert (
@@ -150,7 +134,7 @@ def test_a_run_takes_the_latest_applied_template_version(engine: Engine, tmp_pat
                 " manifest_sha256, dry_run_result, import_result)"
                 " VALUES (:id, :bank, '9.9.9', :sha, '{}'::jsonb, '{}'::jsonb)"
             ),
-            {"id": uuid.uuid4(), "bank": BANK_ID, "sha": "c" * 64},
+            {"id": uuid.uuid4(), "bank": BANK, "sha": "c" * 64},
         )
 
     run = recorder(engine, tmp_path, hindsight, FakeLiteLLM()).start("ingest")

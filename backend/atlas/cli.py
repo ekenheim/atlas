@@ -50,12 +50,12 @@ def run_worker(settings: Settings, once: bool) -> None:
     import threading
     from datetime import timedelta
 
-    from sqlalchemy import create_engine
     from sqlalchemy.exc import OperationalError
 
+    from atlas.db import create_engine
     from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry, builtin_schedules
 
-    engine = create_engine(settings.database_url, pool_pre_ping=True)
+    engine = create_engine(settings)
     worker = Worker(
         JobQueue(engine, pacing=Pacing.from_settings(settings)),
         builtin_registry(settings),
@@ -94,9 +94,9 @@ def enqueue_job(
 ) -> None:
 
     from pydantic import JsonValue, TypeAdapter
-    from sqlalchemy import create_engine
 
     from atlas.audit import Actor
+    from atlas.db import create_engine
     from atlas.jobs import JobQueue, builtin_registry
 
     kinds = builtin_registry(settings).kinds()
@@ -111,7 +111,7 @@ def enqueue_job(
     except ValidationError:
         print("atlas: --payload must be a JSON object", file=sys.stderr)
         raise SystemExit(2) from None
-    engine = create_engine(settings.database_url)
+    engine = create_engine(settings)
     try:
         enqueued = JobQueue(engine, actor=Actor.from_settings(settings)).enqueue(
             kind,
@@ -163,9 +163,8 @@ def enqueue_ingest(
 ) -> None:
     from datetime import UTC, datetime
 
-    from sqlalchemy import create_engine
-
     from atlas.audit import Actor
+    from atlas.db import create_engine
     from atlas.jobs import JobQueue
     from atlas.ledger.ingest import INGEST_KIND, ingest_payload
 
@@ -184,7 +183,7 @@ def enqueue_ingest(
     form_list = [form.strip() for form in forms.split(",") if form.strip()] if forms else None
     # Without --key, each invocation is a new ingest run; reuse a key to make it idempotent.
     key = key or f"ingest:{company}:{datetime.now(UTC).isoformat(timespec='seconds')}"
-    engine = create_engine(settings.database_url)
+    engine = create_engine(settings)
     try:
         enqueued = JobQueue(engine, actor=Actor.from_settings(settings)).enqueue(
             INGEST_KIND,
@@ -201,13 +200,12 @@ def enqueue_ingest(
 def seed_companies(settings: Settings) -> None:
     import json
 
-    from sqlalchemy import create_engine
-
     from atlas.audit import Actor
     from atlas.companies import seed
+    from atlas.db import create_engine
 
     universe = _universe(settings)
-    engine = create_engine(settings.database_url)
+    engine = create_engine(settings)
     try:
         with engine.begin() as connection:
             seeded = seed(connection, Actor.from_settings(settings), universe)
@@ -220,11 +218,10 @@ def seed_companies(settings: Settings) -> None:
 
 
 def run_audit_verify(settings: Settings) -> int:
-    from sqlalchemy import create_engine
-
     from atlas.audit import verify_chain
+    from atlas.db import create_engine
 
-    engine = create_engine(settings.database_url)
+    engine = create_engine(settings)
     try:
         with engine.connect() as connection:
             report = verify_chain(connection)
@@ -242,12 +239,12 @@ def run_audit_verify(settings: Settings) -> int:
 def run_apply_template(settings: Settings, template_path: Path | None) -> int:
     import json
 
-    from sqlalchemy import create_engine
     from sqlalchemy.exc import OperationalError
 
     from atlas.audit import Actor
     from atlas.bank_template import BankTemplate, InvalidTemplate, apply_template
-    from atlas.hindsight import HindsightError, HindsightGateway
+    from atlas.db import create_engine
+    from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightGateway
 
     try:
         template = BankTemplate.load(template_path or settings.hindsight_template_path)
@@ -256,9 +253,9 @@ def run_apply_template(settings: Settings, template_path: Path | None) -> int:
         return 2
     gateway = HindsightGateway.from_settings(settings)
     if gateway is None:
-        print("atlas: Hindsight is not configured (ATLAS_HINDSIGHT_URL)", file=sys.stderr)
+        print(f"atlas: {HINDSIGHT_NOT_CONFIGURED}", file=sys.stderr)
         return 2
-    engine = create_engine(settings.database_url)
+    engine = create_engine(settings)
     try:
         applied = apply_template(engine, gateway, template, Actor.from_settings(settings))
     except HindsightError as error:

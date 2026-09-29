@@ -9,9 +9,9 @@ from atlas.ledger.reads import (
     SourceVersionDetail,
     SourceVersionSummary,
     get_content,
-    get_document,
+    get_source_document,
     get_version,
-    list_documents,
+    list_source_documents,
     list_versions,
 )
 from atlas.ledger.service import (
@@ -39,8 +39,8 @@ __all__ = [
     "canonical_url",
     "comparison_bytes",
     "get_content",
-    "get_document",
+    "get_source_document",
     "get_version",
-    "list_documents",
+    "list_source_documents",
     "list_versions",
 ]

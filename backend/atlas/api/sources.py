@@ -26,9 +26,9 @@ from atlas.ledger import (
     SourceVersionDetail,
     SourceVersionSummary,
     get_content,
-    get_document,
+    get_source_document,
     get_version,
-    list_documents,
+    list_source_documents,
     list_versions,
 )
 
@@ -72,7 +72,7 @@ def sources_router(engine: Engine, archive: Archive) -> APIRouter:
         with engine.connect() as connection:
             if get_company(connection, company_id) is None:
                 return not_found("company")
-            items, total = list_documents(
+            items, total = list_source_documents(
                 connection, company_id, limit=page.limit, offset=page.offset
             )
         return Page(items=items, total=total, limit=page.limit, offset=page.offset)
@@ -80,7 +80,7 @@ def sources_router(engine: Engine, archive: Archive) -> APIRouter:
     @router.get("/sources/{document_id}", response_model=SourceDocument, responses=NOT_FOUND)
     def source(document_id: uuid.UUID) -> SourceDocument | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         with engine.connect() as connection:
-            found = get_document(connection, document_id)
+            found = get_source_document(connection, document_id)
         return found if found is not None else not_found("source document")
 
     @router.get(
@@ -92,7 +92,7 @@ def sources_router(engine: Engine, archive: Archive) -> APIRouter:
         document_id: uuid.UUID, page: Paged
     ) -> Page[SourceVersionSummary] | JSONResponse:
         with engine.connect() as connection:
-            if get_document(connection, document_id) is None:
+            if get_source_document(connection, document_id) is None:
                 return not_found("source document")
             items, total = list_versions(
                 connection, document_id, limit=page.limit, offset=page.offset

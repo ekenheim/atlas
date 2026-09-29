@@ -12,34 +12,21 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, text
 
-from atlas.db.migrate import upgrade
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.serve import Served, serve
+from tests.harness import BANK, TEMPLATE
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE_PATH = REPO_ROOT / "configs" / "hindsight" / "bank-template.json"
-TEMPLATE_FILE: dict[str, Any] = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
+TEMPLATE_FILE: dict[str, Any] = json.loads(TEMPLATE.read_text(encoding="utf-8"))
 DRY_RUN = "research_template/01-import-dry-run"
 IMPORT = "research_template/02-import"
 
 
 @pytest.fixture
-def database_url(empty_database_url: str) -> str:
-    upgrade(empty_database_url)
-    return empty_database_url
-
-
-@pytest.fixture
-def engine(database_url: str) -> Iterator[Engine]:
-    engine = create_engine(database_url)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
 def hindsight() -> Iterator[tuple[RecordedHindsight, Served]]:
+    """Overrides the shared fixture: nothing derived, and a request the fake can't answer
+    doesn't fail the test (one here fails the dry run that way on purpose)."""
     fake = RecordedHindsight()
     with serve(fake.transport.handle_request) as served:
         yield fake, served
@@ -56,8 +43,8 @@ def apply_template(
         "ATLAS_DATABASE_URL": database_url,
         "ATLAS_ACTOR": "local-researcher",
         "ATLAS_ARCHIVE_ROOT": str(archive),
-        "ATLAS_HINDSIGHT_BANK_ID": RecordedHindsight().recording(DRY_RUN).bank_id,
-        "ATLAS_HINDSIGHT_TEMPLATE_PATH": str(TEMPLATE_PATH),
+        "ATLAS_HINDSIGHT_BANK_ID": BANK,
+        "ATLAS_HINDSIGHT_TEMPLATE_PATH": str(TEMPLATE),
     }
     if hindsight_url:
         base["ATLAS_HINDSIGHT_URL"] = hindsight_url

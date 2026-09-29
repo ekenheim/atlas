@@ -11,35 +11,21 @@ Expected sections come from the recorded EDGAR fixtures' Item headings.
 """
 
 import json
-import os
 import shutil
-import subprocess
-import sys
-from collections.abc import Iterator
 from datetime import datetime
 from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from atlas.api.app import create_app
-from atlas.db.migrate import upgrade
-from atlas.jobs import JobQueue, Worker, builtin_registry
-from atlas.settings import Settings
 from tests.fakes.hindsight import RecordedHindsight
-from tests.fakes.serve import Served, serve
+from tests.fakes.serve import Served
+from tests.harness import BANK, EDGAR_FIXTURES, LITE_10K, TEMPLATE, TEN_K_ANCHORS, Atlas
 
-REPO = Path(__file__).parents[2]
-THEMES = REPO / "configs" / "themes" / "ai-infrastructure.yaml"
-TEMPLATE = REPO / "configs" / "hindsight" / "bank-template.json"
 TEMPLATE_VERSION = json.loads(TEMPLATE.read_text())["template_version"]
-EDGAR_FIXTURES = REPO / "tests" / "fixtures" / "edgar"
-# The bank the template recordings were made in, so `apply-template` replays as recorded.
-BANK = RecordedHindsight().recording("research_template/01-import-dry-run").bank_id
 # What the recorded document (`upsert/09-get-document`) reports: one memory unit.
 RECORDED_FACT_COUNT = cast(
     int,
@@ -49,7 +35,6 @@ RECORDED_FACT_COUNT = cast(
 LITE = "https://www.sec.gov/Archives/edgar/data/1633978"
 LITE_8K = f"{LITE}/000162828026055726/lite-20260811.htm"
 LITE_EX991 = f"{LITE}/000162828026055726/lite_ex991xq4fy26.htm"
-LITE_10K = f"{LITE}/000162828026057358/lite-20260627.htm"
 LITE_10Q = f"{LITE}/000162828026030777/lite-20260328.htm"
 LITE_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK0001633978.json"
 COHR = "https://www.sec.gov/Archives/edgar/data/820318"
@@ -57,140 +42,10 @@ COHR_10K = f"{COHR}/000082031826000020/iivi-20260630.htm"
 COHR_10Q = f"{COHR}/000082031826000013/iivi-20260331.htm"
 COHR_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json"
 
-# The Item headings of the fixtures' 10-Ks (both trimmed after Item 7) and 10-Qs (trimmed
-# early in Part I Item 1), and the Lumentum 8-K's Items 2.02 and 9.01.
-TEN_K_ANCHORS = [
-    "cover",
-    "part-i-item-1",
-    "part-i-item-1a",
-    "part-i-item-1b",
-    "part-i-item-1c",
-    "part-i-item-2",
-    "part-i-item-3",
-    "part-i-item-4",
-    "part-ii-item-5",
-    "part-ii-item-6",
-    "part-ii-item-7",
-]
+# The Item headings of the fixtures' 10-Qs (trimmed early in Part I Item 1), and the Lumentum
+# 8-K's Items 2.02 and 9.01 (the 10-Ks' are `TEN_K_ANCHORS`).
 TEN_Q_ANCHORS = ["cover", "part-i-item-1"]
 EIGHT_K_ANCHORS = ["cover", "item-2-02", "item-9-01"]
-
-
-class Atlas:
-    def __init__(self, database_url: str, tmp_path: Path, hindsight_url: str, **settings: Any):
-        self.database_url = database_url
-        self.tmp_path = tmp_path
-        self.archive = tmp_path / "archive"
-        self.archive.mkdir(exist_ok=True)
-        self.fixtures = EDGAR_FIXTURES
-        self.hindsight_url = hindsight_url
-        self.overrides = settings
-        self.engine = create_engine(database_url)
-        self.api = TestClient(create_app(self.settings()))
-
-    def settings(self) -> Settings:
-        return Settings.model_validate(
-            {
-                "database_url": self.database_url,
-                "actor": "local-researcher",
-                "archive_root": self.archive,
-                "themes_config": THEMES,
-                "sec_fixtures_dir": self.fixtures,
-                "hindsight_url": self.hindsight_url,
-                "hindsight_bank_id": BANK,
-                "retain_poll_timeout_seconds": 0.3,
-                "retain_poll_interval_seconds": 0.01,
-                **self.overrides,
-            }
-        )
-
-    def cli(self, *args: str) -> subprocess.CompletedProcess[str]:
-        env = {
-            "PATH": os.environ["PATH"],
-            "HOME": str(self.tmp_path),
-            "ATLAS_DATABASE_URL": self.database_url,
-            "ATLAS_ACTOR": "local-researcher",
-            "ATLAS_ARCHIVE_ROOT": str(self.archive),
-            "ATLAS_THEMES_CONFIG": str(THEMES),
-            "ATLAS_SEC_FIXTURES_DIR": str(self.fixtures),
-            "ATLAS_HINDSIGHT_URL": self.hindsight_url,
-            "ATLAS_HINDSIGHT_BANK_ID": BANK,
-            "ATLAS_HINDSIGHT_TEMPLATE_PATH": str(TEMPLATE),
-        }
-        return subprocess.run(
-            [sys.executable, "-m", "atlas", *args],
-            cwd=self.tmp_path,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-
-    def apply_template(self) -> None:
-        applied = self.cli("hindsight", "apply-template")
-        assert applied.returncode == 0, applied.stderr
-
-    def worker_pass(self) -> int:
-        return Worker(JobQueue(self.engine), builtin_registry(self.settings())).run_once()
-
-    def enqueue(self, *args: str) -> str:
-        enqueued = self.cli(*args)
-        assert enqueued.returncode == 0, enqueued.stderr
-        return json.loads(enqueued.stdout)["id"]
-
-    def ingest(self, key: str, company: str = "lumentum") -> dict[str, Any]:
-        """`atlas ingest`, then one worker pass (which also runs the retention jobs)."""
-        job_id = self.enqueue("ingest", "--company", company, "--key", key)
-        self.worker_pass()
-        return self.get(f"/api/v1/jobs/{job_id}")
-
-    def get(self, path: str, **params: Any) -> Any:
-        response = self.api.get(path, params=params)
-        assert response.status_code == 200, response.text
-        return response.json()
-
-    def company(self, slug: str) -> dict[str, Any]:
-        companies = self.get("/api/v1/companies")["items"]
-        return next(company for company in companies if company["slug"] == slug)
-
-    def versions(self, url: str, company: str = "lumentum") -> list[dict[str, Any]]:
-        documents = self.get(f"/api/v1/companies/{self.company(company)['id']}/sources", limit=100)
-        document = next(d for d in documents["items"] if d["canonical_url"] == url)
-        return self.get(f"/api/v1/sources/{document['id']}/versions")["items"]
-
-    def version(self, url: str, company: str = "lumentum") -> dict[str, Any]:
-        (version,) = self.versions(url, company)
-        return self.get(f"/api/v1/source-versions/{version['id']}")
-
-    def memory(self, version_id: str) -> dict[str, Any]:
-        return self.get(f"/api/v1/source-versions/{version_id}/memory")
-
-    def parsed(self, version_id: str) -> str:
-        response = self.api.get(
-            f"/api/v1/source-versions/{version_id}/content", params={"kind": "parsed"}
-        )
-        assert response.status_code == 200, response.text
-        return response.text
-
-
-@pytest.fixture
-def database_url(empty_database_url: str) -> str:
-    upgrade(empty_database_url)
-    return empty_database_url
-
-
-@pytest.fixture
-def hindsight() -> Iterator[tuple[RecordedHindsight, Served]]:
-    fake = RecordedHindsight()
-    fake.derive_retains()
-    with serve(fake.transport.handle_request) as served:
-        yield fake, served
-        served.raise_errors()
-
-
-@pytest.fixture
-def fake(hindsight: tuple[RecordedHindsight, Served]) -> RecordedHindsight:
-    return hindsight[0]
 
 
 @pytest.fixture

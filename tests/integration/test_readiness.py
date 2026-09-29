@@ -2,6 +2,7 @@ import os
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import API_KEY as LITELLM_KEY
 from tests.fakes.litellm import FakeLiteLLM
 from tests.fakes.serve import serve
+from tests.harness import make_settings
 from tests.integration.conftest import (
     S3_ACCESS_KEY_ID,
     S3_ENDPOINT_URL,
@@ -25,20 +27,16 @@ DATABASE_URL = os.environ.get(
 )
 
 
-def make_settings(tmp_path: Path, **overrides: object) -> Settings:
+def ready_settings(tmp_path: Path, **overrides: Any) -> Settings:
+    """Settings with the Compose database and an archive directory that exists."""
     archive = tmp_path / "archive"
     archive.mkdir(exist_ok=True)
-    values: dict[str, object] = {
-        "database_url": DATABASE_URL,
-        "actor": "local-researcher",
-        "archive_root": archive,
-    }
-    values.update(overrides)
-    return Settings.model_validate(values)
+    values: dict[str, Any] = {"archive_root": archive, "database_url": DATABASE_URL, **overrides}
+    return make_settings(**values)
 
 
 def test_ready_when_database_and_archive_are_available(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_settings(tmp_path)))
+    client = TestClient(create_app(ready_settings(tmp_path)))
 
     response = client.get("/health/ready")
 
@@ -56,7 +54,7 @@ def test_ready_when_database_and_archive_are_available(tmp_path: Path) -> None:
 
 def test_not_ready_when_database_is_unreachable(tmp_path: Path) -> None:
     unreachable = "postgresql+psycopg://atlas:atlas@127.0.0.1:1/atlas?connect_timeout=2"
-    client = TestClient(create_app(make_settings(tmp_path, database_url=unreachable)))
+    client = TestClient(create_app(ready_settings(tmp_path, database_url=unreachable)))
 
     response = client.get("/health/ready")
 
@@ -66,7 +64,7 @@ def test_not_ready_when_database_is_unreachable(tmp_path: Path) -> None:
 
 
 def test_not_ready_when_archive_root_is_missing(tmp_path: Path) -> None:
-    settings = make_settings(tmp_path, archive_root=tmp_path / "does-not-exist")
+    settings = ready_settings(tmp_path, archive_root=tmp_path / "does-not-exist")
     client = TestClient(create_app(settings))
 
     response = client.get("/health/ready")
@@ -81,7 +79,7 @@ def test_not_ready_when_archive_root_is_missing(tmp_path: Path) -> None:
 
 
 def test_ready_with_the_s3_archive_when_its_bucket_exists(tmp_path: Path, s3_bucket: str) -> None:
-    client = TestClient(create_app(make_settings(tmp_path, **s3_settings(s3_bucket))))
+    client = TestClient(create_app(ready_settings(tmp_path, **s3_settings(s3_bucket))))
 
     response = client.get("/health/ready")
 
@@ -92,7 +90,7 @@ def test_ready_with_the_s3_archive_when_its_bucket_exists(tmp_path: Path, s3_buc
 
 
 def test_s3_readiness_does_not_depend_on_the_archive_root(tmp_path: Path, s3_bucket: str) -> None:
-    settings = make_settings(
+    settings = ready_settings(
         tmp_path, archive_root=tmp_path / "does-not-exist", **s3_settings(s3_bucket)
     )
     client = TestClient(create_app(settings))
@@ -105,7 +103,7 @@ def test_s3_readiness_does_not_depend_on_the_archive_root(tmp_path: Path, s3_buc
 
 def test_not_ready_when_the_s3_bucket_is_missing(tmp_path: Path) -> None:
     missing = unique_bucket_name("missing")
-    client = TestClient(create_app(make_settings(tmp_path, **s3_settings(missing))))
+    client = TestClient(create_app(ready_settings(tmp_path, **s3_settings(missing))))
 
     response = client.get("/health/ready")
 
@@ -116,7 +114,7 @@ def test_not_ready_when_the_s3_bucket_is_missing(tmp_path: Path) -> None:
 
 def test_not_ready_when_the_s3_endpoint_is_unreachable(tmp_path: Path, s3_bucket: str) -> None:
     unreachable = {**s3_settings(s3_bucket), "s3_endpoint_url": "http://127.0.0.1:1"}
-    client = TestClient(create_app(make_settings(tmp_path, **unreachable)))
+    client = TestClient(create_app(ready_settings(tmp_path, **unreachable)))
 
     response = client.get("/health/ready")
 
@@ -145,7 +143,7 @@ def litellm(fake: FakeLiteLLM) -> Generator[str]:
 
 
 def ready_with(tmp_path: Path, **overrides: object) -> tuple[int, dict[str, str]]:
-    response = TestClient(create_app(make_settings(tmp_path, **overrides))).get("/health/ready")
+    response = TestClient(create_app(ready_settings(tmp_path, **overrides))).get("/health/ready")
     return response.status_code, response.json()["checks"]
 
 

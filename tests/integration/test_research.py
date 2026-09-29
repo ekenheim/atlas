@@ -11,10 +11,6 @@ in them is chosen to match, or not match, the recorded Lumentum and Coherent EDG
 LiteLLM is the `/model/info` fake, so each reflect records a run; no LLM is called.
 """
 
-import json
-import os
-import subprocess
-import sys
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,180 +18,39 @@ from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
-from prometheus_client.parser import text_string_to_metric_families
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from atlas.api.app import create_app
-from atlas.db.migrate import upgrade
 from atlas.hindsight import HindsightGateway, RetainItem
-from atlas.jobs import JobQueue, Worker, builtin_registry
-from atlas.settings import Settings
 from tests.fakes.hindsight import ChunkContent, RecordedHindsight
-from tests.fakes.litellm import API_KEY, FakeLiteLLM
+from tests.fakes.litellm import FakeLiteLLM
 from tests.fakes.serve import Served, serve
+from tests.harness import (
+    BANK,
+    ITEM_1,
+    LITE_10K,
+    LITE_APOSTROPHE,
+    Atlas,
+    assert_source,
+    make_settings,
+)
 
-REPO = Path(__file__).parents[2]
-THEMES = REPO / "configs" / "themes" / "ai-infrastructure.yaml"
-TEMPLATE = REPO / "configs" / "hindsight" / "bank-template.json"
-EDGAR_FIXTURES = REPO / "tests" / "fixtures" / "edgar"
-# The bank the template recordings were made in, so `apply-template` replays as recorded.
-BANK = RecordedHindsight().recording("research_template/01-import-dry-run").bank_id
-
-LITE_10K = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
 LITE_10Q = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026030777/lite-20260328.htm"
 COHR_10K = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm"
-ITEM_1 = "part-i-item-1"
 
-# From the Lumentum FY2026 10-K's Item 1 (the recorded fixture's parsed text): a passage with
-# a typographic apostrophe, and one that runs across a line break.
-LITE_APOSTROPHE = (
-    "Components represent foundational parts that support or enable that system\u2019s operation"
-)
+# From the Lumentum FY2026 10-K's Item 1: a passage that runs across a line break (and
+# `LITE_APOSTROPHE`, one with a typographic apostrophe).
 LITE_LINE_BREAK = "consolidated financial statements.\nWe disaggregate revenue by type of product"
 # From the Coherent FY2026 10-K's Item 1.
 COHR_PASSAGE = "is a vertically integrated manufacturing company"
 
 
-class Atlas:
-    def __init__(self, database_url: str, tmp_path: Path, hindsight: str, litellm: str | None):
-        self.database_url = database_url
-        self.tmp_path = tmp_path
-        self.archive = tmp_path / "archive"
-        self.archive.mkdir(exist_ok=True)
-        self.hindsight_url = hindsight
-        self.litellm_url = litellm
-        self.engine = create_engine(database_url)
-        self.api = TestClient(create_app(self.settings()))
-
-    def settings(self) -> Settings:
-        providers: dict[str, Any] = {}
-        if self.litellm_url is not None:
-            providers = {"litellm_url": self.litellm_url, "litellm_api_key": API_KEY}
-        return Settings.model_validate(
-            {
-                "database_url": self.database_url,
-                "actor": "local-researcher",
-                "archive_root": self.archive,
-                "themes_config": THEMES,
-                "sec_fixtures_dir": EDGAR_FIXTURES,
-                "hindsight_url": self.hindsight_url,
-                "hindsight_bank_id": BANK,
-                "retain_poll_timeout_seconds": 0.3,
-                "retain_poll_interval_seconds": 0.01,
-                **providers,
-            }
-        )
-
-    def cli(self, *args: str) -> subprocess.CompletedProcess[str]:
-        env = {
-            "PATH": os.environ["PATH"],
-            "HOME": str(self.tmp_path),
-            "ATLAS_DATABASE_URL": self.database_url,
-            "ATLAS_ACTOR": "local-researcher",
-            "ATLAS_ARCHIVE_ROOT": str(self.archive),
-            "ATLAS_THEMES_CONFIG": str(THEMES),
-            "ATLAS_SEC_FIXTURES_DIR": str(EDGAR_FIXTURES),
-            "ATLAS_HINDSIGHT_URL": self.hindsight_url,
-            "ATLAS_HINDSIGHT_BANK_ID": BANK,
-            "ATLAS_HINDSIGHT_TEMPLATE_PATH": str(TEMPLATE),
-        }
-        return subprocess.run(
-            [sys.executable, "-m", "atlas", *args],
-            cwd=self.tmp_path,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-
-    def worker_pass(self) -> int:
-        return Worker(JobQueue(self.engine), builtin_registry(self.settings())).run_once()
-
-    def ingest(self, company: str) -> None:
-        enqueued = self.cli("ingest", "--company", company, "--key", company)
-        assert enqueued.returncode == 0, enqueued.stderr
-        self.worker_pass()
-        job = self.get(f"/api/v1/jobs/{json.loads(enqueued.stdout)['id']}")
-        assert job["status"] == "succeeded", job["failures"]
-
-    def get(self, path: str, **params: Any) -> Any:
-        response = self.api.get(path, params=params)
-        assert response.status_code == 200, response.text
-        return response.json()
-
-    def company(self, slug: str) -> dict[str, Any]:
-        companies = self.get("/api/v1/companies")["items"]
-        return next(company for company in companies if company["slug"] == slug)
-
-    def version(self, url: str, company: str) -> dict[str, Any]:
-        documents = self.get(f"/api/v1/companies/{self.company(company)['id']}/sources", limit=100)
-        document = next(d for d in documents["items"] if d["canonical_url"] == url)
-        (version,) = self.get(f"/api/v1/sources/{document['id']}/versions")["items"]
-        return self.get(f"/api/v1/source-versions/{version['id']}")
-
-    def section(self, url: str, company: str, anchor: str = ITEM_1) -> dict[str, Any]:
-        """The section's memory document, with its Source Version."""
-        version = self.version(url, company)
-        memory = self.get(f"/api/v1/source-versions/{version['id']}/memory")
-        document = next(d for d in memory["documents"] if d["section_anchor"] == anchor)
-        return document | {"version": version}
-
-    def parsed(self, version_id: str) -> str:
-        response = self.api.get(
-            f"/api/v1/source-versions/{version_id}/content", params={"kind": "parsed"}
-        )
-        assert response.status_code == 200, response.text
-        return response.text
-
-    def recall(self, query: str, **scope: Any) -> Any:
-        response = self.api.post("/api/v1/memory/recall", json={"query": query, "scope": scope})
-        assert response.status_code == 200, response.text
-        return response.json()
-
-    def ask(self, question: str, **body: Any) -> dict[str, Any]:
-        """POST a reflect question; returns the accepted response."""
-        scope = body.pop("scope", {"theme_ids": ["photonics"]})
-        response = self.api.post(
-            "/api/v1/memory/reflect", json={"question": question, "scope": scope, **body}
-        )
-        assert response.status_code == 202, response.text
-        return response.json()
-
-    def metrics(self) -> dict[tuple[str, frozenset[tuple[str, str]]], float]:
-        response = self.api.get("/metrics")
-        assert response.status_code == 200
-        return {
-            (sample.name, frozenset(sample.labels.items())): sample.value
-            for family in text_string_to_metric_families(response.text)
-            for sample in family.samples
-        }
-
-    def reflect(self, question: str, **body: Any) -> dict[str, Any]:
-        """Ask, run the worker, and return the stored answer."""
-        accepted = self.ask(question, **body)
-        self.worker_pass()
-        return self.get(f"/api/v1/memory/reflect/{accepted['research_answer']['id']}")
-
-
 @pytest.fixture
-def database_url(empty_database_url: str) -> str:
-    upgrade(empty_database_url)
-    return empty_database_url
-
-
-@pytest.fixture
-def hindsight() -> Iterator[tuple[RecordedHindsight, Served]]:
+def hindsight_fake() -> RecordedHindsight:
     fake = RecordedHindsight()
     fake.derive_memories()
-    with serve(fake.transport.handle_request) as served:
-        yield fake, served
-        served.raise_errors()
-
-
-@pytest.fixture
-def fake(hindsight: tuple[RecordedHindsight, Served]) -> RecordedHindsight:
-    return hindsight[0]
+    return fake
 
 
 @pytest.fixture
@@ -213,9 +68,8 @@ def atlas(
     litellm: Served,
 ) -> Iterator[Atlas]:
     harness = Atlas(database_url, tmp_path, hindsight[1].url, litellm.url)
-    applied = harness.cli("hindsight", "apply-template")
-    assert applied.returncode == 0, applied.stderr
-    harness.ingest("lumentum")
+    harness.apply_template()
+    harness.ingest_company("lumentum")
     yield harness
     harness.engine.dispose()
 
@@ -229,27 +83,13 @@ def quoted(answer: dict[str, Any], quote: str) -> dict[str, Any]:
     return citation
 
 
-def assert_source(source: dict[str, Any], section: dict[str, Any], company: dict[str, Any]):
-    """The citation source is exactly this section of this Source Version."""
-    version = section["version"]
-    assert source["document_id"] == section["document_id"]
-    assert source["source_version_id"] == version["id"]
-    assert source["source_document_id"] == version["source_document"]["id"]
-    assert source["company_id"] == company["id"]
-    assert source["section_anchor"] == section["section_anchor"]
-    assert source["section_char_start"] == section["char_start"]
-    assert source["section_char_end"] == section["char_end"]
-    assert source["available_at"] == version["available_at"]
-    assert source["available_at_basis"] == "sec_acceptance"
-
-
 # --- recall -------------------------------------------------------------------------------
 
 
 def test_cross_company_recall_returns_memories_from_both_companies_with_resolved_provenance(
     atlas: Atlas, fake: RecordedHindsight
 ) -> None:
-    atlas.ingest("coherent")
+    atlas.ingest_company("coherent")
     lumentum, coherent = atlas.company("lumentum"), atlas.company("coherent")
 
     recalled = atlas.recall(
@@ -287,7 +127,7 @@ def test_cross_company_recall_returns_memories_from_both_companies_with_resolved
 def test_recall_is_strictly_scoped_to_the_requested_company_or_theme(
     atlas: Atlas, fake: RecordedHindsight
 ) -> None:
-    atlas.ingest("coherent")
+    atlas.ingest_company("coherent")
     lumentum, coherent = atlas.company("lumentum"), atlas.company("coherent")
 
     only_coherent = atlas.recall("lasers", company_ids=[coherent["id"]])
@@ -335,7 +175,7 @@ def test_recall_refuses_an_unknown_or_empty_scope_before_calling_hindsight(
 def test_recalled_observations_resolve_through_their_source_memories(
     atlas: Atlas, fake: RecordedHindsight
 ) -> None:
-    atlas.ingest("coherent")
+    atlas.ingest_company("coherent")
     lite = atlas.section(LITE_10K, "lumentum")
     cohr = atlas.section(COHR_10K, "coherent")
     observation_id = fake.derive_observation([lite["document_id"], cohr["document_id"]])
@@ -521,7 +361,7 @@ def test_a_chunk_only_answer_is_unverified(atlas: Atlas, fake: RecordedHindsight
 def test_an_answer_citing_a_deleted_memory_is_broken_and_not_evidence(
     atlas: Atlas, fake: RecordedHindsight
 ) -> None:
-    atlas.ingest("coherent")
+    atlas.ingest_company("coherent")
     lite = atlas.section(LITE_10K, "lumentum")
     cohr = atlas.section(COHR_10K, "coherent")
     deleted = fake.derived_fact(lite["document_id"])
@@ -586,7 +426,7 @@ def test_memories_the_ledger_does_not_back_are_unverified(
 def test_a_cited_observation_resolves_through_its_source_facts(
     atlas: Atlas, fake: RecordedHindsight
 ) -> None:
-    atlas.ingest("coherent")
+    atlas.ingest_company("coherent")
     lite = atlas.section(LITE_10K, "lumentum")
     cohr = atlas.section(COHR_10K, "coherent")
     observation_id = fake.derive_observation([lite["document_id"], cohr["document_id"]])
@@ -717,9 +557,7 @@ def test_a_stored_answer_is_final_in_the_database(atlas: Atlas, fake: RecordedHi
 
 
 def test_unknown_answers_and_unconfigured_hindsight(database_url: str, tmp_path: Path) -> None:
-    settings = Settings.model_validate(
-        {"database_url": database_url, "actor": "local-researcher", "archive_root": tmp_path}
-    )
+    settings = make_settings(tmp_path, database_url=database_url)
     api = TestClient(create_app(settings))
 
     missing = api.get("/api/v1/memory/reflect/00000000-0000-4000-8000-000000000000")

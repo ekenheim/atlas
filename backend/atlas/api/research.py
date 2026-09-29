@@ -18,7 +18,6 @@ import time
 import uuid
 from functools import cache
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -26,11 +25,19 @@ from prometheus_client import Histogram
 from pydantic import BaseModel
 from sqlalchemy import Engine
 
-from atlas.api.common import NOT_FOUND, ErrorEnvelope, error_response, not_found
+from atlas.api.common import (
+    HINDSIGHT_FAILURES,
+    INVALID,
+    NOT_FOUND,
+    error_response,
+    hindsight_failed,
+    hindsight_not_configured,
+    not_found,
+)
 from atlas.archive import Archive
 from atlas.audit import Actor
 from atlas.companies import Universe, load_universe
-from atlas.hindsight import HindsightError, HindsightGateway, HindsightUnavailable
+from atlas.hindsight import HindsightError, HindsightGateway
 from atlas.research import (
     RecallRequest,
     RecallResponse,
@@ -40,12 +47,6 @@ from atlas.research import (
     ResearchRefused,
     research_answer,
 )
-
-_INVALID: dict[int | str, dict[str, Any]] = {422: {"model": ErrorEnvelope}}
-_UNAVAILABLE: dict[int | str, dict[str, Any]] = {
-    502: {"model": ErrorEnvelope},
-    503: {"model": ErrorEnvelope},
-}
 
 
 class ReflectAccepted(BaseModel):
@@ -71,15 +72,12 @@ def research_router(
 
     research = Research(engine, archive, gateway, actor, universe) if gateway is not None else None
 
-    def not_configured() -> JSONResponse:
-        return error_response(
-            503, "hindsight_not_configured", "Hindsight is not configured (ATLAS_HINDSIGHT_URL)"
-        )
-
-    @router.post("/recall", response_model=RecallResponse, responses={**_INVALID, **_UNAVAILABLE})
+    @router.post(
+        "/recall", response_model=RecallResponse, responses={**INVALID, **HINDSIGHT_FAILURES}
+    )
     def recall(request: RecallRequest) -> RecallResponse | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         if research is None:
-            return not_configured()
+            return hindsight_not_configured()
         started, outcome = time.perf_counter(), "error"
         try:
             answered = research.recall(request)
@@ -88,10 +86,8 @@ def research_router(
         except ResearchRefused as refusal:
             outcome = "refused"
             return error_response(422, refusal.code, refusal.message)
-        except HindsightUnavailable as error:
-            return error_response(502, "hindsight_unavailable", str(error))
         except HindsightError as error:
-            return error_response(502, "hindsight_error", str(error))
+            return hindsight_failed(error)
         finally:
             if recall_latency is not None:
                 recall_latency.labels(outcome).observe(time.perf_counter() - started)
@@ -100,11 +96,11 @@ def research_router(
         "/reflect",
         status_code=202,
         response_model=ReflectAccepted,
-        responses={**_INVALID, **_UNAVAILABLE},
+        responses={**INVALID, **HINDSIGHT_FAILURES},
     )
     def reflect(request: ReflectRequest) -> ReflectAccepted | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         if research is None:
-            return not_configured()
+            return hindsight_not_configured()
         try:
             answer_id, job_id, event = research.request_reflect(request)
         except ResearchRefused as refusal:
@@ -117,7 +113,7 @@ def research_router(
     @router.get(
         "/reflect/{answer_id}",
         response_model=ResearchAnswer,
-        responses={**NOT_FOUND, **_INVALID},
+        responses={**NOT_FOUND, **INVALID},
     )
     def reflect_answer(answer_id: uuid.UUID) -> ResearchAnswer | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         with engine.connect() as connection:

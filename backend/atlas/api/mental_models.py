@@ -14,23 +14,27 @@ template), 503 `hindsight_not_configured`, 502 `hindsight_unavailable` / `hindsi
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 
-from atlas.api.common import NOT_FOUND, ErrorEnvelope, error_response, not_found
+from atlas.api.common import (
+    HINDSIGHT_FAILURES,
+    NOT_FOUND,
+    error_response,
+    error_responses,
+    hindsight_failed,
+    hindsight_not_configured,
+    not_found,
+)
 from atlas.archive import Archive
 from atlas.bank_template import BankTemplate, InvalidTemplate
-from atlas.hindsight import HindsightError, HindsightGateway, HindsightUnavailable
+from atlas.hindsight import HindsightError, HindsightGateway
 from atlas.mental_models import MentalModelList, MentalModelReader, MentalModelView
 
-_ERRORS: dict[int | str, dict[str, Any]] = {
-    500: {"model": ErrorEnvelope},
-    502: {"model": ErrorEnvelope},
-    503: {"model": ErrorEnvelope},
-}
+# 500 `invalid_template`, and the Hindsight failures.
+_ERRORS = {**error_responses(500), **HINDSIGHT_FAILURES}
 
 
 def mental_models_router(
@@ -40,18 +44,14 @@ def mental_models_router(
 
     def read[T](use: Callable[[MentalModelReader], T]) -> T | JSONResponse:
         if gateway is None:
-            return error_response(
-                503, "hindsight_not_configured", "Hindsight is not configured (ATLAS_HINDSIGHT_URL)"
-            )
+            return hindsight_not_configured()
         try:
             template = BankTemplate.load(template_path)  # read per request: it's small
             return use(MentalModelReader(engine, archive, gateway, template))
         except InvalidTemplate as error:
             return error_response(500, "invalid_template", str(error))
-        except HindsightUnavailable as error:
-            return error_response(502, "hindsight_unavailable", str(error))
         except HindsightError as error:
-            return error_response(502, "hindsight_error", str(error))
+            return hindsight_failed(error)
 
     @router.get("", response_model=MentalModelList, responses=_ERRORS)
     def list_mental_models() -> MentalModelList | JSONResponse:  # pyright: ignore[reportUnusedFunction]

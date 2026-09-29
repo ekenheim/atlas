@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 import threading
-from collections.abc import Iterator
 from itertools import pairwise
 from pathlib import Path
 
@@ -14,32 +13,17 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from atlas.audit import Actor, AuditEvent, record
 from atlas.db.migrate import upgrade
-from atlas.settings import Settings
+from tests.harness import make_settings
 
 GENESIS = "0" * 64
 OLD = "a" * 64
 NEW = "b" * 64
 
 
-@pytest.fixture
-def audited_url(empty_database_url: str) -> str:
-    upgrade(empty_database_url)
-    return empty_database_url
-
-
-@pytest.fixture
-def engine(audited_url: str) -> Iterator[Engine]:
-    engine = create_engine(audited_url)
-    yield engine
-    engine.dispose()
-
-
 def configured_actor(database_url: str, tmp_path: Path) -> Actor:
     archive = tmp_path / "archive"
     archive.mkdir(exist_ok=True)
-    settings = Settings.model_validate(
-        {"database_url": database_url, "actor": "local-researcher", "archive_root": archive}
-    )
+    settings = make_settings(archive, database_url=database_url)
     return Actor.from_settings(settings)
 
 
@@ -84,9 +68,9 @@ def tamper(engine: Engine, statement: str) -> None:
 
 
 def test_events_chain_across_writes_and_the_chain_verifies(
-    engine: Engine, audited_url: str, tmp_path: Path
+    engine: Engine, database_url: str, tmp_path: Path
 ) -> None:
-    actor = configured_actor(audited_url, tmp_path)
+    actor = configured_actor(database_url, tmp_path)
     events: list[AuditEvent] = []
     for entity_id in ("1", "2"):
         with engine.begin() as connection:
@@ -101,24 +85,24 @@ def test_events_chain_across_writes_and_the_chain_verifies(
     assert len({event.event_hash for event in events}) == 5
     assert all(event.actor == "local-researcher" for event in events)
 
-    result = audit_verify(audited_url, tmp_path)
+    result = audit_verify(database_url, tmp_path)
 
     assert result.returncode == 0, result.stderr
     assert "audit chain ok: 5 events" in result.stdout
     assert events[-1].event_hash in result.stdout
 
 
-def test_an_empty_trail_verifies(audited_url: str, tmp_path: Path) -> None:
-    result = audit_verify(audited_url, tmp_path)
+def test_an_empty_trail_verifies(database_url: str, tmp_path: Path) -> None:
+    result = audit_verify(database_url, tmp_path)
 
     assert result.returncode == 0, result.stderr
     assert "audit chain ok: 0 events" in result.stdout
 
 
 def test_concurrent_writers_still_form_one_chain(
-    engine: Engine, audited_url: str, tmp_path: Path
+    engine: Engine, database_url: str, tmp_path: Path
 ) -> None:
-    actor = configured_actor(audited_url, tmp_path)
+    actor = configured_actor(database_url, tmp_path)
     errors: list[BaseException] = []
 
     def writer(worker: int) -> None:
@@ -136,15 +120,15 @@ def test_concurrent_writers_still_form_one_chain(
         thread.join()
 
     assert errors == []
-    result = audit_verify(audited_url, tmp_path)
+    result = audit_verify(database_url, tmp_path)
     assert result.returncode == 0, result.stderr
     assert "audit chain ok: 30 events" in result.stdout
 
 
 def test_a_rolled_back_change_leaves_no_event(
-    engine: Engine, audited_url: str, tmp_path: Path
+    engine: Engine, database_url: str, tmp_path: Path
 ) -> None:
-    actor = configured_actor(audited_url, tmp_path)
+    actor = configured_actor(database_url, tmp_path)
     with engine.connect() as connection:
         record_change(connection, actor, "1")
         connection.rollback()
@@ -164,9 +148,9 @@ def test_a_rolled_back_change_leaves_no_event(
     ],
 )
 def test_direct_changes_to_the_trail_are_rejected_by_the_database(
-    engine: Engine, audited_url: str, tmp_path: Path, statement: str
+    engine: Engine, database_url: str, tmp_path: Path, statement: str
 ) -> None:
-    actor = configured_actor(audited_url, tmp_path)
+    actor = configured_actor(database_url, tmp_path)
     with engine.begin() as connection:
         record_change(connection, actor, "1")
 
@@ -180,9 +164,9 @@ def test_direct_changes_to_the_trail_are_rejected_by_the_database(
 
 
 def test_replica_mode_does_not_switch_the_guard_off(
-    engine: Engine, audited_url: str, tmp_path: Path
+    engine: Engine, database_url: str, tmp_path: Path
 ) -> None:
-    actor = configured_actor(audited_url, tmp_path)
+    actor = configured_actor(database_url, tmp_path)
     with engine.begin() as connection:
         record_change(connection, actor, "1")
 
@@ -192,7 +176,7 @@ def test_replica_mode_does_not_switch_the_guard_off(
 
 
 def test_a_raw_insert_cannot_choose_its_place_in_the_chain(
-    engine: Engine, audited_url: str, tmp_path: Path
+    engine: Engine, database_url: str, tmp_path: Path
 ) -> None:
     with engine.begin() as connection:
         connection.execute(
@@ -205,7 +189,7 @@ def test_a_raw_insert_cannot_choose_its_place_in_the_chain(
         row = connection.execute(text("SELECT id, prev_hash FROM audit_event")).one()
 
     assert tuple(row) == (1, GENESIS)
-    result = audit_verify(audited_url, tmp_path)
+    result = audit_verify(database_url, tmp_path)
     assert result.returncode == 0, result.stderr
 
 
@@ -249,14 +233,14 @@ def test_blank_actor_is_rejected_by_the_database(engine: Engine) -> None:
         )
 
 
-def test_verify_detects_a_tampered_event(engine: Engine, audited_url: str, tmp_path: Path) -> None:
-    actor = configured_actor(audited_url, tmp_path)
+def test_verify_detects_a_tampered_event(engine: Engine, database_url: str, tmp_path: Path) -> None:
+    actor = configured_actor(database_url, tmp_path)
     with engine.begin() as connection:
         for entity_id in ("1", "2", "3"):
             record_change(connection, actor, entity_id)
 
     tamper(engine, "UPDATE audit_event SET actor = 'mallory' WHERE id = 2")
-    result = audit_verify(audited_url, tmp_path)
+    result = audit_verify(database_url, tmp_path)
 
     assert result.returncode == 1
     assert "audit chain broken" in result.stderr
@@ -264,29 +248,29 @@ def test_verify_detects_a_tampered_event(engine: Engine, audited_url: str, tmp_p
 
 
 def test_verify_detects_a_rehashed_event_by_its_broken_link(
-    engine: Engine, audited_url: str, tmp_path: Path
+    engine: Engine, database_url: str, tmp_path: Path
 ) -> None:
-    actor = configured_actor(audited_url, tmp_path)
+    actor = configured_actor(database_url, tmp_path)
     with engine.begin() as connection:
         for entity_id in ("1", "2", "3"):
             record_change(connection, actor, entity_id)
 
     # A forger who also replaces the event's own hash still breaks its successor's link.
     tamper(engine, f"UPDATE audit_event SET event_hash = '{'c' * 64}' WHERE id = 2")
-    result = audit_verify(audited_url, tmp_path)
+    result = audit_verify(database_url, tmp_path)
 
     assert result.returncode == 1
     assert "event 3: broken link" in result.stderr
 
 
-def test_verify_detects_a_missing_event(engine: Engine, audited_url: str, tmp_path: Path) -> None:
-    actor = configured_actor(audited_url, tmp_path)
+def test_verify_detects_a_missing_event(engine: Engine, database_url: str, tmp_path: Path) -> None:
+    actor = configured_actor(database_url, tmp_path)
     with engine.begin() as connection:
         for entity_id in ("1", "2", "3"):
             record_change(connection, actor, entity_id)
 
     tamper(engine, "DELETE FROM audit_event WHERE id = 2")
-    result = audit_verify(audited_url, tmp_path)
+    result = audit_verify(database_url, tmp_path)
 
     assert result.returncode == 1
     assert "event 3: missing event(s) before it" in result.stderr

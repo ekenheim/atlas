@@ -3,14 +3,12 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
-
 from atlas.archive import open_archive
 from atlas.audit import Actor
 from atlas.companies import load_universe
-from atlas.hindsight import HindsightGateway
 from atlas.jobs.handlers import HandlerRegistry
 from atlas.jobs.queue import Artifacts, Job
+from atlas.jobs.resources import hindsight_resources
 from atlas.retention.service import (
     POLL_KIND,
     REPROCESS_KIND,
@@ -21,10 +19,6 @@ from atlas.retention.service import (
     Retention,
 )
 from atlas.settings import Settings
-
-
-class HindsightNotConfigured(Exception):
-    """A retention job ran without ATLAS_HINDSIGHT_URL."""
 
 
 def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -> None:
@@ -56,11 +50,7 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
 
 @contextmanager
 def _retention(settings: Settings) -> Generator[Retention]:
-    gateway = HindsightGateway.from_settings(settings)
-    if gateway is None:
-        raise HindsightNotConfigured("Hindsight is not configured (ATLAS_HINDSIGHT_URL)")
-    engine = create_engine(settings.database_url, pool_pre_ping=True)
-    try:
+    with hindsight_resources(settings) as (gateway, engine):
         yield Retention(
             engine,
             open_archive(settings),
@@ -73,6 +63,3 @@ def _retention(settings: Settings) -> Generator[Retention]:
                 poll_attempts=settings.retain_poll_attempts,
             ),
         )
-    finally:
-        gateway.close()
-        engine.dispose()

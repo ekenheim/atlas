@@ -3,21 +3,11 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from atlas.api.app import create_app
-from atlas.settings import Settings
-
-
-def make_settings(tmp_path: Path, **overrides: object) -> Settings:
-    values: dict[str, object] = {
-        "database_url": "postgresql+psycopg://atlas:atlas@127.0.0.1:1/atlas",
-        "actor": "local-researcher",
-        "archive_root": tmp_path / "archive",
-    }
-    values.update(overrides)
-    return Settings.model_validate(values)
+from tests.harness import make_settings
 
 
 def test_liveness_reports_ok_without_touching_dependencies(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_settings(tmp_path)))
+    client = TestClient(create_app(make_settings(tmp_path / "archive")))
 
     response = client.get("/health/live")
 
@@ -26,7 +16,7 @@ def test_liveness_reports_ok_without_touching_dependencies(tmp_path: Path) -> No
 
 
 def test_metrics_are_exposed_in_prometheus_text_format(tmp_path: Path) -> None:
-    client = TestClient(create_app(make_settings(tmp_path)))
+    client = TestClient(create_app(make_settings(tmp_path / "archive")))
 
     response = client.get("/metrics")
 
@@ -39,7 +29,7 @@ def test_static_frontend_is_served_alongside_the_api(tmp_path: Path) -> None:
     dist = tmp_path / "frontend"
     dist.mkdir()
     (dist / "index.html").write_text('<html><body><div id="atlas-root"></div></body></html>')
-    client = TestClient(create_app(make_settings(tmp_path, frontend_dir=dist)))
+    client = TestClient(create_app(make_settings(tmp_path / "archive", frontend_dir=dist)))
 
     page = client.get("/")
     api = client.get("/health/live")

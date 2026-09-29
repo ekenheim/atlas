@@ -7,7 +7,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Info, generate_latest
-from sqlalchemy import create_engine
 
 from atlas import __version__
 from atlas.api.assertions import assertions_router
@@ -20,6 +19,7 @@ from atlas.api.research import research_router
 from atlas.api.sources import sources_router
 from atlas.archive import open_archive
 from atlas.audit import Actor
+from atlas.db import create_engine
 from atlas.health import (
     NOT_CONFIGURED,
     OK,
@@ -41,7 +41,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     # Request validation errors use the same error envelope as every other API error.
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.state.settings = settings
-    engine = create_engine(settings.database_url, pool_pre_ping=True)
+    engine = create_engine(settings)
     archive = open_archive(settings)
     app.state.archive = archive
     hindsight = HindsightGateway.from_settings(settings)
