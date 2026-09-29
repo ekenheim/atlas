@@ -406,11 +406,12 @@ The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and 
 | `predicate`, `layer` | text not null | As proposed (a rejected one may be off the whitelist) |
 | `object_text`, `product` | text null | |
 | `quote` | text not null | |
-| `span_start`, `span_end` | int null | Absolute offsets in the parsed text (passage start + the proposed offsets) |
+| `span_start`, `span_end` | int null | Absolute offsets in the parsed text: passage start + the proposed offsets, or + the located ones (`offset_source`) |
+| `offset_source` | text null | `model` (the quote was at the proposed offsets) or `located` (its one exact occurrence in the passage). Null when the quote was never placed, or recorded before migration 0024 |
 | `epistemic_type` | text not null | |
 | `directional_cue` | text null | The words that expressed the predicate (accepted Claims) |
 | `outcome` | text not null | `accepted` (then `assertion_id` is set) or `rejected` (then `reason_code` and `reason` are) |
-| `reason_code`, `reason` | text null | e.g. `predicate_not_whitelisted`, `quote_mismatch`, `no_directional_language` (`atlas/claims/extraction.py` lists them) |
+| `reason_code`, `reason` | text null | e.g. `predicate_not_whitelisted`, `quote_mismatch`, `quote_ambiguous`, `no_directional_language` (`atlas/claims/extraction.py` lists them) |
 | `assertion_id` | uuid null unique FK → `assertion` | |
 | `created_at` | timestamptz | |
 

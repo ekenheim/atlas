@@ -4248,6 +4248,21 @@
             ],
             "title": "Assertion Id"
           },
+          "offset_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "model",
+                  "located"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset Source"
+          },
           "proposed": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
@@ -4284,6 +4299,7 @@
           "reason_code",
           "reason",
           "assertion_id",
+          "offset_source",
           "proposed",
           "created_at"
         ],
