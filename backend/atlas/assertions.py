@@ -46,7 +46,7 @@ EpistemicType = Literal[
 ]
 ReviewState = Literal["unreviewed", "corroborated", "disputed", "rejected", "superseded"]
 
-EXTRACTOR_VERSION = "manual"  # Phase 1: Assertions are researcher-created
+EXTRACTOR_VERSION = "manual"  # researcher-created; the Investigator passes its own
 _PARSED = ("parsed", "incomplete")
 _OPEN: frozenset[ReviewState] = frozenset({"unreviewed", "corroborated", "disputed"})
 _REVIEWED: frozenset[ReviewState] = frozenset(
@@ -180,6 +180,14 @@ class _Cited:
     page_anchors: list[dict[str, Any]] | None
 
 
+@dataclass(frozen=True)
+class _CitedText:
+    """A cited version's parsed text and, for a PDF, its page anchors."""
+
+    text: str
+    page_anchors: list[dict[str, Any]] | None
+
+
 class Assertions:
     """The write side: create and review, each audited in its own transaction."""
 
@@ -188,56 +196,79 @@ class Assertions:
         self._archive = archive
         self._actor = actor
 
-    def create(self, request: AssertionCreate) -> AssertionRecorded:
+    def create(
+        self, request: AssertionCreate, *, extractor_version: str = EXTRACTOR_VERSION
+    ) -> AssertionRecorded:
         with self._engine.connect() as connection:
-            cited = self._check_references(connection, request)
+            parsed = self._parsed_text(connection, request)
         # A parse, once recorded, never changes (migration 0004), so the text read here is
         # the text the new row cites.
+        check_quote(parsed.text, request)
+        with self._engine.begin() as connection:
+            return self._insert(connection, request, parsed, extractor_version)
+
+    def create_within(
+        self, connection: Connection, request: AssertionCreate, *, extractor_version: str
+    ) -> AssertionRecorded:
+        """`create` inside the caller's transaction (the same checks, row and audit event)."""
+        parsed = self._parsed_text(connection, request)
+        check_quote(parsed.text, request)
+        return self._insert(connection, request, parsed, extractor_version)
+
+    def _parsed_text(self, connection: Connection, request: AssertionCreate) -> _CitedText:
+        cited = self._check_references(connection, request)
         assert cited.parsed_object_uri is not None
-        parsed = self._archive.get(cited.parsed_object_uri).decode("utf-8")
-        _check_quote(parsed, request)
+        text_ = self._archive.get(cited.parsed_object_uri).decode("utf-8")
+        return _CitedText(text=text_, page_anchors=cited.page_anchors)
+
+    def _insert(
+        self,
+        connection: Connection,
+        request: AssertionCreate,
+        cited: _CitedText,
+        extractor_version: str,
+    ) -> AssertionRecorded:
         anchor = request.page_or_anchor
         if anchor is None and cited.page_anchors:
             anchor = _pages_label(cited.page_anchors, request.span_start, request.span_end)
-        with self._engine.begin() as connection:
-            row = connection.execute(
-                text(
-                    "INSERT INTO assertion (id, subject_company_id, predicate,"
-                    " object_company_id, value_json, source_version_id, quote, span_start,"
-                    " span_end, page_or_anchor, event_start, event_end, epistemic_type,"
-                    " extractor_version, created_by)"
-                    " VALUES (:id, :subject, :predicate, :object, CAST(:value AS jsonb),"
-                    " :version, :quote, :start, :end, :anchor, :event_start, :event_end,"
-                    " :epistemic_type, :extractor, :actor) RETURNING id"
-                ),
-                {
-                    "id": uuid.uuid4(),
-                    "subject": request.subject_company_id,
-                    "predicate": request.predicate,
-                    "object": request.object_company_id,
-                    "value": None if request.value_json is None else json.dumps(request.value_json),
-                    "version": request.source_version_id,
-                    "quote": request.quote,
-                    "start": request.span_start,
-                    "end": request.span_end,
-                    "anchor": anchor,
-                    "event_start": request.event_start,
-                    "event_end": request.event_end,
-                    "epistemic_type": request.epistemic_type,
-                    "extractor": EXTRACTOR_VERSION,
-                    "actor": self._actor.name,
-                },
-            ).one()
-            assertion = _get(connection, row.id)
-            assert assertion is not None
-            event = record(
-                connection,
-                self._actor,
-                "assertion.created",
-                entity_type="assertion",
-                entity_id=str(assertion.id),
-                new_hash=_hash(assertion),
-            )
+        row = connection.execute(
+            text(
+                "INSERT INTO assertion (id, subject_company_id, predicate,"
+                " object_company_id, value_json, source_version_id, quote, span_start,"
+                " span_end, page_or_anchor, event_start, event_end, epistemic_type,"
+                " extractor_version, created_by)"
+                " VALUES (:id, :subject, :predicate, :object, CAST(:value AS jsonb),"
+                " :version, :quote, :start, :end, :anchor, :event_start, :event_end,"
+                " :epistemic_type, :extractor, :actor) RETURNING id"
+            ),
+            {
+                "id": uuid.uuid4(),
+                "subject": request.subject_company_id,
+                "predicate": request.predicate,
+                "object": request.object_company_id,
+                "value": None if request.value_json is None else json.dumps(request.value_json),
+                "version": request.source_version_id,
+                "quote": request.quote,
+                "start": request.span_start,
+                "end": request.span_end,
+                "anchor": anchor,
+                "event_start": request.event_start,
+                "event_end": request.event_end,
+                "epistemic_type": request.epistemic_type,
+                "extractor": extractor_version,
+                "actor": self._actor.name,
+            },
+        ).one()
+        assertion = _get(connection, row.id)
+        assert assertion is not None
+        event = record(
+            connection,
+            self._actor,
+            "assertion.created",
+            entity_type="assertion",
+            entity_id=str(assertion.id),
+            new_hash=_hash(assertion),
+        )
         return AssertionRecorded(assertion=assertion, audit_event_id=event.id)
 
     def review(self, assertion_id: uuid.UUID, request: AssertionReview) -> AssertionRecorded:
@@ -337,7 +368,9 @@ class Assertions:
         return cited
 
 
-def _check_quote(parsed: str, request: AssertionCreate) -> None:
+def check_quote(parsed: str, request: AssertionCreate) -> None:
+    """The span check: raises `InvalidAssertion` (`quote_mismatch`) unless the quote is exactly
+    `parsed[span_start:span_end]`. The message says where the quote does occur, if anywhere."""
     start, end, quote = request.span_start, request.span_end, request.quote
     if end - start == len(quote) and parsed[start:end] == quote:
         return

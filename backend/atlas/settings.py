@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     )
     llm_role_timeout_seconds: float = Field(default=180.0, gt=0)
     run_token_budget: int = Field(default=200_000, gt=0)
+    # The Investigator (atlas.claims): at most this many passages per extraction, sent this
+    # many to a call.
+    investigator_max_passages: int = Field(default=24, gt=0)
+    investigator_passages_per_call: int = Field(default=6, gt=0)
     # Retention: how long one poll job waits for a retain operation to reach a terminal
     # status (keep it below job_lease_seconds), and how often it asks. A poll that times out
     # fails its attempt and is retried, up to retain_poll_attempts.

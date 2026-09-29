@@ -199,7 +199,7 @@ A statement bound to one Source Version and an exact quote span (build plan §5.
 | `verification_status` | text not null default `unreviewed` | `unreviewed`, `corroborated`, `disputed`, `rejected`, `superseded`. The API calls this `review_state` |
 | `independence_family_id` | uuid null | Evidence Family; null until Phase 3 |
 | `extracted_at` | timestamptz not null | |
-| `extractor_version` | text not null | `manual` for researcher-created Assertions in Phase 1 |
+| `extractor_version` | text not null | `manual` for researcher-created Assertions; `investigator.v<N>` (the prompt version) for ones the Investigator's Claims became (ticket 10), created by `atlas-investigator` with `value_json` `{claim_id, layer, product, object_text}` |
 | `created_by` | text not null | Actor |
 | `reviewer_id` | text null | Actor of the latest review; set exactly when reviewed |
 | `reviewed_at` | timestamptz null | Set exactly when reviewed |
@@ -307,6 +307,48 @@ Every research role's LLM call in a run (`atlas.roles`). A run's usage, which it
 | `content` | text not null | The raw message content |
 | `validation_errors` | jsonb | Pydantic errors (`type`, `loc`, `msg`, no input); null when it validated |
 | `called_at` | timestamptz | |
+
+### 3.1c `claim_extraction` and `claim` (Phases 3–6a, migration 0019)
+
+The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and `GET /api/v1/claim-extractions/{id}` read them.
+
+`claim_extraction`: one per `extract_claims` job.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `job_id` | uuid not null unique FK → `job` | A retried or resumed job finds its extraction here |
+| `run_id` | uuid FK → `run` | The run its role calls belong to: its own (`kind = claim_extraction`) or the caller's |
+| `source_version_ids` | uuid[] not null | As asked for (1–25) |
+| `question` | text | Optional; its recall hits add passages |
+| `passages` | jsonb array | The passages chosen: `{id, source_version_id, section_anchor, char_start, char_end, selected_by}` (`entity:<company_id>`, `recall`) |
+| `passages_dropped` | int ≥ 0 | Chosen past `ATLAS_INVESTIGATOR_MAX_PASSAGES` |
+| `skipped` | jsonb array | Source Versions not read: `{source_version_id, reason}` |
+| `passages_per_call`, `batches_total`, `batches_done`, `batches_quarantined` | int | Progress: one Investigator call per batch |
+| `status` | text | `running`, `completed`, `budget_exhausted` |
+| `started_at`, `finished_at` | timestamptz | `finished_at` is null only while `running` |
+
+`claim`: one per proposed Claim. **Insert-only** (UPDATE, DELETE and TRUNCATE are refused by triggers, ENABLE ALWAYS).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `extraction_id`, `run_id`, `role_call_id` | uuid FKs | `(role_call_id, ordinal)` is unique: the Claim's place in the answer |
+| `proposed` | jsonb not null | The Claim exactly as the model answered |
+| `passage_id` | text not null | |
+| `source_version_id`, `subject_company_id`, `object_company_id` | uuid null FKs | As resolved; null when the Claim named an unknown passage or company |
+| `predicate`, `layer` | text not null | As proposed (a rejected one may be off the whitelist) |
+| `object_text`, `product` | text null | |
+| `quote` | text not null | |
+| `span_start`, `span_end` | int null | Absolute offsets in the parsed text (passage start + the proposed offsets) |
+| `epistemic_type` | text not null | |
+| `directional_cue` | text null | The words that expressed the predicate (accepted Claims) |
+| `outcome` | text not null | `accepted` (then `assertion_id` is set) or `rejected` (then `reason_code` and `reason` are) |
+| `reason_code`, `reason` | text null | e.g. `predicate_not_whitelisted`, `quote_mismatch`, `no_directional_language` (`atlas/claims/extraction.py` lists them) |
+| `assertion_id` | uuid null unique FK → `assertion` | |
+| `created_at` | timestamptz | |
+
+Each Claim writes a `claim.accepted` or `claim.rejected` audit event; an accepted one is recorded with its Assertion (and its `assertion.created` event) in one transaction.
 
 ### 3.1b `bank_template_application`
 

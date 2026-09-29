@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 from atlas.ledger.families import SIMHASH_RULE, hamming_distance, simhash, simhash_hex
-from atlas.parsing import parse
+from atlas.parsing import ParsedText, parse
 from tests.harness import REPO
 
 SYNDICATION = REPO / "tests" / "fixtures" / "syndication" / "lumentum" / "www.sec.gov"
@@ -24,7 +24,7 @@ THRESHOLD = 3  # spec Phase 3: Hamming ≤ 3
 
 def parsed(path: Path) -> str:
     result = parse(path.read_bytes(), "text/html")
-    assert result is not None
+    assert isinstance(result, ParsedText)
     return result.text
 
 

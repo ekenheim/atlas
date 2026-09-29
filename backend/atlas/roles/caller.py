@@ -165,6 +165,17 @@ class RoleCaller:
         retrieved: Sequence[QuotedText] = (),
     ) -> ResponseT:
         """Call `role` within run `run_id` and return its validated output (see the module)."""
+        return self.call_recorded(role, request, run_id=run_id, retrieved=retrieved)[0]
+
+    def call_recorded[RequestT: BaseModel, ResponseT: BaseModel](
+        self,
+        role: Role[RequestT, ResponseT],
+        request: RequestT,
+        *,
+        run_id: uuid.UUID,
+        retrieved: Sequence[QuotedText] = (),
+    ) -> tuple[ResponseT, uuid.UUID]:
+        """`call`, also returning the ID of the `role_call` row that recorded it."""
         request_json = request.model_dump(mode="json")
         quoted = [each.model_dump(mode="json") for each in retrieved]
         role_call_id = self._open(role, run_id, request_json, quoted)
@@ -193,7 +204,7 @@ class RoleCaller:
             )
             if output is not None:
                 self._close(role_call_id, "accepted", output=output.model_dump(mode="json"))
-                return output
+                return output, role_call_id
             messages = [
                 *messages,
                 {"role": "assistant", "content": content},

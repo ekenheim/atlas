@@ -4,7 +4,7 @@ stories 34-35).
 The worker runs in its own process without an HTTP server, so what it does is counted from
 the rows it leaves: the API's `/metrics` reads the ledger (fetches, parses, archive writes),
 the queue (job retries), the pause, the Hindsight operations, the memory documents, the
-research answers and the runs on each scrape. Counters are counts (or sums) over rows in
+research answers, the runs and the Claims on each scrape. Counters are counts (or sums) over rows in
 terminal states, which never leave them, and over append-only rows, so they only grow. If
 the database can't be read, only `atlas_state_metrics_up 0` is reported. Recall runs in the
 API, so its latency is an in-process histogram (`recall_latency`). Alert rules:
@@ -34,6 +34,7 @@ _PARSE_STATUSES = ("parsed", "incomplete", "failed", "unsupported", "not_applica
 _REFLECT_BUCKETS = (5.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0, 3600.0)
 _RECALL_BUCKETS = (0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)
 RECALL_OUTCOMES = ("ok", "refused", "error")
+_CLAIM_OUTCOMES = ("accepted", "rejected")
 
 
 def recall_latency(registry: CollectorRegistry) -> Histogram:
@@ -77,6 +78,7 @@ class StateCollector(Collector):
             yield from self._operations(connection)
             yield from self._sections(connection)
             yield from self._research(connection)
+            yield from self._claims(connection)
 
     def _pause(self) -> Iterator[Metric]:
         pause = self._queue.pause_state()
@@ -301,3 +303,28 @@ class StateCollector(Collector):
         ).all():
             tokens.add_metric([kind, direction], total)
         yield tokens
+
+    def _claims(self, connection: Connection) -> Iterator[Metric]:
+        # Claim rows are insert-only, so both counts only grow.
+        claims = CounterMetricFamily(
+            "atlas_claims",
+            "Claims the Investigator proposed, by outcome (accepted: became an Assertion)",
+            labels=["outcome"],
+        )
+        rejected = CounterMetricFamily(
+            "atlas_claims_rejected", "Rejected Claims by reason code", labels=["reason"]
+        )
+        by_outcome = {outcome: 0 for outcome in _CLAIM_OUTCOMES}
+        for outcome, reason, count in connection.execute(
+            text(
+                "SELECT outcome, reason_code, count(*) FROM claim"
+                " GROUP BY outcome, reason_code ORDER BY 1, 2"
+            )
+        ).all():
+            by_outcome[outcome] += count
+            if reason is not None:
+                rejected.add_metric([reason], count)
+        for outcome, count in by_outcome.items():
+            claims.add_metric([outcome], count)
+        yield claims
+        yield rejected

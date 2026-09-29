@@ -1371,3 +1371,28 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
 - **Fixture-only vs live:** everything is fixture-tested; no SEC request was made. The Nokia fixture and the Lumentum 10-K additions are transcribed from the research note, not recorded bytes.
 - **Deviations:** derived quarters are computed at read time (as of the cutoff), not stored; the research note's composite total-debt rule isn't implemented (`total_debt` is the combined tag only); strict replay (`ingested_at <= as_of`) left to Phase 6a; linkage is fixed at insert, so an observation that later sorts before stored ones doesn't relink them (documented).
 - **Next:** the scenario model (Phase 5) reads `/financials`; record a real Nokia (or STM) companyfacts and the older Lumentum submissions page when live SEC access is approved; an FX source before any conversion.
+
+## 2026-09-29: Phase 3-6a ticket 10, Investigator Claims → Assertions
+
+- **Built:**
+  - `backend/atlas/claims/`: `predicates.py` (the §5.5 whitelist with direction and object kind, `predicate_refusal` ("works/partners with" map to nothing), the layer taxonomy `substrate`/`epi`/`chip_laser`/`dsp`/`module`/`contract_manufacturing`/`system`, `directional_cue`, `company_names`/`mentions`/`names_party`); `extraction.py` (the `extract_claims` job: passages from entity tags and recall hits, batched Investigator calls, per-Claim checks ending in the existing span check, Assertions created in the batch's transaction, resumable batches, budget and quarantine handling); `reads.py`; `handlers.py` (registered pausable)
+  - `backend/atlas/roles/investigator.py` and `roles/prompts/investigator.v1.md`: the Investigator role on the ticket-07 foundation
+  - migration `0019` (down_revision `0015`): `claim_extraction`, `claim` (insert-only, triggers ENABLE ALWAYS)
+  - `GET /api/v1/claims`, `GET /api/v1/claims/{id}`, `GET /api/v1/claim-extractions/{id}` (`api/claims.py`); API client regenerated
+  - metrics `atlas_claims_total{outcome}` and `atlas_claims_rejected_total{reason}`
+  - small additive edits: `Assertions.create(..., extractor_version=)`, `Assertions.create_within(connection, ...)` and a public `check_quote`; `RoleCaller.call_recorded` (returns the role call's ID); settings `investigator_max_passages` (24), `investigator_passages_per_call` (6); `builtin_registry`; `tests/fakes/litellm.py` `ChatReply.answer` (content computed from the request)
+  - docs: `docs/decisions.md` entry, `docs/data-model.md` §3.1c and the `extractor_version` note, `AGENTS.md`, `.env.example`
+- **Tests:**
+  - new `tests/integration/test_claims.py` (12): accepted Claims become Assertions at their exact span (Coherent `supplies` NVIDIA, NVIDIA `owns` Coherent via "the Company"), no inverse Assertion; the request (whitelist, layers, companies, entity-tagged passages only, lowercase "coherent" never tags); recall hits after entity tags, capped with a dropped count; 11 rejection reasons stored and visible, no Assertions; **the co-mention gate** (the Coherent 10-K peer-group sentence naming Lumentum, 10 adversarial company-predicate Claims in both directions plus `partners_with`: all rejected, zero Assertions); an LLM outage pausing the queue and the job resuming at batch 2 in the same run; budget exhaustion; a quarantined batch; skipped unknown versions; 404s; metrics; claim rows insert-only
+  - new `tests/unit/test_claim_predicates.py` (27): whitelist, direction, undirected relations, layers, directional cues, co-mention sentences, names and first-person references
+  - migration head updated to `0019`
+  - mutation check: making `directional_cue` always match turns the gate test red
+  - `scripts/ci.sh --no-image` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`): **passed** (ruff, strict pyright, frontend gates, API client check, pytest 457 passed and 9 deselected in 19.8 min, e2e 3 passed)
+- **Fixture-only vs live:** all of it. The Investigator's answers are written by the tests (computed from the passages sent, quoting the recorded Coherent 10-K); no chat completion was made against LiteLLM/MiniMax. Recall is the recorded Hindsight fake's derived strict recall.
+- **Deviations:**
+  - A Claim names a passage ID and offsets within the passage; Atlas converts them to Source Version offsets (the spec lists `source_version_id` and char offsets on the Claim). The stored Claim has both.
+  - Directional language is checked here, before an Assertion is created, so every Assertion an extraction creates is Relationship-eligible; ticket 12's reviewer judges whether the direction is right and extends the cue list.
+  - Layer slugs are chosen here; ticket 01's config should use the same.
+  - No `POST` API to start an extraction: `atlas jobs enqueue extract_claims` (and ticket 14) enqueue it.
+- **Open risk:** models count characters poorly, so live runs may reject true quotes as `quote_mismatch` (the reason says where the quote does occur). Measure it in the live suite before deciding whether Atlas may locate a quote that occurs exactly once in its passage.
+- **Next:** ticket 12 forms Relationships from accepted Claims' Assertions (`value_json.layer`, `product`); ticket 14 enqueues `extract_claims` with its investigation's `run_id`.
