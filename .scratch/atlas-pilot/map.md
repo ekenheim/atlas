@@ -51,6 +51,12 @@ A ready-for-agent spec (via `/to-spec`) for Phases 0–2 of the pilot: service s
 
 - **Threat model and gold-fixture format:** Phase 0 deliverables whose content comes from the spec (§7.5, §9.5), plus ticket 12's inputs. They're specified in the spec, not decided here.
 
+## Parked for later (owner, 2026-09-29)
+
+- **Centralise Hindsight's LLM traffic through LiteLLM**, with failover there. Codex currently bypasses LiteLLM, because the `chatgpt/*` routes only serve streaming callers and Hindsight is non-streaming. Hindsight's request log would then show the alias, and the real model would come from LiteLLM's spend logs.
+- **LLM failover for Hindsight.** 0.10.1 supports `HINDSIGHT_API_LLM_<n>_*` + `LLM_STRATEGY={"mode":"failover"}`, server-wide. The shared server holds `hermes`, so a cloud fallback there conflicts with the LiteLLM privacy rule; use a self-hosted fallback there, and MiniMax only in a dedicated Atlas Hindsight.
+- **A dedicated Atlas Hindsight** (MiniMax primary, its own embedding and reranker), instead of the shared release.
+
 ## Out of scope
 
 - Phases 3–6a (discovery, entity resolution, research workflow, financial scenarios, snapshots/replay): the next map, charted once this spec exists. It starts from ticket 12's adopt list.
