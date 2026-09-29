@@ -15,7 +15,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 AvailabilityBasis = Literal[
     "sec_acceptance", "sec_dissemination", "publisher_timestamp", "observed_discovery"
 ]
-CandidateKind = Literal["sec_filing_document", "sec_companyfacts"]
+CandidateKind = Literal["sec_filing_document", "sec_companyfacts", "exchange_announcement"]
 
 
 class _Frozen(BaseModel):
@@ -73,6 +73,21 @@ class SecFiling(_Frozen):
     items: tuple[str, ...] = ()
 
 
+class ExchangeAnnouncement(_Frozen):
+    """One document an exchange's disclosure feed lists (HKEXnews, LSE RNS, Euronext), with
+    what the feed says about it. It describes the Source Document the ledger records."""
+
+    publisher: str  # the feed, e.g. "HKEXnews"; the Source Document's publisher
+    announcement_id: str  # the feed's own identifier, e.g. HKEXnews NEWS_ID
+    issuer_code: str  # the exchange's code for the issuer, e.g. "03308"
+    issuer_name: str  # as the feed names it
+    category: str | None = None  # the feed's classification, e.g. "[Interim/Half-Year Report]"
+    file_type: str | None = None  # as the feed says, e.g. "PDF"
+    published_at: AwareDatetime  # the feed's publication timestamp, in UTC
+    published_local: str  # the timestamp exactly as the feed printed it
+    timezone: str  # the IANA zone the feed's timestamp is in, e.g. "Asia/Hong_Kong"
+
+
 class SearchQuery(_Frozen):
     """What to discover. Each adapter uses the fields that apply to it."""
 
@@ -95,6 +110,7 @@ class SourceCandidate(_Frozen):
     available_at: AwareDatetime
     available_at_basis: AvailabilityBasis
     filing: SecFiling | None = None
+    announcement: ExchangeAnnouncement | None = None
     validators: HttpValidators | None = None  # from the last fetch; makes the next conditional
     # The document's language as the source declares it (ISO 639 primary subtag, e.g. "en",
     # "zh"), if it does; otherwise the ledger records the language the parse finds.

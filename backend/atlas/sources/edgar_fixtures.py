@@ -6,7 +6,8 @@ body file) and the bodies under paths mirroring the URLs, e.g.
 SEC where it matters: a request without a User-Agent is refused (403), an unrecorded URL is
 404, and a conditional request whose validators still match gets a 304. A URL recorded more
 than once (say a 429, then the document) is replayed in recorded order, and its last
-response repeats.
+response repeats. A response recorded with `"ignore_query": true` answers its URL with any
+query string (a search whose query carries today's date, say) when no exact URL matches.
 """
 
 import math
@@ -31,6 +32,7 @@ class _RecordedResponse(BaseModel):
     status: int = 200
     headers: dict[str, str] = {}
     trimmed: str | None = None  # how a large body was cut down, if it was
+    ignore_query: bool = False  # also answers this URL with any other query string
 
 
 class _Manifest(BaseModel):
@@ -54,12 +56,14 @@ class FixtureReplay:
         manifest = _Manifest.model_validate_json((root / "manifest.json").read_bytes())
         self._responses: dict[str, deque[_RecordedResponse]] = {}
         for recorded in manifest.responses:
-            self._responses.setdefault(recorded.url, deque()).append(recorded)
+            key = recorded.url.split("?", 1)[0] + "?*" if recorded.ignore_query else recorded.url
+            self._responses.setdefault(key, deque()).append(recorded)
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         if not request.headers.get("User-Agent", "").strip():
             return httpx2.Response(403, text="Request originates from an undeclared tool")
-        replies = self._responses.get(str(request.url))
+        url = str(request.url)
+        replies = self._responses.get(url) or self._responses.get(url.split("?", 1)[0] + "?*")
         if not replies:
             return httpx2.Response(404, text=f"not recorded: {request.url}")
         recorded = replies.popleft() if len(replies) > 1 else replies[0]

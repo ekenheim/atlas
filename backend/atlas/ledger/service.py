@@ -16,9 +16,11 @@
    observation only. Changed: create a new Source Version superseding the latest one, then
    parse it and archive the parse separately. A document's first version takes
    `available_at` from the candidate (SEC filings: `acceptanceDateTime`, basis
-   `sec_acceptance`). A version that supersedes an earlier one takes the time Atlas fetched
-   it (basis `observed_revision`): its bytes weren't public at the original acceptance, and
-   availability is never overstated (spec Part A story 31; docs/decisions.md).
+   `sec_acceptance`; exchange documents: the feed's publication time, basis
+   `publisher_timestamp`, also recorded as `published_at`). A version that supersedes an
+   earlier one takes the time Atlas fetched it (basis `observed_revision`): its bytes
+   weren't public at the original acceptance, and availability is never overstated (spec
+   Part A story 31; docs/decisions.md).
    The parse records the version's `language` (the adapter's declaration, else the
    parse's) and, for a PDF, its page anchors; a PDF with no text is `unsupported`.
 5. A new parsed version joins its Evidence Family (`atlas.ledger.families`): an exact or
@@ -97,7 +99,22 @@ def canonical_url(url: str) -> str:
 
 
 def describe(candidate: SourceCandidate) -> DocumentIdentity:
-    """The Source Document a candidate belongs to. Phase 1 knows SEC EDGAR only."""
+    """The Source Document a candidate belongs to: an SEC EDGAR document, or a document an
+    exchange feed lists (identified by its URL; the feed's category is its document type)."""
+    announcement = candidate.announcement
+    if announcement is not None:
+        return DocumentIdentity(
+            provider=candidate.provider_id,
+            canonical_url=canonical_url(candidate.url),
+            accession=None,
+            form_type=None,
+            document_type=candidate.document_type,
+            source_type="exchange_announcement",
+            title=candidate.title,
+            publisher=announcement.publisher,
+            source_tier="A",
+            license_class="public_regulatory",
+        )
     if candidate.provider_id != SEC_EDGAR:
         raise LedgerError(f"no ledger rules for provider {candidate.provider_id!r}")
     filing = candidate.filing
@@ -166,7 +183,10 @@ class SourceLedger:
         *,
         company_id: uuid.UUID | None,
         job_id: uuid.UUID | None = None,
+        gate_decision_id: uuid.UUID | None = None,
     ) -> RecordedFetch:
+        """Record one fetch. `gate_decision_id` is the `allowed` fetch gate decision it was
+        made under (`atlas.ledger.gates`), for a gated source."""
         identity = describe(fetched.candidate)
         media_type = fetched.media_type or _FALLBACK_MEDIA_TYPE
         raw: bytes | None = None if fetched.not_modified else fetched.content
@@ -264,16 +284,18 @@ class SourceLedger:
                 "last_modified": fetched.validators.last_modified,
                 "attempts": max(1, len(fetched.attempts)),
             }
+            if gate_decision_id is not None:  # SEC observations keep their original shape
+                observation["gate_decision_id"] = gate_decision_id
             connection.execute(
                 text(
                     "INSERT INTO fetch_observation (id, source_document_id, source_version_id,"
                     " job_id, outcome, url, fetched_at, raw_sha256, comparison_sha256,"
-                    " object_uri, etag, last_modified, attempts) VALUES (:id,"
+                    " object_uri, etag, last_modified, attempts, gate_decision_id) VALUES (:id,"
                     " :source_document_id, :source_version_id, :job_id, :outcome, :url,"
                     " :fetched_at, :raw_sha256, :comparison_sha256, :object_uri, :etag,"
-                    " :last_modified, :attempts)"
+                    " :last_modified, :attempts, :gate_decision_id)"
                 ),
-                observation,
+                {"gate_decision_id": None, **observation},
             )
 
             # Audit last: appending takes the chain's lock until commit.
@@ -374,7 +396,8 @@ class SourceLedger:
             "media_type": media_type,
             **parse_fields,
             "event_at": None,
-            "published_at": None,
+            # The exchange's publication time, when a feed gives one.
+            "published_at": candidate.announcement.published_at if candidate.announcement else None,
             "available_at": available_at,
             "available_at_basis": basis,
             "fetched_at": fetched.fetched_at,
@@ -493,6 +516,8 @@ def _metadata(fetched: FetchedDocument) -> dict[str, Any]:
             "primary_document": filing.primary_document,
             "items": list(filing.items),
         }
+    if candidate.announcement is not None:
+        metadata["announcement"] = candidate.announcement.model_dump(mode="json")
     return metadata
 
 

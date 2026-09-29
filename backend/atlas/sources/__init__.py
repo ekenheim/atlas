@@ -3,6 +3,7 @@
 from atlas.sources.adapter import (
     AvailabilityBasis,
     CandidateKind,
+    ExchangeAnnouncement,
     FetchAttempt,
     FetchedDocument,
     FetchError,
@@ -34,6 +35,7 @@ __all__ = [
     "CandidateKind",
     "EdgarAdapter",
     "EdgarCalendarRangeError",
+    "ExchangeAnnouncement",
     "FetchAttempt",
     "FetchError",
     "FetchedDocument",

@@ -225,6 +225,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{company_id}/fetch-gate-decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Fetch Gate Decisions */
+        get: operations["company_fetch_gate_decisions_api_v1_companies__company_id__fetch_gate_decisions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fetch-gate-decisions/{decision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch Gate Decision */
+        get: operations["fetch_gate_decision_api_v1_fetch_gate_decisions__decision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{company_id}/financials": {
         parameters: {
             query?: never;
@@ -1161,6 +1195,55 @@ export interface components {
             assigned_at: string;
         };
         /**
+         * FetchGateDecision
+         * @description Whether Atlas was allowed to request a URL, and which gate decided.
+         */
+        FetchGateDecision: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Job Id */
+            job_id: string | null;
+            /** Company Id */
+            company_id: string | null;
+            /** Provider */
+            provider: string;
+            /** Purpose */
+            purpose: string;
+            /** Url */
+            url: string;
+            /** Status */
+            status: string;
+            /** Blocked By */
+            blocked_by: string | null;
+            /** Reason */
+            reason: string;
+            /** Site */
+            site: string | null;
+            /** Terms */
+            terms: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Robots */
+            robots: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** User Agent Token */
+            user_agent_token: string;
+            /**
+             * Decided At
+             * Format: date-time
+             */
+            decided_at: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /**
          * FetchObservation
          * @description One fetch of the document that produced or matched this version.
          */
@@ -1196,6 +1279,8 @@ export interface components {
             attempts: number;
             /** Job Id */
             job_id: string | null;
+            /** Gate Decision Id */
+            gate_decision_id: string | null;
         };
         /**
          * FinancialFigure
@@ -1745,6 +1830,17 @@ export interface components {
         Page_Discovery_: {
             /** Items */
             items: components["schemas"]["Discovery"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[FetchGateDecision] */
+        Page_FetchGateDecision_: {
+            /** Items */
+            items: components["schemas"]["FetchGateDecision"][];
             /** Total */
             total: number;
             /** Limit */
@@ -2825,6 +2921,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvidenceFamily"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    company_fetch_gate_decisions_api_v1_companies__company_id__fetch_gate_decisions_get: {
+        parameters: {
+            query?: {
+                /** @description only decisions with this status */
+                status?: ("allowed" | "blocked") | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_FetchGateDecision_"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_gate_decision_api_v1_fetch_gate_decisions__decision_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FetchGateDecision"];
                 };
             };
             /** @description Not Found */

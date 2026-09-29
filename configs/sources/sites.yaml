@@ -1,0 +1,39 @@
+# The site register: every site an exchange or issuer adapter may request, with its terms
+# decision (docs/source-licenses.md §5; atlas.sources.gate). A request to a host listed
+# nowhere here is blocked. Per site:
+# - `hosts`: the host names it serves from (lowercase)
+# - `terms_url`, `terms_checked_on`: the terms read, and when
+# - `automation`: what the terms say about automated access: `allowed`; `forbidden` (only a
+#   recorded `consent` from the site's owner lifts it); or `unchecked` (not yet read: blocked)
+# - `terms_note`: the relevant clause, briefly
+# - `consent`: {reference, granted_on, scope}, once the owner has permission in writing
+# - `rate_per_s`: the request budget for the site (default 1/s)
+# robots.txt is never recorded here: the gate reads it before the first request of each
+# ingest to a site, and obeys it (RFC 9309).
+#
+# Bump `version` on any change.
+version: 1
+
+sites:
+  hkexnews:
+    publisher: HKEXnews (Hong Kong Exchanges and Clearing Limited)
+    hosts: [www1.hkexnews.hk, www.hkexnews.hk, www2.hkexnews.hk]
+    terms_url: https://www2.hkexnews.hk/Global/Exchange/Terms-of-Use?sc_lang=en
+    terms_checked_on: 2026-09-29
+    automation: forbidden
+    terms_note: >-
+      Section 5 forbids text or data mining and web scraping, and any robot, bot, spider,
+      scraper or other automated means to access, obtain, copy or monitor any portion of the
+      website, "for any purpose", including AI training; and compiling databases by
+      systematic retrieval. HKEX's prior written consent (info@hkex.com.hk) lifts any
+      restriction. No consent is recorded, so Atlas makes no request to HKEXnews.
+    rate_per_s: 1
+
+  zj-innolight:
+    publisher: Zhongji Innolight Co., Ltd. (issuer site)
+    hosts: [ir.zj-innolight.com, www.zj-innolight.com]
+    automation: unchecked
+    terms_note: >-
+      Terms not checked. Its robots.txt disallows everything on ir.zj-innolight.com and
+      /uploads/ (the IR PDFs) on www.zj-innolight.com (seed-list research, 2026-09-29).
+      Innolight's filings come from HKEXnews instead; this entry only makes the block explicit.

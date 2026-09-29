@@ -9,10 +9,11 @@ no new Source Version. When Hindsight is configured, each new parsed Source Vers
 into as-of financial observations (`atlas.financials`) unless it already was, with each
 fact's availability taken from its filing in the submissions index.
 
-Only companies whose source path is `sec` are ingested; any other (an exchange-disclosed
-company such as Soitec) is refused before anything is seeded or fetched. The company's
-configured `sec_forms` (e.g. 20-F/6-K for a foreign private issuer) apply when the job
-names no forms.
+The job dispatches on the company's source path: `sec` runs the SEC ingest below;
+`exchange:<name>` runs the exchange ingest (`atlas.ledger.exchange_ingest`) when an adapter
+exists for that exchange, and is otherwise refused before anything is seeded or fetched.
+The company's configured `sec_forms` (e.g. 20-F/6-K for a foreign private issuer) apply
+when the job names no forms; an exchange ingest takes no forms.
 
 A document whose fetch fails is skipped and the others are still recorded; the attempt
 then fails listing every failed URL, so a gap in coverage is never silent, and the retry
@@ -36,6 +37,7 @@ from atlas.db import create_engine
 from atlas.financials import NormalizationSummary, is_normalized, normalize_source_version
 from atlas.jobs.handlers import JobHandler
 from atlas.jobs.queue import Artifacts, Job
+from atlas.ledger.exchange_ingest import exchange_refusal, run_exchange_ingest
 from atlas.ledger.service import RecordedFetch, SourceLedger
 from atlas.retention.service import enqueue_retains
 from atlas.settings import Settings
@@ -67,7 +69,7 @@ class IngestIncomplete(Exception):
 
 
 class NotAnSecFiler(ValueError):
-    """The company's source path isn't `sec`, so the SEC ingest refuses it without fetching."""
+    """No adapter ingests the company's source path, so the job refuses it without fetching."""
 
 
 def not_an_sec_filer_message(company: str, source_path: str) -> str:
@@ -100,7 +102,16 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
     config = universe.companies.get(payload.company)
     if config is None:
         raise ValueError(f"company {payload.company!r} is not in {settings.themes_config}")
-    if config.source_path != "sec" or config.cik is None:
+    if config.source_path != "sec":
+        refusal = exchange_refusal(payload.company, config.source_path)
+        if refusal is not None:
+            raise NotAnSecFiler(refusal)
+        if payload.forms:
+            raise ValueError(f"company {payload.company!r} is not an SEC filer: forms don't apply")
+        return run_exchange_ingest(
+            settings, job, universe, payload.company, since=payload.since, limit=payload.limit
+        )
+    if config.cik is None:  # refused by the config's validation; kept for the type checker
         raise NotAnSecFiler(not_an_sec_filer_message(payload.company, config.source_path))
     actor = Actor.from_settings(settings)
     engine = create_engine(settings)

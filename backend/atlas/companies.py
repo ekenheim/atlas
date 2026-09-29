@@ -63,6 +63,13 @@ class IgnoredCik(_Config):
     reason: str = Field(min_length=1)
 
 
+class ExchangeListingConfig(_Config):
+    """How an exchange-disclosed company is found in its exchange's feed."""
+
+    issuer_code: str = Field(min_length=1)  # the exchange's code, e.g. HKEX stock code "03308"
+    feed_id: str | None = None  # the feed's own ID, if it has one (HKEXnews `stockId`)
+
+
 class CompanyConfig(_Config):
     legal_name: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
@@ -76,12 +83,16 @@ class CompanyConfig(_Config):
     # (10-K, 10-Q, 8-K). A foreign private issuer files 20-F/6-K instead.
     sec_forms: tuple[str, ...] | None = Field(default=None, min_length=1)
     ignored_ciks: tuple[IgnoredCik, ...] = ()
+    # For an `exchange:*` company: its identifiers in the exchange's disclosure feed.
+    exchange: ExchangeListingConfig | None = None
     securities: tuple[SecurityConfig, ...] = ()
 
     @model_validator(mode="after")
     def _source_path(self) -> Self:
         if self.source_path == "sec" and self.cik is None:
             raise ValueError("source_path 'sec' needs a cik")
+        if self.source_path == "sec" and self.exchange is not None:
+            raise ValueError("source_path 'sec' takes no exchange listing")
         if self.source_path != "sec":
             if self.cik is not None:
                 raise ValueError(

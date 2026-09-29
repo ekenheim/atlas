@@ -118,6 +118,14 @@ class Settings(BaseSettings):
     # Fixture mode: recorded EDGAR responses, one directory per company slug
     # (e.g. tests/fixtures/edgar/lumentum). Unused when sec_live is on.
     sec_fixtures_dir: Path | None = None
+    # Exchange adapters (HKEXnews, ...): live fetching is opt-in; without it they replay the
+    # recorded (or hand-written) responses in `exchange_fixtures_dir/<company slug>`. Every
+    # request, live or replayed, passes the fetch gate (the site register and robots.txt).
+    exchange_live: bool = False
+    exchange_user_agent: str | None = Field(default=None, validate_default=True)
+    exchange_fixtures_dir: Path | None = None
+    # The site register: each site's terms decision (atlas.sources.gate).
+    source_sites_config: Path = Path("configs/sources/sites.yaml")
     # Evidence Families: the SimHash Hamming distance within which a parse is a near
     # duplicate. A family keeps the threshold it was founded with (atlas.ledger.families).
     evidence_family_max_hamming_distance: int = Field(default=3, ge=0, le=64)
@@ -173,6 +181,15 @@ class Settings(BaseSettings):
             raise ValueError("required when ATLAS_SEC_LIVE is true (SEC fair-access policy)")
         if value and not re.search(r"\S+@\S+\.\S+", value):
             raise ValueError("must include a contact email, e.g. 'Atlas Research ops@example.com'")
+        return value or None
+
+    @field_validator("exchange_user_agent")
+    @classmethod
+    def _exchange_user_agent_when_live(cls, value: str | None, info: ValidationInfo) -> str | None:
+        if info.data.get("exchange_live") and not value:
+            raise ValueError("required when ATLAS_EXCHANGE_LIVE is true (a name and a contact)")
+        if value and not re.search(r"\S+@\S+\.\S+", value):
+            raise ValueError("must include a contact email, e.g. 'AtlasResearch ops@example.com'")
         return value or None
 
     def llm_aliases(self) -> list[str]:
