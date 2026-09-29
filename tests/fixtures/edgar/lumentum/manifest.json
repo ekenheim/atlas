@@ -19,7 +19,7 @@
       "headers": {
         "content-type": "application/json"
       },
-      "trimmed": "facts trimmed to dei plus nine us-gaap concepts; re-serialized compactly"
+      "trimmed": "facts trimmed to dei plus nine us-gaap concepts; re-serialized compactly. Re-trimmed for ticket 18 (XBRL normalization) WITHOUT a new SEC request: eight us-gaap concepts added (RevenueFromContractWithCustomerIncludingAssessedTax, PaymentsToAcquirePropertyPlantAndEquipment, LongTermDebtCurrent, LongTermDebtNoncurrent, ShortTermBorrowings, DebtLongtermAndShorttermCombinedAmount, WeightedAverageNumberOfDilutedSharesOutstanding, CommonStockSharesOutstanding). Their 10-Q 0001628280-26-030777 facts are read from that filing's inline XBRL (the recorded lite-20260328.htm: non-dimensional contexts, scale applied); their 10-K 0001628280-26-057358 facts (FY2026, at 2026-06-27) are the values docs/research/xbrl-normalization.md (research/xbrl-normalization, bc25fa6) quotes from the live companyfacts, exact because Lumentum reports in 0.1M. Hand-added facts carry no 'frame' and a null 'description'"
     },
     {
       "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/0001628280-26-055726-index-headers.html",

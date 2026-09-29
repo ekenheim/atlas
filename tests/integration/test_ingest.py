@@ -570,6 +570,8 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
             for url_version in versions
             if url_version["evidence_family"]
         ]
+        # The companyfacts version is normalized once (atlas.financials; ticket 18).
+        + [("financial_normalization", jobs[0]["artifacts"]["financial_normalization"]["id"])]
     )
 
     assert Counter((e["entity_type"], e["entity_id"]) for e in events) == expected
@@ -586,6 +588,7 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
         "job.enqueued": 2,  # by `atlas ingest`; running them is the jobs' own history
         "evidence_family.created": 4,
         "evidence_family.member_added": 4,
+        "financial_normalization.created": 1,
     }
     verify = atlas.cli("audit", "verify")
     assert verify.returncode == 0, verify.stderr

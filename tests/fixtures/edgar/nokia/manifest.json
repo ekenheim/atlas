@@ -1,0 +1,25 @@
+{
+  "description": "HAND-WRITTEN, not recorded: a minimal Nokia Oyj (CIK 0000924613, ifrs-full, EUR, 20-F filer) sample for XBRL normalization (ticket 18). Every value is transcribed from docs/research/xbrl-normalization.md on branch research/xbrl-normalization (bc25fa6), which quotes SEC's live companyfacts and submissions responses fetched 2026-09-29; no SEC request was made to build it. Labels and descriptions are null (companyfacts gives none for ifrs-full). Inferred, not quoted: the 2026-03-05 filing date and the fy/fp fields of accession 0001628280-26-015034 (the note names it as the FY2025 20-F and dates the second operating-profit restatement 2026-03-05), and the fy/fp fields of the two earlier 20-Fs. The submissions index lists only 0000924613-25-000008, whose acceptance time the note quotes (2025-03-13 17:24:32Z); its primaryDocument is unknown and left empty. The other two accessions are deliberately absent, so their facts take the conservative fallback availability (the filing date's end of day, ET).",
+  "recorded_at": null,
+  "user_agent": null,
+  "responses": [
+    {
+      "url": "https://data.sec.gov/submissions/CIK0000924613.json",
+      "file": "data.sec.gov/submissions/CIK0000924613.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "hand-written: one filings.recent row (the FY2024 20-F) from the research note"
+    },
+    {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000924613.json",
+      "file": "data.sec.gov/api/xbrl/companyfacts/CIK0000924613.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "hand-written: five ifrs-full concepts (revenue, cost of sales, gross profit, operating profit, inventories) with the values the research note quotes, including the FY2023 restatements"
+    }
+  ]
+}

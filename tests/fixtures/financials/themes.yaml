@@ -1,0 +1,25 @@
+# A test-only universe for the XBRL normalization tests (ticket 18): Lumentum (us-gaap, USD,
+# a 52/53-week year) and Nokia (ifrs-full, EUR, a 20-F filer). Nokia's EDGAR fixture is
+# hand-written from the research note (tests/fixtures/edgar/nokia/manifest.json).
+version: 1
+name: financials-test
+
+companies:
+  lumentum:
+    legal_name: Lumentum Holdings Inc.
+    display_name: Lumentum
+    cik: "0001633978"
+    country: US
+    securities: []
+  nokia:
+    legal_name: Nokia Oyj
+    display_name: Nokia
+    cik: "0000924613"
+    country: FI
+    securities: []
+
+themes:
+  photonics:
+    title: Photonics for AI data centers
+    description: Test universe.
+    companies: [lumentum, nokia]

@@ -443,6 +443,33 @@ A check requires the pause fields when `level > 0`. The paused flag is derived (
 
 `queue_pause_event`: `id`, `level`, `error_class`, `reason`, `kinds`, `backoff_seconds`, `paused_at`, `resume_after`, `job_id`, `job_kind`, one row per pause entered.
 
+### 3.6 `financial_observation` and `financial_normalization` (Phase 5, ticket 18)
+
+As-of financials from XBRL companyfacts (migration `0017`, `atlas.financials`; rules in `docs/decisions.md`, "XBRL normalization"). Both tables are insert-only (ENABLE ALWAYS triggers).
+
+`financial_observation`: one fact of one filing, as companyfacts lists it.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `company_id`, `cik` | uuid FK → company, text | The filer |
+| `source_version_id` | uuid FK → source_version | The archived companyfacts it was first read from |
+| `accession`, `form`, `filed` | text, text, date | The filing the fact belongs to |
+| `fiscal_year`, `fiscal_period`, `frame` | int, text, text (null) | Informational: `fy`/`fp` are the *filing's*; `frame` is SEC's "latest filing" marker. Never used for as-of |
+| `taxonomy`, `concept`, `unit` | text | e.g. `us-gaap`, `RevenueFromContractWithCustomerIncludingAssessedTax`, `USD` |
+| `currency` | text null | The unit's ISO currency (`USD` for `USD` and `USD/shares`); null for `shares`, `pure` |
+| `fx_basis` | jsonb null | Null: as filed, in the reporting currency. A converted value would need `rate_source`, `rate_date`, `from_currency` (checked); none are stored yet |
+| `period_start`, `period_end` | date null, date | Null start = an instant |
+| `value` | numeric | Exact, as companyfacts gives it (fully scaled) |
+| `available_at`, `available_at_basis` | timestamptz, text | The filing's availability: `sec_acceptance` / `sec_dissemination` (`filing_availability`), `sec_filing_date_eod` (fallback), `observed_revision` (a value changed inside companyfacts) |
+| `accepted_at` | timestamptz null | EDGAR `acceptanceDateTime` when the submissions index lists the accession |
+| `previous_observation_id`, `linkage` | uuid null FK → self, text | `first`, `restates` (different value) or `reaffirms` (same value) its predecessor in filing order |
+| `suspect_reasons` | text[] | Only on a restatement: `sign_change`, `large_change` (> 50%), `old_period` (ends > 2 years before the filing's report date) |
+
+Unique (NULLS NOT DISTINCT) on (cik, taxonomy, concept, unit, period_start, period_end, accession, value).
+
+`financial_normalization`: `id`, `source_version_id`, `company_id`, `normalizer_version`, `facts_read`, `observations_created`, `created_at`; unique per (version, normalizer version). Audited as `financial_normalization.created`.
+
 ## 4. Clocks
 
 | Column | Table | Meaning |
@@ -633,5 +660,5 @@ erDiagram
 - `technology`, `product`, `industry_theme`, `product_company`, `theme_exposure` (build plan §5.2), and `relationship` (§5.5): Phase 3.
 - `assertion.independence_family_id` stays reserved: an Assertion's Evidence Family is its Source Version's (`evidence_family_member`, section 2.4b).
 - `hypothesis`, `task`, the full `run`: Phase 4.
-- `financial_observation`, `scenario`: Phase 5.
+- `scenario`: Phase 5 (`financial_observation` is §3.6).
 - `research_snapshot`, `evaluation`: Phase 6a (the evaluation fixture format is in [`evaluation-methodology.md`](evaluation-methodology.md)).
