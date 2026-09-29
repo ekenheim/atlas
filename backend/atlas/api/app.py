@@ -48,7 +48,10 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     litellm = LiteLLMRoutes.from_settings(settings)
     queue = JobQueue(engine, pacing=Pacing.from_settings(settings), clock=clock)
     registry = CollectorRegistry()
-    Info("atlas_build", "Atlas build information", registry=registry).info({"version": __version__})
+    build_version = settings.version or __version__
+    Info("atlas_build", "Atlas build information", registry=registry).info(
+        {"version": build_version}
+    )
     registry.register(StateCollector(engine, queue))
 
     @app.get("/health/live")

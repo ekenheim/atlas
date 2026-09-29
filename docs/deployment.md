@@ -31,6 +31,13 @@ The image carries these OCI labels:
 
 The `source` label links the GHCR package to this repo.
 
+The workflow also passes two build args, which become the image's environment:
+
+- `ATLAS_VERSION`: the tag's version, reported by the `atlas_build_info` metric. The release smoke fails if the metric reports anything else.
+- `ATLAS_CODE_VERSION`: the commit SHA, recorded on every run.
+
+`pyproject.toml`'s version (`atlas.__version__`) is only the fallback, for local builds.
+
 ### Cutting a release
 
 ```bash
