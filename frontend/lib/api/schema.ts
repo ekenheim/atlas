@@ -379,6 +379,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Claims */
+        get: operations["claims_api_v1_claims_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claims/{claim_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Claim */
+        get: operations["claim_api_v1_claims__claim_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claim-extractions/{extraction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Extraction */
+        get: operations["extraction_api_v1_claim_extractions__extraction_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -604,6 +655,131 @@ export interface components {
         };
         /** @enum {string} */
         CitationState: "resolved" | "unverified" | "broken";
+        /**
+         * Claim
+         * @description One proposed Claim and its outcome. `proposed` is the Claim exactly as the model
+         *     answered; the other fields are what Atlas resolved from it (null when it couldn't).
+         */
+        Claim: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Extraction Id
+             * Format: uuid
+             */
+            extraction_id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Role Call Id
+             * Format: uuid
+             */
+            role_call_id: string;
+            /** Passage Id */
+            passage_id: string;
+            /** Source Version Id */
+            source_version_id: string | null;
+            /** Subject Company Id */
+            subject_company_id: string | null;
+            /** Predicate */
+            predicate: string;
+            /** Object Company Id */
+            object_company_id: string | null;
+            /** Object Text */
+            object_text: string | null;
+            /** Product */
+            product: string | null;
+            /** Layer */
+            layer: string;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number | null;
+            /** Span End */
+            span_end: number | null;
+            /** Epistemic Type */
+            epistemic_type: string;
+            /** Directional Cue */
+            directional_cue: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "accepted" | "rejected";
+            /** Reason Code */
+            reason_code: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Assertion Id */
+            assertion_id: string | null;
+            /** Proposed */
+            proposed: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ClaimExtraction */
+        ClaimExtraction: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Source Version Ids */
+            source_version_ids: string[];
+            /** Question */
+            question: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed" | "budget_exhausted";
+            /** Passages */
+            passages: components["schemas"]["Passage"][];
+            /** Passages Dropped */
+            passages_dropped: number;
+            /** Passages Per Call */
+            passages_per_call: number;
+            /** Skipped */
+            skipped: components["schemas"]["SkippedVersion"][];
+            /** Batches Total */
+            batches_total: number;
+            /** Batches Done */
+            batches_done: number;
+            /** Batches Quarantined */
+            batches_quarantined: number;
+            /** Accepted */
+            accepted: number;
+            /** Rejected */
+            rejected: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
         /** Company */
         Company: {
             /**
@@ -1045,6 +1221,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[Claim] */
+        Page_Claim_: {
+            /** Items */
+            items: components["schemas"]["Claim"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[Company] */
         Page_Company_: {
             /** Items */
@@ -1077,6 +1264,27 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+        };
+        /**
+         * Passage
+         * @description A stretch of one Source Version's parsed text sent to the Investigator.
+         */
+        Passage: {
+            /** Id */
+            id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Section Anchor */
+            section_anchor: string;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Selected By */
+            selected_by: string[];
         };
         /** PendingKind */
         PendingKind: {
@@ -1406,6 +1614,16 @@ export interface components {
             valid_from: string;
             /** Valid To */
             valid_to: string | null;
+        };
+        /** SkippedVersion */
+        SkippedVersion: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Reason */
+            reason: string;
         };
         /** SourceDocument */
         SourceDocument: {
@@ -2534,6 +2752,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claims_api_v1_claims_get: {
+        parameters: {
+            query?: {
+                extraction_id?: string | null;
+                run_id?: string | null;
+                source_version_id?: string | null;
+                outcome?: ("accepted" | "rejected") | null;
+                reason_code?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Claim_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    claim_api_v1_claims__claim_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Claim"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    extraction_api_v1_claim_extractions__extraction_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                extraction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimExtraction"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

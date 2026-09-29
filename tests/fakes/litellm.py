@@ -6,7 +6,8 @@ response has been recorded yet; replace the fixture with a recording (keys and b
 redacted) once one is made against the cluster.
 
 `/chat/completions` answers only with replies a test scripted (`script_chat`), in order:
-schema-valid or malformed content (`ChatReply.json` / `ChatReply.text`), an HTTP error in
+schema-valid or malformed content (`ChatReply.json` / `ChatReply.text`), content computed
+from the request (`ChatReply.answer`, e.g. quoting the passages it was sent), an HTTP error in
 LiteLLM's error envelope (`ChatReply.error`), or a failed connection (`ChatReply.unreachable`).
 The reply is OpenAI's chat completion object, which LiteLLM's proxy returns: `model` is the
 requested alias and the deployment hash is the `x-litellm-model-id` header (both seen in the
@@ -18,6 +19,7 @@ fails loudly, so the code under test can't make an unplanned LLM call through it
 
 import json
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -52,6 +54,7 @@ class ChatReply:
     model_id: str | None = CHAT_MODEL_ID
     error_body: dict[str, JsonValue] | None = None
     drop_connection: bool = False
+    responder: "Callable[[dict[str, Any]], JsonValue] | None" = None
 
     @classmethod
     def text(cls, content: str, *, tokens: tuple[int, int] = (120, 40)) -> "ChatReply":
@@ -62,6 +65,17 @@ class ChatReply:
     def json(cls, value: JsonValue, *, tokens: tuple[int, int] = (120, 40)) -> "ChatReply":
         """A completion whose content is `value` serialized as JSON."""
         return cls.text(json.dumps(value), tokens=tokens)
+
+    @classmethod
+    def answer(
+        cls,
+        responder: Callable[[dict[str, Any]], JsonValue],
+        *,
+        tokens: tuple[int, int] = (120, 40),
+    ) -> "ChatReply":
+        """A completion whose content is `responder(request body)` serialized as JSON: an
+        answer that depends on what was asked (e.g. quoting the passages sent)."""
+        return cls(tokens_in=tokens[0], tokens_out=tokens[1], responder=responder)
 
     @classmethod
     def error(cls, status: int, message: str, *, error_type: str | None = None) -> "ChatReply":
@@ -129,6 +143,7 @@ class FakeLiteLLM:
         if reply.status != 200:
             return httpx2.Response(reply.status, json=reply.error_body)
         body = cast(dict[str, Any], json.loads(request.content))
+        content = reply.content if reply.responder is None else json.dumps(reply.responder(body))
         headers = {"x-litellm-model-id": reply.model_id} if reply.model_id else {}
         completion = {
             "id": f"chatcmpl-fake-{len(self.calls)}",
@@ -138,7 +153,7 @@ class FakeLiteLLM:
             "choices": [
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": reply.content},
+                    "message": {"role": "assistant", "content": content},
                     "finish_reason": "stop",
                 }
             ],
