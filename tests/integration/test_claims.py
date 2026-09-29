@@ -58,7 +58,7 @@ WHITELIST = [
     "expands_capacity_for",
     "depends_on",
 ]
-LAYERS = ["substrate", "epi", "chip_laser", "dsp", "module", "contract_manufacturing", "system"]
+LAYERS = ["substrate", "epi", "chip-laser", "dsp", "module", "contract-manufacturing", "system"]
 
 
 # --- fixtures -----------------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def claim(**fields: JsonValue) -> dict[str, JsonValue]:
         "object_company_id": None,
         "object_text": None,
         "product": None,
-        "layer": "chip_laser",
+        "layer": "chip-laser",
         "epistemic_type": "company_claim",
         **fields,
     }
@@ -285,7 +285,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
     assert (supplied["subject_company_id"], supplied["predicate"]) == (coherent, "supplies")
     assert supplied["object_company_id"] == nvidia
     assert supplied["epistemic_type"] == "company_claim"
-    assert supplied["value_json"]["layer"] == "chip_laser"
+    assert supplied["value_json"]["layer"] == "chip-laser"
     assert supplied["value_json"]["product"] == "advanced lasers"
     assert supplies["directional_cue"] == "supply"
     owned = atlas.get(f"/api/v1/assertions/{owns['assertion_id']}")

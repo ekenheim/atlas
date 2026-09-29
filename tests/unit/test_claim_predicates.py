@@ -55,10 +55,10 @@ def test_the_layers_run_from_substrate_to_system_with_contract_manufacturing() -
     assert [layer.name for layer in LAYERS] == [
         "substrate",
         "epi",
-        "chip_laser",
+        "chip-laser",
         "dsp",
         "module",
-        "contract_manufacturing",
+        "contract-manufacturing",
         "system",
     ]
 

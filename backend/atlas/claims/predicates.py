@@ -29,11 +29,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 
+from atlas.companies import Layer
+
 ObjectKind = Literal["company", "product"]
 
-Layer = Literal[
-    "substrate", "epi", "chip_laser", "dsp", "module", "contract_manufacturing", "system"
-]
+# One layer vocabulary: the universe's (`atlas.companies`), which the config and the
+# company table's check constraint use.
 
 
 @dataclass(frozen=True)
@@ -47,12 +48,12 @@ LAYERS: tuple[LayerDefinition, ...] = (
     LayerDefinition("substrate", "bare wafers and substrates (InP, GaAs, SOI)"),
     LayerDefinition("epi", "epitaxial wafers grown on substrates"),
     LayerDefinition(
-        "chip_laser", "laser and photonic chips: EML, DML, CW and VCSEL lasers, PICs, photodiodes"
+        "chip-laser", "laser and photonic chips: EML, DML, CW and VCSEL lasers, PICs, photodiodes"
     ),
     LayerDefinition("dsp", "DSPs, drivers, TIAs and other electrical ICs for optics"),
     LayerDefinition("module", "optical transceivers and modules"),
     LayerDefinition(
-        "contract_manufacturing", "assembly, test and contract manufacturing of optics"
+        "contract-manufacturing", "assembly, test and contract manufacturing of optics"
     ),
     LayerDefinition(
         "system", "systems built from modules: optical transport, switches, AI clusters"

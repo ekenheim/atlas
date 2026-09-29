@@ -626,6 +626,299 @@
         }
       }
     },
+    "/api/v1/companies/{company_id}/financials": {
+      "get": {
+        "tags": [
+          "financials"
+        ],
+        "summary": "Company Financials",
+        "operationId": "company_financials_api_v1_companies__company_id__financials_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the cutoff (ISO 8601 with a time zone); default now",
+              "title": "As Of"
+            },
+            "description": "the cutoff (ISO 8601 with a time zone); default now"
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only these metrics (repeatable)",
+              "title": "Metric"
+            },
+            "description": "only these metrics (repeatable)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinancialFigures"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/companies/{company_id}/financial-observations": {
+      "get": {
+        "tags": [
+          "financials"
+        ],
+        "summary": "Company Financial Observations",
+        "operationId": "company_financial_observations_api_v1_companies__company_id__financial_observations_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the cutoff (ISO 8601 with a time zone); default now",
+              "title": "As Of"
+            },
+            "description": "the cutoff (ISO 8601 with a time zone); default now"
+          },
+          {
+            "name": "taxonomy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Taxonomy"
+            }
+          },
+          {
+            "name": "concept",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Concept"
+            }
+          },
+          {
+            "name": "unit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unit"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_FinancialObservation_"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/financial-observations/{observation_id}": {
+      "get": {
+        "tags": [
+          "financials"
+        ],
+        "summary": "Financial Observation",
+        "operationId": "financial_observation_api_v1_financial_observations__observation_id__get",
+        "parameters": [
+          {
+            "name": "observation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Observation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinancialObservationHistory"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/assertions": {
       "get": {
         "tags": [
@@ -2645,6 +2938,40 @@
             ],
             "title": "Website"
           },
+          "layer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Layer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_path": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourcePath"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sec_forms": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sec Forms"
+          },
           "parent_company_id": {
             "anyOf": [
               {
@@ -2689,6 +3016,9 @@
           "lei",
           "country",
           "website",
+          "layer",
+          "source_path",
+          "sec_forms",
           "parent_company_id",
           "review_state",
           "securities",
@@ -3151,6 +3481,436 @@
         "title": "FetchObservation",
         "description": "One fetch of the document that produced or matched this version."
       },
+      "FinancialFigure": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "fx_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FxBasis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "period_type": {
+            "type": "string",
+            "enum": [
+              "instant",
+              "quarter",
+              "half_year",
+              "nine_months",
+              "year",
+              "other"
+            ],
+            "title": "Period Type"
+          },
+          "period_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Days"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Value"
+          },
+          "derived": {
+            "type": "boolean",
+            "title": "Derived"
+          },
+          "concept": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concept"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialObservation"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric",
+          "label",
+          "unit",
+          "currency",
+          "fx_basis",
+          "period_start",
+          "period_end",
+          "period_type",
+          "period_days",
+          "value",
+          "derived",
+          "concept",
+          "available_at",
+          "flags",
+          "sources"
+        ],
+        "title": "FinancialFigure",
+        "description": "A canonical metric's value for one period and unit, as of the cutoff."
+      },
+      "FinancialFigures": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "metrics_version": {
+            "type": "integer",
+            "title": "Metrics Version"
+          },
+          "figures": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialFigure"
+            },
+            "type": "array",
+            "title": "Figures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "as_of",
+          "metrics_version",
+          "figures"
+        ],
+        "title": "FinancialFigures"
+      },
+      "FinancialObservation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "cik": {
+            "type": "string",
+            "title": "Cik"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "accession": {
+            "type": "string",
+            "title": "Accession"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "filed": {
+            "type": "string",
+            "format": "date",
+            "title": "Filed"
+          },
+          "fiscal_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year"
+          },
+          "fiscal_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Period"
+          },
+          "frame": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame"
+          },
+          "taxonomy": {
+            "type": "string",
+            "title": "Taxonomy"
+          },
+          "concept": {
+            "type": "string",
+            "title": "Concept"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "fx_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FxBasis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "period_type": {
+            "type": "string",
+            "enum": [
+              "instant",
+              "quarter",
+              "half_year",
+              "nine_months",
+              "year",
+              "other"
+            ],
+            "title": "Period Type"
+          },
+          "period_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Days"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Value"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "available_at_basis": {
+            "type": "string",
+            "title": "Available At Basis"
+          },
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "previous_observation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Observation Id"
+          },
+          "linkage": {
+            "type": "string",
+            "title": "Linkage"
+          },
+          "suspect_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suspect Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "cik",
+          "source_version_id",
+          "accession",
+          "form",
+          "filed",
+          "fiscal_year",
+          "fiscal_period",
+          "frame",
+          "taxonomy",
+          "concept",
+          "unit",
+          "currency",
+          "fx_basis",
+          "period_start",
+          "period_end",
+          "period_type",
+          "period_days",
+          "value",
+          "available_at",
+          "available_at_basis",
+          "accepted_at",
+          "previous_observation_id",
+          "linkage",
+          "suspect_reasons"
+        ],
+        "title": "FinancialObservation",
+        "description": "One XBRL fact of one filing, as of its filing's availability."
+      },
+      "FinancialObservationHistory": {
+        "properties": {
+          "observation": {
+            "$ref": "#/components/schemas/FinancialObservation"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialObservation"
+            },
+            "type": "array",
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "observation",
+          "history"
+        ],
+        "title": "FinancialObservationHistory"
+      },
+      "FxBasis": {
+        "properties": {
+          "rate_source": {
+            "type": "string",
+            "title": "Rate Source"
+          },
+          "rate_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Rate Date"
+          },
+          "from_currency": {
+            "type": "string",
+            "title": "From Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rate_source",
+          "rate_date",
+          "from_currency"
+        ],
+        "title": "FxBasis",
+        "description": "How a value was converted from its reporting currency. Atlas has no FX source yet, so\nevery value is as filed and this is always null."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3440,6 +4200,18 @@
         ],
         "title": "LLMAttempt",
         "description": "One chat completion: the routed model, its usage, its raw content and why it failed\nvalidation (None: it validated)."
+      },
+      "Layer": {
+        "type": "string",
+        "enum": [
+          "substrate",
+          "epi",
+          "chip-laser",
+          "dsp",
+          "module",
+          "contract-manufacturing",
+          "system"
+        ]
       },
       "MemoryDocument": {
         "properties": {
@@ -4218,6 +4990,37 @@
           "offset"
         ],
         "title": "Page[Company]"
+      },
+      "Page_FinancialObservation_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialObservation"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[FinancialObservation]"
       },
       "Page_SourceDocument_": {
         "properties": {
@@ -5471,6 +6274,15 @@
           "latest_version_id"
         ],
         "title": "SourceDocument"
+      },
+      "SourcePath": {
+        "type": "string",
+        "enum": [
+          "sec",
+          "exchange:hkex",
+          "exchange:lse-rns",
+          "exchange:euronext"
+        ]
       },
       "SourceVersionDetail": {
         "properties": {
