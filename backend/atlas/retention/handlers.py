@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from atlas.archive import open_archive
 from atlas.audit import Actor
-from atlas.companies import load_universe
+from atlas.companies import extend_universe, load_universe
 from atlas.jobs.handlers import HandlerRegistry
 from atlas.jobs.queue import Artifacts, Job
 from atlas.jobs.resources import hindsight_resources
@@ -51,12 +51,15 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
 @contextmanager
 def _retention(settings: Settings) -> Generator[Retention]:
     with hindsight_resources(settings) as (gateway, engine):
+        with engine.connect() as connection:
+            # Committed Candidates' companies are tagged with their themes too.
+            universe = extend_universe(connection, load_universe(settings.themes_config))
         yield Retention(
             engine,
             open_archive(settings),
             gateway,
             Actor.from_settings(settings),
-            load_universe(settings.themes_config),
+            universe,
             RetainTimings(
                 poll_timeout=settings.retain_poll_timeout_seconds,
                 poll_interval=settings.retain_poll_interval_seconds,

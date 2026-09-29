@@ -46,6 +46,7 @@ PAUSABLE_KINDS = [
     "extract_claims",
     "investigation_task",
     "poll_operation",
+    "propose_candidates",
     "refresh_mental_model",
     "reprocess",
     "retain",

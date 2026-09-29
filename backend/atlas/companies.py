@@ -162,8 +162,44 @@ def load_universe(path: Path) -> Universe:
 
 
 def company_id_for(slug: str, config: CompanyConfig) -> uuid.UUID:
-    key = f"cik:{config.cik}" if config.cik else f"slug:{slug}"
+    return company_id_from(slug, config.cik)
+
+
+def company_id_from(slug: str, cik: str | None) -> uuid.UUID:
+    """A company's ID: from its CIK, else its slug (config and committed Candidates alike)."""
+    key = f"cik:{cik}" if cik else f"slug:{slug}"
     return uuid.uuid5(_NAMESPACE, f"company:{key}")
+
+
+def extend_universe(connection: Connection, universe: Universe) -> Universe:
+    """The universe with its database extension: each company a committed Candidate added
+    (`universe_company`), in its theme. Config wins where both name a slug. A company with no
+    source path (no automated source yet) is left out, as no config entry could hold it."""
+    rows = connection.execute(
+        text(
+            "SELECT u.theme, c.slug, c.legal_name, c.display_name, c.cik, c.lei, c.country,"
+            " c.website, c.layer, c.source_path, c.sec_forms FROM universe_company u"
+            " JOIN company c ON c.id = u.company_id WHERE c.source_path IS NOT NULL"
+            " ORDER BY c.slug, u.theme"
+        )
+    ).mappings()
+    companies = dict(universe.companies)
+    members: dict[str, list[str]] = {}
+    for row in rows:
+        slug: str = row["slug"]
+        if slug in universe.companies:
+            continue
+        fields = {k: v for k, v in row.items() if k not in ("theme", "slug") and v is not None}
+        companies[slug] = CompanyConfig.model_validate(fields)
+        members.setdefault(row["theme"], []).append(slug)
+    if not members:
+        return universe
+    themes = dict(universe.themes)
+    for theme, slugs in members.items():
+        config = themes.get(theme) or ThemeConfig(title=theme, companies=())
+        added = tuple(s for s in slugs if s not in config.companies)
+        themes[theme] = config.model_copy(update={"companies": config.companies + added})
+    return universe.model_copy(update={"companies": companies, "themes": themes})
 
 
 def _security_id(company_id: uuid.UUID, security: SecurityConfig) -> uuid.UUID:

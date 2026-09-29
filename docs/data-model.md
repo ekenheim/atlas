@@ -23,7 +23,7 @@ Terms follow [`CONTEXT.md`](../CONTEXT.md). The architecture is in [`architectur
 - **Migrations:** Alembic, backwards-compatible, and tested by upgrading from empty (build plan §12).
 - **Every mutation** writes an `audit_event` in the same transaction (§2.6).
 
-Company universe and theme membership are **configuration** (`configs/`), not tables, in Phases 1–2 (spec Part A "Shape"). `company` rows are seeded from `configs/themes/ai-infrastructure.yaml`, keyed by slug, with IDs derived from the CIK. Themes appear only as slugs, in tags (`theme:photonics`) and in scopes.
+Company universe and theme membership are **configuration** (`configs/`), not tables, in Phases 1–2 (spec Part A "Shape"); from Phase 3 a committed Candidate adds a company in the database (`universe_company`, §3.1g). `company` rows are seeded from `configs/themes/ai-infrastructure.yaml`, keyed by slug, with IDs derived from the CIK. Themes appear only as slugs, in tags (`theme:photonics`) and in scopes.
 
 ## 2. Phase 1 tables
 
@@ -466,6 +466,34 @@ Discovery (`atlas.discovery`): the Scout's SearXNG queries and the Tier C leads 
 | `first_seen_at`, `last_seen_at` | timestamptz | |
 
 `lead_sighting`: each query result that returned a lead (primary key lead + query): position, URL, title, snippet, engines, published date and `seen_at`, as that result gave them.
+
+### 3.1g Candidates and the universe's database extension (Phases 3–6a, migration 0026)
+
+Candidates (`atlas.candidates`, spec §8.3): companies outside the universe that leads name. `GET /api/v1/candidates[/{id}]` reads them; the owner commits or rejects a `lead`.
+
+`lead_examination`: one per lead the mention extractor has read (primary key the lead): the discovery whose `propose_candidates` job read it, the `role_call` that read it, how many companies it named, `examined_at`. A lead is examined once.
+
+`candidate`: one per (theme, company), never deleted (a trigger refuses `DELETE`/`TRUNCATE`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `theme` | text | The discovery's theme; unique with `identity_key` |
+| `identity_key` | text | `cik:<CIK>`, else `lei:<LEI>`, else `name:<normalized name>` (no single entity) |
+| `name` | text | The resolved entity's name, else the name the lead used |
+| `cik`, `lei`, `country` | text | `lei` only when no CIK identified it (a CIK↔LEI link is the owner's, ticket 02); `country` from GLEIF's jurisdiction or SEC's US state of incorporation |
+| `tier` | text | The resolution's tier: `exact`, `corroborated`, `candidate`, `conflict` |
+| `source_path` | text | `sec` when a CIK was resolved; null: no automated source yet |
+| `resolution` | jsonb | The `Resolution` (entity, candidates, proposals, evidence, reasons) |
+| `state` | text | §8.3: `lead`, `investigating`, `evidence_ready`, `needs_more_evidence`, `paper_tracking`, `rejected`, `closed` |
+| `company_id` | uuid FK → `company` | Set at commit (null exactly while `lead` or `rejected`) |
+| `ingest_job_id`, `ingest_note` | | The ingest a commit enqueued, or why none was |
+| `reject_reason` | text | Set exactly when `rejected` |
+| `decided_by`, `decided_at`, `decision_note` | | The owner's commit or reject |
+
+`lead_mention`: each company a lead named, in the extractor's order (unique lead + position): the name, ticker and exchange as the extractor gave them, the exchange's MIC when Atlas knows it, and the outcome: `in_universe` (with `company_id`), `candidate` (with `candidate_id`) or `unresolved`, with the resolution's tier. A Candidate's leads are its mentions' leads.
+
+`universe_company`: the universe stored in the database beside the theme config (primary key theme + company): each company a committed Candidate added, in the Candidate's theme, with who added it and when. `atlas.companies.extend_universe` adds these companies (those with a source path) and their theme membership to the config's universe for ingest, `atlas ingest` and retention tags.
 
 ### 3.1e `relationship`, `relationship_assertion`, `relationship_review` and `relationship_review_job` (Phases 3–6a, migration 0021)
 

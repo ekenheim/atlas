@@ -6,10 +6,10 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 02 (Entity resolution and identity review); 08 (Scout and leads)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Entity mentions in leads go through entity resolution; unseeded matches create Candidates, linked to their leads
-- [ ] `GET candidates`, `POST candidates/{id}/commit`, `POST candidates/{id}/reject` (audited)
-- [ ] Gate test: an unseeded company is discovered from a SearXNG fixture and becomes a Candidate
-- [ ] Committing enqueues the right ingest for its source path; Candidates are never deleted
-- [ ] Metrics: Candidates by state
+- [x] Entity mentions in leads go through entity resolution; unseeded matches create Candidates, linked to their leads
+- [x] `GET candidates`, `POST candidates/{id}/commit`, `POST candidates/{id}/reject` (audited)
+- [x] Gate test: an unseeded company is discovered from a SearXNG fixture and becomes a Candidate
+- [x] Committing enqueues the right ingest for its source path; Candidates are never deleted
+- [x] Metrics: Candidates by state

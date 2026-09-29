@@ -37,6 +37,16 @@ _RECALL_BUCKETS = (0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)
 RECALL_OUTCOMES = ("ok", "refused", "error")
 _CLAIM_OUTCOMES = ("accepted", "rejected")
 _RELATIONSHIP_STATES = ("machine_reviewed", "needs_human_review", "approved", "rejected")
+# Candidate states (spec §8.3), each exposed even at zero.
+_CANDIDATE_STATES = (
+    "lead",
+    "investigating",
+    "evidence_ready",
+    "needs_more_evidence",
+    "paper_tracking",
+    "rejected",
+    "closed",
+)
 _RELATIONSHIP_REVIEW_OUTCOMES = ("machine_reviewed", "needs_human_review", "not_eligible")
 _STOP_REASONS = (
     "answered",
@@ -92,6 +102,7 @@ class StateCollector(Collector):
             yield from self._relationships(connection)
 
             yield from self._discovery(connection)
+            yield from self._candidates(connection)
             yield from self._investigations(connection)
 
     def _pause(self) -> Iterator[Metric]:
@@ -410,6 +421,21 @@ class StateCollector(Collector):
         )
         leads.add_metric([], connection.execute(text("SELECT count(*) FROM lead")).scalar_one())
         yield leads
+
+    def _candidates(self, connection: Connection) -> Iterator[Metric]:
+        # A Candidate's state changes (commit, reject), so it is a gauge.
+        states = GaugeMetricFamily(
+            "atlas_candidates", "Candidates by state (spec §8.3)", labels=["state"]
+        )
+        by_state: dict[str, int] = {
+            state: count
+            for state, count in connection.execute(
+                text("SELECT state, count(*) FROM candidate GROUP BY 1")
+            ).all()
+        }
+        for state in _CANDIDATE_STATES:
+            states.add_metric([state], by_state.get(state, 0))
+        yield states
 
     def _investigations(self, connection: Connection) -> Iterator[Metric]:
         # Stops are counted from the insert-only event log, so a resumed investigation's

@@ -10,6 +10,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Info, gene
 
 from atlas import __version__
 from atlas.api.assertions import assertions_router
+from atlas.api.candidates import candidates_router
 from atlas.api.claims import claims_router
 from atlas.api.common import invalid_request
 from atlas.api.discovery import discovery_router
@@ -26,6 +27,7 @@ from atlas.api.runs import runs_router
 from atlas.api.sources import sources_router
 from atlas.archive import open_archive
 from atlas.audit import Actor
+from atlas.companies import load_universe
 from atlas.db import create_engine
 from atlas.health import (
     NOT_CONFIGURED,
@@ -107,6 +109,14 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(relationships_router(engine, Actor.from_settings(settings)))
     app.include_router(
         investigations_router(engine, queue, Actor.from_settings(settings), settings)
+    )
+    app.include_router(
+        candidates_router(
+            engine,
+            Actor.from_settings(settings),
+            lambda: load_universe(settings.themes_config),
+            ingest_lookback_days=settings.ingest_lookback_days,
+        )
     )
 
     # Mounted last so API routes take precedence over the static export.
