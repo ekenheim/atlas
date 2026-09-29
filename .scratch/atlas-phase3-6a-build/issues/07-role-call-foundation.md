@@ -6,10 +6,10 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A role-call module with versioned prompts in the repo and fixed directives in code
-- [ ] A LiteLLM chat fake in `tests/fakes/` scripting schema-valid, malformed and failing responses
-- [ ] Malformed output is repaired once then quarantined (visible, never used); transient failures use the existing queue pause
-- [ ] Usage is recorded per call and summed per run; exceeding the budget raises a typed budget error
-- [ ] No live LLM calls in CI
+- [x] A role-call module with versioned prompts in the repo and fixed directives in code
+- [x] A LiteLLM chat fake in `tests/fakes/` scripting schema-valid, malformed and failing responses
+- [x] Malformed output is repaired once then quarantined (visible, never used); transient failures use the existing queue pause
+- [x] Usage is recorded per call and summed per run; exceeding the budget raises a typed budget error
+- [x] No live LLM calls in CI

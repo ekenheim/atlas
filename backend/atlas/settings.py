@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
+from pydantic import Field, JsonValue, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -52,6 +52,16 @@ class Settings(BaseSettings):
     # LiteLLM aliases Atlas uses, named in config and never hard-coded (spec Part B).
     llm_extract_alias: str = Field(default="atlas-extract", min_length=1)
     llm_reflect_alias: str = Field(default="atlas-reflect", min_length=1)
+    # Research roles (atlas.roles): the model their chat completions ask LiteLLM for, the
+    # extra body fields merged into each request (MiniMax-M3 with thinking off, as for
+    # Hindsight; a JSON object in the env), the HTTP timeout, and each run's token ceiling
+    # (input + output, spec §7.4), backstopped by the `atlas` key's maxBudget.
+    llm_role_model: str = Field(default="MiniMax-M3", min_length=1)
+    llm_role_extra_body: dict[str, JsonValue] = Field(
+        default_factory=lambda: {"thinking": {"type": "disabled"}}
+    )
+    llm_role_timeout_seconds: float = Field(default=180.0, gt=0)
+    run_token_budget: int = Field(default=200_000, gt=0)
     # Retention: how long one poll job waits for a retain operation to reach a terminal
     # status (keep it below job_lease_seconds), and how often it asks. A poll that times out
     # fails its attempt and is retried, up to retain_poll_attempts.

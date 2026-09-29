@@ -1217,6 +1217,59 @@
           }
         }
       }
+    },
+    "/api/v1/runs/{run_id}/role-calls": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Role Calls",
+        "operationId": "role_calls_api_v1_runs__run_id__role_calls_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunRoleCalls"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2472,6 +2525,76 @@
         "title": "JobFailure"
       },
       "JsonValue": {},
+      "LLMAttempt": {
+        "properties": {
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt"
+          },
+          "response_model": {
+            "type": "string",
+            "title": "Response Model"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "tokens_in": {
+            "type": "integer",
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "type": "integer",
+            "title": "Tokens Out"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "validation_errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Errors"
+          },
+          "called_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Called At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempt",
+          "response_model",
+          "model_id",
+          "tokens_in",
+          "tokens_out",
+          "content",
+          "validation_errors",
+          "called_at"
+        ],
+        "title": "LLMAttempt",
+        "description": "One chat completion: the routed model, its usage, its raw content and why it failed\nvalidation (None: it validated)."
+      },
       "MemoryDocument": {
         "properties": {
           "section_anchor": {
@@ -3487,6 +3610,37 @@
         "title": "QuoteSpan",
         "description": "A quote matched in the archived parsed text: code-point offsets, like an Assertion's."
       },
+      "QuotedText": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "trust": {
+            "type": "string",
+            "const": "low",
+            "title": "Trust",
+            "default": "low"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "text"
+        ],
+        "title": "QuotedText",
+        "description": "Retrieved text passed to a role: always quoted, always low-trust data (spec §7.5)."
+      },
       "RecallRequest": {
         "properties": {
           "query": {
@@ -3991,6 +4145,160 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ResearchScope"
+      },
+      "RoleCallRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "prompt_name": {
+            "type": "string",
+            "title": "Prompt Name"
+          },
+          "prompt_version": {
+            "type": "integer",
+            "title": "Prompt Version"
+          },
+          "prompt_sha256": {
+            "type": "string",
+            "title": "Prompt Sha256"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "request": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Request"
+          },
+          "retrieved": {
+            "items": {
+              "$ref": "#/components/schemas/QuotedText"
+            },
+            "type": "array",
+            "title": "Retrieved"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "accepted",
+              "quarantined",
+              "failed",
+              "budget_exhausted"
+            ],
+            "title": "Status"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/LLMAttempt"
+            },
+            "type": "array",
+            "title": "Attempts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "prompt_name",
+          "prompt_version",
+          "prompt_sha256",
+          "model",
+          "request",
+          "retrieved",
+          "status",
+          "output",
+          "error",
+          "started_at",
+          "finished_at",
+          "attempts"
+        ],
+        "title": "RoleCallRecord",
+        "description": "One call of a role. A quarantined call's outputs are visible in its attempts only;\n`output` is set only for an accepted call."
+      },
+      "RunRoleCalls": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "tokens_in": {
+            "type": "integer",
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "type": "integer",
+            "title": "Tokens Out"
+          },
+          "role_calls": {
+            "items": {
+              "$ref": "#/components/schemas/RoleCallRecord"
+            },
+            "type": "array",
+            "title": "Role Calls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "tokens_in",
+          "tokens_out",
+          "role_calls"
+        ],
+        "title": "RunRoleCalls"
       },
       "Security": {
         "properties": {

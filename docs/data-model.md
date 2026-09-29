@@ -244,6 +244,40 @@ Extended into the full run/task model in Phase 4 (spec Part B "Schema").
 | `tokens_in`, `tokens_out` | bigint not null default 0 | Totals |
 | `started_at`, `finished_at` | timestamptz | |
 
+### 3.1a `role_call` and `llm_call` (Phases 3–6a, migration 0015)
+
+Every research role's LLM call in a run (`atlas.roles`). A run's usage, which its token budget counts, is the sum of its `llm_call` rows. `GET /api/v1/runs/{id}/role-calls` reads both.
+
+`role_call`: one per call of a role.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `run_id` | uuid FK → `run` | The run must be unfinished when the call starts |
+| `role` | text not null | The role's name, also the `json_schema` name and `metadata.role` |
+| `prompt_name`, `prompt_version`, `prompt_sha256` | text, int, text not null | The versioned prompt file and the SHA-256 of its bytes |
+| `model` | text not null | The model asked for (`ATLAS_LLM_ROLE_MODEL`) |
+| `request` | jsonb not null | The role's request |
+| `retrieved` | jsonb array not null | The quoted, low-trust retrieved text sent (`{id, source, text, trust: "low"}`) |
+| `status` | text not null | `running`, `accepted`, `quarantined`, `failed` or `budget_exhausted` |
+| `output` | jsonb | The validated output; set only when `accepted` (a quarantined output stays in its attempts, never here) |
+| `error` | text | Why it failed, was quarantined or ran out of budget |
+| `started_at`, `finished_at` | timestamptz | `finished_at` is null only while `running` |
+
+`llm_call`: one per chat completion LiteLLM answered (attempt 1, or 2 for the repair).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `role_call_id` | uuid FK → `role_call` | Unique with `attempt` |
+| `run_id` | uuid FK → `run` | Denormalized for the per-run sum |
+| `attempt` | smallint 1–2 | |
+| `response_model`, `model_id` | text | The response's `model` and the `x-litellm-model-id` deployment hash |
+| `tokens_in`, `tokens_out` | bigint ≥ 0 | `usage.prompt_tokens`, `usage.completion_tokens` |
+| `content` | text not null | The raw message content |
+| `validation_errors` | jsonb | Pydantic errors (`type`, `loc`, `msg`, no input); null when it validated |
+| `called_at` | timestamptz | |
+
 ### 3.1b `bank_template_application`
 
 One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.
