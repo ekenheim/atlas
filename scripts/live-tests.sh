@@ -19,6 +19,7 @@
 #   --model ALIAS       LiteLLM alias for both extraction and reflect (e.g. MiniMax-M3), until
 #                       atlas-extract/atlas-reflect are routed; the spike stack defaults to it
 #   --keep-db           keep the run's app database (atlas_live_*) for inspection
+#   --keep-bank         keep the run's throwaway Hindsight bank (deleted at the end otherwise)
 #   --down              afterwards, stop and remove the Hindsight containers (volume kept)
 #   --purge             with --down, also delete the Hindsight volume (all its banks)
 #   --results DIR       where to record results (default .scratch/live-runs/<UTC stamp>-<mode>)
@@ -41,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --profile) profile="${2:?--profile needs small or full}"; shift ;;
     --model) model="${2:?--model needs a LiteLLM alias}"; shift ;;
     --keep-db) keep=1 ;;
+    --keep-bank) export ATLAS_LIVE_KEEP_BANK=1 ;;
     --down) down=1 ;;
     --purge) purge=1 ;;
     --results) results="${2:?--results needs a directory}"; shift ;;

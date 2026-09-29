@@ -1210,3 +1210,19 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
   - Phrases the model put in quotation marks but that were its own words ("near-doubling of revenue", "deleveraging"). Unverified is the correct outcome.
   - Financial-table figures ("$144.2", "Net cash provided by operating activities $ 388.4 $ 62.3"). These probably differ from the parse only in table spacing, e.g. "$ 144.2". That would be a false negative of the quote rule `whitespace-and-typographic-quotes-v1`, which is conservative rather than unsafe. **Follow-up:** inspect those against the parsed text, and decide whether to normalize space after currency symbols and between table cells.
 - **Not yet run live:** the full profile (`--profile full`, ~470k chars, est. ~1M input tokens); zero-fact reprocess; the queue pause on a real 429; the mental-model refresh on Hindsight's own cron.
+
+## 2026-09-29: live Phase 2 gate run against the owner's cluster Hindsight
+
+`scripts/live-tests.sh --stack cluster --model MiniMax-M3`: `hindsight.ekenhome.se` (the shared `llm/hindsight` release; its **server-wide extraction LLM is Codex, not MiniMax**, so `--model` affects only Atlas's routing check and run records).
+
+- **Result: 7 passed, 1 skipped (zero-fact: none occurred), 2 min 24 s.**
+  - Recall: 26 memories, **26 resolved**, 0 broken (Lumentum 19, Coherent 7).
+  - Reflect: completed in 48 s. Citations: **37 resolved, 1 unverified** (the phrase "Most recent"), 0 broken; 4 evidence sections.
+  - 16 LLM calls, all success, 48k input / 7k output tokens.
+- **What running behind the cluster route needed.** The cluster's HTTPRoute exposes only `/v1` and `/mcp`; `/health` and `/version` land on the control-plane UI with a 404.
+  - The live preflight now checks liveness via `GET /v1/default/banks` and takes a declared version (`ATLAS_LIVE_HINDSIGHT_VERSION`, 0.10.1 from the HelmRelease pin).
+  - **App change:** runs fall back to `ATLAS_HINDSIGHT_VERSION`, recorded as `"<v> (declared)"`, when `/version` is unreachable, and refuse to start without it. An earlier cluster run failed reflect on exactly this. TDD: 2 tests.
+- **Runner:**
+  - `--stack cluster` reads `HINDSIGHT_URL`/`HINDSIGHT_API_KEY` from `.env`, else `~/.hindsight/config`.
+  - Throwaway banks (`atlas-live-<stamp>`) are now **deleted at the end of a run** (`--keep-bank` to keep one). The leftover `atlas-live-20260929-064603` from the first cluster attempt was deleted. The cluster again has only `atlas-dev` and `hermes`.
+- **Bank policy, clarified for the owner:** production is **one** long-lived research bank (`atlas-ai-infrastructure`); per-run banks exist only for test isolation; `atlas-dev` stays the coding agents' engineering-notes bank and is never used for research data.

@@ -206,6 +206,19 @@ class LiveStack:
             },
         }
 
+    def delete_bank(self) -> None:
+        """`DELETE /v1/default/banks/{bank}`: best effort; a failure is reported, not raised."""
+        headers = (
+            {"Authorization": f"Bearer {self.hindsight_api_key}"} if self.hindsight_api_key else {}
+        )
+        url = f"{self.hindsight_url.rstrip('/')}/v1/default/banks/{self.bank_id}"
+        try:
+            response = httpx2.delete(url, headers=headers, timeout=60)
+            outcome = f"HTTP {response.status_code}"
+        except httpx2.HTTPError as error:
+            outcome = type(error).__name__
+        print(f"live suite: deleted throwaway bank {self.bank_id} ({outcome})")
+
     def _check_v1_only_route(self) -> str:
         """Liveness and auth via `GET /v1/default/banks`; the version from the environment."""
         headers = (
@@ -303,7 +316,7 @@ def live_stack(mode: Mode) -> Generator[LiveStack]:
             litellm_key = env("ATLAS_LITELLM_API_KEY", "")
             bank_id = env("ATLAS_LIVE_BANK_ID") or f"atlas-live-{stamp}"
         rehearsing = mode == "rehearse"
-        yield LiveStack(
+        live = LiveStack(
             mode=mode,
             stop_before_llm=_flag("ATLAS_LIVE_STOP_BEFORE_LLM"),
             hindsight_url=hindsight_url,
@@ -326,6 +339,14 @@ def live_stack(mode: Mode) -> Generator[LiveStack]:
             rehearsal=rehearsal,
             hindsight_api_key=None if rehearsing else (env("ATLAS_LIVE_HINDSIGHT_API_KEY") or None),
         )
+        # A run's own bank (not one named by ATLAS_LIVE_BANK_ID) is throwaway: deleted at the end
+        # so test banks never pile up on a shared Hindsight, unless ATLAS_LIVE_KEEP_BANK is set.
+        throwaway = mode == "live" and not env("ATLAS_LIVE_BANK_ID")
+        try:
+            yield live
+        finally:
+            if throwaway and not _flag("ATLAS_LIVE_KEEP_BANK"):
+                live.delete_bank()
 
 
 @dataclass
