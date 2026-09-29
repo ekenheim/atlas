@@ -467,3 +467,14 @@ Decision:
 - **Skipped sections stay evidence.** They remain archived, in the parsed text, viewable and citable by Assertions; only recall and reflect (memory) don't see them.
 - **Budgets.** `triage` is a `minimax` kind (its role calls' tokens); it is enqueued by a `retain` job, a `codex` kind. So triage waits whenever retains would wait anyway.
 - **Visibility.** `GET /api/v1/triage?source_version_id=&company_id=&decision=&category=&method=&effective=`; metrics `atlas_triage_sections{decision,category}` (effective decisions), `atlas_triage_decisions{method}` and `atlas_triage_hindsight_operations_saved_estimate{unit}`. `documents` counts skipped sections never retained, each one Hindsight extraction not run; `batches` counts versions with every section skipped, each one retain operation not submitted.
+
+## 2026-09-30: Owner override: TradingView as a source (ticket 31)
+
+The owner decided to use their TradingView subscription through the MCP server as an Atlas source, despite the display-only terms recorded above. In the owner's words: "this is a hobby project as of now. Building the function does not mean this will be anything more then a PoC", and "Yes I want to proceed." The override is:
+- off by default (`ATLAS_TRADINGVIEW_ENABLED`);
+- limited to transcripts (Tier B), the filing catalog and news-headline leads;
+- marked on every stored item;
+- paced gently;
+- never committed to git as real content (fixtures are synthetic).
+
+The owner makes the repository private before any real content could reach it. The account and terms risk is the owner's, accepted knowingly.
