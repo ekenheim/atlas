@@ -447,3 +447,13 @@ SEC's EDGAR access rules require a User-Agent with a contact email, so `ATLAS_SE
   - `get_document_view` returns full verbatim transcripts with speaker labels, but only AI summaries of filings; filing PDFs aren't retrievable.
   - `get_news` returns headlines with the original publisher and timestamps.
   - Consequence: TradingView is not a Tier A filing source, since Atlas has no original text to quote from. It is a filing and event catalog, a transcript source (candidate Tier B) and a news-lead source (Tier C). Whether Atlas may store any of it depends on the terms check (ticket 29).
+
+## 2026-09-30: TradingView stays outside Atlas (terms check, ticket 29)
+
+TradingView's Terms of Use (https://www.tradingview.com/policies/) license content and market data "for exclusive display-only use" and prohibit "any form of non-display usage", including "machine-driven processes that do not involve the direct, human-readable display of such data" and "any processing of TradingView's content". §25 "AI Features" allows only "personal, non-automated use". Quartr's standard redistribution terms forbid using its data "to build, populate, enrich or maintain any database archive". News belongs to the publishers ("Data Providers" include "news providers").
+
+Decision:
+- **Atlas is not a TradingView MCP client** and stores no TradingView output (transcripts, news text, summaries, fundamentals, prices), including into Hindsight.
+- **The owner uses the MCP interactively only**, in their own assistant session, for reading and finding leads. For example: which filings exist, what a call said, which companies to look at.
+- **Bringing something into Atlas means going to the primary source** under that source's own terms: SEC/NSM/AMF adapters, `atlas sources import` of documents the owner is entitled to keep, and SearXNG leads to the publisher's own URL.
+- **Automation or storage would need TradingView's written consent** (a "separate agreement").

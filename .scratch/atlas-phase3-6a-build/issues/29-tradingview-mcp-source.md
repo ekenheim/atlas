@@ -17,9 +17,11 @@ Owner direction (2026-09-29): "we could most likely connect this to Atlas later 
 
 **Blocked by:** None for the evaluation. The adapter waits on the evaluation, on ticket 08 (leads) and on ticket 27 (pacing).
 
-**Status:** needs-info
+**Status:** wontfix (for Atlas integration; interactive use only)
 
 - [ ] Terms check, done the way the exchange check was: TradingView's Terms of Use and any MCP-specific terms on storage, archiving, redistribution, automated or server-side use, and AI use of news text. Also the licensing of exchange-sourced market data (often display-only). Quote and cite in `docs/decisions.md`.
 - [ ] Feasibility of Atlas as an MCP client: OAuth 2.1 from a headless service (token refresh, storage as a secret), and the tool schemas.
 - [ ] Decision per use (news, screener, calendars, market data): allowed, and with what source tier and `available_at` basis. News keeps the publisher, not TradingView, as the source where it names one.
 - [ ] If allowed: an adapter ticket under the pacing budget, with fixtures from the documented tool schemas.
+
+**Resolution (2026-09-30):** tested live in the owner's session; the terms check found automated server-side use, archiving and feeding Hindsight not allowed (display-only, no non-display use; Quartr's no-archive clause). The TradingView entry in `docs/decisions.md` has the quotes. No adapter will be built.
