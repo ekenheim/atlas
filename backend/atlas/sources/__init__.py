@@ -12,7 +12,7 @@ from atlas.sources.adapter import (
     SourceAdapter,
     SourceCandidate,
 )
-from atlas.sources.edgar import EdgarAdapter, live_edgar_adapter
+from atlas.sources.edgar import EdgarAdapter, keep_8k_document, live_edgar_adapter
 from atlas.sources.edgar_fixtures import FixtureReplay, fixture_edgar_adapter
 from atlas.sources.sec_http import SEC_RATE_LIMITER, HttpResult, SecHttpClient, TokenBucket
 
@@ -34,5 +34,6 @@ __all__ = [
     "SourceCandidate",
     "TokenBucket",
     "fixture_edgar_adapter",
+    "keep_8k_document",
     "live_edgar_adapter",
 ]

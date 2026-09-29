@@ -217,9 +217,15 @@ class EdgarAdapter:
         return candidates
 
     def _selected_8k(self, filing: SecFiling) -> bool:
-        if self._eight_k_items is None or not _is_8k(filing):
+        if not _is_8k(filing):
             return True
-        return bool(self._eight_k_items.intersection(filing.items))
+        return keep_8k_document(
+            filing.items,
+            is_cover=False,
+            has_exhibits=False,
+            eight_k_items=tuple(self._eight_k_items) if self._eight_k_items is not None else None,
+            exhibits_only_items=(),
+        )
 
     def _folder(self, filing: SecFiling) -> str:
         accession = filing.accession_number.replace("-", "")
@@ -266,6 +272,26 @@ class EdgarAdapter:
 
 def _is_8k(filing: SecFiling) -> bool:
     return filing.form.removesuffix("/A") == "8-K"
+
+
+def keep_8k_document(
+    items: Sequence[str],
+    *,
+    is_cover: bool,
+    has_exhibits: bool,
+    eight_k_items: Sequence[str] | None,
+    exhibits_only_items: Sequence[str],
+) -> bool:
+    """Whether a document of an 8-K is worth ingesting and retaining (docs/decisions.md).
+
+    An 8-K is kept only if it lists one of `eight_k_items` (None keeps every 8-K). A kept
+    8-K whose items all fall in `exhibits_only_items` is a press release: its cover document
+    is dropped when it has exhibits, which carry the substance.
+    """
+    if eight_k_items is not None and not set(eight_k_items).intersection(items):
+        return False
+    press_release = bool(items) and set(items) <= set(exhibits_only_items)
+    return not (is_cover and press_release and has_exhibits)
 
 
 def live_edgar_adapter(user_agent: str, *, ciks: Sequence[str]) -> EdgarAdapter:

@@ -249,6 +249,8 @@ def run_retry_failed(
             Actor.from_settings(settings),
             since=cutoff,
             job_class="backfill" if backfill else "interactive",
+            eight_k_items=settings.eight_k_items(),
+            exhibits_only_items=settings.eight_k_exhibits_only_items(),
         )
     finally:
         engine.dispose()

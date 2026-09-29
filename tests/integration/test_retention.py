@@ -21,6 +21,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from atlas.audit import Actor
+from atlas.retention import retry_failed
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.serve import Served
 from tests.harness import BANK, EDGAR_FIXTURES, LITE_10K, TEMPLATE, TEN_K_ANCHORS, Atlas
@@ -573,3 +575,29 @@ def test_retry_failed_leaves_versions_before_the_window_alone(
     assert retried.returncode == 0, retried.stderr
     assert json.loads(retried.stdout)["sections"] == 0
     assert atlas.memory(atlas.version(LITE_10K)["id"])["counts"]["failed"] == len(TEN_K_ANCHORS)
+
+
+def test_retry_failed_applies_the_8k_selection_to_what_it_resubmits(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # Ingested with selection off, so the 8-K cover and its EX-99.1 were both retained; every
+    # batch fails (derived), as the cancelled cluster backlog did.
+    fake.hold_retains("failed", where=lambda ids: True, times=10)
+    atlas.ingest("lumentum")
+    cover, exhibit = atlas.version(LITE_8K)["id"], atlas.version(LITE_EX991)["id"]
+    assert atlas.memory(cover)["counts"]["failed"] > 0
+
+    summary = retry_failed(
+        atlas.engine,
+        Actor("local-researcher"),
+        since=None,
+        eight_k_items=("1.01", "1.02", "2.01", "2.02", "2.05", "7.01", "8.01"),
+        exhibits_only_items=("2.02", "7.01", "8.01", "9.01"),
+    )
+
+    # The 8-K is items 2.02,9.01: a press release, so its cover isn't worth the tokens.
+    assert atlas.memory(cover)["counts"]["failed"] > 0  # left failed: not resubmitted
+    assert atlas.memory(cover)["counts"]["pending"] == 0
+    assert atlas.memory(exhibit)["counts"]["failed"] == 0
+    assert atlas.memory(exhibit)["counts"]["pending"] > 0
+    assert summary["skipped_by_selection"] > 0

@@ -33,7 +33,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
@@ -52,6 +52,7 @@ from atlas.hindsight import (
 from atlas.jobs.pacing import FailureClass, JobClass, TransientFailure, classify_error_text
 from atlas.jobs.queue import Artifacts, JobQueue
 from atlas.retention.sections import SECTIONER_VERSION, Section, split_sections
+from atlas.sources import keep_8k_document
 
 RETAIN_KIND = "retain"
 POLL_KIND = "poll_operation"
@@ -121,30 +122,61 @@ def retry_failed(
     *,
     since: datetime | None,
     job_class: JobClass = "interactive",
+    eight_k_items: Sequence[str] | None = None,
+    exhibits_only_items: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Reset the failed sections of Source Versions available after `since` (None: all) to
     `pending`, and enqueue a new retain for each such version, which resubmits them.
 
-    A failed operation stays recorded; each section's reset is audited. Resubmitting the same
-    content under the same document ID is allowed (ADR-0001, amendment).
+    The ingest's 8-K selection applies here too (`keep_8k_document`), so documents a current
+    ingest would not fetch are not resubmitted. A failed operation stays recorded; each
+    section's reset is audited. Resubmitting the same content under the same document ID is
+    allowed (ADR-0001, amendment).
     """
     stamp = datetime.now().astimezone().strftime("%Y%m%dT%H%M%S%f")
     with engine.begin() as connection:
-        rows = (
+        failed = (
             connection.execute(
                 text(
-                    "UPDATE memory_document m SET retain_state = 'pending', operation_id = NULL,"
-                    " error = NULL FROM source_version v"
-                    " WHERE m.source_version_id = v.id AND m.retain_state = 'failed'"
+                    "SELECT m.id, m.source_version_id, m.hindsight_document_id,"
+                    " v.metadata, d.document_type, d.form_type, d.accession,"
+                    " EXISTS (SELECT 1 FROM source_document x WHERE x.accession = d.accession"
+                    "   AND x.document_type LIKE 'EX-%') AS has_exhibits"
+                    " FROM memory_document m"
+                    " JOIN source_version v ON v.id = m.source_version_id"
+                    " JOIN source_document d ON d.id = v.source_document_id"
+                    " WHERE m.retain_state = 'failed'"
                     " AND (CAST(:since AS timestamptz) IS NULL OR v.available_at >= :since)"
-                    " RETURNING m.id, m.source_version_id, m.hindsight_document_id"
                 ),
                 {"since": since},
             )
             .mappings()
             .all()
         )
-        for row in rows:
+        chosen: list[RowMapping] = []
+        skipped = 0
+        for row in failed:
+            form = (row["form_type"] or "").removesuffix("/A")
+            metadata = cast(dict[str, Any], row["metadata"] or {})
+            items = tuple(str(item) for item in cast(list[Any], metadata.get("items") or []))
+            if form == "8-K" and not keep_8k_document(
+                items,
+                is_cover=row["document_type"] == row["form_type"],
+                has_exhibits=bool(row["has_exhibits"]),
+                eight_k_items=eight_k_items,
+                exhibits_only_items=exhibits_only_items,
+            ):
+                skipped += 1
+                continue
+            chosen.append(row)
+        for row in chosen:
+            connection.execute(
+                text(
+                    "UPDATE memory_document SET retain_state = 'pending', operation_id = NULL,"
+                    " error = NULL WHERE id = :id AND retain_state = 'failed'"
+                ),
+                {"id": row["id"]},
+            )
             record(
                 connection,
                 actor,
@@ -155,11 +187,16 @@ def retry_failed(
                     {"retain_state": "pending", "document": row["hindsight_document_id"]}
                 ),
             )
-    versions = list(dict.fromkeys(row["source_version_id"] for row in rows))
+    versions = list(dict.fromkeys(row["source_version_id"] for row in chosen))
     jobs = enqueue_retains(
         engine, versions, job_class=job_class, actor=actor, key_suffix=f":retry:{stamp}"
     )
-    return {"sections": len(rows), "source_versions": len(versions), "retain_jobs": jobs}
+    return {
+        "sections": len(chosen),
+        "source_versions": len(versions),
+        "skipped_by_selection": skipped,
+        "retain_jobs": jobs,
+    }
 
 
 def retain_payload(source_version_id: uuid.UUID) -> dict[str, JsonValue]:
