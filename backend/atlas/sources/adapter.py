@@ -16,7 +16,11 @@ AvailabilityBasis = Literal[
     "sec_acceptance", "sec_dissemination", "publisher_timestamp", "observed_discovery"
 ]
 CandidateKind = Literal[
-    "sec_filing_document", "sec_companyfacts", "exchange_announcement", "manual_import"
+    "sec_filing_document",
+    "sec_companyfacts",
+    "exchange_announcement",
+    "manual_import",
+    "tradingview_transcript",
 ]
 
 
@@ -104,6 +108,26 @@ class ManualImport(_Frozen):
     published_local: str  # the publication time exactly as the owner gave it
 
 
+class TradingViewTranscript(_Frozen):
+    """A transcript view of a document TradingView's `get_documents` lists, fetched through
+    its MCP server under the owner's override of TradingView's terms (atlas.tradingview;
+    ticket 31). It describes the Source Document the ledger records: Tier B, provider
+    `tradingview`, the upstream provider (e.g. Quartr) as its publisher."""
+
+    symbol: str  # the TradingView symbol asked for, e.g. "NASDAQ:LITE"
+    document_id: str  # TradingView's document ID
+    view_id: str  # the transcript view's ID, verbatim
+    category: str | None = None  # the document's category title, e.g. "Earnings call"
+    event: str | None = None
+    fiscal_period: str | None = None
+    fiscal_year: str | None = None
+    upstream_provider_id: str | None = None
+    upstream_provider: str  # the upstream provider's name, e.g. "Quartr"
+    reported_at: AwareDatetime  # the event's `reported` time: the version's available_at
+    view_published_at: AwareDatetime | None = None  # the view's own `published` time
+    owner_override: str  # the override every stored TradingView item records
+
+
 class SearchQuery(_Frozen):
     """What to discover. Each adapter uses the fields that apply to it."""
 
@@ -128,6 +152,7 @@ class SourceCandidate(_Frozen):
     filing: SecFiling | None = None
     announcement: ExchangeAnnouncement | None = None
     manual: ManualImport | None = None
+    transcript: TradingViewTranscript | None = None
     validators: HttpValidators | None = None  # from the last fetch; makes the next conditional
     # The document's language as the source declares it (ISO 639 primary subtag, e.g. "en",
     # "zh"), if it does; otherwise the ledger records the language the parse finds.

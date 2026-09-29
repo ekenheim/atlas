@@ -129,6 +129,20 @@ def describe(candidate: SourceCandidate) -> DocumentIdentity:
             source_tier="A",
             license_class="public_regulatory",
         )
+    transcript = candidate.transcript
+    if transcript is not None:
+        return DocumentIdentity(
+            provider=candidate.provider_id,
+            canonical_url=canonical_url(candidate.url),
+            accession=None,
+            form_type=None,
+            document_type=candidate.document_type,
+            source_type="transcript",
+            title=candidate.title,
+            publisher=f"{transcript.upstream_provider} via TradingView",
+            source_tier="B",
+            license_class="licensed:tradingview-owner-override",
+        )
     if candidate.provider_id != SEC_EDGAR:
         raise LedgerError(f"no ledger rules for provider {candidate.provider_id!r}")
     filing = candidate.filing
@@ -198,9 +212,11 @@ class SourceLedger:
         company_id: uuid.UUID | None,
         job_id: uuid.UUID | None = None,
         gate_decision_id: uuid.UUID | None = None,
+        owner_override: str | None = None,
     ) -> RecordedFetch:
         """Record one fetch. `gate_decision_id` is the `allowed` fetch gate decision it was
-        made under (`atlas.ledger.gates`), for a gated source."""
+        made under (`atlas.ledger.gates`), for a gated source; `owner_override` the owner's
+        recorded override a fetch was made under (TradingView), kept on its observation."""
         identity = describe(fetched.candidate)
         media_type = fetched.media_type or _FALLBACK_MEDIA_TYPE
         raw: bytes | None = None if fetched.not_modified else fetched.content
@@ -300,16 +316,19 @@ class SourceLedger:
             }
             if gate_decision_id is not None:  # SEC observations keep their original shape
                 observation["gate_decision_id"] = gate_decision_id
+            if owner_override is not None:
+                observation["owner_override"] = owner_override
             connection.execute(
                 text(
                     "INSERT INTO fetch_observation (id, source_document_id, source_version_id,"
                     " job_id, outcome, url, fetched_at, raw_sha256, comparison_sha256,"
-                    " object_uri, etag, last_modified, attempts, gate_decision_id) VALUES (:id,"
-                    " :source_document_id, :source_version_id, :job_id, :outcome, :url,"
-                    " :fetched_at, :raw_sha256, :comparison_sha256, :object_uri, :etag,"
-                    " :last_modified, :attempts, :gate_decision_id)"
+                    " object_uri, etag, last_modified, attempts, gate_decision_id,"
+                    " owner_override) VALUES (:id, :source_document_id, :source_version_id,"
+                    " :job_id, :outcome, :url, :fetched_at, :raw_sha256, :comparison_sha256,"
+                    " :object_uri, :etag, :last_modified, :attempts, :gate_decision_id,"
+                    " :owner_override)"
                 ),
-                {"gate_decision_id": None, **observation},
+                {"gate_decision_id": None, "owner_override": None, **observation},
             )
 
             # Audit last: appending takes the chain's lock until commit.
@@ -415,7 +434,7 @@ class SourceLedger:
                 candidate.announcement.published_at
                 if candidate.announcement
                 else candidate.available_at
-                if candidate.manual
+                if candidate.manual or candidate.transcript
                 else None
             ),
             "available_at": available_at,
@@ -540,6 +559,9 @@ def _metadata(fetched: FetchedDocument) -> dict[str, Any]:
         metadata["announcement"] = candidate.announcement.model_dump(mode="json")
     if candidate.manual is not None:
         metadata["manual_import"] = candidate.manual.model_dump(mode="json")
+    if candidate.transcript is not None:
+        metadata["tradingview"] = candidate.transcript.model_dump(mode="json")
+        metadata["owner_override"] = candidate.transcript.owner_override
     return metadata
 
 

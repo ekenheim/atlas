@@ -1,0 +1,42 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; not TradingView, Quartr or news content",
+  "astDescription": {
+    "type": "root",
+    "children": [
+      {
+        "type": "p",
+        "children": [
+          {"type": "b", "children": ["Operator"]},
+          ": Good afternoon and welcome to this synthetic call. It is a hand-written test fixture and not the record of a real call."
+        ]
+      },
+      {
+        "type": "p",
+        "children": [
+          {"type": "b", "children": ["Chief Executive Officer"]},
+          ": Thank you. In this fictional quarter our indium phosphide laser capacity was the constraint on shipments of 1.6T transceivers, and we expect the new line to be qualified by the end of the year."
+        ]
+      },
+      {
+        "type": "p",
+        "children": [
+          {"type": "b", "children": ["Analyst"]},
+          ": How much of the demand comes from",
+          {"type": "br"},
+          "the largest customer?"
+        ]
+      },
+      {
+        "type": "p",
+        "children": [
+          {"type": "b", "children": ["Chief Financial Officer"]},
+          ": We do not break that out, but the backlog is broad and it is spread across several customers."
+        ]
+      }
+    ]
+  },
+  "id": "syn-view-1001-t",
+  "provider": {"id": "quartr", "name": "Quartr"},
+  "published": 1786489200,
+  "title": "SYNTHETIC Q4 FY2026 earnings call transcript"
+}

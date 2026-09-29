@@ -634,6 +634,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tradingview/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["catalog_api_v1_tradingview_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/identity-mappings": {
         parameters: {
             query?: never;
@@ -1686,6 +1703,64 @@ export interface components {
              */
             evaluated_at: string;
         };
+        /** CatalogEntry */
+        CatalogEntry: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Symbol */
+            symbol: string;
+            /** Document Id */
+            document_id: string;
+            /** Category */
+            category: string | null;
+            /** Event */
+            event: string | null;
+            /** Form */
+            form: string | null;
+            /** Fiscal Period */
+            fiscal_period: string | null;
+            /** Fiscal Year */
+            fiscal_year: string | null;
+            /** Reported At */
+            reported_at: string | null;
+            /** Status */
+            status: string | null;
+            /** Title */
+            title: string;
+            /** Upstream Provider */
+            upstream_provider: string | null;
+            /** Views */
+            views: components["schemas"]["CatalogView"][];
+            /** Owner Override */
+            owner_override: string;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+        };
+        /** CatalogView */
+        CatalogView: {
+            /** Id */
+            id: string;
+            /** Type */
+            type: string;
+            /** Source Version Id */
+            source_version_id?: string | null;
+        };
         /**
          * Check
          * @description One gold expectation, what was observed, and whether it held.
@@ -2736,6 +2811,8 @@ export interface components {
             job_id: string | null;
             /** Gate Decision Id */
             gate_decision_id: string | null;
+            /** Owner Override */
+            owner_override?: string | null;
         };
         /**
          * FinancialFigure
@@ -2938,6 +3015,31 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * Headline
+         * @description A TradingView news headline's metadata (a `tradingview_news` lead).
+         */
+        Headline: {
+            /** Headline Id */
+            headline_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Symbol */
+            symbol: string;
+            /** Publisher */
+            publisher: string | null;
+            /** Publisher Url */
+            publisher_url: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Related Symbols */
+            related_symbols: string[];
+            /** Owner Override */
+            owner_override: string;
         };
         /** Hypothesis */
         Hypothesis: {
@@ -3615,6 +3717,11 @@ export interface components {
              * @constant
              */
             tier: "C";
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "searxng" | "tradingview_news";
             /** Canonical Url */
             canonical_url: string;
             /** Url */
@@ -3628,9 +3735,9 @@ export interface components {
             /** Engines */
             engines: string[];
             /** Query */
-            query: string;
+            query: string | null;
             /** Theme */
-            theme: string;
+            theme: string | null;
             /** Sightings */
             sightings: number;
             /**
@@ -3643,6 +3750,7 @@ export interface components {
              * Format: date-time
              */
             last_seen_at: string;
+            headline?: components["schemas"]["Headline"] | null;
         };
         /** LineResult */
         LineResult: {
@@ -4028,6 +4136,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[CatalogEntry] */
+        Page_CatalogEntry_: {
+            /** Items */
+            items: components["schemas"]["CatalogEntry"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[Claim] */
         Page_Claim_: {
             /** Items */
@@ -4297,12 +4416,12 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "codex" | "minimax";
+            provider: "codex" | "minimax" | "tradingview";
             /**
              * Unit
              * @enum {string}
              */
-            unit: "operations" | "tokens";
+            unit: "operations" | "tokens" | "requests";
             /** Window Seconds */
             window_seconds: number;
             /** Used */
@@ -7394,6 +7513,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalog_api_v1_tradingview_catalog_get: {
+        parameters: {
+            query?: {
+                /** @description only this company */
+                company_id?: string | null;
+                /** @description e.g. Earnings call */
+                category?: string | null;
+                /** @description only documents with (or without) a transcript */
+                has_transcript?: boolean | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CatalogEntry_"];
                 };
             };
             /** @description Validation Error */

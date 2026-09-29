@@ -87,6 +87,9 @@ class CompanyConfig(_Config):
     ignored_ciks: tuple[IgnoredCik, ...] = ()
     # For an `exchange:*` company: its identifiers in the exchange's disclosure feed.
     exchange: ExchangeListingConfig | None = None
+    # Its symbol on TradingView ("EXCHANGE:TICKER", e.g. "NASDAQ:LITE", "HKEX:3308"): what
+    # the owner-override TradingView jobs ask for (atlas.tradingview; off by default).
+    tradingview_symbol: str | None = Field(default=None, pattern=r"^[A-Z0-9_]+:[A-Z0-9._-]+$")
     securities: tuple[SecurityConfig, ...] = ()
 
     @model_validator(mode="after")

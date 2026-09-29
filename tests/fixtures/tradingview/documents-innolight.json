@@ -1,0 +1,20 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; not TradingView, Quartr or news content",
+  "items": [
+    {
+      "category": {"id": "earnings_call", "title": "Earnings call"},
+      "correlation_id": "syn-corr-2001",
+      "event": "Synthetic H1 2026 results call",
+      "fiscal_period": "H1",
+      "fiscal_year": "2026",
+      "id": "syn-doc-2001",
+      "provider": {"id": "quartr", "name": "Quartr"},
+      "reported": 1786612500,
+      "status": "ready",
+      "symbols": [{"symbol": "HKEX:3308"}],
+      "title": "SYNTHETIC H1 2026 results call",
+      "views": [{"id": "syn-view-2001-t", "type": "transcript"}]
+    }
+  ],
+  "total": 1
+}

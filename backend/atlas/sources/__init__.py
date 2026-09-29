@@ -13,6 +13,7 @@ from atlas.sources.adapter import (
     SecFiling,
     SourceAdapter,
     SourceCandidate,
+    TradingViewTranscript,
 )
 from atlas.sources.edgar import (
     EdgarAdapter,
@@ -50,6 +51,7 @@ __all__ = [
     "SourceAdapter",
     "SourceCandidate",
     "TokenBucket",
+    "TradingViewTranscript",
     "edgar_dissemination_time",
     "filing_availability",
     "fixture_edgar_adapter",

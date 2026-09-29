@@ -2512,6 +2512,121 @@
         }
       }
     },
+    "/api/v1/tradingview/catalog": {
+      "get": {
+        "tags": [
+          "tradingview"
+        ],
+        "summary": "Catalog",
+        "operationId": "catalog_api_v1_tradingview_catalog_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only this company",
+              "title": "Company Id"
+            },
+            "description": "only this company"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "e.g. Earnings call",
+              "title": "Category"
+            },
+            "description": "e.g. Earnings call"
+          },
+          {
+            "name": "has_transcript",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only documents with (or without) a transcript",
+              "title": "Has Transcript"
+            },
+            "description": "only documents with (or without) a transcript"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_CatalogEntry_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/identity-mappings": {
       "get": {
         "tags": [
@@ -6447,6 +6562,193 @@
         ],
         "title": "CaseResult"
       },
+      "CatalogEntry": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event"
+          },
+          "form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form"
+          },
+          "fiscal_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Period"
+          },
+          "fiscal_year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year"
+          },
+          "reported_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "upstream_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Provider"
+          },
+          "views": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogView"
+            },
+            "type": "array",
+            "title": "Views"
+          },
+          "owner_override": {
+            "type": "string",
+            "title": "Owner Override"
+          },
+          "first_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Seen At"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "company_id",
+          "symbol",
+          "document_id",
+          "category",
+          "event",
+          "form",
+          "fiscal_period",
+          "fiscal_year",
+          "reported_at",
+          "status",
+          "title",
+          "upstream_provider",
+          "views",
+          "owner_override",
+          "first_seen_at",
+          "last_seen_at"
+        ],
+        "title": "CatalogEntry"
+      },
+      "CatalogView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type"
+        ],
+        "title": "CatalogView"
+      },
       "Check": {
         "properties": {
           "key": {
@@ -9291,6 +9593,17 @@
               }
             ],
             "title": "Gate Decision Id"
+          },
+          "owner_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Override"
           }
         },
         "type": "object",
@@ -9853,6 +10166,81 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Headline": {
+        "properties": {
+          "headline_id": {
+            "type": "string",
+            "title": "Headline Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "publisher_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Url"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "related_symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Related Symbols"
+          },
+          "owner_override": {
+            "type": "string",
+            "title": "Owner Override"
+          }
+        },
+        "type": "object",
+        "required": [
+          "headline_id",
+          "company_id",
+          "symbol",
+          "publisher",
+          "publisher_url",
+          "published_at",
+          "related_symbols",
+          "owner_override"
+        ],
+        "title": "Headline",
+        "description": "A TradingView news headline's metadata (a `tradingview_news` lead)."
       },
       "Hypothesis": {
         "properties": {
@@ -11645,6 +12033,14 @@
             "const": "C",
             "title": "Tier"
           },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "searxng",
+              "tradingview_news"
+            ],
+            "title": "Origin"
+          },
           "canonical_url": {
             "type": "string",
             "title": "Canonical Url"
@@ -11681,11 +12077,25 @@
             "title": "Engines"
           },
           "query": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Query"
           },
           "theme": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Theme"
           },
           "sightings": {
@@ -11701,12 +12111,23 @@
             "type": "string",
             "format": "date-time",
             "title": "Last Seen At"
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Headline"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
           "id",
           "tier",
+          "origin",
           "canonical_url",
           "url",
           "title",
@@ -13085,6 +13506,37 @@
         ],
         "title": "Page[Candidate]"
       },
+      "Page_CatalogEntry_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[CatalogEntry]"
+      },
       "Page_Claim_": {
         "properties": {
           "items": {
@@ -13784,7 +14236,8 @@
             "type": "string",
             "enum": [
               "codex",
-              "minimax"
+              "minimax",
+              "tradingview"
             ],
             "title": "Provider"
           },
@@ -13792,7 +14245,8 @@
             "type": "string",
             "enum": [
               "operations",
-              "tokens"
+              "tokens",
+              "requests"
             ],
             "title": "Unit"
           },

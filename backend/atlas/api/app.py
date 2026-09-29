@@ -31,6 +31,7 @@ from atlas.api.runs import runs_router
 from atlas.api.scenarios import scenarios_router
 from atlas.api.sources import sources_router
 from atlas.api.themes import themes_router
+from atlas.api.tradingview import tradingview_router
 from atlas.api.triage import triage_router
 from atlas.archive import open_archive
 from atlas.audit import Actor
@@ -116,6 +117,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(runs_router(engine))
     app.include_router(claims_router(engine))
     app.include_router(discovery_router(engine))
+    app.include_router(tradingview_router(engine))
     app.include_router(identity_router(engine, Actor.from_settings(settings)))
     app.include_router(relationships_router(engine, Actor.from_settings(settings)))
     app.include_router(

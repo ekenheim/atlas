@@ -40,3 +40,6 @@ Thumbs.db
 
 # Live test suite results (scripts/live-tests.sh)
 .scratch/live-runs/
+
+# The TradingView OAuth token file `atlas tradingview login` writes (ticket 31)
+.atlas/
