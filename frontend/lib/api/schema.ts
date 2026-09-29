@@ -1009,6 +1009,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Themes */
+        get: operations["themes_api_v1_themes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/themes/{theme_id}/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Map Of Theme */
+        get: operations["map_of_theme_api_v1_themes__theme_id__map_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{company_id}/dossier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dossier */
+        get: operations["dossier_api_v1_companies__company_id__dossier_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1185,6 +1236,20 @@ export interface components {
             /** Next Open At */
             next_open_at: string | null;
         };
+        /** Bottlenecks */
+        Bottlenecks: {
+            /** @description refreshed: `model.content` is the open gaps; otherwise why there are none */
+            status: components["schemas"]["BottlenecksStatus"];
+            /**
+             * Message
+             * @description what went wrong, when `unavailable`
+             */
+            message: string | null;
+            /** @description the Bottlenecks mental model, with its resolved citations */
+            model: components["schemas"]["MentalModelView"] | null;
+        };
+        /** @enum {string} */
+        BottlenecksStatus: "refreshed" | "not_refreshed" | "not_in_bank" | "not_configured" | "unavailable";
         /** @enum {string} */
         Budget: "low" | "mid" | "high";
         /**
@@ -1631,6 +1696,46 @@ export interface components {
              */
             observed_at: string;
         };
+        /** CompanyDossier */
+        CompanyDossier: {
+            company: components["schemas"]["Company"];
+            /**
+             * Themes
+             * @description the themes the company belongs to
+             */
+            themes: components["schemas"]["ThemeRef"][];
+            /**
+             * Pending Identity Reviews
+             * @description identity mappings awaiting the owner, oldest first
+             */
+            pending_identity_reviews: components["schemas"]["IdentityMapping"][];
+            /**
+             * Sources
+             * @description Source Documents, first seen first
+             */
+            sources: components["schemas"]["SourceDocument"][];
+            /** Source Total */
+            source_total: number;
+            /**
+             * Relationships Out
+             * @description edges with the company as subject
+             */
+            relationships_out: components["schemas"]["Relationship"][];
+            /**
+             * Relationships In
+             * @description edges with the company as object
+             */
+            relationships_in: components["schemas"]["Relationship"][];
+            /** @description canonical metrics as of `as_of` */
+            financials: components["schemas"]["FinancialFigures"];
+            /**
+             * Fetch Gate Blocks
+             * @description exchange requests the fetch gate blocked, newest first
+             */
+            fetch_gate_blocks: components["schemas"]["FetchGateDecision"][];
+            /** Fetch Gate Block Total */
+            fetch_gate_block_total: number;
+        };
         /** ContentLinks */
         ContentLinks: {
             /** Raw */
@@ -1647,6 +1752,8 @@ export interface components {
             /** Counterevidence Id */
             counterevidence_id: string | null;
         };
+        /** @enum {string} */
+        CoverageGap: "not_seeded" | "no_sources";
         /** DiffClaim */
         DiffClaim: {
             /**
@@ -4516,6 +4623,119 @@ export interface components {
              */
             updated_at: string;
         };
+        /** ThemeCompany */
+        ThemeCompany: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Display Name */
+            display_name: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Country */
+            country: string;
+            layer: components["schemas"]["Layer"] | null;
+            source_path: components["schemas"]["SourcePath"];
+            /**
+             * Seeded
+             * @description the company row exists (open its dossier)
+             */
+            seeded: boolean;
+            /**
+             * Source Count
+             * @description its Source Documents
+             */
+            source_count: number;
+            /**
+             * Relationship Count
+             * @description edges naming it as subject or object
+             */
+            relationship_count: number;
+            /**
+             * Pending Identity Reviews
+             * @description identity mappings awaiting the owner
+             */
+            pending_identity_reviews: number;
+            /** Gaps */
+            gaps: components["schemas"]["CoverageGap"][];
+        };
+        /** ThemeLayer */
+        ThemeLayer: {
+            layer: components["schemas"]["Layer"];
+            /**
+             * Covers
+             * @description what the layer holds
+             */
+            covers: string;
+            /** Companies */
+            companies: components["schemas"]["ThemeCompany"][];
+        };
+        /** ThemeMapView */
+        ThemeMapView: {
+            theme: components["schemas"]["ThemeSummary"];
+            /**
+             * Layers
+             * @description upstream to downstream, empty ones included
+             */
+            layers: components["schemas"]["ThemeLayer"][];
+            /**
+             * Unlayered
+             * @description companies with no layer set
+             */
+            unlayered: components["schemas"]["ThemeCompany"][];
+            /**
+             * Relationships
+             * @description edges between the theme's companies (or to a product), by layer
+             */
+            relationships: components["schemas"]["Relationship"][];
+            /**
+             * Candidates
+             * @description the theme's Candidates, newest first
+             */
+            candidates: components["schemas"]["Candidate"][];
+            bottlenecks: components["schemas"]["Bottlenecks"];
+        };
+        /** ThemeRef */
+        ThemeRef: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /** ThemeSummary */
+        ThemeSummary: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /**
+             * Universe Version
+             * @description the theme config's version
+             */
+            universe_version: number;
+            /** Company Count */
+            company_count: number;
+            /** Companies Without Sources */
+            companies_without_sources: number;
+            /**
+             * Empty Layers
+             * @description layers with no company in the theme
+             */
+            empty_layers: components["schemas"]["Layer"][];
+            /** Relationship Count */
+            relationship_count: number;
+            /**
+             * Open Candidate Count
+             * @description Candidates still `lead`, awaiting a decision
+             */
+            open_candidate_count: number;
+        };
         /** @enum {string} */
         Tier: "exact" | "corroborated" | "candidate" | "conflict" | "unresolved";
         /** TransitionRequest */
@@ -7296,6 +7516,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    themes_api_v1_themes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThemeSummary"][];
+                };
+            };
+        };
+    };
+    map_of_theme_api_v1_themes__theme_id__map_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                theme_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThemeMapView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dossier_api_v1_companies__company_id__dossier_get: {
+        parameters: {
+            query?: {
+                /** @description the financials' cutoff (ISO 8601 with a time zone); default now */
+                as_of?: string | null;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyDossier"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

@@ -14,6 +14,7 @@ from atlas.api.candidates import candidates_router
 from atlas.api.claims import claims_router
 from atlas.api.common import invalid_request
 from atlas.api.discovery import discovery_router
+from atlas.api.dossier import dossier_router
 from atlas.api.financials import financials_router
 from atlas.api.hypotheses import hypotheses_router
 from atlas.api.identity import identity_router
@@ -27,6 +28,7 @@ from atlas.api.relationships import relationships_router
 from atlas.api.research import research_router
 from atlas.api.runs import runs_router
 from atlas.api.sources import sources_router
+from atlas.api.themes import themes_router
 from atlas.archive import open_archive
 from atlas.audit import Actor
 from atlas.companies import load_universe
@@ -122,6 +124,20 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
         )
     )
     app.include_router(hypotheses_router(engine, queue, Actor.from_settings(settings), settings))
+    app.include_router(
+        themes_router(
+            engine,
+            archive,
+            hindsight,
+            settings.hindsight_template_path,
+            lambda: load_universe(settings.themes_config),
+        )
+    )
+    app.include_router(
+        dossier_router(
+            engine, settings.financial_metrics_config, lambda: load_universe(settings.themes_config)
+        )
+    )
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:

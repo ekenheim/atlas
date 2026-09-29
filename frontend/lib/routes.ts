@@ -13,4 +13,8 @@ export const routes = {
   relationships: (search = "") => (search ? `/relationships/?${search}` : "/relationships/"),
   relationship: withId("relationship"),
   exceptions: "/exceptions/",
+  /** The Theme explorer: every theme with its coverage. */
+  themes: "/themes/",
+  /** One theme's map: companies by layer, Relationships, Candidates, open gaps. */
+  theme: withId("theme"),
 };

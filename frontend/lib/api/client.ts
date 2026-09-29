@@ -26,6 +26,13 @@ export type RelationshipQuery = Omit<
   NonNullable<Params<"/api/v1/relationships">["query"]>,
   "limit" | "offset"
 >;
+export type ThemeSummary = Schemas["ThemeSummary"];
+export type ThemeMap = Schemas["ThemeMapView"];
+export type ThemeCompany = Schemas["ThemeCompany"];
+export type Bottlenecks = Schemas["Bottlenecks"];
+export type Candidate = Schemas["Candidate"];
+export type CompanyDossier = Schemas["CompanyDossier"];
+export type FinancialFigure = Schemas["FinancialFigure"];
 export type EpistemicType = Assertion["epistemic_type"];
 export type ContentKind =
   Params<"/api/v1/source-versions/{version_id}/content">["query"]["kind"];
@@ -127,6 +134,14 @@ async function post<P extends PostPath>(
 export const api = {
   companies: () => get("/api/v1/companies", { query: PAGE }),
   company: (id: string) => get("/api/v1/companies/{company_id}", { path: { company_id: id } }),
+  /** A company's dossier: identity, reviews, themes, sources, edges, financials as of now. */
+  dossier: (id: string) =>
+    get("/api/v1/companies/{company_id}/dossier", { path: { company_id: id }, query: {} }),
+  /** Every theme with its coverage. */
+  themes: () => get("/api/v1/themes", {}),
+  /** One theme's map: companies by layer, Relationships between them, Candidates, gaps. */
+  themeMap: (id: string) =>
+    get("/api/v1/themes/{theme_id}/map", { path: { theme_id: id } }),
   companySources: (id: string) =>
     get("/api/v1/companies/{company_id}/sources", { path: { company_id: id }, query: PAGE }),
   source: (id: string) => get("/api/v1/sources/{document_id}", { path: { document_id: id } }),
