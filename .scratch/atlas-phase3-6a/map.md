@@ -31,6 +31,8 @@ It ends in the spec §15 demo. The spec will be at `.scratch/atlas-phase3-6a/spe
 
 <!-- one line per closed ticket -->
 
+- [Entity-resolution sources](issues/03-identity-apis.md): SEC + GLEIF + OpenFIGI in a 4-tier deterministic pipeline; no CIK↔LEI link exists (reviewed once per company); 8 `security` schema gaps; OpenFIGI needs segment MICs.
+
 ## Not yet specified
 
 - **Evaluation gold set** (spec §9.5): 20–30 labelled cases, including the layer-conflation and partner-page traps from ticket 12. Its format is in `docs/evaluation-methodology.md`; which cases, and who labels them, is open.
