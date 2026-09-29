@@ -362,6 +362,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runs/{run_id}/role-calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Role Calls */
+        get: operations["role_calls_api_v1_runs__run_id__role_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -798,6 +815,34 @@ export interface components {
         };
         JsonValue: unknown;
         /**
+         * LLMAttempt
+         * @description One chat completion: the routed model, its usage, its raw content and why it failed
+         *     validation (None: it validated).
+         */
+        LLMAttempt: {
+            /** Attempt */
+            attempt: number;
+            /** Response Model */
+            response_model: string;
+            /** Model Id */
+            model_id: string | null;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+            /** Content */
+            content: string;
+            /** Validation Errors */
+            validation_errors: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[] | null;
+            /**
+             * Called At
+             * Format: date-time
+             */
+            called_at: string;
+        };
+        /**
          * MemoryDocument
          * @description One section of the Source Version, as retained (or linked) into the bank.
          */
@@ -1107,6 +1152,24 @@ export interface components {
             /** Archived Text */
             archived_text: string;
         };
+        /**
+         * QuotedText
+         * @description Retrieved text passed to a role: always quoted, always low-trust data (spec §7.5).
+         */
+        QuotedText: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Text */
+            text: string;
+            /**
+             * Trust
+             * @default low
+             * @constant
+             */
+            trust: "low";
+        };
         /** RecallRequest */
         RecallRequest: {
             /** Query */
@@ -1254,6 +1317,68 @@ export interface components {
              * @description theme slugs, e.g. photonics
              */
             theme_ids?: string[];
+        };
+        /**
+         * RoleCallRecord
+         * @description One call of a role. A quarantined call's outputs are visible in its attempts only;
+         *     `output` is set only for an accepted call.
+         */
+        RoleCallRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Role */
+            role: string;
+            /** Prompt Name */
+            prompt_name: string;
+            /** Prompt Version */
+            prompt_version: number;
+            /** Prompt Sha256 */
+            prompt_sha256: string;
+            /** Model */
+            model: string;
+            /** Request */
+            request: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Retrieved */
+            retrieved: components["schemas"]["QuotedText"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "accepted" | "quarantined" | "failed" | "budget_exhausted";
+            /** Output */
+            output: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Attempts */
+            attempts: components["schemas"]["LLMAttempt"][];
+        };
+        /** RunRoleCalls */
+        RunRoleCalls: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+            /** Role Calls */
+            role_calls: components["schemas"]["RoleCallRecord"][];
         };
         /** Security */
         Security: {
@@ -2369,6 +2494,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    role_calls_api_v1_runs__run_id__role_calls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunRoleCalls"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
