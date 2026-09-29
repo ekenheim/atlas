@@ -208,6 +208,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{company_id}/financials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Financials */
+        get: operations["company_financials_api_v1_companies__company_id__financials_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{company_id}/financial-observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Financial Observations */
+        get: operations["company_financial_observations_api_v1_companies__company_id__financial_observations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/financial-observations/{observation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Financial Observation */
+        get: operations["financial_observation_api_v1_financial_observations__observation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assertions": {
         parameters: {
             query?: never;
@@ -719,6 +770,162 @@ export interface components {
             /** Job Id */
             job_id: string | null;
         };
+        /**
+         * FinancialFigure
+         * @description A canonical metric's value for one period and unit, as of the cutoff.
+         */
+        FinancialFigure: {
+            /** Metric */
+            metric: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit: string;
+            /** Currency */
+            currency: string | null;
+            fx_basis: components["schemas"]["FxBasis"] | null;
+            /** Period Start */
+            period_start: string | null;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Type
+             * @enum {string}
+             */
+            period_type: "instant" | "quarter" | "half_year" | "nine_months" | "year" | "other";
+            /** Period Days */
+            period_days: number | null;
+            /** Value */
+            value: string;
+            /** Derived */
+            derived: boolean;
+            /** Concept */
+            concept: string | null;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Flags */
+            flags: string[];
+            /** Sources */
+            sources: components["schemas"]["FinancialObservation"][];
+        };
+        /** FinancialFigures */
+        FinancialFigures: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Metrics Version */
+            metrics_version: number;
+            /** Figures */
+            figures: components["schemas"]["FinancialFigure"][];
+        };
+        /**
+         * FinancialObservation
+         * @description One XBRL fact of one filing, as of its filing's availability.
+         */
+        FinancialObservation: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Cik */
+            cik: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Accession */
+            accession: string;
+            /** Form */
+            form: string;
+            /**
+             * Filed
+             * Format: date
+             */
+            filed: string;
+            /** Fiscal Year */
+            fiscal_year: number | null;
+            /** Fiscal Period */
+            fiscal_period: string | null;
+            /** Frame */
+            frame: string | null;
+            /** Taxonomy */
+            taxonomy: string;
+            /** Concept */
+            concept: string;
+            /** Unit */
+            unit: string;
+            /** Currency */
+            currency: string | null;
+            fx_basis: components["schemas"]["FxBasis"] | null;
+            /** Period Start */
+            period_start: string | null;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Type
+             * @enum {string}
+             */
+            period_type: "instant" | "quarter" | "half_year" | "nine_months" | "year" | "other";
+            /** Period Days */
+            period_days: number | null;
+            /** Value */
+            value: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Available At Basis */
+            available_at_basis: string;
+            /** Accepted At */
+            accepted_at: string | null;
+            /** Previous Observation Id */
+            previous_observation_id: string | null;
+            /** Linkage */
+            linkage: string;
+            /** Suspect Reasons */
+            suspect_reasons: string[];
+        };
+        /** FinancialObservationHistory */
+        FinancialObservationHistory: {
+            observation: components["schemas"]["FinancialObservation"];
+            /** History */
+            history: components["schemas"]["FinancialObservation"][];
+        };
+        /**
+         * FxBasis
+         * @description How a value was converted from its reporting currency. Atlas has no FX source yet, so
+         *     every value is as filed and this is always null.
+         */
+        FxBasis: {
+            /** Rate Source */
+            rate_source: string;
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /** From Currency */
+            from_currency: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1004,6 +1211,17 @@ export interface components {
         Page_Company_: {
             /** Items */
             items: components["schemas"]["Company"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[FinancialObservation] */
+        Page_FinancialObservation_: {
+            /** Items */
+            items: components["schemas"]["FinancialObservation"][];
             /** Total */
             total: number;
             /** Limit */
@@ -1892,6 +2110,141 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    company_financials_api_v1_companies__company_id__financials_get: {
+        parameters: {
+            query?: {
+                /** @description the cutoff (ISO 8601 with a time zone); default now */
+                as_of?: string | null;
+                /** @description only these metrics (repeatable) */
+                metric?: string[] | null;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinancialFigures"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    company_financial_observations_api_v1_companies__company_id__financial_observations_get: {
+        parameters: {
+            query?: {
+                /** @description the cutoff (ISO 8601 with a time zone); default now */
+                as_of?: string | null;
+                taxonomy?: string | null;
+                concept?: string | null;
+                unit?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_FinancialObservation_"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    financial_observation_api_v1_financial_observations__observation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                observation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinancialObservationHistory"];
+                };
             };
             /** @description Not Found */
             404: {

@@ -1,0 +1,111 @@
+# Canonical financial metrics over XBRL concepts (spec Phase 5 "XBRL normalizer"; research
+# docs/research/xbrl-normalization.md §2 and §4.3 on branch research/xbrl-normalization).
+#
+# A metric is an ordered concept family per taxonomy. Tags drift over time (Lumentum's
+# revenue has used four tags), so for each period the value comes from the latest filing
+# that tagged any concept of the family; within one filing the first concept listed wins,
+# and a different value under another listed concept flags `concept_mismatch`.
+#
+# `flow: true` marks a duration amount that adds up over time (revenue, capex): a missing
+# quarter is derived from year-to-date values (Q4 = FY - 9M), only in a currency unit. Share
+# counts, per-share amounts and weighted averages never are.
+#
+# Never sum debt tags: Lumentum's ShortTermBorrowings duplicates LongTermDebtCurrent.
+#
+# Bump `version` on any change.
+version: 1
+
+metrics:
+  revenue:
+    label: Revenue
+    flow: true
+    concepts:
+      us-gaap:
+        - RevenueFromContractWithCustomerIncludingAssessedTax
+        - RevenueFromContractWithCustomerExcludingAssessedTax
+        - Revenues
+        - SalesRevenueNet
+        - SalesRevenueGoodsNet
+      ifrs-full:
+        - Revenue
+        - RevenueFromContractsWithCustomers
+  cost_of_revenue:
+    label: Cost of revenue
+    flow: true
+    concepts:
+      us-gaap: [CostOfGoodsAndServicesSold, CostOfRevenue]
+      ifrs-full: [CostOfSales]
+  gross_profit:
+    label: Gross profit
+    flow: true
+    concepts:
+      us-gaap: [GrossProfit]
+      ifrs-full: [GrossProfit]
+  operating_income:
+    label: Operating income
+    flow: true
+    concepts:
+      us-gaap: [OperatingIncomeLoss]
+      ifrs-full: [ProfitLossFromOperatingActivities]
+  net_income:
+    label: Net income
+    flow: true
+    concepts:
+      us-gaap: [NetIncomeLoss]
+      ifrs-full: [ProfitLoss]
+  capex:
+    label: Capital expenditure
+    flow: true
+    concepts:
+      us-gaap: [PaymentsToAcquirePropertyPlantAndEquipment]
+      ifrs-full:
+        - PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets
+        - PurchaseOfPropertyPlantAndEquipment
+  inventories:
+    label: Inventories
+    flow: false
+    concepts:
+      us-gaap: [InventoryNet]
+      ifrs-full: [Inventories]
+  cash:
+    label: Cash and cash equivalents
+    flow: false
+    concepts:
+      us-gaap: [CashAndCashEquivalentsAtCarryingValue]
+      ifrs-full: [CashAndCashEquivalents]
+  total_debt:
+    label: Total debt (as tagged, current and noncurrent)
+    flow: false
+    concepts:
+      us-gaap: [DebtLongtermAndShorttermCombinedAmount]
+      ifrs-full: [Borrowings]
+  debt_current:
+    label: Debt, current
+    flow: false
+    concepts:
+      us-gaap: [LongTermDebtCurrent]
+      ifrs-full: [CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings]
+  debt_noncurrent:
+    label: Debt, noncurrent
+    flow: false
+    concepts:
+      us-gaap: [LongTermDebtNoncurrent, ConvertibleDebtNoncurrent]
+      ifrs-full: [LongtermBorrowings]
+  shares_outstanding:
+    label: Common shares outstanding
+    flow: false
+    concepts:
+      us-gaap: [CommonStockSharesOutstanding]
+      ifrs-full: [NumberOfSharesOutstanding]
+  diluted_shares:
+    label: Weighted average diluted shares
+    flow: false
+    concepts:
+      us-gaap: [WeightedAverageNumberOfDilutedSharesOutstanding]
+      ifrs-full: [AdjustedWeightedAverageShares]
+  eps_diluted:
+    label: Diluted earnings per share
+    flow: false
+    concepts:
+      us-gaap: [EarningsPerShareDiluted]
+      ifrs-full: [DilutedEarningsLossPerShare]

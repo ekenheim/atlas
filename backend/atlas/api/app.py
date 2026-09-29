@@ -11,6 +11,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Info, gene
 from atlas import __version__
 from atlas.api.assertions import assertions_router
 from atlas.api.common import invalid_request
+from atlas.api.financials import financials_router
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
 from atlas.api.mental_models import mental_models_router
@@ -77,6 +78,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(jobs_router(queue))
     app.include_router(queue_router(queue))
     app.include_router(sources_router(engine, archive))
+    app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(memory_router(engine, settings.hindsight_bank_id))
     app.include_router(

@@ -98,6 +98,8 @@ class Settings(BaseSettings):
 
     # The versioned company universe and themes (company membership is config, not code).
     themes_config: Path = Path("configs/themes/ai-infrastructure.yaml")
+    # The canonical financial metrics: XBRL concept families by precedence (versioned config).
+    financial_metrics_config: Path = Path("configs/financials/metrics.yaml")
 
     @field_validator("*", mode="before")
     @classmethod

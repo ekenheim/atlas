@@ -1,0 +1,17 @@
+{
+  "cik": "0000924613",
+  "name": "NOKIA CORP",
+  "fiscalYearEnd": "1231",
+  "filings": {
+    "recent": {
+      "accessionNumber": ["0000924613-25-000008"],
+      "filingDate": ["2025-03-13"],
+      "reportDate": ["2024-12-31"],
+      "acceptanceDateTime": ["2025-03-13T17:24:32.000Z"],
+      "form": ["20-F"],
+      "items": [""],
+      "primaryDocument": [""]
+    },
+    "files": []
+  }
+}
