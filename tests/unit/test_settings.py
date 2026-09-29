@@ -140,3 +140,17 @@ def test_an_empty_backfill_window_is_accepted(tmp_path: Path) -> None:
     settings = Settings.model_validate(_base(tmp_path) | {"backfill_window": ""})
 
     assert settings.backfill_window == ""
+
+
+def test_mental_models_refresh_daily_at_six_thirty_utc_by_default(tmp_path: Path) -> None:
+    assert Settings.model_validate(_base(tmp_path)).mental_model_refresh_at == "06:30"
+    off = Settings.model_validate(_base(tmp_path) | {"mental_model_refresh_at": ""})
+    assert off.mental_model_refresh_at == ""
+
+
+@pytest.mark.parametrize("value", ["6:30", "24:00", "06:60", "06:30-07:00"])
+def test_an_invalid_mental_model_refresh_time_is_rejected_at_startup(
+    tmp_path: Path, value: str
+) -> None:
+    with pytest.raises(ValidationError, match="mental_model_refresh_at"):
+        Settings.model_validate(_base(tmp_path) | {"mental_model_refresh_at": value})

@@ -1,10 +1,15 @@
 """The research bank's versioned template, and applying it (spec Part B stories 30-31).
 
 The template file (`configs/hindsight/bank-template.json`) holds a `template_version` and the
-Hindsight manifest (missions, dispositions, directives; mental models from ticket 16). Applying
-it goes through the gateway: a dry run, then the import, so a bad template never half-applies.
+Hindsight manifest (missions, dispositions, directives and the mental models). Applying it
+goes through the gateway: a dry run, then the import, so a bad template never half-applies.
 Each application is recorded with its version and manifest hash, and audited; a run takes its
 template version from the bank's latest application.
+
+Every mental model must say `refresh_after_consolidation: false` explicitly (Hindsight's
+default for an imported model is `true`, and upstream issue #4532 is a refresh loop), and
+give a `refresh_cron` and a positive `min_refresh_interval_seconds`, so no refresh can run
+away (spec Part B story 28). A template that doesn't is invalid and is never sent.
 """
 
 import hashlib
@@ -12,8 +17,9 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import Connection, Engine, text
 
 from atlas import audit
@@ -24,9 +30,37 @@ class InvalidTemplate(ValueError):
     """The template file is missing, isn't JSON, or lacks its version or manifest."""
 
 
+# A 5-field cron expression, as Hindsight's `refresh_cron` takes (UTC).
+_CRON = r"^\S+( \S+){4}$"
+
+
+class TemplateTrigger(BaseModel):
+    """A template mental model's trigger: never after consolidation, on a cron, rate-limited."""
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+    refresh_after_consolidation: Literal[False]  # required, and must be false
+    refresh_cron: str = Field(pattern=_CRON)
+    min_refresh_interval_seconds: int = Field(gt=0)
+
+
+class TemplateMentalModel(BaseModel):
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+    id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]*$")
+    name: str = Field(min_length=1)
+    source_query: str = Field(min_length=1)
+    max_tokens: int | None = None
+    trigger: TemplateTrigger
+
+
+_MENTAL_MODELS = TypeAdapter(list[TemplateMentalModel])
+
+
 class _Manifest(BaseModel):
     model_config = ConfigDict(extra="allow")
     version: str = Field(min_length=1)  # Hindsight's manifest schema version ("1")
+    mental_models: list[TemplateMentalModel] = []
 
 
 class BankTemplate(BaseModel):
@@ -39,12 +73,23 @@ class BankTemplate(BaseModel):
     def load(cls, path: Path) -> "BankTemplate":
         try:
             template = cls.model_validate_json(path.read_bytes())
-            _Manifest.model_validate(template.manifest)
+            manifest = _Manifest.model_validate(template.manifest)
         except OSError as error:
             raise InvalidTemplate(f"{path}: {error.strerror}") from None
         except ValidationError as error:
             raise InvalidTemplate(f"{path}: {error}") from None
+        ids = [model.id for model in manifest.mental_models]
+        if len(set(ids)) != len(ids):
+            raise InvalidTemplate(f"{path}: mental model IDs must be unique (got {ids})")
         return template
+
+    @property
+    def mental_models(self) -> list[TemplateMentalModel]:
+        """The template's mental models, in template order (validated by `load`)."""
+        return _MENTAL_MODELS.validate_python(self.manifest.get("mental_models") or [])
+
+    def mental_model(self, mental_model_id: str) -> TemplateMentalModel | None:
+        return next((m for m in self.mental_models if m.id == mental_model_id), None)
 
     @property
     def manifest_sha256(self) -> str:

@@ -328,7 +328,32 @@ A stored reflect answer with its citation states (spec Part B stories 18–25; t
 
 Invariants: `completed` exactly when the text, citations, raw citations, quote rule and answer time are set; `failed` exactly when an error is set; structured output (or its error) only with a schema. A trigger (ENABLE ALWAYS) allows updates only of a `pending` row and never of its question, scope, schema, bank or job, and rejects DELETE and TRUNCATE. Audit actions: `research_answer.requested`, `.answered`, `.failed`.
 
-Not stored: `evidence_missing` and the Evidence list are derived on read from the citations (resolved ones only). The actor is on the audit events. Recall is synchronous and isn't stored. Mental models (ticket 16) may add a `kind`.
+Not stored: `evidence_missing` and the Evidence list are derived on read from the citations (resolved ones only). The actor is on the audit events. Recall is synchronous and isn't stored. Mental models didn't add a `kind` here: they have their own refresh record (§3.4b), and their citations are resolved on read.
+
+### 3.4b `mental_model_refresh`
+
+One decision of a `refresh_mental_model` job (spec Part B stories 26–29; ticket 16, migration `0010`). The model's content and history live in Hindsight; this is Atlas's record of when and why each refresh ran or didn't, with the content it saw.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `bank_id`, `mental_model_id` | text not null | The template's model ID (`theme-status`, `bottlenecks`) |
+| `job_id` | uuid not null FK → job | A job can record several rows (a quota failure, then the retry after the pause) |
+| `scheduled_for` | date null | The day a scheduled refresh is for; null when enqueued by hand |
+| `template_version` | text null | The bank's latest applied template version at the time |
+| `min_refresh_interval_seconds` | integer not null | From the template's trigger |
+| `status` | text not null | `skipped`, `submitted`, `completed`, `failed` |
+| `skip_reason` | text null | `min_interval` (refreshed, by Atlas or by Hindsight's cron, inside the interval) or `not_stale` (Hindsight: nothing new in scope) |
+| `operation_id`, `operation_status` | text null | The Hindsight refresh operation and its last status |
+| `error`, `error_class` | text null | `quota`/`unavailable` (the queue paused; retried) or `permanent` |
+| `previous_refreshed_at`, `refreshed_at` | timestamptz null | Hindsight's `last_refreshed_at` before, and after (for a skip: as found) |
+| `content`, `content_sha256` | text null | The model's content afterwards (for a skip: as found) |
+| `raw_citations` | jsonb not null | The content's `based_on` memories as Hindsight returned them |
+| `result_metadata` | jsonb not null | The operation's result metadata (outcome, content length, citation counts by type) |
+| `requested_at`, `completed_at` | timestamptz | The application clock (the minimum interval is measured on it) |
+| `updated_at` | timestamptz | |
+
+Invariants: `skipped` exactly when a skip reason is set and no operation; `failed` exactly when an error is set; `completed` has its completion time and content. A trigger (ENABLE ALWAYS) allows updates only of a `submitted` row, never of its model, bank, job, schedule, interval, operation or request time, and rejects DELETE and TRUNCATE. Audit action: `mental_model.refreshed` (entity `mental_model`, `<bank>:<model>`; old/new hash = the previous and new content SHA-256).
 
 ### 3.5 Queue pause state
 
@@ -388,6 +413,7 @@ erDiagram
   job |o--o{ hindsight_operation : "submits"
   run ||--o{ research_answer : "produced"
   job |o--o| research_answer : "computes"
+  job ||--o{ mental_model_refresh : "decides"
 
   company {
     uuid id PK
@@ -521,6 +547,16 @@ erDiagram
     jsonb scope
     jsonb citations
     text structured_output_error
+  }
+  mental_model_refresh {
+    uuid id PK
+    uuid job_id FK
+    text mental_model_id
+    date scheduled_for
+    text status
+    text skip_reason
+    text operation_id
+    text content_sha256
   }
 ```
 

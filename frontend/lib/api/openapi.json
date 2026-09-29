@@ -1084,6 +1084,139 @@
           }
         }
       }
+    },
+    "/api/v1/mental-models": {
+      "get": {
+        "tags": [
+          "mental-models"
+        ],
+        "summary": "List Mental Models",
+        "operationId": "list_mental_models_api_v1_mental_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentalModelList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mental-models/{mental_model_id}": {
+      "get": {
+        "tags": [
+          "mental-models"
+        ],
+        "summary": "Get Mental Model",
+        "operationId": "get_mental_model_api_v1_mental_models__mental_model_id__get",
+        "parameters": [
+          {
+            "name": "mental_model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Mental Model Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentalModelView"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2573,6 +2706,400 @@
         "title": "MemoryOperation",
         "description": "A Hindsight operation that retained (or reprocessed) some of the version's sections."
       },
+      "MentalModelList": {
+        "properties": {
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "template_version": {
+            "type": "string",
+            "title": "Template Version"
+          },
+          "mental_models": {
+            "items": {
+              "$ref": "#/components/schemas/MentalModelView"
+            },
+            "type": "array",
+            "title": "Mental Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bank_id",
+          "template_version",
+          "mental_models"
+        ],
+        "title": "MentalModelList"
+      },
+      "MentalModelRefresh": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "scheduled_for": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled For"
+          },
+          "template_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Version"
+          },
+          "min_refresh_interval_seconds": {
+            "type": "integer",
+            "title": "Min Refresh Interval Seconds"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "skipped",
+              "submitted",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "min_interval",
+                  "not_stale"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip Reason"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
+          },
+          "operation_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "quota",
+                  "unavailable",
+                  "permanent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Class"
+          },
+          "previous_refreshed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Refreshed At"
+          },
+          "refreshed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refreshed At"
+          },
+          "content_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sha256"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "job_id",
+          "scheduled_for",
+          "template_version",
+          "min_refresh_interval_seconds",
+          "status",
+          "skip_reason",
+          "operation_id",
+          "operation_status",
+          "error",
+          "error_class",
+          "previous_refreshed_at",
+          "refreshed_at",
+          "content_sha256",
+          "requested_at",
+          "completed_at"
+        ],
+        "title": "MentalModelRefresh",
+        "description": "One decision of a `refresh_mental_model` job."
+      },
+      "MentalModelRevision": {
+        "properties": {
+          "changed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Changed At"
+          },
+          "previous_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Content"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/CitationState"
+            },
+            "type": "object",
+            "title": "Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "changed_at",
+          "previous_content",
+          "citations",
+          "counts"
+        ],
+        "title": "MentalModelRevision",
+        "description": "The content a refresh replaced at `changed_at`, with its citations resolved."
+      },
+      "MentalModelView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "source_query": {
+            "type": "string",
+            "title": "Source Query"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/RefreshTrigger"
+          },
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "in_bank": {
+            "type": "boolean",
+            "title": "In Bank"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "last_refreshed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Refreshed At"
+          },
+          "is_stale": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Stale"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/CitationState"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "evidence_missing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Missing"
+          },
+          "quote_rule": {
+            "type": "string",
+            "title": "Quote Rule"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/MentalModelRevision"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "refreshes": {
+            "items": {
+              "$ref": "#/components/schemas/MentalModelRefresh"
+            },
+            "type": "array",
+            "title": "Refreshes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "source_query",
+          "trigger",
+          "bank_id",
+          "in_bank",
+          "content",
+          "last_refreshed_at",
+          "is_stale",
+          "citations",
+          "counts",
+          "evidence",
+          "evidence_missing",
+          "quote_rule",
+          "history",
+          "refreshes"
+        ],
+        "title": "MentalModelView"
+      },
       "Page_Assertion_": {
         "properties": {
           "items": {
@@ -3143,6 +3670,30 @@
           "scope"
         ],
         "title": "ReflectRequest"
+      },
+      "RefreshTrigger": {
+        "properties": {
+          "refresh_after_consolidation": {
+            "type": "boolean",
+            "title": "Refresh After Consolidation"
+          },
+          "refresh_cron": {
+            "type": "string",
+            "title": "Refresh Cron"
+          },
+          "min_refresh_interval_seconds": {
+            "type": "integer",
+            "title": "Min Refresh Interval Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_after_consolidation",
+          "refresh_cron",
+          "min_refresh_interval_seconds"
+        ],
+        "title": "RefreshTrigger",
+        "description": "When the model is refreshed, as the bank template defines it."
       },
       "ResearchAnswer": {
         "properties": {

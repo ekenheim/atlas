@@ -309,6 +309,8 @@ class MentalModel(_Result):
     trigger: MentalModelTrigger = MentalModelTrigger()
     last_refreshed_at: datetime | None = None
     created_at: datetime | None = None
+    # A memory in the model's scope is newer than its last refresh (Hindsight's staleness rule).
+    is_stale: bool | None = None
     based_on: list[CitedMemory] = []
 
     @model_validator(mode="before")

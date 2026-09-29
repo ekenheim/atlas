@@ -7,8 +7,12 @@ bank, never into Atlas's research bank.
 
     uv run python spikes/hindsight/record_bank_template.py
 
-Re-run it whenever configs/hindsight/bank-template.json changes, then update the recording
-names in tests/unit/test_hindsight_contract.py and the bank ID the tests use.
+Re-run it whenever configs/hindsight/bank-template.json changes outside its mental models,
+then update the recording names in tests/unit/test_hindsight_contract.py and the bank ID the
+tests use. The template's `mental_models` are left out of what it sends: importing a mental
+model queues its refresh, which is an LLM run, so a recording must never create one. The
+recorded fake derives the import of the full template from these recordings instead
+(ticket 16; tests/fakes/hindsight.py).
 """
 
 import json
@@ -52,6 +56,7 @@ def rec(feature: str, name: str, method: str, path: str, body=None, query=None):
 
 def main() -> None:
     manifest = json.loads(TEMPLATE.read_text(encoding="utf-8"))["manifest"]
+    manifest.pop("mental_models", None)  # never import a mental model live: it refreshes
     bank_path = f"/v1/default/banks/{BANK}"
     rec("monitoring", "01-health", "GET", "/health")
     rec("monitoring", "02-version", "GET", "/version")

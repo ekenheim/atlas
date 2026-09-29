@@ -1,16 +1,23 @@
 """Job handlers, registered by job kind."""
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import TYPE_CHECKING
 
+from atlas.jobs.pacing import Clock, utc_now
 from atlas.jobs.queue import Artifacts, Job
 
 if TYPE_CHECKING:
+    from sqlalchemy import Engine
+
     from atlas.settings import Settings
 
 # A handler does the work for one attempt and returns the artifacts it produced (e.g. the
 # IDs of new Source Versions). Raising records a failed attempt, retried up to the bound.
 JobHandler = Callable[[Job], Artifacts | None]
+# A schedule enqueues the jobs that are due at the given time (idempotently); the worker
+# calls each of its schedules at the start of every pass, with the queue's pacing clock.
+Schedule = Callable[[datetime], object]
 
 
 class HandlerRegistry:
@@ -45,20 +52,33 @@ def noop(job: Job) -> Artifacts:
     return {}
 
 
-def builtin_registry(settings: "Settings | None" = None) -> HandlerRegistry:
+def builtin_registry(
+    settings: "Settings | None" = None, *, clock: Clock = utc_now
+) -> HandlerRegistry:
     """Every job kind Atlas knows how to run; `atlas worker` uses this registry.
 
     Kinds that touch the database, the archive, sources or Hindsight (`ingest`, `retain`,
-    `poll_operation`, `reprocess`, `reflect`) need `settings`.
+    `poll_operation`, `reprocess`, `reflect`, `refresh_mental_model`) need `settings`.
+    `clock` is the application clock of handlers that measure time (a mental model's
+    minimum refresh interval).
     """
     registry = HandlerRegistry()
     registry.register("noop", noop)
     if settings is not None:
         from atlas.ledger.ingest import INGEST_KIND, make_ingest_handler
+        from atlas.mental_models import register_mental_model_handlers
         from atlas.research import register_research_handlers
         from atlas.retention import register_retention_handlers
 
         registry.register(INGEST_KIND, make_ingest_handler(settings))
         register_retention_handlers(registry, settings)
         register_research_handlers(registry, settings)
+        register_mental_model_handlers(registry, settings, clock)
     return registry
+
+
+def builtin_schedules(settings: "Settings", engine: "Engine") -> list[Schedule]:
+    """The schedules `atlas worker` runs: the daily mental model refreshes."""
+    from atlas.mental_models import refresh_schedules
+
+    return refresh_schedules(settings, engine)

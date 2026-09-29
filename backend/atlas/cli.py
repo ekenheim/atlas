@@ -53,13 +53,14 @@ def run_worker(settings: Settings, once: bool) -> None:
     from sqlalchemy import create_engine
     from sqlalchemy.exc import OperationalError
 
-    from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
+    from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry, builtin_schedules
 
     engine = create_engine(settings.database_url, pool_pre_ping=True)
     worker = Worker(
         JobQueue(engine, pacing=Pacing.from_settings(settings)),
         builtin_registry(settings),
         lease=timedelta(seconds=settings.job_lease_seconds),
+        schedules=builtin_schedules(settings, engine),
     )
     try:
         if once:
