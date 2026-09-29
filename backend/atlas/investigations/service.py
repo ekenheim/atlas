@@ -5,9 +5,12 @@ and resume (spec Phase 4, "Research workflow"; §7.3, §7.4).
 
     scout -> investigator:<company> (one per seed company) -> skeptic || financial_analyst -> editor
 
-The Skeptic and Financial Analyst are slots, skipped until their tickets build them. Each
-task depends on premises: every task on the question itself (`question`), and each
-Investigator task also on its company belonging in the question (`company:<slug>`).
+The Skeptic (atlas.investigations.skeptic) searches independently for counterevidence; the
+Financial Analyst is a slot, skipped until its ticket builds it. Each task depends on
+premises: every task on the question itself (`question`), and each Investigator task also on
+its company belonging in the question (`company:<slug>`). A premise is disproven by the
+researcher, or by the Skeptic's accepted, independent counterevidence (a company premise
+only; `atlas-skeptic`).
 
 **Advancing.** Every state change happens under a lock on the investigation row, in the
 transaction that records it. Advancing cancels the unstarted tasks whose premise was
@@ -115,13 +118,7 @@ def plan(seeds: Sequence[_Seed]) -> list[_PlannedTask]:
             )
             for key, seed in zip(investigators, seeds, strict=True)
         ),
-        _PlannedTask(
-            "skeptic",
-            "skeptic",
-            investigators,
-            [QUESTION_PREMISE],
-            skipped="not built yet: the Skeptic's independent counterevidence search joins later",
-        ),
+        _PlannedTask("skeptic", "skeptic", investigators, [QUESTION_PREMISE]),
         _PlannedTask(
             "financial_analyst",
             "financial_analyst",
@@ -288,51 +285,79 @@ class Investigations:
             investigation = lock(connection, investigation_id)
             if investigation["status"] != "running":
                 raise InvestigationConflict("the investigation has stopped")
-            premise = (
-                connection.execute(
-                    text(
-                        "SELECT * FROM investigation_premise"
-                        " WHERE investigation_id = :id AND key = :key"
-                    ),
-                    {"id": investigation_id, "key": premise_key},
-                )
-                .mappings()
-                .one_or_none()
+            self.disprove_within(connection, actor, investigation_id, premise_key, reason)
+
+    def disprove_within(
+        self,
+        connection: Connection,
+        actor: Actor,
+        investigation_id: uuid.UUID,
+        premise_key: str,
+        reason: str,
+        *,
+        counterevidence_ids: list[str] | None = None,
+    ) -> None:
+        """`disprove` in the caller's transaction, which holds the investigation's lock (the
+        Skeptic's disproof names the counterevidence it rests on)."""
+        premise = (
+            connection.execute(
+                text(
+                    "SELECT * FROM investigation_premise"
+                    " WHERE investigation_id = :id AND key = :key"
+                ),
+                {"id": investigation_id, "key": premise_key},
             )
-            if premise is None:
-                raise InvestigationNotFound(f"premise {premise_key!r} not found")
-            if premise["status"] == "disproven":
-                raise InvestigationConflict(f"premise {premise_key!r} is already disproven")
-            new = (
-                connection.execute(
-                    text(
-                        "UPDATE investigation_premise SET status = 'disproven', reason = :reason,"
-                        " disproven_by = :actor, disproven_at = now() WHERE id = :id RETURNING *"
-                    ),
-                    {"id": premise["id"], "reason": reason, "actor": actor.name},
-                )
-                .mappings()
-                .one()
+            .mappings()
+            .one_or_none()
+        )
+        if premise is None:
+            raise InvestigationNotFound(f"premise {premise_key!r} not found")
+        if premise["status"] == "disproven":
+            raise InvestigationConflict(f"premise {premise_key!r} is already disproven")
+        new = (
+            connection.execute(
+                text(
+                    "UPDATE investigation_premise SET status = 'disproven', reason = :reason,"
+                    " disproven_by = :actor, disproven_at = now() WHERE id = :id RETURNING *"
+                ),
+                {"id": premise["id"], "reason": reason, "actor": actor.name},
             )
+            .mappings()
+            .one()
+        )
+        statement: str = premise["statement"]
+        if counterevidence_ids is None:
             event(
                 connection,
                 investigation_id,
                 "premise_disproven",
                 premise=premise_key,
-                statement=premise["statement"],
+                statement=statement,
                 reason=reason,
                 by=actor.name,
             )
-            record(
+        else:
+            cited: list[JsonValue] = [*counterevidence_ids]
+            event(
                 connection,
-                actor,
-                "investigation.premise_disproven",
-                entity_type="investigation_premise",
-                entity_id=str(premise["id"]),
-                old_hash=content_hash(dict(premise)),
-                new_hash=content_hash(dict(new)),
+                investigation_id,
+                "premise_disproven",
+                premise=premise_key,
+                statement=statement,
+                reason=reason,
+                by=actor.name,
+                counterevidence_ids=cited,
             )
-            self.advance(connection, investigation_id)
+        record(
+            connection,
+            actor,
+            "investigation.premise_disproven",
+            entity_type="investigation_premise",
+            entity_id=str(premise["id"]),
+            old_hash=content_hash(dict(premise)),
+            new_hash=content_hash(dict(new)),
+        )
+        self.advance(connection, investigation_id)
 
     def resume(self, actor: Actor, investigation_id: uuid.UUID, token_budget: int) -> None:
         """Continue a budget-exhausted investigation with a larger token budget, in its run."""

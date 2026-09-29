@@ -334,7 +334,22 @@ def render_markdown(export: HypothesisExport) -> str:
             f"   - Needs review: {'yes' if finding.needs_review else 'no'}; independent Evidence"
             f" Families: {len(finding.independent_evidence_families)}"
         )
+        if finding.counterevidence_ids:
+            listed = ", ".join(f"`{each}`" for each in finding.counterevidence_ids)
+            lines.append(f"   - Contradicted by independent counterevidence: {listed}")
     lines.append("")
+    if content.contradictions:
+        lines += ["## Contradictions (the Skeptic's counterevidence)", ""]
+        for each in content.contradictions:
+            span = each.source_span
+            witness = "independent" if each.independent else "not independent"
+            lines.append(
+                f"- `{each.counterevidence_id}` ({each.checklist_item}, {witness}):"
+                f' {_one_line(each.statement)} "{_one_line(span.quote)}" (Source Version'
+                f" `{span.source_version_id}`, characters {span.span_start}-{span.span_end};"
+                f" Assertion `{span.assertion_id}`)"
+            )
+        lines.append("")
     if content.unsupported_findings:
         lines += ["## Unsupported findings (not promoted)", ""]
         lines += [

@@ -5,11 +5,11 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, RowMapping, text
 
 from atlas.audit import content_hash
-from atlas.investigations.model import CardFinding, UnsupportedFinding
+from atlas.investigations.model import CardContradiction, CardFinding, UnsupportedFinding
 
 DRAFT_HYPOTHESIS_KIND = "draft_hypothesis"
 RUN_KIND = "hypothesis_draft"
@@ -70,7 +70,9 @@ class HypothesisContent(BaseModel):
     """A version's content. Only `findings` state facts, each citing accepted Claims (and so
     their Assertions and spans); the rest is the Editor's or the researcher's proposal.
     `unsupported_findings` records what was dropped for citing no accepted Claim: never
-    promoted to a finding."""
+    promoted to a finding. `contradictions` is the Skeptic's accepted counterevidence from the
+    investigation's research card (each finding lists the independent items against its
+    Claims in `counterevidence_ids`); versions drafted before ticket 15 have none."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -84,6 +86,7 @@ class HypothesisContent(BaseModel):
     unresolved_questions: list[str]
     findings: list[CardFinding]
     unsupported_findings: list[UnsupportedFinding]
+    contradictions: list[CardContradiction] = Field(default_factory=list[CardContradiction])
 
     def sha256(self) -> str:
         return content_hash(self.model_dump(mode="json"))

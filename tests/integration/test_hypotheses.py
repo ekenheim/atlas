@@ -7,9 +7,9 @@ observed through `/api/v1` (the Hypothesis, its diff and export, runs' role call
 log through the database's own tables) and the requests the fakes received. The Source
 Versions are the recorded Coherent EDGAR filings; Hindsight is the recorded fake, SearXNG the
 scripted fake. LiteLLM is the scripted chat fake: **every role's answer is written here**
-(the Investigator quotes the recorded Coherent 10-K; the Editors cite the Claim IDs they are
-sent; the Reviewer, chained after the investigation, confirms what it is sent). Nothing live
-is called.
+(the Investigator quotes the recorded Coherent 10-K; the Skeptic reads nothing, or quotes the
+10-Q as counterevidence; the Editors cite the Claim IDs they are sent; the Reviewer, chained
+after the investigation, confirms what it is sent). Nothing live is called.
 """
 
 import json
@@ -36,6 +36,11 @@ QUESTION = "Who supplies the lasers in AI data-center optics, and to whom?"
 SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
 SECOND_SOURCE = "InP laser second source qualification hyperscaler"
 COHR_10K = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm"
+COHR_10Q = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm"
+# From the Coherent 10-Q's balance sheet (the recorded fixture's parsed text).
+DILUTION_QUOTE = (
+    "issued - 212,340,736 shares at March 31, 2026; 171,849,325 shares at June 30, 2025"
+)
 # From the Coherent FY2026 10-K (the recorded fixture's parsed text).
 SUPPLY_QUOTE = (
     "we announced the expansion of our Sherman, Texas, manufacturing facility, entered into a"
@@ -295,8 +300,50 @@ def hypothesis_editor(
     return respond
 
 
+# The Skeptic's plan when it searches and reads nothing: one call, no passages to read.
+NOTHING_TO_READ = (ChatReply.json({"queries": [], "documents": []}, tokens=(500, 50)),)
+
+
+def dilution_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
+    """The Skeptic reads the 10-Q and quotes its share count against every supporting Claim."""
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+
+    def reading(body: dict[str, Any]) -> JsonValue:
+        sent = asked(body)
+        [passage] = [p for p in sent["retrieved_data"] if DILUTION_QUOTE in p["text"]]
+        start = passage["text"].index(DILUTION_QUOTE)
+        return {
+            "counterevidence": [
+                {
+                    "passage_id": passage["id"],
+                    "checklist_item": "dilution_financing",
+                    "subject_company_id": company_id(atlas, "coherent"),
+                    "statement": "Coherent's issued share count rose in fiscal 2026.",
+                    "quote": DILUTION_QUOTE,
+                    "quote_start": start,
+                    "quote_end": start + len(DILUTION_QUOTE),
+                    "epistemic_type": "company_claim",
+                    "contradicts_claim_ids": [
+                        c["claim_id"] for c in sent["request"]["supporting_claims"]
+                    ],
+                    "disproves_premise": None,
+                }
+            ]
+        }
+
+    plan: dict[str, JsonValue] = {
+        "queries": [],
+        "documents": [{"source_version_id": ten_q, "checklist_item": "dilution_financing"}],
+    }
+    return ChatReply.json(plan), ChatReply.answer(reading)
+
+
 def investigate(
-    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG, *claims: dict[str, JsonValue]
+    atlas: Atlas,
+    llm: FakeLiteLLM,
+    searxng: FakeSearXNG,
+    *claims: dict[str, JsonValue],
+    skeptic: tuple[ChatReply, ...] = NOTHING_TO_READ,
 ) -> dict[str, Any]:
     """Run an investigation of Coherent to its stop (with the chained relationship review)."""
     searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
@@ -308,6 +355,7 @@ def investigate(
     llm.script_chat(
         ChatReply.json({"queries": queries}, tokens=(900, 120)),
         ChatReply.answer(quoting(*claims), tokens=(9000, 700)),
+        *skeptic,
         ChatReply.answer(card_editor, tokens=(3000, 400)),
         ChatReply.answer(reviewing, tokens=(800, 100)),
     )
@@ -337,10 +385,11 @@ def drafted(
     llm: FakeLiteLLM,
     searxng: FakeSearXNG,
     *claims: dict[str, JsonValue],
+    skeptic: tuple[ChatReply, ...] = NOTHING_TO_READ,
     **editor: Any,
 ) -> dict[str, Any]:
     """An investigation saved as a Hypothesis, with the Editor's draft (version 1) written."""
-    found = investigate(atlas, llm, searxng, *(claims or (supply(atlas),)))
+    found = investigate(atlas, llm, searxng, *(claims or (supply(atlas),)), skeptic=skeptic)
     saved = save(atlas, found["id"])
     llm.script_chat(ChatReply.answer(hypothesis_editor(**editor), tokens=(4000, 600)))
     atlas.worker_pass()
@@ -472,7 +521,9 @@ def test_an_investigation_is_saved_as_a_reviewable_hypothesis_with_a_source_trai
     ]
     assert len(version["content_sha256"]) == 64
     # The Editor was sent the research card, the accepted Claims and their quotes as data.
-    assert roles(llm) == ["scout", "investigator", "editor", "reviewer", "editor"]
+    assert roles(llm) == ["scout", "investigator", "skeptic", "editor", "reviewer", "editor"]
+    assert content["contradictions"] == []
+    assert finding["counterevidence_ids"] == []
     body = llm.chat_requests()[-1]
     sent = asked(body)
     assert sent["request"]["research_question"] == QUESTION
@@ -550,8 +601,8 @@ def test_the_dossier_exports_as_json_and_markdown_with_citations_and_run_metadat
     assert all(run["finished_at"] is not None for run in meta["runs"])
     assert meta["runs"][1]["tokens_in"] == 4000
     assert [(c["role"], c["prompt_name"], c["prompt_version"]) for c in meta["role_calls"]] == [
-        ("editor", "editor", 1),
-        ("editor", "editor-hypothesis", 1),
+        ("editor", "editor", 2),
+        ("editor", "editor-hypothesis", 2),
     ]
     assert all(len(c["prompt_sha256"]) == 64 for c in meta["role_calls"])
 
@@ -842,7 +893,7 @@ def test_saving_needs_a_stopped_investigation_with_a_research_card(
     searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
     llm.script_chat(
         ChatReply.json({"queries": [{"query": SUBSTRATE, "purpose": None}]}),
-        ChatReply.json({"claims": []}),
+        ChatReply.json({"claims": []}),  # nothing accepted: the Skeptic has nothing to challenge
     )
     atlas.worker_pass()
     empty = atlas.get(f"/api/v1/investigations/{running['id']}")
@@ -899,3 +950,62 @@ def test_without_litellm_a_hypothesis_is_not_saved(
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "hypotheses_not_configured"
     atlas.engine.dispose()
+
+
+# --- the Skeptic's counterevidence (ticket 15) ----------------------------------------------------
+
+
+def test_the_skeptic_s_counterevidence_reaches_the_hypothesis_as_contradictions(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    found = investigate(atlas, llm, searxng, supply(atlas), skeptic=dilution_skeptic(atlas))
+    assert found["stop_reason"] == "needs_review"  # the card's finding is contradicted
+    [against] = found["research_card"]["contradictions"]
+    assert against["independent"] is True
+    saved = save(atlas, found["id"])
+    llm.script_chat(ChatReply.answer(hypothesis_editor(), tokens=(4000, 600)))
+
+    atlas.worker_pass()
+
+    hypothesis = get(atlas, saved["id"])
+    [version] = hypothesis["versions"]
+    content = version["content"]
+    # The version carries the card's contradictions; its finding lists the counterevidence
+    # against its Claim, and needs review.
+    assert content["contradictions"] == found["research_card"]["contradictions"]
+    [finding] = content["findings"]
+    assert finding["counterevidence_ids"] == [against["counterevidence_id"]]
+    assert finding["needs_review"] is True
+    # The Editor was sent them (the quote as low-trust data), never as citable Claims.
+    sent = asked(llm.chat_requests()[-1])
+    [contradiction] = sent["request"]["contradictions"]
+    assert (contradiction["counterevidence_id"], contradiction["checklist_item"]) == (
+        against["counterevidence_id"],
+        "dilution_financing",
+    )
+    assert contradiction["independent"] is True
+    quoted = {each["id"]: each["text"] for each in sent["retrieved_data"]}
+    assert quoted[against["counterevidence_id"]] == DILUTION_QUOTE
+    assert against["counterevidence_id"] not in [c["claim_id"] for c in sent["request"]["claims"]]
+    # A correction keeps them, and re-resolves its findings' counterevidence.
+    [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    corrected = correct(
+        atlas,
+        saved["id"],
+        based_on_version=1,
+        findings=[{"claim_text": SUPPLY_FINDING, "claim_ids": [accepted["id"]]}],
+        note="restated",
+    )
+    assert corrected.status_code == 201, corrected.text
+    second = get(atlas, saved["id"])["versions"][-1]["content"]
+    assert second["contradictions"] == content["contradictions"]
+    assert second["findings"][0]["counterevidence_ids"] == [against["counterevidence_id"]]
+    # The dossier shows them.
+    markdown = atlas.api.get(
+        f"/api/v1/hypotheses/{saved['id']}/export", params={"format": "markdown"}
+    ).text
+    assert "\n## Contradictions (the Skeptic's counterevidence)\n" in markdown
+    assert f'"{DILUTION_QUOTE}"' in markdown
+    assert f"Contradicted by independent counterevidence: `{against['counterevidence_id']}`" in (
+        markdown
+    )

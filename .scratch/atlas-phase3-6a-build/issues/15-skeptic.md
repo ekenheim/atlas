@@ -6,9 +6,9 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 11 (Evidence Families); 14 (Investigation orchestration)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Skeptic runs in parallel with the Analyst slot in the DAG
-- [ ] Counterevidence tagged and shown in the investigation
-- [ ] A test: a finding sharing a family with the Investigator's Evidence isn't counted as independent
-- [ ] A test: Memory text is never a witness
+- [x] Skeptic runs in parallel with the Analyst slot in the DAG
+- [x] Counterevidence tagged and shown in the investigation
+- [x] A test: a finding sharing a family with the Investigator's Evidence isn't counted as independent
+- [x] A test: Memory text is never a witness

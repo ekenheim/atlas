@@ -3,8 +3,9 @@ research card out; and, when the researcher saves the investigation, a Hypothesi
 (`HYPOTHESIS_EDITOR`, below).
 
 The request lists the accepted Claims (their resolved subject, predicate and object, and the
-Source Version each quotes) and the investigation's Tier C leads; each Claim's quote and each
-lead's snippet go as quoted, low-trust `retrieved_data` (`id` = the claim or lead ID). The
+Source Version each quotes), the investigation's Tier C leads and the Skeptic's accepted
+counterevidence; each Claim's quote, each lead's snippet and each counterevidence quote go as
+quoted, low-trust `retrieved_data` (`id` = the claim, lead or counterevidence ID). The
 Editor answers with findings, each citing the Claims it rests on, open questions, and whether
 the Claims answer the question. Code, not the model, decides what a finding may cite: a
 finding citing no accepted Claim of the investigation is dropped as unsupported, and every
@@ -17,7 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-EDITOR_PROMPT_VERSION = 1
+EDITOR_PROMPT_VERSION = 2  # v2: the Skeptic's counterevidence (ticket 15)
 
 
 class _Request(BaseModel):
@@ -42,13 +43,27 @@ class EditorLead(_Request):
     url: str
 
 
+class EditorCounterevidence(_Request):
+    """The Skeptic's accepted counterevidence, as the Editors are sent it (its quote goes as
+    retrieved data). Never citable as a finding's claim."""
+
+    counterevidence_id: str
+    checklist_item: str
+    subject: str
+    statement: str
+    contradicts_claim_ids: list[str]
+    independent: bool  # its Evidence Family is none of the supporting Claims'
+    source_title: str
+
+
 class EditorRequest(_Request):
     theme_id: str
     theme_title: str
     research_question: str
     claims: list[EditorClaim]
     leads: list[EditorLead]
-    disproven_premises: list[str]  # what the researcher has ruled out; don't rely on it
+    counterevidence: list[EditorCounterevidence]
+    disproven_premises: list[str]  # what the researcher or the Skeptic ruled out
 
 
 class EditorFinding(RoleOutput):
@@ -75,7 +90,7 @@ EDITOR = Role(
 
 # --- the Hypothesis draft (spec §5.6, §8.1) ------------------------------------------------------
 
-HYPOTHESIS_EDITOR_PROMPT_VERSION = 1
+HYPOTHESIS_EDITOR_PROMPT_VERSION = 2  # v2: contradictions (ticket 15)
 
 
 class CardFindingSummary(_Request):
@@ -94,6 +109,7 @@ class HypothesisEditorRequest(_Request):
     card_findings: list[CardFindingSummary]
     card_open_questions: list[str]
     claims: list[EditorClaim]
+    contradictions: list[EditorCounterevidence]
     disproven_premises: list[str]
 
 

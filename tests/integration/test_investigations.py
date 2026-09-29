@@ -7,9 +7,10 @@ everything is observed through `/api/v1` (the investigation, its events, runs' r
 discoveries, claim extractions, `/metrics`) and the requests the fakes received. The
 Source Versions are the recorded Coherent EDGAR filings (a 10-K and a 10-Q), ingested and
 retained through the fixture path, Hindsight the recorded fake with `derive_memories`.
-LiteLLM is the scripted chat fake: **the Scout's, Investigator's and Editor's answers are
-written here** (the Investigator's quote the recorded Coherent 10-K; the Editor's cite the
-Claim IDs it is sent; the Reviewer, chained after a final stop, confirms what it is sent).
+LiteLLM is the scripted chat fake: **the Scout's, Investigator's, Skeptic's and Editor's
+answers are written here** (the Investigator's quote the recorded Coherent 10-K; the Skeptic's
+quote the passages it is sent; the Editor's cite the Claim IDs it is sent; the Reviewer,
+chained after a final stop, confirms what it is sent).
 SearXNG is the scripted fake over `tests/fixtures/searxng/`. The
 test universe is the repo's plus NVIDIA, which the 10-K names. Nothing live is called.
 """
@@ -34,7 +35,7 @@ from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
 from tests.fakes.searxng import FakeSearXNG, SearchReply
 from tests.fakes.serve import Served, serve
-from tests.harness import THEMES, Atlas, Clock, at
+from tests.harness import REPO, THEMES, Atlas, Clock, at
 
 QUESTION = "Who supplies the lasers in AI data-center optics, and to whom?"
 SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
@@ -244,6 +245,10 @@ def scout_reply(tokens: tuple[int, int] = (900, 120)) -> ChatReply:
     return ChatReply.json({"queries": QUERIES}, tokens=tokens)
 
 
+# The Skeptic's plan when it searches and reads nothing: one call, no passages to read.
+NOTHING_TO_READ = ChatReply.json({"queries": [], "documents": []}, tokens=(500, 50))
+
+
 def script_searches(searxng: FakeSearXNG) -> None:
     searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
     searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
@@ -367,9 +372,9 @@ def test_an_investigation_starts_with_a_fixed_visible_plan_and_its_7_2_request(
     assert plan["scout"]["job_id"] is not None
     for key in ("investigator:coherent", "investigator:lumentum", "editor"):
         assert plan[key]["status"] == "pending"
-    for slot in ("skeptic", "financial_analyst"):
-        assert plan[slot]["status"] == "skipped"
-        assert "not built yet" in plan[slot]["detail"]
+    assert plan["skeptic"]["status"] == "pending"
+    assert plan["financial_analyst"]["status"] == "skipped"
+    assert "not built yet" in plan["financial_analyst"]["detail"]
     assert plan["investigator:coherent"]["depends_on"] == ["scout"]
     assert plan["investigator:coherent"]["company_id"] == coherent
     assert (
@@ -411,7 +416,6 @@ def test_an_investigation_starts_with_a_fixed_visible_plan_and_its_7_2_request(
     assert request["available_budget"] == started["budgets"]
     assert [(e["type"], e["task_key"]) for e in events(atlas, started["id"])] == [
         ("created", None),
-        ("task_skipped", "skeptic"),
         ("task_skipped", "financial_analyst"),
         ("task_queued", "scout"),
     ]
@@ -450,6 +454,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas)), tokens=(9000, 700)),
+        NOTHING_TO_READ,
         ChatReply.answer(editing(), tokens=(3000, 400)),
         REVIEWED,
     )
@@ -465,35 +470,41 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         "scout": "succeeded",
         "investigator:coherent": "succeeded",
         "investigator:lumentum": "succeeded",
-        "skeptic": "skipped",
+        "skeptic": "succeeded",
         "financial_analyst": "skipped",
         "editor": "succeeded",
     }
     # Lumentum has nothing archived: its Investigator task makes no LLM call.
     assert "no parsed Source Version" in tasks(found)["investigator:lumentum"]["detail"]
-    assert roles(llm) == ["scout", "investigator", "editor", "reviewer"]
+    assert roles(llm) == ["scout", "investigator", "skeptic", "editor", "reviewer"]
+    # The Skeptic planned no search and no reading: it found no counterevidence.
+    skeptic = tasks(found)["skeptic"]["artifacts"]
+    assert (skeptic["supporting_claims"], skeptic["passages"]) == (1, 0)
+    assert skeptic["counterevidence_accepted"] == 0
+    assert found["counterevidence"] == []
     # Every role call is in the investigation's run, which the stop finished (the chained
     # relationship review has its own).
     run_id = found["run_id"]
     assert run_id is not None and found["request"]["run_id"] == run_id
-    assert {body["metadata"]["run_id"] for body in llm.chat_requests()[:3]} == {run_id}
+    assert {body["metadata"]["run_id"] for body in llm.chat_requests()[:4]} == {run_id}
     calls = atlas.get(f"/api/v1/runs/{run_id}/role-calls")
     assert [(c["role"], c["status"]) for c in calls["role_calls"]] == [
         ("scout", "accepted"),
         ("investigator", "accepted"),
+        ("skeptic", "accepted"),
         ("editor", "accepted"),
     ]
-    assert (calls["tokens_in"], calls["tokens_out"]) == (12_900, 1_220)
+    assert (calls["tokens_in"], calls["tokens_out"]) == (13_400, 1_270)
     assert found["usage"] == {
         "rounds": 1,
         "leads": 3,
         "documents": 2,
-        "tokens_in": 12_900,
-        "tokens_out": 1_220,
+        "tokens_in": 13_400,
+        "tokens_out": 1_270,
     }
     tokens = "atlas_llm_tokens_total"
-    assert metric(atlas, tokens, kind="investigation", direction="input") == 12_900
-    assert metric(atlas, tokens, kind="investigation", direction="output") == 1_220
+    assert metric(atlas, tokens, kind="investigation", direction="input") == 13_400
+    assert metric(atlas, tokens, kind="investigation", direction="output") == 1_270
     discovery = atlas.get(
         f"/api/v1/discoveries/{tasks(found)['scout']['artifacts']['discovery_id']}"
     )
@@ -514,7 +525,8 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert [d["source_version_id"] for d in found["documents"]] == [ten_k, ten_q]
     assert extraction["source_version_ids"] == [ten_k, ten_q]
     # The Editor was sent the accepted Claim (its quote as low-trust data) and the leads.
-    editor = asked(llm.chat_requests()[2])
+    editor = asked(llm.chat_requests()[3])
+    assert editor["request"]["counterevidence"] == []
     [sent] = editor["request"]["claims"]
     [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
     assert sent["claim_id"] == accepted["id"]
@@ -556,8 +568,9 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         atlas.version(COHR_10K, "coherent")["available_at"]
     )
     assert finding["counterevidence_ids"] == []
+    assert card["contradictions"] == []
     assert finding["limitations"] == ["A company's own statement; no volumes or prices."]
-    assert card["editor_role_call_id"] == calls["role_calls"][2]["id"]
+    assert card["editor_role_call_id"] == calls["role_calls"][3]["id"]
     # The event log tells the story in order, ending with the stop and its reason.
     log = events(atlas, started["id"])
     assert [(e["type"], e["task_key"]) for e in log if e["task_key"] == "scout"] == [
@@ -569,8 +582,8 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert log[-1]["detail"] == {
         "reason": "answered",
         "detail": found["stop_detail"],
-        "tokens_in": 12_900,
-        "tokens_out": 1_220,
+        "tokens_in": 13_400,
+        "tokens_out": 1_270,
     }
     assert metric(atlas, "atlas_investigation_stops_total", reason="answered") == 1
 
@@ -601,6 +614,7 @@ def test_an_editor_finding_that_cites_no_accepted_claim_is_dropped_and_needs_rev
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
+        NOTHING_TO_READ,
         ChatReply.answer(cite_a_lead),
         REVIEWED,
     )
@@ -636,6 +650,7 @@ def test_a_final_stop_queues_the_relationship_review_of_the_investigation_s_asse
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
+        NOTHING_TO_READ,
         ChatReply.answer(editing()),
         REVIEWED,
     )
@@ -750,7 +765,7 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
     assert statuses(stopped) == {
         "scout": "succeeded",
         "investigator:coherent": "budget_exhausted",
-        "skeptic": "skipped",
+        "skeptic": "pending",
         "financial_analyst": "skipped",
         "editor": "pending",
     }
@@ -819,7 +834,7 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
         assert metric(atlas, "atlas_investigation_stops_total", reason=reason) == count
 
 
-def test_a_budget_spent_before_the_editor_resumes_into_the_editor(
+def test_a_budget_spent_before_the_skeptic_resumes_into_the_skeptic_and_the_editor(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
     atlas = services.start()
@@ -833,18 +848,19 @@ def test_a_budget_spent_before_the_editor_resumes_into_the_editor(
     atlas.worker_pass()
 
     stopped = investigation(atlas, started["id"])
-    assert (stopped["stop_reason"], tasks(stopped)["editor"]["status"]) == (
+    assert (stopped["stop_reason"], tasks(stopped)["skeptic"]["status"]) == (
         "budget_exhausted",
         "budget_exhausted",
     )
-    assert "before the editor's call" in stopped["stop_detail"]
+    assert tasks(stopped)["editor"]["status"] == "pending"
+    assert "before the skeptic's call" in stopped["stop_detail"]
     assert stopped["research_card"] is None
     assert roles(llm) == ["scout", "investigator"]
 
     # A resumable stop doesn't chain the relationship review: the run isn't over.
     assert "relationship_review_queued" not in [e["type"] for e in events(atlas, started["id"])]
 
-    llm.script_chat(ChatReply.answer(editing()), REVIEWED)
+    llm.script_chat(NOTHING_TO_READ, ChatReply.answer(editing()), REVIEWED)
     resumed = atlas.api.post(
         f"/api/v1/investigations/{started['id']}/resume", json={"token_budget": 20_000}
     )
@@ -853,8 +869,9 @@ def test_a_budget_spent_before_the_editor_resumes_into_the_editor(
 
     found = investigation(atlas, started["id"])
     assert found["stop_reason"] == "answered"
+    assert tasks(found)["skeptic"]["status"] == "succeeded"
     assert len(found["research_card"]["findings"]) == 1
-    assert roles(llm) == ["scout", "investigator", "editor", "reviewer"]
+    assert roles(llm) == ["scout", "investigator", "skeptic", "editor", "reviewer"]
 
 
 # --- an LLM outage --------------------------------------------------------------------------------
@@ -870,6 +887,7 @@ def test_an_llm_outage_pauses_the_investigation_and_it_resumes_with_nothing_inve
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
+        NOTHING_TO_READ,
         ChatReply.error(503, "Service Unavailable"),
     )
     script_searches(searxng)
@@ -904,6 +922,7 @@ def test_an_llm_outage_pauses_the_investigation_and_it_resumes_with_nothing_inve
     assert [(c["role"], c["status"]) for c in calls] == [
         ("scout", "accepted"),
         ("investigator", "accepted"),
+        ("skeptic", "accepted"),
         ("editor", "failed"),
         ("editor", "accepted"),
     ]
@@ -937,7 +956,7 @@ def test_a_disproven_premise_cancels_only_the_tasks_that_depend_on_it(
         "scout": "queued",
         "investigator:coherent": "pending",
         "investigator:lumentum": "cancelled",
-        "skeptic": "skipped",
+        "skeptic": "pending",
         "financial_analyst": "skipped",
         "editor": "pending",
     }
@@ -950,6 +969,7 @@ def test_a_disproven_premise_cancels_only_the_tasks_that_depend_on_it(
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
+        NOTHING_TO_READ,
         ChatReply.answer(editing()),
         REVIEWED,
     )
@@ -961,7 +981,7 @@ def test_a_disproven_premise_cancels_only_the_tasks_that_depend_on_it(
     assert found["research_card"]["disproven_premises"] == [
         "Lumentum is part of the supply chain the question is about"
     ]
-    assert asked(llm.chat_requests()[2])["request"]["disproven_premises"] == [
+    assert asked(llm.chat_requests()[3])["request"]["disproven_premises"] == [
         "Lumentum is part of the supply chain the question is about"
     ]
     again = atlas.api.post(
@@ -1113,3 +1133,467 @@ def test_every_stop_reason_is_exposed_as_a_metric_before_it_happens(services: Se
         assert ("atlas_investigation_stops_total", frozenset({("reason", reason)})) in (
             atlas.metrics()
         )
+
+
+# --- the Skeptic -------------------------------------------------------------------------------
+
+DILUTION = "Coherent share issuance convertible notes dilution 2026"
+MARKETS_WIRE = "https://markets-wire.test/2026/09/coherent-convertible-notes-equitization"
+# From the recorded Coherent filings' parsed text: the 10-Q's balance sheet (dilution) and the
+# 10-K's customer paragraph (customer concentration).
+DILUTION_QUOTE = (
+    "issued - 212,340,736 shares at March 31, 2026; 171,849,325 shares at June 30, 2025"
+)
+CONCENTRATION_QUOTE = (
+    "We had two customers who each contributed more than 10% of revenue during fiscal 2026."
+)
+CHECKLIST = [
+    "substitutes",
+    "second_sources",
+    "capacity_additions",
+    "inventory_cycle",
+    "dilution_financing",
+    "customer_concentration",
+]
+COHR_10K_FILE = (
+    REPO
+    / "tests/fixtures/edgar/coherent/www.sec.gov/Archives/edgar/data/820318"
+    / "000082031826000020/iivi-20260630.htm"
+)
+COPY_URL = "https://filings-mirror.test/coherent/fy2026-annual-report.htm"
+
+
+def skeptic_plan(
+    *, queries: tuple[tuple[str, str], ...] = (), documents: tuple[tuple[str, str], ...] = ()
+) -> ChatReply:
+    """The Skeptic's plan: its own queries and the catalog documents it reads."""
+    return ChatReply.json(
+        {
+            "queries": [{"query": q, "checklist_item": item} for q, item in queries],
+            "documents": [
+                {"source_version_id": v, "checklist_item": item} for v, item in documents
+            ],
+        },
+        tokens=(800, 90),
+    )
+
+
+def counter(
+    quote: str,
+    item: str,
+    subject: str,
+    *,
+    version: str | None = None,
+    passage_id: str | None = None,
+    contradicts: bool = True,
+    disproves: str | None = None,
+) -> dict[str, Any]:
+    """One counterevidence item for `countering`: quoted from the first passage sent that holds
+    the quote (of `version`, if given), or cited as `passage_id` (`CLAIM`: the supporting
+    Claim's ID) at offset 0."""
+    return {
+        "quote": quote,
+        "checklist_item": item,
+        "subject_company_id": subject,
+        "statement": f"{item.replace('_', ' ')}: {quote[:60]}",
+        "version": version,
+        "passage_id": passage_id,
+        "contradicts": contradicts,
+        "disproves": disproves,
+    }
+
+
+def countering(*items: dict[str, Any]) -> Callable[[dict[str, Any]], JsonValue]:
+    """The Skeptic's reading: each item as `counter` describes it."""
+
+    def respond(body: dict[str, Any]) -> JsonValue:
+        sent = asked(body)
+        supporting: list[JsonValue] = [c["claim_id"] for c in sent["request"]["supporting_claims"]]
+        passages = sent["retrieved_data"]
+        answered: list[JsonValue] = []
+        for each in items:
+            quote, passage_id, start = each["quote"], each["passage_id"], 0
+            if passage_id == "CLAIM":
+                passage_id = supporting[0]
+            elif passage_id is None:
+                holding = [
+                    p
+                    for p in passages
+                    if quote in p["text"]
+                    and (each["version"] is None or p["source"].startswith(each["version"]))
+                ]
+                assert holding, f"no passage sent holds {quote!r}"
+                passage_id, start = holding[0]["id"], holding[0]["text"].index(quote)
+            answered.append(
+                {
+                    "passage_id": passage_id,
+                    "checklist_item": each["checklist_item"],
+                    "subject_company_id": each["subject_company_id"],
+                    "statement": each["statement"],
+                    "quote": quote,
+                    "quote_start": start,
+                    "quote_end": start + len(quote),
+                    "epistemic_type": "company_claim",
+                    "contradicts_claim_ids": supporting if each["contradicts"] else [],
+                    "disproves_premise": each["disproves"],
+                }
+            )
+        return {"counterevidence": answered}
+
+    return respond
+
+
+def skeptic_calls(llm: FakeLiteLLM) -> list[dict[str, Any]]:
+    return [asked(b) for b in llm.chat_requests() if b["metadata"]["role"] == "skeptic"]
+
+
+def by_quote(found: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {each["quote"]: each for each in found["counterevidence"]}
+
+
+def family(atlas: Atlas, version_id: str) -> str:
+    found = atlas.get(f"/api/v1/source-versions/{version_id}")["evidence_family"]
+    return f"family:{found['evidence_family_id']}"
+
+
+def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reaches_the_card(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(investigator_max_passages=500, investigator_passages_per_call=500)
+    coherent = company_id(atlas, "coherent")
+    ten_k = atlas.version(COHR_10K, "coherent")["id"]
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    started = seeded(atlas, "coherent")
+    paraphrase = "Coherent's share count rose sharply in fiscal 2026."
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        # Its own query, and no catalog document: the 10-Q comes from its search results.
+        skeptic_plan(queries=((DILUTION, "dilution_financing"),)),
+        ChatReply.answer(
+            countering(
+                counter(DILUTION_QUOTE, "dilution_financing", coherent),
+                counter(paraphrase, "dilution_financing", coherent, passage_id="s1"),
+            ),
+            tokens=(6000, 500),
+        ),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+    searxng.script(DILUTION, SearchReply.of("skeptic-dilution"))
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    # The Skeptic ran between the Investigator and the Editor, beside the Analyst slot.
+    assert statuses(found) == {
+        "scout": "succeeded",
+        "investigator:coherent": "succeeded",
+        "skeptic": "succeeded",
+        "financial_analyst": "skipped",
+        "editor": "succeeded",
+    }
+    assert roles(llm) == ["scout", "investigator", "skeptic", "skeptic", "editor", "reviewer"]
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [(c["role"], c["prompt_name"]) for c in calls if c["role"] == "skeptic"] == [
+        ("skeptic", "skeptic-plan"),
+        ("skeptic", "skeptic"),
+    ]
+    # Its plan: the checklist, the supporting Claim to challenge, the archived catalog; no
+    # retrieved data at all (no Memory).
+    plan, reading = skeptic_calls(llm)
+    assert plan["retrieved_data"] == []
+    assert [item["name"] for item in plan["request"]["checklist"]] == CHECKLIST
+    [accepted_claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    [supporting] = plan["request"]["supporting_claims"]
+    assert (supporting["claim_id"], supporting["subject"], supporting["object"]) == (
+        accepted_claim["id"],
+        "Coherent",
+        "NVIDIA",
+    )
+    assert {d["source_version_id"] for d in plan["request"]["catalog"]} == {ten_k, ten_q}
+    # Its own search: its query, in its own discovery of the run; the results are Tier C leads.
+    artifacts = tasks(found)["skeptic"]["artifacts"]
+    discovery = atlas.get(f"/api/v1/discoveries/{artifacts['discovery_id']}")
+    assert (discovery["run_id"], discovery["status"]) == (found["run_id"], "completed")
+    [query] = discovery["queries"]
+    assert (query["query"], query["purpose"], query["status"]) == (
+        DILUTION,
+        "skeptic: dilution_financing",
+        "searched",
+    )
+    assert [s["q"] for s in searxng.searches()][-1] == DILUTION
+    leads = {lead["canonical_url"]: lead for lead in atlas.get("/api/v1/leads")["items"]}
+    assert leads[MARKETS_WIRE]["tier"] == "C"
+    # A result that is an archived filing (the 10-Q) is read; the Investigator read it too,
+    # so the document budget isn't charged twice.
+    assert (artifacts["documents"], artifacts["documents_from_search"]) == (1, 1)
+    assert artifacts["documents_dropped"] == 0
+    assert [(d["source_version_id"], d["task_key"]) for d in found["documents"]] == [
+        (ten_k, "investigator:coherent"),
+        (ten_q, "investigator:coherent"),
+    ]
+    # It read passages of that document only, as low-trust data, picked by the checklist.
+    assert reading["retrieved_data"]
+    assert all(p["source"].startswith(f"{ten_q}#") for p in reading["retrieved_data"])
+    assert all(p["trust"] == "low" for p in reading["retrieved_data"])
+    assert all(p["checklist_items"] for p in reading["request"]["passages"])
+    assert reading["request"]["premises"] == [
+        {
+            "key": "company:coherent",
+            "statement": "Coherent is part of the supply chain the question is about",
+        }
+    ]
+    # Its counterevidence is visible on the investigation: one accepted, one rejected.
+    items = by_quote(found)
+    dilution = items[DILUTION_QUOTE]
+    assert (dilution["outcome"], dilution["task_key"], dilution["checklist_item"]) == (
+        "accepted",
+        "skeptic",
+        "dilution_financing",
+    )
+    assert dilution["source_version_id"] == ten_q
+    assert atlas.parsed(ten_q)[dilution["span_start"] : dilution["span_end"]] == DILUTION_QUOTE
+    assert dilution["contradicts_claim_ids"] == [accepted_claim["id"]]
+    assert (dilution["independent"], dilution["evidence_family"]) == (True, family(atlas, ten_q))
+    rejected = items[paraphrase]
+    assert (rejected["outcome"], rejected["reason_code"]) == ("rejected", "quote_mismatch")
+    assert (rejected["assertion_id"], rejected["independent"]) == (None, None)
+    # An accepted item is an Assertion tagged as counterevidence, by the Skeptic.
+    assertion = atlas.get(f"/api/v1/assertions/{dilution['assertion_id']}")
+    assert (assertion["predicate"], assertion["created_by"], assertion["extractor_version"]) == (
+        "counterevidence",
+        "atlas-skeptic",
+        "skeptic.v1",
+    )
+    assert assertion["value_json"]["checklist_item"] == "dilution_financing"
+    assert assertion["value_json"]["counterevidence_id"] == dilution["id"]
+    assert (artifacts["counterevidence_accepted"], artifacts["counterevidence_rejected"]) == (1, 1)
+    assert artifacts["independent_evidence_families"] == 1
+    # The Editor was sent it (its quote as low-trust data); the card shows it as a
+    # contradiction of the finding, which needs review, and so does the investigation.
+    editor = asked(llm.chat_requests()[4])
+    [sent] = editor["request"]["counterevidence"]
+    assert (sent["counterevidence_id"], sent["independent"], sent["subject"]) == (
+        dilution["id"],
+        True,
+        "Coherent",
+    )
+    quoted = {each["id"]: each for each in editor["retrieved_data"]}
+    assert quoted[dilution["id"]]["text"] == DILUTION_QUOTE
+    card = found["research_card"]
+    [finding] = card["findings"]
+    assert finding["counterevidence_ids"] == [dilution["id"]]
+    assert finding["needs_review"] is True
+    [contradiction] = card["contradictions"]
+    assert contradiction["counterevidence_id"] == dilution["id"]
+    assert contradiction["source_span"]["assertion_id"] == dilution["assertion_id"]
+    assert contradiction["independent"] is True
+    assert (found["stop_reason"], found["stop_detail"]) == (
+        "needs_review",
+        "1 findings are contradicted by independent counterevidence",
+    )
+    # The chained relationship review takes the Investigator's Assertion only.
+    [queued] = [e for e in events(atlas, found["id"]) if e["type"] == "relationship_review_queued"]
+    assert queued["detail"]["assertions"] == 1
+    assert [p["status"] for p in found["premises"]] == ["open", "open"]
+
+
+def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_not_independent(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(investigator_max_passages=500, investigator_passages_per_call=500)
+    coherent = company_id(atlas, "coherent")
+    # A byte-for-byte copy of the Coherent 10-K at another URL: a separate Source Version in
+    # the 10-K's Evidence Family.
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "coherent",
+        "--file",
+        str(COHR_10K_FILE),
+        "--origin-url",
+        COPY_URL,
+        "--published-at",
+        "2026-01-15T12:00:00+00:00",
+    )
+    assert imported.returncode == 0, imported.stderr
+    copy = json.loads(imported.stdout)["source_version_id"]
+    atlas.worker_pass()  # its retain
+    ten_k = atlas.version(COHR_10K, "coherent")["id"]
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    assert copy != ten_k and family(atlas, copy) == family(atlas, ten_k)
+    started = seeded(atlas, "coherent")
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan(documents=((copy, "customer_concentration"), (ten_q, "dilution_financing"))),
+        ChatReply.answer(
+            countering(
+                # From the copy: the same witness as the Investigator's 10-K, however it's
+                # found; its claim to disprove the premise doesn't count.
+                counter(
+                    CONCENTRATION_QUOTE,
+                    "customer_concentration",
+                    coherent,
+                    version=copy,
+                    disproves="company:coherent",
+                ),
+                counter(DILUTION_QUOTE, "dilution_financing", coherent),
+            )
+        ),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    [claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert claim["source_version_id"] == ten_k
+    items = by_quote(found)
+    shared, own = items[CONCENTRATION_QUOTE], items[DILUTION_QUOTE]
+    assert (shared["outcome"], shared["source_version_id"]) == ("accepted", copy)
+    assert shared["evidence_family"] == family(atlas, ten_k)
+    assert shared["independent"] is False
+    assert "not an independent witness" in shared["independence_detail"]
+    assert (own["outcome"], own["independent"]) == ("accepted", True)
+    artifacts = tasks(found)["skeptic"]["artifacts"]
+    assert (artifacts["counterevidence_accepted"], artifacts["counterevidence_independent"]) == (
+        2,
+        1,
+    )
+    # Only independent counterevidence counts against a finding or a premise.
+    [finding] = found["research_card"]["findings"]
+    assert finding["counterevidence_ids"] == [own["id"]]
+    contradictions = found["research_card"]["contradictions"]
+    assert [(c["counterevidence_id"], c["independent"]) for c in contradictions] == [
+        (shared["id"], False),
+        (own["id"], True),
+    ]
+    assert {p["key"]: p["status"] for p in found["premises"]}["company:coherent"] == "open"
+    assert "premise_disproven" not in [e["type"] for e in events(atlas, found["id"])]
+
+
+def test_memory_and_other_roles_output_are_never_witnesses(
+    services: Services,
+    llm: FakeLiteLLM,
+    searxng: FakeSearXNG,
+) -> None:
+    atlas = services.start()
+    fake = services.hindsight[0]
+    coherent = company_id(atlas, "coherent")
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    # Real Memory about Coherent: what Hindsight holds, derived from the retained filings.
+    [memory, *_] = atlas.recall("Coherent customers and suppliers", company_ids=[coherent])[
+        "memories"
+    ]
+    recalls = len(fake.requests("POST", "memories/recall"))
+    started = seeded(atlas, "coherent")
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan(documents=((ten_q, "dilution_financing"),)),
+        ChatReply.answer(
+            countering(
+                counter(memory["text"], "second_sources", coherent, passage_id=memory["memory_id"]),
+                counter(SUPPLY_QUOTE, "customer_concentration", coherent, passage_id="CLAIM"),
+                counter(
+                    "Qualified second sources are missing.",
+                    "second_sources",
+                    coherent,
+                    passage_id="bottlenecks",
+                ),
+            )
+        ),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    # Nothing but passages of the Source Versions it chose were sent, and no Memory was read
+    # for the Skeptic: the one recall is the Investigator's, the one mental-model read the
+    # Scout's.
+    plan, reading = skeptic_calls(llm)
+    assert plan["retrieved_data"] == []
+    assert all(p["source"].startswith(f"{ten_q}#") for p in reading["retrieved_data"])
+    assert len(fake.requests("POST", "memories/recall")) == recalls + 1
+    mental_model_reads = [
+        c for c in fake.calls if c.method == "GET" and "/mental-models/" in c.url.path
+    ]
+    assert len(mental_model_reads) == 1
+    # Memory text, the Investigator's Claim and a mental model cited as witnesses: rejected.
+    [claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    rejected = found["counterevidence"]
+    assert [(c["passage_id"], c["outcome"], c["reason_code"]) for c in rejected] == [
+        (memory["memory_id"], "rejected", "not_a_witness"),
+        (claim["id"], "rejected", "not_a_witness"),
+        ("bottlenecks", "rejected", "not_a_witness"),
+    ]
+    assert all(c["assertion_id"] is None and c["independent"] is None for c in rejected)
+    assert "never" in rejected[0]["reason"]
+    # None of it counts: the finding stands uncontradicted.
+    assert found["research_card"]["contradictions"] == []
+    assert found["research_card"]["findings"][0]["counterevidence_ids"] == []
+    assert found["stop_reason"] == "answered"
+    assert tasks(found)["skeptic"]["artifacts"]["counterevidence_independent"] == 0
+
+
+def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    coherent = company_id(atlas, "coherent")
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    started = seeded(atlas, "coherent")
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan(documents=((ten_q, "dilution_financing"),)),
+        ChatReply.answer(
+            countering(
+                counter(
+                    DILUTION_QUOTE,
+                    "dilution_financing",
+                    coherent,
+                    disproves="company:coherent",
+                ),
+                # The question stays the researcher's to disprove.
+                counter(DILUTION_QUOTE, "dilution_financing", coherent, disproves="question"),
+            )
+        ),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    first, second = found["counterevidence"]
+    assert (first["outcome"], first["independent"]) == ("accepted", True)
+    assert (second["outcome"], second["reason_code"]) == ("rejected", "unknown_premise")
+    premises = {p["key"]: p for p in found["premises"]}
+    assert premises["question"]["status"] == "open"
+    disproven = premises["company:coherent"]
+    assert (disproven["status"], disproven["disproven_by"]) == ("disproven", "atlas-skeptic")
+    assert disproven["reason"].startswith("the Skeptic's independent counterevidence: ")
+    [logged] = [e for e in events(atlas, found["id"]) if e["type"] == "premise_disproven"]
+    assert (logged["detail"]["by"], logged["detail"]["counterevidence_ids"]) == (
+        "atlas-skeptic",
+        [first["id"]],
+    )
+    # Coherent's Claims no longer count: the Editor has nothing new and makes no call.
+    assert tasks(found)["editor"]["status"] == "skipped"
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+    assert "editor" not in roles(llm)
+    with atlas.engine.connect() as connection:
+        actors = connection.execute(
+            text("SELECT actor FROM audit_event WHERE action = 'investigation.premise_disproven'")
+        ).scalars()
+        assert list(actors) == ["atlas-skeptic"]

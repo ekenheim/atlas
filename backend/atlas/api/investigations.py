@@ -2,14 +2,14 @@
 
 - `POST /investigations` (202): records the investigation, its premises and its fixed plan
   (Scout -> one Investigator per seed company -> Skeptic || Financial Analyst -> Editor; the
-  Skeptic and Analyst are skipped slots for now) and enqueues the Scout's task. Budgets
+  Analyst is a skipped slot for now) and enqueues the Scout's task. Budgets
   default to ≤ 2 rounds, `ATLAS_INVESTIGATION_MAX_LEADS` (≤ 10) leads,
   `ATLAS_INVESTIGATION_MAX_DOCUMENTS` (≤ 25) documents and `ATLAS_RUN_TOKEN_BUDGET` tokens;
   a request may lower them. Seed companies default to the theme's companies in the database.
   503 when LiteLLM, Hindsight or SearXNG isn't configured.
 - `GET /investigations/{id}`: the §7.2 request, budgets and usage, status (`paused` while the
   queue pause holds its task back), the stop reason and detail, premises, tasks, leads,
-  documents and the Editor's draft research card.
+  documents, the Skeptic's counterevidence and the Editor's draft research card.
 - `GET /investigations/{id}/events`: what happened, in order.
 - `POST /investigations/{id}/resume`: continue an investigation stopped `budget_exhausted`
   with a larger token budget, in the same run (409 otherwise).

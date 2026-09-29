@@ -1358,6 +1358,42 @@ export interface components {
         /** @enum {string} */
         CandidateState: "lead" | "investigating" | "evidence_ready" | "needs_more_evidence" | "paper_tracking" | "rejected" | "closed";
         /**
+         * CardContradiction
+         * @description Accepted counterevidence, as the research card and a Hypothesis carry it.
+         */
+        CardContradiction: {
+            /**
+             * Counterevidence Id
+             * Format: uuid
+             */
+            counterevidence_id: string;
+            /** Checklist Item */
+            checklist_item: string;
+            /** Statement */
+            statement: string;
+            /**
+             * Subject Company Id
+             * Format: uuid
+             */
+            subject_company_id: string;
+            /** Contradicts Claim Ids */
+            contradicts_claim_ids: string[];
+            /** Disproves Premise */
+            disproves_premise: string | null;
+            source_span: components["schemas"]["SourceSpan"];
+            /** Evidence Family */
+            evidence_family: string;
+            /** Independent */
+            independent: boolean;
+            /** Independence Detail */
+            independence_detail: string;
+            /**
+             * Evidence Available At
+             * Format: date-time
+             */
+            evidence_available_at: string;
+        };
+        /**
          * CardFinding
          * @description A research card finding in the §7.2 claim shape. The statement is the Editor's; every
          *     other field is filled in by code from the accepted Claims it cites.
@@ -1646,6 +1682,77 @@ export interface components {
             verification_status: string | null;
             /** Counterevidence Id */
             counterevidence_id: string | null;
+        };
+        /**
+         * Counterevidence
+         * @description One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an
+         *     Assertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`
+         *     says whether its Evidence Family differs from every supporting Claim's (a Source Version
+         *     outside any family is its own). `proposed` is the item exactly as the model answered.
+         */
+        Counterevidence: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Round */
+            round: number;
+            /** Task Key */
+            task_key: string;
+            /**
+             * Role Call Id
+             * Format: uuid
+             */
+            role_call_id: string;
+            /** Checklist Item */
+            checklist_item: string;
+            /** Passage Id */
+            passage_id: string;
+            /** Statement */
+            statement: string;
+            /** Subject Company Id */
+            subject_company_id: string | null;
+            /** Source Version Id */
+            source_version_id: string | null;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number | null;
+            /** Span End */
+            span_end: number | null;
+            /** Epistemic Type */
+            epistemic_type: string;
+            /** Contradicts Claim Ids */
+            contradicts_claim_ids: string[];
+            /** Disproves Premise */
+            disproves_premise: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "accepted" | "rejected";
+            /** Reason Code */
+            reason_code: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Assertion Id */
+            assertion_id: string | null;
+            /** Evidence Family */
+            evidence_family: string | null;
+            /** Independent */
+            independent: boolean | null;
+            /** Independence Detail */
+            independence_detail: string | null;
+            /** Proposed */
+            proposed: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** DiffClaim */
         DiffClaim: {
@@ -2381,7 +2488,9 @@ export interface components {
          * @description A version's content. Only `findings` state facts, each citing accepted Claims (and so
          *     their Assertions and spans); the rest is the Editor's or the researcher's proposal.
          *     `unsupported_findings` records what was dropped for citing no accepted Claim: never
-         *     promoted to a finding.
+         *     promoted to a finding. `contradictions` is the Skeptic's accepted counterevidence from the
+         *     investigation's research card (each finding lists the independent items against its
+         *     Claims in `counterevidence_ids`); versions drafted before ticket 15 have none.
          */
         HypothesisContent: {
             /** Thesis Statement */
@@ -2403,6 +2512,8 @@ export interface components {
             findings: components["schemas"]["CardFinding"][];
             /** Unsupported Findings */
             unsupported_findings: components["schemas"]["UnsupportedFinding"][];
+            /** Contradictions */
+            contradictions?: components["schemas"]["CardContradiction"][];
         };
         /** HypothesisCreate */
         HypothesisCreate: {
@@ -2692,6 +2803,8 @@ export interface components {
             leads: components["schemas"]["InvestigationLead"][];
             /** Documents */
             documents: components["schemas"]["InvestigationDocument"][];
+            /** Counterevidence */
+            counterevidence: components["schemas"]["Counterevidence"][];
             research_card: components["schemas"]["ResearchCard"] | null;
             /** Created By */
             created_by: string;
@@ -4007,6 +4120,8 @@ export interface components {
              * Format: uuid
              */
             editor_role_call_id: string;
+            /** Contradictions */
+            contradictions?: components["schemas"]["CardContradiction"][];
         };
         /** ResearchScope */
         ResearchScope: {

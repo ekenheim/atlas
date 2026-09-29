@@ -1,12 +1,12 @@
 """What an investigation is, as the API shows it: its §7.2 request, budgets and usage, the plan
-(premises and role tasks), the leads and documents it took, the Editor's research card, and
-the event log."""
+(premises and role tasks), the leads and documents it took, the Skeptic's counterevidence,
+the Editor's research card, and the event log."""
 
 import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import Connection, RowMapping, text
 
 from atlas.roles import run_usage
@@ -193,9 +193,66 @@ class CardFinding(BaseModel):
     entity_ids: list[uuid.UUID]
     validity_dates: ValidityDates
     limitations: list[str]
-    counterevidence_ids: list[uuid.UUID]  # the Skeptic's, once it joins (ticket 15)
-    needs_review: bool  # until every cited Assertion is corroborated
+    # The Skeptic's accepted, independent counterevidence against a cited Claim (ticket 15).
+    counterevidence_ids: list[uuid.UUID]
+    # Until every cited Assertion is corroborated, and while counterevidence contradicts it.
+    needs_review: bool
     open_questions: list[str]
+
+
+CounterevidenceOutcome = Literal["accepted", "rejected"]
+
+
+class Counterevidence(BaseModel):
+    """One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an
+    Assertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`
+    says whether its Evidence Family differs from every supporting Claim's (a Source Version
+    outside any family is its own). `proposed` is the item exactly as the model answered."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: uuid.UUID
+    round: int
+    task_key: str
+    role_call_id: uuid.UUID
+    checklist_item: str
+    passage_id: str
+    statement: str
+    subject_company_id: uuid.UUID | None
+    source_version_id: uuid.UUID | None
+    quote: str
+    span_start: int | None
+    span_end: int | None
+    epistemic_type: str
+    contradicts_claim_ids: list[uuid.UUID]
+    disproves_premise: str | None
+    outcome: CounterevidenceOutcome
+    reason_code: str | None
+    reason: str | None
+    assertion_id: uuid.UUID | None
+    evidence_family: str | None  # a family ID, or a lone Source Version's ID
+    independent: bool | None  # None when rejected
+    independence_detail: str | None
+    proposed: dict[str, JsonValue]
+    created_at: datetime
+
+
+class CardContradiction(BaseModel):
+    """Accepted counterevidence, as the research card and a Hypothesis carry it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    counterevidence_id: uuid.UUID
+    checklist_item: str
+    statement: str
+    subject_company_id: uuid.UUID
+    contradicts_claim_ids: list[uuid.UUID]
+    disproves_premise: str | None
+    source_span: SourceSpan  # its Assertion's quote and span (`claim_id` is the item's ID)
+    evidence_family: str
+    independent: bool
+    independence_detail: str
+    evidence_available_at: datetime
 
 
 class UnsupportedFinding(BaseModel):
@@ -224,6 +281,9 @@ class ResearchCard(BaseModel):
     lead_ids: list[uuid.UUID]
     disproven_premises: list[str]
     editor_role_call_id: uuid.UUID
+    # The Skeptic's accepted counterevidence (independent or not); cards drawn before ticket 15
+    # have none.
+    contradictions: list[CardContradiction] = Field(default_factory=list[CardContradiction])
 
 
 class Investigation(BaseModel):
@@ -245,6 +305,7 @@ class Investigation(BaseModel):
     tasks: list[Task]
     leads: list[InvestigationLead]
     documents: list[InvestigationDocument]
+    counterevidence: list[Counterevidence]
     research_card: ResearchCard | None
     created_by: str
     created_at: datetime
@@ -323,7 +384,22 @@ def get_investigation(
             params,
         ).mappings()
     ]
-    return _investigation(row, premises, tasks, leads, documents, connection, queue_paused)
+    counterevidence = [
+        Counterevidence.model_validate(dict(each))
+        for each in connection.execute(
+            text(
+                "SELECT c.*, t.round, t.key AS task_key FROM counterevidence c"
+                " JOIN skeptic_search s ON s.id = c.search_id"
+                " JOIN investigation_task t ON t.id = s.task_id"
+                " WHERE c.investigation_id = :id"
+                " ORDER BY t.round, c.batch, c.ordinal"
+            ),
+            params,
+        ).mappings()
+    ]
+    return _investigation(
+        row, premises, tasks, leads, documents, counterevidence, connection, queue_paused
+    )
 
 
 def _investigation(
@@ -332,6 +408,7 @@ def _investigation(
     tasks: list[Task],
     leads: list[InvestigationLead],
     documents: list[InvestigationDocument],
+    counterevidence: list[Counterevidence],
     connection: Connection,
     queue_paused: bool,
 ) -> Investigation:
@@ -384,6 +461,7 @@ def _investigation(
         tasks=tasks,
         leads=leads,
         documents=documents,
+        counterevidence=counterevidence,
         research_card=None if card is None else ResearchCard.model_validate(card),
         created_by=row["created_by"],
         created_at=row["created_at"],

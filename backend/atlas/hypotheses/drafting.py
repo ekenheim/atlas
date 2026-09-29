@@ -7,12 +7,15 @@ One attempt:
    across retries; the investigation's run is finished by now.
 3. **The Editor** (`HYPOTHESIS_EDITOR`) is sent the research question, the research card's
    findings and open questions, the investigation's accepted Claims (excluding those from a
-   task whose premise was disproven), and the disproven premises; each Claim's quote goes as
-   quoted, low-trust `retrieved_data`. It proposes the thesis statement, mechanism,
+   task whose premise was disproven), the Skeptic's counterevidence on the card
+   (`contradictions`) and the disproven premises; each Claim's and counterevidence item's
+   quote goes as quoted, low-trust `retrieved_data`. It proposes the thesis statement, mechanism,
    predictions, catalysts, falsifiers, required Evidence, alternatives, unresolved questions
    and findings.
 4. **Code keeps only findings citing accepted Claims** (atlas.hypotheses.findings); the rest
-   are recorded as unsupported findings, never promoted. Version 1 is written with its
+   are recorded as unsupported findings, never promoted; each kept finding lists the
+   independent counterevidence against its Claims, and the version carries the card's
+   contradictions. Version 1 is written with its
    content hash and provenance (both runs, both Editor calls), the drafting is `drafted`, and
    the run is finished with its token totals.
 
@@ -33,7 +36,8 @@ from atlas.hypotheses.findings import ProposedFinding, resolve_findings
 from atlas.hypotheses.model import RUN_KIND, HypothesisContent, Mechanism, VersionProvenance
 from atlas.hypotheses.service import insert_version
 from atlas.investigations.model import ResearchCard
-from atlas.investigations.tasks import accepted_claims
+from atlas.investigations.skeptic import counterevidence_by_claim
+from atlas.investigations.tasks import accepted_claims, counterevidence_for_editors
 from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job
 from atlas.roles import QuotedText, RoleCaller, RoleCallFailed, TokenBudgetExhausted, run_usage
@@ -115,6 +119,7 @@ class HypothesisDrafter:
         investigation_run: uuid.UUID = investigation["run_id"]
         with self._engine.connect() as connection:
             claims = accepted_claims(connection, investigation["id"], investigation_run)
+            sent, quoted = counterevidence_for_editors(connection, card.contradictions)
         theme = load_universe(self._settings.themes_config).themes.get(investigation["theme"])
         request = HypothesisEditorRequest(
             theme_id=investigation["theme"],
@@ -144,6 +149,7 @@ class HypothesisDrafter:
                 )
                 for c in claims
             ],
+            contradictions=sent,
             disproven_premises=card.disproven_premises,
         )
         retrieved = [
@@ -153,7 +159,7 @@ class HypothesisDrafter:
                 text=c["quote"],
             )
             for c in claims
-        ]
+        ] + quoted
         draft, role_call_id = self._caller.call_recorded(
             HYPOTHESIS_EDITOR, request, run_id=run_id, retrieved=retrieved
         )
@@ -163,6 +169,7 @@ class HypothesisDrafter:
                 for f in draft.findings
             ],
             claims,
+            counterevidence_by_claim(card.contradictions),
         )
         content = HypothesisContent(
             thesis_statement=draft.thesis_statement,
@@ -175,6 +182,7 @@ class HypothesisDrafter:
             unresolved_questions=draft.unresolved_questions,
             findings=findings,
             unsupported_findings=unsupported,
+            contradictions=card.contradictions,
         )
         provenance = VersionProvenance(
             investigation_id=investigation["id"],

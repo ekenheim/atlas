@@ -14,11 +14,19 @@ One attempt:
      available at the investigation's as-of time, newest first, up to what is left of the
      document budget; then an extraction (atlas.claims) of them in the run, with the
      question for recall. A resumed task continues its budget-exhausted extraction.
+   - **Skeptic** (atlas.investigations.skeptic): skipped without an LLM call when the
+     Investigators accepted no Claim (nothing to challenge); otherwise its own plan, SearXNG
+     queries and reading of the Source Versions it chose, for counterevidence. Its accepted,
+     independent counterevidence may disprove a company premise, applied when the task is
+     recorded (by `atlas-skeptic`), which cancels only what depends on it.
    - **Editor:** the investigation's accepted Claims (excluding those from a task whose
      premise was disproven). With no new independent Evidence (no Evidence Family that an
      earlier round's Claims hadn't used) it is skipped without an LLM call. Otherwise one
-     Editor call drafts the research card; code keeps only findings citing accepted Claims
-     and fills in their spans (atlas.roles.editor).
+     Editor call drafts the research card, sent the Skeptic's accepted counterevidence too;
+     code keeps only findings citing accepted Claims and fills in their spans, the
+     independent counterevidence against each cited Claim (`counterevidence_ids`) and the
+     card's `contradictions`. A finding contradicted by independent counterevidence needs
+     review, and so does the investigation (atlas.roles.editor).
 3. **Outcome.** Under the lock, the task's outcome is recorded and the plan advanced. When
    the run's token budget runs out, the task and the investigation stop `budget_exhausted`
    (resumable). An LLM quota or outage (a pausable failure) records `task_paused` and
@@ -29,6 +37,7 @@ One attempt:
 
 import json
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
@@ -36,6 +45,7 @@ from typing import Any, Literal
 from pydantic import JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
 
+from atlas.archive import open_archive
 from atlas.claims.extraction import ExtractClaimsPayload
 from atlas.claims.handlers import claim_extractor
 from atlas.companies import load_universe
@@ -44,6 +54,7 @@ from atlas.discovery.service import Scout
 from atlas.hindsight import HindsightGateway
 from atlas.investigations.model import (
     RUN_KIND,
+    CardContradiction,
     CardFinding,
     ResearchCard,
     SourceSpan,
@@ -51,11 +62,24 @@ from atlas.investigations.model import (
     ValidityDates,
 )
 from atlas.investigations.service import Investigations, event, lock, stop
+from atlas.investigations.skeptic import (
+    SKEPTIC_ACTOR,
+    Disproof,
+    Skeptic,
+    contradictions,
+    counterevidence_by_claim,
+)
 from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import run_recorder
 from atlas.roles import QuotedText, RoleCaller, RoleCallFailed, TokenBudgetExhausted
-from atlas.roles.editor import EDITOR, EditorClaim, EditorLead, EditorRequest
+from atlas.roles.editor import (
+    EDITOR,
+    EditorClaim,
+    EditorCounterevidence,
+    EditorLead,
+    EditorRequest,
+)
 from atlas.runs import RunRecorder
 from atlas.settings import Settings
 
@@ -76,6 +100,7 @@ class _Outcome:
     detail: str | None = None
     artifacts: dict[str, JsonValue] = field(default_factory=dict[str, JsonValue])
     card: ResearchCard | None = None
+    disproofs: list[Disproof] = field(default_factory=list[Disproof])
 
 
 class TaskRunner:
@@ -225,6 +250,23 @@ class TaskRunner:
             )
         if investigation["status"] != "running":
             return
+        for disproof in outcome.disproofs:
+            premise = connection.execute(
+                text(
+                    "SELECT status FROM investigation_premise"
+                    " WHERE investigation_id = :id AND key = :key"
+                ),
+                {"id": investigation_id, "key": disproof.premise_key},
+            ).scalar_one_or_none()
+            if premise == "open":
+                self._investigations.disprove_within(
+                    connection,
+                    SKEPTIC_ACTOR,
+                    investigation_id,
+                    disproof.premise_key,
+                    disproof.reason,
+                    counterevidence_ids=[str(each) for each in disproof.counterevidence_ids],
+                )
         if outcome.status == "budget_exhausted":
             stop(connection, investigation_id, "budget_exhausted", outcome.detail or "")
         else:
@@ -280,6 +322,8 @@ class TaskRunner:
             return self._scout(job, investigation, run_id)
         if role == "investigator":
             return self._investigator(job, investigation, task, run_id)
+        if role == "skeptic":
+            return self._skeptic(investigation, task, run_id)
         if role == "editor":
             return self._editor(investigation, task, run_id)
         raise RoleCallFailed(f"the {role} role is not built yet")
@@ -457,9 +501,65 @@ class TaskRunner:
                 )
             return chosen, dropped
 
+    def _skeptic(self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID) -> _Outcome:
+        theme = load_universe(self._settings.themes_config).themes.get(investigation["theme"])
+        with self._engine.connect() as connection:
+            claims = accepted_claims(connection, investigation["id"], run_id)
+            theme_companies = list(
+                connection.execute(
+                    text("SELECT id FROM company WHERE slug = ANY(:slugs) ORDER BY slug"),
+                    {"slugs": list(theme.companies) if theme else []},
+                ).scalars()
+            )
+        if not claims:
+            return _Outcome(
+                "skipped",
+                detail="nothing to challenge: the Investigators accepted no Claim",
+                artifacts={"supporting_claims": 0},
+            )
+        company_ids = list(
+            dict.fromkeys(
+                [
+                    *investigation["seed_company_ids"],
+                    *(c["object_company_id"] for c in claims if c["object_company_id"]),
+                    *theme_companies,
+                ]
+            )
+        )
+        searxng = SearXNGClient.from_settings(self._settings)
+        if searxng is None:
+            raise InvestigationNotConfigured("the Skeptic needs SearXNG: set ATLAS_SEARXNG_URL")
+        with searxng, self._caller(investigation) as caller:
+            skeptic = Skeptic(
+                self._engine,
+                open_archive(self._settings),
+                caller,
+                searxng,
+                max_queries=self._settings.discovery_max_queries,
+                max_passages=self._settings.investigator_max_passages,
+                passages_per_call=self._settings.investigator_passages_per_call,
+            )
+            found = skeptic.run(
+                investigation,
+                task,
+                run_id,
+                theme_title=theme.title if theme else investigation["theme"],
+                company_ids=company_ids,
+                claims=claims,
+                supporting_families={_family(c) for c in claims},
+            )
+        return _Outcome(
+            found.status,
+            detail=found.detail,
+            artifacts={"supporting_claims": len(claims), **found.artifacts},
+            disproofs=found.disproofs,
+        )
+
     def _editor(self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID) -> _Outcome:
         with self._engine.connect() as connection:
             claims = accepted_claims(connection, investigation["id"], run_id)
+            against = contradictions(connection, investigation["id"])
+            sent, quoted = counterevidence_for_editors(connection, against)
             leads = connection.execute(
                 text(
                     "SELECT l.id, l.url, l.title, l.snippet FROM investigation_lead il"
@@ -513,19 +613,25 @@ class TaskRunner:
             leads=[
                 EditorLead(lead_id=str(lead.id), title=lead.title, url=lead.url) for lead in leads
             ],
+            counterevidence=sent,
             disproven_premises=disproven,
         )
-        retrieved = [
-            QuotedText(
-                id=str(c["id"]),
-                source=f"{c['source_version_id']}#{c['span_start']}-{c['span_end']}",
-                text=c["quote"],
-            )
-            for c in claims
-        ] + [
-            QuotedText(id=str(lead.id), source=lead.url, text=f"{lead.title}\n{lead.snippet}")
-            for lead in leads
-        ]
+        retrieved = (
+            [
+                QuotedText(
+                    id=str(c["id"]),
+                    source=f"{c['source_version_id']}#{c['span_start']}-{c['span_end']}",
+                    text=c["quote"],
+                )
+                for c in claims
+            ]
+            + [
+                QuotedText(id=str(lead.id), source=lead.url, text=f"{lead.title}\n{lead.snippet}")
+                for lead in leads
+            ]
+            + quoted
+        )
+        by_claim = counterevidence_by_claim(against)
         with self._caller(investigation) as caller:
             draft, role_call_id = caller.call_recorded(
                 EDITOR, request, run_id=run_id, retrieved=retrieved
@@ -550,9 +656,10 @@ class TaskRunner:
                 )
                 continue
             findings.append(
-                card_finding(finding.statement, [by_id[each] for each in cited], finding)
+                card_finding(finding.statement, [by_id[each] for each in cited], finding, by_claim)
             )
-        if draft.verdict == "answered" and findings and not unsupported:
+        contradicted = sum(1 for f in findings if f.counterevidence_ids)
+        if draft.verdict == "answered" and findings and not unsupported and not contradicted:
             stop_reason = "answered"
             stop_detail = f"the Editor judged the question answered by {len(findings)} findings"
         else:
@@ -560,6 +667,10 @@ class TaskRunner:
             problems: list[str] = []
             if unsupported:
                 problems.append(f"{len(unsupported)} unsupported findings were dropped")
+            if contradicted:
+                problems.append(
+                    f"{contradicted} findings are contradicted by independent counterevidence"
+                )
             if not findings:
                 problems.append("no finding cites an accepted Claim")
             if draft.verdict != "answered":
@@ -576,6 +687,7 @@ class TaskRunner:
             lead_ids=[lead.id for lead in leads],
             disproven_premises=disproven,
             editor_role_call_id=role_call_id,
+            contradictions=against,
         )
         return _Outcome(
             "succeeded",
@@ -585,6 +697,8 @@ class TaskRunner:
                 "new_evidence_families": len(new_families),
                 "findings": len(findings),
                 "unsupported_findings": len(unsupported),
+                "contradictions": len(against),
+                "contradicted_findings": contradicted,
                 "stop_reason": stop_reason,
                 "stop_detail": stop_detail,
             },
@@ -697,8 +811,18 @@ def _family(claim: RowMapping) -> str:
     return f"family:{family}" if family is not None else f"version:{claim['source_version_id']}"
 
 
-def card_finding(statement: str, cited: list[RowMapping], finding: Any) -> CardFinding:
+def card_finding(
+    statement: str,
+    cited: list[RowMapping],
+    finding: Any,
+    counterevidence: Mapping[uuid.UUID, list[uuid.UUID]] | None = None,
+) -> CardFinding:
+    """A finding citing `cited` accepted Claims, with the independent `counterevidence`
+    (claim ID -> counterevidence IDs, atlas.investigations.skeptic) against any of them."""
     available: list[datetime] = [c["available_at"] for c in cited]
+    against = list(
+        dict.fromkeys(each for c in cited for each in (counterevidence or {}).get(c["id"], []))
+    )
     entities = dict.fromkeys(
         each
         for c in cited
@@ -727,10 +851,54 @@ def card_finding(statement: str, cited: list[RowMapping], finding: Any) -> CardF
         entity_ids=list(entities),
         validity_dates=ValidityDates(evidence_available_at=max(available), valid_until=None),
         limitations=finding.limitations,
-        counterevidence_ids=[],
-        needs_review=any(c["verification_status"] != "corroborated" for c in cited),
+        counterevidence_ids=against,
+        needs_review=bool(against)
+        or any(c["verification_status"] != "corroborated" for c in cited),
         open_questions=finding.open_questions,
     )
+
+
+def counterevidence_for_editors(
+    connection: Connection, found: Sequence[CardContradiction]
+) -> tuple[list[EditorCounterevidence], list[QuotedText]]:
+    """Accepted counterevidence as the Editors are sent it: the request's items, and each
+    item's quote as low-trust retrieved data (`id` its counterevidence ID)."""
+    names = {
+        row.id: row.display_name
+        for row in connection.execute(text("SELECT id, display_name FROM company"))
+    }
+    titles = {
+        row.id: row.title
+        for row in connection.execute(
+            text(
+                "SELECT v.id, d.title FROM source_version v"
+                " JOIN source_document d ON d.id = v.source_document_id WHERE v.id = ANY(:ids)"
+            ),
+            {"ids": [each.source_span.source_version_id for each in found]},
+        )
+    }
+    sent = [
+        EditorCounterevidence(
+            counterevidence_id=str(each.counterevidence_id),
+            checklist_item=each.checklist_item,
+            subject=names.get(each.subject_company_id, str(each.subject_company_id)),
+            statement=each.statement,
+            contradicts_claim_ids=[str(claim) for claim in each.contradicts_claim_ids],
+            independent=each.independent,
+            source_title=titles.get(each.source_span.source_version_id, ""),
+        )
+        for each in found
+    ]
+    quoted = [
+        QuotedText(
+            id=str(each.counterevidence_id),
+            source=f"{span.source_version_id}#{span.span_start}-{span.span_end}",
+            text=span.quote,
+        )
+        for each in found
+        for span in (each.source_span,)
+    ]
+    return sent, quoted
 
 
 def _budget_detail(role: str, error: TokenBudgetExhausted) -> str:

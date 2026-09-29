@@ -5187,6 +5187,83 @@
           "closed"
         ]
       },
+      "CardContradiction": {
+        "properties": {
+          "counterevidence_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Counterevidence Id"
+          },
+          "checklist_item": {
+            "type": "string",
+            "title": "Checklist Item"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "subject_company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Subject Company Id"
+          },
+          "contradicts_claim_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Contradicts Claim Ids"
+          },
+          "disproves_premise": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disproves Premise"
+          },
+          "source_span": {
+            "$ref": "#/components/schemas/SourceSpan"
+          },
+          "evidence_family": {
+            "type": "string",
+            "title": "Evidence Family"
+          },
+          "independent": {
+            "type": "boolean",
+            "title": "Independent"
+          },
+          "independence_detail": {
+            "type": "string",
+            "title": "Independence Detail"
+          },
+          "evidence_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evidence Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counterevidence_id",
+          "checklist_item",
+          "statement",
+          "subject_company_id",
+          "contradicts_claim_ids",
+          "disproves_premise",
+          "source_span",
+          "evidence_family",
+          "independent",
+          "independence_detail",
+          "evidence_available_at"
+        ],
+        "title": "CardContradiction",
+        "description": "Accepted counterevidence, as the research card and a Hypothesis carry it."
+      },
       "CardFinding": {
         "properties": {
           "claim_text": {
@@ -6063,6 +6140,229 @@
           "counterevidence_id"
         ],
         "title": "Contradiction"
+      },
+      "Counterevidence": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "task_key": {
+            "type": "string",
+            "title": "Task Key"
+          },
+          "role_call_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Role Call Id"
+          },
+          "checklist_item": {
+            "type": "string",
+            "title": "Checklist Item"
+          },
+          "passage_id": {
+            "type": "string",
+            "title": "Passage Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "subject_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Company Id"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Start"
+          },
+          "span_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span End"
+          },
+          "epistemic_type": {
+            "type": "string",
+            "title": "Epistemic Type"
+          },
+          "contradicts_claim_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Contradicts Claim Ids"
+          },
+          "disproves_premise": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disproves Premise"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected"
+            ],
+            "title": "Outcome"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "assertion_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assertion Id"
+          },
+          "evidence_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Family"
+          },
+          "independent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Independent"
+          },
+          "independence_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Independence Detail"
+          },
+          "proposed": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Proposed"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "round",
+          "task_key",
+          "role_call_id",
+          "checklist_item",
+          "passage_id",
+          "statement",
+          "subject_company_id",
+          "source_version_id",
+          "quote",
+          "span_start",
+          "span_end",
+          "epistemic_type",
+          "contradicts_claim_ids",
+          "disproves_premise",
+          "outcome",
+          "reason_code",
+          "reason",
+          "assertion_id",
+          "evidence_family",
+          "independent",
+          "independence_detail",
+          "proposed",
+          "created_at"
+        ],
+        "title": "Counterevidence",
+        "description": "One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an\nAssertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`\nsays whether its Evidence Family differs from every supporting Claim's (a Source Version\noutside any family is its own). `proposed` is the item exactly as the model answered."
       },
       "DiffClaim": {
         "properties": {
@@ -8109,6 +8409,13 @@
             },
             "type": "array",
             "title": "Unsupported Findings"
+          },
+          "contradictions": {
+            "items": {
+              "$ref": "#/components/schemas/CardContradiction"
+            },
+            "type": "array",
+            "title": "Contradictions"
           }
         },
         "type": "object",
@@ -8125,7 +8432,7 @@
           "unsupported_findings"
         ],
         "title": "HypothesisContent",
-        "description": "A version's content. Only `findings` state facts, each citing accepted Claims (and so\ntheir Assertions and spans); the rest is the Editor's or the researcher's proposal.\n`unsupported_findings` records what was dropped for citing no accepted Claim: never\npromoted to a finding."
+        "description": "A version's content. Only `findings` state facts, each citing accepted Claims (and so\ntheir Assertions and spans); the rest is the Editor's or the researcher's proposal.\n`unsupported_findings` records what was dropped for citing no accepted Claim: never\npromoted to a finding. `contradictions` is the Skeptic's accepted counterevidence from the\ninvestigation's research card (each finding lists the independent items against its\nClaims in `counterevidence_ids`); versions drafted before ticket 15 have none."
       },
       "HypothesisCreate": {
         "properties": {
@@ -8870,6 +9177,13 @@
             "type": "array",
             "title": "Documents"
           },
+          "counterevidence": {
+            "items": {
+              "$ref": "#/components/schemas/Counterevidence"
+            },
+            "type": "array",
+            "title": "Counterevidence"
+          },
           "research_card": {
             "anyOf": [
               {
@@ -8920,6 +9234,7 @@
           "tasks",
           "leads",
           "documents",
+          "counterevidence",
           "research_card",
           "created_by",
           "created_at",
@@ -12812,6 +13127,13 @@
             "type": "string",
             "format": "uuid",
             "title": "Editor Role Call Id"
+          },
+          "contradictions": {
+            "items": {
+              "$ref": "#/components/schemas/CardContradiction"
+            },
+            "type": "array",
+            "title": "Contradictions"
           }
         },
         "type": "object",
