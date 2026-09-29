@@ -318,3 +318,10 @@ Rules from the research note `docs/research/xbrl-normalization.md` (branch `rese
 - **Rollout:** the ten companies not yet ingested are rolled out one at a time under that budget, each with an ingest plan and a retain cap first. The unbounded bootstrap of 2026-09 must not recur.
 - **Archive backup:** the archive PVC (`atlas-archive`, ceph-block) is backed up by the owner's VolSync, with MinIO as the backup target. The owner sets this up in home-ops. Until it exists and a restore has been checked, snapshots (Phase 6a) are not a durability guarantee. WORM (MinIO object lock) and the restore drill stay in Phase 7.
 - **Before building on it:** a small live smoke test of claim extraction runs (build ticket 28), because exact quote spans from a live model are the main untested risk.
+
+## 2026-09-29: Non-SEC sources after the terms check
+
+Checked robots.txt and the terms pages on 2026-09-29 (no filings downloaded):
+- **Innolight (HKEX 03308):** no automation. The HKEX Terms of Use prohibit bots and scrapers on hkexnews; the routes are a licensed Issuer Information feed Service (IIS) or written consent (info@hkex). Until then the owner imports documents fetched by hand (`manual_import`, audited, with the origin URL and publication time).
+- **IQE:** the FCA National Storage Mechanism, whose terms allow lawful use subject to the AUP. LSE RNS is not allowed (robots disallow and personal-use terms), nor is IQE's Brighter IR iframe (`Disallow: /`).
+- **Soitec:** the AMF info-financière open API (Licence Ouverte / etalab-2.0, 10k calls per IP per day). Euronext is not allowed (its terms prohibit robots and systematic retrieval), and soitec.com's terms forbid reuse without permission.
