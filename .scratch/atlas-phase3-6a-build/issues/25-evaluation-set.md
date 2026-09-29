@@ -6,8 +6,8 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 12 (Relationships and review); 14 (Investigation orchestration)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Gold cases in the repo
-- [ ] `atlas evaluate` and `GET evaluations`
-- [ ] Runs against fakes in CI; live runs opt-in
+- [x] Gold cases in the repo
+- [x] `atlas evaluate` and `GET evaluations`
+- [x] Runs against fakes in CI; live runs opt-in

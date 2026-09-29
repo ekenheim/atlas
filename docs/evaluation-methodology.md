@@ -33,7 +33,7 @@ tests/evaluation/gold/
     <sha256>.<ext>         # content-addressed source files, shared across cases
 ```
 
-JSON rather than YAML, matching the existing fixtures (`spikes/hindsight/fixtures/lumentum/manifest.json`) and needing no new dependency. The format is validated by a Pydantic model when the first cases land.
+JSON rather than YAML, matching the existing fixtures (`spikes/hindsight/fixtures/lumentum/manifest.json`) and needing no new dependency. The format is validated by the Pydantic models in `atlas.evaluation.gold` (ticket 25), which also hold the validator of §9.
 
 ## 3. Identities and hashes
 
@@ -71,6 +71,8 @@ JSON rather than YAML, matching the existing fixtures (`spikes/hindsight/fixture
 
 `status` is `active`, `retired` (kept, no longer scored by default, with a reason in the entry) or `superseded`. Entries are only ever added or have their status changed.
 
+An entry may also carry `adjudicated: {"by": <actor>, "at": <date>}`: the researcher's confirmation of a case an agent drafted (`adjudication.method: agent_draft`). It lives in the manifest because the case file can't change; a correction instead is a new case (§9).
+
 ## 4. Case schema
 
 A case file has common fields and a `gold` object. Only the `gold` keys that the category requires (§5) must be present; the others are omitted.
@@ -87,13 +89,15 @@ A case file has common fields and a `gold` object. Only the `gold` keys that the
 | `as_of` | yes for temporal categories | The decision time the case is evaluated at, UTC |
 | `temporal_convention` | yes when `as_of` is set | `available_at` or `available_and_ingested` |
 | `scope` | yes | `{"companies": [<entity keys>], "themes": [<slugs>]}`; scoped queries use strict tags |
-| `entities` | yes | Fixture entities: `key`, `legal_name`, `country`, optional `cik`, `lei`, `parent`, `securities` (ticker, MIC, `valid_from`, `valid_to`) and `fictional: true\|false` |
+| `entities` | yes | Fixture entities: `key`, `legal_name`, `country`, optional `display_name`, `cik`, `lei`, `parent`, `layer`, `securities` (ticker, MIC, `valid_from`, `valid_to`) and `fictional: true\|false`. `atlas evaluate` needs a `cik` (fictional ones use `09999…`, which SEC never assigned) |
 | `sources` | yes | See the table below |
 | `gold` | yes | The adjudicated expected outcome (§4.2) |
-| `adjudication` | yes | `labeler` (actor), `adjudicated_at`, `method` (`manual` or `agent_draft_reviewed`), and `disagreements`: each `{party, label, resolution, note}` |
+| `adjudication` | yes | `labeler` (actor), `adjudicated_at`, `method` (`manual`, `agent_draft_reviewed`, or `agent_draft`: not yet adjudicated by the researcher), and `disagreements`: each `{party, label, resolution, note}` |
 | `metrics` | yes | Metric IDs from §7 that this case feeds |
 | `earliest_phase` | yes | The first phase whose output can be scored against it, as a string: `"1"` to `"5"`, or `"6a"` |
 | `notes` | no | Free text |
+| `pipeline` | yes (ticket 25) | What `atlas evaluate` runs (§10): `{"kind": "relationships" \| "families" \| "financials" \| "investigation"}`, with optional `extract_sources` (source keys the Investigator reads; default every document) and `seeds` (entity keys an investigation starts from; default the scope's companies) |
+| `script` | no (ticket 25) | The fake mode's model answers, per role (`scout`, `investigator`, `reviewer`, `skeptic_plan`, `skeptic`, `editor`), in order, the last repeating. Written in the case's terms (entity and source keys, exact quotes) and turned into each role's JSON against the request Atlas actually sent (§10). They are answers, never the expected outcome |
 
 ### 4.1 Source entries
 
@@ -112,6 +116,7 @@ A case file has common fields and a `gold` object. Only the `gold` keys that the
 | `clocks` | `event_at`, `published_at`, `available_at`, `available_at_basis`, and for strict-replay cases `ingested_at` |
 | `evidence_family` | A case-local family label; sources with the same label are not independent |
 | `supersedes_source` | For a changed document: the `key` of the earlier version of the same Source Document |
+| `title`, `company` | The document's title, and the entity key of the company whose document it is (its filer: "we" in it means this company) |
 
 ### 4.2 Gold keys
 
@@ -128,6 +133,10 @@ A case file has common fields and a `gold` object. Only the `gold` keys that the
 | `coverage` | `entity`, `capability` (`filings`, `financials`, `transcripts`, …), `state` (`available` or `absent`), optional `currency_basis` | NUS |
 | `retain` | `source`, `section_anchor`, `retain_state` (`completed`, `failed`, `zero_fact`, `linked`), `reprocess_count`, optional `error_visible: true` | RET |
 | `forbidden_effects` | Effects that must not happen: `state_changed`, `review_state_changed`, `directive_followed`, `tool_invoked`, `secret_disclosed`, `scope_widened`, `command_executed` | INJ |
+| `claims` (ticket 25) | `subject`, `predicate`, `object`, optional `source` and exact `quote`, `accepted` (`true`: an accepted Claim with them exists; `false`: none, rejected or never proposed) | SUP, COM, INF, CON |
+| `investigation` (ticket 25) | `stop_reason` (any of a list), `min_contradictions` (independent ones on the research card), `min_findings` | FUT, CON |
+
+**What `atlas evaluate` scores today (ticket 25):** `answer` (`evidence_missing`, and `must_not_mention` as entity keys), `claims`, `relationships`, `citations`, `evidence_families`, `forbidden_sources`, `financials` and `investigation`. Its `relationships` entries add an optional `layer` and `object_text`, `expect: not_verified` (no such edge machine-reviewed or approved; it may wait in the exceptions queue), and for `present` an optional `review_state` and `reasons_include` (the edge's review reason codes). `financials` entries add optional `accession` and `linkage` (`first`, `restates`, `reaffirms`). The other keys (`assertions`, `entity_mappings`, `coverage`, `retain`, `forbidden_effects`, `must_mention`, `status_at_as_of`, `min_mark`) are not supported yet: the case validator refuses them, so a case using one waits for the phase that can score it.
 
 ### 4.3 Example
 
@@ -177,7 +186,7 @@ A case file has common fields and a `gold` object. Only the `gold` keys that the
 
 ## 5. Case categories
 
-Every §9.5 category has a stable code. Two more come from ticket 12 (marked †). Codes are never reassigned.
+Every §9.5 category has a stable code. Two more come from ticket 12 (marked †) and two from ticket 25 (marked ‡). Codes are never reassigned.
 
 | Code | Category (build plan §9.5) | What it tests | Minimum sources | Required gold keys | Pass when | Earliest phase |
 |---|---|---|---|---|---|---|
@@ -196,6 +205,8 @@ Every §9.5 category has a stable code. Two more come from ticket 12 (marked †
 | `RET` | A failed or zero-extraction Hindsight retain | Zero-fact and failed sections are visible, never silent | 1 document with a section that yields no facts, plus the recorded Hindsight interactions for the zero-fact and failed operations | `retain`, `citations` | `zero_fact` after exactly one reprocess; the failed operation is visible with its error and retry count; nothing cites the empty section | 2 (ticket 13) |
 | `LAY` † | Layer conflation (ticket 12, M3) | Supply-chain layers aren't conflated: substrate ≠ epiwafer ≠ feedstock, foundry ≠ module | 2: a news item misnaming the layer, and the primary source naming the right one | `relationships` (the wrong layer `absent`), `assertions` | The primary source's layer wins; the news item stays a lead | 3 |
 | `INF` † | Inference trap: a supplier removed from a partner page (ticket 12, M11) | A change between two Source Versions supports at most an `agent_inference`, not a `supplies` or exclusivity Relationship | 2 Source Versions of one page (with and without the supplier) | `relationships` (`absent` or `min_mark: inferred`), `assertions` | No verified Relationship or exclusivity Claim without an Assertion that states it | 3–4 |
+| `DIR` ‡ | Reversed-direction trap (ticket 25) | A supply stated one way never becomes a verified edge the other way | 1 Tier A document stating a directed supply | `relationships` (the right direction `present`, the reverse `not_verified`) | Only the stated direction is verified; a reversed proposal waits for a human | 3 |
+| `HED` ‡ | Hedged language (ticket 25) | A planned, conditional or second-hand statement ("expects to", "non-binding", "in discussions") goes to the exceptions queue | 1 document with the hedged statement | `relationships` (`present` in `needs_human_review` with `hedged_language`, and `not_verified`) | The edge is an exception for the owner, never machine-reviewed | 3 |
 
 **Initial set:** at least one active case per category before any prompt optimization, and at least two each for `SUP`, `COM`, `FUT` and `INJ`: 20–30 cases in total. Fictional companies are the default. Real SEC excerpts are allowed when trimmed, as in the spike fixture (`spikes/hindsight/fixtures/lumentum/`).
 
@@ -231,16 +242,16 @@ Metric IDs used in cases' `metrics` field, following build plan §9.4:
 
 ## 8. Recording results
 
-Each scoring run writes one `evaluation` row per case (build plan §5.8; the table arrives in Phase 6a, and until then results go in `docs/implementation-log.md`):
+Each scoring run (`atlas evaluate`, §10) is an `evaluation_run` row (mode, model, code version, the gold manifest's SHA-256, the cases asked for, pass counts) and writes one insert-only `evaluation` row per case (build plan §5.8; migration `0037`):
 
 - `case_id` and `case_sha256`, so the exact case version is known
-- the `run_id`, which carries the code version, Hindsight version, template version and routed model per alias ([`data-model.md`](data-model.md) §3.1)
+- the `run_id`, which carries the code version, Hindsight version, template version and routed model per alias ([`data-model.md`](data-model.md) §3.1). The `evaluation_run` records the code version and model; the Atlas runs a case made (with their routed models) live in its own case database, which is dropped, so only their outcome is kept
 - the temporal convention used
 - the predicted output (answer, citations with states, proposed Relationships)
-- the score per metric, and the reviewer's label where a judgement was needed
+- the score per metric (the share of the case's checks feeding that metric that held), each check with what was expected and observed, and the reviewer's label where a judgement was needed (none yet)
 - the evaluation date
 
-Reports give per-category results, never only an aggregate, and include the failures. Comparisons between models or providers (build plan §13.4) use the same case set and report accuracy, cost and throughput.
+Reports give per-category results, never only an aggregate, and include the failures (`GET /api/v1/evaluations/{id}` has `categories` and every result). Comparisons between models or providers (build plan §13.4) use the same case set and report accuracy, cost and throughput.
 
 ## 9. Adding or changing a case
 
@@ -251,3 +262,20 @@ Reports give per-category results, never only an aggregate, and include the fail
 5. To fix a case later, add a new case with `supersedes` and mark the old one `superseded`. Never edit a committed case or source file.
 
 The validator (added with the first cases) checks: ID pattern and file name; unique IDs; no manifest entry removed; `case_sha256` matches; every source file's hash matches its name and its `sha256`; every source's `license_class` may be committed; every gold quote occurs exactly in its source's parse; and each category in §5 has an active case before prompt optimization starts.
+
+The validator's checks, as built (`atlas.evaluation.validate_gold`), are all of the above except "no manifest entry removed" (that needs the manifest's history: review it in the diff) and the per-category coverage before prompt optimization (a ticket-level decision; the first set covers the categories ticket 25 lists). It also checks that every entity and source key a case, its gold or its script names is defined.
+
+## 10. Running: `atlas evaluate`
+
+`atlas evaluate [--case ID]... [--live]` runs the active cases (or the ones named) and stores the run (§8); `GET /api/v1/evaluations` lists runs and `GET /api/v1/evaluations/{id}` shows one. It prints one line per case (stderr) and the run as JSON (stdout), and exits 0 when every case passed, 1 when one failed, 2 when it was refused. The gold set is `ATLAS_EVALUATION_GOLD_DIR` (default `tests/evaluation/gold`).
+
+Each case runs in isolation, through production code:
+
+1. **Its own database** on the configured Postgres server (one migrated template per run, one copy per case, all dropped afterwards; the role needs `CREATEDB`), a temporary filesystem archive, and a universe config of the case's entities in one theme.
+2. **Services on localhost:** a Hindsight stub (its `/version` reports `evaluation-stub`; the template import; an empty recall), a SearXNG stub (no results), and in fake mode the scripted LiteLLM. Memory is not what these cases evaluate.
+3. **Its pipeline:** document sources recorded as manual imports in publication order (`available_at` = the publication time), or `edgar_response` sources replayed through the SEC fixture path; then `extract_claims` and `review_relationships`, or an investigation, run by single worker passes with the builtin handlers.
+4. **Observation and scoring** through the read side, in the case's terms (entity and source keys). A case passes when every check holds, no job failed and no stub saw an unexpected request.
+
+**Fake mode** (the default, and what CI runs, in `tests/integration/test_evaluations.py`) answers every role call from the case's `script`. It scores the pipeline's deterministic parts (the extraction checks, the review rules, families, as-of selection, the investigation's plan and stops) given those answers, so it is a regression test, not a measure of the model. The Investigator answers only with Claims whose quote a passage it was sent holds: a document Atlas never sent (a future one) yields nothing.
+
+**Live mode** (`--live`) sends the role calls to the configured LiteLLM (`ATLAS_LITELLM_URL`, the model `ATLAS_LLM_ROLE_MODEL`) instead, with everything else unchanged, to measure model quality on the same cases. It has the live suite's two locks: `--live` and `ATLAS_LIVE_TESTS=1`. It spends MiniMax quota, so it runs only with the owner's go-ahead and never in CI. The gold is the same in both modes, so a live run may fail a case the fake mode passes (a missed or wrong Claim); that is the measurement.

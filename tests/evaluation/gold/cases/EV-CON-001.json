@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-CON-001",
+  "category": "CON",
+  "title": "The Skeptic finds a later filing contradicting the supply claim; the card shows it",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "Is Cirrus Compute a durable customer of Aurora Photonics' 800G transceivers?",
+  "scope": {
+    "companies": [
+      "aurora"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "aurora",
+      "legal_name": "Aurora Photonics Inc.",
+      "display_name": "Aurora Photonics",
+      "country": "US",
+      "cik": "0999900001",
+      "layer": "module",
+      "fictional": true
+    },
+    {
+      "key": "cirrus",
+      "legal_name": "Cirrus Compute Corp.",
+      "display_name": "Cirrus Compute",
+      "country": "US",
+      "cik": "0999900003",
+      "layer": "system",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s1",
+      "sha256": "a6efa897c480b9e8cd6ed8240dab92d289ea2f1073225870276e511927cd7770",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "10-K",
+      "title": "Aurora Photonics 10-K fiscal 2024",
+      "company": "aurora",
+      "origin_url": "https://ir.aurora-photonics.example/sec/10-k-2024-con.htm",
+      "clocks": {
+        "published_at": "2025-02-20T21:05:00+00:00",
+        "available_at": "2025-02-20T21:05:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    },
+    {
+      "key": "s2",
+      "sha256": "ab04eee4b8a5e134b1ffd8ca406c62995b95f3349976d7a1540259e281c6aa94",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "10-Q",
+      "title": "Aurora Photonics 10-Q Q1 fiscal 2026",
+      "company": "aurora",
+      "origin_url": "https://ir.aurora-photonics.example/sec/10-q-2025-08.htm",
+      "clocks": {
+        "published_at": "2025-08-05T21:00:00+00:00",
+        "available_at": "2025-08-05T21:00:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    }
+  ],
+  "pipeline": {
+    "kind": "investigation",
+    "seeds": [
+      "aurora"
+    ]
+  },
+  "script": {
+    "scout": [
+      {
+        "queries": [
+          {
+            "query": "Cirrus Compute 800G transceiver suppliers",
+            "purpose": "customers"
+          }
+        ]
+      }
+    ],
+    "investigator": [
+      {
+        "claims": [
+          {
+            "subject": "aurora",
+            "predicate": "supplies",
+            "object": "cirrus",
+            "layer": "module",
+            "quote": "In fiscal 2024 we shipped 800G optical transceivers to Cirrus Compute under a multi-year supply agreement.",
+            "product": "800G optical transceivers",
+            "epistemic_type": "company_claim"
+          }
+        ]
+      }
+    ],
+    "skeptic_plan": [
+      {
+        "queries": [],
+        "documents": [
+          {
+            "source": "s2",
+            "checklist_item": "second_sources"
+          }
+        ]
+      }
+    ],
+    "skeptic": [
+      {
+        "counterevidence": [
+          {
+            "source": "s2",
+            "quote": "In June 2025, Cirrus Compute notified us that it had qualified a second source for 800G transceivers and would reduce its purchases from us beginning in the fourth quarter.",
+            "subject": "aurora",
+            "checklist_item": "second_sources",
+            "statement": "Cirrus Compute qualified a second source and will cut purchases from Aurora.",
+            "contradicts": true,
+            "disproves": null
+          }
+        ]
+      }
+    ],
+    "editor": [
+      {
+        "statement": "Aurora Photonics has supplied Cirrus Compute with 800G transceivers.",
+        "verdict": "answered",
+        "limitations": [
+          "A company's own statement."
+        ],
+        "open_questions": [
+          "How much volume does Cirrus move to its second source?"
+        ]
+      }
+    ],
+    "reviewer": [
+      {
+        "reviews": [],
+        "otherwise": {
+          "verdict": "confirmed",
+          "direction": "as_proposed",
+          "layer_verdict": "correct"
+        }
+      }
+    ]
+  },
+  "gold": {
+    "claims": [
+      {
+        "subject": "aurora",
+        "predicate": "supplies",
+        "object": "cirrus",
+        "source": "s1",
+        "quote": "In fiscal 2024 we shipped 800G optical transceivers to Cirrus Compute under a multi-year supply agreement.",
+        "accepted": true
+      }
+    ],
+    "investigation": {
+      "stop_reason": [
+        "needs_review"
+      ],
+      "min_contradictions": 1,
+      "min_findings": 1
+    }
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "contradiction_discovery"
+  ],
+  "earliest_phase": "4"
+}

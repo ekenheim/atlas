@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-INF-001",
+  "category": "INF",
+  "title": "A partner page and its later edit support no supply or purchase edge",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "Is Borealis Substrates a supplier of Aurora Photonics, and did Aurora drop it?",
+  "scope": {
+    "companies": [
+      "aurora"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "aurora",
+      "legal_name": "Aurora Photonics Inc.",
+      "display_name": "Aurora Photonics",
+      "country": "US",
+      "cik": "0999900001",
+      "layer": "module",
+      "fictional": true
+    },
+    {
+      "key": "borealis",
+      "legal_name": "Borealis Substrates Corp.",
+      "display_name": "Borealis Substrates",
+      "country": "US",
+      "cik": "0999900002",
+      "layer": "substrate",
+      "fictional": true
+    },
+    {
+      "key": "dunmore",
+      "legal_name": "Dunmore Epitaxy Ltd.",
+      "display_name": "Dunmore Epitaxy",
+      "country": "GB",
+      "cik": "0999900004",
+      "layer": "epi",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s1",
+      "sha256": "8aeb2663be1602dc0ceb500939d3d441c32a9c0ac9bf23953a549ab2305b51ef",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Aurora Photonics partners page",
+      "company": "aurora",
+      "origin_url": "https://www.aurora-photonics.example/partners",
+      "clocks": {
+        "published_at": "2025-01-15T12:00:00+00:00",
+        "available_at": "2025-01-15T12:00:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    },
+    {
+      "key": "s2",
+      "sha256": "62a19a952ecbb7ec041872aed6c69982b4fd3d3542476e008364f2534a323a15",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Aurora Photonics partners page",
+      "company": "aurora",
+      "origin_url": "https://www.aurora-photonics.example/partners",
+      "clocks": {
+        "published_at": "2025-07-01T12:00:00+00:00",
+        "available_at": "2025-07-01T12:00:00+00:00",
+        "available_at_basis": "observed_revision"
+      },
+      "supersedes_source": "s1"
+    }
+  ],
+  "pipeline": {
+    "kind": "relationships"
+  },
+  "script": {
+    "investigator": [
+      {
+        "claims": [
+          {
+            "subject": "borealis",
+            "predicate": "supplies",
+            "object": "aurora",
+            "layer": "substrate",
+            "quote": "We work with Borealis Substrates and Dunmore Epitaxy to qualify materials for our next-generation lasers.",
+            "product": null,
+            "epistemic_type": "company_claim"
+          },
+          {
+            "subject": "aurora",
+            "predicate": "buys_from",
+            "object": "dunmore",
+            "layer": "epi",
+            "quote": "We work with Dunmore Epitaxy to qualify materials for our next-generation lasers.",
+            "product": null,
+            "epistemic_type": "company_claim"
+          },
+          {
+            "subject": "aurora",
+            "predicate": "buys_from",
+            "object": "borealis",
+            "layer": "substrate",
+            "quote": "We work with Dunmore Epitaxy to qualify materials for our next-generation lasers.",
+            "product": null,
+            "epistemic_type": "company_claim"
+          }
+        ]
+      }
+    ],
+    "reviewer": [
+      {
+        "reviews": [],
+        "otherwise": {
+          "verdict": "confirmed",
+          "direction": "as_proposed",
+          "layer_verdict": "correct"
+        }
+      }
+    ]
+  },
+  "gold": {
+    "claims": [
+      {
+        "subject": "borealis",
+        "predicate": "supplies",
+        "object": "aurora",
+        "accepted": false
+      },
+      {
+        "subject": "aurora",
+        "predicate": "buys_from",
+        "object": "borealis",
+        "accepted": false
+      },
+      {
+        "subject": "aurora",
+        "predicate": "buys_from",
+        "object": "dunmore",
+        "accepted": false
+      }
+    ],
+    "relationships": [
+      {
+        "subject": "borealis",
+        "predicate": "supplies",
+        "object": "aurora",
+        "expect": "absent"
+      },
+      {
+        "subject": "aurora",
+        "predicate": "buys_from",
+        "object": "borealis",
+        "expect": "absent"
+      },
+      {
+        "subject": "aurora",
+        "predicate": "buys_from",
+        "object": "dunmore",
+        "expect": "absent"
+      }
+    ]
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "relationship_precision"
+  ],
+  "earliest_phase": "3",
+  "notes": "\"Works with\" names no direction and maps to no predicate; Borealis vanishing from the page between s1 and s2 supports at most an agent inference, never an Assertion."
+}

@@ -1094,6 +1094,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluations */
+        get: operations["evaluations_api_v1_evaluations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evaluations/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluation */
+        get: operations["evaluation_api_v1_evaluations__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1457,6 +1491,42 @@ export interface components {
         /** @enum {string} */
         CandidateState: "lead" | "investigating" | "evidence_ready" | "needs_more_evidence" | "paper_tracking" | "rejected" | "closed";
         /**
+         * CardContradiction
+         * @description Accepted counterevidence, as the research card and a Hypothesis carry it.
+         */
+        CardContradiction: {
+            /**
+             * Counterevidence Id
+             * Format: uuid
+             */
+            counterevidence_id: string;
+            /** Checklist Item */
+            checklist_item: string;
+            /** Statement */
+            statement: string;
+            /**
+             * Subject Company Id
+             * Format: uuid
+             */
+            subject_company_id: string;
+            /** Contradicts Claim Ids */
+            contradicts_claim_ids: string[];
+            /** Disproves Premise */
+            disproves_premise: string | null;
+            source_span: components["schemas"]["SourceSpan"];
+            /** Evidence Family */
+            evidence_family: string;
+            /** Independent */
+            independent: boolean;
+            /** Independence Detail */
+            independence_detail: string;
+            /**
+             * Evidence Available At
+             * Format: date-time
+             */
+            evidence_available_at: string;
+        };
+        /**
          * CardFinding
          * @description A research card finding in the §7.2 claim shape. The statement is the Editor's; every
          *     other field is filled in by code from the accepted Claims it cites.
@@ -1490,6 +1560,61 @@ export interface components {
             needs_review: boolean;
             /** Open Questions */
             open_questions: string[];
+        };
+        /** CaseResult */
+        CaseResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Case Id */
+            case_id: string;
+            /** Case Sha256 */
+            case_sha256: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Temporal Convention */
+            temporal_convention: string | null;
+            /** Passed */
+            passed: boolean;
+            /** Scores */
+            scores: {
+                [key: string]: number;
+            };
+            /** Checks */
+            checks: components["schemas"]["Check"][];
+            /** Predicted */
+            predicted: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error: string | null;
+            /** Duration Ms */
+            duration_ms: number;
+            /**
+             * Evaluated At
+             * Format: date-time
+             */
+            evaluated_at: string;
+        };
+        /**
+         * Check
+         * @description One gold expectation, what was observed, and whether it held.
+         */
+        Check: {
+            /** Key */
+            key: string;
+            /** Metric */
+            metric: string;
+            /** Expected */
+            expected: unknown;
+            /** Observed */
+            observed: unknown;
+            /** Passed */
+            passed: boolean;
         };
         /** @enum {string} */
         CitationKind: "memory" | "chunk" | "quote";
@@ -1786,6 +1911,77 @@ export interface components {
             /** Counterevidence Id */
             counterevidence_id: string | null;
         };
+        /**
+         * Counterevidence
+         * @description One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an
+         *     Assertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`
+         *     says whether its Evidence Family differs from every supporting Claim's (a Source Version
+         *     outside any family is its own). `proposed` is the item exactly as the model answered.
+         */
+        Counterevidence: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Round */
+            round: number;
+            /** Task Key */
+            task_key: string;
+            /**
+             * Role Call Id
+             * Format: uuid
+             */
+            role_call_id: string;
+            /** Checklist Item */
+            checklist_item: string;
+            /** Passage Id */
+            passage_id: string;
+            /** Statement */
+            statement: string;
+            /** Subject Company Id */
+            subject_company_id: string | null;
+            /** Source Version Id */
+            source_version_id: string | null;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number | null;
+            /** Span End */
+            span_end: number | null;
+            /** Epistemic Type */
+            epistemic_type: string;
+            /** Contradicts Claim Ids */
+            contradicts_claim_ids: string[];
+            /** Disproves Premise */
+            disproves_premise: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "accepted" | "rejected";
+            /** Reason Code */
+            reason_code: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Assertion Id */
+            assertion_id: string | null;
+            /** Evidence Family */
+            evidence_family: string | null;
+            /** Independent */
+            independent: boolean | null;
+            /** Independence Detail */
+            independence_detail: string | null;
+            /** Proposed */
+            proposed: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** @enum {string} */
         CoverageGap: "not_seeded" | "no_sources";
         /** DiffClaim */
@@ -1927,6 +2123,96 @@ export interface components {
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorDetail"];
+        };
+        /** EvaluationRun */
+        EvaluationRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "fake" | "live";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed" | "failed";
+            /** Model */
+            model: string;
+            /** Code Version */
+            code_version: string;
+            /** Gold Manifest Sha256 */
+            gold_manifest_sha256: string;
+            /** Case Ids */
+            case_ids: string[];
+            /** Cases Total */
+            cases_total: number;
+            /** Cases Passed */
+            cases_passed: number;
+            /** Actor */
+            actor: string;
+            /** Error */
+            error: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Categories */
+            categories: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Results */
+            results: components["schemas"]["CaseResult"][];
+        };
+        /** EvaluationRunSummary */
+        EvaluationRunSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "fake" | "live";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed" | "failed";
+            /** Model */
+            model: string;
+            /** Code Version */
+            code_version: string;
+            /** Gold Manifest Sha256 */
+            gold_manifest_sha256: string;
+            /** Case Ids */
+            case_ids: string[];
+            /** Cases Total */
+            cases_total: number;
+            /** Cases Passed */
+            cases_passed: number;
+            /** Actor */
+            actor: string;
+            /** Error */
+            error: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
         };
         /**
          * Evidence
@@ -2522,7 +2808,9 @@ export interface components {
          * @description A version's content. Only `findings` state facts, each citing accepted Claims (and so
          *     their Assertions and spans); the rest is the Editor's or the researcher's proposal.
          *     `unsupported_findings` records what was dropped for citing no accepted Claim: never
-         *     promoted to a finding.
+         *     promoted to a finding. `contradictions` is the Skeptic's accepted counterevidence from the
+         *     investigation's research card (each finding lists the independent items against its
+         *     Claims in `counterevidence_ids`); versions drafted before ticket 15 have none.
          */
         HypothesisContent: {
             /** Thesis Statement */
@@ -2544,6 +2832,8 @@ export interface components {
             findings: components["schemas"]["CardFinding"][];
             /** Unsupported Findings */
             unsupported_findings: components["schemas"]["UnsupportedFinding"][];
+            /** Contradictions */
+            contradictions?: components["schemas"]["CardContradiction"][];
         };
         /** HypothesisCreate */
         HypothesisCreate: {
@@ -2833,6 +3123,8 @@ export interface components {
             leads: components["schemas"]["InvestigationLead"][];
             /** Documents */
             documents: components["schemas"]["InvestigationDocument"][];
+            /** Counterevidence */
+            counterevidence: components["schemas"]["Counterevidence"][];
             research_card: components["schemas"]["ResearchCard"] | null;
             /** Created By */
             created_by: string;
@@ -3517,6 +3809,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[EvaluationRunSummary] */
+        Page_EvaluationRunSummary_: {
+            /** Items */
+            items: components["schemas"]["EvaluationRunSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[FetchGateDecision] */
         Page_FetchGateDecision_: {
             /** Items */
@@ -4159,6 +4462,8 @@ export interface components {
              * Format: uuid
              */
             editor_role_call_id: string;
+            /** Contradictions */
+            contradictions?: components["schemas"]["CardContradiction"][];
         };
         /** ResearchScope */
         ResearchScope: {
@@ -7844,6 +8149,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    evaluations_api_v1_evaluations_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EvaluationRunSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluation_api_v1_evaluations__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

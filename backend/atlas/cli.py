@@ -36,6 +36,54 @@ def load_settings() -> Settings:
         raise SystemExit(2) from None
 
 
+def run_evaluate(settings: Settings, cases: list[str] | None, *, live: bool) -> int:
+    """Run the gold cases; print one line per case (stderr) and the run as JSON (stdout).
+
+    0 when every case passed, 1 when one failed, 2 when the evaluation was refused.
+    """
+    import json
+    import os
+
+    from atlas.evaluation import LIVE_OPT_IN, CaseResult, EvaluationRefused, GoldError, open_gold
+    from atlas.evaluation import evaluate as run_cases
+
+    if live and os.environ.get(LIVE_OPT_IN) != "1":
+        print(
+            f"atlas: a live evaluation spends MiniMax quota: set {LIVE_OPT_IN}=1 as well as"
+            " --live (never in CI)",
+            file=sys.stderr,
+        )
+        return 2
+
+    def report(result: CaseResult) -> None:
+        verdict = "pass" if result.passed else "FAIL"
+        scores = ", ".join(f"{metric} {value:.2f}" for metric, value in result.scores.items())
+        print(f"{result.case_id} {verdict} ({scores})", file=sys.stderr)
+        if result.error:
+            print(f"  {result.error.splitlines()[0]}", file=sys.stderr)
+
+    try:
+        gold = open_gold(settings.evaluation_gold_dir)
+        outcome = run_cases(
+            settings, gold, case_ids=cases, mode="live" if live else "fake", report=report
+        )
+    except (EvaluationRefused, GoldError) as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        return 2
+    summary = {
+        "evaluation_run_id": str(outcome.run_id),
+        "mode": "live" if live else "fake",
+        "cases_total": len(outcome.results),
+        "cases_passed": sum(result.passed for result in outcome.results),
+        "cases": [
+            {"case_id": r.case_id, "passed": r.passed, "scores": r.scores, "error": r.error}
+            for r in outcome.results
+        ],
+    }
+    print(json.dumps(summary, indent=2))
+    return 0 if outcome.passed else 1
+
+
 def run_api(settings: Settings) -> None:
     import uvicorn
 
@@ -633,6 +681,19 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="skip when this exact template is already the bank's latest application",
     )
+    evaluate = commands.add_parser(
+        "evaluate",
+        help="run the gold evaluation cases and store the results (GET /api/v1/evaluations)",
+    )
+    evaluate.add_argument(
+        "--case", action="append", dest="cases", help="only this case ID (repeatable)"
+    )
+    evaluate.add_argument(
+        "--live",
+        action="store_true",
+        help="ask the real model (ATLAS_LITELLM_URL) instead of the scripted answers; needs"
+        " ATLAS_LIVE_TESTS=1 too, spends MiniMax quota, never in CI",
+    )
     args = parser.parse_args(argv)
 
     configure_logging()
@@ -686,5 +747,7 @@ def main(argv: list[str] | None = None) -> None:
         )
     elif args.command == "companies":
         seed_companies(settings)
+    elif args.command == "evaluate":
+        raise SystemExit(run_evaluate(settings, args.cases, live=args.live))
     else:
         run_worker(settings, once=args.once)

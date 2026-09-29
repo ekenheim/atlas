@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-SUP-002",
+  "category": "SUP",
+  "title": "A purchase the buyer states is a buys_from edge in the buyer's direction",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "From whom does Cirrus Compute buy its 800G transceivers?",
+  "scope": {
+    "companies": [
+      "cirrus"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "cirrus",
+      "legal_name": "Cirrus Compute Corp.",
+      "display_name": "Cirrus Compute",
+      "country": "US",
+      "cik": "0999900003",
+      "layer": "system",
+      "fictional": true
+    },
+    {
+      "key": "aurora",
+      "legal_name": "Aurora Photonics Inc.",
+      "display_name": "Aurora Photonics",
+      "country": "US",
+      "cik": "0999900001",
+      "layer": "module",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s1",
+      "sha256": "cb788e4bf8d73b89233dae217a14dc4018b82ba4f4d0fe8fa7f86ce5a4224e36",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "10-K",
+      "title": "Cirrus Compute 10-K fiscal 2025",
+      "company": "cirrus",
+      "origin_url": "https://investors.cirrus-compute.example/filings/10-k-2025.htm",
+      "clocks": {
+        "published_at": "2025-09-10T20:30:00+00:00",
+        "available_at": "2025-09-10T20:30:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    }
+  ],
+  "pipeline": {
+    "kind": "relationships"
+  },
+  "script": {
+    "investigator": [
+      {
+        "claims": [
+          {
+            "subject": "cirrus",
+            "predicate": "buys_from",
+            "object": "aurora",
+            "layer": "module",
+            "quote": "We purchase 800G optical transceivers from Aurora Photonics, which provided more than 40% of the transceivers we deployed in fiscal 2025.",
+            "product": "800G optical transceivers",
+            "epistemic_type": "company_claim"
+          }
+        ]
+      }
+    ],
+    "reviewer": [
+      {
+        "reviews": [
+          {
+            "subject": "cirrus",
+            "predicate": "buys_from",
+            "object": "aurora",
+            "verdict": "confirmed",
+            "direction": "as_proposed",
+            "layer_verdict": "correct"
+          }
+        ]
+      }
+    ]
+  },
+  "gold": {
+    "claims": [
+      {
+        "subject": "cirrus",
+        "predicate": "buys_from",
+        "object": "aurora",
+        "source": "s1",
+        "quote": "We purchase 800G optical transceivers from Aurora Photonics, which provided more than 40% of the transceivers we deployed in fiscal 2025.",
+        "accepted": true
+      }
+    ],
+    "relationships": [
+      {
+        "subject": "cirrus",
+        "predicate": "buys_from",
+        "object": "aurora",
+        "layer": "module",
+        "expect": "present",
+        "review_state": "machine_reviewed"
+      },
+      {
+        "subject": "aurora",
+        "predicate": "buys_from",
+        "object": "cirrus",
+        "expect": "absent"
+      }
+    ],
+    "citations": [
+      {
+        "source": "s1",
+        "quote": "We purchase 800G optical transceivers from Aurora Photonics, which provided more than 40% of the transceivers we deployed in fiscal 2025.",
+        "state": "resolved"
+      }
+    ]
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "relationship_recall",
+    "relationship_precision",
+    "citation_correctness"
+  ],
+  "earliest_phase": "3"
+}

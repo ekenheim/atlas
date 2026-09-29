@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-HED-001",
+  "category": "HED",
+  "title": "A planned, non-binding supply is an exception for a human, never a verified edge",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "Does Aurora Photonics supply Cirrus Compute with 1.6T transceivers?",
+  "scope": {
+    "companies": [
+      "aurora"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "aurora",
+      "legal_name": "Aurora Photonics Inc.",
+      "display_name": "Aurora Photonics",
+      "country": "US",
+      "cik": "0999900001",
+      "layer": "module",
+      "fictional": true
+    },
+    {
+      "key": "cirrus",
+      "legal_name": "Cirrus Compute Corp.",
+      "display_name": "Cirrus Compute",
+      "country": "US",
+      "cik": "0999900003",
+      "layer": "system",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s1",
+      "sha256": "726b9ef7f3cda68fbc6bc9cf9c95ea75cbc6b3320b0ea5d12c0ad556c0dcb5ff",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "10-Q",
+      "title": "Aurora Photonics 10-Q Q2 fiscal 2026",
+      "company": "aurora",
+      "origin_url": "https://ir.aurora-photonics.example/sec/10-q-2026q2.htm",
+      "clocks": {
+        "published_at": "2026-02-04T21:10:00+00:00",
+        "available_at": "2026-02-04T21:10:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    }
+  ],
+  "pipeline": {
+    "kind": "relationships"
+  },
+  "script": {
+    "investigator": [
+      {
+        "claims": [
+          {
+            "subject": "aurora",
+            "predicate": "supplies",
+            "object": "cirrus",
+            "layer": "module",
+            "quote": "We are in discussions with Cirrus Compute and expect to begin shipping 1.6T transceivers to Cirrus Compute in 2026 under a non-binding memorandum of understanding.",
+            "product": "1.6T transceivers",
+            "epistemic_type": "company_claim"
+          }
+        ]
+      }
+    ],
+    "reviewer": [
+      {
+        "reviews": [
+          {
+            "subject": "aurora",
+            "predicate": "supplies",
+            "object": "cirrus",
+            "verdict": "confirmed",
+            "direction": "as_proposed",
+            "layer_verdict": "correct"
+          }
+        ]
+      }
+    ]
+  },
+  "gold": {
+    "relationships": [
+      {
+        "subject": "aurora",
+        "predicate": "supplies",
+        "object": "cirrus",
+        "expect": "present",
+        "review_state": "needs_human_review",
+        "reasons_include": [
+          "hedged_language"
+        ]
+      },
+      {
+        "subject": "aurora",
+        "predicate": "supplies",
+        "object": "cirrus",
+        "expect": "not_verified"
+      }
+    ]
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "relationship_recall",
+    "relationship_precision"
+  ],
+  "earliest_phase": "3"
+}
