@@ -1,6 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-import { spanFromUtf16 } from "../lib/offsets";
+import { spanFromUtf16, utf16Index } from "../lib/offsets";
+
+test("a page anchor's code-point offset maps to its UTF-16 index", () => {
+  // 😀 is two UTF-16 units: code point 2 (the "p" of "page") is UTF-16 index 3.
+  const text = "😀\npage two";
+  expect(utf16Index(text, 0)).toBe(0);
+  expect(utf16Index(text, 2)).toBe(3);
+  expect(text.slice(utf16Index(text, 2))).toBe("page two");
+  expect(utf16Index(text, 10)).toBe(text.length);
+  expect(utf16Index(text, 99)).toBe(text.length);
+  expect(() => utf16Index(text, -1)).toThrow(RangeError);
+});
 
 // The API binds an Assertion to code-point offsets into the parsed text (Python string
 // indices), while the browser's Selection/Range offsets count UTF-16 code units. The

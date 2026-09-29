@@ -10,7 +10,8 @@ static export (`npm --prefix frontend run build`). In order, it:
 2. creates an empty database (`atlas_e2e_<hex>`) next to the test databases
    (`ATLAS_TEST_DATABASE_URL`) and, through the `atlas` CLI, migrates it, enqueues the
    Lumentum ingest and runs one worker pass against the recorded EDGAR fixtures
-   (`tests/fixtures/edgar`), archiving into a temporary directory.
+   (`tests/fixtures/edgar`), archiving into a temporary directory. It then records the
+   synthetic annual-report PDF (`tests/fixtures/pdf`) for Lumentum through the ledger.
 3. starts the API with uvicorn on a free localhost port, serving `frontend/out` on the
    same origin (`ATLAS_FRONTEND_DIR`), and runs `playwright test` against it.
 4. stops the API and drops the database.
@@ -30,6 +31,7 @@ import time
 import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 import uvicorn
@@ -37,13 +39,18 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from atlas.api.app import create_app
+from atlas.archive import open_archive
+from atlas.audit import Actor
+from atlas.ledger import SourceLedger
 from atlas.settings import Settings
+from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 
 REPO = Path(__file__).resolve().parents[1]
 FRONTEND = REPO / "frontend"
 STATIC_EXPORT = FRONTEND / "out"
 THEMES = REPO / "configs" / "themes" / "ai-infrastructure.yaml"
 EDGAR_FIXTURES = REPO / "tests" / "fixtures" / "edgar"
+PDF_FIXTURE = REPO / "tests" / "fixtures" / "pdf" / "annual-report-en.pdf"
 ADMIN_DATABASE_URL = os.environ.get(
     "ATLAS_TEST_DATABASE_URL", "postgresql+psycopg://atlas:atlas@127.0.0.1:55432/atlas"
 )
@@ -152,6 +159,47 @@ def seed(database_url: str, archive: Path, workdir: Path) -> None:
         )
         if done.returncode != 0:
             raise SystemExit(f"e2e: `atlas {' '.join(args)}` failed:\n{done.stderr}")
+    seed_pdf(database_url, archive)
+
+
+def seed_pdf(database_url: str, archive: Path) -> None:
+    """Record the synthetic annual-report PDF (tests/fixtures/pdf) as a Lumentum Source
+    Version, through the ledger as an adapter's fetch would: no adapter fetches PDFs yet."""
+    settings = Settings.model_validate(
+        {"database_url": database_url, "actor": "e2e-smoke", "archive_root": archive}
+    )
+    engine = create_engine(database_url)
+    try:
+        with engine.connect() as connection:
+            company_id = connection.execute(
+                text("SELECT id FROM company WHERE slug = 'lumentum'")
+            ).scalar_one()
+        url = f"https://www.sec.gov/Archives/edgar/data/1633978/{PDF_FIXTURE.name}"
+        now = datetime.now(UTC)
+        candidate = SourceCandidate(
+            provider_id="sec_edgar",
+            kind="sec_filing_document",
+            url=url,
+            title="Synthetic annual report (PDF)",
+            document_type="PDF",
+            discovered_at=now,
+            available_at=now,
+            available_at_basis="observed_discovery",
+        )
+        fetched = FetchedDocument(
+            candidate=candidate,
+            url=url,
+            fetched_at=now,
+            not_modified=False,
+            content=PDF_FIXTURE.read_bytes(),
+            media_type="application/pdf",
+            validators=HttpValidators(),
+            attempts=(),
+        )
+        ledger = SourceLedger(engine, open_archive(settings), Actor("e2e-smoke"))
+        ledger.record(fetched, company_id=company_id)
+    finally:
+        engine.dispose()
 
 
 def free_port() -> int:

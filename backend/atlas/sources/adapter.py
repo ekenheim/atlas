@@ -8,7 +8,7 @@ ingestion service (the source ledger) does that from what they return.
 from datetime import date, datetime
 from typing import Literal, Protocol
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 # How `available_at` was determined (spec Part A, Source ledger). `sec_dissemination`: an
 # EDGAR filing accepted outside the dissemination window, public at the next opening.
@@ -96,6 +96,9 @@ class SourceCandidate(_Frozen):
     available_at_basis: AvailabilityBasis
     filing: SecFiling | None = None
     validators: HttpValidators | None = None  # from the last fetch; makes the next conditional
+    # The document's language as the source declares it (ISO 639 primary subtag, e.g. "en",
+    # "zh"), if it does; otherwise the ledger records the language the parse finds.
+    language: str | None = Field(default=None, pattern=r"^[a-z]{2,3}$")
 
 
 class FetchedDocument(_Frozen):

@@ -6,7 +6,10 @@ accepts the Assertion only if `parsed_text[span_start:span_end] == quote` exactl
 case folding, no whitespace normalization, no searching elsewhere. Offsets are
 characters (Unicode code points) of the parsed text, as served by
 `GET /source-versions/{id}/content?kind=parsed` (UTF-8). `page_or_anchor` is a label for
-people; html-text-v1 defines no section anchors, so the offsets are the binding.
+people; the offsets are the binding. When it is omitted and the Source Version has page
+anchors (a PDF), it is the page the span lies on, by the page's label: "page 7", or
+"page iv (PDF page 2)" when the label isn't the page's number, and "pages 7-8" (with an
+en dash) across pages.
 
 Review follows build plan §5.4's `verification_status` (the API calls it `review_state`):
 
@@ -174,6 +177,7 @@ _COUNT = "SELECT count(*) FROM assertion" + _FILTER  # noqa: S608 (constant frag
 class _Cited:
     parse_status: str
     parsed_object_uri: str | None
+    page_anchors: list[dict[str, Any]] | None
 
 
 class Assertions:
@@ -192,6 +196,9 @@ class Assertions:
         assert cited.parsed_object_uri is not None
         parsed = self._archive.get(cited.parsed_object_uri).decode("utf-8")
         _check_quote(parsed, request)
+        anchor = request.page_or_anchor
+        if anchor is None and cited.page_anchors:
+            anchor = _pages_label(cited.page_anchors, request.span_start, request.span_end)
         with self._engine.begin() as connection:
             row = connection.execute(
                 text(
@@ -213,7 +220,7 @@ class Assertions:
                     "quote": request.quote,
                     "start": request.span_start,
                     "end": request.span_end,
-                    "anchor": request.page_or_anchor,
+                    "anchor": anchor,
                     "event_start": request.event_start,
                     "event_end": request.event_end,
                     "epistemic_type": request.epistemic_type,
@@ -310,14 +317,17 @@ class Assertions:
             ):
                 raise InvalidAssertion("unknown_company", f"company {company_id} not found")
         row = connection.execute(
-            text("SELECT parse_status, parsed_object_uri FROM source_version WHERE id = :id"),
+            text(
+                "SELECT parse_status, parsed_object_uri, page_anchors FROM source_version"
+                " WHERE id = :id"
+            ),
             {"id": request.source_version_id},
         ).one_or_none()
         if row is None:
             raise InvalidAssertion(
                 "unknown_source_version", f"source version {request.source_version_id} not found"
             )
-        cited = _Cited(row.parse_status, row.parsed_object_uri)
+        cited = _Cited(row.parse_status, row.parsed_object_uri, row.page_anchors)
         if cited.parse_status not in _PARSED or cited.parsed_object_uri is None:
             raise InvalidAssertion(
                 "no_parsed_text",
@@ -345,6 +355,19 @@ def _check_quote(parsed: str, request: AssertionCreate) -> None:
             else f"; it first occurs at {where} (one of {count} occurrences)"
         )
     raise InvalidAssertion("quote_mismatch", message)
+
+
+def _pages_label(anchors: list[dict[str, Any]], start: int, end: int) -> str:
+    """The page(s) `[start, end)` lies on, by label, with the PDF page numbers when a
+    label differs from its number."""
+    pages = [a for a in anchors if a["start"] < end and start < a["end"]]
+    first, last = pages[0], pages[-1]
+    numbered = all(a["label"] == str(a["page"]) for a in (first, last))
+    if first is last:
+        label = f"page {first['label']}"
+        return label if numbered else f"{label} (PDF page {first['page']})"
+    label = f"pages {first['label']}\u2013{last['label']}"
+    return label if numbered else f"{label} (PDF pages {first['page']}\u2013{last['page']})"
 
 
 def _transition_refusal(current: ReviewState, state: ReviewState) -> str:

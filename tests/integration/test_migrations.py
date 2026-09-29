@@ -5,6 +5,8 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
+from atlas.db.migrate import upgrade
+
 
 def test_migrate_upgrades_an_empty_database_to_head(
     empty_database_url: str, tmp_path: Path
@@ -32,4 +34,46 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0012"
+    assert revision == "0014"
+
+
+def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
+    # Before 0014 every Source Version came from SEC EDGAR, whose filings are in English.
+    upgrade(empty_database_url, "0012")
+    engine = create_engine(empty_database_url)
+    sha = "a" * 64
+    with engine.begin() as connection:
+        document = connection.execute(
+            text(
+                "INSERT INTO source_document (id, provider, canonical_url, origin_url,"
+                " source_type, title, publisher, source_tier, license_class, first_seen_at)"
+                " VALUES (gen_random_uuid(), 'sec_edgar', 'https://www.sec.gov/x.htm',"
+                " 'https://www.sec.gov/x.htm', 'filing', 'x', 'SEC EDGAR', 'A',"
+                " 'public_regulatory', now()) RETURNING id"
+            )
+        ).scalar_one()
+        connection.execute(
+            text(
+                "INSERT INTO source_version (id, source_document_id, version_number,"
+                " raw_sha256, comparison_sha256, comparison_rule, object_uri, byte_size,"
+                " media_type, parse_status, available_at, available_at_basis, fetched_at,"
+                " fetch_status) VALUES (gen_random_uuid(), :document, 1, :sha, :sha,"
+                " 'identity', :uri, 1, 'application/json', 'not_applicable', now(),"
+                " 'observed_discovery', now(), 'ok')"
+            ),
+            {"document": document, "sha": sha, "uri": f"archive://raw/sha256/{sha}"},
+        )
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        row = connection.execute(text("SELECT language, page_anchors FROM source_version")).one()
+        default = connection.execute(
+            text(
+                "SELECT column_default FROM information_schema.columns"
+                " WHERE table_name = 'source_version' AND column_name = 'language'"
+            )
+        ).scalar_one()
+    engine.dispose()
+    assert (row.language, row.page_anchors) == ("en", None)
+    assert default is None  # later versions get their language from the ledger only

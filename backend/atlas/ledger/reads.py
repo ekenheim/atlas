@@ -33,6 +33,15 @@ class SourceDocument(BaseModel):
     latest_version_id: uuid.UUID | None
 
 
+class PageAnchor(BaseModel):
+    """One PDF page's place in the parsed text: `text[start:end]`, in code points."""
+
+    page: int  # 1-based, in document order
+    label: str  # the page's label as the PDF gives it (e.g. "iv"), else its number
+    start: int
+    end: int
+
+
 class SourceVersionSummary(BaseModel):
     id: uuid.UUID
     source_document_id: uuid.UUID
@@ -41,6 +50,7 @@ class SourceVersionSummary(BaseModel):
     content_sha256: str | None
     parser_version: str | None
     parse_status: str
+    language: str | None  # ISO 639 primary subtag, or "und" (undetermined)
     available_at: datetime  # effective: a recorded correction's, else the version's own
     available_at_basis: str
     recorded_available_at: datetime  # as the immutable version recorded it
@@ -83,6 +93,7 @@ class SourceVersionDetail(SourceVersionSummary):
     byte_size: int
     media_type: str
     parse_error: str | None
+    page_anchors: list[PageAnchor] | None  # a PDF parse's pages; None without pages
     event_at: datetime | None
     published_at: datetime | None
     fetch_status: str

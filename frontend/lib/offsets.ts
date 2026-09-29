@@ -82,6 +82,41 @@ export function utf16OffsetsIn(root: Node, range: Range): [number, number] | nul
 }
 
 /**
+ * The UTF-16 index in `text` of code point `codePoints` (an API offset, such as a page
+ * anchor's start); `text.length` when it is at or past the end.
+ */
+export function utf16Index(text: string, codePoints: number): number {
+  if (!Number.isInteger(codePoints) || codePoints < 0) {
+    throw new RangeError(`${codePoints} is not a code-point offset`);
+  }
+  let index = 0;
+  let seen = 0;
+  for (const character of text) {
+    if (seen === codePoints) return index;
+    index += character.length;
+    seen += 1;
+  }
+  return text.length;
+}
+
+/**
+ * The text node and offset at UTF-16 index `index` of `root`'s text, whatever elements
+ * (such as highlights) the text is split across; null when `root` has less text.
+ */
+export function domPosition(root: Node, index: number): { node: Text; offset: number } | null {
+  const document = root.ownerDocument;
+  if (!document) return null;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let remaining = index;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node as Text;
+    if (remaining <= text.data.length) return { node: text, offset: remaining };
+    remaining -= text.data.length;
+  }
+  return null;
+}
+
+/**
  * The Span the current selection makes in `text`, rendered as `root`'s content, or null
  * when nothing in it is selected. A selection reaching outside `root` is clipped to it.
  */

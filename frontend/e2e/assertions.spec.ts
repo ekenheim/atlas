@@ -6,8 +6,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // Selection-to-Assertion and review, against the API seeded from the recorded Lumentum
 // EDGAR fixtures (scripts/e2e.py). The quotes and their offsets are those of the Q4 FY26
-// press release (EX-99.1) as parsed by html-text-v1, the same hand-checked values as the
-// API's own tests (tests/integration/test_assertions.py). The page's text is first checked
+// press release (EX-99.1) as parsed by text-v2 (html-text-v1's HTML rules), the same
+// hand-checked values as the API's own tests (tests/integration/test_assertions.py).
+// The page's text is first checked
 // against the pinned golden parse hash, so the offsets hold for what is shown.
 // Offsets are code points of the parsed text. Curly quotes, bullets and a dash come
 // before these passages, so their UTF-8 byte offsets differ from the character offsets.
@@ -15,7 +16,7 @@ const FIXTURES = path.resolve(__dirname, "../../tests/fixtures");
 const golden = JSON.parse(
   readFileSync(path.join(FIXTURES, "parser/golden.json"), "utf8"),
 ) as Record<string, Record<string, string>>;
-const EX991_SHA256 = golden["html-text-v1"]?.["lite_ex991xq4fy26.htm"];
+const EX991_SHA256 = golden["text-v2"]?.["lite_ex991xq4fy26.htm"];
 
 const ACCESSION_8K = "0001628280-26-055726";
 const ACTOR = "e2e-smoke"; // ATLAS_ACTOR in scripts/e2e.py

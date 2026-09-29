@@ -1,6 +1,12 @@
 {
-  "description": "Content SHA-256 of each parser version on the recorded EDGAR documents (tests/fixtures/edgar/lumentum). Pinned when the version was created; a changed hash means a new parser version is needed.",
+  "description": "Content SHA-256 of each parser version on the recorded EDGAR documents (tests/fixtures/edgar/lumentum). Pinned when the version was created; a changed hash means a new parser version is needed. text-v2 keeps html-text-v1's HTML rules, so its hashes are the same.",
   "html-text-v1": {
+    "lite-20260328.htm": "d76d0fdd57beaa78799fbd0e156e20bcfa38fa00645fb20dcd22133e10fc1bfa",
+    "lite-20260811.htm": "b7d610e13d58271f14c71a104ac513bbb85ff9d89964608f62d1b9dbe945db3e",
+    "lite_ex991xq4fy26.htm": "adfccdf0456704d4cf2a638b7f4b5540a6f62e7fb230e2534743d905dae58dc5",
+    "lite-20260627.htm": "035103d6d95d07fbd9efd293efb89c2cad098fe00430413ff38f25a1ab991bab"
+  },
+  "text-v2": {
     "lite-20260328.htm": "d76d0fdd57beaa78799fbd0e156e20bcfa38fa00645fb20dcd22133e10fc1bfa",
     "lite-20260811.htm": "b7d610e13d58271f14c71a104ac513bbb85ff9d89964608f62d1b9dbe945db3e",
     "lite_ex991xq4fy26.htm": "adfccdf0456704d4cf2a638b7f4b5540a6f62e7fb230e2534743d905dae58dc5",

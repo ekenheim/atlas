@@ -514,7 +514,7 @@ def test_phase_1_versions_are_corrected_by_a_recorded_correction_never_by_an_edi
 def test_the_parse_is_deterministic_archived_separately_and_versioned(atlas: Atlas) -> None:
     atlas.ingest("first")
 
-    golden = GOLDEN_PARSES["html-text-v1"]
+    golden = GOLDEN_PARSES["text-v2"]
     for url in FILING_URLS:
         version = atlas.version(url)
         response = atlas.api.get(
@@ -523,7 +523,9 @@ def test_the_parse_is_deterministic_archived_separately_and_versioned(atlas: Atl
         assert response.status_code == 200
         assert response.headers["content-type"] == "text/plain; charset=utf-8"
         assert version["parse_status"] == "parsed"
-        assert version["parser_version"] == "html-text-v1"
+        assert version["parser_version"] == "text-v2"
+        assert version["language"] == "en"  # EDGAR filings are in English (Reg. S-T 306)
+        assert version["page_anchors"] is None  # HTML has no pages
         assert hashlib.sha256(response.content).hexdigest() == version["content_sha256"]
         assert version["content_sha256"] == golden[url.rsplit("/", 1)[1]]
         assert (
@@ -771,7 +773,7 @@ def test_metrics_count_fetches_parses_retries_and_archive_writes(
     empty = atlas.metrics()
     for outcome in ("new_version", "unchanged", "not_modified"):
         assert empty[("atlas_fetches_total", labels(outcome=outcome))] == 0
-    for status in ("parsed", "incomplete", "failed", "not_applicable"):
+    for status in ("parsed", "incomplete", "failed", "unsupported", "not_applicable"):
         assert empty[("atlas_parses_total", labels(status=status))] == 0
     assert empty[("atlas_archive_writes_total", labels(namespace="raw"))] == 0
     assert empty[("atlas_archive_writes_total", labels(namespace="parsed"))] == 0

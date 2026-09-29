@@ -15,6 +15,9 @@ back to the observed discovery time; an XBRL fact takes its filing's `filing_ava
 
 The submissions index's `filings.files` (older pages) is not followed: `filings.recent`
 holds the latest 1,000 filings, years more than the pilot's backfill window.
+
+Every candidate declares its language English: EDGAR accepts filings only in English
+(Regulation S-T Rule 306).
 """
 
 import re
@@ -36,6 +39,8 @@ from atlas.sources.edgar_calendar import edgar_dissemination_time
 from atlas.sources.sec_http import SecHttpClient
 
 PROVIDER_ID = "sec_edgar"
+# Electronic filings must be in English (Regulation S-T Rule 306, 17 CFR 232.306).
+EDGAR_LANGUAGE = "en"
 DEFAULT_FORMS = ("10-K", "10-Q", "8-K")
 DEFAULT_EXHIBIT_PREFIXES = ("EX-99",)
 
@@ -271,6 +276,7 @@ class EdgarAdapter:
             available_at=available_at,
             available_at_basis=basis,
             filing=filing,
+            language=EDGAR_LANGUAGE,
         )
 
     def _companyfacts(self, cik: str, discovered_at: datetime) -> SourceCandidate:
@@ -282,6 +288,7 @@ class EdgarAdapter:
             discovered_at=discovered_at,
             available_at=discovered_at,
             available_at_basis="observed_discovery",
+            language=EDGAR_LANGUAGE,
         )
 
 

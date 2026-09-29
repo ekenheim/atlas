@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas.parsing import PARSER_VERSION, parse
+from atlas.parsing import PARSER_VERSION, ParsedText, parse
 
 ARCHIVES = (
     Path(__file__).parents[1]
@@ -25,7 +25,7 @@ ARCHIVES = (
 DOCUMENTS = sorted(ARCHIVES.glob("*/lite*.htm"))
 FORM_8K = ARCHIVES / "000162828026055726" / "lite-20260811.htm"
 FORM_10K = ARCHIVES / "000162828026057358" / "lite-20260627.htm"
-# The content hashes of html-text-v1 on each fixture, pinned when the version was made.
+# The content hashes of each parser version on each fixture, pinned when the version was made.
 # If one changes, the parser's output changed: that needs a new PARSER_VERSION.
 GOLDEN = json.loads((Path(__file__).parents[1] / "fixtures" / "parser" / "golden.json").read_text())
 SEC_EDGE_SCRIPT = (
@@ -45,9 +45,9 @@ def test_the_same_bytes_give_the_same_text_and_the_pinned_hash(path: Path) -> No
 
     first, second = parse(raw, "text/html"), parse(raw, "text/html")
 
-    assert first is not None and second is not None
+    assert isinstance(first, ParsedText) and isinstance(second, ParsedText)
     assert first.text == second.text
-    assert first.parser_version == PARSER_VERSION == "html-text-v1"
+    assert first.parser_version == PARSER_VERSION == "text-v2"
     assert first.complete
     assert hashlib.sha256(first.encoded()).hexdigest() == first.sha256
     assert first.sha256 == GOLDEN[PARSER_VERSION][path.name]
@@ -75,7 +75,7 @@ def test_the_parse_does_not_depend_on_the_process() -> None:
 def test_text_keeps_the_filing_statements_and_drops_hidden_and_active_content() -> None:
     parsed = parse(FORM_10K.read_bytes(), "text/html")
 
-    assert parsed is not None
+    assert isinstance(parsed, ParsedText)
     text = parsed.text
     # A statement from the 10-K body, with its entities decoded.
     assert (
@@ -95,7 +95,7 @@ def test_text_keeps_the_filing_statements_and_drops_hidden_and_active_content() 
 def test_table_cells_are_tab_separated_on_one_line() -> None:
     parsed = parse(FORM_8K.read_bytes(), "text/html")
 
-    assert parsed is not None
+    assert isinstance(parsed, ParsedText)
     assert "Common Stock, par value of $0.001 per share\tLITE\tNasdaq Global Select Market\n" in (
         parsed.text
     )
@@ -108,7 +108,7 @@ def test_a_different_sec_edge_script_does_not_change_the_parse() -> None:
 
     original, varied = parse(raw, "text/html"), parse(variant, "text/html")
 
-    assert original is not None and varied is not None
+    assert isinstance(original, ParsedText) and isinstance(varied, ParsedText)
     assert varied.sha256 == original.sha256
 
 
@@ -119,7 +119,7 @@ def test_a_changed_statement_changes_the_parse() -> None:
 
     original, edited = parse(raw, "text/html"), parse(changed, "text/html")
 
-    assert original is not None and edited is not None
+    assert isinstance(original, ParsedText) and isinstance(edited, ParsedText)
     assert edited.sha256 != original.sha256
     assert "reported results for its third quarter ended June 27, 2026" in edited.text
 
@@ -134,14 +134,14 @@ def test_markup_rules_on_a_small_document() -> None:
 
     parsed = parse(html, "text/html")
 
-    assert parsed is not None
+    assert isinstance(parsed, ParsedText)
     assert parsed.text == "One & two\nthree\nfour\na b\nc\n"
 
 
 def test_undecodable_bytes_make_an_incomplete_parse() -> None:
     parsed = parse(b"<p>caf\xc3 \x81</p>", "text/html")
 
-    assert parsed is not None
+    assert isinstance(parsed, ParsedText)
     assert not parsed.complete
     assert "\ufffd" in parsed.text
 
@@ -149,7 +149,7 @@ def test_undecodable_bytes_make_an_incomplete_parse() -> None:
 def test_windows_1252_is_the_fallback_charset() -> None:
     parsed = parse(b"<p>\x93quoted\x94</p>", "text/html")
 
-    assert parsed is not None
+    assert isinstance(parsed, ParsedText)
     assert parsed.complete
     assert parsed.text == "\u201cquoted\u201d\n"
 
@@ -157,7 +157,7 @@ def test_windows_1252_is_the_fallback_charset() -> None:
 def test_plain_text_is_normalized_by_the_same_line_rules() -> None:
     parsed = parse(b"  first\r\n\r\n second   line \rthird\n", "text/plain")
 
-    assert parsed is not None
+    assert isinstance(parsed, ParsedText)
     assert parsed.text == "first\nsecond line\nthird\n"
 
 
