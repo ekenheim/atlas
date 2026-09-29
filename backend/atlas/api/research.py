@@ -14,6 +14,7 @@ Refusals use the error envelope: 422 `unknown_company` / `unknown_theme` /
 `hindsight_unavailable` / `hindsight_error` (recall), 404 `not_found`.
 """
 
+import time
 import uuid
 from functools import cache
 from pathlib import Path
@@ -21,6 +22,7 @@ from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from prometheus_client import Histogram
 from pydantic import BaseModel
 from sqlalchemy import Engine
 
@@ -58,6 +60,8 @@ def research_router(
     gateway: HindsightGateway | None,
     actor: Actor,
     themes_config: Path,
+    *,
+    recall_latency: Histogram | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/memory", tags=["memory"])
 
@@ -76,14 +80,21 @@ def research_router(
     def recall(request: RecallRequest) -> RecallResponse | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         if research is None:
             return not_configured()
+        started, outcome = time.perf_counter(), "error"
         try:
-            return research.recall(request)
+            answered = research.recall(request)
+            outcome = "ok"
+            return answered
         except ResearchRefused as refusal:
+            outcome = "refused"
             return error_response(422, refusal.code, refusal.message)
         except HindsightUnavailable as error:
             return error_response(502, "hindsight_unavailable", str(error))
         except HindsightError as error:
             return error_response(502, "hindsight_error", str(error))
+        finally:
+            if recall_latency is not None:
+                recall_latency.labels(outcome).observe(time.perf_counter() - started)
 
     @router.post(
         "/reflect",

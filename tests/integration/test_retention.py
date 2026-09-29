@@ -251,6 +251,8 @@ def test_each_new_source_version_is_retained_section_by_section_and_tracked_to_c
         assert document["template_version"] == TEMPLATE_VERSION
         assert document["operation_id"] == operation["id"]
         assert document["linked_to_source_version_id"] is None
+        # The memories Hindsight returned for the section, listed after the operation.
+        assert document["memory_ids"] == [fake.derived_fact(document["document_id"])]
     assert operation["document_ids"] == [d["document_id"] for d in memory["documents"]]
 
     # The sections tile the parsed text and start at their Item headings.
@@ -490,6 +492,7 @@ def test_a_source_version_whose_raw_bytes_are_already_retained_is_linked_not_re_
     for mine, theirs in zip(linked["documents"], retained["documents"], strict=True):
         assert mine["retain_state"] == "linked"
         assert mine["document_id"] is None
+        assert mine["memory_ids"] is None  # the twin's sections hold the memories
         assert mine["linked_to_source_version_id"] == original["id"]
         assert (mine["section_anchor"], mine["char_start"], mine["char_end"]) == (
             theirs["section_anchor"],
@@ -520,6 +523,7 @@ def test_a_zero_fact_section_is_reprocessed_once_then_flagged_zero_fact(
     assert item_1b["retain_state"] == "zero_fact"
     assert item_1b["fact_count"] == 0
     assert item_1b["reprocess_count"] == 1
+    assert item_1b["memory_ids"] == []
     assert memory["counts"]["zero_fact"] == 1
     assert memory["counts"]["completed"] == len(TEN_K_ANCHORS) - 1
     assert all(

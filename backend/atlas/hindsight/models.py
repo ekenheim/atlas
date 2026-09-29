@@ -350,6 +350,8 @@ class MentalModelSubmitted(_Result):
 
 
 class ObservationPage(_Result):
+    """A page of the memory list (`memories/list`), of observations or of a document's facts."""
+
     items: list[Memory]
     total: int
     limit: int

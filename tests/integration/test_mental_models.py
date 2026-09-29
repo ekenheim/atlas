@@ -16,10 +16,11 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from atlas.api.app import create_app
 from atlas.db.migrate import upgrade
@@ -27,7 +28,7 @@ from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry, builtin_sched
 from atlas.mental_models import REFRESH_KIND, refresh_key
 from atlas.settings import Settings
 from tests.fakes.hindsight import RecordedHindsight
-from tests.fakes.litellm import FakeLiteLLM
+from tests.fakes.litellm import FakeLiteLLM, model_info_fixture
 from tests.fakes.serve import Served, serve
 from tests.integration.test_queue_pause import QUOTA_ERROR
 from tests.integration.test_research import (
@@ -47,6 +48,14 @@ DAILY = {
     "refresh_cron": "0 6 * * *",
     "min_refresh_interval_seconds": 43200,
 }
+HINDSIGHT_VERSION = (
+    RecordedHindsight().recording("monitoring/02-version").response_object()["api_version"]
+)
+ROUTED_REFLECT = [
+    {"model": d["litellm_params"]["model"], "model_id": d["model_info"]["id"]}
+    for d in cast(list[dict[str, Any]], model_info_fixture()["data"])
+    if d["model_name"] == "atlas-reflect"
+]
 PLACEHOLDER = "Generating content...\n"  # what 0.10.1 showed before a model's first refresh
 ITEM_1A = "part-i-item-1a"
 
@@ -111,6 +120,13 @@ class Models(Atlas):
 
     def refreshes(self, mental_model_id: str) -> list[dict[str, Any]]:
         return self.model(mental_model_id)["refreshes"]
+
+    def run(self, run_id: str) -> dict[str, Any]:
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                text("SELECT * FROM run WHERE id = :id"), {"id": run_id}
+            ).mappings()
+            return dict(row.one())
 
     def scheduled_job(self, mental_model_id: str, day: date) -> dict[str, Any]:
         job_id = job_id_for(REFRESH_KIND, refresh_key(BANK, mental_model_id, day))
@@ -248,7 +264,8 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
         ("bottlenecks", "Bottlenecks, day 1."),
     ]:
         [refresh] = models.refreshes(mental_model_id)
-        assert {k: refresh[k] for k in refresh if k not in ("id", "job_id", "operation_id")} == {
+        ignored = ("id", "job_id", "operation_id", "run_id")
+        assert {k: refresh[k] for k in refresh if k not in ignored} == {
             "scheduled_for": "2026-10-01",
             "template_version": "1.1.0",
             "min_refresh_interval_seconds": 43200,
@@ -267,6 +284,12 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
         assert (job["status"], job["artifacts"]["outcome"]) == ("succeeded", "completed")
         assert refresh["job_id"] == job["id"]
         assert models.model(mental_model_id)["content"] == content
+        # A submitted refresh is an LLM run: it records its run (stories 15 and 32).
+        run = models.run(refresh["run_id"])
+        assert (run["kind"], run["template_version"]) == (REFRESH_KIND, "1.1.0")
+        assert run["hindsight_version"] == HINDSIGHT_VERSION
+        assert run["routed_models"]["atlas-reflect"] == ROUTED_REFLECT
+        assert run["finished_at"] is not None
 
     # Later the same day the schedule enqueues nothing more.
     models.clock.advance(hours=3)
@@ -290,6 +313,7 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
         None,
     )
     assert (skipped["operation_id"], skipped["content_sha256"]) == (None, sha256("Theme, day 1."))
+    assert skipped["run_id"] is None  # a skip calls no model
 
     # Day 2, 06:00: Hindsight's own cron refreshes Theme status after Coherent is retained.
     models.clock.now = at("2026-10-02T06:00:00+00:00")

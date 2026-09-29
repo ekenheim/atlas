@@ -38,6 +38,9 @@ class MemoryDocument(BaseModel):
     document_id: str | None  # the Hindsight document ID; None when linked
     retain_state: RetainState
     fact_count: int | None
+    # The IDs of the memories Hindsight extracted from the section, listed once its operation
+    # completed; None until then, and for a linked or failed section.
+    memory_ids: list[str] | None
     reprocess_count: int
     template_version: str
     operation_id: str | None

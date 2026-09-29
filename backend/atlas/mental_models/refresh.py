@@ -14,6 +14,10 @@
 - **Every decision is recorded** as a `mental_model_refresh` row (skipped, submitted,
   completed or failed), with the model's content and raw citations. A completed refresh is
   audited (`mental_model.refreshed`).
+- **A submitted refresh is a run** (spec Part B stories 15 and 32): when LiteLLM and Hindsight
+  are both configured, it starts a `run` (code, Hindsight and template versions, the routed
+  model behind each alias) before asking Hindsight, and finishes it when the operation ends.
+  Hindsight's refresh operation reports no token usage, so its totals stay 0.
 
 Hindsight's own `refresh_cron` (06:00 UTC in the template) is gated by the same minimum
 interval and by staleness on the server; Atlas's job runs after it (06:30 by default) and
@@ -38,6 +42,7 @@ from atlas.hindsight import HindsightGateway, MentalModel, OperationTimeout
 from atlas.jobs.pacing import Clock, TransientFailure, classify_failure, utc_now
 from atlas.jobs.queue import Artifacts, Enqueued, Job, JobQueue
 from atlas.retention.service import operation_error_class
+from atlas.runs import RunNotFound, RunRecorder
 
 REFRESH_KIND = "refresh_mental_model"
 
@@ -85,7 +90,7 @@ class RefreshSchedule:
         with self._engine.connect() as connection:
             if applied_template_version(connection, self._bank_id) is None:
                 return []
-        queue = JobQueue(self._engine)
+        queue = JobQueue(self._engine)  # audited as the system actor's: Atlas schedules it
         enqueued = [
             queue.enqueue(
                 REFRESH_KIND,
@@ -110,7 +115,9 @@ class MentalModelRefresher:
         *,
         clock: Clock = utc_now,
         timings: RefreshTimings | None = None,
+        runs: RunRecorder | None = None,
     ) -> None:
+        self._runs = runs
         self._engine = engine
         self._gateway = gateway
         self._template = template
@@ -177,6 +184,7 @@ class MentalModelRefresher:
                     "status": "skipped",
                     "skip_reason": reason,
                     "operation_id": None,
+                    "run_id": None,
                     **_snapshot(model),
                     "completed_at": now,
                 }
@@ -189,13 +197,19 @@ class MentalModelRefresher:
             if last is not None:
                 outcome["last_refreshed_at"] = last.isoformat()
             return outcome
-        submitted = self._gateway.refresh_mental_model(definition.id)
+        run = self._runs.start(REFRESH_KIND) if self._runs is not None else None
+        try:
+            submitted = self._gateway.refresh_mental_model(definition.id)
+        except Exception:
+            self._finish_run(run.id if run is not None else None)
+            raise
         row = self._insert(
             fields
             | {
                 "status": "submitted",
                 "skip_reason": None,
                 "operation_id": submitted.operation_id,
+                "run_id": run.id if run is not None else None,
                 "content": None,
                 "content_sha256": None,
                 "raw_citations": "[]",
@@ -234,6 +248,7 @@ class MentalModelRefresher:
             self._update(row["id"], "operation_status = :status", {"status": error.last_status})
             raise
         now = self._clock()
+        self._finish_run(row["run_id"])
         if not operation.succeeded:
             error = operation.error_message or (
                 f"Hindsight reported the refresh {operation.status} with no error message"
@@ -303,11 +318,21 @@ class MentalModelRefresher:
     def _fail_submitted(self, job_id: uuid.UUID, error: str) -> None:
         latest = self._latest_for_job(job_id)
         if latest is not None and latest["status"] == "submitted":
+            self._finish_run(latest["run_id"])
             self._update(
                 latest["id"],
                 "status = 'failed', error = :error, error_class = 'permanent', completed_at = :now",
                 {"error": error[:2000], "now": self._clock()},
             )
+
+    def _finish_run(self, run_id: uuid.UUID | None) -> None:
+        """Finish the refresh's run, once (a resumed attempt may find it finished)."""
+        if self._runs is None or run_id is None:
+            return
+        try:
+            self._runs.finish(run_id, tokens_in=0, tokens_out=0)
+        except RunNotFound:
+            pass
 
     # --- rows ----------------------------------------------------------------------------------
 
@@ -333,10 +358,10 @@ class MentalModelRefresher:
                     text(
                         "INSERT INTO mental_model_refresh (id, bank_id, mental_model_id, job_id,"
                         " scheduled_for, template_version, min_refresh_interval_seconds, status,"
-                        " skip_reason, operation_id, previous_refreshed_at, refreshed_at,"
+                        " skip_reason, operation_id, run_id, previous_refreshed_at, refreshed_at,"
                         " content, content_sha256, raw_citations, requested_at, completed_at)"
                         " VALUES (:id, :bank, :mental_model_id, :job_id, :scheduled_for,"
-                        " :version, :min_interval, :status, :skip_reason, :operation_id,"
+                        " :version, :min_interval, :status, :skip_reason, :operation_id, :run_id,"
                         " :previous_refreshed_at, :refreshed_at, :content, :content_sha256,"
                         " CAST(:raw_citations AS jsonb), :requested_at, :completed_at)"
                         " RETURNING *"

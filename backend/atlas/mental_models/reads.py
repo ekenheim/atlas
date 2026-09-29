@@ -50,6 +50,7 @@ class MentalModelRefresh(BaseModel):
     status: Literal["skipped", "submitted", "completed", "failed"]
     skip_reason: Literal["min_interval", "not_stale"] | None
     operation_id: str | None
+    run_id: uuid.UUID | None  # the run of a submitted refresh (None: skipped, or no LiteLLM)
     operation_status: str | None
     error: str | None
     error_class: Literal["quota", "unavailable", "permanent"] | None

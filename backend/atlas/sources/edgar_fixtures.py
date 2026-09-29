@@ -4,10 +4,13 @@ A fixture directory holds `manifest.json` (each recorded URL with its status, he
 body file) and the bodies under paths mirroring the URLs, e.g.
 `www.sec.gov/Archives/edgar/data/1633978/.../lite-20260811.htm`. The replay behaves like
 SEC where it matters: a request without a User-Agent is refused (403), an unrecorded URL is
-404, and a conditional request whose validators still match gets a 304.
+404, and a conditional request whose validators still match gets a 304. A URL recorded more
+than once (say a 429, then the document) is replayed in recorded order, and its last
+response repeats.
 """
 
 import math
+from collections import deque
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
@@ -49,14 +52,17 @@ class FixtureReplay:
     def __init__(self, root: Path) -> None:
         self._root = root
         manifest = _Manifest.model_validate_json((root / "manifest.json").read_bytes())
-        self._responses = {recorded.url: recorded for recorded in manifest.responses}
+        self._responses: dict[str, deque[_RecordedResponse]] = {}
+        for recorded in manifest.responses:
+            self._responses.setdefault(recorded.url, deque()).append(recorded)
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         if not request.headers.get("User-Agent", "").strip():
             return httpx2.Response(403, text="Request originates from an undeclared tool")
-        recorded = self._responses.get(str(request.url))
-        if recorded is None:
+        replies = self._responses.get(str(request.url))
+        if not replies:
             return httpx2.Response(404, text=f"not recorded: {request.url}")
+        recorded = replies.popleft() if len(replies) > 1 else replies[0]
         headers = {name.lower(): value for name, value in recorded.headers.items()}
         etag, last_modified = headers.get("etag"), headers.get("last-modified")
         if_none_match = request.headers.get("If-None-Match")

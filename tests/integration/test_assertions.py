@@ -22,6 +22,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError
 
 from atlas.api.app import create_app
+from atlas.audit import Actor
 from atlas.db.migrate import upgrade
 from atlas.jobs import JobQueue, Worker, builtin_registry
 from atlas.ledger.ingest import INGEST_KIND, ingest_payload
@@ -68,7 +69,7 @@ class Atlas:
         self.api = TestClient(create_app(self.settings))
 
     def ingest_lumentum(self) -> None:
-        queue = JobQueue(self.engine)
+        queue = JobQueue(self.engine, actor=Actor(ACTOR))  # as `atlas ingest` would
         queue.enqueue(INGEST_KIND, "lumentum", ingest_payload("lumentum", ["8-K"], None))
         assert Worker(queue, builtin_registry(self.settings)).run_once() == 1
 

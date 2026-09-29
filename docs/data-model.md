@@ -111,7 +111,7 @@ One immutable, hash-identified copy of a Source Document (build plan §5.3, §4.
 | `event_at` | timestamptz null | When the underlying development happened, if known (null for SEC filings in Phase 1) |
 | `published_at` | timestamptz null | The publisher's release time, when it gives one distinct from availability. Null for SEC: EDGAR's release time is the acceptance time, recorded as `available_at`, and the filing date is in `metadata` |
 | `available_at` | timestamptz **not null** | Earliest public availability |
-| `available_at_basis` | text **not null** | `sec_acceptance`, `publisher_timestamp`, `observed_discovery` |
+| `available_at_basis` | text **not null** | `sec_acceptance`, `publisher_timestamp`, `observed_discovery`, `observed_revision` (0011) |
 | `fetched_at` | timestamptz not null | When these bytes were fetched |
 | `ingested_at` | timestamptz not null | When the ledger committed the row (build plan §9.1 strict-replay clock) |
 | `supersedes_version_id` | uuid null, unique, FK → source_version | The version this one replaces: the previous version of the same Source Document |
@@ -121,7 +121,7 @@ One immutable, hash-identified copy of a Source Document (build plan §5.3, §4.
 Invariants enforced in the database:
 
 - `UNIQUE (source_document_id, raw_sha256)`: the same bytes are never two versions of a document.
-- `available_at` and `available_at_basis` are `NOT NULL`, and the basis is checked against the enumeration. SEC filing documents use `sec_acceptance`; companyfacts has no acceptance time and uses `observed_discovery`.
+- `available_at` and `available_at_basis` are `NOT NULL`, and the basis is checked against the enumeration. SEC filing documents use `sec_acceptance`; companyfacts has no acceptance time and uses `observed_discovery`. A version that supersedes an earlier one uses its fetch time, basis `observed_revision` (migration `0011`; `docs/decisions.md`).
 - A trigger rejects any `UPDATE` of the content columns (everything except the parse columns) and any `DELETE` or `TRUNCATE`. The parse columns (`content_sha256`, `parsed_object_uri`, `parser_version`, `parse_status`, `parse_error`) may be written again only while `parse_status` is `pending` or `failed`; a recorded parse is never overwritten.
 - `supersedes_version_id` is the previous version (`version_number - 1`) of the same Source Document (trigger). It is unique, so the chain never forks, and it is null exactly for version 1.
 - The parse columns are consistent: `content_sha256` and `parsed_object_uri` are set iff the status is `parsed` or `incomplete`.
@@ -293,6 +293,7 @@ The mapping from the ledger to Memory (build plan §6.3; ADR-0001; spec Part B s
 | `operation_id` | text null FK → hindsight_operation | The operation that last retained it (the reprocess, after one) |
 | `retain_state` | text not null | `pending`, `completed`, `failed`, `zero_fact`, `linked` |
 | `fact_count` | integer null | `memory_unit_count` of the Hindsight document after completion |
+| `memory_ids` | jsonb null | The IDs of the memories Hindsight returned for the document (the memory list by `document_id`), recorded after completion; `[]` for zero facts; null before, and for `linked`/`failed` (0011) |
 | `reprocess_count` | integer not null default 0 | 0 or 1: a zero-fact section is reprocessed at most once |
 | `template_version` | text not null | The bank's applied template version when it was recorded |
 | `linked_to_source_version_id` | uuid null FK → source_version | Set when the same raw bytes are already retained |
@@ -345,6 +346,7 @@ One decision of a `refresh_mental_model` job (spec Part B stories 26–29; ticke
 | `status` | text not null | `skipped`, `submitted`, `completed`, `failed` |
 | `skip_reason` | text null | `min_interval` (refreshed, by Atlas or by Hindsight's cron, inside the interval) or `not_stale` (Hindsight: nothing new in scope) |
 | `operation_id`, `operation_status` | text null | The Hindsight refresh operation and its last status |
+| `run_id` | uuid null FK → run | The run a submitted refresh recorded (null for a skip, or without LiteLLM); immutable (0011) |
 | `error`, `error_class` | text null | `quota`/`unavailable` (the queue paused; retried) or `permanent` |
 | `previous_refreshed_at`, `refreshed_at` | timestamptz null | Hindsight's `last_refreshed_at` before, and after (for a skip: as found) |
 | `content`, `content_sha256` | text null | The model's content afterwards (for a skip: as found) |

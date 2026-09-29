@@ -35,6 +35,10 @@ class Actor:
         return cls(settings.actor)
 
 
+# Changes Atlas makes on its own (a scheduled enqueue, the queue pause), not for an actor.
+SYSTEM_ACTOR = Actor("atlas-system")
+
+
 def content_hash(fields: Mapping[str, object]) -> str:
     """The SHA-256 (hex) of an entity's canonical JSON, for `old_hash` / `new_hash`.
 

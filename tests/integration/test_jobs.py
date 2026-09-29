@@ -336,3 +336,29 @@ def test_worker_once_on_an_empty_queue_exits_cleanly(database_url: str, tmp_path
     result = run_atlas(["worker", "--once"], app_env(database_url, tmp_path), tmp_path)
 
     assert result.returncode == 0, result.stderr
+
+
+def audit_events(database_url: str) -> list[tuple[str, str, str, str]]:
+    engine = create_engine(database_url)
+    with engine.connect() as connection:
+        rows = connection.exec_driver_sql(
+            "SELECT actor, action, entity_type, entity_id FROM audit_event ORDER BY id"
+        ).all()
+    engine.dispose()
+    return [(row[0], row[1], row[2], row[3]) for row in rows]
+
+
+def test_an_enqueue_is_audited_once_and_claims_and_leases_are_not(
+    database_url: str, tmp_path: Path
+) -> None:
+    env = app_env(database_url, tmp_path)
+
+    first = enqueue_cli(env, tmp_path, "noop", "--key", "audited")
+    enqueue_cli(env, tmp_path, "noop", "--key", "audited")  # idempotent: nothing new
+    assert run_atlas(["worker", "--once"], env, tmp_path).returncode == 0
+
+    # The enqueue wrote its event with the job; the claim, lease and completion are the
+    # job's own history (docs/decisions.md), not audit events.
+    assert audit_events(database_url) == [("local-researcher", "job.enqueued", "job", first["id"])]
+    verified = run_atlas(["audit", "verify"], env, tmp_path)
+    assert verified.returncode == 0, verified.stdout + verified.stderr

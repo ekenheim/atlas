@@ -95,6 +95,15 @@ class Paced:
     def ten_k_memory(self) -> dict[str, Any]:
         return self.atlas.memory(self.atlas.version(LITE_10K)["id"])
 
+    def pause_audit(self) -> list[tuple[str, str]]:
+        """The audit events of the queue pause (entered and cleared), oldest first."""
+        with self.atlas.engine.connect() as connection:
+            rows = connection.exec_driver_sql(
+                "SELECT actor, action FROM audit_event WHERE entity_type = 'queue_pause'"
+                " ORDER BY id"
+            ).all()
+        return [(row[0], row[1]) for row in rows]
+
     def metrics(self) -> dict[tuple[str, frozenset[tuple[str, str]]], float]:
         response = self.api.get("/metrics")
         assert response.status_code == 200
@@ -222,6 +231,14 @@ def test_a_429_failed_operation_pauses_the_queue_then_resumes_and_resubmits(
     assert (pause["paused"], pause["level"], pause["since"]) == (False, 0, None)
     assert at(pause["cleared_at"]) == clock.now
     assert paced.queue()["pending"] == []
+    # Entering and clearing the pause are audited, by the system actor; the claims, leases
+    # and requeues around them are not (they stay in each job's history).
+    assert paced.pause_audit() == [
+        ("atlas-system", "queue.paused"),
+        ("atlas-system", "queue.pause_cleared"),
+    ]
+    verified = paced.atlas.cli("audit", "verify")
+    assert verified.returncode == 0, verified.stdout + verified.stderr
 
 
 def test_outage_pauses_double_their_backoff_up_to_one_hour_and_never_fail_the_job(

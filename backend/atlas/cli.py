@@ -96,6 +96,7 @@ def enqueue_job(
     from pydantic import JsonValue, TypeAdapter
     from sqlalchemy import create_engine
 
+    from atlas.audit import Actor
     from atlas.jobs import JobQueue, builtin_registry
 
     kinds = builtin_registry(settings).kinds()
@@ -112,7 +113,7 @@ def enqueue_job(
         raise SystemExit(2) from None
     engine = create_engine(settings.database_url)
     try:
-        enqueued = JobQueue(engine).enqueue(
+        enqueued = JobQueue(engine, actor=Actor.from_settings(settings)).enqueue(
             kind,
             key,
             payload,
@@ -164,6 +165,7 @@ def enqueue_ingest(
 
     from sqlalchemy import create_engine
 
+    from atlas.audit import Actor
     from atlas.jobs import JobQueue
     from atlas.ledger.ingest import INGEST_KIND, ingest_payload
 
@@ -184,7 +186,7 @@ def enqueue_ingest(
     key = key or f"ingest:{company}:{datetime.now(UTC).isoformat(timespec='seconds')}"
     engine = create_engine(settings.database_url)
     try:
-        enqueued = JobQueue(engine).enqueue(
+        enqueued = JobQueue(engine, actor=Actor.from_settings(settings)).enqueue(
             INGEST_KIND,
             key,
             ingest_payload(company, form_list, limit),
