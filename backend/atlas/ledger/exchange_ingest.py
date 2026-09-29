@@ -21,9 +21,10 @@ A blocked feed or document is not a failure: the job succeeds and lists it under
 document whose fetch fails is skipped, and the attempt then fails listing it, like the SEC
 ingest.
 
-Live requests are opt-in (`ATLAS_EXCHANGE_LIVE`, with `ATLAS_EXCHANGE_USER_AGENT`); by
-default the adapter replays `ATLAS_EXCHANGE_FIXTURES_DIR/<company>/manifest.json`. The
-gate applies to replays exactly as to live requests.
+Live requests are opt-in (`ATLAS_EXCHANGE_LIVE`, sent with the generic
+`ATLAS_EXCHANGE_USER_AGENT`, never personal data); by default the adapter replays
+`ATLAS_EXCHANGE_FIXTURES_DIR/<company>/manifest.json`. The gate applies to replays exactly
+as to live requests.
 """
 
 import asyncio
@@ -193,10 +194,9 @@ def _client(
     settings: Settings, register: SiteRegister, source: ExchangeSource, slug: str
 ) -> SecHttpClient:
     if settings.exchange_live:
-        assert settings.exchange_user_agent is not None  # required by settings validation
         rate = register.sites[source.site].rate_per_s if source.site in register.sites else 1.0
         limiter = _SITE_LIMITERS.setdefault(source.site, TokenBucket(rate_per_s=rate))
-        return SecHttpClient(settings.exchange_user_agent, limiter=limiter)
+        return SecHttpClient(settings.exchange_user_agent, limiter=limiter, require_contact=False)
     root = settings.exchange_fixtures_dir / slug if settings.exchange_fixtures_dir else None
     if root is None or not (root / "manifest.json").is_file():
         raise FileNotFoundError(

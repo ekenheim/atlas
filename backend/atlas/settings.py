@@ -145,7 +145,9 @@ class Settings(BaseSettings):
     # recorded (or hand-written) responses in `exchange_fixtures_dir/<company slug>`. Every
     # request, live or replayed, passes the fetch gate (the site register and robots.txt).
     exchange_live: bool = False
-    exchange_user_agent: str | None = Field(default=None, validate_default=True)
+    # Non-SEC sources get a generic User-Agent without personal data (owner decision
+    # 2026-09-29); SEC's contact-email rule is SEC's alone.
+    exchange_user_agent: str = "AtlasResearch"
     exchange_fixtures_dir: Path | None = None
     # The site register: each site's terms decision (atlas.sources.gate).
     source_sites_config: Path = Path("configs/sources/sites.yaml")
@@ -208,12 +210,13 @@ class Settings(BaseSettings):
 
     @field_validator("exchange_user_agent")
     @classmethod
-    def _exchange_user_agent_when_live(cls, value: str | None, info: ValidationInfo) -> str | None:
-        if info.data.get("exchange_live") and not value:
-            raise ValueError("required when ATLAS_EXCHANGE_LIVE is true (a name and a contact)")
-        if value and not re.search(r"\S+@\S+\.\S+", value):
-            raise ValueError("must include a contact email, e.g. 'AtlasResearch ops@example.com'")
-        return value or None
+    def _exchange_user_agent_is_generic(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must name the client, e.g. 'AtlasResearch'")
+        if "@" in value:
+            raise ValueError("must not carry personal data such as an email address")
+        return value
 
     def llm_aliases(self) -> list[str]:
         """The LiteLLM aliases whose routed deployments each run records."""

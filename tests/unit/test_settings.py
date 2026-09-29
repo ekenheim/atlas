@@ -171,3 +171,18 @@ def test_an_invalid_mental_model_refresh_time_is_rejected_at_startup(
 ) -> None:
     with pytest.raises(ValidationError, match="mental_model_refresh_at"):
         Settings.model_validate(_base(tmp_path) | {"mental_model_refresh_at": value})
+
+
+def test_the_exchange_user_agent_is_generic_and_never_carries_personal_data(
+    tmp_path: Path,
+) -> None:
+    # Owner decision 2026-09-29: non-SEC sources get no email (SEC's contact rule is SEC's).
+    base = {
+        "database_url": "postgresql+psycopg://x@db/atlas",
+        "actor": "a",
+        "archive_root": tmp_path,
+    }
+    settings = Settings.model_validate(base)
+    assert settings.exchange_user_agent == "AtlasResearch"
+    with pytest.raises(ValidationError, match="personal data"):
+        Settings.model_validate({**base, "exchange_user_agent": "Atlas me@example.com"})

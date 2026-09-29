@@ -116,9 +116,11 @@ class SecHttpClient:
         backoff_max_s: float = 60.0,
         max_retry_after_s: float = 600.0,
         timeout_s: float = 30.0,
+        require_contact: bool = True,
     ) -> None:
         user_agent = user_agent.strip()
-        if not _CONTACT_EMAIL.search(user_agent):
+        # SEC requires a contact email; other sources get a generic User-Agent.
+        if require_contact and not _CONTACT_EMAIL.search(user_agent):
             raise ValueError(
                 "SEC User-Agent must name the requester and include a contact email, "
                 "e.g. 'Atlas Research ops@example.com'"
