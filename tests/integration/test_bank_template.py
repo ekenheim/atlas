@@ -197,3 +197,19 @@ def test_an_invalid_template_file_is_rejected_before_any_call(
     assert result.returncode == 2
     assert "invalid bank template" in result.stderr
     assert fake.calls == []
+
+
+def test_if_changed_skips_a_template_already_applied_to_the_bank(
+    database_url: str, engine: Engine, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served]
+) -> None:
+    fake, served = hindsight
+    first = apply_template(database_url, tmp_path, served.url, "--if-changed")
+    calls_after_first = len(fake.served)
+
+    second = apply_template(database_url, tmp_path, served.url, "--if-changed")
+
+    assert (first.returncode, second.returncode) == (0, 0), second.stderr
+    assert "already applied" in second.stdout
+    assert len(fake.served) == calls_after_first  # no Hindsight call: no re-import
+    assert len(applications(engine)) == 1
+    assert len(audit_events(engine)) == 1

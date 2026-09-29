@@ -166,6 +166,12 @@ def applied_template_version(connection: Connection, bank_id: str) -> str | None
     return latest[0] if latest else None
 
 
+def is_applied(connection: Connection, bank_id: str, template: "BankTemplate") -> bool:
+    """Whether this exact template (same manifest hash) is the bank's latest application."""
+    latest = _latest(connection, bank_id)
+    return latest is not None and latest[1] == template.manifest_sha256
+
+
 def _latest(connection: Connection, bank_id: str) -> tuple[str, str] | None:
     row = connection.execute(
         text(

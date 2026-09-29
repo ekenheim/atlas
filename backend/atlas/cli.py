@@ -236,13 +236,15 @@ def run_audit_verify(settings: Settings) -> int:
     return 1
 
 
-def run_apply_template(settings: Settings, template_path: Path | None) -> int:
+def run_apply_template(
+    settings: Settings, template_path: Path | None, *, if_changed: bool = False
+) -> int:
     import json
 
     from sqlalchemy.exc import OperationalError
 
     from atlas.audit import Actor
-    from atlas.bank_template import BankTemplate, InvalidTemplate, apply_template
+    from atlas.bank_template import BankTemplate, InvalidTemplate, apply_template, is_applied
     from atlas.db import create_engine
     from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightGateway
 
@@ -256,6 +258,19 @@ def run_apply_template(settings: Settings, template_path: Path | None) -> int:
         print(f"atlas: {HINDSIGHT_NOT_CONFIGURED}", file=sys.stderr)
         return 2
     engine = create_engine(settings)
+    if if_changed:
+        # A re-import can re-queue mental-model refreshes (LLM spend), so a deploy that runs this
+        # on every start must not re-import a template the bank already has.
+        with engine.connect() as connection:
+            unchanged = is_applied(connection, gateway.bank_id, template)
+        if unchanged:
+            gateway.close()
+            engine.dispose()
+            print(
+                f"template {template.template_version} already applied to {gateway.bank_id};"
+                " nothing to do"
+            )
+            return 0
     try:
         applied = apply_template(engine, gateway, template, Actor.from_settings(settings))
     except HindsightError as error:
@@ -327,6 +342,11 @@ def main(argv: list[str] | None = None) -> None:
     apply.add_argument(
         "--template", type=Path, help="template file (default: ATLAS_HINDSIGHT_TEMPLATE_PATH)"
     )
+    apply.add_argument(
+        "--if-changed",
+        action="store_true",
+        help="skip when this exact template is already the bank's latest application",
+    )
     args = parser.parse_args(argv)
 
     configure_logging()
@@ -343,7 +363,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "audit":
         raise SystemExit(run_audit_verify(settings))
     elif args.command == "hindsight":
-        raise SystemExit(run_apply_template(settings, args.template))
+        raise SystemExit(run_apply_template(settings, args.template, if_changed=args.if_changed))
     elif args.command == "jobs":
         enqueue_job(settings, args.kind, args.key, args.payload, args.max_attempts, args.backfill)
     elif args.command == "ingest":
