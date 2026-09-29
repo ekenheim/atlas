@@ -12,6 +12,8 @@ A ready-for-agent spec (via `/to-spec`) for Phases 3–6a, the rest of the pilot
 
 It ends in the spec §15 demo. The spec will be at `.scratch/atlas-phase3-6a/spec.md`.
 
+**Status (2026-09-29): all tickets resolved.** The remaining fog (non-SEC exchange adapters, the evaluation gold set, frontend screens, cost at scale, embedding evaluation) is specified in the spec as Phase 3–6a design notes or explicitly deferred.
+
 ## Notes
 
 - **Domain:** as in `.scratch/atlas-pilot/map.md`. Glossary is `CONTEXT.md`; the product spec is authoritative; deviations go in `docs/decisions.md`.
@@ -30,6 +32,9 @@ It ends in the spec §15 demo. The spec will be at `.scratch/atlas-phase3-6a/spe
 ## Decisions so far
 
 <!-- one line per closed ticket -->
+
+- [Research workflow](issues/07-research-workflow.md): a fixed DAG Scout → Investigator → (Skeptic ∥ Analyst) → Editor with §7.4 budgets; recorded stop reasons; an independent Skeptic on the bear checklist; the Hypothesis lifecycle with a publish gate.
+- [Scenario model](issues/08-scenario-model.md): deterministic low/base/high with BOM share; every input sourced or estimated; XBRL as-of by filing availability; ±20% sensitivity; byte-identical recompute.
 
 - [Claim → Assertion → Relationship](issues/05-relationship-workflow.md): the Investigator proposes span-backed Claims; whitelist predicates with direction and layer; SimHash evidence families; **LLM-assisted review** (machine-reviewed), with humans for exceptions and anything a published Hypothesis relies on.
 - [Discovery and Candidates](issues/06-discovery-candidates.md): Scout ≤10 SearXNG queries/run → Tier C leads; unseeded companies become Candidates that the owner commits; Candidates are never deleted.
