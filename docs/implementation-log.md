@@ -757,3 +757,71 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - Selection-to-Assertion and the Assertion list are out of scope (ticket 08 and later).
 - **Credentials:** none.
 - **Next:** the Assertion viewer ticket adds selection-to-Assertion on the parsed `<pre>` and the review list. Run `scripts/gen_api_client.sh` after ticket 08's routes merge, or CI's `--check` will fail. Confirm the e2e step on the first GitHub Actions run.
+## 2026-09-29: ticket 10, Assertions in the viewer
+
+- **Built:** on the Source Version page (`/version/?id=`), below the parsed text:
+  - **New Assertion.** Selecting a passage in the parsed text quotes it in a form. The form shows the exact quote and its character offsets, and has:
+    - the subject: the Source Document's company, read-only
+    - a predicate (required)
+    - an optional object company
+    - an optional value, as JSON
+    - an optional page or anchor
+    - an epistemic type (required, no default)
+
+    It posts to `POST /api/v1/assertions` with the quote and offsets. A refusal is shown in an alert with the API's code and message, for example `quote_mismatch: … it occurs at [186, 212)`. The form and selection stay put so they can be corrected. Success shows the new Assertion's ID and audit event ID in a status line and clears the selection.
+  - **Offsets** (`frontend/lib/offsets.ts`). The parsed text is rendered verbatim as one text node in a `pre-wrap` `<pre>`, so a DOM offset in it is a UTF-16 index into the parsed text.
+    - `utf16OffsetsIn` measures a Range against the element with `Range.toString()`, clipping a selection that reaches outside it.
+    - `spanFromUtf16` converts to code points (Python `str` indices, which is what the API compares). A boundary between the halves of a surrogate pair widens to the whole character.
+    - The quote is sliced from the API's text, not taken from `Selection.toString()`.
+    - The page listens to `selectionchange`, so a keyboard selection (caret browsing) should be picked up as a mouse selection is. Only mouse selection is tested.
+  - **Assertions list.** A table of the version's Assertions from `GET /api/v1/assertions?source_version_id=`, with:
+    - quote, characters and anchor
+    - predicate, object and value
+    - who recorded it and when
+    - epistemic type
+    - review state, with reviewer and time
+    - the successor, if superseded
+
+    Each row's review buttons follow ticket 08's transitions (`frontend/lib/assertions.ts` mirrors `docs/decisions.md`; the API stays authoritative):
+    - an open state (`unreviewed`, `corroborated`, `disputed`) offers Corroborate, Dispute and Reject (never its own state, never back to unreviewed), plus Supersede with a Successor select of this version's other open Assertions
+    - `rejected` and `superseded` show "final" with no actions
+
+    A review replaces the row with the API's answer, and a status line gives the audit event. A refusal (such as 409 `invalid_transition`) shows the API's reason in an alert. Focus moves to the row's new state, since the button pressed may be gone.
+  - **Client** (`frontend/lib/api/client.ts`): a typed `post` over the generated `paths` (request body, and the 200/201 answer), `api.versionAssertions`, `api.createAssertion` and `api.reviewAssertion`. There are no new API routes, so the generated `schema.ts` is unchanged.
+  - **Frontend unit tests:** `frontend/unit/*.test.ts`, run by Playwright's test runner via `playwright.unit.config.ts` (no browser, no second framework), as `npm --prefix frontend run test`. `scripts/ci.sh` runs it after typecheck.
+- **Files:**
+  - new: `frontend/components/assertions.tsx`, `frontend/lib/{offsets,assertions}.ts`, `frontend/e2e/assertions.spec.ts`, `frontend/unit/offsets.test.ts`, `frontend/playwright.unit.config.ts`
+  - edited: `frontend/app/version/page.tsx` (`Content` loads the text once, for the `<pre>` and the Assertions), `frontend/lib/api/client.ts`, `frontend/app/globals.css`, `frontend/package.json` (`test` script, no new dependencies), `scripts/ci.sh` (the unit-test step and step labels), `scripts/e2e.py` (docstring), `AGENTS.md`
+  - No backend, migration, Python dependency or API client regeneration changes.
+- **Tests:**
+  - `frontend/unit/offsets.test.ts` (10) was written first and went red (9 failed against a stub). The offsets are hand-counted from constructed strings:
+    - ASCII
+    - curly quotes before the span (BMP: one unit each, but three UTF-8 bytes)
+    - 😀 before the span (UTF-16 3..10 → code points 2..9)
+    - several astral letters before
+    - an astral character inside the span
+    - boundaries inside a surrogate pair
+    - tabs and newlines counted verbatim
+    - the quote equals the code-point slice
+    - an empty selection
+    - out-of-range offsets
+  - `frontend/e2e/assertions.spec.ts` (2, real chromium, real API on the fixture-seeded database). The quotes and offsets are ticket 08's hand-checked values from the recorded EX-99.1. The test first checks that the page's text hashes to the golden `html-text-v1` hash, so those offsets hold for what is shown.
+    1. The test clicks through to the press release. It selects the revenue sentence (1604–1676, after curly quotes, bullets and a dash) **with the mouse**, pressing inside its first character and releasing inside its last. It then checks the selection's text, the quote and characters shown, the subject, and the posted body (quote, offsets, predicate, value, anchor, epistemic type). The row shows `unreviewed` by `e2e-smoke`, with actions Corroborate/Dispute/Reject. Dispute and then Corroborate each update the state, the reviewer and the offered actions. A second Assertion (546–598, curly quotes inside the span) makes Supersede appear on the first. Superseding the first by it shows the successor and no actions; rejecting the second leaves it final. After a reload, both states come from the API.
+    2. The test serves the parsed text with `😀 ` before it (a Playwright route). The margin quote then selects as 188–214 in code points, where UTF-16 would give 189–215, and that is what is posted. The real API refuses it, and the alert shows `quote_mismatch`, `[188, 214)` and "it occurs at [186, 212)". No row is added, and the form keeps the quote.
+  - Mutation checks went red as expected:
+    - sending the raw UTF-16 offsets failed e2e test 2 ("Characters 189–215") and 5 unit tests
+    - offering "back to unreviewed" failed e2e test 1's action list
+  - `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64 scripts/ci.sh --no-image` **passed**:
+    - ruff clean, pyright strict 0 errors
+    - lint, typecheck, frontend unit tests **10 passed**, API client current, build
+    - pytest **342 passed, 1 deselected** (live) in 410 s
+    - e2e **3 passed** (the 2 new plus ticket 09's smoke test)
+- **Fixture vs live:** everything ran against the recorded Lumentum EDGAR fixtures, a local filesystem archive, the Compose Postgres, and chromium on this WSL box via the platform override. Nothing live beyond localhost. GitHub Actions' `--with-deps` path for the new specs hasn't run yet.
+- **Deviations:**
+  - The Supersede control only offers successors among this Source Version's open Assertions. The API accepts any open Assertion (for example, a correction citing a newer version), but the viewer has no cross-version picker yet.
+  - The list takes one page of 500. A version with more Assertions would need paging.
+  - The value field takes JSON only: plain text must be quoted (`"…"`). A non-JSON value is refused in the form, and nothing is sent.
+  - `event_start`/`event_end` aren't in the form, since the ticket's form doesn't list them. The API accepts them.
+  - There's no highlighting of existing Assertions in the text yet. `utf16OffsetsIn` already measures across element boundaries, so highlights won't break selection offsets.
+- **Credentials:** none.
+- **Next:** a cross-version successor picker, and highlighting Assertion spans in the text. Confirm the e2e step on the first GitHub Actions run.

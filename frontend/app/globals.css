@@ -79,6 +79,44 @@ pre.document {
   white-space: pre-wrap;
 }
 
+/* A quote shown exactly as it occurs in the parsed text, whitespace included. */
+.quote {
+  white-space: pre-wrap;
+}
+
+blockquote.quote {
+  border-left: 3px solid color-mix(in srgb, currentColor 40%, transparent);
+  margin: 0.5rem 0;
+  padding: 0.25rem 0.75rem;
+}
+
+figure {
+  margin: 0.5rem 0 1rem;
+}
+
+.field {
+  margin: 0.5rem 0;
+}
+
+.field label {
+  display: block;
+  font-weight: 600;
+}
+
+.field input {
+  width: min(100%, 36rem);
+}
+
+td button,
+td .field {
+  margin: 0 0.25rem 0.25rem 0;
+}
+
+.muted-small {
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
 .crumbs {
   margin: 1rem 0 0;
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 
+import { VersionAssertions } from "../../components/assertions";
 import { Code, Load, Missing, Timestamp } from "../../components/ui";
 import { api, type SourceVersionDetail } from "../../lib/api/client";
 import { routes } from "../../lib/routes";
@@ -231,37 +232,55 @@ function Fetches({ version }: { version: SourceVersionDetail }) {
 }
 
 function Content({ version }: { version: SourceVersionDetail }) {
+  const parsed = version.content_sha256 !== null;
+  const text = useApi(parsed ? version.id : null, api.parsedText);
+  // The rendered text, where a selection makes a new Assertion's quote span.
+  const [textElement, setTextElement] = useState<HTMLPreElement | null>(null);
   return (
-    <section aria-labelledby="parsed-text">
-      <h2 id="parsed-text">Parsed text</h2>
-      <p>
-        <a href={api.contentUrl(version.id, "raw")} download>
-          Download original bytes
-        </a>{" "}
-        ({version.media_type}, {version.byte_size.toLocaleString("en-US")} bytes, SHA-256{" "}
-        <Code>{version.raw_sha256.slice(0, 12)}</Code>…) to check the parse against the original.
-      </p>
-      {version.content_sha256 ? (
-        <ParsedText id={version.id} />
-      ) : (
+    <>
+      <section aria-labelledby="parsed-text">
+        <h2 id="parsed-text">Parsed text</h2>
         <p>
-          No parsed text: parse status <Code>{version.parse_status}</Code>
-          {version.parse_error && ` (${version.parse_error})`}.
+          <a href={api.contentUrl(version.id, "raw")} download>
+            Download original bytes
+          </a>{" "}
+          ({version.media_type}, {version.byte_size.toLocaleString("en-US")} bytes, SHA-256{" "}
+          <Code>{version.raw_sha256.slice(0, 12)}</Code>…) to check the parse against the
+          original.
         </p>
-      )}
-    </section>
-  );
-}
-
-function ParsedText({ id }: { id: string }) {
-  const text = useApi(id, api.parsedText);
-  return (
-    <Load loaded={text} what="the parsed text">
-      {(text) => (
-        <pre className="document" tabIndex={0} aria-label="Parsed text of this Source Version">
-          {text}
-        </pre>
-      )}
-    </Load>
+        {parsed ? (
+          <Load loaded={text} what="the parsed text">
+            {(text) => (
+              <>
+                <p id="parsed-text-hint">
+                  Select a passage to quote it in a new Assertion (below).
+                </p>
+                {/* One text node, verbatim: selection offsets index the parsed text. */}
+                <pre
+                  ref={setTextElement}
+                  className="document"
+                  tabIndex={0}
+                  aria-label="Parsed text of this Source Version"
+                  aria-describedby="parsed-text-hint"
+                >
+                  {text}
+                </pre>
+              </>
+            )}
+          </Load>
+        ) : (
+          <p>
+            No parsed text: parse status <Code>{version.parse_status}</Code>
+            {version.parse_error && ` (${version.parse_error})`}.
+          </p>
+        )}
+      </section>
+      <VersionAssertions
+        key={version.id}
+        version={version}
+        text={parsed && text.state === "ready" ? text.data : null}
+        textElement={textElement}
+      />
+    </>
   );
 }

@@ -9,6 +9,12 @@ export type SourceDocument = Schemas["SourceDocument"];
 export type SourceVersionSummary = Schemas["SourceVersionSummary"];
 export type SourceVersionDetail = Schemas["SourceVersionDetail"];
 export type FetchObservation = Schemas["FetchObservation"];
+export type Assertion = Schemas["Assertion"];
+export type AssertionCreate = Schemas["AssertionCreate"];
+export type AssertionReview = Schemas["AssertionReview"];
+export type AssertionRecorded = Schemas["AssertionRecorded"];
+export type ReviewState = Assertion["review_state"];
+export type EpistemicType = Assertion["epistemic_type"];
 export type ContentKind =
   Params<"/api/v1/source-versions/{version_id}/content">["query"]["kind"];
 
@@ -21,6 +27,22 @@ type Params<P extends GetPath> = Pick<GetOperation<P>["parameters"], "path" | "q
 type Ok<P extends GetPath> = GetOperation<P>["responses"] extends {
   200: { content: { "application/json": infer T } };
 }
+  ? T
+  : never;
+
+type PostPath = {
+  [P in keyof paths]: paths[P]["post"] extends never | undefined ? never : P;
+}[keyof paths];
+type PostOperation<P extends PostPath> = NonNullable<paths[P]["post"]>;
+type Body<P extends PostPath> = PostOperation<P> extends {
+  requestBody: { content: { "application/json": infer B } };
+}
+  ? B
+  : never;
+/** The route's success body: 200, or 201 for a create. */
+type Posted<P extends PostPath> = PostOperation<P>["responses"] extends
+  | { 200: { content: { "application/json": infer T } } }
+  | { 201: { content: { "application/json": infer T } } }
   ? T
   : never;
 
@@ -39,7 +61,7 @@ export class ApiError extends Error {
 // Lists in this viewer are small (one company's filings); take the API's largest page.
 const PAGE = { limit: 500, offset: 0 };
 
-function url<P extends GetPath>(route: P, params: Params<P>): string {
+function url(route: string, params: { path?: object; query?: object }): string {
   const { path = {}, query = {} } = params as {
     path?: Record<string, string>;
     query?: Record<string, string | number>;
@@ -53,8 +75,13 @@ function url<P extends GetPath>(route: P, params: Params<P>): string {
   return search ? `${filled}?${search}` : filled;
 }
 
-async function send(target: string): Promise<Response> {
-  const response = await fetch(target, { headers: { Accept: "application/json, text/plain" } });
+type Init = { method?: "POST"; headers?: Record<string, string>; body?: string };
+
+async function send(target: string, init: Init = {}): Promise<Response> {
+  const response = await fetch(target, {
+    ...init,
+    headers: { Accept: "application/json, text/plain", ...init.headers },
+  });
   if (response.ok) return response;
   let code = "http_error";
   let message = `${response.status} ${response.statusText}`.trim();
@@ -70,6 +97,19 @@ async function send(target: string): Promise<Response> {
 async function get<P extends GetPath>(route: P, params: Params<P>): Promise<Ok<P>> {
   const response = await send(url(route, params));
   return (await response.json()) as Ok<P>;
+}
+
+async function post<P extends PostPath>(
+  route: P,
+  params: { path?: Record<string, string> },
+  body: Body<P>,
+): Promise<Posted<P>> {
+  const response = await send(url(route, params), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return (await response.json()) as Posted<P>;
 }
 
 export const api = {
@@ -89,4 +129,12 @@ export const api = {
       query: { kind },
     }),
   parsedText: async (id: string) => (await send(api.contentUrl(id, "parsed"))).text(),
+  /** The Assertions citing one Source Version, oldest first. */
+  versionAssertions: (id: string) =>
+    get("/api/v1/assertions", { query: { source_version_id: id, ...PAGE } }),
+  /** Record an Assertion; a quote not exactly at its offsets is refused (`quote_mismatch`). */
+  createAssertion: (body: AssertionCreate) => post("/api/v1/assertions", {}, body),
+  /** Review an Assertion; a transition not allowed is refused (`invalid_transition`). */
+  reviewAssertion: (id: string, body: AssertionReview) =>
+    post("/api/v1/assertions/{assertion_id}/review", { path: { assertion_id: id } }, body),
 };
