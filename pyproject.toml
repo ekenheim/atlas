@@ -9,6 +9,7 @@ dependencies = [
     "boto3>=1.43.104",
     "fastapi>=0.115",
     "httpx2>=2.13.1",
+    "jsonschema>=4.23",
     "prometheus-client>=0.20",
     "psycopg[binary]>=3.2",
     "pydantic>=2.8",
@@ -30,6 +31,7 @@ dev = [
     "pytest>=8.3",
     "pytest-socket>=0.7",
     "ruff>=0.6",
+    "types-jsonschema>=4.26.0.20260518",
     "types-pyyaml>=6.0",
 ]
 

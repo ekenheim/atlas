@@ -4,10 +4,10 @@
 
 **Blocked by:** 13 (Retain Source Versions into memory)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Cross-company recall returns memories from both companies with resolved provenance
-- [ ] Observations resolve through source memories to world facts to Source Versions
-- [ ] A chunk-only answer is unverified; a paraphrased quote is unverified; a deleted memory is broken
-- [ ] Reflect runs as a job; the stored answer, structured output and its error, and the citation states are returned by the API
-- [ ] Only resolved citations are presented as Evidence
+- [x] Cross-company recall returns memories from both companies with resolved provenance
+- [x] Observations resolve through source memories to world facts to Source Versions
+- [x] A chunk-only answer is unverified; a paraphrased quote is unverified; a deleted memory is broken
+- [x] Reflect runs as a job; the stored answer, structured output and its error, and the citation states are returned by the API
+- [x] Only resolved citations are presented as Evidence
