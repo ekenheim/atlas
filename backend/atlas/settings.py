@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     retain_poll_timeout_seconds: float = Field(default=240.0, gt=0)
     retain_poll_interval_seconds: float = Field(default=5.0, gt=0)
     retain_poll_attempts: int = Field(default=5, ge=1)
+    # Mental models: the worker enqueues each template model's daily refresh from this UTC
+    # time of day on (HH:MM; empty: never scheduled). The template's own refresh_cron runs
+    # at 06:00 UTC, so by default Atlas's job finds and records its refresh. A refresh job
+    # polls its operation like a retain poll (keep the timeout below job_lease_seconds).
+    mental_model_refresh_at: str = Field(default="06:30", pattern=r"^$|^([01]\d|2[0-3]):[0-5]\d$")
+    mental_model_poll_timeout_seconds: float = Field(default=240.0, gt=0)
+    mental_model_poll_interval_seconds: float = Field(default=5.0, gt=0)
     # Recorded on every run: the image's commit SHA (a build arg), else the package version.
     code_version: str | None = None
     # Live SEC EDGAR fetching is opt-in; without it the EDGAR adapter replays fixtures.

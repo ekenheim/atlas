@@ -948,3 +948,72 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - ticket 16: mental-model citations can reuse `ProvenanceResolver.resolve_answer`
   - record against the spike: a reflect whose `based_on` has an `id: null` entry, a deleted memory's 404, and consolidated observations over retained Atlas sections, to replace the derivations
   - the viewer can link resolved quote spans straight to Assertion creation (same code-point offsets)
+
+## 2026-09-29: ticket 16, mental models
+
+- **Built:**
+  - **Bank template 1.1.0** (`configs/hindsight/bank-template.json`): two mental models, `theme-status` (Theme status: the major documented developments in optical interconnect capacity, with supporting and opposing evidence) and `bottlenecks` (Bottlenecks, worded with the glossary's test: no qualified second source or substitute within the timeframe, pricing power, and "demand growth alone does not make a Bottleneck"). Both have the trigger `refresh_after_consolidation: false`, `refresh_cron: "0 6 * * *"` and `min_refresh_interval_seconds: 43200`, and `max_tokens` 2048.
+  - **Template validation** (`atlas.bank_template`): each mental model must set `refresh_after_consolidation: false` explicitly, a 5-field `refresh_cron` and a positive minimum interval, with unique IDs, or `apply-template` exits 2 before any call. `BankTemplate.mental_models` / `mental_model(id)` give typed access.
+  - **Alembic revision `0010`** (down_revision `0009`): `mental_model_refresh`, one row per decision of a refresh job (skipped with `min_interval`/`not_stale`, submitted, completed, or failed with `quota`/`unavailable`/`permanent`), with the template version and interval that applied, Hindsight's `last_refreshed_at` before and after, the operation, and the content, its SHA-256 and raw citations. CHECKs tie the status to its fields; an ENABLE ALWAYS trigger allows updates only of a `submitted` row's outcome columns and rejects DELETE/TRUNCATE; `atlas_app` gets SELECT/INSERT/UPDATE.
+  - **`atlas.mental_models`:**
+    - `RefreshSchedule`: from `ATLAS_MENTAL_MODEL_REFRESH_AT` (06:30 UTC; empty disables) each day, one `refresh_mental_model` job per template model, keyed `refresh_mental_model:<bank>:<model>:<day>`. Nothing is scheduled before a template is applied.
+    - `MentalModelRefresher` (the job, registered **pausable**):
+      - skips inside the minimum interval, measured from the later of Atlas's last submitted or completed refresh and Hindsight's `last_refreshed_at`, so a refresh by Hindsight's own cron counts
+      - skips a model Hindsight reports as not stale
+      - otherwise refreshes, polls the operation (a retried attempt resumes the same operation), and records the content
+      - a quota or outage failure raises `TransientFailure` (pause), and after the pause the job decides afresh
+      - a completed refresh is audited `mental_model.refreshed`
+    - `MentalModelReader`: each template model's content, `last_refreshed_at`, `is_stale`, history (from the gateway), the citations of the content and of every history entry resolved by ticket 15's `ProvenanceResolver.resolve_answer` (memories and quotes), Evidence (resolved only), `evidence_missing`, and Atlas's refresh records.
+  - **API:** `GET /api/v1/mental-models` and `GET /api/v1/mental-models/{id}`. Errors: 404 for an ID the template doesn't define (no Hindsight call), 503 `hindsight_not_configured`, 502 `hindsight_unavailable`/`hindsight_error`, 500 `invalid_template`. The API client is regenerated.
+  - **Jobs:** `Worker(..., schedules=...)` runs each schedule at the start of every pass, on the queue's clock. `builtin_schedules(settings, engine)` is new, and `builtin_registry(settings, clock=...)` passes the application clock to handlers that measure time. `atlas worker` uses both.
+  - **Gateway:** `MentalModel.is_stale` (0.10.1 returns it; now in the contract test).
+  - **Settings:** `ATLAS_MENTAL_MODEL_REFRESH_AT`, `ATLAS_MENTAL_MODEL_POLL_TIMEOUT_SECONDS` (240) and `ATLAS_MENTAL_MODEL_POLL_INTERVAL_SECONDS` (5).
+  - **Fake derivations** (documented in `tests/fakes/hindsight.py`). They're on by default, because each is anchored to a recorded request:
+    - the template import: a body that differs from the recorded 1.0.0 research-template request only in `mental_models` is served `research_template/01`/`02` with only `bank_id`, `mental_models_created` and, for the import, one derived `operation_ids` entry per model changed (as `bank_templates/03`/`04` show)
+    - the imported models' reads (`mental_models/03-get`) and history (`06-history`)
+    - `script_refresh` (`04-refresh`, `05-refresh-final`; `hold=`/`error_message=` for a failed refresh) and `apply_refresh` (a refresh Hindsight ran on its cron)
+
+    `spikes/hindsight/record_bank_template.py` now strips `mental_models` from what it sends, so re-running it stays LLM-free.
+- **Files:**
+  - new: `backend/atlas/mental_models/{__init__,refresh,reads,handlers}.py`, `backend/atlas/api/mental_models.py`, `backend/atlas/db/migrations/versions/0010_mental_model_refresh.py`, `tests/integration/test_mental_models.py`
+  - edited: `configs/hindsight/bank-template.json`, `backend/atlas/bank_template.py`, `backend/atlas/hindsight/models.py` (one field), `backend/atlas/jobs/{__init__,handlers,worker}.py`, `tests/fakes/hindsight.py`, `spikes/hindsight/record_bank_template.py`, and small additive edits to `api/app.py`, `cli.py`, `settings.py` and `.env.example`
+  - tests edited: `tests/unit/{test_hindsight_contract,test_hindsight_fake_derivations,test_settings}.py`; `tests/integration/test_bank_template.py` (the import is now served derived, and it checks the created model IDs); `tests/integration/test_queue_pause.py` (`refresh_mental_model` is now a pausable kind); `tests/integration/test_migrations.py` (head `0010`)
+  - docs: `AGENTS.md`, `docs/decisions.md`, `docs/data-model.md` (§3.4b and the ER diagram), `frontend/lib/api/{openapi.json,schema.ts}`
+  - The branch was fast-forwarded to `main` (ticket 15) before starting.
+- **Tests:** 18 new: 11 integration and 7 unit (2 fake derivations, 5 settings). The integration tests are in `tests/integration/test_mental_models.py`: real Postgres with a fresh DB each; CLI apply-template, ingest and enqueue; scheduled single worker passes on a controllable clock; `/api/v1`; the fake on localhost with `derive_memories`.
+  - **Template:** it holds both models with the daily trigger and `refresh_after_consolidation: false`, and Bottlenecks carries the glossary test. Hindsight was sent exactly the file's models, and the API lists both in the bank with that trigger.
+  - **Runaway triggers:** five (consolidation on, consolidation unset, no cron, a bad cron, a zero interval) are refused by `apply-template` with exit 2 and no Hindsight call.
+  - **Daily schedule:**
+    - nothing before 06:30; at 06:30 both are refreshed and recorded (scheduled day, template version, interval, operation, content hash, times); nothing more that day
+    - a by-hand refresh inside the interval is skipped with no Hindsight call
+    - on day 2, Hindsight's own cron refresh is found and recorded as a `min_interval` skip, while the stale Bottlenecks (Coherent retained) is refreshed
+    - on day 3 both are skipped `not_stale`
+    - three `mental_model.refreshed` audit events, and `atlas audit verify` exits 0
+  - **Pause:** a 429-failed refresh pauses the queue for 60 s, with `refresh_mental_model` among the kinds. The job is requeued at 0 attempts and the refresh is recorded `failed`/`quota`. The other model's job isn't claimed, and nothing is asked at +59 s. At +60 s both complete and the pause clears.
+  - **API:**
+    - content, `last_refreshed_at`, citations: a resolved observation and fact leading to the Lumentum 10-K Item 1 section, a deleted memory broken, the typographic-apostrophe quote resolved to its archived span, a paraphrase unverified
+    - counts, Evidence, and refresh records
+    - history newest first, with each entry's citations resolved (and the pre-refresh placeholder)
+    - the list equals the detail
+    - 404 for an unknown model with no Hindsight call; 503 without Hindsight
+  - The implementation came just ahead of the tests, not strictly red first; the suite was then checked by mutation. Each of these went red: no minimum-interval check (daily test), the kind not pausable (pause test), a schedule key without the day (daily test), no staleness check (daily test), citations not resolved (API test).
+  - `scripts/ci.sh --no-image` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`) **passed**: ruff format/lint clean, pyright strict 0 errors, frontend gates and "API client is current", **399 passed, 1 deselected** (live) in 572 s, e2e 3 passed.
+- **Fixture-tested vs live:**
+  - **Everything is fixture or localhost.** No live Hindsight, LiteLLM or LLM call was made, and the spike wasn't used. The template wasn't re-recorded, because a live import of mental models queues refreshes, which are LLM runs. So the 1.1.0 dry run and import are **derived**, as is every mental-model read, history entry and refresh. The refreshed contents are written by the tests.
+  - **Never checked against a real server:**
+    - that 0.10.1 accepts `refresh_cron` in an imported template and runs it
+    - that its cron honours `min_refresh_interval_seconds` and staleness (the docs say so; the feature matrix never exercised it)
+    - how it reports a re-import of existing models (the fake still says "created")
+    - whether an import on every deploy re-queues refreshes of unchanged models (an LLM cost per deploy if so)
+    - a failed refresh operation's error text under a 429
+- **Deviations and notes:**
+  - **Two schedulers,** by design of the spec: the template's `refresh_cron` (06:00 UTC, run by Hindsight, not pause-aware) and Atlas's daily job (06:30 UTC, pausable, rate-limited, recorded). Atlas's job mostly records Hindsight's refresh, and is the backstop when the cron didn't run; see `docs/decisions.md`.
+  - The refresh job polls its own operation rather than handing off to `poll_operation`, and doesn't use `hindsight_operation` (its `kind` CHECK covers retains only); the refresh row carries the operation instead.
+  - Citations are resolved on every read, not stored at refresh time. A read costs one Hindsight call per cited memory (cached per request), and a memory deleted later shows as broken.
+  - A permanently failed refresh ends the job without a retry, so a bad refresh never loops.
+  - The models have no tags: every memory in the bank is Atlas's and tagged, and a tagged model would default to `all_strict` on the server.
+- **Credentials:** none.
+- **Next:**
+  - Against the spike, with the owner's approval for the LLM cost: import a template with one `refresh_cron` mental model, record the import, the model read and its history, and watch one cron tick with `min_refresh_interval_seconds`, to replace the derivations.
+  - Decide whether deploy-time `apply-template` should skip the import when the manifest SHA is unchanged, if re-imports re-queue refreshes.
+  - A viewer page for the two models.

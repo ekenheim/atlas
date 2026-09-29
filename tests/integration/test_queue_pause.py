@@ -36,7 +36,7 @@ from tests.integration.test_retention import LITE_10K, TEN_K_ANCHORS, Atlas
 
 REPO = Path(__file__).parents[2]
 ALERT_RULES = REPO / "configs" / "prometheus" / "atlas-alerts.yaml"
-PAUSABLE_KINDS = ["poll_operation", "reprocess", "retain"]
+PAUSABLE_KINDS = ["poll_operation", "refresh_mental_model", "reprocess", "retain"]
 # What LiteLLM (behind Hindsight's `openai` provider) reports when MiniMax is capped out.
 QUOTA_ERROR = (
     "Error code: 429 - {'error': {'message': 'litellm.RateLimitError: RateLimitError:"

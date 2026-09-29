@@ -4,7 +4,13 @@
 window (spec Part B, Job queue extensions).
 """
 
-from atlas.jobs.handlers import HandlerRegistry, JobHandler, builtin_registry
+from atlas.jobs.handlers import (
+    HandlerRegistry,
+    JobHandler,
+    Schedule,
+    builtin_registry,
+    builtin_schedules,
+)
 from atlas.jobs.pacing import (
     JOB_CLASSES,
     BackfillWindow,
@@ -47,9 +53,11 @@ __all__ = [
     "Pacing",
     "PendingJobs",
     "QueuePause",
+    "Schedule",
     "TransientFailure",
     "Worker",
     "builtin_registry",
+    "builtin_schedules",
     "classify_error_text",
     "classify_failure",
     "job_id_for",

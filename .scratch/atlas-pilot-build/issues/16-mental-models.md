@@ -4,8 +4,8 @@
 
 **Blocked by:** 15 (Recall and reflect with resolved citations)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Both models are defined in the bank template; Bottlenecks is worded with the glossary's Bottleneck test
-- [ ] The refresh runs as a scheduled daily job with a minimum interval; `refresh_after_consolidation` is off
-- [ ] `GET /api/v1/mental-models[/{id}]` returns content, history and resolved citations
+- [x] Both models are defined in the bank template; Bottlenecks is worded with the glossary's Bottleneck test
+- [x] The refresh runs as a scheduled daily job with a minimum interval; `refresh_after_consolidation` is off
+- [x] `GET /api/v1/mental-models[/{id}]` returns content, history and resolved citations

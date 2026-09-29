@@ -398,23 +398,33 @@ def test_bank_template_is_applied_by_dry_run_then_import() -> None:
 
 
 def test_the_research_bank_template_file_is_what_the_server_was_sent() -> None:
-    # Recorded by spikes/hindsight/record_bank_template.py from the file itself; editing the
-    # template without re-recording its dry run and import fails here.
+    # spikes/hindsight/record_bank_template.py recorded template 1.0.0 (missions,
+    # dispositions, directives). 1.1.0 added only the mental models, whose import the fake
+    # derives from that recording (tests/fakes/hindsight.py); editing anything else in the
+    # template fails here until its dry run is re-recorded.
     fake = RecordedHindsight()
     dry = fake.recording("research_template/01-import-dry-run")
     real = fake.recording("research_template/02-import")
     template = BankTemplate.load(REPO_ROOT / "configs" / "hindsight" / "bank-template.json")
+    model_ids = [model.id for model in template.mental_models]
 
     applied = gateway_for(fake, dry).apply_bank_template(template.manifest)
 
-    assert fake.served == ["research_template/01-import-dry-run", "research_template/02-import"]
+    assert fake.served == [
+        "research_template/01-import-dry-run (derived)",
+        "research_template/02-import (derived)",
+    ]
+    assert model_ids == ["theme-status", "bottlenecks"]
     for result, recording in [(applied.dry_run, dry), (applied.applied, real)]:
         expected = recording.response_object()
         assert result.dry_run == expected["dry_run"]
         assert result.config_applied == expected["config_applied"]
         assert result.directives_created == expected["directives_created"]
-        assert result.mental_models_created == expected["mental_models_created"]
-        assert result.operation_ids == expected["operation_ids"]
+        assert result.mental_models_created == model_ids
+    # The dry run queues nothing; the import queues one refresh per model (as recorded in
+    # bank_templates/03-import-dry-run and 04-import).
+    assert applied.dry_run.operation_ids == []
+    assert len(set(applied.applied.operation_ids)) == len(model_ids)
 
 
 @pytest.mark.parametrize(
@@ -490,6 +500,7 @@ def test_mental_model_get_returns_content_trigger_and_citations() -> None:
         expected["content"],
     )
     assert model.last_refreshed_at == when(expected["last_refreshed_at"])
+    assert model.is_stale is expected["is_stale"]
     assert model.trigger.refresh_after_consolidation is trigger["refresh_after_consolidation"]
     assert model.trigger.min_refresh_interval_seconds == trigger["min_refresh_interval_seconds"]
     cited = [

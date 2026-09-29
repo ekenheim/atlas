@@ -6,11 +6,12 @@ import os
 import socket
 import threading
 import uuid
+from collections.abc import Sequence
 from datetime import timedelta
 
 from sqlalchemy.exc import OperationalError
 
-from atlas.jobs.handlers import HandlerRegistry
+from atlas.jobs.handlers import HandlerRegistry, Schedule
 from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Job, JobQueue
 
@@ -28,14 +29,24 @@ class Worker:
         registry: HandlerRegistry,
         worker_id: str | None = None,
         lease: timedelta = timedelta(minutes=5),
+        schedules: Sequence[Schedule] = (),
     ) -> None:
         self.queue = queue
         self.registry = registry
         self.worker_id = worker_id or default_worker_id()
         self.lease = lease
+        self.schedules = list(schedules)
 
     def run_once(self) -> int:
-        """Process jobs until none is runnable; return how many attempts were run."""
+        """Enqueue what the schedules say is due, then process jobs until none is runnable;
+        return how many attempts were run."""
+        for schedule in self.schedules:
+            try:
+                schedule(self.queue.clock())
+            except OperationalError:
+                raise
+            except Exception:
+                log.exception("schedule failed; its jobs were not enqueued this pass")
         attempts = 0
         while (job := self.queue.claim(self.worker_id, self.lease)) is not None:
             self._attempt(job)

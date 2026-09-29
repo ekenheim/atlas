@@ -8,11 +8,14 @@ from atlas.hindsight import HindsightGateway, HindsightNotFound, RetainItem, Tag
 from tests.fakes.hindsight import (
     DERIVED_DOCUMENT,
     DERIVED_FACT,
+    DERIVED_MENTAL_MODEL,
     DERIVED_OBSERVATION,
     DERIVED_RECALL,
     DERIVED_REFLECT,
     DERIVED_RETAIN,
     DERIVED_RETAIN_FINAL,
+    DERIVED_TEMPLATE_DRY_RUN,
+    DERIVED_TEMPLATE_IMPORT,
     ChunkContent,
     RecordedHindsight,
     UnrecordedRequest,
@@ -210,3 +213,108 @@ def test_a_scripted_reflect_changes_only_its_answer_and_citations() -> None:
     assert answer.usage.model_dump() == recorded["usage"]
     with pytest.raises(UnrecordedRequest):  # one scripted answer, one reflect
         client.reflect("q", scope=TagScope(["company:x"], "any_strict"))
+
+
+# --- the template import and mental models (derived by default) ---------------------------------
+
+MENTAL_MODEL = {
+    "id": "theme-status",
+    "name": "Theme status",
+    "source_query": "What are the developments?",
+    "max_tokens": 1024,
+    "trigger": {
+        "refresh_after_consolidation": False,
+        "refresh_cron": "0 6 * * *",
+        "min_refresh_interval_seconds": 43200,
+    },
+}
+REFRESHED_AT = datetime(2026, 10, 1, 6, 30, tzinfo=UTC)
+
+
+def imported(fake: RecordedHindsight, client: HindsightGateway) -> None:
+    manifest = fake.recording(DERIVED_TEMPLATE_IMPORT).request_object()
+    client.apply_bank_template({**manifest, "mental_models": [MENTAL_MODEL]})
+
+
+def test_a_template_import_differing_only_in_mental_models_is_derived() -> None:
+    fake = RecordedHindsight()
+    client = gateway(fake)
+    manifest = fake.recording(DERIVED_TEMPLATE_IMPORT).request_object()
+
+    applied = client.apply_bank_template({**manifest, "mental_models": [MENTAL_MODEL]})
+
+    recorded = fake.recording(DERIVED_TEMPLATE_IMPORT).response_object()
+    assert fake.served == [
+        f"{DERIVED_TEMPLATE_DRY_RUN} (derived)",
+        f"{DERIVED_TEMPLATE_IMPORT} (derived)",
+    ]
+    assert applied.applied.bank_id == BANK
+    assert applied.applied.mental_models_created == ["theme-status"]
+    assert applied.applied.directives_created == recorded["directives_created"]
+    assert applied.dry_run.operation_ids == []
+    assert len(applied.applied.operation_ids) == 1
+    with pytest.raises(UnrecordedRequest):  # anything else changed: not derived
+        client.apply_bank_template({**manifest, "directives": [], "mental_models": []})
+
+
+def test_an_imported_mental_model_is_derived_until_and_after_its_refreshes() -> None:
+    fake, client = derived_memories()
+    imported(fake, client)
+    fact_id = fake.derived_fact(ITEMS[0].document_id)
+    observation_id = fake.derive_observation([ITEMS[1].document_id])
+
+    before = client.get_mental_model("theme-status")
+    assert client.mental_model_history("theme-status") == []
+    with pytest.raises(UnrecordedRequest):  # a refresh nobody scripted
+        client.refresh_mental_model("theme-status")
+    fake.script_refresh(
+        "theme-status", "First.", [fact_id, observation_id], refreshed_at=REFRESHED_AT
+    )
+    submitted = client.refresh_mental_model("theme-status")
+    fake.hold_operation(submitted.operation_id, "processing", polls=1)
+    processing = client.operation(submitted.operation_id)
+    unchanged = client.get_mental_model("theme-status")
+    done = client.operation(submitted.operation_id)
+    after = client.get_mental_model("theme-status")
+
+    recorded = fake.recording(DERIVED_MENTAL_MODEL).response_object()
+    assert (before.name, before.source_query, before.content) == (
+        "Theme status",
+        "What are the developments?",
+        "Generating content...\n",
+    )
+    assert before.trigger.refresh_cron == "0 6 * * *"
+    assert before.trigger.min_refresh_interval_seconds == 43200
+    assert before.trigger.refresh_after_consolidation is False
+    assert (before.last_refreshed_at, before.is_stale, before.based_on) == (None, True, [])
+    assert before.created_at == datetime.fromisoformat(str(recorded["created_at"]))
+    assert (processing.status, unchanged.content) == ("processing", before.content)
+    assert done.status == "completed"
+    assert done.result_metadata["mental_model_id"] == "theme-status"
+    assert done.result_metadata["content_len"] == len("First.")
+    assert (after.content, after.last_refreshed_at, after.is_stale) == (
+        "First.",
+        REFRESHED_AT,
+        False,
+    )
+    assert [(m.id, m.type) for m in after.based_on] == [
+        (fact_id, "world"),
+        (observation_id, "observation"),
+    ]
+    [revision] = client.mental_model_history("theme-status")
+    assert (revision.previous_content, revision.changed_at, revision.based_on) == (
+        "Generating content...\n",
+        REFRESHED_AT,
+        [],
+    )
+
+    fake.apply_refresh(
+        "theme-status", "Second.", [fact_id], refreshed_at=REFRESHED_AT.replace(day=2)
+    )
+    newest, oldest = client.mental_model_history("theme-status")
+    assert newest.previous_content == "First."
+    assert [m.id for m in newest.based_on] == [fact_id, observation_id]
+    assert oldest.previous_content == "Generating content...\n"
+    client.retain_batch(ITEMS[:1])  # a later write makes it stale
+    assert client.get_mental_model("theme-status").is_stale is True
+    assert fake.refreshes_requested() == ["theme-status", "theme-status"]

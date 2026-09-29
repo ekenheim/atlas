@@ -328,6 +328,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mental-models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Mental Models */
+        get: operations["list_mental_models_api_v1_mental_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mental-models/{mental_model_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mental Model */
+        get: operations["get_mental_model_api_v1_mental_models__mental_model_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -837,6 +871,120 @@ export interface components {
             /** Completed At */
             completed_at: string | null;
         };
+        /** MentalModelList */
+        MentalModelList: {
+            /** Bank Id */
+            bank_id: string;
+            /** Template Version */
+            template_version: string;
+            /** Mental Models */
+            mental_models: components["schemas"]["MentalModelView"][];
+        };
+        /**
+         * MentalModelRefresh
+         * @description One decision of a `refresh_mental_model` job.
+         */
+        MentalModelRefresh: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Scheduled For */
+            scheduled_for: string | null;
+            /** Template Version */
+            template_version: string | null;
+            /** Min Refresh Interval Seconds */
+            min_refresh_interval_seconds: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "skipped" | "submitted" | "completed" | "failed";
+            /** Skip Reason */
+            skip_reason: ("min_interval" | "not_stale") | null;
+            /** Operation Id */
+            operation_id: string | null;
+            /** Operation Status */
+            operation_status: string | null;
+            /** Error */
+            error: string | null;
+            /** Error Class */
+            error_class: ("quota" | "unavailable" | "permanent") | null;
+            /** Previous Refreshed At */
+            previous_refreshed_at: string | null;
+            /** Refreshed At */
+            refreshed_at: string | null;
+            /** Content Sha256 */
+            content_sha256: string | null;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Completed At */
+            completed_at: string | null;
+        };
+        /**
+         * MentalModelRevision
+         * @description The content a refresh replaced at `changed_at`, with its citations resolved.
+         */
+        MentalModelRevision: {
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+            /** Previous Content */
+            previous_content: string | null;
+            /** Citations */
+            citations: components["schemas"]["Citation"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+        };
+        /** MentalModelView */
+        MentalModelView: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Source Query */
+            source_query: string;
+            trigger: components["schemas"]["RefreshTrigger"];
+            /** Bank Id */
+            bank_id: string;
+            /** In Bank */
+            in_bank: boolean;
+            /** Content */
+            content: string | null;
+            /** Last Refreshed At */
+            last_refreshed_at: string | null;
+            /** Is Stale */
+            is_stale: boolean | null;
+            /** Citations */
+            citations: components["schemas"]["Citation"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Evidence */
+            evidence: components["schemas"]["Evidence"][];
+            /** Evidence Missing */
+            evidence_missing: boolean | null;
+            /** Quote Rule */
+            quote_rule: string;
+            /** History */
+            history: components["schemas"]["MentalModelRevision"][];
+            /** Refreshes */
+            refreshes: components["schemas"]["MentalModelRefresh"][];
+        };
         /** Page[Assertion] */
         Page_Assertion_: {
             /** Items */
@@ -1020,6 +1168,18 @@ export interface components {
             response_schema?: {
                 [key: string]: components["schemas"]["JsonValue"];
             } | null;
+        };
+        /**
+         * RefreshTrigger
+         * @description When the model is refreshed, as the bank template defines it.
+         */
+        RefreshTrigger: {
+            /** Refresh After Consolidation */
+            refresh_after_consolidation: boolean;
+            /** Refresh Cron */
+            refresh_cron: string;
+            /** Min Refresh Interval Seconds */
+            min_refresh_interval_seconds: number;
         };
         /** ResearchAnswer */
         ResearchAnswer: {
@@ -2072,6 +2232,120 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_mental_models_api_v1_mental_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentalModelList"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_mental_model_api_v1_mental_models__mental_model_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mental_model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentalModelView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

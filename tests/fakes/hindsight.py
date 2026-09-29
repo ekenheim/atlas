@@ -60,6 +60,46 @@ Derived behaviours (each serves a recorded response with only the named fields c
   (`id: null`, `type: null`), its `text` the retained section's first 400 characters
   (whitespace collapsed). **The answer text is written by the test**, so the quotes in it are
   the test's choice.
+
+Derived by default (each is anchored to a request the real server was sent):
+
+- **the template import** (the research template gained mental models in version 1.1.0, and
+  importing mental models live queues their refreshes, i.e. LLM calls, so it wasn't
+  re-recorded): an unrecorded `POST .../import` whose body differs from the recorded
+  research-template request (`research_template/01-import-dry-run`, `02-import`) only in its
+  `mental_models` is served that recording's response with only `bank_id`,
+  `mental_models_created` (the request's mental-model IDs, as `bank_templates/03-import-dry-run`
+  and `04-import` list the models they created) and, for the real import, `operation_ids` (one
+  derived refresh operation per model, as `bank_templates/04-import` queued) changed. A real
+  import also defines each mental model in the fake (below); re-importing keeps a model's
+  content and history. A re-import is still reported as creating the models (how 0.10.1
+  reports a re-import of existing models was never recorded).
+- **mental models defined by a derived import**: `GET .../mental-models/<id>` serves
+  `mental_models/03-get` with only `id`, `bank_id`, `name`, `source_query`, `max_tokens`,
+  `tags`, the trigger's `refresh_after_consolidation`/`refresh_cron`/
+  `min_refresh_interval_seconds` (the template's), `content`, `reflect_response`,
+  `last_refreshed_at` and `is_stale` changed. Until its first refresh a model holds the
+  placeholder content `mental_models/06-history` recorded before the first refresh
+  (`"Generating content...\n"`), no `reflect_response` and no `last_refreshed_at` (the
+  refreshes an import queues never run in the fake). `reflect_response` is the recorded one
+  with only `text` and `based_on` changed: each cited memory is the recorded first entry of its
+  type (`world` or `observation`) with only `id`, `text`, `type` and `context` changed, as in
+  `script_reflect`. `is_stale` follows Hindsight's documented rule: true until the first
+  refresh, then whenever a document was retained or an observation derived after it.
+  `GET .../history` serves `mental_models/06-history`'s first entry once per earlier content,
+  newest first, with only `previous_content`, `previous_reflect_response` and `changed_at`
+  changed.
+- `script_refresh(model_id, content, cited, refreshed_at=...)` (a refresh is LLM output): the
+  next `POST .../mental-models/<id>/refresh` serves `mental_models/04-refresh` with only
+  `operation_id` changed; polling that operation serves `mental_models/05-refresh-final` with
+  only `operation_id` and its `result_metadata`'s `mental_model_id`, `name`, `content_len` and
+  `based_on_counts` changed (and any `hold_operation` applied). The first time it is served
+  `completed`, the model's content becomes the scripted one, the old content moves into its
+  history (`changed_at` = `refreshed_at`), and `last_refreshed_at` becomes `refreshed_at`. A
+  refresh nobody scripted is unrecorded. With `hold=` (and `error_message=`), its operation is
+  held at that status for good (`hold_operation`; a failed refresh's error was never
+  recorded, see `hold_retains`), so it never applies. `apply_refresh(...)` applies a refresh
+  the same way without a request: one Hindsight ran by itself (its `refresh_cron`).
 """
 
 import copy
@@ -69,6 +109,7 @@ import uuid
 from collections import defaultdict, deque
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -179,6 +220,39 @@ class _ScriptedReflect:
 
 
 @dataclass
+class _ScriptedRefresh:
+    content: str
+    cited: Sequence[str]
+    refreshed_at: str | None  # None: as recorded
+    hold: str | None = None  # hold_operation its operation with this status (e.g. failed)
+    error_message: str | None = None
+
+
+@dataclass
+class _Revision:
+    content: str
+    cited: list[str] | None  # None: the placeholder before the first refresh
+    changed_at: str
+
+
+@dataclass
+class _MentalModel:
+    definition: dict[str, JsonValue]
+    content: str
+    cited: list[str] | None = None  # None: never refreshed
+    refreshed_at: str | None = None
+    seen_writes: int = 0
+    history: list[_Revision] = field(default_factory=list[_Revision])  # newest first
+
+
+@dataclass
+class _RefreshOperation:
+    mental_model_id: str
+    refresh: _ScriptedRefresh
+    applied: bool = False
+
+
+@dataclass
 class _RetainHold:
     status: str
     polls: int | None
@@ -195,6 +269,17 @@ DERIVED_FACT = "reflect/06-resolve-source-memory"
 DERIVED_OBSERVATION = "reflect/02-resolve-memory"
 DERIVED_RECALL = "tags/02-tags-any_strict"
 DERIVED_REFLECT = "reflect/01-provenance"
+DERIVED_TEMPLATE_DRY_RUN = "research_template/01-import-dry-run"
+DERIVED_TEMPLATE_IMPORT = "research_template/02-import"
+DERIVED_MENTAL_MODEL = "mental_models/03-get"
+DERIVED_MENTAL_MODEL_REFRESH = "mental_models/04-refresh"
+DERIVED_MENTAL_MODEL_REFRESH_FINAL = "mental_models/05-refresh-final"
+DERIVED_MENTAL_MODEL_HISTORY = "mental_models/06-history"
+_TEMPLATE_TRIGGER_FIELDS = (
+    "refresh_after_consolidation",
+    "refresh_cron",
+    "min_refresh_interval_seconds",
+)
 FACT_TEXT_CHARS = 200
 CHUNK_TEXT_CHARS = 400
 _DERIVED_NAMESPACE = uuid.UUID("0f4c9a53-7d1e-4b8e-9c3a-2e6f1d5b8a70")
@@ -226,6 +311,16 @@ class RecordedHindsight:
     _observations: dict[str, list[str]] = field(init=False, default_factory=dict[str, list[str]])
     _forgotten: set[str] = field(init=False, default_factory=set[str])
     _reflects: deque[_ScriptedReflect] = field(init=False, default_factory=deque[_ScriptedReflect])
+    _mental_models: dict[str, _MentalModel] = field(
+        init=False, default_factory=dict[str, _MentalModel]
+    )
+    _scripted_refreshes: dict[str, deque[_ScriptedRefresh]] = field(
+        init=False, default_factory=dict[str, deque[_ScriptedRefresh]]
+    )
+    _memory_writes: int = field(init=False, default=0)  # derived documents and observations
+    _refresh_operations: dict[str, _RefreshOperation] = field(
+        init=False, default_factory=dict[str, _RefreshOperation]
+    )
 
     def __post_init__(self) -> None:
         self._replies = defaultdict(deque)
@@ -293,6 +388,7 @@ class RecordedHindsight:
         sources = [self.derived_fact(document_id) for document_id in document_ids]
         observation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, "observation:" + "|".join(sources)))
         self._observations[observation_id] = sources
+        self._memory_writes += 1
         return observation_id
 
     def forget(self, memory_id: str) -> None:
@@ -311,6 +407,43 @@ class RecordedHindsight:
         self._reflects.append(
             _ScriptedReflect(text, cited, structured_output, structured_output_error)
         )
+
+    def script_refresh(
+        self,
+        mental_model_id: str,
+        content: str,
+        cited: Sequence[str],
+        *,
+        refreshed_at: datetime | None = None,
+        hold: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """Answer the next refresh of this mental model with this content (derived); with
+        `hold`, its operation is held at that status (and `error_message`) and never applies."""
+        self._mental_model(mental_model_id)
+        scripted = _ScriptedRefresh(content, cited, _iso(refreshed_at), hold, error_message)
+        self._scripted_refreshes.setdefault(mental_model_id, deque()).append(scripted)
+
+    def apply_refresh(
+        self,
+        mental_model_id: str,
+        content: str,
+        cited: Sequence[str],
+        *,
+        refreshed_at: datetime | None = None,
+    ) -> None:
+        """A refresh Hindsight ran by itself (its `refresh_cron`), with no request (derived)."""
+        self._apply(mental_model_id, _ScriptedRefresh(content, cited, _iso(refreshed_at)))
+
+    def refreshes_requested(self) -> list[str]:
+        """The mental-model IDs of every refresh request received, in order."""
+        return [
+            request.url.path.split("/")[-2]
+            for request in self.calls
+            if request.method == "POST"
+            and "/mental-models/" in request.url.path
+            and request.url.path.endswith("/refresh")
+        ]
 
     def requests(self, method: str, route: str) -> list[dict[str, Any]]:
         """The JSON bodies of the bank requests received for `route` (e.g. `memories/recall`)."""
@@ -340,7 +473,7 @@ class RecordedHindsight:
             _body_key(body),
         )
         queue = self._replies.get(key)
-        if not queue and self._derive:
+        if not queue:
             derived = self._derived(request, body)
             if derived is not None:
                 return derived
@@ -388,6 +521,9 @@ class RecordedHindsight:
         if len(parts) < 6 or parts[1:4] != ["v1", "default", "banks"]:
             return None
         bank, route = parts[4], parts[5:]
+        derived = self._derived_by_default(request, bank, route, body)
+        if derived is not None or not self._derive:
+            return derived
         if request.method == "POST" and route == ["memories"] and isinstance(body, dict):
             return self._derived_retain(bank, body)
         if request.method == "GET" and len(route) == 2 and route[0] == "operations":
@@ -419,6 +555,7 @@ class RecordedHindsight:
             document_id = str(item["document_id"])
             document_ids.append(document_id)
             self._derived_documents[document_id] = item
+            self._memory_writes += 1
         self._derived_operations.add(operation_id)
         for hold in self._retain_holds:
             if hold.times != 0 and hold.where(document_ids):
@@ -549,7 +686,6 @@ class RecordedHindsight:
         response = copy.deepcopy(recording.response_object())
         based_on = cast(dict[str, JsonValue], response["based_on"])
         entry = cast(list[dict[str, JsonValue]], based_on["memories"])[0]
-        facts = self._facts(bank)
         memories: list[JsonValue] = []
         for cited in scripted.cited:
             fields: dict[str, JsonValue]
@@ -557,15 +693,8 @@ class RecordedHindsight:
                 content = self._derived_documents[cited.document_id]["content"]
                 text = _collapsed(content)[:CHUNK_TEXT_CHARS]
                 fields = {"id": None, "text": text, "type": None, "context": None}
-            elif cited in self._observations:
-                text = self._observation(cited, bank)["text"]
-                fields = {"id": cited, "text": text, "type": "observation", "context": None}
-            elif cited in facts:
-                fact = facts[cited]
-                fields = {"id": cited, "text": fact["text"], "type": "world"}
-                fields["context"] = fact["context"]
-            else:  # cited, then deleted: the answer still carries the text it was given
-                fields = {"id": cited, "text": "(deleted)", "type": "world", "context": None}
+            else:
+                fields = self._cited_fields(bank, cited)
             memories.append(copy.deepcopy(entry) | fields)
         based_on["memories"] = memories
         response |= {
@@ -575,6 +704,199 @@ class RecordedHindsight:
         }
         self.served.append(f"{DERIVED_REFLECT} (derived)")
         return httpx2.Response(recording.status, json=response)
+
+    def _cited_fields(self, bank: str, cited: str) -> dict[str, JsonValue]:
+        """The identity and content fields of a cited derived memory (see `script_reflect`)."""
+        facts = self._facts(bank)
+        if cited in self._observations:
+            text = self._observation(cited, bank)["text"]
+            return {"id": cited, "text": text, "type": "observation", "context": None}
+        if cited in facts:
+            fact = facts[cited]
+            return {"id": cited, "text": fact["text"], "type": "world", "context": fact["context"]}
+        # cited, then deleted: the answer still carries the text it was given
+        return {"id": cited, "text": "(deleted)", "type": "world", "context": None}
+
+    # --- derived template import and mental models (see the module docstring) -----------------
+
+    def _derived_by_default(
+        self, request: httpx2.Request, bank: str, route: list[str], body: JsonValue
+    ) -> httpx2.Response | None:
+        if request.method == "POST" and route == ["import"] and isinstance(body, dict):
+            return self._derived_import(bank, body, request.url.params.get("dry_run") == "true")
+        if len(route) >= 2 and route[0] == "mental-models" and route[1] in self._mental_models:
+            model_id = route[1]
+            if request.method == "GET" and len(route) == 2:
+                return self._derived_mental_model(bank, model_id)
+            if request.method == "GET" and route[2:] == ["history"]:
+                return self._derived_history(bank, model_id)
+            if request.method == "POST" and route[2:] == ["refresh"]:
+                return self._derived_refresh(model_id)
+        if request.method == "GET" and len(route) == 2 and route[0] == "operations":
+            if route[1] in self._refresh_operations:
+                return self._derived_refresh_operation(bank, route[1])
+        return None
+
+    def _derived_import(
+        self, bank: str, body: dict[str, JsonValue], dry_run: bool
+    ) -> httpx2.Response | None:
+        name = DERIVED_TEMPLATE_DRY_RUN if dry_run else DERIVED_TEMPLATE_IMPORT
+        recording = self.recording(name)
+        if _without_mental_models(body) != _without_mental_models(recording.request_object()):
+            return None
+        models = cast(list[dict[str, JsonValue]], body.get("mental_models") or [])
+        ids: list[JsonValue] = [str(model["id"]) for model in models]
+        response = copy.deepcopy(recording.response_object())
+        response |= {"bank_id": bank, "mental_models_created": ids}
+        if not dry_run:
+            response["operation_ids"] = [
+                str(uuid.uuid5(_DERIVED_NAMESPACE, f"import-refresh:{bank}:{i}")) for i in ids
+            ]
+            for model in models:
+                existing = self._mental_models.get(str(model["id"]))
+                if existing is None:
+                    self._mental_models[str(model["id"])] = _MentalModel(model, self._placeholder())
+                else:
+                    existing.definition = model
+        self.served.append(f"{name} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _placeholder(self) -> str:
+        """The content Hindsight shows before a model's first refresh (as recorded)."""
+        recording = self.recording(DERIVED_MENTAL_MODEL_HISTORY)
+        history = cast(list[dict[str, JsonValue]], recording.response_body)
+        return str(history[-1]["previous_content"])
+
+    def _mental_model(self, mental_model_id: str) -> _MentalModel:
+        if mental_model_id not in self._mental_models:
+            raise KeyError(f"{mental_model_id} was not imported through the fake")
+        return self._mental_models[mental_model_id]
+
+    def _writes(self) -> int:
+        return self._memory_writes
+
+    def _reflect_response(self, bank: str, text: str, cited: Sequence[str]) -> dict[str, JsonValue]:
+        recorded = self.recording(DERIVED_MENTAL_MODEL).response_object()
+        response = copy.deepcopy(cast(dict[str, JsonValue], recorded["reflect_response"]))
+        groups = cast(dict[str, list[JsonValue]], response["based_on"])
+        first = {
+            kind: cast(dict[str, JsonValue], groups[kind][0]) for kind in ("world", "observation")
+        }
+        for kind in groups:
+            groups[kind] = []
+        for memory_id in cited:
+            fields = self._cited_fields(bank, memory_id)
+            kind = str(fields["type"])
+            groups[kind].append(copy.deepcopy(first[kind]) | fields)
+        response["text"] = text
+        return response
+
+    def _derived_mental_model(self, bank: str, model_id: str) -> httpx2.Response:
+        model = self._mental_models[model_id]
+        recording = self.recording(DERIVED_MENTAL_MODEL)
+        response = copy.deepcopy(recording.response_object())
+        definition = model.definition
+        trigger = cast(dict[str, JsonValue], response["trigger"])
+        template_trigger = cast(dict[str, JsonValue], definition.get("trigger") or {})
+        for key in _TEMPLATE_TRIGGER_FIELDS:
+            trigger[key] = template_trigger.get(key)
+        response |= {
+            "id": model_id,
+            "bank_id": bank,
+            "name": definition["name"],
+            "source_query": definition["source_query"],
+            "max_tokens": definition.get("max_tokens", response["max_tokens"]),
+            "tags": definition.get("tags") or [],
+            "content": model.content,
+            "reflect_response": (
+                None
+                if model.cited is None
+                else self._reflect_response(bank, model.content, model.cited)
+            ),
+            "last_refreshed_at": model.refreshed_at,
+            "is_stale": model.refreshed_at is None or self._writes() > model.seen_writes,
+        }
+        self.served.append(f"{DERIVED_MENTAL_MODEL} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _derived_history(self, bank: str, model_id: str) -> httpx2.Response:
+        model = self._mental_models[model_id]
+        recording = self.recording(DERIVED_MENTAL_MODEL_HISTORY)
+        entry = cast(list[dict[str, JsonValue]], recording.response_body)[0]
+        response = [
+            copy.deepcopy(entry)
+            | {
+                "previous_content": revision.content,
+                "previous_reflect_response": (
+                    None
+                    if revision.cited is None
+                    else self._reflect_response(bank, revision.content, revision.cited)
+                ),
+                "changed_at": revision.changed_at,
+            }
+            for revision in model.history
+        ]
+        self.served.append(f"{DERIVED_MENTAL_MODEL_HISTORY} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _derived_refresh(self, model_id: str) -> httpx2.Response | None:
+        scripted = self._scripted_refreshes.get(model_id)
+        if not scripted:
+            return None  # a refresh is LLM output: unrecorded unless the test scripted it
+        count = len(self._refresh_operations) + 1
+        operation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, f"refresh:{model_id}:{count}"))
+        refresh = scripted.popleft()
+        self._refresh_operations[operation_id] = _RefreshOperation(model_id, refresh)
+        if refresh.hold is not None:
+            self.hold_operation(operation_id, refresh.hold, error_message=refresh.error_message)
+        recording = self.recording(DERIVED_MENTAL_MODEL_REFRESH)
+        response = copy.deepcopy(recording.response_object()) | {"operation_id": operation_id}
+        self.served.append(f"{DERIVED_MENTAL_MODEL_REFRESH} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _derived_refresh_operation(self, bank: str, operation_id: str) -> httpx2.Response:
+        operation = self._refresh_operations[operation_id]
+        refresh = operation.refresh
+        recording = self.recording(DERIVED_MENTAL_MODEL_REFRESH_FINAL)
+        response = copy.deepcopy(recording.response_object())
+        metadata = cast(dict[str, JsonValue], response["result_metadata"])
+        counts = cast(dict[str, JsonValue], metadata["based_on_counts"])
+        kinds = [str(self._cited_fields(bank, memory_id)["type"]) for memory_id in refresh.cited]
+        metadata |= {
+            "mental_model_id": operation.mental_model_id,
+            "name": self._mental_models[operation.mental_model_id].definition["name"],
+            "content_len": len(refresh.content),
+            "based_on_counts": {kind: kinds.count(kind) for kind in counts},
+        }
+        response["operation_id"] = operation_id
+        body = self._apply_hold(response)
+        if body["status"] == "completed" and not operation.applied:
+            operation.applied = True
+            refreshed_at = refresh.refreshed_at or str(response["completed_at"])
+            self._apply(
+                operation.mental_model_id,
+                _ScriptedRefresh(refresh.content, refresh.cited, refreshed_at),
+            )
+        self.served.append(f"{DERIVED_MENTAL_MODEL_REFRESH_FINAL} (derived)")
+        return httpx2.Response(recording.status, json=body)
+
+    def _apply(self, model_id: str, refresh: _ScriptedRefresh) -> None:
+        model = self._mental_model(model_id)
+        recorded = self.recording(DERIVED_MENTAL_MODEL).response_object()
+        refreshed_at = refresh.refreshed_at or str(recorded["last_refreshed_at"])
+        model.history.insert(0, _Revision(model.content, model.cited, refreshed_at))
+        model.content = refresh.content
+        model.cited = list(refresh.cited)
+        model.refreshed_at = refreshed_at
+        model.seen_writes = self._writes()
+
+
+def _without_mental_models(body: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    return {key: value for key, value in body.items() if key != "mental_models"}
+
+
+def _iso(moment: datetime | None) -> str | None:
+    return None if moment is None else moment.isoformat()
 
 
 def _fact_id(document_id: str) -> str:
