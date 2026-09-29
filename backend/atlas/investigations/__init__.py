@@ -15,10 +15,12 @@ from atlas.investigations.model import (
     Budgets,
     Investigation,
     InvestigationEvent,
+    InvestigationSummary,
     ResearchCard,
     StopReason,
     get_investigation,
     list_events,
+    list_investigations,
 )
 from atlas.investigations.service import (
     InvestigationConflict,
@@ -37,10 +39,12 @@ __all__ = [
     "InvestigationError",
     "InvestigationEvent",
     "InvestigationNotFound",
+    "InvestigationSummary",
     "Investigations",
     "ResearchCard",
     "StopReason",
     "get_investigation",
     "list_events",
+    "list_investigations",
     "register_investigation_handlers",
 ]

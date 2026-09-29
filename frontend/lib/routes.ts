@@ -17,4 +17,8 @@ export const routes = {
   themes: "/themes/",
   /** One theme's map: companies by layer, Relationships, Candidates, open gaps. */
   theme: withId("theme"),
+  /** The research workbench: start an investigation, and every investigation so far. */
+  workbench: "/workbench/",
+  /** One investigation: its plan, events, Evidence tray, contradictions and actions. */
+  investigation: withId("investigation"),
 };

@@ -10,11 +10,18 @@
 - `GET /investigations/{id}`: the §7.2 request, budgets and usage, status (`paused` while the
   queue pause holds its task back), the stop reason and detail, premises, tasks, leads,
   documents, the Skeptic's counterevidence and the Editor's draft research card.
+- `GET /investigations` (newest first): each investigation's theme, question, round and
+  status, for the research workbench.
 - `GET /investigations/{id}/events`: what happened, in order.
 - `POST /investigations/{id}/resume`: continue an investigation stopped `budget_exhausted`
   with a larger token budget, in the same run (409 otherwise).
 - `POST /investigations/{id}/premises/{key}/disprove`: the researcher marks a premise
   disproven; only the unstarted tasks that depend on it are cancelled (audited).
+- `POST /investigations/{id}/follow-up` (`{"question"}`): one bounded follow-up round on one
+  of the research card's open questions: the fixed plan again, as round 2, in the same run
+  and within what is left of its budgets (≤ `max_rounds` rounds; audited). 409 while it
+  runs, after a budget or premise stop, when the rounds or tokens are spent or once it is
+  saved as a Hypothesis; 422 for a question that isn't one of the card's open questions.
 """
 
 import uuid
@@ -46,8 +53,10 @@ from atlas.investigations import (
     InvestigationError,
     InvestigationEvent,
     Investigations,
+    InvestigationSummary,
     get_investigation,
     list_events,
+    list_investigations,
 )
 from atlas.jobs import JobQueue
 from atlas.settings import Settings
@@ -90,6 +99,17 @@ class ResumeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token_budget: int = Field(gt=0, description="the new token budget; larger than the old one")
+
+
+class FollowUpRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question: str = Field(
+        min_length=1,
+        max_length=4000,
+        pattern=r"\S",
+        description="one of the research card's open questions",
+    )
 
 
 class DisproveRequest(BaseModel):
@@ -167,6 +187,12 @@ def investigations_router(
         assert created is not None
         return created
 
+    @router.get("", response_model=Page[InvestigationSummary])
+    def investigations_list(page: Paged) -> Page[InvestigationSummary]:  # pyright: ignore[reportUnusedFunction]
+        with engine.connect() as connection:
+            items, total = list_investigations(connection, limit=page.limit, offset=page.offset)
+        return Page(items=items, total=total, limit=page.limit, offset=page.offset)
+
     @router.get("/{investigation_id}", response_model=Investigation, responses=NOT_FOUND)
     def investigation(investigation_id: uuid.UUID) -> Investigation | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         return found(investigation_id)
@@ -210,6 +236,20 @@ def investigations_router(
     ) -> Investigation | JSONResponse:
         try:
             investigations.disprove(actor, investigation_id, premise_key, request.reason.strip())
+        except InvestigationError as error:
+            return error_response(error.status, error.code, error.message)
+        return found(investigation_id)
+
+    @router.post(
+        "/{investigation_id}/follow-up",
+        response_model=Investigation,
+        responses={**NOT_FOUND, **CONFLICT, **INVALID},
+    )
+    def follow_up(  # pyright: ignore[reportUnusedFunction]
+        investigation_id: uuid.UUID, request: FollowUpRequest
+    ) -> Investigation | JSONResponse:
+        try:
+            investigations.follow_up(actor, investigation_id, request.question.strip())
         except InvestigationError as error:
             return error_response(error.status, error.code, error.message)
         return found(investigation_id)

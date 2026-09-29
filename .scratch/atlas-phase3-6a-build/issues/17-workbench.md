@@ -6,8 +6,8 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 15 (Skeptic); 16 (Hypotheses)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `POST investigations/{id}/follow-up` limited to one round within budget
-- [ ] Workbench page; API client regenerated
-- [ ] Playwright test: open an investigation, see its events and Evidence, launch a follow-up
+- [x] `POST investigations/{id}/follow-up` limited to one round within budget
+- [x] Workbench page; API client regenerated
+- [x] Playwright test: open an investigation, see its events and Evidence, launch a follow-up

@@ -28,11 +28,22 @@ accepted Claims created (`relationship_review_queued`; the review starts its own
 and its unfinished tasks stay as they were, and `resume` with a larger budget continues them
 in the same run. An LLM quota or outage is not a stop: the task's job is requeued by the
 queue pause and the investigation continues when it lifts.
+
+**Follow-up round.** A stopped investigation (stopped `answered`, `needs_review` or
+`no_new_independent_evidence`, not yet saved as a Hypothesis) with rounds and tokens left
+takes one follow-up round on one of its research card's open questions (`follow_up`,
+audited): an `investigation_follow_up` row records the question and the card as it stood,
+the investigation runs again with the next round's plan (the same DAG, the same premises),
+and the run is reopened, so the round spends what is left of the run's budgets. The round's
+Scout searches for the open question, its Investigators read only Source Versions the
+investigation hasn't read (with the open question for recall), and its Editor redrafts the
+card only from new independent Evidence; otherwise the round stops
+`no_new_independent_evidence` and the earlier card stands.
 """
 
 import json
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -84,6 +95,22 @@ class InvestigationNotFound(InvestigationError):
 class InvestigationConflict(InvestigationError):
     code = "conflict"
     status = 409
+
+
+class FollowUpNotAllowed(InvestigationConflict):
+    code = "follow_up_not_allowed"
+
+
+class RoundBudgetSpent(InvestigationConflict):
+    code = "round_budget_spent"
+
+
+class HypothesisSaved(InvestigationConflict):
+    code = "hypothesis_saved"
+
+
+class UnknownOpenQuestion(InvestigationError):
+    code = "unknown_open_question"
 
 
 @dataclass(frozen=True)
@@ -224,27 +251,7 @@ class Investigations:
                     },
                 )
             planned = plan(seeds)
-            for position, task in enumerate(planned, start=1):
-                connection.execute(
-                    text(
-                        "INSERT INTO investigation_task (id, investigation_id, round, position,"
-                        " key, role, company_id, depends_on, premise_keys, status, detail)"
-                        " VALUES (:id, :investigation, 1, :position, :key, :role, :company,"
-                        " :depends_on, :premises, :status, :detail)"
-                    ),
-                    {
-                        "id": uuid.uuid4(),
-                        "investigation": investigation_id,
-                        "position": position,
-                        "key": task.key,
-                        "role": task.role,
-                        "company": task.company_id,
-                        "depends_on": task.depends_on,
-                        "premises": task.premise_keys,
-                        "status": "skipped" if task.skipped else "pending",
-                        "detail": task.skipped,
-                    },
-                )
+            _insert_tasks(connection, investigation_id, 1, planned)
             event(
                 connection,
                 investigation_id,
@@ -413,6 +420,113 @@ class Investigations:
             )
             self.advance(connection, investigation_id)
 
+    def follow_up(self, actor: Actor, investigation_id: uuid.UUID, question: str) -> int:
+        """Start the investigation's follow-up round on one of its research card's open
+        questions (see the module); returns the round."""
+        with self._engine.begin() as connection:
+            investigation = lock(connection, investigation_id)
+            reason: str | None = investigation["stop_reason"]
+            if investigation["status"] == "running":
+                raise FollowUpNotAllowed("the investigation is still running")
+            if reason == "budget_exhausted":
+                raise FollowUpNotAllowed(
+                    "the investigation stopped on its token budget: resume it instead"
+                )
+            if reason == "premise_disproven":
+                raise FollowUpNotAllowed("the investigation stopped on a disproven premise")
+            round_: int = investigation["round"]
+            if round_ >= investigation["max_rounds"]:
+                raise RoundBudgetSpent(
+                    f"the investigation's {investigation['max_rounds']} rounds are spent"
+                )
+            saved = connection.execute(
+                text("SELECT id FROM hypothesis WHERE investigation_id = :id"),
+                {"id": investigation_id},
+            ).scalar_one_or_none()
+            if saved is not None:
+                raise HypothesisSaved(
+                    f"the investigation is saved as Hypothesis {saved}; its card is drawn on"
+                )
+            card: dict[str, Any] | None = investigation["research_card"]
+            if card is None or question not in open_questions(card):
+                raise UnknownOpenQuestion(
+                    "a follow-up pursues one of the research card's open questions"
+                )
+            run_id: uuid.UUID | None = investigation["run_id"]
+            spent = run_usage(connection, run_id).total if run_id is not None else 0
+            if spent >= investigation["token_budget"]:
+                raise FollowUpNotAllowed(
+                    f"the run's token budget is spent ({spent} of"
+                    f" {investigation['token_budget']} tokens)"
+                )
+            next_round = round_ + 1
+            connection.execute(
+                text(
+                    "INSERT INTO investigation_follow_up (investigation_id, round, question,"
+                    " requested_by, card_before) VALUES (:id, :round, :question, :actor,"
+                    " CAST(:card AS jsonb))"
+                ),
+                {
+                    "id": investigation_id,
+                    "round": next_round,
+                    "question": question,
+                    "actor": actor.name,
+                    "card": json.dumps(card),
+                },
+            )
+            new = (
+                connection.execute(
+                    text(
+                        "UPDATE investigation SET round = :round, status = 'running',"
+                        " stop_reason = NULL, stop_detail = NULL, stopped_at = NULL"
+                        " WHERE id = :id RETURNING *"
+                    ),
+                    {"id": investigation_id, "round": next_round},
+                )
+                .mappings()
+                .one()
+            )
+            if run_id is not None:
+                # The round's role calls belong to the investigation's run; its next stop
+                # finishes it again with the totals.
+                connection.execute(
+                    text("UPDATE run SET finished_at = NULL WHERE id = :id"), {"id": run_id}
+                )
+            seeds = _seeds(connection, [], investigation["seed_company_ids"])
+            planned = plan(seeds)
+            _insert_tasks(connection, investigation_id, next_round, planned)
+            event(
+                connection,
+                investigation_id,
+                "follow_up_started",
+                round=next_round,
+                question=question,
+                by=actor.name,
+                plan=[task.key for task in planned],
+                tokens_spent=spent,
+            )
+            for task in planned:
+                if task.skipped:
+                    event(
+                        connection,
+                        investigation_id,
+                        "task_skipped",
+                        round=next_round,
+                        task_key=task.key,
+                        reason=task.skipped,
+                    )
+            record(
+                connection,
+                actor,
+                "investigation.follow_up_started",
+                entity_type="investigation",
+                entity_id=str(investigation_id),
+                old_hash=content_hash(dict(investigation)),
+                new_hash=content_hash(dict(new)),
+            )
+            self.advance(connection, investigation_id)
+        return next_round
+
     # --- advancing (under the investigation's lock) -----------------------------------------------
 
     def advance(self, connection: Connection, investigation_id: uuid.UUID) -> None:
@@ -557,7 +671,7 @@ def stop(
             text(
                 "UPDATE investigation SET status = 'stopped', stop_reason = :reason,"
                 " stop_detail = :detail, stopped_at = now()"
-                " WHERE id = :id AND status = 'running' RETURNING run_id"
+                " WHERE id = :id AND status = 'running' RETURNING run_id, round"
             ),
             {"id": investigation_id, "reason": reason, "detail": detail},
         )
@@ -595,7 +709,7 @@ def stop(
                 {"id": run_id, "tokens_in": totals.tokens_in, "tokens_out": totals.tokens_out},
             )
             tokens = (totals.tokens_in, totals.tokens_out)
-            _queue_relationship_review(connection, investigation_id, run_id)
+            _queue_relationship_review(connection, investigation_id, run_id, row["round"])
     event(
         connection,
         investigation_id,
@@ -608,11 +722,11 @@ def stop(
 
 
 def _queue_relationship_review(
-    connection: Connection, investigation_id: uuid.UUID, run_id: uuid.UUID
+    connection: Connection, investigation_id: uuid.UUID, run_id: uuid.UUID, round_: int
 ) -> None:
-    """Enqueue `review_relationships` for the Assertions the Investigator tasks' accepted
-    Claims created (at most `MAX_ASSERTIONS` a job), in the stop's transaction. The review
-    starts its own run: the investigation's is finished by then."""
+    """Enqueue `review_relationships` for the Assertions the round's Investigator tasks'
+    accepted Claims created (at most `MAX_ASSERTIONS` a job), in the stop's transaction. The
+    review starts its own run: the investigation's is finished by then."""
     assertion_ids = [
         str(each)
         for each in connection.execute(
@@ -620,14 +734,17 @@ def _queue_relationship_review(
                 "SELECT c.assertion_id FROM claim c"
                 " JOIN investigation_document doc ON doc.investigation_id = :id"
                 "  AND doc.source_version_id = c.source_version_id"
+                " JOIN investigation_task t ON t.id = doc.task_id AND t.round = :round"
                 " WHERE c.run_id = :run AND c.outcome = 'accepted'"
                 " ORDER BY c.created_at, c.id"
             ),
-            {"id": investigation_id, "run": run_id},
+            {"id": investigation_id, "run": run_id, "round": round_},
         ).scalars()
     ]
     if not assertion_ids:
         return
+    # Round 1's keys are as before follow-up rounds existed.
+    prefix = f"investigation:{investigation_id}" + (f":round-{round_}" if round_ > 1 else "")
     queue = JobQueue(connection.engine)
     job_ids: list[JsonValue] = []
     for start in range(0, len(assertion_ids), MAX_ASSERTIONS):
@@ -635,7 +752,7 @@ def _queue_relationship_review(
         job = queue.enqueue_within(
             connection,
             REVIEW_RELATIONSHIPS_KIND,
-            f"investigation:{investigation_id}:{start // MAX_ASSERTIONS}",
+            f"{prefix}:{start // MAX_ASSERTIONS}",
             {"assertion_ids": chunk},
         ).job
         job_ids.append(str(job.id))
@@ -643,6 +760,7 @@ def _queue_relationship_review(
         connection,
         investigation_id,
         "relationship_review_queued",
+        round=round_,
         assertions=len(assertion_ids),
         job_ids=job_ids,
     )
@@ -660,6 +778,54 @@ def _outcome(editor: _Task) -> tuple[StopReason, str]:
     if editor.status == "cancelled":
         return "premise_disproven", editor.detail or "a premise was disproven"
     return "needs_review", editor.detail or f"the Editor task ended {editor.status}"
+
+
+def _insert_tasks(
+    connection: Connection, investigation_id: uuid.UUID, round_: int, planned: list[_PlannedTask]
+) -> None:
+    for position, task in enumerate(planned, start=1):
+        connection.execute(
+            text(
+                "INSERT INTO investigation_task (id, investigation_id, round, position,"
+                " key, role, company_id, depends_on, premise_keys, status, detail)"
+                " VALUES (:id, :investigation, :round, :position, :key, :role, :company,"
+                " :depends_on, :premises, :status, :detail)"
+            ),
+            {
+                "id": uuid.uuid4(),
+                "investigation": investigation_id,
+                "round": round_,
+                "position": position,
+                "key": task.key,
+                "role": task.role,
+                "company": task.company_id,
+                "depends_on": task.depends_on,
+                "premises": task.premise_keys,
+                "status": "skipped" if task.skipped else "pending",
+                "detail": task.skipped,
+            },
+        )
+
+
+def open_questions(card: Mapping[str, Any]) -> list[str]:
+    """A research card's open questions: the card's own, then its findings', each once."""
+    questions: list[str] = [*card.get("open_questions", [])]
+    for finding in card.get("findings", []):
+        questions.extend(finding.get("open_questions", []))
+    return list(dict.fromkeys(questions))
+
+
+def round_question(connection: Connection, investigation: RowMapping, round_: int) -> str:
+    """The question a round pursues: the investigation's in round 1, a follow-up's after."""
+    if round_ == 1:
+        return investigation["question"]
+    return connection.execute(
+        text(
+            "SELECT question FROM investigation_follow_up"
+            " WHERE investigation_id = :id AND round = :round"
+        ),
+        {"id": investigation["id"], "round": round_},
+    ).scalar_one()
 
 
 def _tasks(connection: Connection, investigation_id: uuid.UUID, round_: int) -> dict[str, _Task]:
