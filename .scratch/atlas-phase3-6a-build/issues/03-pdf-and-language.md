@@ -6,9 +6,9 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A pinned PDF library and a new parser version produce identical text for identical bytes; page anchors are available to the viewer and Assertions
-- [ ] An Assertion on a PDF Source Version validates its exact span (API test)
-- [ ] An image-only PDF fixture gets `parse_status=unsupported`; a non-English fixture gets its `language` and no retain job
-- [ ] The source viewer shows page anchors for a PDF version
+- [x] A pinned PDF library and a new parser version produce identical text for identical bytes; page anchors are available to the viewer and Assertions
+- [x] An Assertion on a PDF Source Version validates its exact span (API test)
+- [x] An image-only PDF fixture gets `parse_status=unsupported`; a non-English fixture gets its `language` and no retain job
+- [x] The source viewer shows page anchors for a PDF version

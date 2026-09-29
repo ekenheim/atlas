@@ -7,6 +7,7 @@ import { VersionAssertions } from "../../components/assertions";
 import { SourceDocumentRows } from "../../components/source-document";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { api, type SourceVersionDetail } from "../../lib/api/client";
+import { domPosition, utf16Index } from "../../lib/offsets";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
 
@@ -93,6 +94,15 @@ function Provenance({ version }: { version: SourceVersionDetail }) {
           <Row name="Parse status">
             {version.parse_status}
             {version.parse_error && `: ${version.parse_error}`}
+          </Row>
+          <Row name="Language">
+            {version.language ? <Code>{version.language}</Code> : <Missing>not recorded</Missing>}
+            {version.language && version.language !== "en" && (
+              <> (archived only: retention and extraction are English-only)</>
+            )}
+          </Row>
+          <Row name="Pages">
+            {version.page_anchors ? version.page_anchors.length : <Missing />}
           </Row>
           <Row name="Fetch status">{version.fetch_status}</Row>
           <Row name="Supersedes">
@@ -220,6 +230,61 @@ function Fetches({ version }: { version: SourceVersionDetail }) {
   );
 }
 
+type PageAnchor = NonNullable<SourceVersionDetail["page_anchors"]>[number];
+
+/** A PDF page's name: its label, and its number too when the label differs. */
+function pageName(anchor: PageAnchor): string {
+  const name = `Page ${anchor.label}`;
+  return anchor.label === String(anchor.page) ? name : `${name} (PDF page ${anchor.page})`;
+}
+
+/** The PDF's page anchors: each jumps to where its page's text begins. */
+function PageAnchors({
+  anchors,
+  text,
+  textElement,
+}: {
+  anchors: PageAnchor[];
+  text: string;
+  textElement: HTMLPreElement | null;
+}) {
+  const jump = (anchor: PageAnchor) => {
+    if (!textElement) return;
+    const position = domPosition(textElement, utf16Index(text, anchor.start));
+    if (!position) return;
+    const range = document.createRange();
+    range.setStart(position.node, position.offset);
+    range.collapse(true);
+    const top = range.getBoundingClientRect().top - textElement.getBoundingClientRect().top;
+    textElement.scrollBy({ top });
+    textElement.scrollIntoView({ block: "nearest" });
+  };
+  return (
+    <nav aria-label="Pages">
+      <p>
+        Pages ({anchors.length}): each starts at a character offset of the parsed text, which
+        Assertions on this version name as their page.
+      </p>
+      <ol className="pages">
+        {anchors.map((anchor) => (
+          <li key={anchor.page}>
+            <button type="button" onClick={() => jump(anchor)}>
+              {pageName(anchor)}
+            </button>{" "}
+            {anchor.start === anchor.end ? (
+              <Missing>no text</Missing>
+            ) : (
+              <span className="muted">
+                characters {anchor.start}–{anchor.end}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
 function Content({ version }: { version: SourceVersionDetail }) {
   const parsed = version.content_sha256 !== null;
   const text = useApi(parsed ? version.id : null, api.parsedText);
@@ -244,6 +309,13 @@ function Content({ version }: { version: SourceVersionDetail }) {
                 <p id="parsed-text-hint">
                   Select a passage to quote it in a new Assertion (below).
                 </p>
+                {version.page_anchors && (
+                  <PageAnchors
+                    anchors={version.page_anchors}
+                    text={text}
+                    textElement={textElement}
+                  />
+                )}
                 {/* One text node, verbatim: selection offsets index the parsed text. */}
                 <pre
                   ref={setTextElement}

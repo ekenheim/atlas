@@ -29,7 +29,7 @@ from atlas.jobs import JobQueue
 # Final retain states of a section: they never change again.
 _FINAL_SECTION_STATES = ("completed", "zero_fact", "failed", "linked")
 _FETCH_OUTCOMES = ("new_version", "unchanged", "not_modified")
-_PARSE_STATUSES = ("parsed", "incomplete", "failed", "not_applicable")
+_PARSE_STATUSES = ("parsed", "incomplete", "failed", "unsupported", "not_applicable")
 # Seconds; a reflect is a job, so its latency includes the wait in the queue.
 _REFLECT_BUCKETS = (5.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0, 3600.0)
 _RECALL_BUCKETS = (0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)

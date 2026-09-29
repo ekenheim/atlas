@@ -105,9 +105,11 @@ One immutable, hash-identified copy of a Source Document (build plan §5.3, §4.
 | `media_type` | text not null | As served, for the raw download |
 | `content_sha256` | text null | Hash of the parsed text; null when not parsed |
 | `parsed_object_uri` | text null | Internal URI of the parsed object (`archive://parsed/sha256/<hex>`) |
-| `parser_version` | text null | Set with the parse (`html-text-v1`) |
-| `parse_status` | text not null | `pending`, `parsed`, `incomplete` (undecodable bytes were replaced), `failed`, or `not_applicable` (media types the parser doesn't handle, e.g. companyfacts JSON) (spec story 22) |
-| `parse_error` | text null | Set iff `parse_status = failed` |
+| `parser_version` | text null | Set with the parse (`html-text-v1`; `text-v2` from migration `0014`: the same HTML/text rules plus PDF and the language) |
+| `parse_status` | text not null | `pending`, `parsed`, `incomplete` (undecodable bytes were replaced), `failed`, `unsupported` (0014: a parsed format with no usable text, e.g. an image-only or scanned PDF; Atlas does no OCR), or `not_applicable` (media types the parser doesn't handle, e.g. companyfacts JSON) (spec story 22) |
+| `parse_error` | text null | Set iff `parse_status` is `failed` or `unsupported` (why) |
+| `language` | text null | 0014. ISO 639 primary subtag (`en`, `fr`, `zh`, ...) or `und` (undetermined): the adapter's declaration (EDGAR: `en`), else the parse's (a declared `<html lang>` or PDF `/Lang`, else a deterministic guess). Null when neither says (an unparsed format without a declaration). Only `en` versions are retained (and, later, extracted); versions before 0014 are all EDGAR, so `en` |
+| `page_anchors` | jsonb null | 0014. A PDF parse's pages: `[{page, label, start, end}]`, `label` from the PDF's `/PageLabels` (else the number), `[start, end)` code-point offsets into the parsed text. Null for formats without pages; set only with a `parsed` or `incomplete` parse |
 | `event_at` | timestamptz null | When the underlying development happened, if known (null for SEC filings in Phase 1) |
 | `published_at` | timestamptz null | The publisher's release time, when it gives one distinct from availability. Null for SEC: EDGAR's release time is the acceptance time, recorded as `available_at`, and the filing date is in `metadata` |
 | `available_at` | timestamptz **not null** | Earliest public availability |
@@ -122,11 +124,11 @@ Invariants enforced in the database:
 
 - `UNIQUE (source_document_id, raw_sha256)`: the same bytes are never two versions of a document.
 - `available_at` and `available_at_basis` are `NOT NULL`, and the basis is checked against the enumeration. SEC filing documents use `sec_acceptance`, or `sec_dissemination` when EDGAR held the filing to the next business day (migration `0012`; readers take availability from the `source_version_availability` view, which applies any recorded `source_version_availability_correction`); companyfacts has no acceptance time and uses `observed_discovery`. A version that supersedes an earlier one uses its fetch time, basis `observed_revision` (migration `0011`; `docs/decisions.md`).
-- A trigger rejects any `UPDATE` of the content columns (everything except the parse columns) and any `DELETE` or `TRUNCATE`. The parse columns (`content_sha256`, `parsed_object_uri`, `parser_version`, `parse_status`, `parse_error`) may be written again only while `parse_status` is `pending` or `failed`; a recorded parse is never overwritten.
+- A trigger rejects any `UPDATE` of the content columns (everything except the parse columns) and any `DELETE` or `TRUNCATE`. The parse columns (`content_sha256`, `parsed_object_uri`, `parser_version`, `parse_status`, `parse_error`, `language`, `page_anchors`) may be written again only while `parse_status` is `pending` or `failed`; a recorded parse is never overwritten.
 - `supersedes_version_id` is the previous version (`version_number - 1`) of the same Source Document (trigger). It is unique, so the chain never forks, and it is null exactly for version 1.
 - The parse columns are consistent: `content_sha256` and `parsed_object_uri` are set iff the status is `parsed` or `incomplete`.
 
-The ledger parses in the same transaction that creates the version, so Phase 1 never leaves a version `pending`. A re-parse under a new parser version must not overwrite the recorded parse. It will be a separate parse record (a `source_parse` table keyed by version and parser version), built when a second parser version exists.
+The ledger parses in the same transaction that creates the version, so Phase 1 never leaves a version `pending`. A re-parse under a new parser version must not overwrite the recorded parse. It will be a separate parse record (a `source_parse` table keyed by version and parser version), built when a re-parse is first needed. `text-v2` doesn't need one: its HTML and text output is `html-text-v1`'s, so versions parsed under v1 keep that record (`docs/decisions.md`, "PDF parsing and language").
 
 ### 2.4a `fetch_observation`
 
@@ -163,7 +165,7 @@ A statement bound to one Source Version and an exact quote span (build plan §5.
 | `source_version_id` | uuid not null FK → source_version | Must have parsed text (`parse_status` `parsed` or `incomplete`; insert trigger) |
 | `quote` | text not null | The spec's `quote_or_span`. Must occur exactly at the span in the archived parse |
 | `span_start`, `span_end` | integer not null | Character (Unicode code point) offsets into the parsed text, `[span_start, span_end)`; `quote = parsed_text[span_start:span_end]` is validated on create, and `span_end - span_start = char_length(quote)` is a CHECK |
-| `page_or_anchor` | text null | A label for people; `html-text-v1` defines no section anchors, so the offsets are the binding |
+| `page_or_anchor` | text null | A label for people; the offsets are the binding. Omitted on a PDF version (with `page_anchors`), it is set to the span's page label, e.g. `page 1 (PDF page 2)` |
 | `event_start`, `event_end` | timestamptz null | When the asserted state held |
 | `epistemic_type` | text not null | `direct_source_statement`, `company_claim`, `third_party_report`, `agent_inference`, `quantitative_derived` |
 | `verification_status` | text not null default `unreviewed` | `unreviewed`, `corroborated`, `disputed`, `rejected`, `superseded`. The API calls this `review_state` |

@@ -19,6 +19,8 @@
    `sec_acceptance`). A version that supersedes an earlier one takes the time Atlas fetched
    it (basis `observed_revision`): its bytes weren't public at the original acceptance, and
    availability is never overstated (spec Part A story 31; docs/decisions.md).
+   The parse records the version's `language` (the adapter's declaration, else the
+   parse's) and, for a PDF, its page anchors; a PDF with no text is `unsupported`.
 5. Write an audit event for each row created, in the same transaction.
 
 Only this service writes Source Documents, Source Versions and fetch observations.
@@ -37,7 +39,7 @@ from sqlalchemy import Connection, Engine, text
 
 from atlas.archive import Archive, Namespace
 from atlas.audit import Actor, content_hash, record
-from atlas.parsing import PARSER_VERSION, is_parseable, parse
+from atlas.parsing import PARSER_VERSION, ParsedText, is_parseable, parse
 from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 from atlas.sources.edgar import PROVIDER_ID as SEC_EDGAR
 
@@ -330,7 +332,7 @@ class SourceLedger:
         media_type: str,
     ) -> dict[str, Any]:
         candidate = fetched.candidate
-        parse_fields = self._parse(raw, media_type)
+        parse_fields = self._parse(raw, media_type, candidate.language)
         if latest is None:
             available_at, basis = candidate.available_at, candidate.available_at_basis
         else:
@@ -360,43 +362,62 @@ class SourceLedger:
                 "INSERT INTO source_version (id, source_document_id, version_number,"
                 " supersedes_version_id, raw_sha256, comparison_sha256, comparison_rule,"
                 " object_uri, byte_size, media_type, content_sha256, parsed_object_uri,"
-                " parser_version, parse_status, parse_error, event_at, published_at,"
-                " available_at, available_at_basis, fetched_at, fetch_status, metadata)"
+                " parser_version, parse_status, parse_error, language, page_anchors, event_at,"
+                " published_at, available_at, available_at_basis, fetched_at, fetch_status,"
+                " metadata)"
                 " VALUES (:id, :source_document_id, :version_number, :supersedes_version_id,"
                 " :raw_sha256, :comparison_sha256, :comparison_rule, :object_uri, :byte_size,"
                 " :media_type, :content_sha256, :parsed_object_uri, :parser_version,"
-                " :parse_status, :parse_error, :event_at, :published_at, :available_at,"
-                " :available_at_basis, :fetched_at, :fetch_status, CAST(:metadata AS jsonb))"
-                " RETURNING ingested_at"
+                " :parse_status, :parse_error, :language, CAST(:page_anchors AS jsonb),"
+                " :event_at, :published_at, :available_at, :available_at_basis, :fetched_at,"
+                " :fetch_status, CAST(:metadata AS jsonb)) RETURNING ingested_at"
             ),
-            {**version, "metadata": _json(version["metadata"])},
+            {
+                **version,
+                "metadata": _json(version["metadata"]),
+                "page_anchors": None
+                if version["page_anchors"] is None
+                else _json(version["page_anchors"]),
+            },
         ).scalar_one()
         return {**version, "ingested_at": ingested_at}
 
-    def _parse(self, raw: bytes, media_type: str) -> dict[str, Any]:
+    def _parse(self, raw: bytes, media_type: str, declared_language: str | None) -> dict[str, Any]:
+        """The parse columns. The language is the adapter's declaration, else the parse's
+        (None when neither says: a format Atlas doesn't parse, or a failed parse)."""
         fields: dict[str, Any] = {
             "content_sha256": None,
             "parsed_object_uri": None,
             "parser_version": None,
             "parse_status": "not_applicable",
             "parse_error": None,
+            "language": declared_language,
+            "page_anchors": None,
         }
         if not is_parseable(media_type):
             return fields
         try:
             parsed = parse(raw, media_type)
-        except Exception as error:  # a parser bug must not lose the raw version
+        except Exception as error:  # a parser bug or unreadable bytes must not lose the version
             return fields | {
                 "parser_version": PARSER_VERSION,
                 "parse_status": "failed",
                 "parse_error": f"{type(error).__name__}: {error}",
             }
         assert parsed is not None
+        if not isinstance(parsed, ParsedText):  # no usable text, e.g. a scanned PDF
+            return fields | {
+                "parser_version": parsed.parser_version,
+                "parse_status": "unsupported",
+                "parse_error": parsed.reason,
+            }
         return fields | {
             "content_sha256": parsed.sha256,
             "parsed_object_uri": self._archive.put(Namespace.PARSED, parsed.encoded()),
             "parser_version": parsed.parser_version,
             "parse_status": "parsed" if parsed.complete else "incomplete",
+            "language": declared_language or parsed.language,
+            "page_anchors": [anchor.__dict__ for anchor in parsed.pages] if parsed.pages else None,
         }
 
     def _audit(

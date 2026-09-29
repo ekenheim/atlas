@@ -2,7 +2,9 @@
 
 Three jobs carry a Source Version into the research bank:
 
-1. `retain` (payload `{"source_version_id"}`), enqueued for each new parsed Source Version.
+1. `retain` (payload `{"source_version_id"}`), enqueued for each new parsed Source Version
+   in English (`RETAINABLE_LANGUAGES`: extraction is English-only in the pilot; a version in
+   another language is archived, never retained).
    If a Source Version with the same raw bytes is already retained in the bank, it records
    `linked` sections pointing at that one and stops (ADR-0001). Otherwise it splits the
    parse into sections (`atlas.retention.sections`), records each as a `pending` memory
@@ -59,6 +61,8 @@ POLL_KIND = "poll_operation"
 REPROCESS_KIND = "reprocess"
 
 RETAINABLE_PARSES = ("parsed", "incomplete")
+# Retention and extraction are English-only in the pilot (spec, "PDF parsing").
+RETAINABLE_LANGUAGES = ("en",)
 
 
 class RetainPayload(BaseModel):
@@ -89,7 +93,8 @@ def enqueue_retains(
     actor: Actor = SYSTEM_ACTOR,
     key_suffix: str = "",
 ) -> list[str]:
-    """Enqueue a retain job for each given Source Version that has a parse; returns job IDs.
+    """Enqueue a retain job for each given Source Version that has a parse in a retainable
+    language; returns job IDs.
 
     A backfill ingest enqueues backfill retains, which run only in the nightly window.
     Each new job is audited as `actor`'s.
@@ -100,9 +105,14 @@ def enqueue_retains(
         retainable = connection.execute(
             text(
                 "SELECT id FROM source_version WHERE id = ANY(:ids)"
-                " AND parse_status = ANY(:parses) ORDER BY ingested_at, id"
+                " AND parse_status = ANY(:parses) AND language = ANY(:languages)"
+                " ORDER BY ingested_at, id"
             ),
-            {"ids": list(source_version_ids), "parses": list(RETAINABLE_PARSES)},
+            {
+                "ids": list(source_version_ids),
+                "parses": list(RETAINABLE_PARSES),
+                "languages": list(RETAINABLE_LANGUAGES),
+            },
         ).scalars()
         ids: list[uuid.UUID] = list(retainable)
     queue = JobQueue(engine, actor=actor)
@@ -210,6 +220,7 @@ class _Version:
     raw_sha256: str
     parse_status: str
     parsed_object_uri: str | None
+    language: str | None
     available_at: datetime
     provider: str
     source_type: str
@@ -249,6 +260,8 @@ class Retention:
         base: Artifacts = {"source_version_id": str(version.id), "bank_id": self.bank_id}
         if version.parse_status not in RETAINABLE_PARSES or version.parsed_object_uri is None:
             return base | {"outcome": "not_retainable", "parse_status": version.parse_status}
+        if version.language not in RETAINABLE_LANGUAGES:
+            return base | {"outcome": "not_retainable", "language": version.language}
 
         with self._engine.begin() as connection:
             # One decision per raw hash at a time: two identical versions can't both retain.
@@ -293,7 +306,7 @@ class Retention:
                 connection.execute(
                     text(
                         "SELECT v.id, v.raw_sha256, v.parse_status, v.parsed_object_uri,"
-                        " a.available_at, d.provider, d.source_type, d.form_type,"
+                        " v.language, a.available_at, d.provider, d.source_type, d.form_type,"
                         " d.document_type, d.title, d.company_id, c.slug AS company_slug"
                         " FROM source_version v"
                         " JOIN source_version_availability a ON a.source_version_id = v.id"

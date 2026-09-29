@@ -1034,6 +1034,20 @@ export interface components {
             /** Refreshes */
             refreshes: components["schemas"]["MentalModelRefresh"][];
         };
+        /**
+         * PageAnchor
+         * @description One PDF page's place in the parsed text: `text[start:end]`, in code points.
+         */
+        PageAnchor: {
+            /** Page */
+            page: number;
+            /** Label */
+            label: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+        };
         /** Page[Assertion] */
         Page_Assertion_: {
             /** Items */
@@ -1473,6 +1487,8 @@ export interface components {
             parser_version: string | null;
             /** Parse Status */
             parse_status: string;
+            /** Language */
+            language: string | null;
             /**
              * Available At
              * Format: date-time
@@ -1516,6 +1532,8 @@ export interface components {
             media_type: string;
             /** Parse Error */
             parse_error: string | null;
+            /** Page Anchors */
+            page_anchors: components["schemas"]["PageAnchor"][] | null;
             /** Event At */
             event_at: string | null;
             /** Published At */
@@ -1576,6 +1594,8 @@ export interface components {
             parser_version: string | null;
             /** Parse Status */
             parse_status: string;
+            /** Language */
+            language: string | null;
             /**
              * Available At
              * Format: date-time

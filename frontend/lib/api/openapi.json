@@ -3251,6 +3251,35 @@
         ],
         "title": "MentalModelView"
       },
+      "PageAnchor": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "start": {
+            "type": "integer",
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page",
+          "label",
+          "start",
+          "end"
+        ],
+        "title": "PageAnchor",
+        "description": "One PDF page's place in the parsed text: `text[start:end]`, in code points."
+      },
       "Page_Assertion_": {
         "properties": {
           "items": {
@@ -4550,6 +4579,17 @@
             "type": "string",
             "title": "Parse Status"
           },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
           "available_at": {
             "type": "string",
             "format": "date-time",
@@ -4647,6 +4687,20 @@
             ],
             "title": "Parse Error"
           },
+          "page_anchors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PageAnchor"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Anchors"
+          },
           "event_at": {
             "anyOf": [
               {
@@ -4702,6 +4756,7 @@
           "content_sha256",
           "parser_version",
           "parse_status",
+          "language",
           "available_at",
           "available_at_basis",
           "recorded_available_at",
@@ -4718,6 +4773,7 @@
           "byte_size",
           "media_type",
           "parse_error",
+          "page_anchors",
           "event_at",
           "published_at",
           "fetch_status",
@@ -4849,6 +4905,17 @@
             "type": "string",
             "title": "Parse Status"
           },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
           "available_at": {
             "type": "string",
             "format": "date-time",
@@ -4911,6 +4978,7 @@
           "content_sha256",
           "parser_version",
           "parse_status",
+          "language",
           "available_at",
           "available_at_basis",
           "recorded_available_at",

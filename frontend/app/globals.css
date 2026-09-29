@@ -71,6 +71,15 @@ time {
   font-style: italic;
 }
 
+/* A PDF's page anchors, in a compact wrapping row above its text. */
+ol.pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  list-style: none;
+  padding: 0;
+}
+
 pre.document {
   border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
   max-height: 70vh;
