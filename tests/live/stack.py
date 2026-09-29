@@ -32,10 +32,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+import httpx2
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
-from atlas.hindsight import HindsightError, HindsightGateway
+from atlas.hindsight import HindsightError, HindsightGateway, HindsightNotFound
 from atlas.llm_routes import LiteLLMError, LiteLLMRoutes
 from tests.fakes.hindsight import ChunkContent, RecordedHindsight
 from tests.fakes.litellm import API_KEY, FakeLiteLLM
@@ -146,13 +147,15 @@ class LiveStack:
     poll_attempts: int
     idle_sleep_seconds: float
     rehearsal: Rehearsal | None = None
+    # Bearer key for an authenticated Hindsight (the cluster's tenant key); None locally.
+    hindsight_api_key: str | None = None
 
     @property
     def aliases(self) -> list[str]:
         return list(dict.fromkeys([self.extract_alias, self.reflect_alias]))
 
     def gateway(self) -> HindsightGateway:
-        return HindsightGateway(self.hindsight_url, self.bank_id)
+        return HindsightGateway(self.hindsight_url, self.bank_id, self.hindsight_api_key)
 
     def preflight(self) -> dict[str, Any]:
         """Check the stack without calling a model; raise `Refused` if it can't be used."""
@@ -160,16 +163,23 @@ class LiveStack:
             raise Refused("CI is set: the live suite never runs in CI")
         if self.mode == "live" and not (self.litellm_url and self.litellm_api_key):
             raise Refused("ATLAS_LITELLM_URL and ATLAS_LITELLM_API_KEY are required")
+        version_basis = "observed"
         with self.gateway() as gateway:
             try:
                 health = gateway.server_health()
-                version = gateway.server_version()
+                if not health.is_healthy:
+                    raise Refused(f"Hindsight at {self.hindsight_url} reports {health.status!r}")
+                api_version = gateway.server_version().api_version
+            except HindsightNotFound:
+                # Behind a route that exposes only /v1 (the home cluster's HTTPRoute sends the
+                # rest to the control-plane UI), /health and /version can't be reached. Check
+                # liveness and auth with a /v1 read instead, and take the version as declared.
+                api_version = self._check_v1_only_route()
+                version_basis = "declared (ATLAS_LIVE_HINDSIGHT_VERSION)"
             except HindsightError as error:
                 raise Refused(f"Hindsight at {self.hindsight_url} is unusable: {error}") from None
-        if not health.is_healthy:
-            raise Refused(f"Hindsight at {self.hindsight_url} reports {health.status!r}")
-        if version.api_version != HINDSIGHT_VERSION:
-            raise Refused(f"Hindsight is {version.api_version}, not {HINDSIGHT_VERSION}")
+        if api_version != HINDSIGHT_VERSION:
+            raise Refused(f"Hindsight is {api_version}, not {HINDSIGHT_VERSION}")
         try:
             with LiteLLMRoutes(self.litellm_url, self.litellm_api_key) as litellm:
                 routes = litellm.routes(self.aliases)
@@ -187,13 +197,38 @@ class LiveStack:
             raise Refused(f"the app Postgres is unreachable: {type(error).__name__}") from None
         return {
             "hindsight_url": self.hindsight_url,
-            "hindsight_version": version.api_version,
+            "hindsight_version": api_version,
+            "hindsight_version_basis": version_basis,
             "bank_id": self.bank_id,
             "routed_models": {
                 alias: [each.model_dump(mode="json") for each in deployments]
                 for alias, deployments in routes.items()
             },
         }
+
+    def _check_v1_only_route(self) -> str:
+        """Liveness and auth via `GET /v1/default/banks`; the version from the environment."""
+        headers = (
+            {"Authorization": f"Bearer {self.hindsight_api_key}"} if self.hindsight_api_key else {}
+        )
+        try:
+            response = httpx2.get(
+                f"{self.hindsight_url.rstrip('/')}/v1/default/banks", headers=headers, timeout=15
+            )
+        except httpx2.HTTPError as error:
+            raise Refused(f"Hindsight at {self.hindsight_url} is unreachable: {error}") from None
+        if response.status_code != 200:
+            raise Refused(
+                f"Hindsight at {self.hindsight_url}: GET /v1/default/banks answered "
+                f"{response.status_code} (is ATLAS_LIVE_HINDSIGHT_API_KEY set?)"
+            )
+        declared = os.environ.get("ATLAS_LIVE_HINDSIGHT_VERSION", "")
+        if not declared:
+            raise Refused(
+                f"Hindsight at {self.hindsight_url} exposes only /v1, so its version can't be "
+                "read: set ATLAS_LIVE_HINDSIGHT_VERSION to the deployed version (e.g. 0.10.1)"
+            )
+        return declared
 
     @contextmanager
     def fresh_database(self) -> Generator[str]:
@@ -289,6 +324,7 @@ def live_stack(mode: Mode) -> Generator[LiveStack]:
             poll_attempts=5 if rehearsing else 15,
             idle_sleep_seconds=0 if rehearsing else 10,
             rehearsal=rehearsal,
+            hindsight_api_key=None if rehearsing else (env("ATLAS_LIVE_HINDSIGHT_API_KEY") or None),
         )
 
 
@@ -333,7 +369,14 @@ class LiveReport:
         if self.stop_before_llm:
             lines.append("- stopped before any LLM-backed call (ATLAS_LIVE_STOP_BEFORE_LLM)")
         stack = results.get("stack", {})
-        for key in ("hindsight_url", "hindsight_version", "bank_id", "forms", "database"):
+        for key in (
+            "hindsight_url",
+            "hindsight_version",
+            "hindsight_version_basis",
+            "bank_id",
+            "forms",
+            "database",
+        ):
             if key in stack:
                 lines.append(f"- {key}: `{stack[key]}`")
         for alias, deployments in stack.get("routed_models", {}).items():

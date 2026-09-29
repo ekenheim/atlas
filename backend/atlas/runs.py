@@ -15,7 +15,7 @@ from sqlalchemy import Engine, RowMapping, text
 
 from atlas import __version__
 from atlas.bank_template import applied_template_version
-from atlas.hindsight import HindsightGateway
+from atlas.hindsight import HindsightGateway, HindsightNotFound
 from atlas.llm_routes import LiteLLMRoutes, RoutedDeployment
 from atlas.settings import Settings
 
@@ -60,12 +60,14 @@ class RunRecorder:
         *,
         aliases: list[str],
         code_version: str,
+        declared_hindsight_version: str | None = None,
     ) -> None:
         self._engine = engine
         self._gateway = gateway
         self._routes = routes
         self._aliases = aliases
         self._code_version = code_version
+        self._declared_hindsight_version = declared_hindsight_version
 
     @classmethod
     def from_settings(
@@ -90,6 +92,7 @@ class RunRecorder:
             routes,
             aliases=settings.llm_aliases(),
             code_version=code_version(settings),
+            declared_hindsight_version=settings.hindsight_version,
         )
 
     def close(self) -> None:
@@ -110,7 +113,7 @@ class RunRecorder:
                 f"no bank template applied to {self._gateway.bank_id!r};"
                 " run `atlas hindsight apply-template` first"
             )
-        hindsight_version = self._gateway.server_version().api_version
+        hindsight_version = self._hindsight_version()
         routed = self._routes.routes(self._aliases)
         with self._engine.begin() as connection:
             row = (
@@ -134,6 +137,18 @@ class RunRecorder:
                 .one()
             )
         return _run(row)
+
+    def _hindsight_version(self) -> str:
+        """Observed from `/version`, else the declared version marked as such."""
+        try:
+            return self._gateway.server_version().api_version
+        except HindsightNotFound:
+            if not self._declared_hindsight_version:
+                raise RunNotStartable(
+                    "Hindsight's /version isn't reachable (a route that exposes only /v1?);"
+                    " set ATLAS_HINDSIGHT_VERSION to the deployed version"
+                ) from None
+            return f"{self._declared_hindsight_version} (declared)"
 
     def finish(self, run_id: uuid.UUID, *, tokens_in: int, tokens_out: int) -> Run:
         """Record the run's token totals and finish it. Raises `RunNotFound` if it isn't open."""

@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # Optional providers: when unset, the feature is disabled (logged once at startup).
     hindsight_url: str | None = None
     hindsight_api_key: str | None = None  # bearer token; the local spike runs without one
+    # The deployed Hindsight version, used only when /version can't be reached (a route that
+    # exposes /v1 only); runs then record it as declared rather than observed.
+    hindsight_version: str | None = None
     hindsight_bank_id: str = "atlas-ai-infrastructure"
     litellm_url: str | None = None
     litellm_api_key: str | None = None

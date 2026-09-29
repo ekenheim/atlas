@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any, cast
 
+import httpx2
 import pytest
 from pydantic import JsonValue
 from sqlalchemy import Engine, text
@@ -181,3 +182,54 @@ def test_no_recorder_without_both_hindsight_and_litellm(engine: Engine, tmp_path
 
     assert RunRecorder.from_settings(settings(url, tmp_path, hindsight_url=None), engine) is None
     assert RunRecorder.from_settings(settings(url, tmp_path, litellm_api_key=None), engine) is None
+
+
+def behind_a_v1_only_route(hindsight: RecordedHindsight) -> httpx2.MockTransport:
+    """The home cluster's HTTPRoute: only /v1 reaches the API; /version gets the UI's 404 page."""
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        if not request.url.path.startswith("/v1/"):
+            return httpx2.Response(404, text="<html>control plane</html>")
+        return hindsight.transport.handle_request(request)
+
+    return httpx2.MockTransport(handle)
+
+
+def v1_only_recorder(
+    engine: Engine, tmp_path: Path, hindsight: RecordedHindsight, **values: object
+) -> RunRecorder:
+    configured = settings(str(engine.url.render_as_string(hide_password=False)), tmp_path, **values)
+    run_recorder = RunRecorder.from_settings(
+        configured,
+        engine,
+        hindsight_transport=behind_a_v1_only_route(hindsight),
+        litellm_transport=FakeLiteLLM().transport,
+    )
+    assert run_recorder is not None
+    return run_recorder
+
+
+def test_behind_a_v1_only_route_a_run_records_the_declared_hindsight_version(
+    engine: Engine, tmp_path: Path
+) -> None:
+    hindsight = RecordedHindsight()
+    apply_research_template(engine, hindsight)
+    runs = v1_only_recorder(engine, tmp_path, hindsight, hindsight_version="0.10.1")
+
+    runs.start("reflect")
+
+    [stored] = stored_runs(engine)
+    assert stored["hindsight_version"] == "0.10.1 (declared)"
+
+
+def test_behind_a_v1_only_route_no_run_starts_without_a_declared_version(
+    engine: Engine, tmp_path: Path
+) -> None:
+    hindsight = RecordedHindsight()
+    apply_research_template(engine, hindsight)
+    runs = v1_only_recorder(engine, tmp_path, hindsight)
+
+    with pytest.raises(RunNotStartable, match="ATLAS_HINDSIGHT_VERSION"):
+        runs.start("reflect")
+
+    assert stored_runs(engine) == []

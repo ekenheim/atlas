@@ -87,6 +87,8 @@ class Atlas:
                 "themes_config": THEMES,
                 "sec_fixtures_dir": EDGAR_FIXTURES,
                 "hindsight_url": stack.hindsight_url if self.retain else None,
+                "hindsight_api_key": stack.hindsight_api_key,
+                "hindsight_version": os.environ.get("ATLAS_LIVE_HINDSIGHT_VERSION") or None,
                 "hindsight_bank_id": stack.bank_id,
                 "hindsight_template_path": TEMPLATE,
                 "litellm_url": stack.litellm_url,
@@ -111,6 +113,11 @@ class Atlas:
             "ATLAS_SEC_FIXTURES_DIR": str(EDGAR_FIXTURES),
             "ATLAS_HINDSIGHT_URL": self.stack.hindsight_url,
             "ATLAS_HINDSIGHT_BANK_ID": self.stack.bank_id,
+            **(
+                {"ATLAS_HINDSIGHT_API_KEY": self.stack.hindsight_api_key}
+                if self.stack.hindsight_api_key
+                else {}
+            ),
             "ATLAS_HINDSIGHT_TEMPLATE_PATH": str(TEMPLATE),
         }
         return subprocess.run(

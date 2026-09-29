@@ -12,6 +12,8 @@
 #   --stack S           compose (default): the Compose `hindsight` profile on :58888
 #                       spike: spikes/hindsight/run.sh on :8888 (one alias for everything)
 #                       none: use the Hindsight at ATLAS_LIVE_HINDSIGHT_URL as it is
+#                       cluster: the owner's cluster Hindsight (HINDSIGHT_URL/HINDSIGHT_API_KEY
+#                       in .env, else ~/.hindsight/config); nothing is started or stopped
 #   --profile P         small (default): the two 10-Qs (~18k chars, about the bake-off's cost)
 #                       full: every recorded filing (~470k chars; est. ~40 min, ~1M input tokens)
 #   --model ALIAS       LiteLLM alias for both extraction and reflect (e.g. MiniMax-M3), until
@@ -60,7 +62,7 @@ run() {
 }
 
 [[ -n "${CI:-}" ]] && die "CI is set: the live suite never runs in CI"
-case "$stack" in compose|spike|none) ;; *) die "--stack must be compose, spike or none" ;; esac
+case "$stack" in compose|spike|none|cluster) ;; *) die "--stack must be compose, spike, none or cluster" ;; esac
 case "$profile" in
   small) forms="10-Q" ;;
   full) forms="10-K,10-Q,8-K" ;;
@@ -84,7 +86,8 @@ fi
 
 if [[ "$mode" == live ]]; then
   # LiteLLM: the ATLAS_* names win; otherwise the spike's names from .env (CRLF-safe).
-  if [[ -z "${ATLAS_LITELLM_URL:-}" || -z "${ATLAS_LITELLM_API_KEY:-}" ]] && [[ -f .env ]]; then
+  hs_url_env=""; hs_key_env=""
+  if [[ -f .env ]]; then
     while IFS='=' read -r key value || [[ -n "$key" ]]; do
       key="${key//$'\r'/}"; value="${value//$'\r'/}"
       value="${value%\"}"; value="${value#\"}"
@@ -93,6 +96,8 @@ if [[ "$mode" == live ]]; then
         LITELLM_API_KEY) : "${ATLAS_LITELLM_API_KEY:=$value}" ;;
         ATLAS_LITELLM_URL) : "${ATLAS_LITELLM_URL:=$value}" ;;
         ATLAS_LITELLM_API_KEY) : "${ATLAS_LITELLM_API_KEY:=$value}" ;;
+        HINDSIGHT_URL) hs_url_env="$value" ;;
+        HINDSIGHT_API_KEY) hs_key_env="$value" ;;
       esac
     done < .env
   fi
@@ -112,6 +117,20 @@ if [[ "$mode" == live ]]; then
     compose) export ATLAS_LIVE_HINDSIGHT_URL="http://127.0.0.1:${ATLAS_HINDSIGHT_PORT:-58888}" ;;
     spike) export ATLAS_LIVE_HINDSIGHT_URL="http://127.0.0.1:8888" ;;
     none) [[ -n "${ATLAS_LIVE_HINDSIGHT_URL:-}" ]] || die "--stack none needs ATLAS_LIVE_HINDSIGHT_URL" ;;
+    cluster)
+      # The owner's cluster Hindsight: HINDSIGHT_URL/HINDSIGHT_API_KEY from .env, else the
+      # hindsight CLI's ~/.hindsight/config (never printed). Its route exposes only /v1, so the
+      # version is declared (the HelmRelease pin) rather than read from /version.
+      if [[ -z "$hs_url_env" || -z "$hs_key_env" ]] && [[ -f "$HOME/.hindsight/config" ]]; then
+        read -r cfg_url cfg_key < <(python3 -c 'import tomllib,pathlib;c=tomllib.loads(pathlib.Path.home().joinpath(".hindsight/config").read_text());print(c.get("api_url",""),c.get("api_key",""))')
+        : "${hs_url_env:=$cfg_url}" "${hs_key_env:=$cfg_key}"
+      fi
+      export ATLAS_LIVE_HINDSIGHT_URL="${ATLAS_LIVE_HINDSIGHT_URL:-${hs_url_env%/}}"
+      export ATLAS_LIVE_HINDSIGHT_API_KEY="${ATLAS_LIVE_HINDSIGHT_API_KEY:-$hs_key_env}"
+      export ATLAS_LIVE_HINDSIGHT_VERSION="${ATLAS_LIVE_HINDSIGHT_VERSION:-0.10.1}"
+      [[ -n "$ATLAS_LIVE_HINDSIGHT_URL" && -n "$ATLAS_LIVE_HINDSIGHT_API_KEY" ]] \
+        || die "--stack cluster needs HINDSIGHT_URL/HINDSIGHT_API_KEY in .env or ~/.hindsight/config"
+      ;;
   esac
 
   say "live run: Hindsight $ATLAS_LIVE_HINDSIGHT_URL ($stack), forms $forms," \
@@ -139,7 +158,7 @@ if [[ "$mode" == live ]]; then
           run docker compose -f spikes/hindsight/compose.yaml down
         fi
         ;;
-      none) ;;
+      none|cluster) ;;
     esac
   }
   trap teardown EXIT
@@ -147,11 +166,11 @@ if [[ "$mode" == live ]]; then
   case "$stack" in
     compose) run docker compose --profile hindsight up -d hindsight ;;
     spike) run spikes/hindsight/run.sh "$model" "$ATLAS_HINDSIGHT_LLM_EXTRA_BODY" ;;
-    none) ;;
+    none|cluster) ;;
   esac
 
   # A container just started needs a while; the suite's preflight has the last word.
-  if [[ "$dry" == 0 && "$stack" != none ]]; then
+  if [[ "$dry" == 0 && "$stack" != none && "$stack" != cluster ]]; then
     say "waiting up to 3 min for $ATLAS_LIVE_HINDSIGHT_URL/health"
     for _ in $(seq 60); do
       if curl -fsS "$ATLAS_LIVE_HINDSIGHT_URL/health" 2>/dev/null | grep -q healthy; then break; fi
