@@ -47,6 +47,10 @@ PEER_GROUP_QUOTE = (
     " Wolfspeed Inc., Lumentum Holdings, Inc., Corning, Inc., MKS Instruments, Inc., and"
     " Honeywell International, Inc."
 )
+# The live smoke run's third kind of answer: the relation in the model's words, not the filing's.
+PARAPHRASE = "Coherent signed a multi-year agreement to supply NVIDIA with lasers"
+# A word the supply agreement's passage uses more than once.
+REPEATED = "optical"
 WHITELIST = [
     "manufactures",
     "supplies",
@@ -299,6 +303,108 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
     assert audit_actions(atlas, "claim") == ["claim.accepted", "claim.accepted"]
 
 
+# --- locating quotes (owner decision 2026-09-29: "Claim quotes are located, not trusted") ------
+
+
+def supply_passage(body: dict[str, Any]) -> dict[str, Any]:
+    """The passage sent that holds the supply agreement quote."""
+    [passage] = [p for p in asked(body)["retrieved_data"] if SUPPLY_QUOTE in p["text"]]
+    return passage
+
+
+def test_a_quote_at_wrong_offsets_that_occurs_once_in_its_passage_is_located(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent, nvidia = company_id(atlas, "coherent"), company_id(atlas, "nvidia")
+    version_id = ten_k(atlas)
+    supply = claim(
+        subject_company_id=coherent,
+        predicate="supplies",
+        object_company_id=nvidia,
+        quote=SUPPLY_QUOTE,
+    )
+    llm.script_chat(ChatReply.answer(quoting(supply, supply | {"shift": -3})))
+
+    job = extract(atlas, "located", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    exact, located = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert (exact["outcome"], exact["offset_source"]) == ("accepted", "model")
+    assert (located["outcome"], located["offset_source"]) == ("accepted", "located")
+    # The model's offsets stay in `proposed`; the Claim and its Assertion hold the located span,
+    # an exact span of the archived parsed text.
+    assert located["proposed"]["quote_start"] == exact["proposed"]["quote_start"] - 3
+    assert located["proposed"]["quote_end"] == exact["proposed"]["quote_end"] - 3
+    assert (located["span_start"], located["span_end"]) == (exact["span_start"], exact["span_end"])
+    assertion = atlas.get(f"/api/v1/assertions/{located['assertion_id']}")
+    assert (assertion["span_start"], assertion["span_end"]) == (
+        located["span_start"],
+        located["span_end"],
+    )
+    parsed = atlas.parsed(version_id)
+    assert parsed[assertion["span_start"] : assertion["span_end"]] == SUPPLY_QUOTE
+    assert atlas.get(f"/api/v1/claims/{located['id']}")["offset_source"] == "located"
+
+
+def test_a_quote_at_wrong_offsets_that_occurs_more_than_once_in_its_passage_is_ambiguous(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent, nvidia = company_id(atlas, "coherent"), company_id(atlas, "nvidia")
+
+    def respond(body: dict[str, Any]) -> JsonValue:
+        passage = supply_passage(body)
+        assert passage["text"].count(REPEATED) >= 2
+        wrong = passage["text"].index(SUPPLY_QUOTE)  # not where REPEATED is
+        proposed = claim(
+            subject_company_id=coherent,
+            predicate="supplies",
+            object_company_id=nvidia,
+            quote=REPEATED,
+            passage_id=passage["id"],
+            quote_start=wrong,
+            quote_end=wrong + len(REPEATED),
+        )
+        return {"claims": [proposed]}
+
+    llm.script_chat(ChatReply.answer(respond))
+
+    job = extract(atlas, "ambiguous", source_version_ids=[ten_k(atlas)])
+
+    assert job["status"] == "succeeded", job["failures"]
+    [ambiguous] = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert (ambiguous["outcome"], ambiguous["reason_code"]) == ("rejected", "quote_ambiguous")
+    assert "occurrences" in ambiguous["reason"]
+    assert (ambiguous["assertion_id"], ambiguous["offset_source"]) == (None, None)
+    assert audit_actions(atlas, "assertion") == []
+
+
+def test_a_paraphrased_quote_is_a_quote_mismatch(atlas: Atlas, llm: FakeLiteLLM) -> None:
+    coherent, nvidia = company_id(atlas, "coherent"), company_id(atlas, "nvidia")
+
+    def respond(body: dict[str, Any]) -> JsonValue:
+        passage = supply_passage(body)
+        start = passage["text"].index(SUPPLY_QUOTE)
+        proposed = claim(
+            subject_company_id=coherent,
+            predicate="supplies",
+            object_company_id=nvidia,
+            quote=PARAPHRASE,
+            passage_id=passage["id"],
+            quote_start=start,
+            quote_end=start + len(PARAPHRASE),
+        )
+        return {"claims": [proposed]}
+
+    llm.script_chat(ChatReply.answer(respond))
+
+    job = extract(atlas, "paraphrase", source_version_ids=[ten_k(atlas)])
+
+    [paraphrase] = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert (paraphrase["outcome"], paraphrase["reason_code"]) == ("rejected", "quote_mismatch")
+    assert (paraphrase["assertion_id"], paraphrase["offset_source"]) == (None, None)
+    assert atlas.get("/api/v1/claims", reason_code="quote_mismatch")["total"] == 1
+
+
 def test_the_investigator_is_sent_entity_tagged_passages_the_whitelist_and_the_layers(
     atlas: Atlas, llm: FakeLiteLLM
 ) -> None:
@@ -394,7 +500,8 @@ def test_claims_that_fail_a_check_are_rejected_with_the_reason_and_become_no_ass
                 supply | {"subject_company_id": str(uuid.uuid4())},
                 supply | {"object_company_id": None},
                 supply | {"object_company_id": coherent},
-                supply | {"shift": -3},
+                supply
+                | {"quote": PARAPHRASE, "passage_id": "p1", "quote_start": 0, "quote_end": 5},
                 supply | {"passage_id": "p1", "quote_start": 0, "quote_end": 5000},
                 supply | {"subject_company_id": lumentum},
                 claim(subject_company_id=coherent, predicate="manufactures", quote=SUPPLY_QUOTE),
@@ -423,10 +530,10 @@ def test_claims_that_fail_a_check_are_rejected_with_the_reason_and_become_no_ass
     assert all(c["outcome"] == "rejected" and c["assertion_id"] is None for c in rejected)
     assert "maps to no predicate" in rejected[0]["reason"]
     assert rejected[1]["proposed"]["predicate"] == "partners with"
-    # A wrong span is never moved to where the quote really is: the reason says where.
+    # A quote that isn't in its passage (a paraphrase) is never placed anywhere.
     mismatch = rejected[7]
-    assert "it occurs at" in mismatch["reason"]
-    assert atlas.parsed(version_id)[mismatch["span_start"] : mismatch["span_end"]] != SUPPLY_QUOTE
+    assert "does not occur" in mismatch["reason"]
+    assert mismatch["offset_source"] is None
     assert "Lumentum" in rejected[9]["reason"]
     assert atlas.get("/api/v1/assertions", source_version_id=version_id)["total"] == 0
     assert audit_actions(atlas, "claim") == ["claim.rejected"] * 11

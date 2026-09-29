@@ -1124,6 +1124,8 @@ export interface components {
             reason: string | null;
             /** Assertion Id */
             assertion_id: string | null;
+            /** Offset Source */
+            offset_source: ("model" | "located") | null;
             /** Proposed */
             proposed: {
                 [key: string]: components["schemas"]["JsonValue"];

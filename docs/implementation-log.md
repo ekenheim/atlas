@@ -1498,3 +1498,28 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
   - `answered` is the Editor's verdict gated by code (≥ 1 supported finding, none unsupported); every finding still has `needs_review: true` until its Assertions are corroborated.
   - Only round 1 exists; `max_rounds` is recorded and constrained, and the follow-up round is ticket 17.
 - **Next:** ticket 15 fills the Skeptic slot (and can disprove premises); ticket 16 saves the Editor's card as a Hypothesis; ticket 17 adds the follow-up round and the workbench; ticket 19 fills the Analyst slot. A live investigation belongs in the opt-in live suite.
+## 2026-09-29: Phase 3-6a ticket 28, live extraction smoke run (LIVE, small sample)
+
+- **What ran:** the Investigator's `extract_claims` against real MiniMax-M3 through the owner's LiteLLM, with the owner's go-ahead, at 2026-09-29T18:25Z, over recorded Source Versions: the Coherent FY2026 10-K, Lumentum's 10-K Item 1 and an EX-99.1 release.
+- **Results (LIVE):** 4 Investigator calls, 18,979 tokens in / 918 out. **3 Claims proposed, 0 accepted, 3 rejected `quote_mismatch`**, all from the Coherent 10-K. Of the 3 quotes, 2 occur verbatim exactly once in their passage (the model's offsets were wrong) and would have passed every later check once placed; 1 was a paraphrase in no passage. The Lumentum 10-K Item 1 and the EX-99.1 produced no Claims.
+- **Only this was measured:** one run, one model, three documents, three proposals. It says offsets are unreliable; it says nothing yet about recall (Claims the model missed), the directional-language check or the Reviewer on live output.
+- **Deviation:** the ticket's first box (a committed opt-in live test producing the report) is left unticked: no such test is on the branch this entry was written from (`integrate-p3b`), so the run's harness is not recorded here.
+- **Next:** the owner's decision below; a larger live sample once the investigation workflow is in place.
+
+## 2026-09-29: Claim quotes are located, not trusted (owner decision after ticket 28)
+
+- **Built:**
+  - `backend/atlas/claims/extraction.py`: after the out-of-passage check, a Claim's quote is placed: at the model's offsets if it is exactly there (`model`), else at its one exact occurrence in the passage (`located`); no occurrence is `quote_mismatch` (the span check on the model's span, message unchanged); more than one is the new rejection `quote_ambiguous` (the reason lists up to five occurrences). The Assertion span check (`check_quote`) and every later check run on the final span. The model's offsets stay in `claim.proposed`.
+  - migration `0024` (down_revision `0023`): `claim.offset_source` (`model` | `located`, null when never placed or recorded earlier); `claim` stays insert-only
+  - `atlas.claims.reads.Claim.offset_source` (so `GET /api/v1/claims[/{id}]` shows it); API client regenerated
+  - docs: `docs/decisions.md` "Claim quotes are located, not trusted" (the ticket-10 no-search bullet marked superseded), `docs/data-model.md` §3.1c; ticket 28's acceptance boxes
+  - metrics: unchanged; `atlas_claims_rejected_total{reason}` groups by whatever reason codes exist, so `quote_ambiguous` appears without a code change
+- **Tests** (`tests/integration/test_claims.py`, scripted LiteLLM fake at the extraction job/API seam):
+  - new: wrong offsets + a quote once in its passage → accepted, `offset_source = located`, the proposed offsets kept, the Assertion's span the located one and exact in the parsed text; correct offsets → `model`; wrong offsets + a word the passage repeats → `quote_ambiguous`, no Assertion; a paraphrase → `quote_mismatch`, `offset_source` null
+  - changed: the rejection-list test's shifted-offset case (which is now located and accepted) became the paraphrase case
+  - migration head → `0024`
+  - red first: the new tests failed on the missing `offset_source` field before the code; then two fixes (a word the passage really repeats; a stray tuple) and `test_claims.py` **15 passed**, `test_migrations.py` passed
+  - `scripts/ci.sh --no-image` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`): **passed** (ruff, strict pyright, frontend gates, API client check, pytest 700 passed and 9 deselected in 63.3 min, e2e 4 passed)
+- **Fixture-only vs live:** the change is fixture-tested only (scripted Investigator answers against the recorded Coherent 10-K). It has not been rerun against MiniMax; the smoke numbers above are from before it.
+- **Deviations:** the out-of-passage check (`quote_outside_passage`) still runs first on the model's offsets, so a quote with offsets past the passage's end is rejected even if it occurs once in the passage (the rule only replaces the span check).
+- **Next:** rerun the live smoke with this rule and compare `offset_source` counts.

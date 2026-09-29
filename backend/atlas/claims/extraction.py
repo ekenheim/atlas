@@ -21,8 +21,12 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    (`unknown_layer`); the passage was sent in that call (`unknown_passage`); the subject and
    a company object are known companies (`unknown_company`), a product object is named
    (`missing_object`) and subject and object differ (`self_relationship`); the offsets lie
-   inside the passage (`quote_outside_passage`); **the Assertion span check**: the quote is
-   exactly the parsed text at the offsets (`quote_mismatch`); the quote names both parties
+   inside the passage (`quote_outside_passage`); **the quote is placed**: if it is not
+   exactly the text at the model's offsets it is searched for in the passage as an exact
+   substring (no folding of whitespace, quotes or dashes), and its one occurrence gives the
+   span (`offset_source` `located`, else `model`; the model's offsets stay in `proposed`); no
+   occurrence is `quote_mismatch` and more than one `quote_ambiguous`; **the Assertion span
+   check** then runs on the final span (`quote_mismatch`); the quote names both parties
    (`party_not_in_quote`); and it uses language expressing the predicate
    (`no_directional_language`; co-mention is not a relation). See `atlas.claims.predicates`.
 4. **Outcome.** A Claim that passes becomes an Assertion (`extractor_version`
@@ -148,6 +152,7 @@ class _Judged:
     assertion: AssertionCreate | None
     reason_code: str | None = None
     reason: str | None = None
+    offset_source: str | None = None  # `model` or `located`, once the quote is placed
 
 
 class ClaimExtractor:
@@ -477,10 +482,11 @@ class ClaimExtractor:
                     " proposed, passage_id, source_version_id, subject_company_id, predicate,"
                     " object_company_id, object_text, product, layer, quote, span_start,"
                     " span_end, epistemic_type, directional_cue, outcome, reason_code, reason,"
-                    " assertion_id) VALUES (:id, :extraction, :run, :role_call, :ordinal,"
-                    " CAST(:proposed AS jsonb), :passage, :version, :subject, :predicate,"
-                    " :object, :object_text, :product, :layer, :quote, :span_start, :span_end,"
-                    " :epistemic_type, :cue, :outcome, :reason_code, :reason, :assertion)"
+                    " assertion_id, offset_source) VALUES (:id, :extraction, :run, :role_call,"
+                    " :ordinal, CAST(:proposed AS jsonb), :passage, :version, :subject,"
+                    " :predicate, :object, :object_text, :product, :layer, :quote, :span_start,"
+                    " :span_end, :epistemic_type, :cue, :outcome, :reason_code, :reason,"
+                    " :assertion, :offset_source)"
                     " RETURNING *"
                 ),
                 {
@@ -507,6 +513,7 @@ class ClaimExtractor:
                     "reason_code": judged.reason_code,
                     "reason": judged.reason,
                     "assertion": assertion_id,
+                    "offset_source": judged.offset_source,
                 },
             )
             .mappings()
@@ -589,6 +596,12 @@ class ClaimExtractor:
             )
             return _reject(judged, "quote_outside_passage", message)
         version = versions[passage.source_version_id]
+        placed = _place(self._text(version), passage, proposed)
+        if isinstance(placed, str):
+            return _reject(judged, "quote_ambiguous", placed)
+        offset_source: str | None = None
+        if placed is not None:
+            span, offset_source = placed.span, placed.source
         try:
             assertion = AssertionCreate(
                 subject_company_id=subject.id,
@@ -634,6 +647,7 @@ class ClaimExtractor:
             span=span,
             cue=cue,
             assertion=assertion,
+            offset_source=offset_source,
         )
 
     # --- finishing ------------------------------------------------------------------------------
@@ -703,6 +717,46 @@ def _windows(parsed: str, start: int, end: int) -> list[tuple[int, int]]:
         windows.append((position, limit))
         position = limit
     return windows
+
+
+@dataclass(frozen=True)
+class Placed:
+    """Where a Claim's quote is in the parsed text, and whether the model's offsets said so."""
+
+    span: tuple[int, int]
+    source: str  # `model` or `located`
+
+
+def _place(parsed: str, passage: Passage, proposed: ProposedClaim) -> Placed | str | None:
+    """The quote at the model's offsets (`model`), else its one exact occurrence in the passage
+    (`located`). More than one occurrence returns the `quote_ambiguous` message; none (or an
+    empty quote) is None: the span check then rejects the model's span as `quote_mismatch`."""
+    window = parsed[passage.char_start : passage.char_end]
+    quote = proposed.quote
+    if not quote:
+        return None
+    if window[proposed.quote_start : proposed.quote_end] == quote:
+        start = passage.char_start + proposed.quote_start
+        return Placed((start, start + len(quote)), "model")
+    first = window.find(quote)
+    if first < 0:
+        return None
+    second = window.find(quote, first + 1)
+    if second < 0:
+        start = passage.char_start + first
+        return Placed((start, start + len(quote)), "located")
+    occurrences: list[int] = []
+    at = first
+    while at >= 0:
+        occurrences.append(at)
+        at = window.find(quote, at + 1)
+    shown = ", ".join(f"[{o}, {o + len(quote)})" for o in occurrences[:5])
+    more = "" if len(occurrences) <= 5 else ", ..."
+    return (
+        f"the quote is not at the offsets [{proposed.quote_start}, {proposed.quote_end}) of"
+        f" passage {passage.id}, and it has {len(occurrences)} occurrences in the passage"
+        f" (at {shown}{more}), so it cannot be located"
+    )
 
 
 def _reject(judged: _Judged, code: str, reason: str) -> _Judged:

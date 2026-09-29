@@ -9,6 +9,7 @@ from sqlalchemy import Connection, text
 
 ClaimOutcome = Literal["accepted", "rejected"]
 ExtractionStatus = Literal["running", "completed", "budget_exhausted"]
+OffsetSource = Literal["model", "located"]
 
 
 class Passage(BaseModel):
@@ -60,6 +61,10 @@ class Claim(BaseModel):
     reason_code: str | None
     reason: str | None
     assertion_id: uuid.UUID | None
+    # Where the span came from once the quote was placed: `model` (the quote was exactly at the
+    # model's offsets, kept in `proposed`) or `located` (Atlas found its one exact occurrence in
+    # the passage). Null when the quote was never placed, or recorded before migration 0024.
+    offset_source: OffsetSource | None
     proposed: dict[str, JsonValue]
     created_at: datetime
 
