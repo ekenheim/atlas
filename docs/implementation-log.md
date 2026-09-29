@@ -1423,3 +1423,29 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
   - Leads dedupe globally, not per theme; `http` and `https` stay distinct in the canonical URL, `www.` doesn't.
   - A discovery whose job exhausts its attempts leaves its run unfinished (its role calls stay visible).
 - **Next:** ticket 09 resolves entity mentions in leads (the Sumitomo Electric fixture lead names an unseeded company) into Candidates; ticket 14 runs the Scout inside an investigation (it will need `Scout` to use the investigation's run instead of starting its own) and applies the lead budget. A live discovery against the owner's SearXNG belongs in the opt-in live suite.
+
+## 2026-09-29: Phase 3-6a ticket 28, live extraction smoke test (built; not yet run live)
+
+- **Built:**
+  - `tests/live/test_extraction_smoke_live.py`: the opt-in smoke test. It uses a throwaway database (`atlas_live_extract_*`), ingests the Lumentum and Coherent EDGAR fixtures and seeds the universe plus NVIDIA. Then it runs three `extract_claims` jobs through a worker pass, each with at most 4 passages in one call:
+    - the Lumentum FY2026 10-K Item 1
+    - the Lumentum Q4 FY2026 EX-99.1
+    - the Coherent FY2026 10-K entity-tagged passages
+  - The Lumentum filings name no other known company (0 entity-tagged windows), so a **stubbed recall** picks their sections. The handler is `ClaimExtractor` as `extract_claims` runs it, but with that recall. Hindsight is the recorded fake on localhost, used for the ingest and the run record only; no Hindsight is needed. The Investigator calls the real LiteLLM (`ATLAS_LLM_ROLE_MODEL`, default MiniMax-M3), or in a rehearsal the scripted fake.
+  - Call cap: 3 calls × `MAX_ATTEMPTS` (2) = 6 worst case, asserted ≤ 10 at import and on the recorded attempts. Other bounds: a per-run token budget of 40,000, and one job attempt (no retry). The preflight refuses (exit 4) under `CI`, without LiteLLM settings, or when the model isn't routed (`/model/info` only).
+  - `tests/live/extraction_smoke.py`: the report writer (`results.json` + `summary.md` under `ATLAS_LIVE_RESULTS_DIR`, default the gitignored `.scratch/live-runs/`):
+    - per extraction: passages, calls and tokens
+    - per Claim: predicate, outcome, reason_code
+    - for each `quote_mismatch`: whether the quote occurs in its passage `exactly_once`/`multiple`/`not_at_all`, exactly and after folding whitespace/quotes/dashes, and for an exactly-once quote what the party and directional checks would decide once located
+    - totals: the mismatch share of the Claims that reached the span check, and the >20% flag
+  - `scripts/live-extraction-smoke.sh` (`--rehearse`, `--model`, `--keep-db`, `--results`, `--yes`, `--dry-run`). It reads LiteLLM settings from the env or `.env` (CRLF-safe, never printed) and asks before a live run.
+  - `tests/live/conftest.py`: the smoke file is gated like the Phase 2 suite, with its own skip reason
+  - docs: `docs/runbooks.md` "Live extraction smoke test", `AGENTS.md`
+- **Tests:**
+  - rehearsal (`scripts/live-extraction-smoke.sh --rehearse`): **1 passed**. 3 calls, 10 scripted Claims: 1 accepted, and 9 `quote_mismatch` classified as expected: exactly_once ×4 (one would be accepted once located), multiple ×2, not_at_all ×3.
+  - `tests/unit/test_live_suite_guard.py`: +2. The smoke test is deselected by default, skipped without `ATLAS_LIVE_TESTS`, and refused (exit 4) under `CI`. 5 passed.
+  - live mode without LiteLLM settings: refused before any call, and the report was written with the reason
+  - `scripts/ci.sh --no-image` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`): **passed** (ruff, strict pyright, frontend gates, API client check, pytest 605 passed and 10 deselected in 33 min, e2e 4 passed). The first run failed 1 test: the Phase 2 guard asserts that suite's skip message, which I had generalised. Each suite now has its own skip reason.
+- **Fixture-only vs live:** only the rehearsal ran. **No chat completion was made against LiteLLM/MiniMax.** The live run (ticket box 2) is for the lead, with the owner's go-ahead; the decision entry (box 3) depends on its numbers.
+- **Deviations:** the test builds the `extract_claims` handler itself, to stub the recall. It does not use `builtin_registry`, whose recall needs Hindsight. The run record's Hindsight version is the fake's.
+- **Next:** run `scripts/live-extraction-smoke.sh --model MiniMax-M3` and record `summary.md` here. If the `quote_mismatch` share is over 20%, write the decision entry on locating exactly-once quotes, citing the `exactly_once`/`located_would_be_accepted` counts.
