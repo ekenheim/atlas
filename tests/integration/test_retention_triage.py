@@ -15,18 +15,22 @@ import json
 import shutil
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import JsonValue
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from atlas.api.app import create_app
+from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
 from tests.fakes.serve import Served, serve
-from tests.harness import EDGAR_FIXTURES, LITE_10K, TEN_K_ANCHORS, Atlas
+from tests.harness import EDGAR_FIXTURES, LITE_10K, TEN_K_ANCHORS, Atlas, Clock
 
 LITE = "https://www.sec.gov/Archives/edgar/data/1633978"
 LITE_8K = f"{LITE}/000162828026055726/lite-20260811.htm"
@@ -465,7 +469,161 @@ def test_with_triage_off_every_section_is_retained_without_a_call(
     atlas.engine.dispose()
 
 
+# --- when triage fails: hold and retry ----------------------------------------------------------
+
+
+def test_a_quarantined_triage_retains_nothing_and_fails_visibly_after_its_attempts(
+    atlas: Atlas, fake: RecordedHindsight, llm: FakeLiteLLM
+) -> None:
+    # Every answer is invalid: each attempt's call and its repair, 3 attempts, 4 versions.
+    llm.chat_replies.clear()
+    llm.script_chat(*[ChatReply.text("not a triage answer")] * 24)
+
+    job = atlas.ingest("lumentum")
+
+    assert job["status"] == "succeeded", job["failures"]
+    jobs = triage_jobs(atlas)
+    assert len(jobs) == 4
+    for each in jobs.values():
+        assert each["status"] == "failed"
+        assert each["attempts"] == each["max_attempts"] == 3
+        assert all("quarantined" in failure["error"] for failure in each["failures"])
+    assert len(llm.chat_requests()) == 24
+    # Nothing was decided by the role or by default, and nothing reached Hindsight.
+    assert {decision["method"] for decision in triage(atlas)} == {"rule"}
+    assert fake.retained() == []
+    assert atlas.memory(atlas.version(LITE_10K)["id"])["documents"] == []
+
+
+def test_a_section_the_answer_leaves_out_is_asked_again_on_retry_without_duplicating_decisions(
+    atlas: Atlas, fake: RecordedHindsight, llm: FakeLiteLLM
+) -> None:
+    left_out: list[str] = []
+
+    def forgetful(body: dict[str, Any]) -> JsonValue:
+        """The stand-in model, leaving the 10-K's Item 1 out of its first answer about it."""
+        answer = cast(dict[str, list[dict[str, Any]]], triage_answer(body))
+        anchors = [decision["anchor"] for decision in answer["decisions"]]
+        if not left_out and "part-i-item-1" in anchors:
+            left_out.append("part-i-item-1")
+            kept = [d for d in answer["decisions"] if d["anchor"] != "part-i-item-1"]
+            return cast(JsonValue, {"decisions": kept})
+        return cast(JsonValue, answer)
+
+    llm.chat_replies.clear()
+    llm.script_chat(*[ChatReply.answer(forgetful)] * 5)
+
+    job = atlas.ingest("lumentum")
+
+    assert job["status"] == "succeeded", job["failures"]
+    ten_k = atlas.version(LITE_10K)
+    ten_k_job = triage_jobs(atlas)[ten_k["id"]]
+    assert ten_k_job["status"] == "succeeded"
+    assert ten_k_job["attempts"] == 2
+    (failure,) = ten_k_job["failures"]
+    assert "no decision" in failure["error"]
+    # The retry asked only about the section left out.
+    calls = asked_anchors(llm)
+    assert len(calls) == 5
+    assert calls.count(TEN_K_ASKED) == 1
+    assert calls.count(["part-i-item-1"]) == 1
+    # One decision per section (insert-only; the retry duplicated none), none by default.
+    rows = triage(atlas, source_version_id=ten_k["id"])
+    assert sorted(row["section_anchor"] for row in rows) == sorted(TEN_K_ANCHORS)
+    assert "default" not in {row["method"] for row in triage(atlas)}
+    item_1 = effective(atlas, ten_k["id"])["part-i-item-1"]
+    assert (item_1["method"], item_1["decision"]) == ("role", "retain")
+    assert retained_anchors(fake, ten_k["id"]) == [["part-i-item-1"]]
+
+
+def test_a_spent_budget_holds_triage_until_the_window_rolls_and_nothing_is_retained_meanwhile(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    litellm: Served,
+    llm: FakeLiteLLM,
+) -> None:
+    fake = hindsight[0]
+    reply = 120 + 40  # one call's tokens: a scripted reply's default usage
+    atlas = Atlas(
+        database_url,
+        tmp_path,
+        hindsight[1].url,
+        litellm.url,
+        retention_triage="on",
+        triage_sections_per_call=4,  # the 10-K's 8 asked sections take two calls
+        run_token_budget=reply,  # each attempt's run affords one call
+        minimax_budget_tokens=reply,  # each 5 h window affords one call
+    )
+    atlas.apply_template()
+    llm.chat_replies.clear()
+    llm.script_chat(*[ChatReply.answer(triage_answer)] * 40)
+    clock = Clock(datetime.now(UTC).replace(microsecond=0))
+    api = TestClient(create_app(atlas.settings(), clock=clock))
+
+    def paced_pass() -> int:
+        """A worker pass on the controllable pacing clock; returns the calls it made."""
+        before = len(llm.chat_requests())
+        settings = atlas.settings()
+        queue = JobQueue(atlas.engine, pacing=Pacing.from_settings(settings), clock=clock)
+        Worker(queue, builtin_registry(settings)).run_once()
+        return len(llm.chat_requests()) - before
+
+    def check_held_versions_retain_nothing() -> bool:
+        """No section is decided by default, and a version whose triage hasn't finished has
+        nothing in Hindsight; True if the 10-K is part-decided right now."""
+        assert "default" not in {row["method"] for row in triage(atlas)}
+        for version_id, each in triage_jobs(atlas).items():
+            if each["status"] != "succeeded":
+                assert retained_anchors(fake, version_id) == []
+        ten_k = atlas.version(LITE_10K)["id"]
+        return 0 < len(effective(atlas, ten_k)) < len(TEN_K_ANCHORS)
+
+    atlas.enqueue("ingest", "--company", "lumentum", "--key", "lumentum")
+    assert paced_pass() == 1
+    part_decided = check_held_versions_retain_nothing()
+    # The window is spent: once any pause has passed, triage is still held, with no call.
+    clock.advance(minutes=2)
+    assert paced_pass() == 0
+    (pending,) = [p for p in api.get("/api/v1/queue").json()["pending"] if p["kind"] == "triage"]
+    assert pending["budget_held"] == pending["queued"] > 0
+
+    windows = 0
+    while any(each["status"] != "succeeded" for each in triage_jobs(atlas).values()):
+        windows += 1
+        assert windows < 30, "triage never finished"
+        clock.advance(hours=5, minutes=1)
+        assert paced_pass() == 1  # one call per window, each asking only what's undecided
+        part_decided = check_held_versions_retain_nothing() or part_decided
+
+    # The 10-K's second call ran out of its run's budget: its job was held (not failed,
+    # not retained by default) and resumed in a later window with only what was left.
+    assert part_decided
+    ten_k = atlas.version(LITE_10K)
+    ten_k_job = triage_jobs(atlas)[ten_k["id"]]
+    assert any("token budget" in failure["error"] for failure in ten_k_job["failures"])
+    calls = [
+        (message["request"]["document"]["source_version_id"], section["anchor"])
+        for message in asked(llm)
+        for section in message["request"]["sections"]
+    ]
+    assert len(calls) == len(set(calls))  # no section of a version was asked about twice
+    rows = triage(atlas, source_version_id=ten_k["id"])
+    assert sorted(row["section_anchor"] for row in rows) == sorted(TEN_K_ANCHORS)
+    assert retained_anchors(fake, ten_k["id"]) == [["part-i-item-1"]]
+    atlas.engine.dispose()
+
+
 # --- helpers ------------------------------------------------------------------------------------
+
+
+def triage_jobs(atlas: Atlas) -> dict[str, dict[str, Any]]:
+    """Each `triage` job (read through the API), by its Source Version."""
+    with atlas.engine.connect() as connection:
+        rows = connection.execute(
+            text("SELECT id, payload->>'source_version_id' FROM job WHERE kind = 'triage'")
+        ).all()
+    return {version_id: atlas.get(f"/api/v1/jobs/{job_id}") for job_id, version_id in rows}
 
 
 def start_investigation(atlas: Atlas) -> str:

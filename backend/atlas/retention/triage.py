@@ -15,13 +15,23 @@ before any section is retained:
    (`None.`, `Not applicable.`) are `skip`, without a call.
 3. **The Triage role** (`atlas.roles.triage`, its prompt the versioned rubric) decides the
    rest, `triage_sections_per_call` sections to a call, from each section's heading and first
-   `triage_excerpt_chars` characters and the document's metadata. A section the answer
-   leaves out, or whose call was quarantined or ran out of the run's token budget, is
-   retained (`default`): triage never loses evidence by failing.
+   `triage_excerpt_chars` characters and the document's metadata.
 
-Decisions are inserted as they are made (insert-only, audited), so a job paused by a quota
-failure resumes with the sections still undecided. Once every section is decided the job
-enqueues the version's `retain` of its `retain` sections (none: nothing is submitted).
+**Hold and retry** (owner decision 2026-09-30): a failed triage retains nothing and decides
+nothing by default. A section is undecided until a rule, its predecessor or the role decides
+it, and the version's retain waits for every section:
+
+- An outage or quota failure of LiteLLM, or the run's token budget spent, fails the attempt
+  as a `TransientFailure`: the queue pauses and requeues the job without using an attempt,
+  and the `minimax` rolling-window budget holds it until the window has room.
+- A quarantined answer, or one that leaves a section out, leaves those sections undecided;
+  the other batches go on, then the attempt fails (`TriageIncomplete`, an ordinary failure),
+  so the queue retries it up to the job's `max_attempts` and then fails it visibly.
+
+Decisions are inserted as they are made (insert-only, audited), so a retried or resumed job
+decides only the sections still undecided and never duplicates one. Once every section is
+decided the job enqueues the version's `retain` of its `retain` sections (none: nothing is
+submitted).
 Skipped sections stay archived and citable: the source viewer and Assertions work on the
 parsed text, not on memory. `request_retain` retains one later, on demand, recorded with
 who asked (and the investigation, when one did) and why.
@@ -38,7 +48,7 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 from atlas.archive import Archive
 from atlas.audit import Actor
 from atlas.companies import Universe
-from atlas.jobs.pacing import JobClass
+from atlas.jobs.pacing import JobClass, TransientFailure
 from atlas.jobs.queue import Artifacts, JobQueue
 from atlas.retention.decisions import (
     TriageDecision,
@@ -75,7 +85,6 @@ from atlas.runs import RunNotFound, RunRecorder
 RULES_VERSION = "triage-rules-v1"
 RUN_KIND = "triage"
 ON_DEMAND_CATEGORY = "on_demand"
-DEFAULT_CATEGORY = "unclassified"
 
 # Section headings that are boilerplate.
 _ITEM = r"item\s+\S+?\s*[.:\-\N{EN DASH}\N{EM DASH}]?\s*"
@@ -118,6 +127,11 @@ def boilerplate_rule(heading: str | None, section_text: str) -> str | None:
     if " ".join(body).casefold() in _EMPTY_BODIES:
         return f"no content past its heading: {heading[:120]}"
     return None
+
+
+class TriageIncomplete(RoleCallFailed):
+    """The role left sections undecided (a quarantined answer, or sections left out); the
+    attempt fails so the job is retried, and nothing is retained for them meanwhile."""
 
 
 @dataclass(frozen=True)
@@ -167,7 +181,7 @@ class Triage:
             if section.anchor not in decided
             for body in [parsed[section.start : section.end]]
         ]
-        tally = {"inherited": 0, "rule": 0, "role": 0, "default": 0}
+        tally = {"inherited": 0, "rule": 0, "role": 0}
         with self._engine.begin() as connection:
             lock_decisions(connection, version.id)
             inherited = self._predecessor_decisions(connection, version)
@@ -197,9 +211,7 @@ class Triage:
                 else:
                     undecided.append(each)
         if undecided:
-            role, default = self._ask_role(version, undecided)
-            tally["role"] += role
-            tally["default"] += default
+            tally["role"] += self._ask_role(version, undecided)
         retain_job = self._enqueue_retain(version, job_class)
         return base | {"outcome": "triaged", **tally, "retain_job": retain_job}
 
@@ -237,7 +249,9 @@ class Triage:
 
     # --- the role ------------------------------------------------------------------------------
 
-    def _ask_role(self, version: SourceVersionInfo, undecided: list[_Pending]) -> tuple[int, int]:
+    def _ask_role(self, version: SourceVersionInfo, undecided: list[_Pending]) -> int:
+        """Ask the role about the undecided sections, batch by batch, inserting each decision
+        it returns; raises `TriageIncomplete` at the end if any section is left undecided."""
         if self._caller is None or self._runs is None:
             raise RoleCallFailed(
                 "retention triage needs LiteLLM and Hindsight configured"
@@ -245,44 +259,45 @@ class Triage:
                 " or ATLAS_RETENTION_TRIAGE=off"
             )
         run_id = self._runs.start(RUN_KIND).id
-        by_role = by_default = 0
+        by_role = 0
+        left: list[str] = []
         try:
             for batch in _batches(undecided, self._per_call):
-                answers, role_call_id, fallback = self._call(version, batch, run_id)
+                answers, role_call_id, why = self._call(version, batch, run_id)
                 with self._engine.begin() as connection:
                     lock_decisions(connection, version.id)
                     for each in batch:
                         answer = answers.get(each.section.anchor)
-                        if answer is not None and role_call_id is not None:
-                            by_role += self._insert(
-                                connection,
-                                version,
-                                each,
-                                decision=answer.decision,
-                                category=answer.category,
-                                reason=answer.reason.strip() or "no reason given",
-                                method="role",
-                                role_call_id=role_call_id,
-                            )
-                        else:
-                            by_default += self._insert(
-                                connection,
-                                version,
-                                each,
-                                decision="retain",
-                                category=DEFAULT_CATEGORY,
-                                reason=fallback,
-                                method="default",
-                            )
+                        if answer is None or role_call_id is None:
+                            left.append(f"{each.section.anchor} ({why})")
+                            continue
+                        by_role += self._insert(
+                            connection,
+                            version,
+                            each,
+                            decision=answer.decision,
+                            category=answer.category,
+                            reason=answer.reason.strip() or "no reason given",
+                            method="role",
+                            role_call_id=role_call_id,
+                        )
         finally:
             self._finish(run_id)
-        return by_role, by_default
+        if left:
+            raise TriageIncomplete(
+                f"{len(left)} section(s) of Source Version {version.id} left undecided,"
+                f" retried later and not retained meanwhile: {'; '.join(left)}"
+            )
+        return by_role
 
     def _call(
         self, version: SourceVersionInfo, batch: Sequence[_Pending], run_id: uuid.UUID
     ) -> tuple[dict[str, TriageSectionDecision], uuid.UUID | None, str]:
         """The role's answers by anchor (the first for each anchor it was asked about), the
-        role call, and the reason recorded for a section it left undecided."""
+        role call (None: quarantined), and why a section of the batch may be left undecided.
+
+        The run's token budget spent is a `TransientFailure` (quota): the job is requeued and
+        held like any other quota failure, never decided by default."""
         assert self._caller is not None
         request = TriageRequest(
             document=self._document(version),
@@ -309,10 +324,11 @@ class Triage:
                 TRIAGE, request, run_id=run_id, retrieved=retrieved
             )
         except RoleOutputQuarantined as quarantined:
-            reason = f"retained by default: role call {quarantined.role_call_id} quarantined"
-            return {}, None, reason
-        except TokenBudgetExhausted:
-            return {}, None, "retained by default: the triage run's token budget was exhausted"
+            return {}, None, f"role call {quarantined.role_call_id} quarantined"
+        except TokenBudgetExhausted as exhausted:
+            raise TransientFailure(
+                "quota", f"retention triage held: the triage run's token budget: {exhausted}"
+            ) from exhausted
         asked = {each.section.anchor for each in batch}
         answers: dict[str, TriageSectionDecision] = {}
         for answer in output.decisions:
@@ -321,7 +337,7 @@ class Triage:
         return (
             answers,
             role_call_id,
-            f"retained by default: role call {role_call_id} returned no decision for it",
+            f"role call {role_call_id} returned no decision for it",
         )
 
     def _document(self, version: SourceVersionInfo) -> TriageDocument:

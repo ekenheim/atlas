@@ -1797,3 +1797,20 @@ The chain is now 0012 → 0013 → … → 0023.
   - On-demand decisions use category `on_demand`.
   - Investigations don't call `request_retain` automatically yet; it accepts `investigation_id` for when they do.
 - **Next:** measure the rubric on real filings with the live smoke setup (owner's go-ahead), then tune `triage.v1` and the rule list. The owner could expose triage decisions in the source viewer.
+
+## 2026-09-30: ticket 30 follow-up, retention triage holds and retries instead of failing open
+
+- **Built:** owner decision 2026-09-30. `atlas.retention.triage` no longer retains a section "by default" when triage fails:
+  - the triage run's token budget spent (`TokenBudgetExhausted`) is raised as `TransientFailure("quota")`, so the worker pauses the queue and requeues the job without using an attempt, and the `minimax` window budget (ticket 27) holds it; an LLM outage or quota failure already took that path;
+  - a quarantined answer, or sections the answer leaves out, stay undecided; the remaining batches still run, then the attempt raises `TriageIncomplete` (a `RoleCallFailed`, an ordinary failure), which the queue retries up to the job's `max_attempts` and then fails visibly;
+  - decisions already made stay (insert-only); a retry asks only about the undecided sections. The artifacts' tally drops `default`. The `default` method stays in the schema for older rows (no migration). `ATLAS_RETENTION_TRIAGE=off` is unchanged.
+- **Files:** `backend/atlas/retention/triage.py`, `tests/integration/test_retention_triage.py`, `docs/decisions.md` ("Retention triage": "Hold and retry" replaces "Fail open"), this log.
+- **Tests (red first, worker-pass seam, scripted LiteLLM chat fake, recorded Hindsight fake):** three new tests in `test_retention_triage.py`, each failing before the change:
+  - every answer invalid: each of the 4 triage jobs fails after 3 attempts (24 chat completions: call and repair per attempt), with only `rule` decisions recorded and nothing sent to Hindsight;
+  - the 10-K's first answer leaves out Item 1: the job fails once ("no decision"), the retry asks only about `part-i-item-1`, which is then retained, and each 10-K section has exactly one decision;
+  - `ATLAS_RUN_TOKEN_BUDGET` and `ATLAS_MINIMAX_BUDGET_TOKENS` set to one call's tokens, on an injectable pacing clock: one call per worker pass, then nothing after the pause has passed while the window is spent (triage `budget_held`); after each 5 h window rolls, one more call. The 10-K's job is held mid-way (a "token budget" failure recorded, part-decided, nothing retained for it) and later resumes. No section of a version is asked about twice, and there are no `default` decisions. In the end, only Item 1 is retained.
+
+  `test_retention_triage.py`: **11 passed**. `test_retention`, `test_quota_pacing` and `test_queue_pause`: **31 passed**. ruff format/check (backend, tests, scripts) and strict pyright are clean. The full suite runs on the owner's runners.
+- **Fixture-tested only:** everything; no LLM or Hindsight call was made.
+- **Deviations:** the run's token budget spent is classed as `quota`, so it pauses the queue's pausable kinds (backoff from 60 s) as well as requeueing the job. Each retry starts a fresh run with a fresh token budget, and its first call always goes out, so every retry makes progress.
+- **Next:** a version whose triage failed visibly has no retain until it is triaged again. The owner can retain its sections on demand. A way to re-run a failed triage job (and a metric or alert for failed triage jobs) is not built yet.
