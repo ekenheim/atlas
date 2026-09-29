@@ -1,14 +1,22 @@
 name: ci
 
+# Push only (every branch): the jobs run on the owner's self-hosted runners, so fork pull
+# requests must never trigger them (this repo is public).
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: ["**"]
+
+# One run per branch; a newer push to a work branch supersedes its running CI (main runs all).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The owner's actions-runner-controller scale set (home-ops, dind mode: Docker for the
+    # compose services and the image build).
+    runs-on: gha-runner-scale-set-atlas
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
