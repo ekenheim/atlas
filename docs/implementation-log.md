@@ -1700,3 +1700,34 @@ The chain is now 0012 → 0013 → … → 0023.
 - **Fixture-only vs live:** everything is from the recorded EDGAR fixtures. No LLM was called; the seed's edges are all hedged, so no Reviewer call is needed. No `machine_reviewed` edge is seeded, since that needs a Reviewer answer.
 - **Deviations:** none from the ticket. The edge table shows the API's largest page (500 edges) with its total; there's no paging UI yet.
 - **Next:** the Theme explorer and Company dossier pages can link into `/relationships/` (the query string is the filter), and a `company_id` filter select is a small addition when they need one.
+
+## 2026-09-30: Phase 3-6a ticket 30, retention triage
+
+- **Built:**
+  - `atlas.roles.triage` + `roles/prompts/triage.v1.md`: the Triage role (strict schema: per anchor `retain`/`skip`, a value category from the rubric's list, a one-line reason). The prompt is the versioned rubric (`triage.v1`). Section openings go in as quoted, low-trust `retrieved_data`; the document's metadata and its company's themes go in the request.
+  - `atlas.retention.triage`: the `triage` job (a `minimax` kind in `atlas.jobs.budget`, pausable). For each undecided section it applies, in order: inherit from the predecessor version by section SHA-256; the boilerplate rules `triage-rules-v1` (Item headings only); then role calls, `ATLAS_TRIAGE_SECTIONS_PER_CALL` per call, in one `triage` run. If a section gets no answer, or its call is quarantined or out of token budget, it is retained (`default`). Once every section is decided, the job enqueues `retain:{id}:triaged`, or nothing if every section was skipped. `request_retain` does retain on demand.
+  - `atlas.retention.decisions` + migration `0033` (down_revision `0028`): `triage_decision`, insert-only (the ledger triggers) and audited. The effective decision is the latest row. An advisory lock per version serializes the triage job and on-demand requests.
+  - `atlas.retention.service`: `retain` with triage on hands an undecided version to `triage` (`awaiting_triage`). It records and submits only `retain` sections (`nothing_to_retain` when none), and any section retained on demand later. With triage off, and with no decisions, the behaviour is unchanged. `load_version`, `version_sections` and `is_retainable` are now module functions.
+  - API: `GET /api/v1/triage` (filters `source_version_id`, `company_id`, `decision`, `category`, `method`, `effective`) and `POST /api/v1/source-versions/{id}/sections/{anchor}/retain` (202; `{reason, investigation_id?}`; 404 or 409 `already_retained`/`linked`/`not_retainable`). The API client was regenerated.
+  - Metrics: `atlas_triage_sections{decision,category}`, `atlas_triage_decisions{method}`, `atlas_triage_hindsight_operations_saved_estimate{unit=documents|batches}`.
+  - Settings: `ATLAS_RETENTION_TRIAGE=auto|on|off` (auto means on with LiteLLM), `ATLAS_TRIAGE_EXCERPT_CHARS` (1500), `ATLAS_TRIAGE_SECTIONS_PER_CALL` (15). Docs: `docs/decisions.md` "Retention triage", AGENTS.md, `.env.example`.
+- **Files:** `backend/atlas/retention/{triage,decisions}.py` (new), `backend/atlas/retention/{service,handlers,__init__}.py`, `backend/atlas/roles/triage.py`, `backend/atlas/roles/prompts/triage.v1.md` (new), `backend/atlas/api/triage.py` (new), `backend/atlas/api/app.py`, `backend/atlas/{metrics,settings}.py`, `backend/atlas/jobs/budget.py`, `backend/atlas/db/migrations/versions/0033_triage_decisions.py` (new), `tests/integration/test_retention_triage.py` (new), `tests/integration/{test_migrations,test_queue_pause,test_quota_pacing}.py`, `tests/unit/test_settings.py`, `tests/harness.py` and `tests/live/test_phase2_gate_live.py` (both pin `retention_triage: off`), `frontend/lib/api/`.
+- **Tests (worker-pass seam, scripted LiteLLM chat fake, recorded Hindsight fake):** `test_retention_triage.py`, **8 passed** locally:
+  - boilerplate (10-K Items 1B/4/6, 8-K 9.01) is skipped by rule and never sent to the role, and the role sees each section's 1,500-character opening and the document's metadata;
+  - only `retain` sections reach Hindsight, a version with every section skipped submits nothing, and a skipped section still takes an Assertion;
+  - Coherent's Item 1, which names the NVIDIA supply agreement, is retained;
+  - in a revised 8-K, the unchanged cover and Item 9.01 inherit and only the changed Item 2.02 is asked about;
+  - retain on demand (recorded with the actor and reason, retained by the next worker pass, then 409/404/422), and with an investigation (unknown one 404);
+  - the list filters, the audit rows, insert-only enforcement and the metrics;
+  - `off` with LiteLLM configured retains every section with no call.
+  
+  `test_settings.py` 32 passed. ruff format/check and strict pyright are clean; the frontend typecheck is clean. `test_retention`, `test_migrations`, `test_queue_pause` and `test_quota_pacing`: **34 passed** locally. The full suite runs on the owner's runners.
+- **Fixture-tested only:** everything. The Triage role's answers are hand-written in the test (a stand-in model), not MiniMax output. The rubric's real selectivity and token cost on MiniMax are unmeasured.
+- **Deviations:**
+  - The `triage` job is enqueued by the `retain` job (a `codex` kind), not by the ingest, so enqueue sites and `unretained_versions` are unchanged. Triage therefore waits when the Codex window is spent.
+  - "Previous version" is the same Source Document's previous triaged version, else the company's previous triaged document of the same form and document type.
+  - Rules apply to Item headings only, not to chunk first lines.
+  - Triage fails open (retain) on a missing answer, quarantine or an exhausted run budget.
+  - On-demand decisions use category `on_demand`.
+  - Investigations don't call `request_retain` automatically yet; it accepts `investigation_id` for when they do.
+- **Next:** measure the rubric on real filings with the live smoke setup (owner's go-ahead), then tune `triage.v1` and the rule list. The owner could expose triage decisions in the source viewer.

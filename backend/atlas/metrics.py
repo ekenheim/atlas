@@ -97,6 +97,7 @@ class StateCollector(Collector):
             yield from self._jobs(connection)
             yield from self._operations(connection)
             yield from self._sections(connection)
+            yield from self._triage(connection)
             yield from self._research(connection)
             yield from self._claims(connection)
             yield from self._relationships(connection)
@@ -336,6 +337,61 @@ class StateCollector(Collector):
         )
         pending.add_metric([], counts.get("pending", 0))
         yield pending
+
+    def _triage(self, connection: Connection) -> Iterator[Metric]:
+        """Retention triage (ticket 30): sections by effective decision and value category,
+        decisions by how they were made, and the Hindsight work skipping saved."""
+        effective = (
+            "SELECT DISTINCT ON (source_version_id, section_anchor) * FROM triage_decision"
+            " ORDER BY source_version_id, section_anchor, seq DESC"
+        )
+        sections = CounterMetricFamily(
+            "atlas_triage_sections",
+            "Sections triaged, by their effective decision (retain or skip) and value category",
+            labels=["decision", "category"],
+        )
+        for decision, category, count in connection.execute(
+            text(
+                f"SELECT decision, category, count(*) FROM ({effective}) AS e"  # noqa: S608 (constant fragments)
+                " GROUP BY 1, 2 ORDER BY 1, 2"
+            )
+        ).all():
+            sections.add_metric([decision, category], count)
+        yield sections
+        decisions = CounterMetricFamily(
+            "atlas_triage_decisions",
+            "Triage decisions recorded, by how they were made (rule, inherited, role,"
+            " default, on_demand)",
+            labels=["method"],
+        )
+        for method, count in connection.execute(
+            text("SELECT method, count(*) FROM triage_decision GROUP BY 1 ORDER BY 1")
+        ).all():
+            decisions.add_metric([method], count)
+        yield decisions
+        documents, batches = connection.execute(
+            text(
+                f"WITH e AS ({effective}),"  # noqa: S608 (constant fragments)
+                " skipped AS (SELECT * FROM e WHERE decision = 'skip' AND NOT EXISTS ("
+                "   SELECT FROM memory_document m WHERE m.source_version_id = e.source_version_id"
+                "   AND m.section_anchor = e.section_anchor))"
+                " SELECT (SELECT count(*) FROM skipped),"
+                " (SELECT count(*) FROM (SELECT source_version_id FROM e"
+                "   GROUP BY source_version_id HAVING bool_and(decision = 'skip')) AS all_skipped"
+                "   WHERE NOT EXISTS (SELECT FROM memory_document m"
+                "     WHERE m.source_version_id = all_skipped.source_version_id))"
+            )
+        ).one()
+        saved = GaugeMetricFamily(
+            "atlas_triage_hindsight_operations_saved_estimate",
+            "Estimated Hindsight work triage saved: skipped sections never retained"
+            " (unit=documents, each one extraction Hindsight did not run) and Source Versions"
+            " with every section skipped (unit=batches, each one retain operation not submitted)",
+            labels=["unit"],
+        )
+        saved.add_metric(["documents"], documents)
+        saved.add_metric(["batches"], batches)
+        yield saved
 
     def _research(self, connection: Connection) -> Iterator[Metric]:
         buckets = ", ".join(

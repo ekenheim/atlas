@@ -52,6 +52,7 @@ PAUSABLE_KINDS = [
     "reprocess",
     "retain",
     "review_relationships",
+    "triage",
 ]
 UNRELATED_ERROR = "ValueError: document exceeds the extraction schema's maximum length"
 STOCKHOLM = ZoneInfo("Europe/Stockholm")

@@ -396,6 +396,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Triage Decisions */
+        get: operations["triage_decisions_api_v1_triage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-versions/{version_id}/sections/{anchor}/retain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retain Section */
+        post: operations["retain_section_api_v1_source_versions__version_id__sections__anchor__retain_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/memory/recall": {
         parameters: {
             query?: never;
@@ -3475,6 +3509,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[TriageDecision] */
+        Page_TriageDecision_: {
+            /** Items */
+            items: components["schemas"]["TriageDecision"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /**
          * Passage
          * @description A stretch of one Source Version's parsed text sent to the Investigator.
@@ -4048,6 +4093,28 @@ export interface components {
              */
             token_budget: number;
         };
+        /**
+         * RetainOnDemand
+         * @description Why a section should be retained now, and (optionally) the investigation asking.
+         */
+        RetainOnDemand: {
+            /** Reason */
+            reason: string;
+            /** Investigation Id */
+            investigation_id?: string | null;
+        };
+        /**
+         * RetainRequested
+         * @description The on-demand decision recorded and the retain job that carries it out.
+         */
+        RetainRequested: {
+            decision: components["schemas"]["TriageDecision"];
+            /**
+             * Retain Job Id
+             * Format: uuid
+             */
+            retain_job_id: string;
+        };
         /** @enum {string} */
         ReviewState: "committed" | "pending" | "confirmed" | "rejected";
         /**
@@ -4527,6 +4594,69 @@ export interface components {
             to: "draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence";
             /** Note */
             note?: string | null;
+        };
+        /**
+         * TriageDecision
+         * @description One decision about one section of a Source Version.
+         */
+        TriageDecision: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Company Id */
+            company_id: string | null;
+            /** Section Anchor */
+            section_anchor: string;
+            /** Section Heading */
+            section_heading: string | null;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Sectioner Version */
+            sectioner_version: string;
+            /** Content Sha256 */
+            content_sha256: string;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "retain" | "skip";
+            /** Category */
+            category: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "rule" | "inherited" | "role" | "default" | "on_demand";
+            /** Rubric Version */
+            rubric_version: string;
+            /** Rules Version */
+            rules_version: string;
+            /** Role Call Id */
+            role_call_id: string | null;
+            /** Inherited From Id */
+            inherited_from_id: string | null;
+            /** Requested By */
+            requested_by: string | null;
+            /** Investigation Id */
+            investigation_id: string | null;
+            /**
+             * Decided At
+             * Format: date-time
+             */
+            decided_at: string;
+            /** Effective */
+            effective: boolean;
         };
         /** @enum {string} */
         UnresolvedReason: "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
@@ -5622,6 +5752,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    triage_decisions_api_v1_triage_get: {
+        parameters: {
+            query?: {
+                source_version_id?: string | null;
+                company_id?: string | null;
+                decision?: ("retain" | "skip") | null;
+                category?: string | null;
+                method?: ("rule" | "inherited" | "role" | "default" | "on_demand") | null;
+                /** @description only each section's latest decision */
+                effective?: boolean;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TriageDecision_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    retain_section_api_v1_source_versions__version_id__sections__anchor__retain_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+                anchor: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetainOnDemand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetainRequested"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

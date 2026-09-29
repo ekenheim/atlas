@@ -98,6 +98,8 @@ class Atlas:
                 "retain_poll_timeout_seconds": stack.poll_timeout_seconds,
                 "retain_poll_interval_seconds": stack.poll_interval_seconds,
                 "retain_poll_attempts": stack.poll_attempts,
+                # The Phase 2 gate measures retention of every section (no triage).
+                "retention_triage": "off",
                 "backfill_window": "",
             }
         )

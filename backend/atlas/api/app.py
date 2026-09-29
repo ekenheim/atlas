@@ -27,6 +27,7 @@ from atlas.api.relationships import relationships_router
 from atlas.api.research import research_router
 from atlas.api.runs import runs_router
 from atlas.api.sources import sources_router
+from atlas.api.triage import triage_router
 from atlas.archive import open_archive
 from atlas.audit import Actor
 from atlas.companies import load_universe
@@ -92,6 +93,9 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(memory_router(engine, settings.hindsight_bank_id))
+    app.include_router(
+        triage_router(engine, archive, Actor.from_settings(settings), settings.hindsight_bank_id)
+    )
     app.include_router(
         research_router(
             engine,
