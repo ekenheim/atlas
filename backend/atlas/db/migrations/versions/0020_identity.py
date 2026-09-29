@@ -15,13 +15,13 @@
   that needs the owner (every CIK↔LEI link) can never be `committed`.
 
 Revision ID: 0020
-Revises: 0018 (re-chained at merge)
+Revises: 0019 (re-chained at merge)
 """
 
 from alembic import op
 
 revision = "0020"
-down_revision = "0018"
+down_revision = "0019"
 branch_labels = None
 depends_on = None
 

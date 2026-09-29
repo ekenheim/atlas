@@ -1,0 +1,21 @@
+# Hand-written to exercise RFC 9309 matching (not any site's file).
+Allow: /before-any-group   # outside any group: ignored
+
+User-agent: *
+Disallow: /
+
+User-agent: SomeOtherBot
+User-agent: atlasresearch
+Disallow: /reports/
+Allow: /reports/annual/
+Disallow: /tie
+Allow: /tie
+Disallow: /*.xls$
+Disallow: /search?*q=
+Disallow: /caf%C3%A9/
+Crawl-delay: 10
+Sitemap: https://example.test/sitemap.xml
+
+User-agent: AtlasResearch
+Disallow: /private
+Disallow:

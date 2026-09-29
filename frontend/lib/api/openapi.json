@@ -626,6 +626,161 @@
         }
       }
     },
+    "/api/v1/companies/{company_id}/fetch-gate-decisions": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Company Fetch Gate Decisions",
+        "operationId": "company_fetch_gate_decisions_api_v1_companies__company_id__fetch_gate_decisions_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "allowed",
+                    "blocked"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only decisions with this status",
+              "title": "Status"
+            },
+            "description": "only decisions with this status"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_FetchGateDecision_"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fetch-gate-decisions/{decision_id}": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Fetch Gate Decision",
+        "operationId": "fetch_gate_decision_api_v1_fetch_gate_decisions__decision_id__get",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FetchGateDecision"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/companies/{company_id}/financials": {
       "get": {
         "tags": [
@@ -5204,6 +5359,143 @@
         "title": "Fact",
         "description": "One external fact the resolution used: where it came from and when it was read."
       },
+      "FetchGateDecision": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "blocked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked By"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
+          "terms": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terms"
+          },
+          "robots": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Robots"
+          },
+          "user_agent_token": {
+            "type": "string",
+            "title": "User Agent Token"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Decided At"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "job_id",
+          "company_id",
+          "provider",
+          "purpose",
+          "url",
+          "status",
+          "blocked_by",
+          "reason",
+          "site",
+          "terms",
+          "robots",
+          "user_agent_token",
+          "decided_at",
+          "recorded_at"
+        ],
+        "title": "FetchGateDecision",
+        "description": "Whether Atlas was allowed to request a URL, and which gate decided."
+      },
       "FetchObservation": {
         "properties": {
           "id": {
@@ -5288,6 +5580,18 @@
               }
             ],
             "title": "Job Id"
+          },
+          "gate_decision_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Decision Id"
           }
         },
         "type": "object",
@@ -5302,7 +5606,8 @@
           "etag",
           "last_modified",
           "attempts",
-          "job_id"
+          "job_id",
+          "gate_decision_id"
         ],
         "title": "FetchObservation",
         "description": "One fetch of the document that produced or matched this version."
@@ -7878,6 +8183,37 @@
           "offset"
         ],
         "title": "Page[Discovery]"
+      },
+      "Page_FetchGateDecision_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FetchGateDecision"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[FetchGateDecision]"
       },
       "Page_FinancialObservation_": {
         "properties": {

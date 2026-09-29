@@ -1,0 +1,45 @@
+{
+  "note": "Hand-written from HKEXnews' documented response shapes, not recorded (scripts/make_hkexnews_fixtures.py). The PDFs are synthetic.",
+  "responses": [
+    {
+      "url": "https://www1.hkexnews.hk/robots.txt",
+      "file": "robots-404.html",
+      "status": 404,
+      "headers": {
+        "Content-Type": "text/html"
+      }
+    },
+    {
+      "url": "https://www1.hkexnews.hk/search/titleSearchServlet.do?stockId=1000311764",
+      "file": "search.json",
+      "ignore_query": true,
+      "headers": {
+        "Content-Type": "application/json;charset=UTF-8"
+      }
+    },
+    {
+      "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0821/2026082101227.pdf",
+      "file": "listedco/listconews/sehk/2026/0821/2026082101227.pdf",
+      "headers": {
+        "Content-Type": "application/pdf",
+        "Last-Modified": "Fri, 04 Sep 2026 11:05:00 GMT"
+      }
+    },
+    {
+      "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0904/2026090400456.pdf",
+      "file": "listedco/listconews/sehk/2026/0904/2026090400456.pdf",
+      "headers": {
+        "Content-Type": "application/pdf",
+        "Last-Modified": "Fri, 04 Sep 2026 11:05:00 GMT"
+      }
+    },
+    {
+      "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0729/2026072900123.pdf",
+      "file": "listedco/listconews/sehk/2026/0729/2026072900123.pdf",
+      "headers": {
+        "Content-Type": "application/pdf",
+        "Last-Modified": "Fri, 04 Sep 2026 11:05:00 GMT"
+      }
+    }
+  ]
+}

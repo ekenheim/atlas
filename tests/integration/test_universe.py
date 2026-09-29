@@ -224,31 +224,32 @@ def test_a_config_giving_an_exchange_company_a_cik_is_refused(universe: Universe
 # --- the SEC ingest and source paths ---
 
 
-@pytest.mark.parametrize("company", ["soitec", "iqe", "innolight"])
-def test_the_ingest_cli_refuses_a_company_that_is_not_an_sec_filer(
+# Innolight (exchange:hkex) has an adapter since ticket 04 (tests/integration/test_hkexnews.py).
+@pytest.mark.parametrize("company", ["soitec", "iqe"])
+def test_the_ingest_cli_refuses_a_company_whose_source_path_has_no_adapter(
     universe: Universe, company: str
 ) -> None:
     result = universe.cli("ingest", "--company", company, "--key", company)
 
     assert result.returncode == 2
-    assert f"company {company!r} is not an SEC filer" in result.stderr
-    assert PHOTONICS[company][1] in result.stderr
+    assert f"company {company!r} has source path {PHOTONICS[company][1]!r}" in result.stderr
+    assert "no adapter ingests yet" in result.stderr
     assert universe.count("job") == 0
 
 
-def test_an_ingest_job_for_a_non_sec_company_fails_clearly_without_fetching(
+def test_an_ingest_job_for_a_company_without_an_adapter_fails_clearly_without_fetching(
     universe: Universe,
 ) -> None:
     # Enqueued past the CLI's check, as an API or a later Candidate commit could.
     enqueued = JobQueue(universe.engine).enqueue(
-        INGEST_KIND, "innolight", ingest_payload("innolight", None, None), max_attempts=1
+        INGEST_KIND, "soitec", ingest_payload("soitec", None, None), max_attempts=1
     )
 
     universe.worker_pass()
 
     job = universe.get(f"/api/v1/jobs/{enqueued.job.id}")
     assert job["status"] == "failed"
-    assert "'innolight' is not an SEC filer (source path 'exchange:hkex')" in job["last_error"]
+    assert "'soitec' has source path 'exchange:euronext', which no adapter" in job["last_error"]
     assert universe.count("fetch_observation") == 0
     assert universe.count("source_document") == 0
     assert universe.count("company") == 0  # refused before seeding, too

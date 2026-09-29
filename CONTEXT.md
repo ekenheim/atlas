@@ -14,6 +14,10 @@ _Avoid_: Document (unqualified), page, filing (when the identity is meant)
 One immutable, hash-identified copy of a Source Document as fetched at a point in time. Any change to the content is a new Source Version, never an edit.
 _Avoid_: Revision, snapshot (reserved for Research Snapshot)
 
+**Fetch Gate Decision**:
+Whether Atlas was allowed to request a URL, decided before the request from the site register, the site's terms and its robots.txt, and recorded either way. A blocked source stays visible as a blocked decision instead of silently missing.
+_Avoid_: Permission, crawl check
+
 **Claim**:
 A statement proposed by an agent or extractor that has not yet been validated against a Source Version. Untrusted by default.
 _Avoid_: Fact, finding

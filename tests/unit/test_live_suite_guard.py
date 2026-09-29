@@ -1,8 +1,8 @@
 """The live Phase 2 suite stays out of CI and refuses to run without its explicit opt-in.
 
 Each check runs pytest itself in a subprocess, as CI and the owner would, with the opt-in
-variables removed from the environment. Only the Phase 2 file is ever selected, so the live
-SEC smoke test can't run from here.
+variables removed from the environment. Only the Phase 2 file and the extraction smoke test
+are ever selected, so the live SEC smoke test can't run from here.
 """
 
 import os
@@ -13,6 +13,7 @@ from pathlib import Path
 REPO = Path(__file__).parents[2]
 SUITE = "tests/live/test_phase2_gate_live.py"
 SCENARIOS = 8
+SMOKE = "tests/live/test_extraction_smoke_live.py"
 
 
 def pytest_run(*args: str, **env: str) -> subprocess.CompletedProcess[str]:
@@ -52,3 +53,27 @@ def test_an_opted_in_live_run_under_ci_is_refused_before_any_call() -> None:
     )
     assert ran.returncode == 4, ran.stdout + ran.stderr
     assert "live suite refused: CI is set" in ran.stdout + ran.stderr
+
+
+def test_the_extraction_smoke_test_is_deselected_and_skipped_without_its_opt_in() -> None:
+    collected = pytest_run(SMOKE, "--collect-only", "-q")
+    assert "no tests collected (1 deselected)" in collected.stdout, collected.stdout
+    ran = pytest_run("-m", "live", SMOKE, "-q", "-rs")
+    assert ran.returncode == 0, ran.stdout + ran.stderr
+    assert "1 skipped" in ran.stdout
+    assert "live extraction smoke test not enabled" in ran.stdout
+
+
+def test_an_opted_in_extraction_smoke_run_under_ci_is_refused_before_any_call() -> None:
+    ran = pytest_run(
+        "-m",
+        "live",
+        SMOKE,
+        "-q",
+        ATLAS_LIVE_TESTS="1",
+        CI="true",
+        ATLAS_LITELLM_URL="http://127.0.0.1:9",
+        ATLAS_LITELLM_API_KEY="not-a-key",
+    )
+    assert ran.returncode == 4, ran.stdout + ran.stderr
+    assert "live extraction smoke test refused: CI is set" in ran.stdout + ran.stderr

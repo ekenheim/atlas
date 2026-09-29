@@ -170,7 +170,8 @@ def enqueue_ingest(
     from atlas.audit import Actor
     from atlas.db import create_engine
     from atlas.jobs import JobQueue
-    from atlas.ledger.ingest import INGEST_KIND, ingest_payload, not_an_sec_filer_message
+    from atlas.ledger.exchange_ingest import exchange_refusal
+    from atlas.ledger.ingest import INGEST_KIND, ingest_payload
 
     universe = _universe(settings)
     if company not in universe.companies:
@@ -182,8 +183,15 @@ def enqueue_ingest(
         )
         raise SystemExit(2)
     source_path = universe.companies[company].source_path
-    if source_path != "sec":
-        print(f"atlas: {not_an_sec_filer_message(company, source_path)}", file=sys.stderr)
+    refusal = exchange_refusal(company, source_path)
+    if refusal is not None:
+        print(f"atlas: {refusal}", file=sys.stderr)
+        raise SystemExit(2)
+    if source_path != "sec" and forms:
+        print(
+            f"atlas: --forms applies to SEC filers only ({company!r} is {source_path!r})",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
     if (limit is not None and limit < 1) or max_attempts < 1:
         print("atlas: --limit and --max-attempts must be at least 1", file=sys.stderr)
@@ -275,6 +283,58 @@ def run_correct_availability(settings: Settings) -> None:
     finally:
         engine.dispose()
     print(json.dumps(dataclasses.asdict(summary)))
+
+
+def run_sources_import(
+    settings: Settings,
+    company: str,
+    file: Path,
+    origin_url: str,
+    published_at: str,
+    title: str | None,
+    publisher: str | None,
+    media_type: str | None,
+) -> None:
+    import json
+    from datetime import datetime
+
+    from atlas.companies import UniverseConfigError
+    from atlas.ledger.manual_import import ImportRefused, import_document
+
+    try:
+        when = datetime.fromisoformat(published_at)
+    except ValueError:
+        print(
+            f"atlas: --published-at must be an ISO 8601 time with its offset, not {published_at!r}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from None
+    try:
+        imported = import_document(
+            settings,
+            company=company,
+            file=file,
+            origin_url=origin_url,
+            published_at=when,
+            title=title,
+            publisher=publisher,
+            media_type=media_type,
+            published_local=published_at,
+        )
+    except (ImportRefused, UniverseConfigError) as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        raise SystemExit(2) from None
+    print(
+        json.dumps(
+            {
+                "outcome": imported.outcome,
+                "company_id": str(imported.company_id),
+                "source_document_id": str(imported.source_document_id),
+                "source_version_id": str(imported.source_version_id),
+                "retain_jobs": imported.retain_jobs,
+            }
+        )
+    )
 
 
 def run_assign_families(settings: Settings) -> None:
@@ -496,6 +556,25 @@ def main(argv: list[str] | None = None) -> None:
         "assign-families",
         help="put parsed Source Versions recorded before Evidence Families into their family",
     )
+    sources = commands.add_parser("sources", help="source material fetched outside Atlas")
+    sources_commands = sources.add_subparsers(dest="sources_command", required=True)
+    source_import = sources_commands.add_parser(
+        "import",
+        help="record a document the owner fetched by hand (e.g. from HKEXnews) in the ledger",
+    )
+    source_import.add_argument("--company", required=True, help="company slug from the config")
+    source_import.add_argument("--file", required=True, type=Path, help="the downloaded file")
+    source_import.add_argument(
+        "--origin-url", required=True, help="the URL the file was downloaded from"
+    )
+    source_import.add_argument(
+        "--published-at",
+        required=True,
+        help="the publisher's timestamp, with its offset (e.g. 2026-08-21T22:30+08:00)",
+    )
+    source_import.add_argument("--title", help="the document's title (default: the file name)")
+    source_import.add_argument("--publisher", help="default: the origin site's publisher")
+    source_import.add_argument("--media-type", help="default: from the file extension")
     companies = commands.add_parser("companies", help="the configured company universe")
     companies_commands = companies.add_subparsers(dest="companies_command", required=True)
     companies_commands.add_parser("seed", help="create or update companies from the config")
@@ -559,6 +638,17 @@ def main(argv: list[str] | None = None) -> None:
         run_retry_failed(settings, args.since, args.all_history, args.backfill)
     elif args.command == "companies" and args.companies_command == "resolve":
         raise SystemExit(resolve_companies(settings, args.slugs))
+    elif args.command == "sources":
+        run_sources_import(
+            settings,
+            args.company,
+            args.file,
+            args.origin_url,
+            args.published_at,
+            args.title,
+            args.publisher,
+            args.media_type,
+        )
     elif args.command == "companies":
         seed_companies(settings)
     else:

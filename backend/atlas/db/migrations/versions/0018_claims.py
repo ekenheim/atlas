@@ -9,13 +9,13 @@
   message (`claim_rejected`). A Claim's outcome never changes; a later review acts on the
   Assertion (or, in ticket 12, the Relationship).
 
-Revision ID: 0019
+Revision ID: 0018
 Revises: 0017 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0019"
+revision = "0018"
 down_revision = "0017"
 branch_labels = None
 depends_on = None

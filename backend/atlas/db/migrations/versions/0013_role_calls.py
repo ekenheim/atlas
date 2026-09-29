@@ -9,13 +9,13 @@
   deployment), tokens, the raw content and its validation errors. A run's usage is the sum
   of its `llm_call` rows, which is what the per-run token budget counts.
 
-Revision ID: 0015
+Revision ID: 0013
 Revises: 0012 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0015"
+revision = "0013"
 down_revision = "0012"
 branch_labels = None
 depends_on = None

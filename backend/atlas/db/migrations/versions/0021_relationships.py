@@ -16,13 +16,13 @@
 - `relationship_review_job`: a `review_relationships` job's run, so a retried job keeps
   calling the Reviewer in the same run.
 
-Revision ID: 0022
+Revision ID: 0021
 Revises: 0020 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0022"
+revision = "0021"
 down_revision = "0020"
 branch_labels = None
 depends_on = None

@@ -197,6 +197,38 @@ The model's answers aren't scripted, so the suite asserts only what must hold fo
 
 It also says plainly which paths ran live. A rehearsal is not a live run.
 
+## Live extraction smoke test (ticket 28)
+
+**What:** `tests/live/test_extraction_smoke_live.py` runs the Investigator on real MiniMax output over three recorded EDGAR filings and reports how its Claims fare. It measures whether the Assertion span check rejects true Claims as `quote_mismatch` because the model counts characters poorly. **Never run in CI.** `scripts/live-extraction-smoke.sh` runs it and writes the report.
+
+**When:** by hand, with the owner's go-ahead. **A live run spends a little MiniMax quota:** at most 6 chat completions (3 calls, each with at most one repair; the cap is 10), each extraction's run capped at 40,000 tokens, and one attempt per job.
+
+**What it runs.** It creates a throwaway app database (`atlas_live_extract_*`), ingests the Lumentum and Coherent fixtures, and seeds the universe plus NVIDIA. Then it runs three `extract_claims` jobs, each with at most 4 passages in one call:
+- the Lumentum FY2026 10-K's Item 1
+- the Lumentum Q4 FY2026 release (8-K EX-99.1)
+- the Coherent FY2026 10-K's entity-tagged passages (NVIDIA, Lumentum)
+
+The Lumentum documents name no other known company, so a stubbed recall picks their sections. No Hindsight is needed: the recorded Hindsight fake serves on localhost for the ingest and the run record, and the run's Hindsight version is the fake's. Only the Investigator's calls go to LiteLLM (`--model`, default `MiniMax-M3`, thinking off).
+
+**Opt-in:** the `live` marker and `ATLAS_LIVE_TESTS` (`1` live, `rehearse` the scripted LiteLLM fake). LiteLLM settings come from `ATLAS_LITELLM_URL`/`ATLAS_LITELLM_API_KEY` or the repo `.env` (read CRLF-safe, never printed). The preflight refuses (exit status 4) under `CI`, without LiteLLM settings, or when the model isn't routed in LiteLLM (`/model/info`, no model call).
+
+**Steps:**
+```sh
+scripts/live-extraction-smoke.sh --rehearse            # free: the scripted fake, localhost only
+scripts/live-extraction-smoke.sh --model MiniMax-M3    # live; asks first unless --yes
+```
+Options: `--keep-db`, `--results DIR` (default `.scratch/live-runs/<stamp>-extraction-<mode>/`, gitignored), `--dry-run`.
+
+**The report:** `summary.md` and `results.json` contain:
+- per extraction: its passages, job status, calls and tokens
+- per Claim: predicate, outcome, reason code
+- for each `quote_mismatch`: whether the quote occurs in its passage `exactly_once`, `multiple` times or `not_at_all`, exactly and after folding whitespace, typographic quotes and dashes
+- for a quote found exactly once: what the later checks (both parties named, directional language) would make of it if located
+
+The totals give the mismatch share of the Claims that reached the span check. If it exceeds 20%, put the quote-location decision to the owner with those numbers (ticket 28). The live test asserts only the call cap and that each job succeeded with passages; the rehearsal also checks the report's classification of scripted answers.
+
+**Record it** in `docs/implementation-log.md` from `summary.md`, and say plainly whether it was live.
+
 ## EDGAR availability corrections (after deploying migration `0012`)
 
 Source Versions ingested before the EDGAR dissemination rule (docs/decisions.md, 2026-09-29) are dated at acceptance even when EDGAR held the filing to the next business day. After `atlas migrate` has applied `0012`, run once, with the app's settings:
