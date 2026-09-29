@@ -4176,6 +4176,155 @@
           }
         }
       }
+    },
+    "/api/v1/themes": {
+      "get": {
+        "tags": [
+          "themes"
+        ],
+        "summary": "Themes",
+        "operationId": "themes_api_v1_themes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ThemeSummary"
+                  },
+                  "type": "array",
+                  "title": "Response Themes Api V1 Themes Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/themes/{theme_id}/map": {
+      "get": {
+        "tags": [
+          "themes"
+        ],
+        "summary": "Map Of Theme",
+        "operationId": "map_of_theme_api_v1_themes__theme_id__map_get",
+        "parameters": [
+          {
+            "name": "theme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Theme Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThemeMapView"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/companies/{company_id}/dossier": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "summary": "Dossier",
+        "operationId": "dossier_api_v1_companies__company_id__dossier_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the financials' cutoff (ISO 8601 with a time zone); default now",
+              "title": "As Of"
+            },
+            "description": "the financials' cutoff (ISO 8601 with a time zone); default now"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyDossier"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4682,6 +4831,54 @@
           "next_open_at"
         ],
         "title": "BackfillWindowStatus"
+      },
+      "Bottlenecks": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/BottlenecksStatus",
+            "description": "refreshed: `model.content` is the open gaps; otherwise why there are none"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "what went wrong, when `unavailable`"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MentalModelView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the Bottlenecks mental model, with its resolved citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "model"
+        ],
+        "title": "Bottlenecks"
+      },
+      "BottlenecksStatus": {
+        "type": "string",
+        "enum": [
+          "refreshed",
+          "not_refreshed",
+          "not_in_bank",
+          "not_configured",
+          "unavailable"
+        ]
       },
       "Budget": {
         "type": "string",
@@ -5993,6 +6190,87 @@
         ],
         "title": "CompanyAlias"
       },
+      "CompanyDossier": {
+        "properties": {
+          "company": {
+            "$ref": "#/components/schemas/Company"
+          },
+          "themes": {
+            "items": {
+              "$ref": "#/components/schemas/ThemeRef"
+            },
+            "type": "array",
+            "title": "Themes",
+            "description": "the themes the company belongs to"
+          },
+          "pending_identity_reviews": {
+            "items": {
+              "$ref": "#/components/schemas/IdentityMapping"
+            },
+            "type": "array",
+            "title": "Pending Identity Reviews",
+            "description": "identity mappings awaiting the owner, oldest first"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceDocument"
+            },
+            "type": "array",
+            "title": "Sources",
+            "description": "Source Documents, first seen first"
+          },
+          "source_total": {
+            "type": "integer",
+            "title": "Source Total"
+          },
+          "relationships_out": {
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            },
+            "type": "array",
+            "title": "Relationships Out",
+            "description": "edges with the company as subject"
+          },
+          "relationships_in": {
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            },
+            "type": "array",
+            "title": "Relationships In",
+            "description": "edges with the company as object"
+          },
+          "financials": {
+            "$ref": "#/components/schemas/FinancialFigures",
+            "description": "canonical metrics as of `as_of`"
+          },
+          "fetch_gate_blocks": {
+            "items": {
+              "$ref": "#/components/schemas/FetchGateDecision"
+            },
+            "type": "array",
+            "title": "Fetch Gate Blocks",
+            "description": "exchange requests the fetch gate blocked, newest first"
+          },
+          "fetch_gate_block_total": {
+            "type": "integer",
+            "title": "Fetch Gate Block Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company",
+          "themes",
+          "pending_identity_reviews",
+          "sources",
+          "source_total",
+          "relationships_out",
+          "relationships_in",
+          "financials",
+          "fetch_gate_blocks",
+          "fetch_gate_block_total"
+        ],
+        "title": "CompanyDossier"
+      },
       "ContentLinks": {
         "properties": {
           "raw": {
@@ -6063,6 +6341,13 @@
           "counterevidence_id"
         ],
         "title": "Contradiction"
+      },
+      "CoverageGap": {
+        "type": "string",
+        "enum": [
+          "not_seeded",
+          "no_sources"
+        ]
       },
       "DiffClaim": {
         "properties": {
@@ -14240,6 +14525,242 @@
         ],
         "title": "Task",
         "description": "One role task of the plan. `depends_on` names tasks of the same round by key; a task\nruns once each of them is done, and is cancelled when one of its premises is disproven or\nevery task it depends on was cancelled."
+      },
+      "ThemeCompany": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "legal_name": {
+            "type": "string",
+            "title": "Legal Name"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Layer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_path": {
+            "$ref": "#/components/schemas/SourcePath"
+          },
+          "seeded": {
+            "type": "boolean",
+            "title": "Seeded",
+            "description": "the company row exists (open its dossier)"
+          },
+          "source_count": {
+            "type": "integer",
+            "title": "Source Count",
+            "description": "its Source Documents"
+          },
+          "relationship_count": {
+            "type": "integer",
+            "title": "Relationship Count",
+            "description": "edges naming it as subject or object"
+          },
+          "pending_identity_reviews": {
+            "type": "integer",
+            "title": "Pending Identity Reviews",
+            "description": "identity mappings awaiting the owner"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/CoverageGap"
+            },
+            "type": "array",
+            "title": "Gaps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "display_name",
+          "legal_name",
+          "country",
+          "layer",
+          "source_path",
+          "seeded",
+          "source_count",
+          "relationship_count",
+          "pending_identity_reviews",
+          "gaps"
+        ],
+        "title": "ThemeCompany"
+      },
+      "ThemeLayer": {
+        "properties": {
+          "layer": {
+            "$ref": "#/components/schemas/Layer"
+          },
+          "covers": {
+            "type": "string",
+            "title": "Covers",
+            "description": "what the layer holds"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/ThemeCompany"
+            },
+            "type": "array",
+            "title": "Companies"
+          }
+        },
+        "type": "object",
+        "required": [
+          "layer",
+          "covers",
+          "companies"
+        ],
+        "title": "ThemeLayer"
+      },
+      "ThemeMapView": {
+        "properties": {
+          "theme": {
+            "$ref": "#/components/schemas/ThemeSummary"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/ThemeLayer"
+            },
+            "type": "array",
+            "title": "Layers",
+            "description": "upstream to downstream, empty ones included"
+          },
+          "unlayered": {
+            "items": {
+              "$ref": "#/components/schemas/ThemeCompany"
+            },
+            "type": "array",
+            "title": "Unlayered",
+            "description": "companies with no layer set"
+          },
+          "relationships": {
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            },
+            "type": "array",
+            "title": "Relationships",
+            "description": "edges between the theme's companies (or to a product), by layer"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "type": "array",
+            "title": "Candidates",
+            "description": "the theme's Candidates, newest first"
+          },
+          "bottlenecks": {
+            "$ref": "#/components/schemas/Bottlenecks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "theme",
+          "layers",
+          "unlayered",
+          "relationships",
+          "candidates",
+          "bottlenecks"
+        ],
+        "title": "ThemeMapView"
+      },
+      "ThemeRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "ThemeRef"
+      },
+      "ThemeSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "universe_version": {
+            "type": "integer",
+            "title": "Universe Version",
+            "description": "the theme config's version"
+          },
+          "company_count": {
+            "type": "integer",
+            "title": "Company Count"
+          },
+          "companies_without_sources": {
+            "type": "integer",
+            "title": "Companies Without Sources"
+          },
+          "empty_layers": {
+            "items": {
+              "$ref": "#/components/schemas/Layer"
+            },
+            "type": "array",
+            "title": "Empty Layers",
+            "description": "layers with no company in the theme"
+          },
+          "relationship_count": {
+            "type": "integer",
+            "title": "Relationship Count"
+          },
+          "open_candidate_count": {
+            "type": "integer",
+            "title": "Open Candidate Count",
+            "description": "Candidates still `lead`, awaiting a decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "universe_version",
+          "company_count",
+          "companies_without_sources",
+          "empty_layers",
+          "relationship_count",
+          "open_candidate_count"
+        ],
+        "title": "ThemeSummary"
       },
       "Tier": {
         "type": "string",

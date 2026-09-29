@@ -20,6 +20,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <nav aria-label="Site">
             <Link href="/">Atlas Research</Link>
             <span aria-hidden="true"> · </span>
+            <Link href="/themes/">Themes</Link>
+            <span aria-hidden="true"> · </span>
             <Link href="/">Companies</Link>
             <span aria-hidden="true"> · </span>
             <Link href="/relationships/">Relationships</Link>
