@@ -175,7 +175,7 @@ def test_each_fetch_records_the_gate_that_allowed_it(atlas: Atlas) -> None:
     assert decision["terms"]["automation"] == "forbidden"
     assert decision["terms"]["consent"]["reference"] == SYNTHETIC_CONSENT["reference"]
     assert decision["terms"]["url"] == (
-        "https://www2.hkexnews.hk/Global/Exchange/Terms-of-Use?sc_lang=en"
+        "https://www.hkex.com.hk/Global/Exchange/Terms-of-Use?sc_lang=en"
     )
     # HKEXnews serves no robots.txt (the fixture's 404): nothing is restricted.
     assert decision["robots"]["url"] == "https://www1.hkexnews.hk/robots.txt"
@@ -253,7 +253,8 @@ def test_with_the_committed_register_hkexnews_is_blocked_by_its_terms(
     assert decision["purpose"] == "discovery"
     assert decision["url"].startswith(f"{SEARCH}?")
     assert decision["reason"] == (
-        "hkexnews's terms forbid automated access and no consent is recorded"
+        "blocked: HKEX Terms of Use prohibit automated access"
+        " (IIS licence or written consent required)"
     )
     assert decision["robots"] is None  # not even robots.txt was requested
     assert decision["terms"]["checked_on"] == "2026-09-29"

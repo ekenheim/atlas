@@ -18,15 +18,20 @@ sites:
   hkexnews:
     publisher: HKEXnews (Hong Kong Exchanges and Clearing Limited)
     hosts: [www1.hkexnews.hk, www.hkexnews.hk, www2.hkexnews.hk]
-    terms_url: https://www2.hkexnews.hk/Global/Exchange/Terms-of-Use?sc_lang=en
-    terms_checked_on: 2026-09-29
+    terms_url: https://www.hkex.com.hk/Global/Exchange/Terms-of-Use?sc_lang=en
+    terms_checked_on: 2026-09-29  # the terms were updated 19 Aug 2025
     automation: forbidden
     terms_note: >-
-      Section 5 forbids text or data mining and web scraping, and any robot, bot, spider,
-      scraper or other automated means to access, obtain, copy or monitor any portion of the
-      website, "for any purpose", including AI training; and compiling databases by
-      systematic retrieval. HKEX's prior written consent (info@hkex.com.hk) lifts any
-      restriction. No consent is recorded, so Atlas makes no request to HKEXnews.
+      The HKEX Terms of Use (covering hkexnews.hk) forbid "any text or data mining or web
+      scraping" and "any 'robot', 'bot', 'spider', 'scraper' or other automated device ... to
+      access, obtain, copy, monitor or republish any portion of the Website", and compiling
+      databases by systematic retrieval. The official automated route is HKEX's licensed
+      Issuer Information feed Service (IIS); HKEX's prior written consent (info@hkex.com.hk)
+      also lifts a restriction. Neither is held, so Atlas makes no request to HKEXnews;
+      documents fetched by hand come in through `atlas sources import`.
+    block_reason: >-
+      blocked: HKEX Terms of Use prohibit automated access (IIS licence or written consent
+      required)
     rate_per_s: 1
 
   zj-innolight:

@@ -150,7 +150,10 @@ def test_the_real_register_blocks_innolights_ir_site_and_hkexnews_without_any_re
     assert isinstance(ir, GateDecision) and ir.blocked_by == "terms"
     assert ir.reason == "zj-innolight's terms have not been checked"
     assert isinstance(search, GateDecision) and search.blocked_by == "terms"
-    assert search.reason == ("hkexnews's terms forbid automated access and no consent is recorded")
+    assert search.reason == (
+        "blocked: HKEX Terms of Use prohibit automated access"
+        " (IIS licence or written consent required)"
+    )
     assert search.terms is not None and search.terms.automation == "forbidden"
     assert site.requests == []
 

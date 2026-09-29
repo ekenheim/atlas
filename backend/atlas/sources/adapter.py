@@ -15,7 +15,9 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 AvailabilityBasis = Literal[
     "sec_acceptance", "sec_dissemination", "publisher_timestamp", "observed_discovery"
 ]
-CandidateKind = Literal["sec_filing_document", "sec_companyfacts", "exchange_announcement"]
+CandidateKind = Literal[
+    "sec_filing_document", "sec_companyfacts", "exchange_announcement", "manual_import"
+]
 
 
 class _Frozen(BaseModel):
@@ -88,6 +90,16 @@ class ExchangeAnnouncement(_Frozen):
     timezone: str  # the IANA zone the feed's timestamp is in, e.g. "Asia/Hong_Kong"
 
 
+class ManualImport(_Frozen):
+    """A document the owner fetched by hand and imported (`atlas sources import`), with
+    where it came from; it describes the Source Document the ledger records."""
+
+    publisher: str  # who published it, e.g. "HKEXnews"
+    file_name: str  # the imported file's name
+    imported_by: str  # the actor who imported it
+    published_local: str  # the publication time exactly as the owner gave it
+
+
 class SearchQuery(_Frozen):
     """What to discover. Each adapter uses the fields that apply to it."""
 
@@ -111,6 +123,7 @@ class SourceCandidate(_Frozen):
     available_at_basis: AvailabilityBasis
     filing: SecFiling | None = None
     announcement: ExchangeAnnouncement | None = None
+    manual: ManualImport | None = None
     validators: HttpValidators | None = None  # from the last fetch; makes the next conditional
     # The document's language as the source declares it (ISO 639 primary subtag, e.g. "en",
     # "zh"), if it does; otherwise the ledger records the language the parse finds.

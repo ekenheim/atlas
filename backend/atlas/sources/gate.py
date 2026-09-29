@@ -62,6 +62,9 @@ class SiteConfig(_Config):
     terms_checked_on: date | None = None
     automation: Automation
     terms_note: str = Field(min_length=1)  # what the terms say about automated access
+    # The reason a terms block records, e.g. "blocked: <why> (<what would lift it>)";
+    # without one, a generic reason is recorded.
+    block_reason: str | None = Field(default=None, min_length=1)
     consent: Consent | None = None
     rate_per_s: float = Field(default=1.0, gt=0)
 
@@ -222,7 +225,10 @@ class FetchGate:
         if site.automation == "unchecked":
             return decide("blocked", "terms", f"{name}'s terms have not been checked", name, terms)
         if site.automation == "forbidden" and site.consent is None:
-            reason = f"{name}'s terms forbid automated access and no consent is recorded"
+            reason = (
+                site.block_reason
+                or f"{name}'s terms forbid automated access and no consent is recorded"
+            )
             return decide("blocked", "terms", reason, name, terms)
         robots, record = await self._robots_for(url)
         verdict = robots.check(url, self._token)

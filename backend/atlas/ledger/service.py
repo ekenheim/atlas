@@ -115,6 +115,20 @@ def describe(candidate: SourceCandidate) -> DocumentIdentity:
             source_tier="A",
             license_class="public_regulatory",
         )
+    manual = candidate.manual
+    if manual is not None:
+        return DocumentIdentity(
+            provider=candidate.provider_id,
+            canonical_url=canonical_url(candidate.url),
+            accession=None,
+            form_type=None,
+            document_type=candidate.document_type,
+            source_type="manual_import",
+            title=candidate.title,
+            publisher=manual.publisher,
+            source_tier="A",
+            license_class="public_regulatory",
+        )
     if candidate.provider_id != SEC_EDGAR:
         raise LedgerError(f"no ledger rules for provider {candidate.provider_id!r}")
     filing = candidate.filing
@@ -397,7 +411,13 @@ class SourceLedger:
             **parse_fields,
             "event_at": None,
             # The exchange's publication time, when a feed gives one.
-            "published_at": candidate.announcement.published_at if candidate.announcement else None,
+            "published_at": (
+                candidate.announcement.published_at
+                if candidate.announcement
+                else candidate.available_at
+                if candidate.manual
+                else None
+            ),
             "available_at": available_at,
             "available_at_basis": basis,
             "fetched_at": fetched.fetched_at,
@@ -518,6 +538,8 @@ def _metadata(fetched: FetchedDocument) -> dict[str, Any]:
         }
     if candidate.announcement is not None:
         metadata["announcement"] = candidate.announcement.model_dump(mode="json")
+    if candidate.manual is not None:
+        metadata["manual_import"] = candidate.manual.model_dump(mode="json")
     return metadata
 
 
