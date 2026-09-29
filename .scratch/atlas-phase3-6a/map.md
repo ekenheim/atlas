@@ -31,6 +31,8 @@ It ends in the spec §15 demo. The spec will be at `.scratch/atlas-phase3-6a/spe
 
 <!-- one line per closed ticket -->
 
+- [XBRL normalization](issues/04-xbrl-normalization.md): as-of by filing availability, never `frame`; tag precedence per concept (revenue tags drift); no segment facts in companyfacts, so product exposure comes from text; restatement plus suspect flag; found the after-hours dissemination bug (→ ticket 10).
+
 - [Entity-resolution sources](issues/03-identity-apis.md): SEC + GLEIF + OpenFIGI in a 4-tier deterministic pipeline; no CIK↔LEI link exists (reviewed once per company); 8 `security` schema gaps; OpenFIGI needs segment MICs.
 
 ## Not yet specified
