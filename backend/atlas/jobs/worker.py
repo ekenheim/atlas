@@ -11,6 +11,7 @@ from datetime import timedelta
 from sqlalchemy.exc import OperationalError
 
 from atlas.jobs.handlers import HandlerRegistry
+from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Job, JobQueue
 
 log = logging.getLogger("atlas.worker")
@@ -70,11 +71,25 @@ class Worker:
             artifacts = handler(job) or {}
             json.dumps(artifacts)  # unserializable artifacts fail the attempt, not the worker
         except Exception as error:
+            message = f"{type(error).__name__}: {error}"
+            failure_class = classify_failure(error)
+            if failure_class is not None and self.registry.pausable(job.kind):
+                # Quota or outage: not the job's fault. Pause, and requeue it untouched.
+                pause, _ = self.queue.pause(
+                    job, self.worker_id, message, failure_class, self.registry.pausable_kinds()
+                )
+                log.warning(
+                    f"queue paused ({failure_class}) until {pause.resume_after}: {message}",
+                    extra=context | {"pause_level": pause.level},
+                )
+                return
             log.exception("job attempt failed", extra=context)
-            self.queue.fail(job, self.worker_id, f"{type(error).__name__}: {error}")
+            self.queue.fail(job, self.worker_id, message)
             return
         if self.queue.complete(job, self.worker_id, artifacts):
             log.info("job succeeded", extra=context)
+            if self.registry.pausable(job.kind) and self.queue.clear_pause():
+                log.info("queue pause cleared by a successful job", extra=context)
         else:
             log.warning("job lease lost before completion; result discarded", extra=context)
 

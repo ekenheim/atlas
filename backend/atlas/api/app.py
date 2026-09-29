@@ -14,6 +14,7 @@ from atlas.api.assertions import assertions_router
 from atlas.api.common import invalid_request
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
+from atlas.api.queue import queue_router
 from atlas.api.sources import sources_router
 from atlas.archive import open_archive
 from atlas.audit import Actor
@@ -26,12 +27,14 @@ from atlas.health import (
     check_litellm,
 )
 from atlas.hindsight import HindsightGateway
-from atlas.jobs import JobQueue
+from atlas.jobs import Clock, JobQueue, Pacing, utc_now
 from atlas.llm_routes import LiteLLMRoutes
+from atlas.metrics import StateCollector
 from atlas.settings import Settings
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
+    """The app. `clock` is the pacing clock (the pause and the backfill window)."""
     app = FastAPI(title="Atlas Research")
     # Request validation errors use the same error envelope as every other API error.
     app.add_exception_handler(RequestValidationError, invalid_request)
@@ -41,8 +44,10 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.archive = archive
     hindsight = HindsightGateway.from_settings(settings)
     litellm = LiteLLMRoutes.from_settings(settings)
+    queue = JobQueue(engine, pacing=Pacing.from_settings(settings), clock=clock)
     registry = CollectorRegistry()
     Info("atlas_build", "Atlas build information", registry=registry).info({"version": __version__})
+    registry.register(StateCollector(engine, queue))
 
     @app.get("/health/live")
     def live() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
@@ -64,7 +69,8 @@ def create_app(settings: Settings) -> FastAPI:
     def metrics() -> Response:  # pyright: ignore[reportUnusedFunction]
         return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
 
-    app.include_router(jobs_router(JobQueue(engine)))
+    app.include_router(jobs_router(queue))
+    app.include_router(queue_router(queue))
     app.include_router(sources_router(engine, archive))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(memory_router(engine, settings.hindsight_bank_id))

@@ -1,0 +1,70 @@
+# Atlas alert rules (spec Part B story 35), for the Prometheus Operator in home-ops.
+# Not deployed from this repo: the atlas Kustomization in home-ops
+# (kubernetes/apps/datasci/atlas/) is expected to include this file. The metrics come from the
+# API's /metrics, read from the database at scrape time (backend/atlas/metrics.py).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: atlas
+  labels:
+    app.kubernetes.io/name: atlas
+spec:
+  groups:
+    - name: atlas.memory
+      rules:
+        # Repeated failures: Hindsight operations failing for reasons of their own (quota and
+        # outage failures pause the queue instead, and are covered by AtlasQueuePausedLong).
+        - alert: AtlasHindsightOperationsFailing
+          expr: sum by (kind) (increase(atlas_hindsight_operations_total{error_class="permanent"}[1h])) >= 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Hindsight {{ $labels.kind }} operations keep failing"
+            description: >-
+              {{ $value | humanize }} {{ $labels.kind }} operations failed permanently in the last
+              hour; their sections are marked failed. See GET /api/v1/source-versions/{id}/memory.
+        - alert: AtlasJobsFailing
+          expr: sum by (kind) (increase(atlas_jobs_failed_total[1h])) >= 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Atlas {{ $labels.kind }} jobs are failing with their retries exhausted"
+            description: >-
+              {{ $value | humanize }} {{ $labels.kind }} jobs failed in the last hour. Their
+              failures are in GET /api/v1/jobs/{id}.
+        # Zero-fact spike: sections that yielded no facts even after their one reprocess.
+        - alert: AtlasZeroFactSpike
+          expr: increase(atlas_zero_fact_sections_total[6h]) >= 5
+          labels:
+            severity: warning
+          annotations:
+            summary: "Many sections retained with zero facts"
+            description: >-
+              {{ $value | humanize }} sections were flagged zero_fact in the last 6 hours, which
+              suggests the extraction model or the bank template is misbehaving.
+    - name: atlas.queue
+      rules:
+        # Long pause: quota or outage failures have held back queued work for over 2 hours
+        # (at least two backoffs at the 1 h cap), with no success in between.
+        - alert: AtlasQueuePausedLong
+          expr: atlas_queue_pause_duration_seconds > 7200
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "The Atlas queue has been paused for over 2 hours"
+            description: >-
+              Retains have waited {{ $value | humanizeDuration }} on quota or outage failures
+              (no fallback model is used). See GET /api/v1/queue for the reason.
+        - alert: AtlasStateMetricsDown
+          expr: atlas_state_metrics_up == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Atlas can't read its database for metrics"
+            description: >-
+              The API's /metrics couldn't query the database, so the queue and memory alerts
+              above are blind.

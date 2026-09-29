@@ -9,8 +9,12 @@ Three jobs carry a Source Version into the research bank:
    document with the ID `srcv:<source_version_uuid>:<section-anchor>`, and submits them as
    **one** batch. The operation is recorded and a `poll_operation` job follows it.
 2. `poll_operation` (`{"operation_id"}`) waits for the operation's `status` (the only basis
-   for an outcome) with a timeout. A timeout fails the attempt, so it is retried; a failed
-   operation marks its sections `failed` with the error. On completion it counts each
+   for an outcome) with a timeout. A timeout fails the attempt, so it is retried. A failed
+   operation's error is classified (`error_class`): a `permanent` one marks its sections
+   `failed` with the error; a `quota` or `unavailable` one (a 429 or outage behind Hindsight)
+   leaves them `pending` and raises `TransientFailure`, so the queue pauses and this job is
+   requeued; once the pause lifts, its next attempt resubmits the same sections as a new
+   batch under the same document IDs (never another model). On completion it counts each
    section's memories: sections with facts are `completed`; a zero-fact section that was
    never reprocessed gets a `reprocess` job; one that was is `zero_fact`.
 3. `reprocess` (`{"operation_id"}`) re-retains that operation's zero-fact sections once, as
@@ -28,7 +32,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
@@ -44,6 +48,7 @@ from atlas.hindsight import (
     OperationTimeout,
     RetainItem,
 )
+from atlas.jobs.pacing import FailureClass, JobClass, TransientFailure, classify_error_text
 from atlas.jobs.queue import Artifacts, JobQueue
 from atlas.retention.sections import SECTIONER_VERSION, Section, split_sections
 
@@ -75,8 +80,15 @@ class RetainTimings:
     poll_attempts: int
 
 
-def enqueue_retains(engine: Engine, source_version_ids: Sequence[uuid.UUID]) -> list[str]:
-    """Enqueue a retain job for each given Source Version that has a parse; returns job IDs."""
+def enqueue_retains(
+    engine: Engine,
+    source_version_ids: Sequence[uuid.UUID],
+    job_class: JobClass = "interactive",
+) -> list[str]:
+    """Enqueue a retain job for each given Source Version that has a parse; returns job IDs.
+
+    A backfill ingest enqueues backfill retains, which run only in the nightly window.
+    """
     if not source_version_ids:
         return []
     with engine.connect() as connection:
@@ -89,7 +101,12 @@ def enqueue_retains(engine: Engine, source_version_ids: Sequence[uuid.UUID]) -> 
         ).scalars()
         ids: list[uuid.UUID] = list(retainable)
     queue = JobQueue(engine)
-    return [str(queue.enqueue(RETAIN_KIND, f"retain:{i}", retain_payload(i)).job.id) for i in ids]
+    return [
+        str(
+            queue.enqueue(RETAIN_KIND, f"retain:{i}", retain_payload(i), job_class=job_class).job.id
+        )
+        for i in ids
+    ]
 
 
 def retain_payload(source_version_id: uuid.UUID) -> dict[str, JsonValue]:
@@ -367,13 +384,27 @@ class Retention:
         return tags
 
     def _submit(
-        self, version: _Version, rows: Sequence[RowMapping], *, kind: str, job_id: uuid.UUID | None
+        self,
+        version: _Version,
+        rows: Sequence[RowMapping],
+        *,
+        kind: str,
+        job_id: uuid.UUID | None,
+        resubmit: bool = False,
     ) -> str:
-        """Submit the sections as one batch; record the operation and point the rows at it."""
+        """Submit the sections as one batch; record the operation and point the rows at it.
+
+        `resubmit`: the same sections again after a quota or outage failure of their last
+        operation (of `kind`), so a reprocess isn't counted twice.
+        """
         submitted = self._gateway.retain_batch(self._items(version, rows))
         operation_id = submitted.operation_id
         document_ids = [row["hindsight_document_id"] for row in rows]
-        action = f"memory_document.{'reprocess_' if kind == 'reprocess' else ''}submitted"
+        if resubmit:
+            action = "memory_document.resubmitted"
+        else:
+            action = f"memory_document.{'reprocess_' if kind == 'reprocess' else ''}submitted"
+        bump = kind == "reprocess" and not resubmit
         with self._engine.begin() as connection:
             created = (
                 connection.execute(
@@ -410,7 +441,7 @@ class Retention:
                     "operation_id = :operation, reprocess_count = :reprocess, fact_count = NULL",
                     {
                         "operation": operation_id,
-                        "reprocess": row["reprocess_count"] + (kind == "reprocess"),
+                        "reprocess": row["reprocess_count"] + bump,
                     },
                     expect="retain_state = 'pending' AND operation_id IS NOT DISTINCT FROM :was",
                     expect_params={"was": row["operation_id"]},
@@ -449,7 +480,7 @@ class Retention:
 
     # --- poll ----------------------------------------------------------------------------------
 
-    def poll(self, operation_id: str) -> Artifacts:
+    def poll(self, operation_id: str, job_id: uuid.UUID | None = None) -> Artifacts:
         base: Artifacts = {"operation_id": operation_id}
         with self._engine.connect() as connection:
             recorded = (
@@ -461,6 +492,9 @@ class Retention:
             )
         if recorded is None:
             raise LookupError(f"operation {operation_id} is not tracked")
+        if recorded["completed_at"] is not None and recorded["error_class"] in TRANSIENT:
+            # Failed for quota or availability; the pause has lifted, so retry its sections.
+            return base | self._resubmit(recorded)
         if recorded["completed_at"] is not None:
             # Recorded by an earlier attempt; make sure its zero-fact sections were handed on.
             awaiting = [row for row in self._pending_rows(operation_id) if row["fact_count"] == 0]
@@ -492,8 +526,17 @@ class Retention:
             error = operation.error_message or (
                 f"Hindsight reported the operation {operation.status} with no error message"
             )
+            error_class = operation_error_class(operation)
+            if error_class != "permanent":
+                with self._engine.begin() as connection:
+                    self._record_terminal(connection, operation, error_class)
+                raise TransientFailure(
+                    error_class,
+                    f"Hindsight operation {operation_id} {operation.status}"
+                    f" ({error_class}): {error}",
+                )
             with self._engine.begin() as connection:
-                self._record_terminal(connection, operation)
+                self._record_terminal(connection, operation, error_class)
                 for row in rows:
                     self._change(
                         connection,
@@ -551,8 +594,21 @@ class Retention:
         return base | {"outcome": "completed", **tally, "reprocess_job": reprocess_job}
 
     def _enqueue_reprocess(self, operation_id: str) -> str:
+        """Enqueue the reprocess, in the class (backfill or not) of the job that submitted."""
+        with self._engine.connect() as connection:
+            job_class: JobClass = connection.execute(
+                text(
+                    "SELECT coalesce(j.job_class, 'interactive') FROM hindsight_operation o"
+                    " LEFT JOIN job j ON j.id = o.job_id WHERE o.id = :id"
+                ),
+                {"id": operation_id},
+            ).scalar_one()
         payload = OperationPayload(operation_id=operation_id).model_dump()
-        return str(self._queue.enqueue(REPROCESS_KIND, f"reprocess:{operation_id}", payload).job.id)
+        return str(
+            self._queue.enqueue(
+                REPROCESS_KIND, f"reprocess:{operation_id}", payload, job_class=job_class
+            ).job.id
+        )
 
     def _pending_rows(self, operation_id: str) -> list[RowMapping]:
         with self._engine.connect() as connection:
@@ -566,7 +622,27 @@ class Retention:
                 ).mappings()
             )
 
-    def _record_terminal(self, connection: Connection, operation: Operation) -> None:
+    def _resubmit(self, recorded: RowMapping) -> Artifacts:
+        operation_id: str = recorded["id"]
+        rows = self._pending_rows(operation_id)
+        if not rows:
+            return {"outcome": "already_resubmitted", "status": recorded["status"]}
+        version = self._version(recorded["source_version_id"])
+        # The new operation keeps the original submitting job, whose class (backfill or
+        # interactive) its follow-up reprocess inherits.
+        new_operation = self._submit(
+            version, rows, kind=recorded["kind"], job_id=recorded["job_id"], resubmit=True
+        )
+        return {
+            "outcome": "resubmitted",
+            "error_class": recorded["error_class"],
+            "resubmitted_operation_id": new_operation,
+            "documents": [row["hindsight_document_id"] for row in rows],
+        }
+
+    def _record_terminal(
+        self, connection: Connection, operation: Operation, error_class: str | None = None
+    ) -> None:
         old = (
             connection.execute(
                 text("SELECT * FROM hindsight_operation WHERE id = :id FOR UPDATE"),
@@ -579,6 +655,7 @@ class Retention:
             connection.execute(
                 text(
                     "UPDATE hindsight_operation SET status = :status, error_message = :error,"
+                    " error_class = :error_class,"
                     " retry_count = :retries, result_metadata = CAST(:metadata AS jsonb),"
                     " completed_at = coalesce(:completed_at, now()), last_polled_at = now(),"
                     " updated_at = now() WHERE id = :id RETURNING *"
@@ -587,6 +664,7 @@ class Retention:
                     "id": operation.operation_id,
                     "status": operation.status,
                     "error": operation.error_message,
+                    "error_class": error_class,
                     "retries": operation.retry_count or 0,
                     "metadata": json.dumps(operation.result_metadata),
                     "completed_at": operation.completed_at,
@@ -691,6 +769,25 @@ class Retention:
 def document_id(source_version_id: uuid.UUID, section: Section) -> str:
     """ADR-0001: per Source Version UUID and section anchor, never reused."""
     return f"srcv:{source_version_id}:{section.anchor}"
+
+
+TRANSIENT: tuple[FailureClass, ...] = ("quota", "unavailable")
+
+
+def operation_error_class(operation: Operation) -> FailureClass | Literal["permanent"]:
+    """A failed operation's error class, from its error and its sub-batches' errors.
+
+    `quota` (429, rate limit, insufficient quota) and `unavailable` (503, connection
+    failures) are the model provider or LiteLLM failing, not the sections; anything else,
+    including a failure with no message, is `permanent`.
+    """
+    messages = [operation.error_message, *(c.error_message for c in operation.child_operations)]
+    found = {classify_error_text(message) for message in messages} - {None}
+    if "quota" in found:
+        return "quota"
+    if "unavailable" in found:
+        return "unavailable"
+    return "permanent"
 
 
 def _retainable(row: RowMapping) -> bool:

@@ -18,6 +18,8 @@ class MemoryOperation(BaseModel):
     kind: str
     status: str
     error_message: str | None
+    # A failure's class: quota/unavailable paused the queue and resubmit; permanent fails.
+    error_class: Literal["quota", "unavailable", "permanent"] | None
     retry_count: int
     document_ids: list[str]
     submitted_at: datetime

@@ -211,21 +211,21 @@ The Postgres job queue (build plan §5.8; spec Part A "Jobs"; ticket 04). `run` 
 | `job_id` | uuid PK | UUIDv5 of `idempotency_key` |
 | `idempotency_key` | text not null, unique | Re-enqueuing the same key returns the existing job |
 | `kind` | text not null | Phase 1: `ingest`. Phase 2 adds `retain`, `poll_operation`, `reprocess`, `reflect`, `refresh_mental_model` |
-| `job_class` | text not null default `interactive` | `interactive` or `backfill`; backfill runs only in the nightly window (Phase 2) |
+| `job_class` | text not null default `interactive` | `interactive` or `backfill`; backfill is claimed only in the nightly window. Migration 0008 (ticket 14); set at enqueue (`--backfill`), inherited by a backfill ingest's retains and their reprocesses |
 | `payload_json` | jsonb not null | |
 | `status` | text not null | `queued`, `running`, `succeeded`, `failed` (retries exhausted), `cancelled` |
 | `attempts` | integer not null default 0 | |
 | `max_attempts` | integer not null | Bounded retries |
-| `run_after` | timestamptz not null | Backoff; claiming skips jobs whose time hasn't come |
+| `run_after` | timestamptz not null | Per-job backoff; **not implemented**: ticket 14 backs off at the queue level instead (§3.5) |
 | `lease_owner` | text null | Worker ID |
 | `lease_expires_at` | timestamptz null | An expired lease is reclaimable |
-| `failures_json` | jsonb not null default `[]` | One entry per failed attempt: time, classification, message |
+| `failures_json` | jsonb not null default `[]` | One entry per failed attempt: time, classification (`quota`, `unavailable`, `error`, `lease_expired`), message. A `quota`/`unavailable` attempt pauses the queue and isn't counted in `attempts` |
 | `artifacts_json` | jsonb not null default `[]` | Produced artifacts, for example Source Version IDs and unchanged-fetch observations |
 | `run_id` | uuid null FK → run | Phase 2 |
 | `trace_id` | text null | |
 | `created_at`, `started_at`, `finished_at` | timestamptz | |
 
-Claiming uses `SELECT … FOR UPDATE SKIP LOCKED` on queued jobs with `run_after <= now()` (or expired leases), so two workers never claim the same job.
+Claiming uses `SELECT … FOR UPDATE SKIP LOCKED` on queued jobs (or expired leases), so two workers never claim the same job. It skips jobs of a kind the queue pause holds back, and backfill jobs outside the window.
 
 ## 3. Phase 2 tables
 
@@ -274,8 +274,7 @@ One row per asynchronous Hindsight operation Atlas submitted. Migration 0007 (ti
 | `result_metadata` | jsonb object not null default `{}` | Hindsight's result metadata once terminal (items, `total_tokens`, extraction errors) |
 | `job_id` | uuid null FK → job | The job that submitted it |
 | `submitted_at`, `last_polled_at`, `completed_at`, `updated_at` | timestamptz | `completed_at` is set once the status is terminal |
-
-**(open, ticket 14):** `error_class` (`quota`, `unavailable`, `permanent`), which drives the queue pause.
+| `error_class` | text null | Migration 0008 (ticket 14). A failed operation's class, from its error and its sub-batches' errors: `quota` or `unavailable` pause the queue, and the sections stay `pending` and are resubmitted as a new operation; `permanent` fails them. Null for a completed operation |
 
 ### 3.3 `memory_document`
 
@@ -328,7 +327,25 @@ Rows are immutable after the job completes. Recall is synchronous and isn't stor
 
 ### 3.5 Queue pause state
 
-The queue-level pause (ticket 14): paused flag, reason, backoff (capped at 1 h), `paused_at`, `resume_after`. **(open, ticket 14):** a single-row `queue_state` table or a derived view over `hindsight_operation` and `job`. Either way it is visible through `GET /api/v1/queue` and in metrics.
+The queue-level pause (ticket 14, migration 0008). It's resolved as a **single-row `queue_pause` table** plus an append-only `queue_pause_event` history (see `docs/decisions.md`, ticket 14). It's visible through `GET /api/v1/queue` and in metrics.
+
+`queue_pause` (one row, `id = 1`):
+
+| Column | Type | Notes |
+|---|---|---|
+| `level` | integer not null default 0 | Pauses entered since the last success of a pausable job; 0 = clear. The backoff is 60 s × 2^(level−1), capped at 1 h |
+| `error_class` | text null | `quota` or `unavailable`, of the latest pause |
+| `reason` | text null | The failure that caused it |
+| `kinds` | text[] not null | The job kinds it holds back (the pausable kinds) |
+| `backoff_seconds` | double precision null | 0 < b ≤ 3600 |
+| `paused_at`, `resume_after` | timestamptz null | Paused now while `level > 0 AND resume_after > now` |
+| `episode_started_at` | timestamptz null | The start of this run of pauses; null exactly when `level = 0` |
+| `job_id` | uuid null FK → job | The job whose failure caused the latest pause |
+| `cleared_at`, `updated_at` | timestamptz | `cleared_at`: when a success last reset the level |
+
+A check requires the pause fields when `level > 0`. The paused flag is derived (`level > 0 AND resume_after > now`), not stored.
+
+`queue_pause_event`: `id`, `level`, `error_class`, `reason`, `kinds`, `backoff_seconds`, `paused_at`, `resume_after`, `job_id`, `job_kind`, one row per pause entered.
 
 ## 4. Clocks
 

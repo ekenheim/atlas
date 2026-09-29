@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     # before another worker may reclaim it (a crashed worker's job is retried after this).
     worker_poll_seconds: float = Field(default=5.0, gt=0)
     job_lease_seconds: float = Field(default=300.0, gt=0)
+    # Pacing (atlas.jobs.pacing): backfill-class jobs run only inside this daily local-time
+    # window (HH:MM-HH:MM, may wrap midnight; empty: any time), in backfill_timezone. A quota
+    # or outage failure pauses the Hindsight/LiteLLM job kinds for queue_pause_base_seconds,
+    # doubling per consecutive pause up to queue_pause_max_seconds (at most 1 h).
+    backfill_window: str = "01:00-07:00"
+    backfill_timezone: str = "UTC"
+    queue_pause_base_seconds: float = Field(default=60.0, gt=0, le=3600)
+    queue_pause_max_seconds: float = Field(default=3600.0, gt=0, le=3600)
 
     # Archive backend: the filesystem (under archive_root, the dev default) or S3.
     # The S3 settings are required only when archive_backend is "s3".
@@ -81,6 +89,22 @@ class Settings(BaseSettings):
                 raise ValueError(
                     f"ATLAS_ARCHIVE_BACKEND=s3 also requires {', '.join(missing)} (not set)"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def _check_pacing(self) -> Self:
+        from atlas.jobs.pacing import BackfillWindow, InvalidWindow, parse_timezone
+
+        try:
+            parse_timezone(self.backfill_timezone)
+            if self.backfill_window:
+                BackfillWindow.parse(self.backfill_window, self.backfill_timezone)
+        except InvalidWindow as error:
+            raise ValueError(f"ATLAS_BACKFILL_WINDOW / ATLAS_BACKFILL_TIMEZONE: {error}") from None
+        if self.queue_pause_base_seconds > self.queue_pause_max_seconds:
+            raise ValueError(
+                "ATLAS_QUEUE_PAUSE_BASE_SECONDS must not exceed ATLAS_QUEUE_PAUSE_MAX_SECONDS"
+            )
         return self
 
     @field_validator("sec_user_agent")

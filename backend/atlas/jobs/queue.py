@@ -1,6 +1,8 @@
 """The Postgres job table as a work queue: idempotent enqueue, leased claims, bounded retries.
 
-All clocks are the database's (`now()`), so lease expiry means the same thing to every worker.
+Lease clocks are the database's (`now()`), so lease expiry means the same thing to every
+worker. Pacing (the queue-level pause and the backfill window, `atlas.jobs.pacing`) reads the
+application clock, which tests can control.
 """
 
 import json
@@ -12,8 +14,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection, Engine, text
 
+from atlas.jobs.pacing import Clock, FailureClass, JobClass, Pacing, utc_now
+
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 Artifacts = dict[str, JsonValue]
+
+# How a failed attempt was classified: `quota`/`unavailable` paused the queue and didn't use
+# up the attempt; `error` is an ordinary failure; `lease_expired` a worker that disappeared.
+FailureClassification = Literal["quota", "unavailable", "error", "lease_expired"]
 
 # Fixed namespace for job IDs; changing it would re-key every job.
 _JOB_NAMESPACE = uuid.UUID("5b0d6f6e-3c1a-4d4e-9a57-0c7b1f3e9a10")
@@ -31,6 +39,7 @@ class JobFailure(BaseModel):
     error: str
     worker: str | None
     at: datetime
+    classification: FailureClassification | None = None  # None: recorded before ticket 14
 
 
 class Job(BaseModel):
@@ -39,6 +48,7 @@ class Job(BaseModel):
     id: uuid.UUID
     kind: str
     idempotency_key: str
+    job_class: JobClass
     payload: dict[str, JsonValue]
     status: JobStatus
     attempts: int
@@ -60,21 +70,55 @@ class Enqueued:
     created: bool  # False when a job with the same kind and idempotency key already existed
 
 
-def _record_failure(error_sql: str) -> str:
+class QueuePause(BaseModel):
+    """The queue-level pause: which kinds are held back, why, and until when."""
+
+    model_config = ConfigDict(frozen=True)
+
+    paused: bool  # the pause is in force now (its backoff hasn't passed)
+    level: int  # pauses entered since the last success of a pausable job; 0: clear
+    error_class: FailureClass | None  # of the latest pause
+    reason: str | None  # the failure that caused the latest pause
+    kinds: list[str]  # the job kinds the latest pause holds back
+    backoff_seconds: float | None  # the latest pause's backoff
+    paused_at: datetime | None
+    resume_after: datetime | None
+    since: datetime | None  # when this run of pauses began; None once a success clears it
+    job_id: uuid.UUID | None  # the job whose failure caused the latest pause
+    cleared_at: datetime | None
+    pauses_total: int  # every pause ever entered
+
+
+@dataclass(frozen=True)
+class PendingJobs:
+    kind: str
+    job_class: JobClass
+    status: Literal["queued", "running"]
+    count: int
+
+
+def _record_failure(error_sql: str, classification: str) -> str:
     """SET fragment: append a failure for the row's current attempt (UPDATE sees old values)."""
     return (
         "failures = failures || jsonb_build_array(jsonb_build_object("
-        f"'attempt', attempts, 'error', {error_sql}, 'worker', lease_owner, 'at', now())), "
+        f"'attempt', attempts, 'error', {error_sql}, 'worker', lease_owner, 'at', now(), "
+        f"'classification', '{classification}')), "
         f"last_error = {error_sql}"
     )
 
 
-_RECORD_LOST_LEASE = _record_failure("'lease expired (held by ' || lease_owner || ')'")
+_RECORD_LOST_LEASE = _record_failure(
+    "'lease expired (held by ' || lease_owner || ')'", "lease_expired"
+)
 
 
 class JobQueue:
-    def __init__(self, engine: Engine) -> None:
+    def __init__(
+        self, engine: Engine, *, pacing: Pacing | None = None, clock: Clock = utc_now
+    ) -> None:
         self._engine = engine
+        self.pacing = pacing or Pacing()
+        self.clock = clock
 
     def enqueue(
         self,
@@ -82,21 +126,27 @@ class JobQueue:
         idempotency_key: str,
         payload: dict[str, JsonValue] | None = None,
         max_attempts: int = 3,
+        job_class: JobClass = "interactive",
     ) -> Enqueued:
-        """Add a job, or return the existing one for the same kind and idempotency key."""
+        """Add a job, or return the existing one for the same kind and idempotency key.
+
+        A `backfill` job is claimed only inside the backfill window.
+        """
         job_id = job_id_for(kind, idempotency_key)
         with self._engine.begin() as connection:
             row = (
                 connection.execute(
                     text(
-                        "INSERT INTO job (id, kind, idempotency_key, payload, max_attempts) "
-                        "VALUES (:id, :kind, :key, CAST(:payload AS jsonb), :max_attempts) "
+                        "INSERT INTO job (id, kind, idempotency_key, job_class, payload,"
+                        " max_attempts) VALUES (:id, :kind, :key, :job_class,"
+                        " CAST(:payload AS jsonb), :max_attempts) "
                         "ON CONFLICT DO NOTHING RETURNING *"
                     ),
                     {
                         "id": job_id,
                         "kind": kind,
                         "key": idempotency_key,
+                        "job_class": job_class,
                         "payload": json.dumps(payload or {}),
                         "max_attempts": max_attempts,
                     },
@@ -118,19 +168,25 @@ class JobQueue:
         """Lease the oldest runnable job to `owner`, or return None if there is none.
 
         Runnable means queued, or running under an expired lease (its worker is presumed
-        dead). Reclaiming records the lost attempt as a failure; if that attempt was the
-        last one, the job fails instead of running again.
+        dead), and held back neither by the queue pause (its kind is paused) nor by the
+        backfill window (a backfill job outside it). Reclaiming records the lost attempt as a
+        failure; if that attempt was the last one, the job fails instead of running again.
         """
         while True:
+            now = self.clock()
             with self._engine.begin() as connection:
                 candidate = connection.execute(
                     text(
                         "SELECT id, status, attempts, max_attempts FROM job "
-                        "WHERE status = 'queued' "
-                        "   OR (status = 'running' AND lease_expires_at <= now()) "
+                        "WHERE (status = 'queued' "
+                        "   OR (status = 'running' AND lease_expires_at <= now())) "
+                        "  AND NOT EXISTS (SELECT FROM queue_pause p WHERE p.level > 0"
+                        "      AND p.resume_after > :now AND job.kind = ANY(p.kinds)) "
+                        "  AND (job.job_class <> 'backfill' OR :window_open) "
                         "ORDER BY created_at, id LIMIT 1 "
-                        "FOR UPDATE SKIP LOCKED"
-                    )
+                        "FOR UPDATE OF job SKIP LOCKED"
+                    ),
+                    {"now": now, "window_open": self.pacing.window_open(now)},
                 ).one_or_none()
                 if candidate is None:
                     return None
@@ -180,7 +236,7 @@ class JobQueue:
         return self._finish(
             job,
             owner,
-            f"{_record_failure('CAST(:error AS text)')}, "
+            f"{_record_failure('CAST(:error AS text)', 'error')}, "
             "status = CASE WHEN :retry AND attempts < max_attempts "
             "              THEN 'queued' ELSE 'failed' END, "
             "finished_at = CASE WHEN :retry AND attempts < max_attempts "
@@ -188,20 +244,160 @@ class JobQueue:
             {"error": error, "retry": retry},
         )
 
-    def _finish(self, job: Job, owner: str, assignments: str, params: dict[str, Any]) -> bool:
-        # Fenced on (owner, attempt): a worker whose lease was reclaimed cannot overwrite
-        # the outcome of a later attempt.
+    def pause(
+        self,
+        job: Job,
+        owner: str,
+        error: str,
+        failure_class: FailureClass,
+        kinds: list[str],
+    ) -> tuple[QueuePause, bool]:
+        """Pause the queue for a quota or outage failure of `job`, and requeue the job.
+
+        If no pause is in force, this enters the next pause level: the backoff doubles per
+        level since the last success, up to the cap. A failure while a pause is in force (a
+        job that was already running when it began) doesn't lengthen it. Either way the job
+        goes back to the queue without using up its attempt, with the failure recorded.
+        Returns the pause and whether `owner` still held the job's lease.
+        """
+        now = self.clock()
+        with self._engine.begin() as connection:
+            current = (
+                connection.execute(
+                    text(
+                        "SELECT level, level > 0 AND resume_after > :now AS active"
+                        " FROM queue_pause WHERE id = 1 FOR UPDATE"
+                    ),
+                    {"now": now},
+                )
+                .mappings()
+                .one()
+            )
+            if not current["active"]:
+                level = current["level"] + 1
+                backoff = self.pacing.backoff(level)
+                paused = (
+                    connection.execute(
+                        text(
+                            "UPDATE queue_pause SET level = :level, error_class = :class,"
+                            " reason = :reason, kinds = :kinds, backoff_seconds = :backoff,"
+                            " paused_at = :now, resume_after = :resume, job_id = :job,"
+                            " episode_started_at = coalesce(episode_started_at, :now),"
+                            " updated_at = now() WHERE id = 1 RETURNING *"
+                        ),
+                        {
+                            "level": level,
+                            "class": failure_class,
+                            "reason": error,
+                            "kinds": sorted(kinds),
+                            "backoff": backoff.total_seconds(),
+                            "now": now,
+                            "resume": now + backoff,
+                            "job": job.id,
+                        },
+                    )
+                    .mappings()
+                    .one()
+                )
+                connection.execute(
+                    text(
+                        "INSERT INTO queue_pause_event (id, level, error_class, reason, kinds,"
+                        " backoff_seconds, paused_at, resume_after, job_id, job_kind)"
+                        " VALUES (:id, :level, :error_class, :reason, :kinds,"
+                        " :backoff_seconds, :paused_at, :resume_after, :job_id, :job_kind)"
+                    ),
+                    {
+                        "id": uuid.uuid4(),
+                        "level": paused["level"],
+                        "error_class": paused["error_class"],
+                        "reason": paused["reason"],
+                        "kinds": paused["kinds"],
+                        "backoff_seconds": paused["backoff_seconds"],
+                        "paused_at": paused["paused_at"],
+                        "resume_after": paused["resume_after"],
+                        "job_id": job.id,
+                        "job_kind": job.kind,
+                    },
+                )
+            requeued = self._update_fenced(
+                connection,
+                job,
+                owner,
+                f"{_record_failure('CAST(:error AS text)', failure_class)}, "
+                "status = 'queued', attempts = attempts - 1",
+                {"error": error},
+            )
+        return self.pause_state(), requeued
+
+    def clear_pause(self) -> bool:
+        """A pausable job succeeded: reset the pause level, once the backoff has passed."""
+        now = self.clock()
         with self._engine.begin() as connection:
             result = connection.execute(
                 text(
-                    f"UPDATE job SET {assignments}, lease_owner = NULL, "  # noqa: S608 (constant fragments)
-                    "lease_expires_at = NULL, updated_at = now() "
-                    "WHERE id = :id AND status = 'running' "
-                    "  AND lease_owner = :owner AND attempts = :attempt"
+                    "UPDATE queue_pause SET level = 0, episode_started_at = NULL,"
+                    " cleared_at = :now, updated_at = now()"
+                    " WHERE id = 1 AND level > 0 AND resume_after <= :now"
                 ),
-                {"id": job.id, "owner": owner, "attempt": job.attempts, **params},
+                {"now": now},
             )
             return result.rowcount == 1
+
+    def pause_state(self) -> QueuePause:
+        now = self.clock()
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT level, error_class, reason, kinds, backoff_seconds, paused_at,"
+                        " resume_after, episode_started_at AS since, job_id, cleared_at,"
+                        " level > 0 AND resume_after > :now AS paused,"
+                        " (SELECT count(*) FROM queue_pause_event) AS pauses_total"
+                        " FROM queue_pause WHERE id = 1"
+                    ),
+                    {"now": now},
+                )
+                .mappings()
+                .one()
+            )
+        return QueuePause.model_validate(dict(row))
+
+    def pending(self) -> list[PendingJobs]:
+        """Unfinished jobs, counted by kind, class and status (queued or running)."""
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    "SELECT kind, job_class, status, count(*) AS count FROM job"
+                    " WHERE status IN ('queued', 'running')"
+                    " GROUP BY kind, job_class, status ORDER BY kind, job_class, status"
+                )
+            ).mappings()
+            return [PendingJobs(**row) for row in rows]
+
+    def _finish(self, job: Job, owner: str, assignments: str, params: dict[str, Any]) -> bool:
+        with self._engine.begin() as connection:
+            return self._update_fenced(connection, job, owner, assignments, params)
+
+    def _update_fenced(
+        self,
+        connection: Connection,
+        job: Job,
+        owner: str,
+        assignments: str,
+        params: dict[str, Any],
+    ) -> bool:
+        # Fenced on (owner, attempt): a worker whose lease was reclaimed cannot overwrite
+        # the outcome of a later attempt.
+        result = connection.execute(
+            text(
+                f"UPDATE job SET {assignments}, lease_owner = NULL, "  # noqa: S608 (constant fragments)
+                "lease_expires_at = NULL, updated_at = now() "
+                "WHERE id = :id AND status = 'running' "
+                "  AND lease_owner = :owner AND attempts = :attempt"
+            ),
+            {"id": job.id, "owner": owner, "attempt": job.attempts, **params},
+        )
+        return result.rowcount == 1
 
 
 def _select(connection: Connection, job_id: uuid.UUID) -> Job | None:

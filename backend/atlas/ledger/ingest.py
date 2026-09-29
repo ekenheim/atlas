@@ -94,7 +94,9 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
         # also for a partial ingest, whose recorded versions are kept.
         retain_jobs = (
             enqueue_retains(
-                engine, [f.source_version_id for f in recorded if f.outcome == "new_version"]
+                engine,
+                [f.source_version_id for f in recorded if f.outcome == "new_version"],
+                job_class=job.job_class,  # a backfill ingest's retains are backfill too
             )
             if settings.hindsight_url
             else None

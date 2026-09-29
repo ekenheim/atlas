@@ -13,6 +13,7 @@ from atlas.settings import Settings
 
 if TYPE_CHECKING:
     from atlas.companies import Universe
+    from atlas.jobs import Enqueued
 
 log = logging.getLogger("atlas")
 
@@ -52,11 +53,11 @@ def run_worker(settings: Settings, once: bool) -> None:
     from sqlalchemy import create_engine
     from sqlalchemy.exc import OperationalError
 
-    from atlas.jobs import JobQueue, Worker, builtin_registry
+    from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 
     engine = create_engine(settings.database_url, pool_pre_ping=True)
     worker = Worker(
-        JobQueue(engine),
+        JobQueue(engine, pacing=Pacing.from_settings(settings)),
         builtin_registry(settings),
         lease=timedelta(seconds=settings.job_lease_seconds),
     )
@@ -83,9 +84,13 @@ def run_worker(settings: Settings, once: bool) -> None:
 
 
 def enqueue_job(
-    settings: Settings, kind: str, key: str, payload_json: str, max_attempts: int
+    settings: Settings,
+    kind: str,
+    key: str,
+    payload_json: str,
+    max_attempts: int,
+    backfill: bool = False,
 ) -> None:
-    import json
 
     from pydantic import JsonValue, TypeAdapter
     from sqlalchemy import create_engine
@@ -106,12 +111,33 @@ def enqueue_job(
         raise SystemExit(2) from None
     engine = create_engine(settings.database_url)
     try:
-        enqueued = JobQueue(engine).enqueue(kind, key, payload, max_attempts=max_attempts)
+        enqueued = JobQueue(engine).enqueue(
+            kind,
+            key,
+            payload,
+            max_attempts=max_attempts,
+            job_class="backfill" if backfill else "interactive",
+        )
     finally:
         engine.dispose()
+    _print_enqueued(enqueued)
+
+
+def _print_enqueued(enqueued: "Enqueued") -> None:
+    import json
+
     job = enqueued.job
     summary = {"id": str(job.id), "kind": job.kind, "idempotency_key": job.idempotency_key}
-    print(json.dumps({**summary, "status": job.status, "created": enqueued.created}))
+    print(
+        json.dumps(
+            {
+                **summary,
+                "job_class": job.job_class,
+                "status": job.status,
+                "created": enqueued.created,
+            }
+        )
+    )
 
 
 def _universe(settings: Settings) -> "Universe":
@@ -131,8 +157,8 @@ def enqueue_ingest(
     forms: str | None,
     limit: int | None,
     max_attempts: int,
+    backfill: bool = False,
 ) -> None:
-    import json
     from datetime import UTC, datetime
 
     from sqlalchemy import create_engine
@@ -162,12 +188,11 @@ def enqueue_ingest(
             key,
             ingest_payload(company, form_list, limit),
             max_attempts=max_attempts,
+            job_class="backfill" if backfill else "interactive",
         )
     finally:
         engine.dispose()
-    job = enqueued.job
-    summary = {"id": str(job.id), "kind": job.kind, "idempotency_key": job.idempotency_key}
-    print(json.dumps({**summary, "status": job.status, "created": enqueued.created}))
+    _print_enqueued(enqueued)
 
 
 def seed_companies(settings: Settings) -> None:
@@ -275,6 +300,9 @@ def main(argv: list[str] | None = None) -> None:
     enqueue.add_argument("--key", required=True, help="idempotency key: same key, same job")
     enqueue.add_argument("--payload", default="{}", help="job payload as a JSON object")
     enqueue.add_argument("--max-attempts", type=int, default=3, help="retry bound (default 3)")
+    enqueue.add_argument(
+        "--backfill", action="store_true", help="backfill class: runs only in the nightly window"
+    )
     ingest = commands.add_parser(
         "ingest", help="enqueue an ingest job for a configured company (run by the worker)"
     )
@@ -283,6 +311,11 @@ def main(argv: list[str] | None = None) -> None:
     ingest.add_argument("--forms", help="comma-separated SEC forms (default 10-K,10-Q,8-K)")
     ingest.add_argument("--limit", type=int, help="at most this many recent filings")
     ingest.add_argument("--max-attempts", type=int, default=3, help="retry bound (default 3)")
+    ingest.add_argument(
+        "--backfill",
+        action="store_true",
+        help="a backfill: it and the retains it enqueues run only in the nightly window",
+    )
     companies = commands.add_parser("companies", help="the configured company universe")
     companies_commands = companies.add_subparsers(dest="companies_command", required=True)
     companies_commands.add_parser("seed", help="create or update companies from the config")
@@ -312,9 +345,17 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "hindsight":
         raise SystemExit(run_apply_template(settings, args.template))
     elif args.command == "jobs":
-        enqueue_job(settings, args.kind, args.key, args.payload, args.max_attempts)
+        enqueue_job(settings, args.kind, args.key, args.payload, args.max_attempts, args.backfill)
     elif args.command == "ingest":
-        enqueue_ingest(settings, args.company, args.key, args.forms, args.limit, args.max_attempts)
+        enqueue_ingest(
+            settings,
+            args.company,
+            args.key,
+            args.forms,
+            args.limit,
+            args.max_attempts,
+            args.backfill,
+        )
     elif args.command == "companies":
         seed_companies(settings)
     else:

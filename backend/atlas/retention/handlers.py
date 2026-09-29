@@ -36,7 +36,7 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
     def poll(job: Job) -> Artifacts:
         payload = OperationPayload.model_validate(job.payload)
         with _retention(settings) as retention:
-            return retention.poll(payload.operation_id)
+            return retention.poll(payload.operation_id, job.id)
 
     def reprocess(job: Job) -> Artifacts:
         payload = OperationPayload.model_validate(job.payload)
@@ -48,8 +48,10 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
         POLL_KIND: poll,
         REPROCESS_KIND: reprocess,
     }
+    # All three depend on Hindsight (and, through it, LiteLLM): a quota or outage failure
+    # pauses them together (atlas.jobs.pacing).
     for kind, handler in handlers.items():
-        registry.register(kind, handler)
+        registry.register(kind, handler, pausable=True)
 
 
 @contextmanager

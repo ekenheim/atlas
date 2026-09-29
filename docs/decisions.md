@@ -107,3 +107,42 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
 - **Zero facts:** after completion each section's `memory_unit_count` (`GET …/documents/{id}`) is its fact count. A zero-fact section gets a `reprocess` job, which re-retains all such sections of that operation as one batch under the same document IDs (reprocess count 1); if it is still zero after that operation, it is `zero_fact`. The documents `reprocess` route exists in 0.10.1 but no interaction with it is recorded, so it isn't used. A document missing after a completed operation is `failed`.
 - **Failures stay visible:** a `failed`, `cancelled` or `not_found` operation marks its pending sections `failed` with Hindsight's error (or "Hindsight reported the operation failed with no error message"); the operation row keeps the status, error, retry count and result metadata. Failed sections are not retried automatically.
 - **No run record for retains yet.** Retains don't start a `run` (it needs LiteLLM configured, and tokens only arrive per operation as `result_metadata.total_tokens`, which is stored). Memory documents carry the template version.
+
+## 2026-09-29: queue pause and pacing (build ticket 14)
+
+- **What pauses the queue.** A job attempt fails with a *quota* or *availability* error, and the job's kind is **pausable**. Pausable kinds are those that depend on Hindsight and, through it, LiteLLM: `retain`, `poll_operation` and `reprocess`, with `reflect` and `refresh_mental_model` to join when they exist. A kind is marked pausable where it's registered (`HandlerRegistry.register(..., pausable=True)`). Classification (`atlas.jobs.pacing`):
+  - `quota`: HTTP 429 from Hindsight or LiteLLM, or a failed operation whose error (or a sub-batch's error) mentions 429, a rate limit, too many requests, or insufficient quota or balance. The MiniMax cap-out reaches Hindsight as a 429 from LiteLLM.
+  - `unavailable`: HTTP 502/503/504, a connection failure to Hindsight or LiteLLM, or an operation error naming 502–504, "service unavailable", a refused or reset connection, `APIConnectionError` or "overloaded".
+  - Anything else is ordinary. A Hindsight 5xx is classified by its body. An arbitrary exception's text is never matched, so an unrelated error that happens to mention "429" doesn't pause. Operation timeouts aren't classified, because a stuck operation can be the document's fault.
+- **Pause representation (data model §3.5, resolved):** a single-row `queue_pause` table, not a derived view. It holds the level, class, reason, paused kinds, backoff, `paused_at`, `resume_after`, the episode start, the job that caused it and `cleared_at`. There's also an append-only `queue_pause_event` history, one row per pause entered. A view over jobs and operations couldn't express a backoff level that resets on success.
+- **Backoff:** 60 s × 2^(level−1), capped at 1 h. The level counts the pauses entered since the last success of a pausable job. A failure while a pause is in force doesn't lengthen it, because another in-flight job hitting the same 429 would otherwise escalate the level. `ATLAS_QUEUE_PAUSE_BASE_SECONDS` defaults to 60 and `ATLAS_QUEUE_PAUSE_MAX_SECONDS` to 3600; neither may exceed 3600.
+- **Pause behaviour:**
+  - While paused, the pausable kinds aren't claimed. Other kinds, such as `ingest` (SEC fetching), keep running.
+  - The job that hit the failure goes back to the queue **without using up an attempt**, and the failure is recorded with its classification, so quota never fails a job.
+  - The pause lifts by itself at `resume_after`. The first pausable success after that resets the level (`cleared_at`).
+- **A failed operation with a quota or outage error** is recorded with `error_class`, and its sections stay `pending` instead of `failed`. Its poll job raises `TransientFailure`, which pauses the queue. After the pause, the poll job's next attempt **resubmits the same sections** as a new batch under the same document IDs; Hindsight gives it a new operation. A reprocess isn't counted twice. The new operation keeps the original submitting job, so a follow-up reprocess inherits its class. A `permanent` failure behaves as before (ticket 13).
+- **No model switching, ever.** Atlas never changes the alias, the Hindsight LLM config or the route. Pausing is the only response to quota or an outage.
+- **Backfill class.** Backfill is a per-job class (`job.job_class`, `interactive` by default), not a set of kinds. A job is marked as backfill when enqueued: `atlas ingest --backfill` or `atlas jobs enqueue ... --backfill`. Class is inherited like this:
+  - A backfill ingest's `retain` jobs are backfill.
+  - A `reprocess` takes the class of the job that submitted the operation.
+  - `poll_operation` is always interactive, because polling spends no quota and a submitted batch shouldn't wait a day to be observed.
+
+  Every backfill-class job, of any kind, is claimed only inside the window. Deciding by class rather than kind keeps "the owner's own ingest runs now" and "the three-year backfill waits for the night" as two uses of the same kinds.
+- **Window:** `ATLAS_BACKFILL_WINDOW` is `HH:MM-HH:MM` in local time in `ATLAS_BACKFILL_TIMEZONE`. The defaults are `01:00-07:00` and `UTC`; the owner sets their zone (for example `Europe/Stockholm`). The start is inclusive and the end exclusive, a window may wrap past midnight, and an empty value means no window. A backfill job that's running when the window closes finishes; only claiming is gated.
+- **Clocks:** pacing (the pause and the window) reads the application clock, which is injectable (`JobQueue(clock=...)`, `create_app(clock=...)`), so tests control it. Leases stay on the database clock.
+- **`GET /api/v1/queue`** returns the pause (paused now, level, class, reason, kinds, backoff, paused at, resume after, the episode start, cleared at, total pauses), the backfill window (open now, next opening) and pending jobs by kind (queued, running, backfill queued, paused).
+- **Metrics are read from the database at scrape time** on the API's registry (`atlas.metrics.StateCollector`), because the worker has no HTTP server. The metrics are:
+  - `atlas_queue_paused`, `_pause_level`, `_pause_backoff_seconds`, `_pause_duration_seconds` and `atlas_queue_pauses_total{error_class}`
+  - `atlas_queue_jobs{kind,job_class,status}` (queue depth) and `atlas_jobs_failed_total{kind}`
+  - `atlas_hindsight_operations_total{kind,status,error_class}`
+  - `atlas_retained_sections_total{outcome}` and `atlas_memory_sections_pending`
+  - `atlas_zero_fact_sections_total`
+  - `atlas_state_metrics_up`
+
+  Counters count rows in terminal states. The pause duration counts only while jobs of a paused kind are queued, so an idle queue after an outage doesn't alert.
+- **Alert rules:** `configs/prometheus/atlas-alerts.yaml`, a PrometheusRule for home-ops (not deployed from here). It alerts on:
+  - ≥ 3 permanent operation failures of a kind in 1 h
+  - ≥ 3 failed jobs of a kind in 1 h
+  - ≥ 5 zero-fact sections in 6 h
+  - a pause holding back work for over 2 h
+  - the metrics database being unreadable
