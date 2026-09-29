@@ -437,6 +437,98 @@ def resolve_companies(settings: Settings, slugs: list[str] | None) -> int:
     return 0
 
 
+def run_tradingview_login(
+    settings: Settings,
+    print_tokens: bool,
+    port: int | None,
+    client_id: str | None,
+    timeout: float,
+) -> int:
+    """`atlas tradingview login`: the OAuth flow; the tokens go to the token file (mode 0600)
+    or, with --print-tokens, to stdout for use as secrets. Nothing else prints a token."""
+    import json
+
+    from atlas.tradingview import TradingViewAuthError, write_token_file
+    from atlas.tradingview.login import login
+    from atlas.tradingview.service import TradingViewDisabled, require_enabled
+
+    def show(url: str) -> None:
+        print(
+            f"Open this URL in a browser and sign in to TradingView:\n{url}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    try:
+        require_enabled(settings)
+        tokens = login(settings, show=show, port=port, client_id=client_id, timeout=timeout)
+    except (TradingViewDisabled, TradingViewAuthError) as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        return 1
+    summary = {
+        "expires_at": tokens.expires_at.isoformat() if tokens.expires_at else None,
+        "refreshable": tokens.refreshable(),
+        "client_id": tokens.client_id,
+        "token_endpoint": tokens.token_endpoint,
+    }
+    if print_tokens:
+        print(
+            json.dumps(
+                summary
+                | {
+                    "ATLAS_TRADINGVIEW_ACCESS_TOKEN": tokens.access_token,
+                    "ATLAS_TRADINGVIEW_REFRESH_TOKEN": tokens.refresh_token,
+                    "ATLAS_TRADINGVIEW_TOKEN_URL": tokens.token_endpoint,
+                    "ATLAS_TRADINGVIEW_CLIENT_ID": tokens.client_id,
+                }
+            )
+        )
+        return 0
+    write_token_file(settings.tradingview_token_file, tokens)
+    print(json.dumps(summary | {"token_file": str(settings.tradingview_token_file)}))
+    return 0
+
+
+def run_tradingview_check(settings: Settings, symbol: str) -> int:
+    """`atlas tradingview check`: one catalog call; prints counts only, never content."""
+    import json
+    from collections import Counter
+    from datetime import UTC, datetime, timedelta
+
+    from atlas.tradingview import McpError, TradingViewAuthError, TradingViewClient
+    from atlas.tradingview.service import TradingViewDisabled, mcp_session
+
+    now = datetime.now(UTC)
+    try:
+        with mcp_session(settings) as mcp:
+            client = TradingViewClient(mcp, max_calls=1, on_call=lambda tool, error: None)
+            listed = client.documents(
+                symbol,
+                start=now - timedelta(days=settings.tradingview_lookback_days),
+                end=now,
+                limit=settings.tradingview_documents_limit,
+            )
+    except (TradingViewDisabled, TradingViewAuthError, McpError) as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        return 1
+    categories = Counter(
+        (item.category.title if item.category else None) or "uncategorized" for item in listed.items
+    )
+    print(
+        json.dumps(
+            {
+                "symbol": symbol,
+                "documents": len(listed.items),
+                "total": listed.total,
+                "categories": dict(sorted(categories.items())),
+                "transcript_views": sum(len(item.transcript_views()) for item in listed.items),
+                "tool_calls": 1,
+            }
+        )
+    )
+    return 0
+
+
 def run_audit_verify(settings: Settings) -> int:
     from atlas.audit import verify_chain
     from atlas.db import create_engine
@@ -620,6 +712,33 @@ def main(argv: list[str] | None = None) -> None:
     resolve.add_argument(
         "--company", action="append", dest="slugs", help="only this company (repeatable)"
     )
+    tradingview = commands.add_parser(
+        "tradingview",
+        help="the owner-override TradingView source (off by default; docs/runbooks.md)",
+    )
+    tradingview_commands = tradingview.add_subparsers(dest="tradingview_command", required=True)
+    tv_login = tradingview_commands.add_parser(
+        "login",
+        help="get Atlas its own OAuth token (authorization code + PKCE; sign in in a browser)",
+    )
+    tv_login.add_argument(
+        "--print-tokens",
+        action="store_true",
+        help="print the tokens (for secrets) instead of writing ATLAS_TRADINGVIEW_TOKEN_FILE",
+    )
+    tv_login.add_argument(
+        "--port", type=int, help="the loopback redirect port (default ATLAS_TRADINGVIEW_LOGIN_PORT)"
+    )
+    tv_login.add_argument(
+        "--client-id", help="a registered OAuth client, when the server has no registration"
+    )
+    tv_login.add_argument(
+        "--timeout", type=float, default=300.0, help="seconds to wait for the sign-in (300)"
+    )
+    tv_check = tradingview_commands.add_parser(
+        "check", help="one catalog call for a symbol; prints counts only"
+    )
+    tv_check.add_argument("--symbol", required=True, help="e.g. NASDAQ:LITE")
     hindsight = commands.add_parser("hindsight", help="configure the research bank")
     hindsight_commands = hindsight.add_subparsers(dest="hindsight_command", required=True)
     apply = hindsight_commands.add_parser(
@@ -650,6 +769,14 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(run_audit_verify(settings))
     elif args.command == "hindsight":
         raise SystemExit(run_apply_template(settings, args.template, if_changed=args.if_changed))
+    elif args.command == "tradingview" and args.tradingview_command == "login":
+        raise SystemExit(
+            run_tradingview_login(
+                settings, args.print_tokens, args.port, args.client_id, args.timeout
+            )
+        )
+    elif args.command == "tradingview":
+        raise SystemExit(run_tradingview_check(settings, args.symbol))
     elif args.command == "jobs":
         enqueue_job(settings, args.kind, args.key, args.payload, args.max_attempts, args.backfill)
     elif args.command == "ingest":

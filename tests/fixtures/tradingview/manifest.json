@@ -1,0 +1,11 @@
+{
+  "description": "TradingView MCP tool answers served by tests/fakes/tradingview.py (ticket 31): get_documents, get_document_view and get_news, each file being one tool's JSON answer (the text the fake puts in the tools/call result's text content).",
+  "provenance": "SYNTHETIC, hand-written for Atlas tests. No TradingView, Quartr or news content: every title, transcript line and headline is made up, the IDs are invented, and the links point at .test hosts. The shapes follow the tool answers described in docs/decisions.md (TradingView MCP findings, ticket 31) and backend/atlas/tradingview/client.py. No TradingView request was made from tests or while writing them.",
+  "files": {
+    "documents-lumentum.json": "get_documents for NASDAQ:LITE: a synthetic earnings call (transcript and summary views), a synthetic annual report (summary and pdf views, form 10-K) and a synthetic 2019 call outside the lookback",
+    "documents-innolight.json": "get_documents for HKEX:3308: one synthetic call whose transcript view the fake answers with a tool error (not retrievable)",
+    "view-syn-view-1001-t.json": "get_document_view of the synthetic call's transcript view: an astDescription tree of paragraphs with bold speaker labels and one br",
+    "news-lumentum.json": "get_news for NASDAQ:LITE: two synthetic headlines (one with a TradingView storyPath, one with a link only)",
+    "news-innolight.json": "get_news for HKEX:3308: no headlines"
+  }
+}

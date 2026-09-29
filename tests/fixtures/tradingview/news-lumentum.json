@@ -1,0 +1,34 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; not TradingView, Quartr or news content",
+  "data": {
+    "headlines": [
+      {
+        "id": "syn-news-1",
+        "title": "SYNTHETIC: Example laser maker adds indium phosphide capacity",
+        "published": 1786539600,
+        "provider": {"id": "example-wire", "name": "Example Newswire", "url": "https://newswire.example.test"},
+        "link": "https://newswire.example.test/2026/08/12/example-laser-capacity",
+        "storyPath": "/news/example-wire:syn1:0-synthetic-example-laser-maker-adds-capacity/",
+        "relatedSymbols": [{"symbol": "NASDAQ:LITE"}, {"symbol": "NASDAQ:AAOI"}],
+        "urgency": 2,
+        "paywall": false,
+        "permission": "public"
+      },
+      {
+        "id": "syn-news-2",
+        "title": "SYNTHETIC: Example analyst note on optical transceivers",
+        "published": 1786612500,
+        "provider": {"id": "example-daily", "name": "Example Daily"},
+        "link": "https://daily.example.test/markets/optical-transceivers-note",
+        "relatedSymbols": [{"symbol": "NASDAQ:LITE"}],
+        "urgency": 2,
+        "paywall": true,
+        "permission": "public"
+      }
+    ],
+    "has_more": false,
+    "next_offset": 2,
+    "total_available": 2
+  },
+  "success": true
+}

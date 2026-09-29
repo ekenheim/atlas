@@ -14,6 +14,8 @@
 #   ones by the FCA National Storage Mechanism adapter, which needs `exchange` (the
 #   issuer's code and its LEI as `feed_id`); `exchange:amf` ones by the AMF info-financière
 #   API adapter, which needs `exchange` (the issuer's code and its LEI as `feed_id`).
+# - `tradingview_symbol`: its TradingView symbol (EXCHANGE:TICKER), used only by the
+#   owner-override TradingView jobs (off by default; docs/decisions.md, ticket 31).
 # - `ignored_ciks`: CIKs that SEC's ticker files map to the company but that are only
 #   unsponsored-ADR shells (depositary F-6EF registrations, no issuer reports). They are
 #   never used as the company's filer; the config refuses a company whose `cik` is one.
@@ -24,7 +26,7 @@
 # Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 5
+version: 6
 name: ai-infrastructure
 
 companies:
@@ -39,6 +41,7 @@ companies:
     website: https://www.axt.com
     layer: substrate  # InP, GaAs and Ge wafers
     source_path: sec
+    tradingview_symbol: "NASDAQ:AXTI"
 
   soitec:
     legal_name: Soitec SA
@@ -50,6 +53,7 @@ companies:
     website: https://www.soitec.com
     layer: substrate  # Photonics-SOI engineered substrates
     source_path: exchange:amf
+    tradingview_symbol: "EURONEXT:SOI"
     exchange:
       issuer_code: SOI  # Euronext Paris ticker
       feed_id: 969500ZR92SQCU9TST26  # LEI: info-financière is searched by it
@@ -69,6 +73,7 @@ companies:
     website: https://www.iqep.com
     layer: epi  # InP and GaAs epitaxial wafers
     source_path: exchange:fca-nsm
+    tradingview_symbol: "LSE:IQE"
     exchange:
       issuer_code: IQE  # LSE TIDM
       feed_id: 213800Y33WHD3ESJJP16  # LEI: the NSM searches by it
@@ -93,6 +98,7 @@ companies:
     # is the chip-laser layer.
     layer: chip-laser
     source_path: sec
+    tradingview_symbol: "NYSE:COHR"
     # TODO(phase 2): add the COHR (XNYS) security once its listing start date is taken
     # from a primary source; II-VI traded as IIVI on Nasdaq before the 2022 rename.
     securities: []
@@ -106,6 +112,7 @@ companies:
     website: https://www.lumentum.com
     layer: chip-laser  # laser chips, plus modules and optical circuit switches
     source_path: sec
+    tradingview_symbol: "NASDAQ:LITE"
     securities:
       # The 10-K (FY2026) says the common stock trades on the Nasdaq Global Select Market
       # as "LITE" since the August 2015 spin-off from JDSU. The start day (2015-08-04, the
@@ -127,6 +134,7 @@ companies:
     website: https://www.macom.com
     layer: chip-laser  # drivers, TIAs, CDRs, DFB lasers and photodetectors
     source_path: sec
+    tradingview_symbol: "NASDAQ:MTSI"
 
   stmicroelectronics:
     legal_name: STMicroelectronics N.V.
@@ -138,6 +146,7 @@ companies:
     website: https://www.st.com
     layer: chip-laser  # 300 mm silicon photonics (SiPho) at Crolles
     source_path: sec
+    tradingview_symbol: "NYSE:STM"
     sec_forms: [20-F, 6-K]
 
   # --- dsp ---
@@ -151,6 +160,7 @@ companies:
     website: https://www.marvell.com
     layer: dsp  # PAM4 and coherent DSPs
     source_path: sec
+    tradingview_symbol: "NASDAQ:MRVL"
 
   # --- module ---
 
@@ -164,6 +174,7 @@ companies:
     website: https://www.zj-innolight.com
     layer: module  # 800G/1.6T optical transceivers
     source_path: exchange:hkex
+    tradingview_symbol: "HKEX:3308"
     exchange:
       issuer_code: "03308"  # HKEX stock code
       feed_id: "1000311764"  # HKEXnews stockId (seed-list research)
@@ -180,6 +191,7 @@ companies:
     website: https://ao-inc.com
     layer: module  # data-centre transceivers, with its own laser chips
     source_path: sec
+    tradingview_symbol: "NASDAQ:AAOI"
 
   # --- contract-manufacturing ---
 
@@ -193,6 +205,7 @@ companies:
     website: https://www.fabrinet.com
     layer: contract-manufacturing
     source_path: sec
+    tradingview_symbol: "NYSE:FN"
 
   # --- system ---
 
@@ -205,6 +218,7 @@ companies:
     website: https://www.ciena.com
     layer: system  # optical transport platforms
     source_path: sec
+    tradingview_symbol: "NYSE:CIEN"
 
 themes:
   photonics:

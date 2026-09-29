@@ -9,6 +9,9 @@ budget per window, and the queue holds a provider's job kinds while its window i
   unit each): Atlas can't see Codex tokens, only what it asked Hindsight to do.
 - `minimax`, counted in **LLM tokens** (in + out) of the role calls' recorded `llm_call`
   rows.
+- `tradingview`, counted in **MCP tool calls** Atlas made to TradingView (recorded
+  `tradingview_request` rows; ticket 31, an owner override that is off by default). Not an
+  LLM quota, but TradingView's fair-use limit (~100 requests/min) is paced the same way.
 
 A unit counts from when the queue first sees its row (the pacing clock; `provider_usage`)
 until one window later. A job of a provider's kind is claimed only while the window's usage
@@ -36,10 +39,14 @@ if TYPE_CHECKING:
     from atlas.jobs.pacing import JobClass
     from atlas.settings import Settings
 
-Provider = Literal["codex", "minimax"]
-PROVIDERS: tuple[Provider, ...] = ("codex", "minimax")
-BudgetUnit = Literal["operations", "tokens"]
-UNITS: dict[Provider, BudgetUnit] = {"codex": "operations", "minimax": "tokens"}
+Provider = Literal["codex", "minimax", "tradingview"]
+PROVIDERS: tuple[Provider, ...] = ("codex", "minimax", "tradingview")
+BudgetUnit = Literal["operations", "tokens", "requests"]
+UNITS: dict[Provider, BudgetUnit] = {
+    "codex": "operations",
+    "minimax": "tokens",
+    "tradingview": "requests",
+}
 
 # Which provider's quota each LLM-backed job kind spends. Kinds not listed (ingest, noop)
 # spend neither and are never held by a budget.
@@ -54,6 +61,8 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "review_relationships": "minimax",
     "investigation_task": "minimax",
     "triage": "minimax",
+    "tradingview_catalog": "tradingview",
+    "tradingview_transcripts": "tradingview",
 }
 # Watches an operation already submitted and counted; holding it would only delay the result.
 BUDGET_EXEMPT_KINDS = frozenset({"poll_operation"})
@@ -69,6 +78,11 @@ _SWEEPS: dict[Provider, str] = {
         "SELECT c.id::text AS source_id, c.tokens_in + c.tokens_out AS units FROM llm_call c"
         " WHERE NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'minimax' AND u.source_id = c.id::text)"
+    ),
+    "tradingview": (
+        "SELECT r.id::text AS source_id, 1 AS units FROM tradingview_request r"
+        " WHERE NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'tradingview' AND u.source_id = r.id::text)"
     ),
 }
 
@@ -93,12 +107,13 @@ class Budgets:
     window: timedelta = timedelta(hours=5)
     codex_operations: int = 40
     minimax_tokens: int = 400_000
+    tradingview_requests: int = 200
     interactive_reserve: float = 0.3  # the share of each budget backfill may not use
 
     def __post_init__(self) -> None:
         if self.window <= timedelta(0):
             raise ValueError("the budget window must be positive")
-        if self.codex_operations < 1 or self.minimax_tokens < 1:
+        if min(self.codex_operations, self.minimax_tokens, self.tradingview_requests) < 1:
             raise ValueError("each provider's budget must be at least 1")
         if not 0 <= self.interactive_reserve < 1:
             raise ValueError("the interactive reserve must be in [0, 1)")
@@ -109,11 +124,16 @@ class Budgets:
             window=timedelta(hours=settings.budget_window_hours),
             codex_operations=settings.codex_budget_operations,
             minimax_tokens=settings.minimax_budget_tokens,
+            tradingview_requests=settings.tradingview_budget_requests,
             interactive_reserve=settings.budget_interactive_reserve,
         )
 
     def budget(self, provider: Provider) -> int:
-        return self.codex_operations if provider == "codex" else self.minimax_tokens
+        return {
+            "codex": self.codex_operations,
+            "minimax": self.minimax_tokens,
+            "tradingview": self.tradingview_requests,
+        }[provider]
 
     def limit(self, provider: Provider, job_class: "JobClass") -> int:
         """Usage at or above which `job_class` jobs of `provider` are held."""

@@ -117,6 +117,8 @@ class FetchObservation(BaseModel):
     # The allowed fetch gate decision this fetch was made under (exchange sources; None for
     # SEC EDGAR): `GET /api/v1/fetch-gate-decisions/{id}`.
     gate_decision_id: uuid.UUID | None
+    # The owner's recorded override this fetch was made under (TradingView, ticket 31).
+    owner_override: str | None = None
 
 
 class ContentLinks(BaseModel):
@@ -243,7 +245,8 @@ def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionD
     fetches = connection.execute(
         text(
             "SELECT id, outcome, url, fetched_at, observed_at, raw_sha256, comparison_sha256,"
-            " etag, last_modified, attempts, job_id, gate_decision_id FROM fetch_observation"
+            " etag, last_modified, attempts, job_id, gate_decision_id, owner_override"
+            " FROM fetch_observation"
             " WHERE source_version_id = :id ORDER BY observed_at, fetched_at, id"
         ),
         {"id": version_id},

@@ -300,3 +300,27 @@ For each SEC company, in its own window:
 3. Read the plan: `GET /api/v1/ingest-plans?company=<slug>`: `document_count`, `estimated_retain_operations` and the documents (forms, dates). If the estimate is far above the cap, the company needs several windows.
 4. The ingest job's artifacts show `retains_deferred`. While it's above 0, in the next window run the same command again with a new key (the default, without `--key`): it fetches only what changed and retains the next 20 not-yet-retained versions, newest first. Move to the next company when `retains_deferred` is 0 and its retains have completed (`GET /api/v1/source-versions/{id}/memory`).
 5. Mental-model refreshes and consolidation also spend Codex on the shared server without an operation Atlas counts; if `quota` pauses appear while `used` stays low, lower `ATLAS_CODEX_BUDGET_OPERATIONS`.
+
+## TradingView (owner override, ticket 31)
+
+The owner's TradingView subscription is a source through TradingView's MCP server (`https://mcp.tradingview.com/mcp`). This is a private, non-commercial PoC that knowingly overrides TradingView's display-only terms (`docs/decisions.md`, "Owner override: TradingView as a source"). It is **off by default**. Scope: earnings-call and conference transcripts (Tier B Source Versions), the filing catalog (metadata) and news-headline leads (Tier C). Never prices, fundamentals, the screener, alerts or watchlists. Before real content can reach the repository, make it private. Fixtures stay synthetic.
+
+### Getting Atlas its own token
+
+Atlas uses its own OAuth client and token, not Claude Code's.
+
+1. Turn it on for this shell: `export ATLAS_TRADINGVIEW_ENABLED=true` (plus the usual `ATLAS_DATABASE_URL`, `ATLAS_ACTOR` and `ATLAS_ARCHIVE_ROOT`; the login itself touches no database).
+2. `uv run atlas tradingview login`. It discovers TradingView's authorization server from the MCP server's protected-resource metadata and registers a client dynamically. If the server offers no registration, pass `--client-id`. It then prints an authorization URL (PKCE S256, with a `state` and the MCP resource) on stderr.
+3. Open the URL in a browser on the same machine and sign in to TradingView. The browser is redirected to `http://127.0.0.1:<port>/callback`, where the command is waiting. It gives up after `--timeout` seconds (default 300). On a remote host, fix the port (`--port 8765` or `ATLAS_TRADINGVIEW_LOGIN_PORT`) and forward it (`ssh -L 8765:127.0.0.1:8765 host`).
+4. The tokens go to `ATLAS_TRADINGVIEW_TOKEN_FILE` (default `.atlas/tradingview-token.json`, mode 0600, gitignored). The file also holds the token endpoint and client ID, so refresh is automatic: before expiry, and once after a 401. A rotated refresh token is written back. stdout shows only the expiry, the client and the file path.
+5. For a cluster secret instead: `atlas tradingview login --print-tokens` prints `ATLAS_TRADINGVIEW_ACCESS_TOKEN`, `_REFRESH_TOKEN`, `_TOKEN_URL` and `_CLIENT_ID` as JSON (the only command that prints a token; don't paste it into logs or tickets). Tokens given as secrets are refreshed in memory only. If TradingView rotates refresh tokens, a restarted pod then holds a spent one. Prefer a token file on a writable volume (point `ATLAS_TRADINGVIEW_TOKEN_FILE` at it).
+6. Verify: `uv run atlas tradingview check --symbol NASDAQ:LITE` makes one `get_documents` call and prints counts only (documents, total, categories, transcript views), never titles or text. This call is not recorded against the budget.
+
+A missing token, an expired token without a refresh token, or a refused refresh (`invalid_grant`) fails with a message that says to run the login again.
+
+### Turning it on and off
+
+- **On:** `ATLAS_TRADINGVIEW_ENABLED=true` for the worker, with the token file (or secrets) in place. Each company needs `tradingview_symbol` in `configs/themes/ai-infrastructure.yaml` (for example `NASDAQ:LITE`, `HKEX:3308`).
+- **Run:** `atlas jobs enqueue tradingview_catalog --key <K> --payload '{"company": "lumentum"}'`. The catalog job lists the company's documents over `ATLAS_TRADINGVIEW_LOOKBACK_DAYS` (730) and its news headlines. If transcripts aren't yet in the ledger, it enqueues `tradingview_transcripts`, which fetches at most `ATLAS_TRADINGVIEW_MAX_CALLS_PER_JOB` (20) of them, newest first. A rerun (new key) takes the rest. English transcripts are then retained as usual.
+- **Read:** `GET /api/v1/tradingview/catalog?company_id=&category=&has_transcript=` (which filings and calls exist, with the Source Version of each fetched transcript), `GET /api/v1/leads?theme=photonics` (headline leads have `origin: tradingview_news`), `GET /api/v1/queue` (the `tradingview` budget: tool calls per window, `ATLAS_TRADINGVIEW_BUDGET_REQUESTS`, default 200).
+- **Off:** unset `ATLAS_TRADINGVIEW_ENABLED` (or set it `false`) and restart the worker. Queued TradingView jobs then fail without calling TradingView. Delete the token file (and revoke the client in TradingView's account settings, if it lists it) to withdraw access entirely. Stored items stay in the ledger, each marked with the override.

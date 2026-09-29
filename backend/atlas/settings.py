@@ -163,6 +163,35 @@ class Settings(BaseSettings):
     # duplicate. A family keeps the threshold it was founded with (atlas.ledger.families).
     evidence_family_max_hamming_distance: int = Field(default=3, ge=0, le=64)
 
+    # TradingView (atlas.tradingview; ticket 31): the owner's TradingView subscription through
+    # its official MCP server, an owner override of TradingView's display-only terms for a
+    # private, non-commercial proof of concept (docs/decisions.md). Off by default: while
+    # off, nothing calls TradingView. The OAuth 2.1 tokens are the owner's: the token file
+    # `atlas tradingview login` writes (mode 0600, gitignored; a refresh rewrites it), else
+    # the access (and refresh) token given as secrets; never logged. Requests are paced at
+    # tradingview_rate_per_s (at most 1/s), each job makes at most
+    # tradingview_max_calls_per_job tool calls, and the `tradingview` budget allows
+    # tradingview_budget_requests tool calls per rolling window.
+    tradingview_enabled: bool = False
+    tradingview_mcp_url: str = "https://mcp.tradingview.com/mcp"
+    tradingview_access_token: SecretStr | None = None
+    tradingview_refresh_token: SecretStr | None = None
+    # For a refresh token given as a secret: the OAuth token endpoint and the client the
+    # tokens were issued to (the token file records its own).
+    tradingview_token_url: str | None = None
+    tradingview_client_id: str | None = None
+    tradingview_token_file: Path = Path(".atlas/tradingview-token.json")
+    # `atlas tradingview login`'s loopback redirect port (0: any free port).
+    tradingview_login_port: int = Field(default=0, ge=0, le=65535)
+    tradingview_timeout_seconds: float = Field(default=60.0, gt=0)
+    tradingview_rate_per_s: float = Field(default=0.5, gt=0, le=1)
+    tradingview_max_calls_per_job: int = Field(default=20, ge=1, le=100)
+    tradingview_budget_requests: int = Field(default=200, ge=1)
+    tradingview_lookback_days: int = Field(default=730, ge=1)
+    tradingview_documents_limit: int = Field(default=100, ge=1, le=500)
+    tradingview_news_limit: int = Field(default=50, ge=1, le=200)
+    tradingview_news_language: str = Field(default="en", pattern=r"^[a-z]{2}$")
+
     # The versioned company universe and themes (company membership is config, not code).
     themes_config: Path = Path("configs/themes/ai-infrastructure.yaml")
     # The canonical financial metrics: XBRL concept families by precedence (versioned config).
@@ -204,6 +233,17 @@ class Settings(BaseSettings):
         if self.queue_pause_base_seconds > self.queue_pause_max_seconds:
             raise ValueError(
                 "ATLAS_QUEUE_PAUSE_BASE_SECONDS must not exceed ATLAS_QUEUE_PAUSE_MAX_SECONDS"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _tradingview_refresh_needs_its_client(self) -> Self:
+        if self.tradingview_refresh_token and not (
+            self.tradingview_token_url and self.tradingview_client_id
+        ):
+            raise ValueError(
+                "ATLAS_TRADINGVIEW_REFRESH_TOKEN needs ATLAS_TRADINGVIEW_TOKEN_URL and"
+                " ATLAS_TRADINGVIEW_CLIENT_ID (the OAuth token endpoint and client)"
             )
         return self
 
@@ -252,4 +292,6 @@ class Settings(BaseSettings):
             missing.append(("sec", "ATLAS_SEC_LIVE"))
         if not self.searxng_url:
             missing.append(("searxng", "ATLAS_SEARXNG_URL"))
+        if not self.tradingview_enabled:
+            missing.append(("tradingview", "ATLAS_TRADINGVIEW_ENABLED"))
         return missing

@@ -11,15 +11,22 @@ dropped, tracking parameters (`utm_*`, `gclid`, `fbclid`, `msclkid`, `mc_cid`, `
 `igshid`) are removed and the rest sorted, and a trailing `/` is dropped from a non-root
 path. The path's case is kept. Syndicated copies at different URLs stay separate leads;
 grouping them is Evidence Families' job.
+
+**Origins.** A `searxng` lead was found by a discovery's query. A `tradingview_news` lead is a
+TradingView news headline (ticket 31, an owner override that is off by default): its
+metadata only (title, original publisher, published time, TradingView link, related
+symbols), with no query; it belongs to the themes of the company it was listed for. Story
+text is never stored.
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import BaseModel
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, RowMapping, text
 
 from atlas.discovery.searxng import SearchResult
 
@@ -53,20 +60,35 @@ def canonical_url(url: str) -> str | None:
     return urlunsplit((scheme, netloc, path, query, ""))
 
 
+class Headline(BaseModel):
+    """A TradingView news headline's metadata (a `tradingview_news` lead)."""
+
+    headline_id: str  # TradingView's
+    company_id: uuid.UUID  # the company whose symbol it was listed for
+    symbol: str
+    publisher: str | None  # the original publisher, as TradingView names it
+    publisher_url: str | None  # the original story's link, when TradingView gives one
+    published_at: datetime | None
+    related_symbols: list[str]
+    owner_override: str  # the owner's recorded override of TradingView's terms
+
+
 class Lead(BaseModel):
     id: uuid.UUID
     tier: Literal["C"]  # always: a lead is never Evidence
+    origin: Literal["searxng", "tradingview_news"]
     canonical_url: str
     url: str  # as first found
     title: str
     snippet: str
     published_date: date | None  # the search result's, when it gave one
     engines: list[str]  # every engine that has returned it
-    query: str  # the query that first found it
-    theme: str  # the theme of the discovery that first found it
+    query: str | None  # the query that first found it (None: a TradingView headline)
+    theme: str | None  # the theme of the discovery (or the headline's company) it came from
     sightings: int  # how many query results have returned it
     first_seen_at: datetime
     last_seen_at: datetime
+    headline: Headline | None = None  # a `tradingview_news` lead's metadata
 
 
 def store_result(connection: Connection, query_id: uuid.UUID, result: SearchResult) -> bool | None:
@@ -117,23 +139,122 @@ def store_result(connection: Connection, query_id: uuid.UUID, result: SearchResu
     return bool(row.created)
 
 
+def store_headline(
+    connection: Connection,
+    *,
+    url: str,
+    title: str,
+    published_at: datetime | None,
+    headline_id: str,
+    company_id: uuid.UUID,
+    symbol: str,
+    themes: Sequence[str],
+    publisher: str | None,
+    publisher_url: str | None,
+    related_symbols: Sequence[str],
+    urgency: int | None,
+    owner_override: str,
+    job_id: uuid.UUID | None,
+) -> bool | None:
+    """Record a TradingView headline as a `tradingview_news` lead (metadata only), unless its
+    canonical URL is a lead already. Returns whether a lead was created, or None when `url`
+    isn't a web URL (no lead)."""
+    canonical = canonical_url(url)
+    if canonical is None:
+        return None
+    row = connection.execute(
+        text(
+            "INSERT INTO lead (id, canonical_url, url, title, snippet, published_date, engines,"
+            " first_query_id, origin) VALUES (:id, :canonical, :url, :title, '', :published,"
+            " ARRAY['tradingview'], NULL, 'tradingview_news')"
+            " ON CONFLICT (canonical_url) DO UPDATE SET last_seen_at = now()"
+            " RETURNING id, (xmax = 0) AS created"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "canonical": canonical,
+            "url": url,
+            "title": title,
+            "published": published_at.date() if published_at else None,
+        },
+    ).one()
+    connection.execute(
+        text(
+            "INSERT INTO tradingview_headline (lead_id, headline_id, company_id, symbol, themes,"
+            " publisher, publisher_url, published_at, related_symbols, urgency, owner_override,"
+            " job_id) VALUES (:lead, :headline, :company, :symbol, :themes, :publisher,"
+            " :publisher_url, :published, :related, :urgency, :override, :job)"
+            " ON CONFLICT DO NOTHING"
+        ),
+        {
+            "lead": row.id,
+            "headline": headline_id,
+            "company": company_id,
+            "symbol": symbol,
+            "themes": list(themes),
+            "publisher": publisher,
+            "publisher_url": publisher_url,
+            "published": published_at,
+            "related": list(related_symbols),
+            "urgency": urgency,
+            "override": owner_override,
+            "job": job_id,
+        },
+    )
+    return bool(row.created)
+
+
 _LEADS = """
-    SELECT lead.id, lead.tier, lead.canonical_url, lead.url, lead.title, lead.snippet,
-        lead.published_date, lead.engines, lead.first_seen_at, lead.last_seen_at,
-        first.query, discovery.theme,
-        (SELECT count(*) FROM lead_sighting s WHERE s.lead_id = lead.id) AS sightings
+    SELECT lead.id, lead.tier, lead.origin, lead.canonical_url, lead.url, lead.title,
+        lead.snippet, lead.published_date, lead.engines, lead.first_seen_at, lead.last_seen_at,
+        first.query, COALESCE(discovery.theme, h.themes[1]) AS theme,
+        (SELECT count(*) FROM lead_sighting s WHERE s.lead_id = lead.id) AS sightings,
+        h.headline_id, h.company_id AS headline_company_id, h.symbol AS headline_symbol,
+        h.publisher, h.publisher_url, h.published_at AS headline_published_at,
+        h.related_symbols, h.owner_override
     FROM lead
-    JOIN discovery_query first ON first.id = lead.first_query_id
-    JOIN discovery ON discovery.id = first.discovery_id
+    LEFT JOIN discovery_query first ON first.id = lead.first_query_id
+    LEFT JOIN discovery ON discovery.id = first.discovery_id
+    LEFT JOIN tradingview_headline h ON h.lead_id = lead.id
 """
-# A lead belongs to a theme when a discovery for that theme has returned it.
+# A lead belongs to a theme when a discovery for that theme has returned it, or when it is a
+# headline listed for a company in that theme.
 _IN_THEME = """
     WHERE CAST(:theme AS text) IS NULL OR EXISTS (
         SELECT 1 FROM lead_sighting s
         JOIN discovery_query q ON q.id = s.discovery_query_id
         JOIN discovery d ON d.id = q.discovery_id
         WHERE s.lead_id = lead.id AND d.theme = :theme)
+    OR EXISTS (
+        SELECT 1 FROM tradingview_headline t WHERE t.lead_id = lead.id AND :theme = ANY(t.themes))
 """
+_HEADLINE_COLUMNS = (
+    "headline_id",
+    "headline_company_id",
+    "headline_symbol",
+    "publisher",
+    "publisher_url",
+    "headline_published_at",
+    "related_symbols",
+    "owner_override",
+)
+
+
+def _lead(row: RowMapping) -> Lead:
+    fields = {k: v for k, v in row.items() if k not in _HEADLINE_COLUMNS}
+    headline = None
+    if row["headline_id"] is not None:
+        headline = Headline(
+            headline_id=row["headline_id"],
+            company_id=row["headline_company_id"],
+            symbol=row["headline_symbol"],
+            publisher=row["publisher"],
+            publisher_url=row["publisher_url"],
+            published_at=row["headline_published_at"],
+            related_symbols=list(row["related_symbols"]),
+            owner_override=row["owner_override"],
+        )
+    return Lead.model_validate({**fields, "headline": headline})
 
 
 def list_leads(
@@ -152,4 +273,4 @@ def list_leads(
         ),
         {"theme": theme, "limit": limit, "offset": offset},
     ).mappings()
-    return [Lead.model_validate(dict(row)) for row in rows], int(total)
+    return [_lead(row) for row in rows], int(total)

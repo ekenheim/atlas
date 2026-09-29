@@ -44,17 +44,30 @@ deterministic guess from the text: Han, kana and Hangul characters give `zh`, `j
 `it` and `nl`, and too few of them, or a near tie, give `und`. (An adapter's declared
 language, such as EDGAR's English, overrides this in the ledger.)
 
+TradingView transcripts (`application/x-tradingview-transcript+json`, parser version
+`tradingview-transcript-v1`; ticket 31): the raw bytes are a `get_document_view` answer as
+TradingView's MCP server returned it, a JSON object whose `astDescription` is a tree of nodes
+(`{"type": ..., "children": [...]}`, where a child is a node or a string). The text is the
+tree flattened in document order: each child of the root is one line (its strings
+concatenated, whatever the inline node types, e.g. a bold speaker label followed by
+`": text"`, so a line reads `Speaker: text`); a `br` node inside a line breaks it. Then the
+same normalization and line rules as HTML, and the language is detected from the text. A
+tree with no text is `Unsupported`; bytes that aren't such a JSON object raise, and the
+ledger records the parse as failed.
+
 Other media types (JSON, XBRL instance data, ...) are not parsed: `parse` returns None.
 """
 
 import codecs
 import hashlib
 import io
+import json
 import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 from html.parser import HTMLParser
+from typing import cast
 
 from pypdf import PdfReader
 
@@ -64,7 +77,14 @@ UNDETERMINED = "und"
 HTML_MEDIA_TYPES = frozenset({"text/html", "application/xhtml+xml"})
 TEXT_MEDIA_TYPES = frozenset({"text/plain"})
 PDF_MEDIA_TYPES = frozenset({"application/pdf", "application/x-pdf"})
-_PARSEABLE = HTML_MEDIA_TYPES | TEXT_MEDIA_TYPES | PDF_MEDIA_TYPES
+TRADINGVIEW_TRANSCRIPT_MEDIA_TYPE = "application/x-tradingview-transcript+json"
+TRADINGVIEW_TRANSCRIPT_PARSER_VERSION = "tradingview-transcript-v1"
+_PARSEABLE = (
+    HTML_MEDIA_TYPES
+    | TEXT_MEDIA_TYPES
+    | PDF_MEDIA_TYPES
+    | frozenset({TRADINGVIEW_TRANSCRIPT_MEDIA_TYPE})
+)
 
 _SKIPPED = frozenset({"head", "script", "style", "noscript", "template", "ix:header"})
 _VOID = frozenset(
@@ -191,6 +211,8 @@ def parse(raw: bytes, media_type: str) -> ParsedText | Unsupported | None:
         return None
     if kind in PDF_MEDIA_TYPES:
         return _parse_pdf(raw)
+    if kind == TRADINGVIEW_TRANSCRIPT_MEDIA_TYPE:
+        return _parse_tradingview_transcript(raw)
     decoded, complete = _decode(raw)
     declared: str | None = None
     if kind in HTML_MEDIA_TYPES:
@@ -229,6 +251,40 @@ def _parse_pdf(raw: bytes) -> ParsedText | Unsupported:
     declared: object = reader.root_object.get("/Lang")
     language = _language(declared if isinstance(declared, str) else None, text)
     return ParsedText(text, PARSER_VERSION, True, language, tuple(anchors))
+
+
+class TranscriptFormatError(ValueError):
+    """Bytes that aren't a TradingView document view with an `astDescription` tree."""
+
+
+def _parse_tradingview_transcript(raw: bytes) -> ParsedText | Unsupported:
+    view: object = json.loads(raw.decode("utf-8"))
+    tree = _field(view, "astDescription")
+    children = _field(tree, "children")
+    if not isinstance(children, list):
+        raise TranscriptFormatError("no astDescription tree with children in the document view")
+    lines = [_inline_text(child) for child in cast(list[object], children)]
+    text = _normalize(_CONTROL.sub("", _lines("\n".join(lines))))
+    if not text:
+        return Unsupported(TRADINGVIEW_TRANSCRIPT_PARSER_VERSION, "the transcript has no text")
+    return ParsedText(text, TRADINGVIEW_TRANSCRIPT_PARSER_VERSION, True, _language(None, text))
+
+
+def _field(node: object, name: str) -> object:
+    """`node[name]` if `node` is a JSON object, else None."""
+    return cast(dict[str, object], node).get(name) if isinstance(node, dict) else None
+
+
+def _inline_text(node: object) -> str:
+    """A node's strings in document order; a `br` node is a line break."""
+    if isinstance(node, str):
+        return node
+    if _field(node, "type") == "br":
+        return "\n"
+    children = _field(node, "children")
+    if not isinstance(children, list):
+        return ""
+    return "".join(_inline_text(child) for child in cast(list[object], children))
 
 
 def _language(declared: str | None, text: str) -> str:

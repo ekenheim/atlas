@@ -1,0 +1,54 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; not TradingView, Quartr or news content",
+  "items": [
+    {
+      "category": {"id": "earnings_call", "title": "Earnings call"},
+      "correlation_id": "syn-corr-1001",
+      "event": "Synthetic Q4 FY2026 earnings call",
+      "fiscal_period": "Q4",
+      "fiscal_year": 2026,
+      "id": "syn-doc-1001",
+      "provider": {"id": "quartr", "name": "Quartr"},
+      "reported": 1786480200,
+      "status": "ready",
+      "symbols": [{"symbol": "NASDAQ:LITE"}],
+      "title": "SYNTHETIC Q4 FY2026 earnings call",
+      "views": [
+        {"id": "syn-view-1001-t", "type": "transcript"},
+        {"id": "syn-view-1001-s", "type": "summary"}
+      ]
+    },
+    {
+      "category": {"id": "annual_report", "title": "Annual report"},
+      "correlation_id": "syn-corr-1002",
+      "event": null,
+      "fiscal_year": 2026,
+      "form": {"id": "10-K", "title": "10-K"},
+      "id": "syn-doc-1002",
+      "provider": {"id": "quartr", "name": "Quartr"},
+      "reported": 1787259900,
+      "status": "ready",
+      "symbols": [{"symbol": "NASDAQ:LITE"}],
+      "title": "SYNTHETIC Form 10-K FY2026",
+      "views": [
+        {"id": "syn-view-1002-s", "type": "summary"},
+        {"id": "syn-view-1002-p", "type": "pdf"}
+      ]
+    },
+    {
+      "category": {"id": "earnings_call", "title": "Earnings call"},
+      "correlation_id": "syn-corr-0901",
+      "event": "Synthetic Q3 FY2019 earnings call",
+      "fiscal_period": "Q3",
+      "fiscal_year": 2019,
+      "id": "syn-doc-0901",
+      "provider": {"id": "quartr", "name": "Quartr"},
+      "reported": 1556742600,
+      "status": "ready",
+      "symbols": [{"symbol": "NASDAQ:LITE"}],
+      "title": "SYNTHETIC Q3 FY2019 earnings call",
+      "views": [{"id": "syn-view-0901-t", "type": "transcript"}]
+    }
+  ],
+  "total": 3
+}
