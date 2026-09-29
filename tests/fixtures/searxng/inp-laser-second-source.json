@@ -1,0 +1,43 @@
+{
+  "query": "InP laser second source qualification hyperscaler",
+  "number_of_results": 0,
+  "results": [
+    {
+      "url": "https://PHOTONICS-NEWS.test:443/2026/08/axt-expands-inp-substrate-capacity/#comments",
+      "title": "AXT expands InP substrate capacity (comments)",
+      "content": "Readers discuss AXT's substrate expansion.",
+      "publishedDate": "2026-08-13T09:30:00",
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "parsed_url": ["https", "PHOTONICS-NEWS.test:443", "/2026/08/axt-expands-inp-substrate-capacity/", "", "", "comments"],
+      "img_src": "",
+      "priority": "",
+      "engines": ["bing"],
+      "positions": [1],
+      "score": 1.0,
+      "category": "general"
+    },
+    {
+      "url": "https://blog.photonics.test/second-sources-for-inp-lasers/?utm_campaign=feed&b=2&a=1",
+      "title": "Who can second-source InP lasers for 1.6T?",
+      "content": "A look at which laser makers are qualifying second sources for electro-absorption modulated lasers.",
+      "publishedDate": "2026-07-01",
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "parsed_url": ["https", "blog.photonics.test", "/second-sources-for-inp-lasers/", "", "utm_campaign=feed&b=2&a=1", ""],
+      "img_src": "",
+      "priority": "",
+      "engines": ["bing"],
+      "positions": [2],
+      "score": 0.5,
+      "category": "general"
+    }
+  ],
+  "answers": [],
+  "corrections": [],
+  "infoboxes": [],
+  "suggestions": [],
+  "unresponsive_engines": [["brave", "timeout"]]
+}

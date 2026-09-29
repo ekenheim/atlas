@@ -41,7 +41,14 @@ from tests.harness import (
 )
 
 ALERT_RULES = REPO / "configs" / "prometheus" / "atlas-alerts.yaml"
-PAUSABLE_KINDS = ["extract_claims", "poll_operation", "refresh_mental_model", "reprocess", "retain"]
+PAUSABLE_KINDS = [
+    "discover",
+    "extract_claims",
+    "poll_operation",
+    "refresh_mental_model",
+    "reprocess",
+    "retain",
+]
 UNRELATED_ERROR = "ValueError: document exceeds the extraction schema's maximum length"
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
 

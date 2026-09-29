@@ -6,10 +6,10 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 07 (Role-call foundation)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A SearXNG client recording `unresponsive_engines`, tested from recorded responses
-- [ ] A `lead` table and `GET /api/v1/leads`
-- [ ] A discovery job runs the Scout and stores leads; a rerun deduplicates
-- [ ] A test proves leads never create retain jobs or Evidence
-- [ ] Metrics: discovery queries and leads
+- [x] A SearXNG client recording `unresponsive_engines`, tested from recorded responses (hand-written in SearXNG's documented JSON shape, not recorded live; see the implementation log)
+- [x] A `lead` table and `GET /api/v1/leads`
+- [x] A discovery job runs the Scout and stores leads; a rerun deduplicates
+- [x] A test proves leads never create retain jobs or Evidence
+- [x] Metrics: discovery queries and leads

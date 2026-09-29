@@ -1,0 +1,54 @@
+{
+  "query": "indium phosphide substrate capacity expansion 2026",
+  "number_of_results": 0,
+  "results": [
+    {
+      "url": "https://www.photonics-news.test/2026/08/axt-expands-inp-substrate-capacity?utm_source=rss&utm_medium=feed",
+      "title": "AXT expands indium phosphide substrate capacity in Beijing",
+      "content": "AXT said it would add InP substrate capacity through 2027 as demand from datacom laser makers grows.",
+      "publishedDate": "2026-08-12T00:00:00",
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "parsed_url": ["https", "www.photonics-news.test", "/2026/08/axt-expands-inp-substrate-capacity", "", "utm_source=rss&utm_medium=feed", ""],
+      "img_src": "",
+      "priority": "",
+      "engines": ["bing", "brave"],
+      "positions": [1, 2],
+      "score": 3.0,
+      "category": "general"
+    },
+    {
+      "url": "https://www.optics-trade.test/articles/sumitomo-electric-inp-wafers",
+      "title": "Sumitomo Electric to double 6-inch InP wafer output",
+      "content": "Sumitomo Electric Industries plans to double its six-inch indium phosphide wafer output, citing laser demand for AI data centers.",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "parsed_url": ["https", "www.optics-trade.test", "/articles/sumitomo-electric-inp-wafers", "", "", ""],
+      "img_src": "",
+      "priority": "",
+      "engines": ["bing"],
+      "positions": [2],
+      "score": 0.5,
+      "category": "general"
+    },
+    {
+      "url": "ftp://files.photonics-news.test/inp-report.pdf",
+      "title": "InP report (FTP mirror)",
+      "content": "A mirror of the report.",
+      "publishedDate": null,
+      "engine": "brave",
+      "engines": ["brave"],
+      "positions": [3],
+      "score": 0.3,
+      "category": "general"
+    }
+  ],
+  "answers": [],
+  "corrections": [],
+  "infoboxes": [],
+  "suggestions": ["indium phosphide wafer shortage"],
+  "unresponsive_engines": []
+}

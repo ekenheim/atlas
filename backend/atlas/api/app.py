@@ -13,6 +13,7 @@ from atlas.api.assertions import assertions_router
 from atlas.api.claims import claims_router
 from atlas.api.common import invalid_request
 from atlas.api.financials import financials_router
+from atlas.api.discovery import discovery_router
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
 from atlas.api.mental_models import mental_models_router
@@ -98,6 +99,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     )
     app.include_router(runs_router(engine))
     app.include_router(claims_router(engine))
+    app.include_router(discovery_router(engine))
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:
