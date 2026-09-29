@@ -39,7 +39,7 @@ test("the edge table sorts and filters, and an edge opens its highlighted source
   const table = edgeTable(page);
   await expect(page.getByRole("status")).toHaveText("3 relationships.");
   // Oldest first by default: the order the seed's Assertions were reviewed in.
-  expect(await edgeNames(table)).toEqual([DEPENDS.name, COMPETES, MANUFACTURES]);
+  await expect.poll(() => edgeNames(table)).toEqual([DEPENDS.name, COMPETES, MANUFACTURES]);
   const depends = table.getByRole("row", { name: DEPENDS.name });
   await expect(depends.getByRole("cell")).toHaveText([
     "Lumentum",
@@ -71,13 +71,13 @@ test("the edge table sorts and filters, and an edge opens its highlighted source
   const filters = page.getByRole("form", { name: "Filter relationships" });
   await filters.getByLabel("Review state").selectOption({ label: "Approved" });
   await expect(page.getByRole("status")).toHaveText("1 relationship, approved.");
-  expect(await edgeNames(table)).toEqual([MANUFACTURES]);
+  await expect.poll(() => edgeNames(table)).toEqual([MANUFACTURES]);
   await filters.getByLabel("Review state").selectOption({ label: "Needs human review" });
   await filters.getByLabel("Layer").selectOption({ label: "Contract manufacturing" });
   await expect(page.getByRole("status")).toHaveText(
     "1 relationship in layer Contract manufacturing, needs human review.",
   );
-  expect(await edgeNames(table)).toEqual([DEPENDS.name]);
+  await expect.poll(() => edgeNames(table)).toEqual([DEPENDS.name]);
   await expect(page).toHaveURL(/layer=contract-manufacturing/);
   await page.reload();
   await expect(page.getByRole("status")).toHaveText(
@@ -143,7 +143,7 @@ test("the owner approves and rejects edges in the exceptions queue", async ({ pa
   await expect(page.getByText("No relationships need review.")).toBeVisible();
   await page.goto("/relationships/?review_state=rejected");
   const table = edgeTable(page);
-  expect(await edgeNames(table)).toEqual([COMPETES]);
+  await expect.poll(() => edgeNames(table)).toEqual([COMPETES]);
   await expect(table.getByRole("row", { name: COMPETES })).toContainText(
     `rejected by ${ACTOR}`,
   );
