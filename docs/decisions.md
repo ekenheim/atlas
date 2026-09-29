@@ -244,3 +244,8 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
   - Every reader takes availability from the view `source_version_availability`: the correction if there is one, else the version's own. That means the API (`available_at`, `available_at_basis`, plus `recorded_available_at` / `recorded_available_at_basis`, what the version itself holds), citations and evidence, retention's `--since` window and retain timestamps. The version page shows a corrected value with the recorded one beside it.
   - Why not correct at read time from metadata: every as-of filter is SQL, so the calendar would have to be re-implemented in SQL or every reader would have to post-filter in Python, and a later change to the table would silently move old versions. A recorded, audited row makes the change a dated fact.
   - Already-retained memories keep the timestamp Hindsight was given at retain time; Atlas's own as-of reads use the corrected value.
+
+## 2026-09-29: Relationship review is LLM-assisted (Phases 3–6a map, ticket 05)
+
+- **Relationships are machine-reviewed by default** (owner refinement of spec §7.3 step 11). A separate reviewer role (the Skeptic model) plus deterministic checks (a verbatim span in the archived parse; a Tier A source; explicitly directional language) sets a Relationship to machine-reviewed, shown as such. Rejected or uncertain proposals go to a human exceptions queue.
+- **The owner approves only material links:** any Relationship a *published* Hypothesis depends on requires owner approval before publication. This keeps the spec's human gate on material relationships without per-edge clicking. Reversible.

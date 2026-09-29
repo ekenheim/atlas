@@ -31,6 +31,10 @@ It ends in the spec §15 demo. The spec will be at `.scratch/atlas-phase3-6a/spe
 
 <!-- one line per closed ticket -->
 
+- [Claim → Assertion → Relationship](issues/05-relationship-workflow.md): the Investigator proposes span-backed Claims; whitelist predicates with direction and layer; SimHash evidence families; **LLM-assisted review** (machine-reviewed), with humans for exceptions and anything a published Hypothesis relies on.
+- [Discovery and Candidates](issues/06-discovery-candidates.md): Scout ≤10 SearXNG queries/run → Tier C leads; unseeded companies become Candidates that the owner commits; Candidates are never deleted.
+- [Snapshots and replay](issues/09-snapshots-replay.md): content-addressed snapshot plus an insert-only row; replay banks on local Hindsight seeded by `available_at ≤ cutoff`; 0 future fixtures accepted.
+
 - [EDGAR dissemination time](issues/10-edgar-dissemination-time.md): `available_at` = EDGAR public time (06:00–17:30 ET business days, else the next business day 06:00 ET; holidays 2019–2027), basis `sec_dissemination`; existing rows corrected through an append-only correction table (`atlas ledger correct-availability`); Phase 5 XBRL must use `filing_availability`.
 
 - [Atlas LiteLLM key](issues/02-atlas-litellm-key.md): home-ops PR #7086 (key, a store scoped to development, the Atlas ExternalSecret and envs; MiniMax-M3 directly, no configmap change); release version stamping merged.
