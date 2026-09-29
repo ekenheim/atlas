@@ -311,3 +311,10 @@ Rules from the research note `docs/research/xbrl-normalization.md` (branch `rese
 - **The per-run lead budget (spec §7.4 "≤ 10 new web leads per question") isn't applied here**: ticket 08 bounds queries, not leads. The investigation orchestration (ticket 14) applies its lead budget when it picks leads to investigate.
 - **Metrics:** `atlas_discovery_queries_total{status=searched|failed}`, `atlas_discovery_unresponsive_engines_total{engine}`, `atlas_leads_total`. Scout tokens appear in `atlas_llm_tokens_total{kind="discovery"}` once the run finishes.
 
+
+## 2026-09-29: Pacing to subscription windows; archive backup; staged rollout
+
+- **Pacing:** the owner's ChatGPT/Codex and MiniMax subscriptions each renew in rolling 5-hour windows. LLM-backed work is spread across those windows, not confined to the 01:00–07:00 night window, and each provider gets a budget per window (build ticket 27). The 429 pause remains the backstop.
+- **Rollout:** the ten companies not yet ingested are rolled out one at a time under that budget, each with an ingest plan and a retain cap first. The unbounded bootstrap of 2026-09 must not recur.
+- **Archive backup:** the archive PVC (`atlas-archive`, ceph-block) is backed up by the owner's VolSync, with MinIO as the backup target. The owner sets this up in home-ops. Until it exists and a restore has been checked, snapshots (Phase 6a) are not a durability guarantee. WORM (MinIO object lock) and the restore drill stay in Phase 7.
+- **Before building on it:** a small live smoke test of claim extraction runs (build ticket 28), because exact quote spans from a live model are the main untested risk.
