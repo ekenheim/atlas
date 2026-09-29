@@ -1332,3 +1332,23 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
   - Ignored ADR CIKs live in config only (not a table); ticket 03's entity resolution can read them from the universe.
   - STMicroelectronics' 6-K ingests only its primary document; the adapter fetches EX-99 exhibits for 8-Ks only.
 - **Next:** ticket 03 (identity) adds LEIs, securities and the owner CIK↔LEI confirmation; the exchange adapters ingest Soitec (Euronext), IQE (LSE RNS) and Innolight (HKEXnews). Consider fetching 6-K EX-99 exhibits for STMicroelectronics.
+## 2026-09-29: Phase 3-6a ticket 11, Evidence Families
+
+- **Built:**
+  - `backend/atlas/ledger/families.py`: self-implemented 64-bit SimHash (rule `simhash64-w3-blake2b-v1`: NFKC + casefold, letter/digit tokens, word 3-shingles weighted by occurrence, unkeyed BLAKE2b-64 per feature; documented in the module docstring), `assign` (exact by `content_sha256`, else nearest member within the family's recorded Hamming threshold, else a new family; serialized by an advisory lock taken before the audit chain's), `audit`, and the backfill `assign_missing`
+  - the ledger assigns a family in the transaction that records a new parsed Source Version (`SourceLedger(max_hamming_distance=...)`), audited `evidence_family.created` / `evidence_family.member_added`
+  - migration `0016` (down_revision `0012`): append-only `evidence_family` (rule, `max_hamming_distance`) and `evidence_family_member` (content hash, SimHash, match kind, matched member, distance, `seq`)
+  - setting `ATLAS_EVIDENCE_FAMILY_MAX_HAMMING_DISTANCE` (default 3)
+  - API: `evidence_family_id` on version summaries, `evidence_family` (match, matched version, distance, SimHash, rule, threshold, member count) on `GET /api/v1/source-versions/{id}`, and `GET /api/v1/evidence-families/{id}` (members in assignment order); API client regenerated
+  - CLI `atlas ledger assign-families` (idempotent backfill; prints `{"assigned": [...], "families_created": N}`)
+  - fixtures `tests/fixtures/syndication/lumentum`: hand-assembled from the recorded Lumentum fixtures (the Q4 FY2026 EX-99.1 trimmed to 40 top-level elements; a synthetic 8-K/A re-filing it byte for byte; a synthetic 8-K carrying a wire-service copy; the recorded 10-Q as the unrelated document); the manifest says what is synthetic
+  - docs: `docs/decisions.md`, `docs/data-model.md` (2.4b), `docs/runbooks.md` (run the backfill once after `0016`), `AGENTS.md`
+- **Tests:**
+  - new `tests/unit/test_evidence_families.py` (9): single-feature known answer from BLAKE2b, occurrence weighting, normalization (case, punctuation, whitespace, NFKC ligature and fullwidth digits, underscore), empty text, same fingerprint under three `PYTHONHASHSEED`s in subprocesses, Hamming basics, the wire copy within 3 bits and the 10-Q beyond, a small edit within 3
+  - new `tests/integration/test_evidence_families.py` (4): the gate (CLI ingest + worker pass: the three copies are one family, one founder / one `content_hash` / one `simhash` within 3, the 10-Q its own, companyfacts none, audited, a re-ingest adds nothing, `audit verify` passes); append-only tables and 404; threshold 0 recorded per family and the wire copy then apart; `assign-families` backfills a version inserted as the old code would have, then is a no-op
+  - updated: `test_every_mutation_is_audited_in_one_chain_that_verifies` (the four family events per parsed filing), the migration head (`0016`)
+  - red first: not strictly; the unit and gate tests were written before running the code, and all passed on their first run
+  - `scripts/ci.sh --no-image` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`): **passed** (ruff, strict pyright, frontend gates, API client check, pytest 446 passed and 9 deselected in 21.6 min, e2e 3 passed)
+- **Fixture-only vs live:** fixture-only. No live requests. The syndicated copies are synthetic, derived from recorded SEC documents; no real news-wire copy was fetched (non-SEC sources come with tickets 04–06 and 08).
+- **Deviations:** families are never merged and a version joins only the nearest family (decision entry). Unparsed versions (companyfacts JSON, failed parses) get no family. `assertion.independence_family_id` stays unused: an Assertion's family is its Source Version's, by join. The frontend shows nothing yet (the ticket asked for the API).
+- **Next:** after deploy, `atlas migrate` then `atlas ledger assign-families` once. Tickets 13 (edge table family count) and 15 (Skeptic's distinct families) join `evidence_family_member` on the Assertion's Source Version.

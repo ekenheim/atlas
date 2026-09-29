@@ -101,7 +101,12 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
     try:
         with engine.begin() as connection:
             (seeded,) = seed(connection, actor, universe, [payload.company])
-        ledger = SourceLedger(engine, open_archive(settings), actor)
+        ledger = SourceLedger(
+            engine,
+            open_archive(settings),
+            actor,
+            max_hamming_distance=settings.evidence_family_max_hamming_distance,
+        )
         client = _sec_client(settings, payload.company)
         query = SearchQuery(
             cik=config.cik,

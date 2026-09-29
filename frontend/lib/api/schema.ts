@@ -208,6 +208,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/evidence-families/{family_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evidence Family */
+        get: operations["evidence_family_api_v1_evidence_families__family_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assertions": {
         parameters: {
             query?: never;
@@ -702,6 +719,96 @@ export interface components {
             memory_ids: string[];
             /** Quotes */
             quotes: components["schemas"]["QuoteSpan"][];
+        };
+        /**
+         * EvidenceFamily
+         * @description Source Versions that are copies of one announcement: one witness.
+         */
+        EvidenceFamily: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Simhash Rule */
+            simhash_rule: string;
+            /** Max Hamming Distance */
+            max_hamming_distance: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Member Count */
+            member_count: number;
+            /** Members */
+            members: components["schemas"]["EvidenceFamilyMember"][];
+        };
+        /** EvidenceFamilyMember */
+        EvidenceFamilyMember: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Source Document Id
+             * Format: uuid
+             */
+            source_document_id: string;
+            /** Canonical Url */
+            canonical_url: string;
+            /** Publisher */
+            publisher: string;
+            /**
+             * Match
+             * @enum {string}
+             */
+            match: "founder" | "content_hash" | "simhash";
+            /** Matched Source Version Id */
+            matched_source_version_id: string | null;
+            /** Hamming Distance */
+            hamming_distance: number | null;
+            /** Simhash */
+            simhash: string;
+            /**
+             * Assigned At
+             * Format: date-time
+             */
+            assigned_at: string;
+        };
+        /**
+         * EvidenceFamilyMembership
+         * @description How a Source Version joined its Evidence Family (atlas.ledger.families).
+         */
+        EvidenceFamilyMembership: {
+            /**
+             * Evidence Family Id
+             * Format: uuid
+             */
+            evidence_family_id: string;
+            /**
+             * Match
+             * @enum {string}
+             */
+            match: "founder" | "content_hash" | "simhash";
+            /** Matched Source Version Id */
+            matched_source_version_id: string | null;
+            /** Hamming Distance */
+            hamming_distance: number | null;
+            /** Simhash */
+            simhash: string;
+            /** Simhash Rule */
+            simhash_rule: string;
+            /** Max Hamming Distance */
+            max_hamming_distance: number;
+            /** Member Count */
+            member_count: number;
+            /**
+             * Assigned At
+             * Format: date-time
+             */
+            assigned_at: string;
         };
         /**
          * FetchObservation
@@ -1525,6 +1632,8 @@ export interface components {
             supersedes_version_id: string | null;
             /** Superseded By Version Id */
             superseded_by_version_id: string | null;
+            /** Evidence Family Id */
+            evidence_family_id: string | null;
             source_document: components["schemas"]["SourceDocument"];
             /** Comparison Sha256 */
             comparison_sha256: string;
@@ -1555,6 +1664,7 @@ export interface components {
             content: components["schemas"]["ContentLinks"];
             /** Fetches */
             fetches: components["schemas"]["FetchObservation"][];
+            evidence_family: components["schemas"]["EvidenceFamilyMembership"] | null;
         };
         /** SourceVersionMemory */
         SourceVersionMemory: {
@@ -1632,6 +1742,8 @@ export interface components {
             supersedes_version_id: string | null;
             /** Superseded By Version Id */
             superseded_by_version_id: string | null;
+            /** Evidence Family Id */
+            evidence_family_id: string | null;
         };
         /** @enum {string} */
         TagMatch: "any_strict" | "all_strict";
@@ -2045,6 +2157,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evidence_family_api_v1_evidence_families__family_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceFamily"];
+                };
             };
             /** @description Not Found */
             404: {

@@ -154,6 +154,31 @@ One row per fetch of a Source Document that returned or confirmed content, inclu
 
 So an **unchanged re-fetch** (same raw hash, same comparison hash, or HTTP 304) creates no Source Version. It creates an observation, an audit event (`fetch.unchanged` or `fetch.not_modified`) and a job artifact. Fetch errors and permission denials that produce no bytes are recorded as job failures that list each failed URL (spec story 22).
 
+### 2.4b `evidence_family` and `evidence_family_member` (migration `0016`)
+
+Copies of one announcement (syndication, a re-filed exhibit) are one Evidence Family, one witness. Rules in `atlas.ledger.families` and `docs/decisions.md`. Both tables are append-only (ENABLE ALWAYS triggers reject `UPDATE`, `DELETE`, `TRUNCATE`).
+
+| `evidence_family` | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `simhash_rule` | text not null | `simhash64-w3-blake2b-v1` |
+| `max_hamming_distance` | integer not null | The threshold the family was founded with (default 3); later copies join within it |
+| `created_at` | timestamptz not null | |
+
+| `evidence_family_member` | Type | Notes |
+|---|---|---|
+| `source_version_id` | uuid PK FK → source_version | A parsed version is in exactly one family |
+| `evidence_family_id` | uuid not null FK → evidence_family | |
+| `seq` | bigint identity unique | Assignment order (the founder first; ties break by it) |
+| `content_sha256` | text not null | The parse hash (exact duplicates) |
+| `simhash` | bigint not null | The 64-bit SimHash of the parse, as a signed bigint |
+| `match` | text not null | `founder`, `content_hash` or `simhash` |
+| `matched_source_version_id` | uuid null FK → evidence_family_member | The member it duplicates; null exactly for a founder |
+| `hamming_distance` | integer null | To that member; null exactly for a founder |
+| `assigned_at` | timestamptz not null | |
+
+The ledger assigns a family in the transaction that creates a parsed version; `atlas ledger assign-families` backfills versions recorded before `0016`. Unparsed versions (`not_applicable`, `failed`) have no family.
+
 ### 2.5 `assertion`
 
 A statement bound to one Source Version and an exact quote span (build plan §5.4; spec stories 37–42).
@@ -606,7 +631,7 @@ erDiagram
 ## 6. Deferred (not in Phases 1–2)
 
 - `technology`, `product`, `industry_theme`, `product_company`, `theme_exposure` (build plan §5.2), and `relationship` (§5.5): Phase 3.
-- Evidence Families as a table (`independence_family_id` is reserved on `assertion`): Phase 3.
+- `assertion.independence_family_id` stays reserved: an Assertion's Evidence Family is its Source Version's (`evidence_family_member`, section 2.4b).
 - `hypothesis`, `task`, the full `run`: Phase 4.
 - `financial_observation`, `scenario`: Phase 5.
 - `research_snapshot`, `evaluation`: Phase 6a (the evaluation fixture format is in [`evaluation-methodology.md`](evaluation-methodology.md)).
