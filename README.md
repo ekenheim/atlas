@@ -36,6 +36,13 @@ docker compose --profile hindsight up -d --wait hindsight   # needs ATLAS_LITELL
 ATLAS_HINDSIGHT_URL=http://127.0.0.1:58888 uv run atlas hindsight apply-template
 ```
 
+The live Phase 2 gate suite runs against that stack with MiniMax via LiteLLM. It is opt-in, never runs in CI, and **spends MiniMax quota**; see `docs/runbooks.md`, "Live test suite":
+
+```bash
+scripts/live-tests.sh --rehearse                   # the same scenarios against the recorded fakes (free)
+scripts/live-tests.sh --model MiniMax-M3 --down    # live: brings up Hindsight, runs, records, tears down
+```
+
 ## Releases
 
 Push a tag `vX.Y.Z` to publish `ghcr.io/ekenheim/atlas:X.Y.Z` (amd64). The release workflow runs `scripts/ci.sh --no-image` first and smokes the image before pushing it. After the very first release, set the GHCR package to **Public** once in GitHub's package settings; new packages start private. See `docs/deployment.md`.

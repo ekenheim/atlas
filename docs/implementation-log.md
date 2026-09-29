@@ -948,3 +948,102 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - ticket 16: mental-model citations can reuse `ProvenanceResolver.resolve_answer`
   - record against the spike: a reflect whose `based_on` has an `id: null` entry, a deleted memory's 404, and consolidated observations over retained Atlas sections, to replace the derivations
   - the viewer can link resolved quote spans straight to Assertion creation (same code-point offsets)
+
+## 2026-09-29: ticket 17, live test suite (built; **not run live**)
+
+- **The live suite has NOT been run against real Hindsight, LiteLLM or MiniMax.**
+  - A run spends the owner's MiniMax quota and needs their go-ahead.
+  - Nothing in this entry is a live result: no Hindsight container was started, no LiteLLM endpoint (not even `/model/info`) was called, and no model was called.
+  - How to run it: `docs/runbooks.md`, "Live test suite". Short version: `scripts/live-tests.sh --rehearse`, then `scripts/live-tests.sh --stop-before-llm --model MiniMax-M3`, then `scripts/live-tests.sh --model MiniMax-M3 [--profile full] [--down]`.
+  - Record the first live run here from the `summary.md` it writes.
+- **Built:**
+  - **`tests/live/test_phase2_gate_live.py`**: the Phase 2 gate scenarios end to end, at the gate tests' seam (CLI apply-template and ingest, single worker passes, `/api/v1`). They share one run through module-scoped fixtures:
+    - a preflight
+    - the bank template applied (the bank config matches the file)
+    - both companies' fixtures ingested as parsed Source Versions (forms `ATLAS_LIVE_FORMS`)
+    - retain and wait for the operations: worker passes until no job is queued or running, waiting out queue pauses (recorded), up to a deadline. Then every section is in a final state, every operation completed, and every completed section has facts.
+    - a bounded wait for consolidation (the observation count holds steady)
+    - cross-company recall (`any_strict` over both companies): both companies present, and every memory resolved to its Source Version, section offsets and `available_at`
+    - a reflect over the photonics theme. It completes with a run recorded, nothing is broken, every cited memory resolves, and Evidence exists. Unverified chunks and quotes are reported with their reasons, not failed.
+    - zero-fact visibility: `fact_count` 0 and `reprocess_count` 1, matching the per-state counts and `atlas_zero_fact_sections`. It is skipped, saying so, if the run produced no zero-fact section.
+    - Hindsight's LLM request stats, recorded
+
+    Because the model's answers aren't scripted, the live assertions are those any correct answer must meet.
+  - **`tests/live/stack.py`**:
+    - the opt-in (`ATLAS_LIVE_TESTS=1` live, `=rehearse` for the fakes; anything else skips)
+    - `ATLAS_LIVE_STOP_BEFORE_LLM`
+    - the stack config (Hindsight URL, default the Compose profile's `:58888`; the LiteLLM URL/key; the aliases; a fresh bank `atlas-live-<stamp>` per run; poll timings 240 s × 15 attempts; deadlines)
+    - the preflight
+    - a fresh app database per run (`atlas_live_*`, dropped unless `ATLAS_LIVE_KEEP_DATABASE`)
+    - the rehearsal: the recorded Hindsight fake with `derive_memories`, zero facts for cover sections, one derived observation over both companies' Item 1 facts, and a scripted reflect citing those facts, the observation, a raw chunk, two verbatim quotes and one paraphrase; plus the `/model/info` fake, all on localhost
+    - `LiveReport`, which writes `results.json` and `summary.md` to `ATLAS_LIVE_RESULTS_DIR`
+  - **The preflight** refuses a live run with `pytest.exit` (status 4) when:
+    - `CI` is set
+    - the LiteLLM settings are missing
+    - Hindsight is unhealthy, unreachable or not 0.10.1
+    - an alias isn't routed (the message suggests `--model MiniMax-M3`)
+    - the app Postgres is unreachable
+
+    It reads only `/health`, `/version` and `/model/info`.
+  - **`tests/live/conftest.py`**: the scenarios are skipped unless `ATLAS_LIVE_TESTS` opts in (they are still collected). A rehearsal may reach localhost only (`allow_hosts`). Each scenario's outcome is kept for the report.
+  - **`scripts/live-tests.sh`**, the runner:
+    - refuses under `CI`
+    - takes LiteLLM from `ATLAS_LITELLM_*` or the `.env`'s `LITELLM_*` (CRLF-safe, never printed)
+    - starts `postgres-app` only if nothing answers on 55432
+    - brings up the stack: the Compose `hindsight` profile (default), `spikes/hindsight/run.sh MiniMax-M3 '{"thinking":{"type":"disabled"}}'` (`--stack spike`), or an existing one (`--stack none`)
+    - waits for `/health`
+    - asks for confirmation before a live run (unless `--yes`)
+    - runs the suite and records `summary.md`, `results.json`, `junit.xml` and `pytest.log` under `.scratch/live-runs/<stamp>-<mode>/` (gitignored)
+    - with `--down` (`--purge` also removes the volume), removes only `hindsight`/`hindsight-db` afterwards, via a trap
+    - other flags: `--rehearse`, `--stop-before-llm`, `--profile small|full` (`10-Q`, ~18k chars; or all recorded filings, ~470k chars), `--model`, `--keep-db`, `--results` and `--dry-run`
+  - **`tests/unit/test_live_suite_guard.py`**, which runs pytest in a subprocess with the opt-in removed, checks three things:
+    - the default run (CI's) deselects all 8 scenarios
+    - `-m live` without the opt-in skips all 8, with the reason
+    - an opted-in live run under `CI` exits 4, refused
+- **Files:**
+  - new: `tests/live/{stack,test_phase2_gate_live}.py`, `tests/unit/test_live_suite_guard.py`, `scripts/live-tests.sh`
+  - edited: `tests/live/conftest.py`, `docs/runbooks.md` (the "Live test suite" section), `README.md`, `AGENTS.md`, `.gitignore`, and this ticket
+  - no migrations, no app code and no shared settings changed
+  - The branch was fast-forwarded to `main` (ticket 15) first.
+- **Tests (actual results):**
+  - Collection: the default `uv run pytest tests/live --collect-only` gives `no tests collected (9 deselected)`. `-m live` collects the 8 scenarios and the SEC smoke test.
+  - `-m live` without the opt-in: `8 skipped`, "live Phase 2 suite not enabled: set ATLAS_LIVE_TESTS=1 …".
+  - **Rehearsal** (`ATLAS_LIVE_TESTS=rehearse`, and again through `scripts/live-tests.sh --rehearse`): **7 passed, 1 skipped** (LLM usage: "a rehearsal makes no LLM calls"), in ~13 s. It showed:
+    - two 10-Q Source Versions
+    - both cover sections `zero_fact` after one reprocess (metric 2)
+    - recall of 3 memories (1 observation, 2 world facts), all resolved, across both companies
+    - a reflect with 5 resolved and 2 unverified citations (the chunk `no_memory_id`, the paraphrase `quote_mismatch`), a run recorded, and 2 Evidence sections
+    - a `summary.md` and `results.json` written
+  - **Stop before LLM**, rehearsed (`ATLAS_LIVE_STOP_BEFORE_LLM=1`): 3 passed (preflight, template, ingest) and 5 skipped ("stopped before LLM-backed calls").
+  - **Refusals**, each exiting 4 with a `results.json` holding the reason:
+    - an unreachable Hindsight (a closed localhost port)
+    - `CI=1`
+    - missing LiteLLM settings
+  - **Runner:**
+    - `--dry-run` printed the Compose and spike bring-up and teardown commands (`--down --purge`) and ran nothing
+    - with no LiteLLM settings: exit 2
+    - under `CI`: exit 2
+    - unconfirmed (stdin closed): exit 2, "nothing was run"
+    - `--stack none --yes` against a closed port: exit 4, "refused … nothing was sent to a model"
+  - **Mutation checks** on the guard tests: removing the conftest skip turned the "skips without opt-in" test red, and removing the preflight's CI check turned the CI-refusal test red.
+  - `scripts/ci.sh --no-image` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`) **passed**: ruff format/lint clean, pyright strict 0 errors, frontend gates and "API client is current", **384 passed, 9 deselected** (the 8 live scenarios and the SEC smoke test) in 539 s, e2e 3 passed. The live suite is deselected there, so CI never calls MiniMax.
+- **Fixture-tested vs live:**
+  - **Live: nothing.**
+  - **Rehearsed against the recorded fakes only:** the suite's own wiring (setup, polling loop, report). This proves nothing about real Hindsight or MiniMax behaviour.
+  - **Never exercised:**
+    - the Compose `hindsight` profile or the spike stack being started by the runner
+    - the health wait
+    - `list_observations` and `llm_request_stats` against a live bank
+    - pacing and queue pauses against real 429s
+    - the confirmation prompt answered "y"
+- **Deviations and notes:**
+  - **Default profile:** the small profile (the two 10-Qs) is the default, to keep the first run near the bake-off's cost. Those sections are mostly cover pages and financial tables, which the bake-off found are under-extracted. Expect few facts, and the recall or "every company has facts" scenarios may fail there for want of facts rather than a bug. `--profile full` covers the narrative 10-K Items but costs an estimated ~40 min and ~1M input tokens (extrapolated, not measured).
+  - **Recorded bank:** the rehearsal uses the recorded template bank (`atlas-template-1790632603`), so `apply-template` replays as recorded. If ticket 16 changes the template and re-records it, the rehearsal follows automatically.
+  - **Structured reflect:** the gate's structured-output scenarios (valid, schema-invalid, union types refused) are not in the live suite. Union types are refused before any call, and the other two depend on the model. Add one if wanted.
+  - **Failure-injection scenarios:** deleted memories (broken), a replayed retain, revised sources and 429 pauses need failure injection or a second source revision. They stay fixture-only; the live suite records any pause it happens to see.
+  - **Ticket status:** set to `ready-for-human`, not `done`. Boxes 1 and 3 need a live run.
+- **Credentials:** none used. The runner reads the LiteLLM key from `.env` only when run live, and never prints or stores it.
+- **Next:**
+  - owner: run `--rehearse`, then `--stop-before-llm --model MiniMax-M3`, then a small live run; paste the summary here
+  - after the home-ops `atlas/litellm` step, drop `--model` so the per-role aliases are exercised
+  - consider the full profile once the small run's cost is known
