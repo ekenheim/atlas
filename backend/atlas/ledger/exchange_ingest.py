@@ -4,7 +4,8 @@ The `ingest` job runs this for a company whose source path is `exchange:<name>` 
 path is `atlas.ledger.ingest`). One path serves every exchange; what differs per exchange
 is an `ExchangeSource` in `EXCHANGE_SOURCES` (its feed's site and how to build its adapter
 from the company's config): HKEXnews (`exchange:hkex`, blocked by its terms) and the FCA
-National Storage Mechanism (`exchange:fca-nsm`); Euronext/AMF adds its own.
+National Storage Mechanism (`exchange:fca-nsm`) and the AMF info-financière API
+(`exchange:amf`).
 
 1. Seed the company; load the site register (`ATLAS_SOURCE_SITES_CONFIG`).
 2. Every request goes through a `GatedHttpClient`: the fetch gate (register, terms,
@@ -47,6 +48,8 @@ from atlas.retention.service import enqueue_retains
 from atlas.settings import Settings
 from atlas.sources import FetchError, FixtureReplay, SearchQuery, SecHttpClient, TokenBucket
 from atlas.sources.adapter import SourceAdapter
+from atlas.sources.amf import PROVIDER_ID as AMF
+from atlas.sources.amf import AmfInfoFinanciereAdapter
 from atlas.sources.edgar_fixtures import FIXTURE_USER_AGENT
 from atlas.sources.fca_nsm import PROVIDER_ID as FCA_NSM
 from atlas.sources.fca_nsm import FcaNsmAdapter
@@ -94,10 +97,20 @@ def _fca_nsm_adapter(client: HttpClient, slug: str, config: CompanyConfig) -> So
     return FcaNsmAdapter(client, lei=config.exchange.feed_id)
 
 
-# Source path -> the exchange source that ingests it. Ticket 06 adds euronext.
+def _amf_adapter(client: HttpClient, slug: str, config: CompanyConfig) -> SourceAdapter:
+    if config.exchange is None or config.exchange.feed_id is None:
+        raise ValueError(
+            f"company {slug!r} needs exchange.feed_id (its LEI, which info-financière is"
+            " searched by) in the theme config"
+        )
+    return AmfInfoFinanciereAdapter(client, lei=config.exchange.feed_id)
+
+
+# Source path -> the exchange source that ingests it.
 EXCHANGE_SOURCES: dict[str, ExchangeSource] = {
     "exchange:hkex": ExchangeSource("hkexnews", HKEXNEWS, _hkexnews_adapter),
     "exchange:fca-nsm": ExchangeSource("fca-nsm", FCA_NSM, _fca_nsm_adapter),
+    "exchange:amf": ExchangeSource("amf-info-financiere", AMF, _amf_adapter),
 }
 
 # One limiter per site in the process, at the register's rate (live requests only).

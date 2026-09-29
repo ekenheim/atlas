@@ -9,9 +9,9 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`. Terms sources: https://www.data.gouv.f
 
 **Blocked by:** 04 (the exchange ingest path)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Adapter on the documented API only, tested from hand-written fixtures in the documented shapes (marked as such); a fixed low rate far under 10k/day; the Etalab source credited in the stored metadata.
-- [ ] `available_at` uses the AMF publication timestamp (basis `publisher_timestamp`).
-- [ ] A Soitec annual report or results fixture is ingested and parsed. French-only documents are archived with `language=fr` and not retained (ticket 03); English versions are retained.
-- [ ] `source_path` for Soitec becomes `exchange:amf`; Euronext is recorded as a blocked source.
+- [x] Adapter on the documented API only, tested from hand-written fixtures in the documented shapes (marked as such); a fixed low rate far under 10k/day; the Etalab source credited in the stored metadata.
+- [x] `available_at` uses the AMF publication timestamp (basis `publisher_timestamp`).
+- [x] A Soitec annual report or results fixture is ingested and parsed. French-only documents are archived with `language=fr` and not retained (ticket 03); English versions are retained.
+- [x] `source_path` for Soitec becomes `exchange:amf`; Euronext is recorded as a blocked source.

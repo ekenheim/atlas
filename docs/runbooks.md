@@ -291,7 +291,7 @@ Done: Lumentum, Coherent. Remaining, smallest filer first (a company's own inges
 | 7 | STMicroelectronics (`stmicroelectronics`) | SEC 20-F/6-K (many 6-Ks): largest, last of the SEC filers | same |
 | 8 | Zhongji Innolight (`innolight`) | HKEXnews is blocked (terms) | manual import only: `atlas sources import --company innolight ...`, a few documents per window |
 | 9 | IQE (`iqe`) | FCA NSM | waits for ticket 05's adapter |
-| 10 | Soitec (`soitec`) | AMF open API | waits for ticket 06's adapter |
+| 10 | Soitec (`soitec`) | AMF info-financière API (`exchange:amf`): only English documents are retained | `atlas ingest --company soitec --backfill --max-retains 20` with `ATLAS_EXCHANGE_LIVE=true` (0.5 requests/s: a two-year backfill of ~150 files takes ~5 min, so give it a `--limit` or a longer `ATLAS_JOB_LEASE_SECONDS`) |
 
 For each SEC company, in its own window:
 

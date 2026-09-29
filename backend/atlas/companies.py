@@ -50,7 +50,7 @@ type Layer = Literal[
     "substrate", "epi", "chip-laser", "dsp", "module", "contract-manufacturing", "system"
 ]
 # Where a company's primary disclosures come from: SEC EDGAR, or its exchange's feed.
-type SourcePath = Literal["sec", "exchange:hkex", "exchange:fca-nsm", "exchange:euronext"]
+type SourcePath = Literal["sec", "exchange:hkex", "exchange:fca-nsm", "exchange:amf"]
 
 _CIK = r"^[0-9]{10}$"
 
@@ -67,7 +67,8 @@ class ExchangeListingConfig(_Config):
     """How an exchange-disclosed company is found in its exchange's feed."""
 
     issuer_code: str = Field(min_length=1)  # the exchange's code, e.g. HKEX stock code "03308"
-    # The feed's own ID for the issuer, if it has one (HKEXnews `stockId`; the NSM: its LEI)
+    # The feed's own ID for the issuer, if it has one (HKEXnews `stockId`; the NSM and the
+    # AMF's info-financière: its LEI)
     feed_id: str | None = None
 
 

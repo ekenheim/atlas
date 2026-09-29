@@ -90,6 +90,8 @@ class ExchangeAnnouncement(_Frozen):
     published_at: AwareDatetime | None
     published_local: str | None
     timezone: str  # the IANA zone the feed's timestamp is in, e.g. "Asia/Hong_Kong"
+    # The credit the feed's licence asks for (e.g. the AMF's Licence Ouverte), if any.
+    attribution: str | None = None
 
 
 class ManualImport(_Frozen):

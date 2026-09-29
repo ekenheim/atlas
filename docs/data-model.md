@@ -42,7 +42,7 @@ A legal entity, not a ticker (build plan §5.1). Built by ticket 07 (migration `
 | `country` | text not null | ISO 3166-1 alpha-2 |
 | `website` | text null | |
 | `layer` | text null | Primary photonics supply-chain layer: `substrate`, `epi`, `chip-laser`, `dsp`, `module`, `contract-manufacturing`, `system` (migration `0015`) |
-| `source_path` | text null | `sec`, or `exchange:<hkex\|fca-nsm\|euronext>` (`lse-rns` until 0025). Only `sec` companies are fetched by the SEC ingest; `sec` requires a `cik`. Unsponsored-ADR CIKs (Soitec, IQE, Innolight) are listed as `ignored_ciks` in config, never stored as a company's `cik` |
+| `source_path` | text null | `sec`, or `exchange:<hkex\|fca-nsm\|amf>` (`lse-rns` until 0025, `euronext` until 0029). Only `sec` companies are fetched by the SEC ingest; `sec` requires a `cik`. Unsponsored-ADR CIKs (Soitec, IQE, Innolight) are listed as `ignored_ciks` in config, never stored as a company's `cik` |
 | `sec_forms` | text[] null | SEC forms to ingest (e.g. `20-F`, `6-K` for STMicroelectronics); NULL means 10-K/10-Q/8-K. Only for `sec` companies |
 | (config only) `exchange` | | For an `exchange:*` company: `issuer_code` (e.g. HKEX stock code `03308`) and `feed_id` (the feed's own ID, e.g. HKEXnews `stockId`). Read by the exchange ingest; not a column |
 | `parent_company_id` | uuid null FK → company | Parent/subsidiary structure |

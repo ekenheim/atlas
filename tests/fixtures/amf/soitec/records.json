@@ -1,0 +1,292 @@
+{
+ "total_count": 4,
+ "links": [
+  {
+   "rel": "self",
+   "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/records?limit=100&offset=0"
+  },
+  {
+   "rel": "first",
+   "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/records?limit=100&offset=0"
+  },
+  {
+   "rel": "last",
+   "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/records?limit=100&offset=0"
+  }
+ ],
+ "records": [
+  {
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/records/0f3a5c9e1b7d2468ace013579bdf2468ace01357"
+    },
+    {
+     "rel": "datasets",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets"
+    },
+    {
+     "rel": "dataset",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod"
+    }
+   ],
+   "record": {
+    "id": "0f3a5c9e1b7d2468ace013579bdf2468ace01357",
+    "timestamp": "2026-08-24T14:10:00Z",
+    "size": 780,
+    "fields": {
+     "uin_ver_fin": "FI_v1.1_20120515",
+     "uin_ver_lov": "LV_01.09_20180501",
+     "uin_idt_uin": "900001_20260824",
+     "uin_dat_amf": "2026-08-24T14:06:22+00:00",
+     "uin_dat_mar": "8887-12-31T22:00:00+00:00",
+     "filename": "Nouveau",
+     "identificationdiffuseur_idi_cod_dif": "307",
+     "identificationsociete_iso_nom_soc": "SOITEC",
+     "identificationsociete_iso_cd_amf": null,
+     "identificationsociete_iso_url_irg": null,
+     "identificationsociete_iso_pay_ss": "FR",
+     "identificationsociete_iso_cd_isi": "FR0013227113",
+     "identificationsociete_iso_url_int": null,
+     "identificationsociete_iso_url_log": null,
+     "identificationsociete_iso_cd_lei": "969500ZR92SQCU9TST26",
+     "fichierdecontenu_inf_fic_nom": "307/8888/01/FC307900001_20260824.pdf",
+     "informationdeposee_inf_dat_emt": "2026-08-24T14:06:22+00:00",
+     "informationdeposee_inf_tit_inf": "Franchissement de seuil",
+     "informationdeposee_inf_stp_pri": "023000",
+     "informationdeposee_inf_cod_dif": "OPT",
+     "informationdeposee_inf_stp_inf": "023000",
+     "informationdeposee_inf_lst_dif": [
+      "AMF"
+     ],
+     "informationdeposee_inf_lng_inf": "Français",
+     "identificationsociete_iso_code_tkr_iso_cd_mch": "99",
+     "identificationsociete_iso_code_tkr_iso_cd_tkr": "SOI",
+     "informationdeposee_inf_upg_inf_inf_upg_rel": null,
+     "informationdeposee_inf_upg_inf_inf_upg_sts": "NEW",
+     "url_de_recuperation": "https://fr.ftp.opendatasoft.com/datadila/INFOFI/307/8888/01/FC307900001_20260824.pdf",
+     "timezone_uin_dat_amf": "02:00",
+     "cac40": null,
+     "name_cac40": null,
+     "type_d_information": "Informations réglementées continues",
+     "sous_type_d_information": "Décision de franchissement de seuil",
+     "type_of_information": "Ongoing regulated information",
+     "subtype_of_information": "NULL",
+     "type_informationn": "Informations réglementées continues>Décision de franchissement de seuil",
+     "type_d_information_ancien": null,
+     "type_d_information_nouveau": "Informations réglementées continues",
+     "type_of_information_ancien": null,
+     "type_of_information_nouveau": null,
+     "code_isin_nom_sc": "SOITEC (FR0013227113)"
+    }
+   }
+  },
+  {
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/records/1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d"
+    },
+    {
+     "rel": "datasets",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets"
+    },
+    {
+     "rel": "dataset",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod"
+    }
+   ],
+   "record": {
+    "id": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d",
+    "timestamp": "2026-06-17T16:00:00Z",
+    "size": 780,
+    "fields": {
+     "uin_ver_fin": "FI_v1.1_20120515",
+     "uin_ver_lov": "LV_01.09_20180501",
+     "uin_idt_uin": "119500_20260617",
+     "uin_dat_amf": "2026-06-17T15:45:00+00:00",
+     "uin_dat_mar": "8887-12-31T22:00:00+00:00",
+     "filename": "Nouveau",
+     "identificationdiffuseur_idi_cod_dif": "MKW",
+     "identificationsociete_iso_nom_soc": "SOITEC",
+     "identificationsociete_iso_cd_amf": null,
+     "identificationsociete_iso_url_irg": null,
+     "identificationsociete_iso_pay_ss": "FR",
+     "identificationsociete_iso_cd_isi": "FR0013227113",
+     "identificationsociete_iso_url_int": null,
+     "identificationsociete_iso_url_log": null,
+     "identificationsociete_iso_cd_lei": "969500ZR92SQCU9TST26",
+     "fichierdecontenu_inf_fic_nom": "MKW/2026/06/FCMKW119500_20260617.zip",
+     "informationdeposee_inf_dat_emt": "2026-06-17T15:45:00+00:00",
+     "informationdeposee_inf_tit_inf": "Rapport financier annuel 2025-2026 (ESEF)",
+     "informationdeposee_inf_stp_pri": "010100",
+     "informationdeposee_inf_cod_dif": "OBL",
+     "informationdeposee_inf_stp_inf": "010100",
+     "informationdeposee_inf_lst_dif": [
+      "AMF",
+      "Euronext",
+      "Bloomberg",
+      "Dow Jones"
+     ],
+     "informationdeposee_inf_lng_inf": "Français",
+     "identificationsociete_iso_code_tkr_iso_cd_mch": "99",
+     "identificationsociete_iso_code_tkr_iso_cd_tkr": "SOI",
+     "informationdeposee_inf_upg_inf_inf_upg_rel": null,
+     "informationdeposee_inf_upg_inf_inf_upg_sts": "NEW",
+     "url_de_recuperation": "https://fr.ftp.opendatasoft.com/datadila/INFOFI/MKW/2026/06/FCMKW119500_20260617.zip",
+     "timezone_uin_dat_amf": "02:00",
+     "cac40": null,
+     "name_cac40": null,
+     "type_d_information": "Informations réglementées périodiques",
+     "sous_type_d_information": "Rapport financier annuel",
+     "type_of_information": "Periodic regulated information",
+     "subtype_of_information": "Annual financial report",
+     "type_informationn": "Informations réglementées périodiques>Rapport financier annuel",
+     "type_d_information_ancien": null,
+     "type_d_information_nouveau": "Informations réglementées périodiques",
+     "type_of_information_ancien": null,
+     "type_of_information_nouveau": null,
+     "code_isin_nom_sc": "SOITEC (FR0013227113)"
+    }
+   }
+  },
+  {
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/records/2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e"
+    },
+    {
+     "rel": "datasets",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets"
+    },
+    {
+     "rel": "dataset",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod"
+    }
+   ],
+   "record": {
+    "id": "2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e",
+    "timestamp": "2026-06-10T06:00:00Z",
+    "size": 780,
+    "fields": {
+     "uin_ver_fin": "FI_v1.1_20120515",
+     "uin_ver_lov": "LV_01.09_20180501",
+     "uin_idt_uin": "119000_20260610",
+     "uin_dat_amf": "2026-06-10T05:45:03+00:00",
+     "uin_dat_mar": "8887-12-31T22:00:00+00:00",
+     "filename": "Nouveau",
+     "identificationdiffuseur_idi_cod_dif": "MKW",
+     "identificationsociete_iso_nom_soc": "SOITEC",
+     "identificationsociete_iso_cd_amf": null,
+     "identificationsociete_iso_url_irg": null,
+     "identificationsociete_iso_pay_ss": "FR",
+     "identificationsociete_iso_cd_isi": "FR0013227113",
+     "identificationsociete_iso_url_int": null,
+     "identificationsociete_iso_url_log": null,
+     "identificationsociete_iso_cd_lei": "969500ZR92SQCU9TST26",
+     "fichierdecontenu_inf_fic_nom": "MKW/2026/06/FCMKW119000_20260610.pdf",
+     "informationdeposee_inf_dat_emt": "2026-06-10T05:45:00+00:00",
+     "informationdeposee_inf_tit_inf": "Soitec reports full-year 2026 results",
+     "informationdeposee_inf_stp_pri": "010100",
+     "informationdeposee_inf_cod_dif": "OBL",
+     "informationdeposee_inf_stp_inf": "010100",
+     "informationdeposee_inf_lst_dif": [
+      "AMF",
+      "Euronext",
+      "Bloomberg",
+      "Dow Jones"
+     ],
+     "informationdeposee_inf_lng_inf": "Anglais",
+     "identificationsociete_iso_code_tkr_iso_cd_mch": "99",
+     "identificationsociete_iso_code_tkr_iso_cd_tkr": "SOI",
+     "informationdeposee_inf_upg_inf_inf_upg_rel": null,
+     "informationdeposee_inf_upg_inf_inf_upg_sts": "NEW",
+     "url_de_recuperation": "https://fr.ftp.opendatasoft.com/datadila/INFOFI/MKW/2026/06/FCMKW119000_20260610.pdf",
+     "timezone_uin_dat_amf": "02:00",
+     "cac40": null,
+     "name_cac40": null,
+     "type_d_information": "Informations réglementées continues",
+     "sous_type_d_information": "Communiqué sur l'information financière annuelle",
+     "type_of_information": "Ongoing regulated information",
+     "subtype_of_information": "Annual financial information",
+     "type_informationn": "Informations réglementées continues>Communiqué sur l'information financière annuelle",
+     "type_d_information_ancien": null,
+     "type_d_information_nouveau": "Informations réglementées continues",
+     "type_of_information_ancien": null,
+     "type_of_information_nouveau": null,
+     "code_isin_nom_sc": "SOITEC (FR0013227113)"
+    }
+   }
+  },
+  {
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/records/3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f"
+    },
+    {
+     "rel": "datasets",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets"
+    },
+    {
+     "rel": "dataset",
+     "href": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod"
+    }
+   ],
+   "record": {
+    "id": "3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f",
+    "timestamp": "2026-06-10T06:00:00Z",
+    "size": 780,
+    "fields": {
+     "uin_ver_fin": "FI_v1.1_20120515",
+     "uin_ver_lov": "LV_01.09_20180501",
+     "uin_idt_uin": "139000_20260610",
+     "uin_dat_amf": "2026-06-10T05:45:03+00:00",
+     "uin_dat_mar": "8887-12-31T22:00:00+00:00",
+     "filename": "Nouveau",
+     "identificationdiffuseur_idi_cod_dif": "MKW",
+     "identificationsociete_iso_nom_soc": "SOITEC",
+     "identificationsociete_iso_cd_amf": null,
+     "identificationsociete_iso_url_irg": null,
+     "identificationsociete_iso_pay_ss": "FR",
+     "identificationsociete_iso_cd_isi": "FR0013227113",
+     "identificationsociete_iso_url_int": null,
+     "identificationsociete_iso_url_log": null,
+     "identificationsociete_iso_cd_lei": "969500ZR92SQCU9TST26",
+     "fichierdecontenu_inf_fic_nom": "MKW/2026/06/FCMKW139000_20260610.pdf",
+     "informationdeposee_inf_dat_emt": "2026-06-10T05:45:00+00:00",
+     "informationdeposee_inf_tit_inf": "Soitec publie ses résultats annuels 2026",
+     "informationdeposee_inf_stp_pri": "010100",
+     "informationdeposee_inf_cod_dif": "OBL",
+     "informationdeposee_inf_stp_inf": "010100",
+     "informationdeposee_inf_lst_dif": [
+      "AMF",
+      "Euronext",
+      "Bloomberg",
+      "Dow Jones"
+     ],
+     "informationdeposee_inf_lng_inf": "Français",
+     "identificationsociete_iso_code_tkr_iso_cd_mch": "99",
+     "identificationsociete_iso_code_tkr_iso_cd_tkr": "SOI",
+     "informationdeposee_inf_upg_inf_inf_upg_rel": null,
+     "informationdeposee_inf_upg_inf_inf_upg_sts": "NEW",
+     "url_de_recuperation": "https://fr.ftp.opendatasoft.com/datadila/INFOFI/MKW/2026/06/FCMKW139000_20260610.pdf",
+     "timezone_uin_dat_amf": "02:00",
+     "cac40": null,
+     "name_cac40": null,
+     "type_d_information": "Informations réglementées continues",
+     "sous_type_d_information": "Communiqué sur l'information financière annuelle",
+     "type_of_information": "Ongoing regulated information",
+     "subtype_of_information": "Annual financial information",
+     "type_informationn": "Informations réglementées continues>Communiqué sur l'information financière annuelle",
+     "type_d_information_ancien": null,
+     "type_d_information_nouveau": "Informations réglementées continues",
+     "type_of_information_ancien": null,
+     "type_of_information_nouveau": null,
+     "code_isin_nom_sc": "SOITEC (FR0013227113)"
+    }
+   }
+  }
+ ]
+}

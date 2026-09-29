@@ -4264,7 +4264,7 @@ export interface components {
             latest_version_id: string | null;
         };
         /** @enum {string} */
-        SourcePath: "sec" | "exchange:hkex" | "exchange:fca-nsm" | "exchange:euronext";
+        SourcePath: "sec" | "exchange:hkex" | "exchange:fca-nsm" | "exchange:amf";
         /** SourceSpan */
         SourceSpan: {
             /**

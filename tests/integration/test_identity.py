@@ -68,7 +68,7 @@ THEMES = {
             "display_name": "Soitec",
             "country": "FR",
             "layer": "substrate",
-            "source_path": "exchange:euronext",
+            "source_path": "exchange:amf",
             "ignored_ciks": [{"cik": SOITEC_ADR_CIK, "reason": "unsponsored-ADR shell"}],
         },
     },

@@ -13,7 +13,12 @@ gates, in order (build plan §4.2; docs/source-licenses.md §5; docs/decisions.m
    request at all, not even for its robots.txt.
 3. **robots.txt.** Read once per origin per gate (so once per ingest), before any other
    request to that origin, and obeyed as RFC 9309 says (`atlas.sources.robots`). Its bytes
-   are archived and their hash recorded with each decision that relied on them.
+   are archived and their hash recorded with each decision that relied on them. The one
+   exception is a site's recorded `api_client` access: the URL prefixes of an API the
+   site documents for programs (and the file links its answers give). robots.txt governs
+   crawlers, and a client of a documented API isn't one, so a URL under such a prefix is
+   allowed even where robots.txt disallows it; robots.txt is still read and its verdict
+   recorded in the decision's reason. Anything outside the prefixes is gated as usual.
 
 A blocked URL raises `FetchBlocked` carrying the decision; the ingest records it as a
 `blocked` fetch gate decision (visible in the API) instead of fetching.
@@ -63,6 +68,34 @@ class Consent(_Config):
     scope: str = Field(min_length=1)  # what it permits
 
 
+class ApiClientAccess(_Config):
+    """A site's documented API, which Atlas uses as a client, never crawling: the URL
+    prefixes it covers (the API and the file links in its answers), where it is documented,
+    and why robots.txt (written for crawlers) doesn't govern it."""
+
+    url_prefixes: tuple[str, ...] = Field(min_length=1)  # e.g. "https://host/api/explore/v2.0/"
+    documentation_url: str = Field(min_length=1)
+    note: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _prefixes(self) -> Self:
+        for prefix in self.url_prefixes:
+            parts = urlsplit(prefix)
+            if parts.scheme != "https" or not parts.hostname or not parts.path.endswith("/"):
+                raise ValueError(f"url_prefixes are https URLs ending in '/': {prefix!r}")
+        return self
+
+    def covers(self, url: str) -> bool:
+        parts = urlsplit(url)
+        if parts.username is not None or parts.password is not None:
+            return False
+        segments = parts.path.split("/")
+        if "." in segments or ".." in segments:
+            return False
+        target = urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path, "", ""))
+        return any(target.startswith(prefix) for prefix in self.url_prefixes)
+
+
 class SiteConfig(_Config):
     publisher: str = Field(min_length=1)
     hosts: tuple[str, ...] = Field(min_length=1)
@@ -75,6 +108,9 @@ class SiteConfig(_Config):
     block_reason: str | None = Field(default=None, min_length=1)
     consent: Consent | None = None
     rate_per_s: float = Field(default=1.0, gt=0)
+    # The site's documented API, used as a client: robots.txt is recorded but not obeyed
+    # for URLs under its prefixes (see the module docstring).
+    api_client: ApiClientAccess | None = None
 
     @model_validator(mode="after")
     def _terms(self) -> Self:
@@ -84,6 +120,12 @@ class SiteConfig(_Config):
             raise ValueError("consent only applies to a site whose terms forbid automation")
         if any(host != host.lower() or "/" in host for host in self.hosts):
             raise ValueError("hosts are lowercase host names")
+        if self.api_client is not None:
+            if self.automation != "allowed":
+                raise ValueError("api_client only applies to a site whose terms allow automation")
+            for prefix in self.api_client.url_prefixes:
+                if urlsplit(prefix).hostname not in self.hosts:
+                    raise ValueError(f"api_client prefix {prefix!r} is not on the site's hosts")
         return self
 
 
@@ -254,6 +296,12 @@ class FetchGate:
             }
         )
         terms_basis = "consent" if site.consent is not None else "terms allow automation"
+        if not verdict.allowed and site.api_client is not None and site.api_client.covers(url):
+            reason = (
+                f"{terms_basis}; documented API client, not a crawler"
+                f" ({site.api_client.documentation_url}): robots.txt {verdict.reason}"
+            )
+            return decide("allowed", None, reason, name, terms, record)
         if not verdict.allowed:
             return decide("blocked", "robots", f"robots.txt: {verdict.reason}", name, terms, record)
         reason = f"{terms_basis}; robots.txt: {verdict.reason}"

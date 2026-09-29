@@ -8,11 +8,12 @@
 #   dsp, module, contract-manufacturing or system. Vertically integrated companies span
 #   several; Relationships carry the layer of each link.
 # - `source_path`: where its primary disclosures come from. `sec` (SEC EDGAR: 10-K/10-Q/8-K
-#   by default, or the `sec_forms` listed) or `exchange:<hkex|fca-nsm|euronext>`. Only `sec`
+#   by default, or the `sec_forms` listed) or `exchange:<hkex|fca-nsm|amf>`. Only `sec`
 #   companies are fetched by the SEC ingest; `exchange:hkex` ones by the HKEXnews adapter,
 #   which needs `exchange` (the issuer's code and its HKEXnews stockId); `exchange:fca-nsm`
 #   ones by the FCA National Storage Mechanism adapter, which needs `exchange` (the
-#   issuer's code and its LEI as `feed_id`). The Euronext/AMF adapter is later work.
+#   issuer's code and its LEI as `feed_id`); `exchange:amf` ones by the AMF info-financière
+#   API adapter, which needs `exchange` (the issuer's code and its LEI as `feed_id`).
 # - `ignored_ciks`: CIKs that SEC's ticker files map to the company but that are only
 #   unsponsored-ADR shells (depositary F-6EF registrations, no issuer reports). They are
 #   never used as the company's filer; the config refuses a company whose `cik` is one.
@@ -23,7 +24,7 @@
 # Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 4
+version: 5
 name: ai-infrastructure
 
 companies:
@@ -43,11 +44,15 @@ companies:
     legal_name: Soitec SA
     display_name: Soitec
     # SOI on Euronext Paris (XPAR), ISIN FR0013227113. LEI 969500ZR92SQCU9TST26 (ISSUED).
-    # Regulated information and the English Universal Registration Document are on soitec.com.
+    # Regulated information from the AMF info-financière open API (Euronext and soitec.com
+    # are not allowed: configs/sources/sites.yaml).
     country: FR
     website: https://www.soitec.com
     layer: substrate  # Photonics-SOI engineered substrates
-    source_path: exchange:euronext
+    source_path: exchange:amf
+    exchange:
+      issuer_code: SOI  # Euronext Paris ticker
+      feed_id: 969500ZR92SQCU9TST26  # LEI: info-financière is searched by it
     ignored_ciks:
       - cik: "0001445214"
         reason: unsponsored-ADR shell (OTC SLOIF); depositary F-6EF filings only

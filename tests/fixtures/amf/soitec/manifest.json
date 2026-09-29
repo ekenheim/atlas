@@ -1,0 +1,54 @@
+{
+  "note": "Hand-written in the shapes the AMF info-financi\u00e8re API (Opendatasoft Explore v2.0) served on 2026-09-29, not recorded (scripts/make_amf_fixtures.py). Identifiers, times and documents are synthetic; the robots.txt bodies are as served.",
+  "responses": [
+    {
+      "url": "https://www.info-financiere.gouv.fr/robots.txt",
+      "file": "robots-info-financiere.txt",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://fr.ftp.opendatasoft.com/robots.txt",
+      "file": "robots-opendatasoft.txt",
+      "headers": {
+        "Content-Type": "text/plain"
+      }
+    },
+    {
+      "url": "https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/records",
+      "file": "records.json",
+      "ignore_query": true,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://fr.ftp.opendatasoft.com/datadila/INFOFI/MKW/2026/06/FCMKW119000_20260610.pdf",
+      "file": "MKW/2026/06/FCMKW119000_20260610.pdf",
+      "headers": {
+        "Content-Type": "application/pdf",
+        "Last-Modified": "Wed, 10 Jun 2026 05:50:12 GMT",
+        "ETag": "\"6a98657e-1001\""
+      }
+    },
+    {
+      "url": "https://fr.ftp.opendatasoft.com/datadila/INFOFI/MKW/2026/06/FCMKW139000_20260610.pdf",
+      "file": "MKW/2026/06/FCMKW139000_20260610.pdf",
+      "headers": {
+        "Content-Type": "application/pdf",
+        "Last-Modified": "Wed, 10 Jun 2026 05:50:14 GMT",
+        "ETag": "\"6a98657e-1002\""
+      }
+    },
+    {
+      "url": "https://fr.ftp.opendatasoft.com/datadila/INFOFI/307/8888/01/FC307900001_20260824.pdf",
+      "file": "307/8888/01/FC307900001_20260824.pdf",
+      "headers": {
+        "Content-Type": "application/pdf",
+        "Last-Modified": "Mon, 24 Aug 2026 14:08:01 GMT",
+        "ETag": "\"6a98657e-1003\""
+      }
+    }
+  ]
+}
