@@ -47,6 +47,8 @@ def register_discovery_handlers(registry: HandlerRegistry, settings: Settings) -
                     searxng,
                     max_queries=settings.discovery_max_queries,
                 )
-                return scout.discover(job, payload.theme, theme, payload.question)
+                return scout.discover(
+                    job, payload.theme, theme, payload.question, run_id=payload.run_id
+                )
 
     registry.register(DISCOVER_KIND, discover, pausable=True)

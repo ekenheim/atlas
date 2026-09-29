@@ -31,6 +31,11 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    Every Claim, accepted or rejected, is a `claim` row and an audit event (`claim.accepted`,
    `claim.rejected`). Nothing is ever inferred from a Claim: a `supplies` Claim is one
    `supplies` Assertion, never also a `buys_from`.
+
+**Continuing.** An extraction that stopped `budget_exhausted` is finished; a new job whose
+payload names it in `continues` (in the same, still unfinished run) sends only its remaining
+passages, from its next batch on, so a resumed investigation never proposes from a passage
+twice.
 """
 
 import json
@@ -99,6 +104,11 @@ class ExtractClaimsPayload(BaseModel):
     run_id: uuid.UUID | None = Field(
         default=None, description="an unfinished run to call within; else the job starts one"
     )
+    continues: uuid.UUID | None = Field(
+        default=None,
+        description="a budget-exhausted extraction in `run_id` to continue: its remaining"
+        " passages only",
+    )
 
 
 def extract_claims_payload(
@@ -162,8 +172,10 @@ class ClaimExtractor:
         self._assertions = Assertions(engine, archive, INVESTIGATOR_ACTOR)
         self._texts: dict[uuid.UUID, str] = {}
 
-    def extract(self, job: Job) -> Artifacts:
-        payload = ExtractClaimsPayload.model_validate(job.payload)
+    def extract(self, job: Job, payload: ExtractClaimsPayload | None = None) -> Artifacts:
+        """Run (or resume) the extraction of `job`: its payload's, or `payload` when a caller
+        runs an extraction within its own job (an investigation's Investigator task)."""
+        payload = payload or ExtractClaimsPayload.model_validate(job.payload)
         extraction = self._existing(job.id) or self._start(job.id, payload)
         owned = payload.run_id is None
         if extraction.status != "running":
@@ -203,6 +215,8 @@ class ClaimExtractor:
             return None if found is None else get_extraction(connection, found)
 
     def _start(self, job_id: uuid.UUID, payload: ExtractClaimsPayload) -> ClaimExtraction:
+        if payload.continues is not None:
+            return self._continue(job_id, payload, payload.continues)
         requested = list(dict.fromkeys(payload.source_version_ids))
         found = {version.id: version for version in self._versions(requested)}
         skipped: list[SkippedVersion] = []
@@ -240,6 +254,42 @@ class ClaimExtractor:
                     "skipped": json.dumps([s.model_dump(mode="json") for s in skipped]),
                     "per_call": self._passages_per_call,
                     "batches": -(-len(passages) // self._passages_per_call),
+                },
+            )
+            extraction = get_extraction(connection, extraction_id)
+        assert extraction is not None
+        return extraction
+
+    def _continue(
+        self, job_id: uuid.UUID, payload: ExtractClaimsPayload, continued_id: uuid.UUID
+    ) -> ClaimExtraction:
+        with self._engine.connect() as connection:
+            earlier = get_extraction(connection, continued_id)
+        if earlier is None or earlier.status != "budget_exhausted":
+            raise RoleCallFailed(f"no budget-exhausted extraction {continued_id} to continue")
+        if payload.run_id != earlier.run_id:
+            raise RoleCallFailed(f"extraction {continued_id} continues only in its run")
+        self._run_for(payload)  # the run must still be unfinished
+        remaining = earlier.passages[earlier.batches_done * earlier.passages_per_call :]
+        extraction_id = uuid.uuid4()
+        with self._engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO claim_extraction (id, job_id, run_id, source_version_ids,"
+                    " question, passages, passages_per_call, batches_total, continues_id)"
+                    " VALUES (:id, :job, :run, :versions, :question, CAST(:passages AS jsonb),"
+                    " :per_call, :batches, :continues)"
+                ),
+                {
+                    "id": extraction_id,
+                    "job": job_id,
+                    "run": earlier.run_id,
+                    "versions": earlier.source_version_ids,
+                    "question": earlier.question,
+                    "passages": json.dumps([p.model_dump(mode="json") for p in remaining]),
+                    "per_call": earlier.passages_per_call,
+                    "batches": -(-len(remaining) // earlier.passages_per_call),
+                    "continues": continued_id,
                 },
             )
             extraction = get_extraction(connection, extraction_id)

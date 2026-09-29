@@ -1,6 +1,7 @@
 """A discovery: the Scout writes queries, SearXNG searches them, and the results become leads.
 
-One `discover` job is one discovery, in its own run (kind `discovery`):
+One `discover` job is one discovery, in its own run (kind `discovery`), or within a run the
+caller names (an investigation's: that run's owner finishes it):
 
 1. **Gaps.** The Bottlenecks mental model's content is the open gaps, passed to the Scout as
    quoted low-trust data, but only once Hindsight has refreshed it (before its first refresh
@@ -15,7 +16,8 @@ One `discover` job is one discovery, in its own run (kind `discovery`):
    .leads). If every search failed, the attempt fails (an ordinary failure: SearXNG never
    pauses the queue) and the retry searches the failed queries again, reusing the Scout's
    queries rather than asking it again.
-4. **Finish.** The run is finished with its token totals and the discovery marked completed.
+4. **Finish.** The run, if the discovery started it, is finished with its token totals, and
+   the discovery marked completed.
 
 Nothing here creates Evidence: no Source Version, Assertion, memory document or retain job.
 """
@@ -50,6 +52,9 @@ class DiscoverPayload(BaseModel):
 
     theme: str = Field(min_length=1)  # a theme in the universe config
     question: str = Field(min_length=1)  # the theme research question
+    # An unfinished run to call the Scout within (its owner finishes it); else the job
+    # starts and finishes its own.
+    run_id: uuid.UUID | None = None
 
 
 class DiscoveryFailed(Exception):
@@ -108,9 +113,22 @@ class Scout:
         self._searxng = searxng
         self._max_queries = max_queries
 
-    def discover(self, job: Job, theme_id: str, theme: ThemeConfig, question: str) -> Artifacts:
-        """Run (or resume) the discovery of `job`; returns the job's artifacts."""
-        discovery_id, run_id, status = self._open(job, theme_id, question)
+    def discover(
+        self,
+        job: Job,
+        theme_id: str,
+        theme: ThemeConfig,
+        question: str,
+        *,
+        run_id: uuid.UUID | None = None,
+    ) -> Artifacts:
+        """Run (or resume) the discovery of `job`; returns the job's artifacts.
+
+        With `run_id`, the Scout calls within that unfinished run, which is left open for
+        its owner to finish; else the discovery starts its own run and finishes it.
+        """
+        owned = run_id is None
+        discovery_id, run_id, status = self._open(job, theme_id, question, run_id)
         try:
             if status == "scouting":
                 self._scout(discovery_id, run_id, theme_id, theme, question)
@@ -122,7 +140,7 @@ class Scout:
         except Exception as error:
             self._set(discovery_id, "last_error = :error", error=_error_text(error))
             raise
-        new_leads = self._finish(discovery_id, run_id)
+        new_leads = self._finish(discovery_id, run_id, owned=owned)
         return {
             "discovery_id": str(discovery_id),
             "run_id": str(run_id),
@@ -132,15 +150,24 @@ class Scout:
             "new_leads": new_leads,
         }
 
-    def _open(self, job: Job, theme_id: str, question: str) -> tuple[uuid.UUID, uuid.UUID, str]:
+    def _open(
+        self, job: Job, theme_id: str, question: str, run_id: uuid.UUID | None
+    ) -> tuple[uuid.UUID, uuid.UUID, str]:
         with self._engine.connect() as connection:
             row = connection.execute(
                 text("SELECT id, run_id, status FROM discovery WHERE job_id = :job"),
                 {"job": job.id},
             ).one_or_none()
+            if row is None and run_id is not None:
+                open_run = connection.execute(
+                    text("SELECT 1 FROM run WHERE id = :id AND finished_at IS NULL"),
+                    {"id": run_id},
+                ).one_or_none()
+                if open_run is None:
+                    raise DiscoveryFailed(f"no unfinished run {run_id} to discover in")
         if row is not None:
             return row.id, row.run_id, row.status
-        run = self._runs.start(RUN_KIND)
+        run_id = run_id if run_id is not None else self._runs.start(RUN_KIND).id
         discovery_id = uuid.uuid4()
         with self._engine.begin() as connection:
             connection.execute(
@@ -151,14 +178,14 @@ class Scout:
                 {
                     "id": discovery_id,
                     "job": job.id,
-                    "run": run.id,
+                    "run": run_id,
                     "theme": theme_id,
                     "question": question,
                     "engines": self._searxng.engines,
                     "max": self._max_queries,
                 },
             )
-        return discovery_id, run.id, "scouting"
+        return discovery_id, run_id, "scouting"
 
     def _gaps(self) -> tuple[list[QuotedText], str | None]:
         """The Bottlenecks model's content as quoted data, once Hindsight has refreshed it."""
@@ -274,8 +301,8 @@ class Scout:
         counts: dict[str, int] = {status: count for status, count in rows}
         return counts.get("searched", 0), counts.get("failed", 0)
 
-    def _finish(self, discovery_id: uuid.UUID, run_id: uuid.UUID) -> int:
-        """Finish the run and the discovery; returns how many new leads it found."""
+    def _finish(self, discovery_id: uuid.UUID, run_id: uuid.UUID, *, owned: bool) -> int:
+        """Finish the discovery (and its run, if it owns it); returns its new leads."""
         with self._engine.connect() as connection:
             usage = run_usage(connection, run_id)
             new_leads = connection.execute(
@@ -285,7 +312,8 @@ class Scout:
                 ),
                 {"discovery": discovery_id},
             ).scalar_one()
-        self._runs.finish(run_id, tokens_in=usage.tokens_in, tokens_out=usage.tokens_out)
+        if owned:
+            self._runs.finish(run_id, tokens_in=usage.tokens_in, tokens_out=usage.tokens_out)
         self._set(discovery_id, "status = 'completed', finished_at = now()")
         return int(new_leads)
 

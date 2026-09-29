@@ -79,6 +79,8 @@ class ClaimExtraction(BaseModel):
     skipped: list[SkippedVersion]
     batches_total: int
     batches_done: int
+    # The budget-exhausted extraction this one continues (its remaining passages), if any.
+    continues_id: uuid.UUID | None
     batches_quarantined: int
     accepted: int
     rejected: int

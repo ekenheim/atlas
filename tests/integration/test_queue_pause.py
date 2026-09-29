@@ -44,6 +44,7 @@ ALERT_RULES = REPO / "configs" / "prometheus" / "atlas-alerts.yaml"
 PAUSABLE_KINDS = [
     "discover",
     "extract_claims",
+    "investigation_task",
     "poll_operation",
     "refresh_mental_model",
     "reprocess",
