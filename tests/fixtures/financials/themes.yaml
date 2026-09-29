@@ -10,12 +10,14 @@ companies:
     display_name: Lumentum
     cik: "0001633978"
     country: US
+    source_path: sec
     securities: []
   nokia:
     legal_name: Nokia Oyj
     display_name: Nokia
     cik: "0000924613"
     country: FI
+    source_path: sec
     securities: []
 
 themes:

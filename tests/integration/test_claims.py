@@ -94,7 +94,9 @@ def themes(tmp_path: Path) -> Path:
     universe["companies"]["nvidia"] = {
         "legal_name": "NVIDIA Corporation",
         "display_name": "NVIDIA",
+        "cik": "0001045810",
         "country": "US",
+        "source_path": "sec",
     }
     path = tmp_path / "themes.yaml"
     path.write_text(yaml.safe_dump(universe), encoding="utf-8")
