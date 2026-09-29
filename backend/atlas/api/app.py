@@ -17,6 +17,7 @@ from atlas.api.discovery import discovery_router
 from atlas.api.financials import financials_router
 from atlas.api.hypotheses import hypotheses_router
 from atlas.api.identity import identity_router
+from atlas.api.ingest_plans import ingest_plans_router
 from atlas.api.investigations import investigations_router
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
@@ -86,6 +87,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
 
     app.include_router(jobs_router(queue))
     app.include_router(queue_router(queue))
+    app.include_router(ingest_plans_router(engine))
     app.include_router(sources_router(engine, archive))
     app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))

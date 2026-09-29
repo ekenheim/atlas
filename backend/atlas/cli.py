@@ -164,6 +164,7 @@ def enqueue_ingest(
     backfill: bool = False,
     since: str | None = None,
     all_history: bool = False,
+    max_retains: int | None = None,
 ) -> None:
     from datetime import UTC, datetime, timedelta
 
@@ -203,8 +204,20 @@ def enqueue_ingest(
             file=sys.stderr,
         )
         raise SystemExit(2)
-    if (limit is not None and limit < 1) or max_attempts < 1:
-        print("atlas: --limit and --max-attempts must be at least 1", file=sys.stderr)
+    if (
+        (limit is not None and limit < 1)
+        or max_attempts < 1
+        or (max_retains is not None and max_retains < 1)
+    ):
+        print(
+            "atlas: --limit, --max-attempts and --max-retains must be at least 1", file=sys.stderr
+        )
+        raise SystemExit(2)
+    if source_path != "sec" and max_retains is not None:
+        print(
+            f"atlas: --max-retains applies to SEC filers only ({company!r} is {source_path!r})",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
     form_list = [form.strip() for form in forms.split(",") if form.strip()] if forms else None
     if since is not None and all_history:
@@ -229,7 +242,7 @@ def enqueue_ingest(
         enqueued = JobQueue(engine, actor=Actor.from_settings(settings)).enqueue(
             INGEST_KIND,
             key,
-            ingest_payload(company, form_list, limit, cutoff),
+            ingest_payload(company, form_list, limit, cutoff, max_retains),
             max_attempts=max_attempts,
             job_class="backfill" if backfill else "interactive",
         )
@@ -523,7 +536,10 @@ def main(argv: list[str] | None = None) -> None:
     enqueue.add_argument("--payload", default="{}", help="job payload as a JSON object")
     enqueue.add_argument("--max-attempts", type=int, default=3, help="retry bound (default 3)")
     enqueue.add_argument(
-        "--backfill", action="store_true", help="backfill class: runs only in the nightly window"
+        "--backfill",
+        action="store_true",
+        help="backfill class: held by the backfill window, if set, and by the budgets'"
+        " interactive reserve",
     )
     ingest = commands.add_parser(
         "ingest", help="enqueue an ingest job for a configured company (run by the worker)"
@@ -545,7 +561,15 @@ def main(argv: list[str] | None = None) -> None:
     ingest.add_argument(
         "--backfill",
         action="store_true",
-        help="a backfill: it and the retains it enqueues run only in the nightly window",
+        help="a backfill: it and the retains it enqueues are backfill class (the backfill"
+        " window, if set, and the budgets' interactive reserve); a company's first one records"
+        " an ingest plan",
+    )
+    ingest.add_argument(
+        "--max-retains",
+        type=int,
+        help="retain at most N of the company's not-yet-retained versions, newest first"
+        " (a rerun retains the next N)",
     )
     retention = commands.add_parser("retention", help="memory retention maintenance")
     retention_commands = retention.add_subparsers(dest="retention_command", required=True)
@@ -555,7 +579,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     retry.add_argument("--since", help="only versions available after this date")
     retry.add_argument("--all-history", action="store_true", help="every failed section")
-    retry.add_argument("--backfill", action="store_true", help="run in the nightly window")
+    retry.add_argument("--backfill", action="store_true", help="backfill class (see ingest)")
     ledger = commands.add_parser("ledger", help="source ledger maintenance")
     ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
     ledger_commands.add_parser(
@@ -639,6 +663,7 @@ def main(argv: list[str] | None = None) -> None:
             args.backfill,
             since=args.since,
             all_history=args.all_history,
+            max_retains=args.max_retains,
         )
     elif args.command == "ledger" and args.ledger_command == "assign-families":
         run_assign_families(settings)

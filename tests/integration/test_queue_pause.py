@@ -178,6 +178,7 @@ def test_a_429_failed_operation_pauses_the_queue_then_resumes_and_resubmits(
         "running": 0,
         "backfill_queued": 0,
         "paused": True,
+        "budget_held": 0,
     }
 
     # While paused, nothing of a paused kind is claimed and Hindsight hears nothing.
@@ -309,6 +310,14 @@ def test_a_pausable_job_failing_for_its_own_reason_is_retried_without_pausing(
             "2026-09-29T22:00:00Z",
             datetime(2026, 9, 30, 3, 0, tzinfo=UTC),
         ),
+        # Several ranges (ticket 27): it next opens at the next range's start.
+        (
+            "01:00-03:00,13:00-15:00",
+            "UTC",
+            datetime(2026, 9, 29, 10, 0, tzinfo=UTC),
+            "2026-09-29T13:00:00Z",
+            datetime(2026, 9, 29, 14, 0, tzinfo=UTC),
+        ),
     ],
 )
 def test_backfill_jobs_wait_for_the_nightly_window(
@@ -344,7 +353,14 @@ def test_backfill_jobs_wait_for_the_nightly_window(
         "next_open_at": next_open,
     }
     assert status["pending"] == [
-        {"kind": "noop", "queued": 1, "running": 0, "backfill_queued": 1, "paused": False}
+        {
+            "kind": "noop",
+            "queued": 1,
+            "running": 0,
+            "backfill_queued": 1,
+            "paused": False,
+            "budget_held": 0,
+        }
     ]
 
     clock.now = inside

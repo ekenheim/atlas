@@ -20,14 +20,24 @@ class Settings(BaseSettings):
     # before another worker may reclaim it (a crashed worker's job is retried after this).
     worker_poll_seconds: float = Field(default=5.0, gt=0)
     job_lease_seconds: float = Field(default=300.0, gt=0)
-    # Pacing (atlas.jobs.pacing): backfill-class jobs run only inside this daily local-time
-    # window (HH:MM-HH:MM, may wrap midnight; empty: any time), in backfill_timezone. A quota
-    # or outage failure pauses the Hindsight/LiteLLM job kinds for queue_pause_base_seconds,
-    # doubling per consecutive pause up to queue_pause_max_seconds (at most 1 h).
-    backfill_window: str = "01:00-07:00"
+    # Pacing (atlas.jobs.pacing): backfill-class jobs run only inside this local-time window,
+    # one or more daily ranges (HH:MM-HH:MM, comma-separated, may wrap midnight; empty, the
+    # default: any time), in backfill_timezone. A quota or outage failure pauses the
+    # Hindsight/LiteLLM job kinds for queue_pause_base_seconds, doubling per consecutive
+    # pause up to queue_pause_max_seconds (at most 1 h).
+    backfill_window: str = ""
     backfill_timezone: str = "UTC"
     queue_pause_base_seconds: float = Field(default=60.0, gt=0, le=3600)
     queue_pause_max_seconds: float = Field(default=3600.0, gt=0, le=3600)
+    # Budgets (atlas.jobs.budget), whether or not a window is set: per rolling window of
+    # budget_window_hours, the Hindsight (Codex) kinds may submit codex_budget_operations
+    # retain/reprocess operations and the role (MiniMax) kinds may spend
+    # minimax_budget_tokens recorded LLM tokens. Backfill jobs stop short of the last
+    # budget_interactive_reserve share of each budget, which is kept for interactive work.
+    budget_window_hours: float = Field(default=5.0, gt=0, le=24)
+    codex_budget_operations: int = Field(default=40, ge=1)
+    minimax_budget_tokens: int = Field(default=400_000, ge=1)
+    budget_interactive_reserve: float = Field(default=0.3, ge=0, lt=1)
 
     # Archive backend: the filesystem (under archive_root, the dev default) or S3.
     # The S3 settings are required only when archive_backend is "s3".

@@ -1,4 +1,4 @@
-"""Pacing: the queue-level pause on quota or outage failures, and the nightly backfill window.
+"""Pacing: the queue-level pause on quota or outage failures, the backfill window and budgets.
 
 **Failure classes.** A job attempt that fails because Hindsight or LiteLLM is out of quota
 (`quota`: HTTP 429, a rate-limit or insufficient-quota message) or out of service
@@ -9,9 +9,13 @@ Each pause entered since the last success doubles the backoff (60 s, 120 s, ... 
 1 h); the next success of a pausable job clears it. Any other failure is an ordinary failed
 attempt. There is no fallback model: pausing is the only response (docs/decisions.md).
 
-**The backfill window.** A job enqueued as `backfill` class is claimed only while the local
-time in the configured timezone is inside the window (for example `01:00-07:00`; a window may
-wrap past midnight). Interactive jobs run at any time.
+**The backfill window** (optional). A job enqueued as `backfill` class is claimed only while
+the local time in the configured timezone is inside the window: one or more daily ranges
+(for example `01:00-07:00,13:00-15:00`; a range may wrap past midnight). Without a window,
+backfill runs at any time. Interactive jobs always run at any time.
+
+**Budgets.** Whether or not a window is set, LLM-backed kinds are also held by their
+provider's rolling-window budget (`atlas.jobs.budget`).
 
 Pacing reads the application clock (injectable, so tests can control it); leases keep using
 the database clock.
@@ -27,6 +31,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import httpx2
 
 from atlas.hindsight.errors import HindsightHTTPError, HindsightUnavailable
+from atlas.jobs.budget import Budgets
 
 if TYPE_CHECKING:
     from atlas.settings import Settings
@@ -127,48 +132,62 @@ class InvalidWindow(ValueError):
     pass
 
 
-_WINDOW = re.compile(r"^(\d{2}):(\d{2})-(\d{2}):(\d{2})$")
+_RANGE = re.compile(r"^(\d{2}):(\d{2})-(\d{2}):(\d{2})$")
 
 
 @dataclass(frozen=True)
 class BackfillWindow:
-    """A daily local-time window `[start, end)`; `end` before `start` wraps past midnight."""
+    """Daily local-time ranges `[start, end)`; an `end` before its `start` wraps past
+    midnight. Written `HH:MM-HH:MM`, several separated by commas (`01:00-07:00,13:00-15:00`)."""
 
-    start: time
-    end: time
+    ranges: tuple[tuple[time, time], ...]
     timezone: ZoneInfo
 
     @classmethod
     def parse(cls, spec: str, timezone: str) -> "BackfillWindow":
-        match = _WINDOW.match(spec.strip())
-        if match is None:
-            raise InvalidWindow(f"expected HH:MM-HH:MM, e.g. 01:00-07:00 (got {spec!r})")
-        sh, sm, eh, em = (int(part) for part in match.groups())
-        if sh > 23 or eh > 23 or sm > 59 or em > 59:
-            raise InvalidWindow(f"not a time of day in {spec!r}")
-        if (sh, sm) == (eh, em):
-            raise InvalidWindow(f"the window {spec!r} is empty")
-        return cls(time(sh, sm), time(eh, em), parse_timezone(timezone))
+        parts = [part.strip() for part in spec.split(",")]
+        if not any(parts):
+            raise InvalidWindow("expected HH:MM-HH:MM, e.g. 01:00-07:00 (got an empty window)")
+        return cls(tuple(_parse_range(part) for part in parts), parse_timezone(timezone))
 
     @property
     def spec(self) -> str:
-        return f"{self.start:%H:%M}-{self.end:%H:%M}"
+        return ",".join(f"{start:%H:%M}-{end:%H:%M}" for start, end in self.ranges)
 
     def contains(self, moment: datetime) -> bool:
         local = moment.astimezone(self.timezone).time().replace(tzinfo=None)
-        if self.start < self.end:
-            return self.start <= local < self.end
-        return local >= self.start or local < self.end
+        return any(_in_range(local, start, end) for start, end in self.ranges)
 
     def next_open(self, moment: datetime) -> datetime:
-        """When the window next opens after `moment` (its start today or tomorrow, local)."""
+        """When the window next opens after `moment` (a range's start today or tomorrow)."""
         local = moment.astimezone(self.timezone)
-        candidate = datetime.combine(local.date(), self.start, tzinfo=self.timezone)
-        if candidate <= local:
-            candidate = datetime.combine(
-                local.date() + timedelta(days=1), self.start, tzinfo=self.timezone
-            )
-        return candidate.astimezone(UTC)
+        candidates: list[datetime] = []
+        for start, _ in self.ranges:
+            candidate = datetime.combine(local.date(), start, tzinfo=self.timezone)
+            if candidate <= local:
+                candidate = datetime.combine(
+                    local.date() + timedelta(days=1), start, tzinfo=self.timezone
+                )
+            candidates.append(candidate)
+        return min(candidates).astimezone(UTC)
+
+
+def _parse_range(spec: str) -> tuple[time, time]:
+    match = _RANGE.match(spec)
+    if match is None:
+        raise InvalidWindow(f"expected HH:MM-HH:MM, e.g. 01:00-07:00 (got {spec!r})")
+    sh, sm, eh, em = (int(part) for part in match.groups())
+    if sh > 23 or eh > 23 or sm > 59 or em > 59:
+        raise InvalidWindow(f"not a time of day in {spec!r}")
+    if (sh, sm) == (eh, em):
+        raise InvalidWindow(f"the window {spec!r} is empty")
+    return time(sh, sm), time(eh, em)
+
+
+def _in_range(local: time, start: time, end: time) -> bool:
+    if start < end:
+        return start <= local < end
+    return local >= start or local < end
 
 
 def parse_timezone(name: str) -> ZoneInfo:
@@ -180,11 +199,13 @@ def parse_timezone(name: str) -> ZoneInfo:
 
 @dataclass(frozen=True)
 class Pacing:
-    """The backfill window (None: backfill jobs run at any time) and the pause backoff."""
+    """The backfill window (None: backfill jobs run at any time), the pause backoff and the
+    rolling-window provider budgets (None: no budgets, as for a queue that only enqueues)."""
 
     backfill_window: BackfillWindow | None = None
     pause_base: timedelta = timedelta(seconds=60)
     pause_cap: timedelta = MAX_BACKOFF
+    budgets: Budgets | None = None
 
     def __post_init__(self) -> None:
         if not timedelta(0) < self.pause_base <= self.pause_cap <= MAX_BACKOFF:
@@ -201,6 +222,7 @@ class Pacing:
             backfill_window=window,
             pause_base=timedelta(seconds=settings.queue_pause_base_seconds),
             pause_cap=timedelta(seconds=settings.queue_pause_max_seconds),
+            budgets=Budgets.from_settings(settings),
         )
 
     def backoff(self, level: int) -> timedelta:

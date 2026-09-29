@@ -155,6 +155,58 @@ class StateCollector(Collector):
         for group in pending:
             depth.add_metric([group.kind, group.job_class, group.status], group.count)
         yield depth
+        yield from self._budgets()
+
+    def _budgets(self) -> Iterator[Metric]:
+        """Each provider's rolling window: used, limits, all-time usage, jobs held."""
+        windows = self._queue.budget_usage()
+        if not windows:
+            return
+        used = GaugeMetricFamily(
+            "atlas_budget_used",
+            "Units spent in the provider's current rolling window (codex: Hindsight"
+            " operations submitted; minimax: LLM tokens)",
+            labels=["provider", "unit"],
+        )
+        limit = GaugeMetricFamily(
+            "atlas_budget_limit",
+            "Window usage at which the provider's jobs of the class are held",
+            labels=["provider", "job_class"],
+        )
+        window = GaugeMetricFamily(
+            "atlas_budget_window_seconds", "The rolling budget window's length"
+        )
+        for provider in windows:
+            used.add_metric([provider.provider, provider.unit], provider.used)
+            limit.add_metric([provider.provider, "interactive"], provider.budget)
+            limit.add_metric([provider.provider, "backfill"], provider.backfill_limit)
+        window.add_metric([], windows[0].window_seconds)
+        yield used
+        yield limit
+        yield window
+        with self._engine.connect() as connection:
+            totals = dict(
+                connection.execute(
+                    text("SELECT provider, sum(units) FROM provider_usage GROUP BY provider")
+                ).all()
+            )
+        spent = CounterMetricFamily(
+            "atlas_budget_usage",
+            "Units ever counted against the provider's budget (increase() over the window"
+            " gives the usage per window)",
+            labels=["provider"],
+        )
+        for provider in windows:
+            spent.add_metric([provider.provider], int(totals.get(provider.provider) or 0))
+        yield spent
+        held = GaugeMetricFamily(
+            "atlas_queue_jobs_held_by_budget",
+            "Queued jobs their provider's budget holds back now, by provider, kind and class",
+            labels=["provider", "kind", "job_class"],
+        )
+        for group in self._queue.held_by_budget():
+            held.add_metric([group.provider, group.kind, group.job_class], group.count)
+        yield held
 
     def _ledger(self, connection: Connection) -> Iterator[Metric]:
         fetches = CounterMetricFamily(
