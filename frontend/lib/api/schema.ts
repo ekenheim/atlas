@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Queue */
+        get: operations["get_queue_api_v1_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies": {
         parameters: {
             query?: never;
@@ -395,6 +412,17 @@ export interface components {
              */
             superseded_by?: string | null;
         };
+        /** BackfillWindowStatus */
+        BackfillWindowStatus: {
+            /** Window */
+            window: string | null;
+            /** Timezone */
+            timezone: string | null;
+            /** Open */
+            open: boolean;
+            /** Next Open At */
+            next_open_at: string | null;
+        };
         /** Company */
         Company: {
             /**
@@ -504,6 +532,11 @@ export interface components {
             kind: string;
             /** Idempotency Key */
             idempotency_key: string;
+            /**
+             * Job Class
+             * @enum {string}
+             */
+            job_class: "interactive" | "backfill";
             /** Payload */
             payload: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -557,6 +590,8 @@ export interface components {
              * Format: date-time
              */
             at: string;
+            /** Classification */
+            classification?: ("quota" | "unavailable" | "error" | "lease_expired") | null;
         };
         JsonValue: unknown;
         /**
@@ -617,6 +652,8 @@ export interface components {
             status: string;
             /** Error Message */
             error_message: string | null;
+            /** Error Class */
+            error_class: ("quota" | "unavailable" | "permanent") | null;
             /** Retry Count */
             retry_count: number;
             /** Document Ids */
@@ -674,6 +711,61 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+        };
+        /** PendingKind */
+        PendingKind: {
+            /** Kind */
+            kind: string;
+            /** Queued */
+            queued: number;
+            /** Running */
+            running: number;
+            /** Backfill Queued */
+            backfill_queued: number;
+            /** Paused */
+            paused: boolean;
+        };
+        /**
+         * QueuePause
+         * @description The queue-level pause: which kinds are held back, why, and until when.
+         */
+        QueuePause: {
+            /** Paused */
+            paused: boolean;
+            /** Level */
+            level: number;
+            /** Error Class */
+            error_class: ("quota" | "unavailable") | null;
+            /** Reason */
+            reason: string | null;
+            /** Kinds */
+            kinds: string[];
+            /** Backoff Seconds */
+            backoff_seconds: number | null;
+            /** Paused At */
+            paused_at: string | null;
+            /** Resume After */
+            resume_after: string | null;
+            /** Since */
+            since: string | null;
+            /** Job Id */
+            job_id: string | null;
+            /** Cleared At */
+            cleared_at: string | null;
+            /** Pauses Total */
+            pauses_total: number;
+        };
+        /** QueueStatus */
+        QueueStatus: {
+            /**
+             * Now
+             * Format: date-time
+             */
+            now: string;
+            pause: components["schemas"]["QueuePause"];
+            backfill_window: components["schemas"]["BackfillWindowStatus"];
+            /** Pending */
+            pending: components["schemas"]["PendingKind"][];
         };
         /** Security */
         Security: {
@@ -1006,6 +1098,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_queue_api_v1_queue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueStatus"];
                 };
             };
         };

@@ -112,6 +112,27 @@
         }
       }
     },
+    "/api/v1/queue": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Get Queue",
+        "operationId": "get_queue_api_v1_queue_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/companies": {
       "get": {
         "tags": [
@@ -1247,6 +1268,56 @@
         ],
         "title": "AssertionReview"
       },
+      "BackfillWindowStatus": {
+        "properties": {
+          "window": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "open": {
+            "type": "boolean",
+            "title": "Open"
+          },
+          "next_open_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Open At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window",
+          "timezone",
+          "open",
+          "next_open_at"
+        ],
+        "title": "BackfillWindowStatus"
+      },
       "Company": {
         "properties": {
           "id": {
@@ -1541,6 +1612,14 @@
             "type": "string",
             "title": "Idempotency Key"
           },
+          "job_class": {
+            "type": "string",
+            "enum": [
+              "interactive",
+              "backfill"
+            ],
+            "title": "Job Class"
+          },
           "payload": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
@@ -1654,6 +1733,7 @@
           "id",
           "kind",
           "idempotency_key",
+          "job_class",
           "payload",
           "status",
           "attempts",
@@ -1695,6 +1775,23 @@
             "type": "string",
             "format": "date-time",
             "title": "At"
+          },
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "quota",
+                  "unavailable",
+                  "error",
+                  "lease_expired"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classification"
           }
         },
         "type": "object",
@@ -1868,6 +1965,22 @@
             ],
             "title": "Error Message"
           },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "quota",
+                  "unavailable",
+                  "permanent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Class"
+          },
           "retry_count": {
             "type": "integer",
             "title": "Retry Count"
@@ -1915,6 +2028,7 @@
           "kind",
           "status",
           "error_message",
+          "error_class",
           "retry_count",
           "document_ids",
           "submitted_at",
@@ -2047,6 +2161,206 @@
           "offset"
         ],
         "title": "Page[SourceVersionSummary]"
+      },
+      "PendingKind": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "queued": {
+            "type": "integer",
+            "title": "Queued"
+          },
+          "running": {
+            "type": "integer",
+            "title": "Running"
+          },
+          "backfill_queued": {
+            "type": "integer",
+            "title": "Backfill Queued"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "queued",
+          "running",
+          "backfill_queued",
+          "paused"
+        ],
+        "title": "PendingKind"
+      },
+      "QueuePause": {
+        "properties": {
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "quota",
+                  "unavailable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Class"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kinds"
+          },
+          "backoff_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backoff Seconds"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "resume_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume After"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "cleared_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared At"
+          },
+          "pauses_total": {
+            "type": "integer",
+            "title": "Pauses Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paused",
+          "level",
+          "error_class",
+          "reason",
+          "kinds",
+          "backoff_seconds",
+          "paused_at",
+          "resume_after",
+          "since",
+          "job_id",
+          "cleared_at",
+          "pauses_total"
+        ],
+        "title": "QueuePause",
+        "description": "The queue-level pause: which kinds are held back, why, and until when."
+      },
+      "QueueStatus": {
+        "properties": {
+          "now": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Now"
+          },
+          "pause": {
+            "$ref": "#/components/schemas/QueuePause"
+          },
+          "backfill_window": {
+            "$ref": "#/components/schemas/BackfillWindowStatus"
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/PendingKind"
+            },
+            "type": "array",
+            "title": "Pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "now",
+          "pause",
+          "backfill_window",
+          "pending"
+        ],
+        "title": "QueueStatus"
       },
       "Security": {
         "properties": {

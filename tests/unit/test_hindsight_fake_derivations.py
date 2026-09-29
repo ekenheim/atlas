@@ -46,7 +46,12 @@ def test_a_derived_retain_changes_only_its_identity_fields() -> None:
     operation = client.operation(submitted.operation_id)
     document = client.get_document(ITEMS[1].document_id)
 
-    assert again.operation_id == submitted.operation_id  # an identical request, the same answer
+    # Each submission is its own operation, even of an identical batch (a resubmission), and
+    # the IDs are the same from one fake to the next.
+    assert again.operation_id != submitted.operation_id
+    fresh = RecordedHindsight()
+    fresh.derive_retains()
+    assert gateway(fresh).retain_batch(ITEMS).operation_id == submitted.operation_id
     assert other.operation_id != submitted.operation_id
     assert (submitted.bank_id, submitted.items_count) == (BANK, 2)
     recorded_retain = fake.recording(DERIVED_RETAIN).response_object()
@@ -98,3 +103,22 @@ def test_unknown_documents_and_operations_are_still_unrecorded() -> None:
         gateway(fake).get_document("srcv:never-retained:cover")
     with pytest.raises(UnrecordedRequest):
         gateway(fake).operation("00000000-0000-4000-8000-00000000dead")
+
+
+def test_a_held_retain_can_carry_an_error_message_for_its_first_batches_only() -> None:
+    fake = RecordedHindsight()
+    fake.derive_retains()
+    fake.hold_retains(
+        "failed", where=lambda ids: True, error_message="Error code: 429 - rate limit", times=1
+    )
+    client = gateway(fake)
+
+    failed = client.operation(client.retain_batch(ITEMS).operation_id)
+    resubmitted = client.operation(client.retain_batch(ITEMS).operation_id)
+
+    assert (failed.status, failed.error_message) == ("failed", "Error code: 429 - rate limit")
+    final = fake.recording(DERIVED_RETAIN_FINAL).response_object()
+    assert (resubmitted.status, resubmitted.error_message) == (
+        final["status"],
+        final["error_message"],
+    )

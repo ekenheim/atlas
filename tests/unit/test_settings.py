@@ -101,3 +101,42 @@ def test_live_sec_requires_a_user_agent_with_a_contact_email(
     settings = Settings()  # pyright: ignore[reportCallIssue]
     assert settings.sec_user_agent == "Atlas Research ops@example.com"
     assert "sec" not in {provider for provider, _ in settings.disabled_providers()}
+
+
+def _base(tmp_path: Path) -> dict[str, object]:
+    return {
+        "database_url": "postgresql+psycopg://x@db/atlas",
+        "actor": "a",
+        "archive_root": tmp_path,
+    }
+
+
+def test_the_backfill_window_defaults_to_one_to_seven_utc(tmp_path: Path) -> None:
+    settings = Settings.model_validate(_base(tmp_path))
+
+    assert (settings.backfill_window, settings.backfill_timezone) == ("01:00-07:00", "UTC")
+    assert (settings.queue_pause_base_seconds, settings.queue_pause_max_seconds) == (60, 3600)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"backfill_window": "1-7"}, "HH:MM-HH:MM"),
+        ({"backfill_window": "25:00-07:00"}, "not a time of day"),
+        ({"backfill_window": "03:00-03:00"}, "is empty"),
+        ({"backfill_timezone": "Mars/Olympus"}, "unknown timezone"),
+        ({"queue_pause_max_seconds": 7200}, "less than or equal to 3600"),
+        ({"queue_pause_base_seconds": 600, "queue_pause_max_seconds": 300}, "must not exceed"),
+    ],
+)
+def test_invalid_pacing_settings_are_rejected_at_startup(
+    tmp_path: Path, overrides: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        Settings.model_validate(_base(tmp_path) | overrides)
+
+
+def test_an_empty_backfill_window_is_accepted(tmp_path: Path) -> None:
+    settings = Settings.model_validate(_base(tmp_path) | {"backfill_window": ""})
+
+    assert settings.backfill_window == ""

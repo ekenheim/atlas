@@ -15,7 +15,9 @@ Derived behaviours (each serves a recorded response with only the named fields c
   retain of real sections (whose document IDs and content no recording can match) would be
   unanswerable. With it on, an *unrecorded* async batch retain is answered with the recorded
   `retain/04-batch` response, changing only `bank_id`, `items_count` and `operation_id` (a
-  UUIDv5 of the request body, so an identical request gets the same operation). Polling that
+  UUIDv5 of the request body; a repeat of an identical request, such as a resubmission after a
+  failed operation, is a new operation, keyed also by how many times the body was sent before).
+  Polling that
   operation serves `retain/05-batch-final` with only `operation_id` changed, and reading one
   of its documents serves `upsert/09-get-document` with only `id`, `bank_id`, `tags` and
   `document_metadata` changed to the retained item's. Recorded requests still replay as
@@ -24,6 +26,12 @@ Derived behaviours (each serves a recorded response with only the named fields c
   failed or stuck retain were never recorded. `report_zero_facts` serves a derived document
   with its memory counts set to zero; `hold_retains` applies `hold_operation` to each derived
   retain operation whose batch matches.
+- `hold_operation(..., error_message=...)` and `hold_retains(..., error_message=..., times=...)`:
+  a failed operation's error was never recorded either (the spike saw no 429 or outage), so a
+  held status can also change only the response's `error_message`. The message text is the
+  OpenAI-style error LiteLLM returns for a 429 or 503, as quoted in Atlas's tests; it has not
+  been checked against a real Hindsight failure. `times` limits a retain hold to the first
+  matching batches, so a resubmitted batch is served as recorded.
 """
 
 import copy
@@ -124,6 +132,7 @@ def _body_key(body: JsonValue) -> str:
 class _Hold:
     status: str
     polls: int | None  # None: hold forever
+    error_message: str | None = None  # None: as recorded
 
 
 @dataclass
@@ -131,6 +140,8 @@ class _RetainHold:
     status: str
     polls: int | None
     where: Callable[[Sequence[str]], bool]
+    error_message: str | None = None
+    times: int | None = None  # None: every matching batch
 
 
 # The recordings derived responses are built from (see the module docstring).
@@ -160,6 +171,7 @@ class RecordedHindsight:
     )
     _zero_facts: Callable[[str], bool] = field(init=False, default_factory=lambda: _never)
     _retain_holds: list[_RetainHold] = field(init=False, default_factory=list[_RetainHold])
+    _submissions: dict[str, int] = field(init=False, default_factory=dict[str, int])
 
     def __post_init__(self) -> None:
         self._replies = defaultdict(deque)
@@ -179,9 +191,16 @@ class RecordedHindsight:
     def recording(self, name: str) -> Recording:
         return self.recordings[name]
 
-    def hold_operation(self, operation_id: str, status: str, polls: int | None = None) -> None:
-        """Report `status` for the next `polls` reads of a recorded operation (None: forever)."""
-        self._holds[operation_id] = _Hold(status, polls)
+    def hold_operation(
+        self,
+        operation_id: str,
+        status: str,
+        polls: int | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """Report `status` (and `error_message`, if given) for the next `polls` reads of a
+        recorded operation (None: forever)."""
+        self._holds[operation_id] = _Hold(status, polls, error_message)
 
     def derive_retains(self) -> None:
         """Answer unrecorded batch retains, their operations and documents (derived; see above)."""
@@ -192,10 +211,17 @@ class RecordedHindsight:
         self._zero_facts = document_ids
 
     def hold_retains(
-        self, status: str, *, where: Callable[[Sequence[str]], bool], polls: int | None = None
+        self,
+        status: str,
+        *,
+        where: Callable[[Sequence[str]], bool],
+        polls: int | None = None,
+        error_message: str | None = None,
+        times: int | None = None,
     ) -> None:
-        """`hold_operation` for each later derived retain whose batch's document IDs match."""
-        self._retain_holds.append(_RetainHold(status, polls, where))
+        """`hold_operation` for each later derived retain whose batch's document IDs match
+        (only the first `times` such batches, if given)."""
+        self._retain_holds.append(_RetainHold(status, polls, where, error_message, times))
 
     def retained(self) -> list[list[dict[str, Any]]]:
         """The items of every batch retain received, in order (recorded or derived)."""
@@ -254,6 +280,8 @@ class RecordedHindsight:
             hold.polls -= 1
         derived = copy.deepcopy(body)
         derived["status"] = hold.status
+        if hold.error_message is not None:
+            derived["error_message"] = hold.error_message
         return derived
 
     # --- derived retains (see the module docstring) --------------------------------------------
@@ -277,7 +305,10 @@ class RecordedHindsight:
         items = body.get("items")
         if body.get("async") is not True or not isinstance(items, list) or not items:
             return None
-        operation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, _body_key(body)))
+        key = _body_key(body)
+        repeat = self._submissions.get(key, 0)
+        self._submissions[key] = repeat + 1
+        operation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, key if not repeat else f"{key}#{repeat}"))
         document_ids: list[str] = []
         for item in cast(list[dict[str, JsonValue]], items):
             document_id = str(item["document_id"])
@@ -285,8 +316,10 @@ class RecordedHindsight:
             self._derived_documents[document_id] = item
         self._derived_operations.add(operation_id)
         for hold in self._retain_holds:
-            if hold.where(document_ids):
-                self.hold_operation(operation_id, hold.status, hold.polls)
+            if hold.times != 0 and hold.where(document_ids):
+                self.hold_operation(operation_id, hold.status, hold.polls, hold.error_message)
+                if hold.times is not None:
+                    hold.times -= 1
         recording = self.recording(DERIVED_RETAIN)
         response = copy.deepcopy(recording.response_object())
         response |= {"bank_id": bank, "items_count": len(items), "operation_id": operation_id}

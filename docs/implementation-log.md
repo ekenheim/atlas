@@ -757,3 +757,89 @@ Per `START_HERE.md`: after each ticket or phase, record the files, the acceptanc
   - Selection-to-Assertion and the Assertion list are out of scope (ticket 08 and later).
 - **Credentials:** none.
 - **Next:** the Assertion viewer ticket adds selection-to-Assertion on the parsed `<pre>` and the review list. Run `scripts/gen_api_client.sh` after ticket 08's routes merge, or CI's `--check` will fail. Confirm the e2e step on the first GitHub Actions run.
+
+## 2026-09-29: ticket 14, queue pause and pacing
+
+- **Built:**
+  - **Alembic revision `0008`** (down_revision `0007`):
+    - `job.job_class` (`interactive`/`backfill`)
+    - `hindsight_operation.error_class` (`quota`/`unavailable`/`permanent`)
+    - the single-row `queue_pause` table (level, class, reason, kinds, backoff, paused/resume/episode/cleared times, the causing job), with checks tying the fields to `level > 0`
+    - the append-only `queue_pause_event` history
+    - grants to `atlas_app` when it exists
+  - **`atlas.jobs.pacing`:**
+    - failure classification. Quota is a 429 or a rate-limit or insufficient-quota message; unavailable is 502–504 or a connection failure to Hindsight or LiteLLM. Only dependency exceptions and operation errors are classified, never arbitrary exception text.
+    - `TransientFailure`, `BackfillWindow` (`HH:MM-HH:MM` in a timezone, wrapping midnight) and `Pacing` (backoff 60 s × 2^(level−1), capped at 1 h)
+  - **Queue and worker:**
+    - A pausable kind's quota or outage failure pauses the queue (`JobQueue.pause`). The job is requeued without using up its attempt, and the failure is recorded with its classification.
+    - A failure during an active pause doesn't escalate it.
+    - Claiming skips paused kinds until `resume_after`, and backfill jobs outside the window.
+    - A pausable success after the resume time clears the level.
+    - Pacing uses an injectable clock; leases keep the DB clock.
+    - `HandlerRegistry.register(..., pausable=True)`; retention registers `retain`, `poll_operation` and `reprocess` that way.
+  - **Retention:**
+    - A failed operation is classified from its error and its sub-batches' errors.
+    - For quota or unavailable, the operation is recorded with `error_class`, the sections stay `pending`, and `TransientFailure` is raised. After the pause, the poll job's next attempt resubmits the same sections as a new operation (`memory_document.resubmitted`), without counting a reprocess twice.
+    - Permanent failures behave as in ticket 13.
+    - Backfill class propagates: a backfill ingest's retains are backfill, and a reprocess takes the class of the job that submitted the operation. Polls are always interactive.
+    - `GET /source-versions/{id}/memory` operations now show `error_class`.
+  - **`GET /api/v1/queue`:** the pause (paused, level, class, reason, kinds, backoff, paused at, resume after, episode start, cleared at, total pauses), the backfill window (open, next opening) and pending jobs by kind (queued, running, backfill queued, paused). `create_app(settings, clock=...)` is new.
+  - **CLI:** `atlas ingest --backfill` and `atlas jobs enqueue --backfill`. The enqueue output now includes `job_class`. `atlas worker` applies the pacing from settings.
+  - **Settings:** `ATLAS_BACKFILL_WINDOW` (`01:00-07:00`; empty means any time), `ATLAS_BACKFILL_TIMEZONE` (`UTC`), `ATLAS_QUEUE_PAUSE_BASE_SECONDS` (60) and `ATLAS_QUEUE_PAUSE_MAX_SECONDS` (3600, at most 3600), all validated at startup.
+  - **Metrics** (`atlas.metrics.StateCollector` on the API's per-app registry, read from the database at scrape time):
+    - `atlas_queue_paused`, `_pause_level`, `_pause_backoff_seconds`, `_pause_duration_seconds` and `atlas_queue_pauses_total{error_class}`
+    - `atlas_queue_jobs{kind,job_class,status}` and `atlas_jobs_failed_total{kind}`
+    - `atlas_hindsight_operations_total{kind,status,error_class}`
+    - `atlas_retained_sections_total{outcome}` and `atlas_memory_sections_pending`
+    - `atlas_zero_fact_sections_total`
+    - `atlas_state_metrics_up` (0 when the database can't be read)
+  - **Alert rules:** `configs/prometheus/atlas-alerts.yaml`, a PrometheusRule covering repeated permanent operation failures, repeated job failures, a zero-fact spike, a pause longer than 2 h and unreadable metrics. **Not deployed.**
+  - **Fake:** `hold_operation`/`hold_retains` take an optional `error_message`, and `hold_retains` takes `times`. A repeated identical derived retain now gets a new operation ID (the first ID is unchanged).
+- **Files:**
+  - new: `backend/atlas/jobs/pacing.py`, `backend/atlas/api/queue.py`, `backend/atlas/metrics.py`, `backend/atlas/db/migrations/versions/0008_queue_pause.py`, `configs/prometheus/atlas-alerts.yaml`, `tests/integration/test_queue_pause.py`, `tests/unit/test_alert_rules.py`
+  - edited: `jobs/{__init__,queue,worker,handlers}.py`, `retention/{service,handlers,reads}.py`, `ledger/ingest.py` (one call), and small additive edits to `api/app.py`, `cli.py` and `settings.py`
+  - also edited: `tests/fakes/hindsight.py`, `tests/unit/{test_hindsight_fake_derivations,test_settings}.py`, `tests/integration/test_migrations.py` (head `0008`), `frontend/lib/api/{openapi.json,schema.ts}` (regenerated), `.env.example`, `AGENTS.md`, `docs/{decisions,data-model}.md`
+  - The branch was fast-forwarded to `main` (ticket 09) first, to get `scripts/gen_api_client.sh`.
+- **Tests:** 19 new, and `scripts/ci.sh --no-image` **passed**: ruff/pyright clean, frontend gates green, API client current, **361 passed, 1 deselected** (live), 386 s.
+  - The e2e step skipped locally (ubuntu20.04). Re-run with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`: 1 passed.
+  - The implementation came just ahead of the tests, not strictly red first. The tests were then checked by mutation.
+  - `tests/integration/test_queue_pause.py` (9, at the CLI + single worker pass + API seam, with a controllable pacing clock, real Postgres and the fake on localhost):
+    - a 429 operation failure pauses for 60 s. Its sections stay pending and the poll job is requeued at 0 attempts with classification `quota`. Nothing is claimed and Hindsight hears nothing at +59 s. At +60 s the identical batch is resubmitted and completes, and the pause clears.
+    - an outage (Hindsight on a closed port) gives backoffs of exactly 60, 120, 240, 480, 960, 1920, 3600 and 3600 s. The retain job is never failed. It succeeds when Hindsight is back, and a later outage restarts at 60 s.
+    - an unrelated operation error fails its sections as `permanent` without pausing
+    - a pausable job failing for its own reason (no template) exhausts its retries without pausing
+    - the window gates backfill jobs, for `01:00-07:00 Europe/Stockholm` (end exclusive) and `22:00-06:00 UTC` (wrapping), including `next_open_at`
+    - a backfill ingest waits for the window, and its retains and reprocess are backfill while polls are interactive
+    - the metrics during and after a pause, with a zero-fact section. Every metric the alert rules reference is exposed.
+    - an unreadable database gives `atlas_state_metrics_up 0`
+  - Unit tests: 8 settings validation cases, 1 alert-rule structure test, and 1 fake derivation test (error message and `times`). The existing derivation test now expects a new operation ID for a repeated identical batch.
+  - **Mutation checks**, each going red as expected:
+
+    | Mutation | Tests that failed |
+    |---|---|
+    | Disabling classification | 3 |
+    | Removing the 1 h cap | the backoff test |
+    | Removing the window gate | 3 window tests |
+    | Never clearing | 2 |
+    | Classifying every error as quota | the unrelated-failure test |
+    | Burning the attempt on a pause | 2 |
+    | Removing the pause gate from the claim | the worker pass loops forever; the run hung and was killed |
+  - The alert rules' spec groups passed `promtool check rules` (prom/prometheus v3.5.0, one-off container): `SUCCESS: 5 rules found`.
+- **Fixture-tested vs live:**
+  - **Everything is fixture or localhost.** No live Hindsight, LiteLLM or MiniMax call was made.
+  - **The quota error text is derived, not recorded:** an OpenAI-style `Error code: 429 ... RateLimitError`. The spike saw no 429. How Hindsight 0.10.1 actually reports a model 429 in `error_message` (and whether it retries internally first) is unverified.
+  - The outage path used a real refused connection.
+  - The alert rules were checked with promtool but never loaded into a Prometheus.
+- **Deviations and notes:**
+  - There's no per-job `run_after` backoff (data model §2.7 marks it not implemented); backoff is queue-level.
+  - Pauses aren't audit events. They're operational state, kept in `queue_pause_event`.
+  - "Clears on the next success" means the first pausable success at or after `resume_after`. A success during an active pause (a job in flight when it began) doesn't lift it early.
+  - Backfill is a job class, not a kind set. A backfill ingest job (SEC fetching) also waits for the window.
+  - A resubmitted operation's `job_id` is the original submitting job, not the poll job, so class inheritance holds.
+  - There are no `reflect` or `refresh_mental_model` jobs yet. The LiteLLM side of the classifier (httpx2 transport errors and HTTP status errors) has no LLM-backed job to exercise it.
+  - The frontend shows no queue page. The pause is visible through the API and metrics.
+- **Credentials:** none.
+- **Next:**
+  - home-ops: include `configs/prometheus/atlas-alerts.yaml` in the atlas Kustomization, plus a ServiceMonitor for the API's `/metrics`.
+  - Record a real Hindsight failed operation under a LiteLLM 429 (and a 503) against the spike, to replace the derived error text.
+  - Tickets adding `reflect`/`refresh_mental_model` register them with `pausable=True`.

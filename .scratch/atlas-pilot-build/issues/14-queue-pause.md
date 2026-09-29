@@ -4,9 +4,9 @@
 
 **Blocked by:** 13 (Retain Source Versions into memory)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A 429- or outage-classified operation failure pauses the queue with backoff capped at 1 h, then resumes
-- [ ] `GET /api/v1/queue` shows the pause state, backoff and pending jobs by kind
-- [ ] Backfill-class jobs run only inside the configured nightly window
-- [ ] Metrics exist for pauses, retains, zero-fact sections and operation outcomes, with alert rules for repeated failures and long pauses
+- [x] A 429- or outage-classified operation failure pauses the queue with backoff capped at 1 h, then resumes
+- [x] `GET /api/v1/queue` shows the pause state, backoff and pending jobs by kind
+- [x] Backfill-class jobs run only inside the configured nightly window
+- [x] Metrics exist for pauses, retains, zero-fact sections and operation outcomes, with alert rules for repeated failures and long pauses
