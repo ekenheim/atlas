@@ -273,6 +273,28 @@ def run_correct_availability(settings: Settings) -> None:
     print(json.dumps(dataclasses.asdict(summary)))
 
 
+def run_assign_families(settings: Settings) -> None:
+    import dataclasses
+    import json
+
+    from atlas.archive import open_archive
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.ledger import assign_missing
+
+    engine = create_engine(settings)
+    try:
+        summary = assign_missing(
+            engine,
+            open_archive(settings),
+            Actor.from_settings(settings),
+            max_hamming_distance=settings.evidence_family_max_hamming_distance,
+        )
+    finally:
+        engine.dispose()
+    print(json.dumps(dataclasses.asdict(summary)))
+
+
 def seed_companies(settings: Settings) -> None:
     import json
 
@@ -431,6 +453,10 @@ def main(argv: list[str] | None = None) -> None:
         "correct-availability",
         help="record availability corrections for versions an earlier rule dated too early",
     )
+    ledger_commands.add_parser(
+        "assign-families",
+        help="put parsed Source Versions recorded before Evidence Families into their family",
+    )
     companies = commands.add_parser("companies", help="the configured company universe")
     companies_commands = companies.add_subparsers(dest="companies_command", required=True)
     companies_commands.add_parser("seed", help="create or update companies from the config")
@@ -478,6 +504,8 @@ def main(argv: list[str] | None = None) -> None:
             since=args.since,
             all_history=args.all_history,
         )
+    elif args.command == "ledger" and args.ledger_command == "assign-families":
+        run_assign_families(settings)
     elif args.command == "ledger":
         run_correct_availability(settings)
     elif args.command == "retention":

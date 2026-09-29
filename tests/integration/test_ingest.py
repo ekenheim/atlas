@@ -550,6 +550,11 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
     documents = atlas.documents()
     versions = [atlas.version(url) for url in ALL_URLS]
     fetches = [fetch for version in versions for fetch in version["fetches"]]
+    # Each parsed version (the four filing documents; not companyfacts) joins an Evidence
+    # Family, here each its own: none of them duplicates another.
+    families = [version["evidence_family"] for version in versions if version["evidence_family"]]
+    assert len(families) == len(FILING_URLS)
+    assert {family["match"] for family in families} == {"founder"}
     expected = Counter(
         [("company", company["id"]), ("company", coherent["id"])]
         + [("security", security["id"]) for security in company["securities"]]
@@ -557,6 +562,12 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
         + [("source_version", version["id"]) for version in versions]
         + [("fetch_observation", fetch["id"]) for fetch in fetches]
         + [("job", job["id"]) for job in jobs]
+        + [("evidence_family", family["evidence_family_id"]) for family in families]
+        + [
+            ("source_version", url_version["id"])
+            for url_version in versions
+            if url_version["evidence_family"]
+        ]
     )
 
     assert Counter((e["entity_type"], e["entity_id"]) for e in events) == expected
@@ -571,6 +582,8 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
         "fetch.not_modified": 4,
         "fetch.unchanged": 1,
         "job.enqueued": 2,  # by `atlas ingest`; running them is the jobs' own history
+        "evidence_family.created": 4,
+        "evidence_family.member_added": 4,
     }
     verify = atlas.cli("audit", "verify")
     assert verify.returncode == 0, verify.stderr

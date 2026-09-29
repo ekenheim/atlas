@@ -1,0 +1,77 @@
+{
+  "description": "Syndicated copies of one announcement, for the Evidence Family gate (ticket 11). Hand-assembled from the recorded Lumentum fixtures (tests/fixtures/edgar/lumentum), not recorded from SEC: filings 0001628280-26-900001 (an 8-K/A re-filing the same EX-99.1 bytes) and 0001628280-26-900002 (an 8-K whose EX-99.1 is a wire-service copy: plain markup, a BUSINESS WIRE dateline credit and a source line) are synthetic, as are their index-headers and the empty companyfacts. The recorded Q4 FY2026 EX-99.1 is trimmed to its first 40 top-level elements; the 10-Q is the recorded (trimmed) one, an unrelated document.",
+  "responses": [
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026900001/lite_ex991xq4fy26.htm",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026900001/lite_ex991xq4fy26.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026900002/lite_ex991xq4fy26wire.htm",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026900002/lite_ex991xq4fy26wire.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026030777/lite-20260328.htm",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026030777/lite-20260328.htm",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/0001628280-26-055726-index-headers.html",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026055726/0001628280-26-055726-index-headers.html",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026900001/0001628280-26-900001-index-headers.html",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026900001/0001628280-26-900001-index-headers.html",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/1633978/000162828026900002/0001628280-26-900002-index-headers.html",
+      "file": "www.sec.gov/Archives/edgar/data/1633978/000162828026900002/0001628280-26-900002-index-headers.html",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
+    {
+      "url": "https://data.sec.gov/submissions/CIK0001633978.json",
+      "file": "data.sec.gov/submissions/CIK0001633978.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001633978.json",
+      "file": "data.sec.gov/api/xbrl/companyfacts/CIK0001633978.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      }
+    }
+  ]
+}

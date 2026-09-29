@@ -4,6 +4,7 @@
 - `GET /sources/{id}`, `GET /sources/{id}/versions` (version history, oldest first)
 - `GET /source-versions/{id}` (metadata, provenance and fetch observations)
 - `GET /source-versions/{id}/content?kind=raw|parsed` (streamed from the archive)
+- `GET /evidence-families/{id}` (an Evidence Family and its member Source Versions)
 
 Source content is untrusted data: raw bytes are served as a download under a sandboxing
 Content-Security-Policy, never rendered on the application's origin.
@@ -22,10 +23,12 @@ from atlas.archive import Archive
 from atlas.companies import Company, get_company, list_companies
 from atlas.ledger import (
     ContentKind,
+    EvidenceFamily,
     SourceDocument,
     SourceVersionDetail,
     SourceVersionSummary,
     get_content,
+    get_evidence_family,
     get_source_document,
     get_version,
     list_source_documents,
@@ -135,5 +138,13 @@ def sources_router(engine: Engine, archive: Archive) -> APIRouter:
             "Content-Type": content.media_type,
         }
         return StreamingResponse(_chunks(content.data), headers=headers)
+
+    @router.get(
+        "/evidence-families/{family_id}", response_model=EvidenceFamily, responses=NOT_FOUND
+    )
+    def evidence_family(family_id: uuid.UUID) -> EvidenceFamily | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        with engine.connect() as connection:
+            found = get_evidence_family(connection, family_id)
+        return found if found is not None else not_found("evidence family")
 
     return router

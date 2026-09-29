@@ -95,6 +95,9 @@ class Settings(BaseSettings):
     # Fixture mode: recorded EDGAR responses, one directory per company slug
     # (e.g. tests/fixtures/edgar/lumentum). Unused when sec_live is on.
     sec_fixtures_dir: Path | None = None
+    # Evidence Families: the SimHash Hamming distance within which a parse is a near
+    # duplicate. A family keeps the threshold it was founded with (atlas.ledger.families).
+    evidence_family_max_hamming_distance: int = Field(default=3, ge=0, le=64)
 
     # The versioned company universe and themes (company membership is config, not code).
     themes_config: Path = Path("configs/themes/ai-infrastructure.yaml")

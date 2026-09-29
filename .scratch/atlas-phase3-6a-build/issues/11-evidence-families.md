@@ -6,9 +6,9 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Family assignment on new parsed Source Versions, with the threshold recorded
-- [ ] Unit tests of SimHash grouping
-- [ ] Gate test: syndicated fixture stories count as one Evidence Family
-- [ ] Families are visible on the Source Version API
+- [x] Family assignment on new parsed Source Versions, with the threshold recorded
+- [x] Unit tests of SimHash grouping
+- [x] Gate test: syndicated fixture stories count as one Evidence Family
+- [x] Families are visible on the Source Version API

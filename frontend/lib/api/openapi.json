@@ -573,6 +573,59 @@
         }
       }
     },
+    "/api/v1/evidence-families/{family_id}": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Evidence Family",
+        "operationId": "evidence_family_api_v1_evidence_families__family_id__get",
+        "parameters": [
+          {
+            "name": "family_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Family Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceFamily"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/assertions": {
       "get": {
         "tags": [
@@ -2148,6 +2201,202 @@
         ],
         "title": "Evidence",
         "description": "A Source Version section that resolved citations lead to (Evidence, not Memory)."
+      },
+      "EvidenceFamily": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "simhash_rule": {
+            "type": "string",
+            "title": "Simhash Rule"
+          },
+          "max_hamming_distance": {
+            "type": "integer",
+            "title": "Max Hamming Distance"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "member_count": {
+            "type": "integer",
+            "title": "Member Count"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceFamilyMember"
+            },
+            "type": "array",
+            "title": "Members"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "simhash_rule",
+          "max_hamming_distance",
+          "created_at",
+          "member_count",
+          "members"
+        ],
+        "title": "EvidenceFamily",
+        "description": "Source Versions that are copies of one announcement: one witness."
+      },
+      "EvidenceFamilyMember": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_document_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Document Id"
+          },
+          "canonical_url": {
+            "type": "string",
+            "title": "Canonical Url"
+          },
+          "publisher": {
+            "type": "string",
+            "title": "Publisher"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "founder",
+              "content_hash",
+              "simhash"
+            ],
+            "title": "Match"
+          },
+          "matched_source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Source Version Id"
+          },
+          "hamming_distance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hamming Distance"
+          },
+          "simhash": {
+            "type": "string",
+            "title": "Simhash"
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Assigned At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "source_document_id",
+          "canonical_url",
+          "publisher",
+          "match",
+          "matched_source_version_id",
+          "hamming_distance",
+          "simhash",
+          "assigned_at"
+        ],
+        "title": "EvidenceFamilyMember"
+      },
+      "EvidenceFamilyMembership": {
+        "properties": {
+          "evidence_family_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Evidence Family Id"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "founder",
+              "content_hash",
+              "simhash"
+            ],
+            "title": "Match"
+          },
+          "matched_source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Source Version Id"
+          },
+          "hamming_distance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hamming Distance"
+          },
+          "simhash": {
+            "type": "string",
+            "title": "Simhash"
+          },
+          "simhash_rule": {
+            "type": "string",
+            "title": "Simhash Rule"
+          },
+          "max_hamming_distance": {
+            "type": "integer",
+            "title": "Max Hamming Distance"
+          },
+          "member_count": {
+            "type": "integer",
+            "title": "Member Count"
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Assigned At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_family_id",
+          "match",
+          "matched_source_version_id",
+          "hamming_distance",
+          "simhash",
+          "simhash_rule",
+          "max_hamming_distance",
+          "member_count",
+          "assigned_at"
+        ],
+        "title": "EvidenceFamilyMembership",
+        "description": "How a Source Version joined its Evidence Family (atlas.ledger.families)."
       },
       "FetchObservation": {
         "properties": {
@@ -4294,6 +4543,18 @@
             ],
             "title": "Superseded By Version Id"
           },
+          "evidence_family_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Family Id"
+          },
           "source_document": {
             "$ref": "#/components/schemas/SourceDocument"
           },
@@ -4383,6 +4644,16 @@
             },
             "type": "array",
             "title": "Fetches"
+          },
+          "evidence_family": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceFamilyMembership"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -4402,6 +4673,7 @@
           "ingested_at",
           "supersedes_version_id",
           "superseded_by_version_id",
+          "evidence_family_id",
           "source_document",
           "comparison_sha256",
           "comparison_rule",
@@ -4415,7 +4687,8 @@
           "fetch_status",
           "metadata",
           "content",
-          "fetches"
+          "fetches",
+          "evidence_family"
         ],
         "title": "SourceVersionDetail",
         "description": "A Source Version's full provenance."
@@ -4592,6 +4865,18 @@
               }
             ],
             "title": "Superseded By Version Id"
+          },
+          "evidence_family_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Family Id"
           }
         },
         "type": "object",
@@ -4610,7 +4895,8 @@
           "fetched_at",
           "ingested_at",
           "supersedes_version_id",
-          "superseded_by_version_id"
+          "superseded_by_version_id",
+          "evidence_family_id"
         ],
         "title": "SourceVersionSummary"
       },

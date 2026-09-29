@@ -10,6 +10,7 @@ from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, text
 
 from atlas.archive import Archive
+from atlas.ledger.families import Match, simhash_hex
 
 ContentKind = Literal["raw", "parsed"]
 
@@ -49,6 +50,44 @@ class SourceVersionSummary(BaseModel):
     ingested_at: datetime
     supersedes_version_id: uuid.UUID | None
     superseded_by_version_id: uuid.UUID | None
+    evidence_family_id: uuid.UUID | None  # None: not parsed, so in no family
+
+
+class EvidenceFamilyMembership(BaseModel):
+    """How a Source Version joined its Evidence Family (atlas.ledger.families)."""
+
+    evidence_family_id: uuid.UUID
+    match: Match
+    matched_source_version_id: uuid.UUID | None  # the member it duplicates; None: founder
+    hamming_distance: int | None  # SimHash distance to that member
+    simhash: str  # 16 hex digits
+    simhash_rule: str
+    max_hamming_distance: int  # the family's recorded threshold
+    member_count: int  # the family counts as one witness, however many members
+    assigned_at: datetime
+
+
+class EvidenceFamilyMember(BaseModel):
+    source_version_id: uuid.UUID
+    source_document_id: uuid.UUID
+    canonical_url: str
+    publisher: str
+    match: Match
+    matched_source_version_id: uuid.UUID | None
+    hamming_distance: int | None
+    simhash: str
+    assigned_at: datetime
+
+
+class EvidenceFamily(BaseModel):
+    """Source Versions that are copies of one announcement: one witness."""
+
+    id: uuid.UUID
+    simhash_rule: str
+    max_hamming_distance: int
+    created_at: datetime
+    member_count: int
+    members: list[EvidenceFamilyMember]  # in assignment order, the founder first
 
 
 class FetchObservation(BaseModel):
@@ -89,6 +128,7 @@ class SourceVersionDetail(SourceVersionSummary):
     metadata: dict[str, JsonValue]
     content: ContentLinks
     fetches: list[FetchObservation]
+    evidence_family: EvidenceFamilyMembership | None
 
 
 @dataclass(frozen=True)
@@ -114,7 +154,9 @@ _VERSION = """
     SELECT v.*, a.available_at AS effective_available_at,
            a.available_at_basis AS effective_available_at_basis,
            (SELECT n.id FROM source_version n WHERE n.supersedes_version_id = v.id)
-               AS superseded_by_version_id
+               AS superseded_by_version_id,
+           (SELECT m.evidence_family_id FROM evidence_family_member m
+            WHERE m.source_version_id = v.id) AS evidence_family_id
     FROM source_version v
     JOIN source_version_availability a ON a.source_version_id = v.id
 """
@@ -202,7 +244,64 @@ def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionD
                 parsed=f"{base}?kind=parsed" if row["parsed_object_uri"] else None,
             ),
             "fetches": [FetchObservation.model_validate(dict(fetch)) for fetch in fetches],
+            "evidence_family": _membership(connection, version_id),
         }
+    )
+
+
+def _membership(connection: Connection, version_id: uuid.UUID) -> EvidenceFamilyMembership | None:
+    row = (
+        connection.execute(
+            text(
+                "SELECT m.evidence_family_id, m.match, m.matched_source_version_id,"
+                " m.hamming_distance, m.simhash, m.assigned_at, f.simhash_rule,"
+                " f.max_hamming_distance, (SELECT count(*) FROM evidence_family_member o"
+                " WHERE o.evidence_family_id = m.evidence_family_id) AS member_count"
+                " FROM evidence_family_member m"
+                " JOIN evidence_family f ON f.id = m.evidence_family_id"
+                " WHERE m.source_version_id = :id"
+            ),
+            {"id": version_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        return None
+    return EvidenceFamilyMembership.model_validate({**row, "simhash": simhash_hex(row["simhash"])})
+
+
+def get_evidence_family(connection: Connection, family_id: uuid.UUID) -> EvidenceFamily | None:
+    family = (
+        connection.execute(
+            text(
+                "SELECT id, simhash_rule, max_hamming_distance, created_at"
+                " FROM evidence_family WHERE id = :id"
+            ),
+            {"id": family_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if family is None:
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT m.source_version_id, v.source_document_id, d.canonical_url, d.publisher,"
+            " m.match, m.matched_source_version_id, m.hamming_distance, m.simhash,"
+            " m.assigned_at FROM evidence_family_member m"
+            " JOIN source_version v ON v.id = m.source_version_id"
+            " JOIN source_document d ON d.id = v.source_document_id"
+            " WHERE m.evidence_family_id = :id ORDER BY m.seq"
+        ),
+        {"id": family_id},
+    ).mappings()
+    members = [
+        EvidenceFamilyMember.model_validate({**row, "simhash": simhash_hex(row["simhash"])})
+        for row in rows
+    ]
+    return EvidenceFamily.model_validate(
+        {**family, "member_count": len(members), "members": members}
     )
 
 

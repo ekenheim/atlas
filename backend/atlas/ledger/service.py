@@ -19,7 +19,9 @@
    `sec_acceptance`). A version that supersedes an earlier one takes the time Atlas fetched
    it (basis `observed_revision`): its bytes weren't public at the original acceptance, and
    availability is never overstated (spec Part A story 31; docs/decisions.md).
-5. Write an audit event for each row created, in the same transaction.
+5. A new parsed version joins its Evidence Family (`atlas.ledger.families`): an exact or
+   near duplicate's, else a new one.
+6. Write an audit event for each row created, in the same transaction.
 
 Only this service writes Source Documents, Source Versions and fetch observations.
 """
@@ -37,6 +39,7 @@ from sqlalchemy import Connection, Engine, text
 
 from atlas.archive import Archive, Namespace
 from atlas.audit import Actor, content_hash, record
+from atlas.ledger import families
 from atlas.parsing import PARSER_VERSION, is_parseable, parse
 from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 from atlas.sources.edgar import PROVIDER_ID as SEC_EDGAR
@@ -126,10 +129,18 @@ def _iso(value: datetime | None) -> str | None:
 
 
 class SourceLedger:
-    def __init__(self, engine: Engine, archive: Archive, actor: Actor) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        archive: Archive,
+        actor: Actor,
+        *,
+        max_hamming_distance: int = families.DEFAULT_MAX_HAMMING_DISTANCE,
+    ) -> None:
         self._engine = engine
         self._archive = archive
         self._actor = actor
+        self._max_hamming_distance = max_hamming_distance
 
     def validators_for(self, candidate: SourceCandidate) -> HttpValidators | None:
         """Validators from the document's latest fetch, to make the next one conditional."""
@@ -185,6 +196,7 @@ class SourceLedger:
             )
             observation_uri: str | None = None
             created_version: dict[str, Any] | None = None
+            assignment: families.Assignment | None = None
             if raw is None:
                 if latest is None:
                     raise LedgerError(f"304 for {identity.canonical_url}, which has no version")
@@ -224,6 +236,16 @@ class SourceLedger:
                         media_type=media_type,
                     )
                     version_id = created_version["id"]
+                    parsed_text: str | None = created_version.pop("parsed_text")
+                    if parsed_text is not None:
+                        # Before any audit event: the family lock precedes the chain's.
+                        assignment = families.assign(
+                            connection,
+                            source_version_id=version_id,
+                            content_sha256=created_version["content_sha256"],
+                            parsed_text=parsed_text,
+                            max_hamming_distance=self._max_hamming_distance,
+                        )
 
             observation: dict[str, Any] = {
                 "id": uuid.uuid4(),
@@ -269,6 +291,8 @@ class SourceLedger:
                     version_id,
                     created_version,
                 )
+            if assignment is not None:
+                families.audit(connection, self._actor, assignment)
             self._audit(
                 connection,
                 f"fetch.{outcome}",
@@ -330,7 +354,7 @@ class SourceLedger:
         media_type: str,
     ) -> dict[str, Any]:
         candidate = fetched.candidate
-        parse_fields = self._parse(raw, media_type)
+        parse_fields, parsed_text = self._parse(raw, media_type)
         if latest is None:
             available_at, basis = candidate.available_at, candidate.available_at_basis
         else:
@@ -371,9 +395,10 @@ class SourceLedger:
             ),
             {**version, "metadata": _json(version["metadata"])},
         ).scalar_one()
-        return {**version, "ingested_at": ingested_at}
+        return {**version, "ingested_at": ingested_at, "parsed_text": parsed_text}
 
-    def _parse(self, raw: bytes, media_type: str) -> dict[str, Any]:
+    def _parse(self, raw: bytes, media_type: str) -> tuple[dict[str, Any], str | None]:
+        """The version's parse columns, and the parsed text if there is one."""
         fields: dict[str, Any] = {
             "content_sha256": None,
             "parsed_object_uri": None,
@@ -382,22 +407,24 @@ class SourceLedger:
             "parse_error": None,
         }
         if not is_parseable(media_type):
-            return fields
+            return fields, None
         try:
             parsed = parse(raw, media_type)
         except Exception as error:  # a parser bug must not lose the raw version
-            return fields | {
+            failed = {
                 "parser_version": PARSER_VERSION,
                 "parse_status": "failed",
                 "parse_error": f"{type(error).__name__}: {error}",
             }
+            return fields | failed, None
         assert parsed is not None
-        return fields | {
+        recorded = {
             "content_sha256": parsed.sha256,
             "parsed_object_uri": self._archive.put(Namespace.PARSED, parsed.encoded()),
             "parser_version": parsed.parser_version,
             "parse_status": "parsed" if parsed.complete else "incomplete",
         }
+        return fields | recorded, parsed.text
 
     def _audit(
         self,

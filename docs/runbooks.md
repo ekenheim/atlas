@@ -207,4 +207,14 @@ atlas ledger correct-availability
 
 It prints `{"corrected": [<source version ids>], "out_of_calendar": [...]}`. It is idempotent (a second run corrects nothing), appends one audited row per affected version to `source_version_availability_correction`, and never edits a version. A version in `out_of_calendar` has dates beyond the EDGAR holiday table (`backend/atlas/sources/edgar_calendar.py`): extend the table and run it again.
 
+## Evidence Family backfill (after deploying migration `0016`)
+
+Parsed Source Versions recorded before `0016` have no Evidence Family. After `atlas migrate`, run once, with the app's settings:
+
+```
+atlas ledger assign-families
+```
+
+It prints `{"assigned": [<source version ids>], "families_created": N}`, oldest ingested first, each version in its own audited transaction (`evidence_family.created`, `evidence_family.member_added`). It is idempotent. `ATLAS_EVIDENCE_FAMILY_MAX_HAMMING_DISTANCE` (default 3) is the threshold new families are founded with.
+
 The holiday table ends on 2027-12-31. When SEC publishes its next EDGAR Calendar (<https://www.sec.gov/submit-filings/filer-support-resources/edgar-calendar>), add that year and any announced closures, and move `EDGAR_CALENDAR_RANGE`. Past the end, ingest of a new filing fails with `EdgarCalendarRangeError`.
