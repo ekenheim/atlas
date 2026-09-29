@@ -21,14 +21,13 @@ from sqlalchemy import create_engine, text
 
 from atlas.api.app import create_app
 from atlas.jobs import JobQueue, Worker, builtin_registry
-from atlas.ledger.ingest import INGEST_KIND, ingest_payload
 from atlas.settings import Settings
 from tests.harness import THEMES, make_settings
 
 # slug -> (layer, source path, SEC CIK or None, SEC forms or None for the default)
 PHOTONICS = {
     "axt": ("substrate", "sec", "0001051627", None),
-    "soitec": ("substrate", "exchange:euronext", None, None),
+    "soitec": ("substrate", "exchange:amf", None, None),
     "iqe": ("epi", "exchange:fca-nsm", None, None),
     "coherent": ("chip-laser", "sec", "0000820318", None),
     "lumentum": ("chip-laser", "sec", "0001633978", None),
@@ -154,7 +153,7 @@ def test_the_photonics_theme_seeds_the_twelve_companies_with_layer_and_source_pa
     assert companies["stmicroelectronics"]["legal_name"] == "STMicroelectronics N.V."
     assert companies["innolight"]["country"] == "CN"
     one = universe.get(f"/api/v1/companies/{companies['soitec']['id']}")
-    assert (one["layer"], one["source_path"]) == ("substrate", "exchange:euronext")
+    assert (one["layer"], one["source_path"]) == ("substrate", "exchange:amf")
 
 
 def test_seeding_again_changes_nothing_and_audits_nothing(universe: Universe) -> None:
@@ -200,7 +199,7 @@ def test_unsponsored_adr_ciks_are_never_a_company_filer(universe: Universe) -> N
 def test_a_config_using_an_ignored_adr_cik_as_a_filer_is_refused(universe: Universe) -> None:
     as_filer = theme_config(
         universe.tmp_path,
-        {"soitec": {"source_path": "sec", "cik": UNSPONSORED_ADR_CIKS["soitec"]}},
+        {"soitec": {"source_path": "sec", "cik": UNSPONSORED_ADR_CIKS["soitec"], "exchange": None}},
     )
 
     result = universe.cli("companies", "seed", themes=as_filer)
@@ -224,36 +223,10 @@ def test_a_config_giving_an_exchange_company_a_cik_is_refused(universe: Universe
 # --- the SEC ingest and source paths ---
 
 
-# Innolight (exchange:hkex) has an adapter since ticket 04 (tests/integration/test_hkexnews.py)
-# and IQE (exchange:fca-nsm) since ticket 05 (tests/integration/test_fca_nsm.py).
-@pytest.mark.parametrize("company", ["soitec"])
-def test_the_ingest_cli_refuses_a_company_whose_source_path_has_no_adapter(
-    universe: Universe, company: str
-) -> None:
-    result = universe.cli("ingest", "--company", company, "--key", company)
-
-    assert result.returncode == 2
-    assert f"company {company!r} has source path {PHOTONICS[company][1]!r}" in result.stderr
-    assert "no adapter ingests yet" in result.stderr
-    assert universe.count("job") == 0
-
-
-def test_an_ingest_job_for_a_company_without_an_adapter_fails_clearly_without_fetching(
-    universe: Universe,
-) -> None:
-    # Enqueued past the CLI's check, as an API or a later Candidate commit could.
-    enqueued = JobQueue(universe.engine).enqueue(
-        INGEST_KIND, "soitec", ingest_payload("soitec", None, None), max_attempts=1
-    )
-
-    universe.worker_pass()
-
-    job = universe.get(f"/api/v1/jobs/{enqueued.job.id}")
-    assert job["status"] == "failed"
-    assert "'soitec' has source path 'exchange:euronext', which no adapter" in job["last_error"]
-    assert universe.count("fetch_observation") == 0
-    assert universe.count("source_document") == 0
-    assert universe.count("company") == 0  # refused before seeding, too
+# Every source path has an adapter now: Innolight (exchange:hkex) since ticket 04
+# (tests/integration/test_hkexnews.py), IQE (exchange:fca-nsm) since ticket 05
+# (test_fca_nsm.py) and Soitec (exchange:amf) since ticket 06 (test_amf.py), so the
+# "no adapter" refusal has no company left to test it with.
 
 
 def write_stm_fixtures(root: Path) -> None:

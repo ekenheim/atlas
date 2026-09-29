@@ -35,7 +35,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0028"
+    assert revision == "0029"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -105,4 +105,33 @@ def test_a_company_on_lse_rns_moves_to_the_fca_nsm(empty_database_url: str) -> N
         refused = False
     engine.dispose()
     assert path == "exchange:fca-nsm"
+    assert refused
+
+
+def test_a_company_on_euronext_moves_to_the_amf_api(empty_database_url: str) -> None:
+    # 0029: Euronext's terms forbid robots (docs/decisions.md); Soitec comes from the AMF API.
+    upgrade(empty_database_url, "0028")
+    engine = create_engine(empty_database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO company (id, slug, legal_name, display_name, country, source_path)"
+                " VALUES (gen_random_uuid(), 'soitec', 'Soitec SA', 'Soitec', 'FR',"
+                " 'exchange:euronext')"
+            )
+        )
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        path = connection.execute(text("SELECT source_path FROM company")).scalar_one()
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE company SET source_path = 'exchange:euronext'"))
+    except DBAPIError as error:
+        refused = "company_source_path_check" in str(error)
+    else:
+        refused = False
+    engine.dispose()
+    assert path == "exchange:amf"
     assert refused

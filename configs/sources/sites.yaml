@@ -8,11 +8,14 @@
 # - `terms_note`: the relevant clause, briefly
 # - `consent`: {reference, granted_on, scope}, once the owner has permission in writing
 # - `rate_per_s`: the request budget for the site (default 1/s)
+# - `api_client`: {url_prefixes, documentation_url, note}, for a site that documents an API
+#   for programs: URLs under those prefixes are requests of an API client, not a crawler, so
+#   robots.txt is read and recorded but doesn't block them (only for `automation: allowed`)
 # robots.txt is never recorded here: the gate reads it before the first request of each
-# ingest to a site, and obeys it (RFC 9309).
+# ingest to a site, and obeys it (RFC 9309), apart from an `api_client`'s prefixes.
 #
 # Bump `version` on any change.
-version: 2
+version: 3
 
 sites:
   hkexnews:
@@ -95,3 +98,75 @@ sites:
       polaris.brighterir.com, whose robots.txt is "User-agent: *" / "Disallow: /" (checked
       2026-09-29). IQE's announcements come from the FCA NSM instead; this entry only makes
       the block explicit.
+
+  amf-info-financiere:
+    publisher: AMF info-financière (Autorité des marchés financiers; run by the DILA)
+    # The Explore API and the files its records link to (`url_de_recuperation`), which are
+    # served from Opendatasoft's file host.
+    hosts: [www.info-financiere.gouv.fr, fr.ftp.opendatasoft.com]
+    terms_url: https://www.data.gouv.fr/dataservices/api-info-financiere
+    terms_checked_on: 2026-09-29
+    automation: allowed
+    terms_note: >-
+      The data.gouv.fr dataservice "API info-financière" (producer: Premier ministre / DILA)
+      gives the licence "Licence Ouverte / Open Licence 2.0" (Etalab), the base URL
+      https://www.info-financiere.gouv.fr/api/explore/v2.0 and the limit "10000 appels API
+      par ip par jour" (10,000 API calls per IP per day); the API answered with
+      "X-RateLimit-Limit: 5000" on 2026-09-29. The licence allows reuse, including
+      commercial, provided the source and the date of its last update are credited: each
+      stored announcement carries that credit (`attribution`). The DILA adds that reusers
+      remain bound by the Loi Informatique et Libertés. Conditions Atlas keeps: the
+      documented API only (never the site's HTML pages, RSS or Atom feeds, which robots.txt
+      also disallows), at most 10 API calls per discovery, a fixed low rate (rate_per_s),
+      and the credit on every document.
+    rate_per_s: 0.5
+    api_client:
+      url_prefixes:
+        - https://www.info-financiere.gouv.fr/api/explore/v2.0/catalog/datasets/flux-amf-new-prod/
+        - https://fr.ftp.opendatasoft.com/datadila/INFOFI/
+      documentation_url: https://www.data.gouv.fr/dataservices/api-info-financiere
+      note: >-
+        www.info-financiere.gouv.fr's robots.txt has "User-agent: *" with "Disallow: /api/"
+        (and allows /api/ to Googlebot), and fr.ftp.opendatasoft.com's is "User-agent: *" /
+        "Disallow: /" (both read 2026-09-29). They address crawlers; the API is published on
+        data.gouv.fr for programs, with a per-IP quota, and its records give the file URLs.
+        Atlas requests only the regulated-information dataset's records and the files they
+        link to (lead's decision, ticket 06; docs/decisions.md).
+
+  euronext:
+    publisher: Euronext (euronext.com, company news and regulated announcements)
+    hosts: [www.euronext.com, euronext.com, live.euronext.com, connect.euronext.com]
+    terms_url: https://www.euronext.com/en/terms-use
+    terms_checked_on: 2026-09-29  # last updated 29 April 2021
+    automation: forbidden
+    terms_note: >-
+      The Euronext Terms of Use: "Except if we give you prior written permission, use of any
+      Web browsers (other than generally available third-party browsers), engines,
+      software, spiders, robots, avatars, agents, tools or other devices or mechanisms to
+      navigate, search or determine the Euronext Website is strictly prohibited", and users
+      "will not ... copy, reproduce, download ... compile or create derivative works from
+      any Content or materials (including, without limitation, through framing or
+      systematic retrieval to create collections, compilations, databases or directories)".
+      The block rests on those terms: www.euronext.com's robots.txt (read 2026-09-29)
+      disallows only site internals (/node/, /search/, /admin/ and the like) for "*".
+      Soitec's regulated information comes from the AMF info-financière API instead.
+    block_reason: >-
+      blocked: Euronext Terms of Use prohibit robots and systematic retrieval (Euronext's
+      prior written permission required)
+    rate_per_s: 1
+
+  soitec:
+    publisher: Soitec SA (issuer site)
+    hosts: [www.soitec.com, soitec.com]
+    terms_url: https://www.soitec.com/home/terms-of-use
+    terms_checked_on: 2026-09-29
+    automation: forbidden
+    terms_note: >-
+      Soitec's terms of use: "In no event may you use, distribute, copy, reproduce, modify,
+      distort, or transmit the Web site or any of its elements, such as text, images or
+      sounds without the prior written permission of Soitec." Soitec's regulated
+      information comes from the AMF info-financière API instead.
+    block_reason: >-
+      blocked: soitec.com's terms forbid reuse of the site's elements (Soitec's prior
+      written permission required)
+    rate_per_s: 1

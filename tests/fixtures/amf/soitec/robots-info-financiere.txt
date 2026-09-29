@@ -1,0 +1,26 @@
+User-agent: Twitterbot
+Disallow:
+
+User-agent: *
+Disallow: /logout
+Disallow: /login
+Disallow: /publish
+Disallow: /backoffice
+Disallow: /explore/download
+Disallow: /explore/dataset/*/download
+Disallow: /explore/dataset/*/rss/
+Disallow: /explore/dataset/*/atom/
+Disallow: /api/
+Disallow: /p-preview/
+Disallow: /explore/form-preview/
+Disallow: /static/
+
+User-agent: Googlebot
+Allow: /api/
+Allow: /static/
+Disallow: /api/v2/*/exports/
+Disallow: /api/explore/v2*/exports/
+Disallow: /explore/assets/
+Disallow: /glossary/
+
+Sitemap: https://info-financiere.gouv.fr/sitemap.xml

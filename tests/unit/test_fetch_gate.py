@@ -318,3 +318,34 @@ def test_the_register_refuses_a_host_listed_twice(tmp_path: Path) -> None:
 
     with pytest.raises(SiteRegisterError, match=r"host x\.test is in both 'a' and 'b'"):
         load_site_register(path)
+
+
+def _api_site(automation: str, prefix: str) -> dict[str, object]:
+    return {
+        "publisher": "X",
+        "hosts": ["x.test"],
+        "terms_url": "https://x.test/terms",
+        "terms_checked_on": "2026-09-29",
+        "automation": automation,
+        "terms_note": "n",
+        "api_client": {
+            "url_prefixes": [prefix],
+            "documentation_url": "https://x.test/api",
+            "note": "n",
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    ("automation", "prefix", "problem"),
+    [
+        ("forbidden", "https://x.test/api/", "api_client only applies to a site whose terms"),
+        ("allowed", "https://other.test/api/", "is not on the site's hosts"),
+        ("allowed", "https://x.test/api", "url_prefixes are https URLs ending in '/'"),
+    ],
+)
+def test_the_register_refuses_an_api_client_it_cannot_scope(
+    automation: str, prefix: str, problem: str
+) -> None:
+    with pytest.raises(ValueError, match=problem):
+        SiteRegister.model_validate({"version": 1, "sites": {"x": _api_site(automation, prefix)}})

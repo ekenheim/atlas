@@ -13555,7 +13555,7 @@
           "sec",
           "exchange:hkex",
           "exchange:fca-nsm",
-          "exchange:euronext"
+          "exchange:amf"
         ]
       },
       "SourceSpan": {
