@@ -1,0 +1,4 @@
+# www.zj-innolight.com, as the seed-list research read it (2026-09-29): the IR PDFs live
+# under /uploads/.
+User-agent: *
+Disallow: /uploads/

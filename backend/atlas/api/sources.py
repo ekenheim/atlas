@@ -5,6 +5,9 @@
 - `GET /source-versions/{id}` (metadata, provenance and fetch observations)
 - `GET /source-versions/{id}/content?kind=raw|parsed` (streamed from the archive)
 - `GET /evidence-families/{id}` (an Evidence Family and its member Source Versions)
+- `GET /companies/{id}/fetch-gate-decisions?status=allowed|blocked` (whether each exchange
+  request was allowed, newest first: a `blocked` one names the gate that blocked it) and
+  `GET /fetch-gate-decisions/{id}`
 
 Source content is untrusted data: raw bytes are served as a download under a sandboxing
 Content-Security-Policy, never rendered on the application's origin.
@@ -12,7 +15,7 @@ Content-Security-Policy, never rendered on the application's origin.
 
 import uuid
 from collections.abc import Iterator
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -24,13 +27,16 @@ from atlas.companies import Company, get_company, list_companies
 from atlas.ledger import (
     ContentKind,
     EvidenceFamily,
+    FetchGateDecision,
     SourceDocument,
     SourceVersionDetail,
     SourceVersionSummary,
     get_content,
+    get_decision,
     get_evidence_family,
     get_source_document,
     get_version,
+    list_decisions,
     list_source_documents,
     list_versions,
 )
@@ -146,5 +152,36 @@ def sources_router(engine: Engine, archive: Archive) -> APIRouter:
         with engine.connect() as connection:
             found = get_evidence_family(connection, family_id)
         return found if found is not None else not_found("evidence family")
+
+    @router.get(
+        "/companies/{company_id}/fetch-gate-decisions",
+        response_model=Page[FetchGateDecision],
+        responses=NOT_FOUND,
+    )
+    def company_fetch_gate_decisions(  # pyright: ignore[reportUnusedFunction]
+        company_id: uuid.UUID,
+        page: Paged,
+        status: Annotated[
+            Literal["allowed", "blocked"] | None,
+            Query(description="only decisions with this status"),
+        ] = None,
+    ) -> Page[FetchGateDecision] | JSONResponse:
+        with engine.connect() as connection:
+            if get_company(connection, company_id) is None:
+                return not_found("company")
+            items, total = list_decisions(
+                connection, company_id, status=status, limit=page.limit, offset=page.offset
+            )
+        return Page(items=items, total=total, limit=page.limit, offset=page.offset)
+
+    @router.get(
+        "/fetch-gate-decisions/{decision_id}",
+        response_model=FetchGateDecision,
+        responses=NOT_FOUND,
+    )
+    def fetch_gate_decision(decision_id: uuid.UUID) -> FetchGateDecision | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        with engine.connect() as connection:
+            found = get_decision(connection, decision_id)
+        return found if found is not None else not_found("fetch gate decision")
 
     return router

@@ -26,6 +26,7 @@ from tests.fakes.litellm import API_KEY
 
 REPO = Path(__file__).parents[1]
 THEMES = REPO / "configs" / "themes" / "ai-infrastructure.yaml"
+SITES = REPO / "configs" / "sources" / "sites.yaml"
 TEMPLATE = REPO / "configs" / "hindsight" / "bank-template.json"
 EDGAR_FIXTURES = REPO / "tests" / "fixtures" / "edgar"
 # The bank the template recordings were made in, so `apply-template` replays as recorded.
@@ -157,6 +158,7 @@ class Atlas:
             "ATLAS_ACTOR": "local-researcher",
             "ATLAS_ARCHIVE_ROOT": str(self.archive),
             "ATLAS_THEMES_CONFIG": str(THEMES),
+            "ATLAS_SOURCE_SITES_CONFIG": str(SITES),
             "ATLAS_SEC_FIXTURES_DIR": str(self.fixtures),
             "ATLAS_SEC_8K_ITEMS": "*",
             "ATLAS_SEC_8K_EXHIBITS_ONLY_ITEMS": "",

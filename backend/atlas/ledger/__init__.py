@@ -4,6 +4,7 @@
 
 from atlas.ledger.availability import CorrectionSummary, correct_availability
 from atlas.ledger.families import FamilyBackfill, assign_missing
+from atlas.ledger.gates import FetchGateDecision, get_decision, list_decisions, record_decision
 from atlas.ledger.reads import (
     Content,
     ContentKind,
@@ -41,6 +42,7 @@ __all__ = [
     "EvidenceFamilyMember",
     "EvidenceFamilyMembership",
     "FamilyBackfill",
+    "FetchGateDecision",
     "FetchObservation",
     "LedgerError",
     "RecordedFetch",
@@ -53,9 +55,12 @@ __all__ = [
     "comparison_bytes",
     "correct_availability",
     "get_content",
+    "get_decision",
     "get_evidence_family",
     "get_source_document",
     "get_version",
+    "list_decisions",
     "list_source_documents",
     "list_versions",
+    "record_decision",
 ]

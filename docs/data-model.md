@@ -44,6 +44,7 @@ A legal entity, not a ticker (build plan §5.1). Built by ticket 07 (migration `
 | `layer` | text null | Primary photonics supply-chain layer: `substrate`, `epi`, `chip-laser`, `dsp`, `module`, `contract-manufacturing`, `system` (migration `0013`) |
 | `source_path` | text null | `sec`, or `exchange:<hkex\|lse-rns\|euronext>`. Only `sec` companies are fetched by the SEC ingest; `sec` requires a `cik`. Unsponsored-ADR CIKs (Soitec, IQE, Innolight) are listed as `ignored_ciks` in config, never stored as a company's `cik` |
 | `sec_forms` | text[] null | SEC forms to ingest (e.g. `20-F`, `6-K` for STMicroelectronics); NULL means 10-K/10-Q/8-K. Only for `sec` companies |
+| (config only) `exchange` | | For an `exchange:*` company: `issuer_code` (e.g. HKEX stock code `03308`) and `feed_id` (the feed's own ID, e.g. HKEXnews `stockId`). Read by the exchange ingest; not a column |
 | `parent_company_id` | uuid null FK → company | Parent/subsidiary structure |
 | `review_state` | text not null | `unreviewed`, `reviewed` |
 | `created_at`, `updated_at` | timestamptz not null | |
@@ -191,8 +192,33 @@ One row per fetch of a Source Document that returned or confirmed content, inclu
 | `object_uri` | text null | Set when this fetch's exact bytes differ from the matched version's (only non-content bytes changed), so they stay archived |
 | `etag`, `last_modified` | text null | The HTTP validators. The latest observation's are sent on the next fetch (a conditional request) |
 | `attempts` | integer not null | HTTP attempts it took |
+| `gate_decision_id` | uuid null FK → fetch_gate_decision | The `allowed` fetch gate decision the fetch was made under (exchange sources; migration `0021`). NULL for SEC EDGAR. A trigger refuses one that names a `blocked` decision |
 
 So an **unchanged re-fetch** (same raw hash, same comparison hash, or HTTP 304) creates no Source Version. It creates an observation, an audit event (`fetch.unchanged` or `fetch.not_modified`) and a job artifact. Fetch errors and permission denials that produce no bytes are recorded as job failures that list each failed URL (spec story 22).
+
+### 2.4c `fetch_gate_decision` (migration `0021`)
+
+One row per URL an exchange ingest asked the fetch gate about (`atlas.sources.gate`), before any request to it: the feed's search (`purpose = discovery`) and each document (`document`). Append-only, like the ledger. A `blocked` decision has no fetch observation, since nothing was requested; it is how a source that forbids automation stays visible (`GET /api/v1/companies/{id}/fetch-gate-decisions?status=blocked`, `GET /api/v1/fetch-gate-decisions/{id}`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `job_id` | uuid null FK → job | The ingest job |
+| `company_id` | uuid null FK → company | |
+| `provider` | text not null | The adapter, e.g. `hkexnews` |
+| `purpose` | text not null | `discovery` or `document` |
+| `url` | text not null | The URL asked about |
+| `status` | text not null | `allowed` or `blocked` |
+| `blocked_by` | text null | `register` (host not onboarded), `terms` (terms forbid automation without consent, or not checked) or `robots`; set iff `blocked` |
+| `reason` | text not null | Why, in words (e.g. the deciding robots.txt rule and its line) |
+| `site` | text null | The site register's name for the site |
+| `terms` | jsonb null | The register's terms record relied on: `url`, `checked_on`, `automation`, `note`, `consent` |
+| `robots` | jsonb null | The robots.txt relied on: `url`, `status`, `sha256`, `object_uri` (archived body), `fetched_at`, `group`, `rule`. Null when blocked before robots.txt was read |
+| `user_agent_token` | text not null | The product token matched against robots.txt groups (`AtlasResearch`) |
+| `decided_at` | timestamptz not null | |
+| `recorded_at` | timestamptz not null | |
+
+An `allowed` decision has `site`, `terms` and `robots` (a CHECK).
 
 ### 2.4b `evidence_family` and `evidence_family_member` (migration `0016`)
 
@@ -699,6 +725,7 @@ erDiagram
   source_document ||--o{ fetch_observation : "fetched as"
   source_version ||--o{ fetch_observation : "matched by"
   job |o--o{ fetch_observation : "fetched"
+  fetch_gate_decision |o--o{ fetch_observation : "allowed"
   source_version ||--o{ assertion : "cited by"
   company ||--o{ assertion : "subject"
   company |o--o{ assertion : "object"
@@ -776,6 +803,16 @@ erDiagram
     timestamptz fetched_at
     text etag
     text last_modified
+    uuid gate_decision_id FK
+  }
+  fetch_gate_decision {
+    uuid id PK
+    uuid job_id FK
+    uuid company_id FK
+    text purpose
+    text url
+    text status
+    text blocked_by
   }
   assertion {
     uuid id PK
