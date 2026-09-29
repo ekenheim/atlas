@@ -29,7 +29,7 @@ from tests.harness import THEMES, make_settings
 PHOTONICS = {
     "axt": ("substrate", "sec", "0001051627", None),
     "soitec": ("substrate", "exchange:euronext", None, None),
-    "iqe": ("epi", "exchange:lse-rns", None, None),
+    "iqe": ("epi", "exchange:fca-nsm", None, None),
     "coherent": ("chip-laser", "sec", "0000820318", None),
     "lumentum": ("chip-laser", "sec", "0001633978", None),
     "macom": ("chip-laser", "sec", "0001493594", None),
@@ -224,8 +224,9 @@ def test_a_config_giving_an_exchange_company_a_cik_is_refused(universe: Universe
 # --- the SEC ingest and source paths ---
 
 
-# Innolight (exchange:hkex) has an adapter since ticket 04 (tests/integration/test_hkexnews.py).
-@pytest.mark.parametrize("company", ["soitec", "iqe"])
+# Innolight (exchange:hkex) has an adapter since ticket 04 (tests/integration/test_hkexnews.py)
+# and IQE (exchange:fca-nsm) since ticket 05 (tests/integration/test_fca_nsm.py).
+@pytest.mark.parametrize("company", ["soitec"])
 def test_the_ingest_cli_refuses_a_company_whose_source_path_has_no_adapter(
     universe: Universe, company: str
 ) -> None:

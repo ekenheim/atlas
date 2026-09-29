@@ -27,7 +27,15 @@ from typing import Literal, Protocol, Self
 from urllib.parse import urlsplit, urlunsplit
 
 import yaml
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    ValidationError,
+    model_validator,
+)
 
 from atlas.archive import Archive, Namespace
 from atlas.sources.adapter import FetchError, HttpValidators
@@ -167,6 +175,13 @@ class HttpGetter(Protocol):
     async def get(self, url: str, validators: HttpValidators | None = None) -> HttpResult: ...
 
 
+class HttpClient(HttpGetter, Protocol):
+    """An `HttpGetter` that can also POST a JSON query (a feed whose search takes one, like
+    the FCA NSM's)."""
+
+    async def post_json(self, url: str, payload: JsonValue) -> HttpResult: ...
+
+
 def _origin(url: str) -> str:
     parts = urlsplit(url)
     return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), "", "", ""))
@@ -282,10 +297,10 @@ class FetchGate:
 
 
 class GatedHttpClient:
-    """An `HttpGetter` that asks the gate before every request and keeps each decision
+    """An `HttpClient` that asks the gate before every request and keeps each decision
     until the caller takes them (to record them)."""
 
-    def __init__(self, client: HttpGetter, gate: FetchGate) -> None:
+    def __init__(self, client: HttpClient, gate: FetchGate) -> None:
         self._client = client
         self._gate = gate
         self._pending: list[GateDecision] = []
@@ -296,6 +311,13 @@ class GatedHttpClient:
         if decision.status == "blocked":
             raise FetchBlocked(decision)
         return await self._client.get(url, validators)
+
+    async def post_json(self, url: str, payload: JsonValue) -> HttpResult:
+        decision = await self._gate.check(url)
+        self._pending.append(decision)
+        if decision.status == "blocked":
+            raise FetchBlocked(decision)
+        return await self._client.post_json(url, payload)
 
     def take_decisions(self) -> list[GateDecision]:
         """The decisions made since the last call, in request order."""

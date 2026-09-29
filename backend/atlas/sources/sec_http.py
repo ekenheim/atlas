@@ -11,6 +11,7 @@ The transport is injectable, so tests replace SEC with an httpx2 MockTransport.
 """
 
 import asyncio
+import json
 import re
 import threading
 import time
@@ -22,6 +23,7 @@ from types import TracebackType
 from typing import Self
 
 import httpx2
+from pydantic import JsonValue
 
 from atlas.sources.adapter import FetchAttempt, FetchError, HttpValidators
 
@@ -154,7 +156,23 @@ class SecHttpClient:
             headers["If-None-Match"] = validators.etag
         if validators and validators.last_modified:
             headers["If-Modified-Since"] = validators.last_modified
+        return await self._send("GET", url, headers, None, validators)
 
+    async def post_json(self, url: str, payload: JsonValue) -> HttpResult:
+        """POST a JSON body (a search API that takes its query as JSON, e.g. the FCA NSM's).
+        Retried like a GET, so only for requests that are safe to repeat."""
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        body = json.dumps(payload, separators=(",", ":")).encode()
+        return await self._send("POST", url, headers, body, None)
+
+    async def _send(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str],
+        body: bytes | None,
+        validators: HttpValidators | None,
+    ) -> HttpResult:
         attempts: list[FetchAttempt] = []
         for attempt in range(1, self._max_attempts + 1):
             await self._limiter.acquire()
@@ -162,13 +180,13 @@ class SecHttpClient:
             error: str | None = None
             retry_after: float | None = None
             try:
-                response = await self._client.get(url, headers=headers)
+                response = await self._client.request(method, url, headers=headers, content=body)
             except (httpx2.TimeoutException, httpx2.NetworkError, httpx2.RemoteProtocolError) as e:
                 error = f"{type(e).__name__}: {e}"
             except httpx2.HTTPError as e:
                 attempts.append(FetchAttempt(attempt=attempt, error=f"{type(e).__name__}: {e}"))
                 raise FetchError(
-                    f"GET {url} failed: {e}",
+                    f"{method} {url} failed: {e}",
                     url=url,
                     status=None,
                     retryable=False,
@@ -182,7 +200,7 @@ class SecHttpClient:
                 if not _is_retryable(status):
                     attempts.append(FetchAttempt(attempt=attempt, status=status))
                     raise FetchError(
-                        f"GET {url} returned {status}",
+                        f"{method} {url} returned {status}",
                         url=url,
                         status=status,
                         retryable=False,
@@ -207,7 +225,7 @@ class SecHttpClient:
                     cap = self._max_retry_after_s
                     reason = f"server asked to wait {delay:.0f}s, beyond the {cap:.0f}s cap"
                 raise FetchError(
-                    f"GET {url}: {reason} (last: {status or error})",
+                    f"{method} {url}: {reason} (last: {status or error})",
                     url=url,
                     status=status,
                     retryable=True,

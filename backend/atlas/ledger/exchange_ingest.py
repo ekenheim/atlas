@@ -3,7 +3,8 @@
 The `ingest` job runs this for a company whose source path is `exchange:<name>` (the SEC
 path is `atlas.ledger.ingest`). One path serves every exchange; what differs per exchange
 is an `ExchangeSource` in `EXCHANGE_SOURCES` (its feed's site and how to build its adapter
-from the company's config). HKEXnews is the first; LSE RNS and Euronext add theirs.
+from the company's config): HKEXnews (`exchange:hkex`, blocked by its terms) and the FCA
+National Storage Mechanism (`exchange:fca-nsm`); Euronext/AMF adds its own.
 
 1. Seed the company; load the site register (`ATLAS_SOURCE_SITES_CONFIG`).
 2. Every request goes through a `GatedHttpClient`: the fetch gate (register, terms,
@@ -46,12 +47,14 @@ from atlas.settings import Settings
 from atlas.sources import FetchError, FixtureReplay, SearchQuery, SecHttpClient, TokenBucket
 from atlas.sources.adapter import SourceAdapter
 from atlas.sources.edgar_fixtures import FIXTURE_USER_AGENT
+from atlas.sources.fca_nsm import PROVIDER_ID as FCA_NSM
+from atlas.sources.fca_nsm import FcaNsmAdapter
 from atlas.sources.gate import (
     FetchBlocked,
     FetchGate,
     GateDecision,
     GatedHttpClient,
-    HttpGetter,
+    HttpClient,
     SiteRegister,
     load_site_register,
 )
@@ -70,10 +73,10 @@ class ExchangeSource:
 
     site: str
     provider_id: str
-    make_adapter: Callable[[HttpGetter, str, CompanyConfig], SourceAdapter]
+    make_adapter: Callable[[HttpClient, str, CompanyConfig], SourceAdapter]
 
 
-def _hkexnews_adapter(client: HttpGetter, slug: str, config: CompanyConfig) -> SourceAdapter:
+def _hkexnews_adapter(client: HttpClient, slug: str, config: CompanyConfig) -> SourceAdapter:
     if config.exchange is None or config.exchange.feed_id is None:
         raise ValueError(
             f"company {slug!r} needs exchange.feed_id (its HKEXnews stockId) in the theme config"
@@ -81,9 +84,19 @@ def _hkexnews_adapter(client: HttpGetter, slug: str, config: CompanyConfig) -> S
     return HkexNewsAdapter(client, stock_id=config.exchange.feed_id)
 
 
-# Source path -> the exchange source that ingests it. Tickets 05/06 add lse-rns, euronext.
+def _fca_nsm_adapter(client: HttpClient, slug: str, config: CompanyConfig) -> SourceAdapter:
+    if config.exchange is None or config.exchange.feed_id is None:
+        raise ValueError(
+            f"company {slug!r} needs exchange.feed_id (its LEI, which the NSM searches by)"
+            " in the theme config"
+        )
+    return FcaNsmAdapter(client, lei=config.exchange.feed_id)
+
+
+# Source path -> the exchange source that ingests it. Ticket 06 adds euronext.
 EXCHANGE_SOURCES: dict[str, ExchangeSource] = {
     "exchange:hkex": ExchangeSource("hkexnews", HKEXNEWS, _hkexnews_adapter),
+    "exchange:fca-nsm": ExchangeSource("fca-nsm", FCA_NSM, _fca_nsm_adapter),
 }
 
 # One limiter per site in the process, at the register's rate (live requests only).

@@ -85,8 +85,10 @@ class ExchangeAnnouncement(_Frozen):
     issuer_name: str  # as the feed names it
     category: str | None = None  # the feed's classification, e.g. "[Interim/Half-Year Report]"
     file_type: str | None = None  # as the feed says, e.g. "PDF"
-    published_at: AwareDatetime  # the feed's publication timestamp, in UTC
-    published_local: str  # the timestamp exactly as the feed printed it
+    # The feed's publication timestamp, in UTC, and exactly as the feed printed it; None
+    # when the feed gives none (availability is then the discovery time).
+    published_at: AwareDatetime | None
+    published_local: str | None
     timezone: str  # the IANA zone the feed's timestamp is in, e.g. "Asia/Hong_Kong"
 
 

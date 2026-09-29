@@ -12,7 +12,7 @@
 # ingest to a site, and obeys it (RFC 9309).
 #
 # Bump `version` on any change.
-version: 1
+version: 2
 
 sites:
   hkexnews:
@@ -42,3 +42,56 @@ sites:
       Terms not checked. Its robots.txt disallows everything on ir.zj-innolight.com and
       /uploads/ (the IR PDFs) on www.zj-innolight.com (seed-list research, 2026-09-29).
       Innolight's filings come from HKEXnews instead; this entry only makes the block explicit.
+
+  fca-nsm:
+    publisher: FCA National Storage Mechanism (Financial Conduct Authority)
+    # The search API (a POST of a JSON query) and the documents it links (/artefacts/NSM/...).
+    hosts: [api.data.fca.org.uk, data.fca.org.uk]
+    terms_url: https://data.fca.org.uk/artefacts/NSM_Terms_of_Use.pdf
+    terms_checked_on: 2026-09-29  # Terms of Use updated 19 March 2020; AUP 18 February 2020
+    automation: allowed
+    terms_note: >-
+      The NSM Terms of Use: "You may use the material and documents contained in the NSM for
+      any lawful purpose not otherwise excluded by these terms and conditions or the
+      Acceptable Use Policy" (and "You may not ... use the FCA's name, logo or any other
+      identifying mark for any purpose"); uploaders grant "other users of this site a limited
+      licence to use, store and copy that content and to distribute and make it available to
+      third parties including for any lawful commercial purpose". The Acceptable Use Policy
+      (https://data.fca.org.uk/artefacts/NSM_General_AUP.pdf) adds: "Not to reproduce,
+      duplicate, copy or re-sell any part of our site in contravention of the provisions of
+      our terms of website use" and "Not to access without authority, interfere with, damage
+      or disrupt any part of our site". Conditions Atlas keeps: a low, fixed request rate
+      (rate_per_s), no republishing of the site, no use of the FCA's name or marks. No
+      robots.txt is served (403 on both hosts, 2026-09-29), which RFC 9309 reads as no
+      restrictions; the gate still reads it on every ingest. The user guide (v10.0, June
+      2026) also offers CSV export of search results with a download link per line.
+    rate_per_s: 0.5
+
+  lse-rns:
+    publisher: London Stock Exchange (RNS regulatory news)
+    hosts: [www.londonstockexchange.com, londonstockexchange.com, api.londonstockexchange.com]
+    terms_url: https://www.londonstockexchange.com/disclaimer
+    terms_checked_on: 2026-09-29
+    automation: forbidden
+    terms_note: >-
+      Its robots.txt disallows /en-gb/ (where the RNS news pages live) for every user agent.
+      The disclaimer provides RNS announcements "to the general public for personal use and
+      to RNS customers in a professional capacity"; users may "store such pages in electronic
+      form on disk (but not on any server or other storage device connected to a network)
+      for personal use", and the information "may not be copied, reproduced, republished,
+      downloaded, posted, broadcast or transmitted in any other way to any third parties for
+      commercial gain". IQE's regulated announcements come from the FCA NSM instead.
+    block_reason: >-
+      blocked: LSE disclaimer limits RNS to personal use stored off any network, and
+      robots.txt disallows /en-gb/ (an RNS data licence or written consent required)
+    rate_per_s: 1
+
+  iqe-brighter-ir:
+    publisher: IQE plc regulatory-news iframe (Brighter IR)
+    hosts: [polaris.brighterir.com]
+    automation: unchecked
+    terms_note: >-
+      Terms not checked. The regulatory-news iframe on IQE's investor site is served from
+      polaris.brighterir.com, whose robots.txt is "User-agent: *" / "Disallow: /" (checked
+      2026-09-29). IQE's announcements come from the FCA NSM instead; this entry only makes
+      the block explicit.

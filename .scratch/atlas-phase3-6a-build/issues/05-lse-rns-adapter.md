@@ -9,9 +9,9 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`. Terms sources: https://data.fca.org.uk
 
 **Blocked by:** 04 (the exchange ingest path)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] NSM adapter tested from hand-written fixtures in the documented shapes (marked as such); low, fixed request rate; the terms gate recorded per fetch.
-- [ ] `available_at` uses the NSM's publication/submission timestamp (basis `publisher_timestamp`), else observed discovery.
-- [ ] An IQE results announcement or annual report fixture is ingested, parsed (PDF) and retained.
-- [ ] `source_path` for IQE becomes `exchange:fca-nsm`; LSE RNS is recorded as a blocked source.
+- [x] NSM adapter tested from hand-written fixtures in the documented shapes (marked as such); low, fixed request rate; the terms gate recorded per fetch.
+- [x] `available_at` uses the NSM's publication/submission timestamp (basis `publisher_timestamp`), else observed discovery.
+- [x] An IQE results announcement or annual report fixture is ingested, parsed (PDF) and retained.
+- [x] `source_path` for IQE becomes `exchange:fca-nsm`; LSE RNS is recorded as a blocked source.
