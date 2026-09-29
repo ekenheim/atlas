@@ -175,6 +175,16 @@ def enqueue_ingest(
 
     universe = _universe(settings)
     if company not in universe.companies:
+        # A committed Candidate's company is in the universe's database extension.
+        from atlas.companies import extend_universe
+
+        engine = create_engine(settings)
+        try:
+            with engine.connect() as connection:
+                universe = extend_universe(connection, universe)
+        finally:
+            engine.dispose()
+    if company not in universe.companies:
         known = ", ".join(sorted(universe.companies))
         print(
             f"atlas: company {company!r} is not configured in {settings.themes_config}"

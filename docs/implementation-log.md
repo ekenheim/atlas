@@ -1570,3 +1570,23 @@ Tickets 01–04, 07, 08, 10–12, 14 were built in parallel with reserved revisi
 - 0021 → 0023 (fetch gate)
 
 The chain is now 0012 → 0013 → … → 0023.
+
+## 2026-09-29: Phase 3-6a ticket 09, Candidates
+
+- **Files:**
+  - new `backend/atlas/candidates/` (`proposals.py` the `propose_candidates` job: mention extractor → `resolve_mention` → Candidates; `service.py` the read side and the owner's commit/reject; `handlers.py`), `backend/atlas/roles/mentions.py` + `roles/prompts/mention_extractor.v1.md` (the mention extractor role: strict `{leads: [{lead, companies: [{name, ticker, exchange}]}]}`), `backend/atlas/api/candidates.py` (`GET /api/v1/candidates[/{id}]`, `POST …/{id}/commit|reject`), migration `0026_candidates.py` (`lead_examination`, `candidate` with the §8.3 states and never-delete triggers, `lead_mention`, `universe_company`)
+  - changed (small, additive): `companies.py` (`company_id_from`, `extend_universe`: the universe's database extension), `ledger/ingest.py` and `cli.py` (`atlas ingest`) fall back to it for a slug the config lacks, `retention/handlers.py` tags with it, `discovery/handlers.py` enqueues `propose_candidates` after a discovery when `ATLAS_SEC_USER_AGENT` is set, `jobs/handlers.py` registers it (pausable), `metrics.py` (`atlas_candidates{state}`), `api/app.py`
+  - fixtures: `tests/fixtures/searxng/unseeded-companies.json` (hand-written, four leads), two synthetic GLEIF query answers for the made-up "Acme Photonics" (`tests/fixtures/identity/gleif/queries.json`, noted in its manifest)
+  - docs: `docs/decisions.md` ("Candidates"), `docs/data-model.md` (§3.1g), `AGENTS.md`; API client regenerated
+- **Tests:**
+  - new `tests/integration/test_candidates.py` (8), with a test theme config without Lumentum and Soitec: the gate test (one discovery of the SearXNG fixture → `propose_candidates` → Lumentum (by ticker on Nasdaq → CIK, `sec`, linked to its two leads) and Soitec (name only → GLEIF LEI, FR, no source path) become `lead` Candidates; Coherent resolves to the universe, "Acme Photonics" is unresolved; nothing committed or enqueued); the extractor's request (quoted leads, strict schema, own run with its tokens); a lead examined once; commit → company in the database universe, `investigating`, audited, SEC ingest enqueued and run from the EDGAR fixtures, retained with `theme:photonics`; commit without a CIK → `ingest_note`, no job; reject keeps the reason, no second decision, `DELETE` refused by the trigger; refusals (`slug_taken`, `cik_not_offered`, 422s, 404); `atlas_candidates{state}`
+  - changed: `test_migrations.py` head `0026`, `test_queue_pause.py` `PAUSABLE_KINDS` + `propose_candidates`
+  - written against the design, then run: first run 1 failure (the test expected "Soitec SA" as the name; GLEIF's legal name is "SOITEC"); then `tests/integration/test_candidates.py` **8 passed**
+  - local: ruff format/lint clean, `pyright` 0 errors, frontend gates and API client check passed in a local `ci.sh --no-image`, whose pytest stage I stopped (my PIDs only) when CI moved to the self-hosted GitHub runners; the full suite result is the GitHub run below
+- **Fixture-only vs live:** everything. No LLM, SearXNG, SEC, GLEIF or OpenFIGI request was made; the extractor's answers are scripted in the test, SearXNG and GLEIF answers hand-written.
+- **Deviations:**
+  - Commit and reject apply only to a `lead`; the other §8.3 transitions are later tickets'.
+  - A committed company without a CIK gets no source path and no ingest (`ingest_note`): exchange feeds need a config entry and a register decision.
+  - A commit applies no CIK↔LEI link and no listings (identity review, ticket 02); an LEI-only company keeps its LEI.
+  - An investigation's Scout (ticket 14) calls the discovery directly, so its leads aren't proposed automatically.
+- **Next:** research-workflow transitions of Candidates; running identity resolution (`store_resolution`) for committed companies; a Candidates page in the frontend.

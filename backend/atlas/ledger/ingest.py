@@ -1,5 +1,8 @@
 """The `ingest` job: fetch a configured company's SEC material into the source ledger.
 
+A company is configured in the theme config or, once the owner commits its Candidate, in
+the universe's database extension (`atlas.companies.extend_universe`).
+
 Payload: `{"company": "<slug>", "forms": [...]?, "limit": N?}`. The job seeds the company
 from the theme config, discovers its filings (fixture replay, or live SEC when
 `ATLAS_SEC_LIVE` is on), fetches each document (conditionally, with the validators of its
@@ -32,7 +35,7 @@ from sqlalchemy import Engine
 
 from atlas.archive import open_archive
 from atlas.audit import Actor
-from atlas.companies import load_universe, seed
+from atlas.companies import extend_universe, load_universe, seed
 from atlas.db import create_engine
 from atlas.financials import NormalizationSummary, is_normalized, normalize_source_version
 from atlas.jobs.handlers import JobHandler
@@ -101,7 +104,19 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
     universe = load_universe(settings.themes_config)
     config = universe.companies.get(payload.company)
     if config is None:
-        raise ValueError(f"company {payload.company!r} is not in {settings.themes_config}")
+        # A committed Candidate's company is in the universe's database extension.
+        engine = create_engine(settings)
+        try:
+            with engine.connect() as connection:
+                universe = extend_universe(connection, universe)
+        finally:
+            engine.dispose()
+        config = universe.companies.get(payload.company)
+    if config is None:
+        raise ValueError(
+            f"company {payload.company!r} is neither in {settings.themes_config} nor a"
+            " committed Candidate with a source path"
+        )
     if config.source_path != "sec":
         refusal = exchange_refusal(payload.company, config.source_path)
         if refusal is not None:

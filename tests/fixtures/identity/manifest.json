@@ -11,7 +11,7 @@
   },
   "gleif": {
     "records/": "one JSON:API lei-records item per LEI, trimmed to the attributes the resolver reads (lei, entity.legalName/otherNames/transliteratedOtherNames/jurisdiction/status/successorEntities, registration.status)",
-    "queries.json": "filter → the LEIs returned. Recorded in the research: isin=US55024U1097 (by the same LEI's /isins), isin=US8740391003, entity.legalName=COHERENT CORP., fulltext=Lumentum (three records). Assumed: the other legal-name and full-text answers (whether GLEIF's legalName filter is case-insensitive, and what full text returns for 'Soitec SA' and TSMC's SEC name, was not checked).",
+    "queries.json": "filter → the LEIs returned. Recorded in the research: isin=US55024U1097 (by the same LEI's /isins), isin=US8740391003, entity.legalName=COHERENT CORP., fulltext=Lumentum (three records). Assumed: the other legal-name and full-text answers (whether GLEIF's legalName filter is case-insensitive, and what full text returns for 'Soitec SA' and TSMC's SEC name, was not checked). Synthetic (ticket 09): 'Acme Photonics' (a made-up company) has no legal-name or full-text match.",
     "synthetic": [
       "5493000SYNTHETIC0133 'Lumentum Operations LLC' (LAPSED): the research names this full-text hit but not its LEI; the LEI is made up with valid check digits"
     ]

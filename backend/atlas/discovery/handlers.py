@@ -1,10 +1,14 @@
-"""The `discover` job handler (pausable: the Scout calls LiteLLM)."""
+"""The `discover` job handler (pausable: the Scout calls LiteLLM). With entity resolution
+configured (`ATLAS_SEC_USER_AGENT`), a finished discovery enqueues `propose_candidates` for
+its leads (atlas.candidates)."""
 
+from atlas.audit import Actor
+from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND
 from atlas.companies import load_universe
 from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import DISCOVER_KIND, DiscoverPayload, Scout
 from atlas.jobs.handlers import HandlerRegistry
-from atlas.jobs.queue import Artifacts, Job
+from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import hindsight_resources, run_recorder
 from atlas.roles import RoleCaller
 from atlas.settings import Settings
@@ -47,8 +51,20 @@ def register_discovery_handlers(registry: HandlerRegistry, settings: Settings) -
                     searxng,
                     max_queries=settings.discovery_max_queries,
                 )
-                return scout.discover(
+                artifacts = scout.discover(
                     job, payload.theme, theme, payload.question, run_id=payload.run_id
                 )
+            if settings.sec_user_agent:
+                # The leads' company mentions are resolved into Candidates (ticket 09), which
+                # needs entity resolution (SEC's user agent).
+                discovery_id = str(artifacts["discovery_id"])
+                enqueued = JobQueue(engine, actor=Actor.from_settings(settings)).enqueue(
+                    PROPOSE_CANDIDATES_KIND,
+                    f"discovery:{discovery_id}",
+                    {"discovery_id": discovery_id},
+                    job_class=job.job_class,
+                )
+                artifacts["propose_candidates_job_id"] = str(enqueued.job.id)
+            return artifacts
 
     registry.register(DISCOVER_KIND, discover, pausable=True)

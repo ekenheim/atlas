@@ -804,10 +804,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candidates */
+        get: operations["candidates_api_v1_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candidate */
+        get: operations["candidate_api_v1_candidates__candidate_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{candidate_id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit */
+        post: operations["commit_api_v1_candidates__candidate_id__commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{candidate_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject */
+        post: operations["reject_api_v1_candidates__candidate_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Alias */
+        Alias: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "legal" | "former" | "other";
+            /** Valid From */
+            valid_from?: string | null;
+            /** Valid To */
+            valid_to?: string | null;
+            source: components["schemas"]["Source"];
+        };
         /** @enum {string} */
         AnswerStatus: "pending" | "running" | "completed" | "failed";
         /**
@@ -998,6 +1081,145 @@ export interface components {
             /** Token Budget */
             token_budget: number;
         };
+        /** Candidate */
+        Candidate: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Theme */
+            theme: string;
+            state: components["schemas"]["CandidateState"];
+            /**
+             * Name
+             * @description the resolved entity's name, else the name the lead used
+             */
+            name: string;
+            /**
+             * Identity Key
+             * @description cik:, lei: or (no single entity) name:
+             */
+            identity_key: string;
+            /** Cik */
+            cik: string | null;
+            /**
+             * Lei
+             * @description only when no CIK identified it
+             */
+            lei: string | null;
+            /** Country */
+            country: string | null;
+            /**
+             * Tier
+             * @enum {string}
+             */
+            tier: "exact" | "corroborated" | "candidate" | "conflict";
+            /**
+             * Source Path
+             * @description `sec` when a CIK was resolved; None: no automated source yet
+             */
+            source_path: "sec" | null;
+            resolution: components["schemas"]["Resolution"];
+            /**
+             * Company Id
+             * @description the universe company, once committed
+             */
+            company_id: string | null;
+            /** Ingest Job Id */
+            ingest_job_id: string | null;
+            /**
+             * Ingest Note
+             * @description why no ingest was enqueued at commit
+             */
+            ingest_note: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Decided By */
+            decided_by: string | null;
+            /** Decided At */
+            decided_at: string | null;
+            /** Decision Note */
+            decision_note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Leads */
+            leads: components["schemas"]["CandidateLead"][];
+        };
+        /** CandidateCommit */
+        CandidateCommit: {
+            /** Slug */
+            slug?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Country */
+            country?: string | null;
+            layer?: components["schemas"]["Layer"] | null;
+            /**
+             * Cik
+             * @description which of the resolution's SEC entities, when it offered several
+             */
+            cik?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** CandidateDecided */
+        CandidateDecided: {
+            candidate: components["schemas"]["Candidate"];
+            /** Audit Event Id */
+            audit_event_id: number;
+        };
+        /**
+         * CandidateLead
+         * @description A lead that named the Candidate's company, and how it named it.
+         */
+        CandidateLead: {
+            /**
+             * Lead Id
+             * Format: uuid
+             */
+            lead_id: string;
+            /** Canonical Url */
+            canonical_url: string;
+            /** Title */
+            title: string;
+            /** Snippet */
+            snippet: string;
+            /**
+             * Mentioned As
+             * @description the name as the lead wrote it
+             */
+            mentioned_as: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Exchange */
+            exchange: string | null;
+            /**
+             * Mic
+             * @description the exchange's MIC, when Atlas knows the exchange
+             */
+            mic: string | null;
+            /**
+             * Examined At
+             * Format: date-time
+             */
+            examined_at: string;
+        };
+        /** CandidateReject */
+        CandidateReject: {
+            /** Reason */
+            reason: string;
+        };
+        /** @enum {string} */
+        CandidateState: "lead" | "investigating" | "evidence_ready" | "needs_more_evidence" | "paper_tracking" | "rejected" | "closed";
         /**
          * CardFinding
          * @description A research card finding in the §7.2 claim shape. The statement is the Editor's; every
@@ -1372,6 +1594,31 @@ export interface components {
         DisproveRequest: {
             /** Reason */
             reason: string;
+        };
+        /** Entity */
+        Entity: {
+            /** Name */
+            name: string;
+            /** Cik */
+            cik?: string | null;
+            /** Lei */
+            lei?: string | null;
+            /** Lei Status */
+            lei_status?: string | null;
+            /** Jurisdiction */
+            jurisdiction?: string | null;
+            /** State Of Incorporation */
+            state_of_incorporation?: string | null;
+            /**
+             * Aliases
+             * @default []
+             */
+            aliases: components["schemas"]["Alias"][];
+            /**
+             * Listings
+             * @default []
+             */
+            listings: components["schemas"]["Listing"][];
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -2206,6 +2453,27 @@ export interface components {
              */
             last_seen_at: string;
         };
+        /** Listing */
+        Listing: {
+            /** Ticker */
+            ticker: string;
+            /** Exchange Mic */
+            exchange_mic: string;
+            /** Segment Mic */
+            segment_mic: string | null;
+            /** Figi */
+            figi: string | null;
+            /** Share Class Figi */
+            share_class_figi: string | null;
+            /** Instrument Type */
+            instrument_type: string;
+            /** Security Type2 */
+            security_type2: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Figi Name */
+            figi_name: string | null;
+        };
         /** MachineReview */
         MachineReview: {
             /**
@@ -2465,6 +2733,32 @@ export interface components {
             /** Refreshes */
             refreshes: components["schemas"]["MentalModelRefresh"][];
         };
+        /**
+         * Mention
+         * @description What a source said about a company. Any field may be missing; `mic` may be an
+         *     operating (XNAS) or segment (XNGS) MIC; `as_of` bounds historical names and listings.
+         */
+        Mention: {
+            /** Name */
+            name?: string | null;
+            /** Ticker */
+            ticker?: string | null;
+            /** Mic */
+            mic?: string | null;
+            /** Cik */
+            cik?: string | null;
+            /** Lei */
+            lei?: string | null;
+            /** Isin */
+            isin?: string | null;
+            /**
+             * Country
+             * @description ISO 3166-1 alpha-2
+             */
+            country?: string | null;
+            /** As Of */
+            as_of?: string | null;
+        };
         /** OwnerReview */
         OwnerReview: {
             /**
@@ -2496,6 +2790,17 @@ export interface components {
         Page_Assertion_: {
             /** Items */
             items: components["schemas"]["Assertion"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[Candidate] */
+        Page_Candidate_: {
+            /** Items */
+            items: components["schemas"]["Candidate"][];
             /** Total */
             total: number;
             /** Limit */
@@ -2678,6 +2983,45 @@ export interface components {
             /** Disproven At */
             disproven_at: string | null;
         };
+        /**
+         * Proposal
+         * @description One identifier mapping the resolution supports: `cik`, `lei`, or a `listing`
+         *     (value `TICKER@MIC`, the listing's fields in `details`).
+         */
+        Proposal: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cik" | "lei" | "listing";
+            /** Value */
+            value: string;
+            tier: components["schemas"]["ProposalTier"];
+            source: components["schemas"]["Source"];
+            /** Url */
+            url: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Owner Confirmation */
+            owner_confirmation: boolean;
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: string[];
+            /**
+             * Details
+             * @default {}
+             */
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        ProposalTier: "exact" | "corroborated" | "candidate";
         /**
          * QueuePause
          * @description The queue-level pause: which kinds are held back, why, and until when.
@@ -3079,6 +3423,28 @@ export interface components {
              * @description theme slugs, e.g. photonics
              */
             theme_ids?: string[];
+        };
+        /** Resolution */
+        Resolution: {
+            mention: components["schemas"]["Mention"];
+            tier: components["schemas"]["Tier"];
+            entity: components["schemas"]["Entity"] | null;
+            /** Candidates */
+            candidates: components["schemas"]["Entity"][];
+            /** Proposals */
+            proposals: components["schemas"]["Proposal"][];
+            /** Review Reasons */
+            review_reasons: string[];
+            /** Notes */
+            notes: string[];
+            /** Evidence */
+            evidence: components["schemas"]["Fact"][];
+            /** Dropped */
+            dropped: string[];
+            /** Company Id */
+            company_id?: string | null;
+            /** Matched By */
+            matched_by?: string | null;
         };
         /** ResumeRequest */
         ResumeRequest: {
@@ -3507,6 +3873,8 @@ export interface components {
              */
             updated_at: string;
         };
+        /** @enum {string} */
+        Tier: "exact" | "corroborated" | "candidate" | "conflict" | "unresolved";
         /** @enum {string} */
         UnresolvedReason: "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
         /** UnresponsiveEngine */
@@ -5529,6 +5897,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Investigation"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    candidates_api_v1_candidates_get: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["CandidateState"] | null;
+                theme?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Candidate_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    candidate_api_v1_candidates__candidate_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    commit_api_v1_candidates__candidate_id__commit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateCommit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateDecided"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    reject_api_v1_candidates__candidate_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateReject"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateDecided"];
                 };
             };
             /** @description Not Found */
