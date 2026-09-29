@@ -277,10 +277,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/memory/recall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recall */
+        post: operations["recall_api_v1_memory_recall_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/memory/reflect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reflect */
+        post: operations["reflect_api_v1_memory_reflect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/memory/reflect/{answer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reflect Answer */
+        get: operations["reflect_answer_api_v1_memory_reflect__answer_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        AnswerStatus: "pending" | "running" | "completed" | "failed";
+        /**
+         * AppliedScope
+         * @description The scope as sent to Hindsight: the tags and their strict match mode.
+         */
+        AppliedScope: {
+            /** Company Ids */
+            company_ids: string[];
+            /** Theme Ids */
+            theme_ids: string[];
+            /** Tags */
+            tags: string[];
+            tags_match: components["schemas"]["TagMatch"];
+        };
         /** Assertion */
         Assertion: {
             /**
@@ -423,6 +489,70 @@ export interface components {
             /** Next Open At */
             next_open_at: string | null;
         };
+        /** @enum {string} */
+        Budget: "low" | "mid" | "high";
+        /** Citation */
+        Citation: {
+            kind: components["schemas"]["CitationKind"];
+            state: components["schemas"]["CitationState"];
+            reason: components["schemas"]["UnresolvedReason"] | null;
+            /** Detail */
+            detail: string | null;
+            /** Memory Id */
+            memory_id: string | null;
+            /** Memory Type */
+            memory_type: string | null;
+            /** Text */
+            text: string;
+            /** Sources */
+            sources: components["schemas"]["CitationSource"][];
+            /** Missing Memory Ids */
+            missing_memory_ids: string[];
+            quote: components["schemas"]["QuoteSpan"] | null;
+        };
+        /** @enum {string} */
+        CitationKind: "memory" | "chunk" | "quote";
+        /**
+         * CitationSource
+         * @description A world fact resolved to the Source Version section it was extracted from.
+         */
+        CitationSource: {
+            /** Memory Id */
+            memory_id: string;
+            /** Document Id */
+            document_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Source Document Id
+             * Format: uuid
+             */
+            source_document_id: string;
+            /** Company Id */
+            company_id: string | null;
+            /** Form Type */
+            form_type: string | null;
+            /** Section Anchor */
+            section_anchor: string;
+            /** Section Heading */
+            section_heading: string | null;
+            /** Section Char Start */
+            section_char_start: number;
+            /** Section Char End */
+            section_char_end: number;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Available At Basis */
+            available_at_basis: string;
+        };
+        /** @enum {string} */
+        CitationState: "resolved" | "unverified" | "broken";
         /** Company */
         Company: {
             /**
@@ -478,6 +608,45 @@ export interface components {
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorDetail"];
+        };
+        /**
+         * Evidence
+         * @description A Source Version section that resolved citations lead to (Evidence, not Memory).
+         */
+        Evidence: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Source Document Id
+             * Format: uuid
+             */
+            source_document_id: string;
+            /** Company Id */
+            company_id: string | null;
+            /** Form Type */
+            form_type: string | null;
+            /** Section Anchor */
+            section_anchor: string;
+            /** Section Heading */
+            section_heading: string | null;
+            /** Section Char Start */
+            section_char_start: number;
+            /** Section Char End */
+            section_char_end: number;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Available At Basis */
+            available_at_basis: string;
+            /** Memory Ids */
+            memory_ids: string[];
+            /** Quotes */
+            quotes: components["schemas"]["QuoteSpan"][];
         };
         /**
          * FetchObservation
@@ -767,6 +936,161 @@ export interface components {
             /** Pending */
             pending: components["schemas"]["PendingKind"][];
         };
+        /**
+         * QuoteSpan
+         * @description A quote matched in the archived parsed text: code-point offsets, like an Assertion's.
+         */
+        QuoteSpan: {
+            /** Quoted */
+            quoted: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Archived Text */
+            archived_text: string;
+        };
+        /** RecallRequest */
+        RecallRequest: {
+            /** Query */
+            query: string;
+            scope: components["schemas"]["ResearchScope"];
+            /** @default mid */
+            budget: components["schemas"]["Budget"];
+        };
+        /** RecallResponse */
+        RecallResponse: {
+            /** Query */
+            query: string;
+            scope: components["schemas"]["AppliedScope"];
+            /** Memories */
+            memories: components["schemas"]["RecalledMemory"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Evidence */
+            evidence: components["schemas"]["Evidence"][];
+        };
+        /** RecalledMemory */
+        RecalledMemory: {
+            /** Memory Id */
+            memory_id: string;
+            /** Type */
+            type: string;
+            /** Text */
+            text: string;
+            /** Context */
+            context: string | null;
+            /** Tags */
+            tags: string[];
+            /** Occurred Start */
+            occurred_start: string | null;
+            /** Occurred End */
+            occurred_end: string | null;
+            /** Mentioned At */
+            mentioned_at: string | null;
+            provenance: components["schemas"]["Citation"];
+        };
+        /** ReflectAccepted */
+        ReflectAccepted: {
+            research_answer: components["schemas"]["ResearchAnswer"];
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Audit Event Id */
+            audit_event_id: number;
+        };
+        /** ReflectRequest */
+        ReflectRequest: {
+            /** Question */
+            question: string;
+            scope: components["schemas"]["ResearchScope"];
+            /**
+             * Response Schema
+             * @description a JSON Schema object for structured output; union types are refused
+             */
+            response_schema?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+        };
+        /** ResearchAnswer */
+        ResearchAnswer: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id: string;
+            status: components["schemas"]["AnswerStatus"];
+            /** Question */
+            question: string;
+            scope: components["schemas"]["AppliedScope"];
+            /** Response Schema */
+            response_schema: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Answer */
+            answer: string | null;
+            /** Structured Output */
+            structured_output: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Structured Output Error */
+            structured_output_error: string | null;
+            /** Raw Citations */
+            raw_citations: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[] | null;
+            /** Citations */
+            citations: components["schemas"]["Citation"][] | null;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            } | null;
+            /** Evidence */
+            evidence: components["schemas"]["Evidence"][] | null;
+            /** Evidence Missing */
+            evidence_missing: boolean | null;
+            /** Quote Rule */
+            quote_rule: string | null;
+            /** Run Id */
+            run_id: string | null;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Status */
+            job_status: ("queued" | "running" | "succeeded" | "failed") | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Answered At */
+            answered_at: string | null;
+        };
+        /** ResearchScope */
+        ResearchScope: {
+            /** Company Ids */
+            company_ids?: string[];
+            /**
+             * Theme Ids
+             * @description theme slugs, e.g. photonics
+             */
+            theme_ids?: string[];
+        };
         /** Security */
         Security: {
             /**
@@ -978,6 +1302,10 @@ export interface components {
             /** Superseded By Version Id */
             superseded_by_version_id: string | null;
         };
+        /** @enum {string} */
+        TagMatch: "any_strict" | "all_strict";
+        /** @enum {string} */
+        UnresolvedReason: "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1607,6 +1935,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recall_api_v1_memory_recall_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecallRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecallResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    reflect_api_v1_memory_reflect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReflectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReflectAccepted"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    reflect_answer_api_v1_memory_reflect__answer_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                answer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchAnswer"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

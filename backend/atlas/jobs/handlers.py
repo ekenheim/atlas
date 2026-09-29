@@ -49,14 +49,16 @@ def builtin_registry(settings: "Settings | None" = None) -> HandlerRegistry:
     """Every job kind Atlas knows how to run; `atlas worker` uses this registry.
 
     Kinds that touch the database, the archive, sources or Hindsight (`ingest`, `retain`,
-    `poll_operation`, `reprocess`) need `settings`.
+    `poll_operation`, `reprocess`, `reflect`) need `settings`.
     """
     registry = HandlerRegistry()
     registry.register("noop", noop)
     if settings is not None:
         from atlas.ledger.ingest import INGEST_KIND, make_ingest_handler
+        from atlas.research import register_research_handlers
         from atlas.retention import register_retention_handlers
 
         registry.register(INGEST_KIND, make_ingest_handler(settings))
         register_retention_handlers(registry, settings)
+        register_research_handlers(registry, settings)
     return registry

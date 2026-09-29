@@ -32,6 +32,34 @@ Derived behaviours (each serves a recorded response with only the named fields c
   OpenAI-style error LiteLLM returns for a 429 or 503, as quoted in Atlas's tests; it has not
   been checked against a real Hindsight failure. `times` limits a retain hold to the first
   matching batches, so a resubmitted batch is served as recorded.
+- `derive_memories` (implies `derive_retains`): the recorded memories belong to the synthetic
+  documents, so none can point at an Atlas section. With it on, each derived document (except
+  zero-fact ones) holds one **world fact**, `derived_fact(document_id)`. Reading it serves
+  `reflect/06-resolve-source-memory` with only `id` (a UUIDv5 of the document ID), `text`
+  (the section's first 200 characters, whitespace collapsed), `context`, `document_id`,
+  `chunk_id`, `tags`, `metadata` and `mentioned_at` changed to the retained item's.
+  `derive_observation(document_ids)` adds an **observation** consolidated from those
+  documents' facts; reading it serves `reflect/02-resolve-memory` with only `id`, `text` (its
+  first source fact's), `tags` (the union of its sources'), `source_memory_ids` and
+  `source_memories` changed (each embedded source is the recorded first one, with only `id`,
+  `text`, `context` and `mentioned_at` changed).
+  An unrecorded strict-tag recall (`any_strict`/`all_strict`) serves `tags/02-tags-any_strict`
+  with its `results` replaced by the derived observations, then facts, whose tags match the
+  scope the way the recorded strict modes did (untagged and non-matching memories excluded).
+  Each result is the recorded result of the same type (its first observation, its first world
+  fact) with only the fields above changed; the scores stay as recorded.
+- `forget(memory_id)` (a deleted memory; never recorded): reading it answers HTTP 404 with a
+  **hand-written** body `{"detail": "Memory not found"}` (only the status is relied on). It
+  drops out of derived recalls; an observation keeps its ID in `source_memory_ids` but drops
+  it from `source_memories`.
+- `script_reflect(text, cited, ...)` (a reflect answer is LLM output, and no recorded one can
+  cite an Atlas section): the next unrecorded reflect serves `reflect/01-provenance` with only
+  `text`, `based_on.memories`, `structured_output` and `structured_output_error` changed.
+  Each cited memory is the recorded first `based_on` entry with only `id`, `text`, `type` and
+  `context` changed; a `ChunkContent(document_id)` entry is content without memory identity
+  (`id: null`, `type: null`), its `text` the retained section's first 400 characters
+  (whitespace collapsed). **The answer text is written by the test**, so the quotes in it are
+  the test's choice.
 """
 
 import copy
@@ -135,6 +163,21 @@ class _Hold:
     error_message: str | None = None  # None: as recorded
 
 
+@dataclass(frozen=True)
+class ChunkContent:
+    """A reflect citation drawn from a retained document's raw chunk, with no memory ID."""
+
+    document_id: str
+
+
+@dataclass
+class _ScriptedReflect:
+    text: str
+    cited: "Sequence[str | ChunkContent]"
+    structured_output: dict[str, JsonValue] | None
+    structured_output_error: str | None
+
+
 @dataclass
 class _RetainHold:
     status: str
@@ -148,7 +191,14 @@ class _RetainHold:
 DERIVED_RETAIN = "retain/04-batch"
 DERIVED_RETAIN_FINAL = "retain/05-batch-final"
 DERIVED_DOCUMENT = "upsert/09-get-document"
+DERIVED_FACT = "reflect/06-resolve-source-memory"
+DERIVED_OBSERVATION = "reflect/02-resolve-memory"
+DERIVED_RECALL = "tags/02-tags-any_strict"
+DERIVED_REFLECT = "reflect/01-provenance"
+FACT_TEXT_CHARS = 200
+CHUNK_TEXT_CHARS = 400
 _DERIVED_NAMESPACE = uuid.UUID("0f4c9a53-7d1e-4b8e-9c3a-2e6f1d5b8a70")
+_EMBEDDED_SOURCE_FIELDS = ("id", "text", "context", "mentioned_at")
 
 
 def _never(_: str) -> bool:
@@ -172,6 +222,10 @@ class RecordedHindsight:
     _zero_facts: Callable[[str], bool] = field(init=False, default_factory=lambda: _never)
     _retain_holds: list[_RetainHold] = field(init=False, default_factory=list[_RetainHold])
     _submissions: dict[str, int] = field(init=False, default_factory=dict[str, int])
+    _derive_memories: bool = field(init=False, default=False)
+    _observations: dict[str, list[str]] = field(init=False, default_factory=dict[str, list[str]])
+    _forgotten: set[str] = field(init=False, default_factory=set[str])
+    _reflects: deque[_ScriptedReflect] = field(init=False, default_factory=deque[_ScriptedReflect])
 
     def __post_init__(self) -> None:
         self._replies = defaultdict(deque)
@@ -222,6 +276,49 @@ class RecordedHindsight:
         """`hold_operation` for each later derived retain whose batch's document IDs match
         (only the first `times` such batches, if given)."""
         self._retain_holds.append(_RetainHold(status, polls, where, error_message, times))
+
+    def derive_memories(self) -> None:
+        """One world fact per derived document, observations, and strict recalls (derived)."""
+        self._derive = True
+        self._derive_memories = True
+
+    def derived_fact(self, document_id: str) -> str:
+        """The ID of the derived world fact extracted from a retained document."""
+        if document_id not in self._derived_documents:
+            raise KeyError(f"{document_id} was not retained through the fake")
+        return _fact_id(document_id)
+
+    def derive_observation(self, document_ids: Sequence[str]) -> str:
+        """An observation consolidated from these documents' facts; returns its ID."""
+        sources = [self.derived_fact(document_id) for document_id in document_ids]
+        observation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, "observation:" + "|".join(sources)))
+        self._observations[observation_id] = sources
+        return observation_id
+
+    def forget(self, memory_id: str) -> None:
+        """The memory is gone: reading it answers 404 (derived; see the module docstring)."""
+        self._forgotten.add(memory_id)
+
+    def script_reflect(
+        self,
+        text: str,
+        cited: "Sequence[str | ChunkContent]",
+        *,
+        structured_output: dict[str, JsonValue] | None = None,
+        structured_output_error: str | None = None,
+    ) -> None:
+        """Answer the next unrecorded reflect with this text and these citations (derived)."""
+        self._reflects.append(
+            _ScriptedReflect(text, cited, structured_output, structured_output_error)
+        )
+
+    def requests(self, method: str, route: str) -> list[dict[str, Any]]:
+        """The JSON bodies of the bank requests received for `route` (e.g. `memories/recall`)."""
+        return [
+            cast(dict[str, Any], json.loads(request.content))
+            for request in self.calls
+            if request.method == method and request.url.path.endswith(f"/{route}")
+        ]
 
     def retained(self) -> list[list[dict[str, Any]]]:
         """The items of every batch retain received, in order (recorded or derived)."""
@@ -299,6 +396,14 @@ class RecordedHindsight:
         if request.method == "GET" and len(route) == 2 and route[0] == "documents":
             if route[1] in self._derived_documents:
                 return self._derived_document(bank, route[1])
+        if not self._derive_memories:
+            return None
+        if request.method == "GET" and len(route) == 2 and route[0] == "memories":
+            return self._derived_memory(bank, route[1])
+        if request.method == "POST" and route == ["memories", "recall"] and isinstance(body, dict):
+            return self._derived_recall(bank, body)
+        if request.method == "POST" and route == ["reflect"] and self._reflects:
+            return self._derived_reflect(bank)
         return None
 
     def _derived_retain(self, bank: str, body: dict[str, JsonValue]) -> httpx2.Response | None:
@@ -349,3 +454,132 @@ class RecordedHindsight:
             response["nodes_by_fact_type"] = dict.fromkeys(counts, 0)
         self.served.append(f"{DERIVED_DOCUMENT} (derived)")
         return httpx2.Response(recording.status, json=response)
+
+    # --- derived memories, recall and reflect (see the module docstring) -----------------------
+
+    def _facts(self, bank: str) -> dict[str, dict[str, JsonValue]]:
+        """The derived world facts that exist now, by ID, in retain order."""
+        facts: dict[str, dict[str, JsonValue]] = {}
+        for document_id, item in self._derived_documents.items():
+            fact_id = _fact_id(document_id)
+            if self._zero_facts(document_id) or fact_id in self._forgotten:
+                continue
+            facts[fact_id] = {
+                "id": fact_id,
+                "text": _collapsed(item["content"])[:FACT_TEXT_CHARS],
+                "context": item.get("context"),
+                "document_id": document_id,
+                "chunk_id": f"{bank}_{document_id}_0",
+                "tags": item.get("tags", []),
+                "metadata": item.get("metadata", {}),
+                "mentioned_at": item.get("timestamp"),
+            }
+        return facts
+
+    def _observation(self, observation_id: str, bank: str) -> dict[str, JsonValue]:
+        facts = self._facts(bank)
+        present = [facts[s] for s in self._observations[observation_id] if s in facts]
+        tags: list[JsonValue] = []
+        for fact in present:
+            tags.extend(t for t in cast(list[JsonValue], fact["tags"]) if t not in tags)
+        return {
+            "id": observation_id,
+            "text": present[0]["text"] if present else "",
+            "tags": tags,
+        }
+
+    def _derived_memory(self, bank: str, memory_id: str) -> httpx2.Response | None:
+        if memory_id in self._forgotten:
+            self.served.append("memories/<id> 404 (derived, hand-written body)")
+            return httpx2.Response(404, json={"detail": "Memory not found"})
+        facts = self._facts(bank)
+        if memory_id in facts:
+            recording = self.recording(DERIVED_FACT)
+            response = copy.deepcopy(recording.response_object()) | facts[memory_id]
+            self.served.append(f"{DERIVED_FACT} (derived)")
+            return httpx2.Response(recording.status, json=response)
+        if memory_id in self._observations:
+            recording = self.recording(DERIVED_OBSERVATION)
+            response = copy.deepcopy(recording.response_object())
+            embedded = cast(list[dict[str, JsonValue]], response["source_memories"])[0]
+            sources = self._observations[memory_id]
+            response |= self._observation(memory_id, bank)
+            response["source_memory_ids"] = list[JsonValue](sources)
+            response["source_memories"] = [
+                copy.deepcopy(embedded) | {k: facts[s][k] for k in _EMBEDDED_SOURCE_FIELDS}
+                for s in sources
+                if s in facts
+            ]
+            self.served.append(f"{DERIVED_OBSERVATION} (derived)")
+            return httpx2.Response(recording.status, json=response)
+        return None
+
+    def _derived_recall(self, bank: str, body: dict[str, JsonValue]) -> httpx2.Response | None:
+        match, tags = body.get("tags_match"), body.get("tags")
+        if match not in ("any_strict", "all_strict") or not isinstance(tags, list) or not tags:
+            return None
+        scope = {str(tag) for tag in tags}
+
+        def in_scope(memory_tags: JsonValue) -> bool:
+            have = {str(tag) for tag in cast(list[JsonValue], memory_tags)}
+            return bool(have & scope) if match == "any_strict" else scope <= have
+
+        recording = self.recording(DERIVED_RECALL)
+        response = copy.deepcopy(recording.response_object())
+        recorded = cast(list[dict[str, JsonValue]], response["results"])
+        observation = next(r for r in recorded if r["type"] == "observation")
+        world = next(r for r in recorded if r["type"] == "world")
+        results: list[JsonValue] = []
+        for observation_id in self._observations:
+            fields = self._observation(observation_id, bank)
+            if observation_id not in self._forgotten and in_scope(fields["tags"]):
+                results.append(copy.deepcopy(observation) | fields)
+        results.extend(
+            copy.deepcopy(world) | fact
+            for fact in self._facts(bank).values()
+            if in_scope(fact["tags"])
+        )
+        response["results"] = results
+        self.served.append(f"{DERIVED_RECALL} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _derived_reflect(self, bank: str) -> httpx2.Response:
+        scripted = self._reflects.popleft()
+        recording = self.recording(DERIVED_REFLECT)
+        response = copy.deepcopy(recording.response_object())
+        based_on = cast(dict[str, JsonValue], response["based_on"])
+        entry = cast(list[dict[str, JsonValue]], based_on["memories"])[0]
+        facts = self._facts(bank)
+        memories: list[JsonValue] = []
+        for cited in scripted.cited:
+            fields: dict[str, JsonValue]
+            if isinstance(cited, ChunkContent):
+                content = self._derived_documents[cited.document_id]["content"]
+                text = _collapsed(content)[:CHUNK_TEXT_CHARS]
+                fields = {"id": None, "text": text, "type": None, "context": None}
+            elif cited in self._observations:
+                text = self._observation(cited, bank)["text"]
+                fields = {"id": cited, "text": text, "type": "observation", "context": None}
+            elif cited in facts:
+                fact = facts[cited]
+                fields = {"id": cited, "text": fact["text"], "type": "world"}
+                fields["context"] = fact["context"]
+            else:  # cited, then deleted: the answer still carries the text it was given
+                fields = {"id": cited, "text": "(deleted)", "type": "world", "context": None}
+            memories.append(copy.deepcopy(entry) | fields)
+        based_on["memories"] = memories
+        response |= {
+            "text": scripted.text,
+            "structured_output": scripted.structured_output,
+            "structured_output_error": scripted.structured_output_error,
+        }
+        self.served.append(f"{DERIVED_REFLECT} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+
+def _fact_id(document_id: str) -> str:
+    return str(uuid.uuid5(_DERIVED_NAMESPACE, f"world:{document_id}"))
+
+
+def _collapsed(content: JsonValue) -> str:
+    return " ".join(str(content).split())

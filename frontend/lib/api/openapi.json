@@ -909,10 +909,232 @@
           }
         }
       }
+    },
+    "/api/v1/memory/recall": {
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Recall",
+        "operationId": "recall_api_v1_memory_recall_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/memory/reflect": {
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Reflect",
+        "operationId": "reflect_api_v1_memory_reflect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReflectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReflectAccepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/memory/reflect/{answer_id}": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Reflect Answer",
+        "operationId": "reflect_answer_api_v1_memory_reflect__answer_id__get",
+        "parameters": [
+          {
+            "name": "answer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Answer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchAnswer"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AnswerStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "failed"
+        ]
+      },
+      "AppliedScope": {
+        "properties": {
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Company Ids"
+          },
+          "theme_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Theme Ids"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "tags_match": {
+            "$ref": "#/components/schemas/TagMatch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_ids",
+          "theme_ids",
+          "tags",
+          "tags_match"
+        ],
+        "title": "AppliedScope",
+        "description": "The scope as sent to Hindsight: the tags and their strict match mode."
+      },
       "Assertion": {
         "properties": {
           "id": {
@@ -1318,6 +1540,219 @@
         ],
         "title": "BackfillWindowStatus"
       },
+      "Budget": {
+        "type": "string",
+        "enum": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "Citation": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CitationKind"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CitationState"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnresolvedReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "memory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Id"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CitationSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "missing_memory_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Memory Ids"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteSpan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "state",
+          "reason",
+          "detail",
+          "memory_id",
+          "memory_type",
+          "text",
+          "sources",
+          "missing_memory_ids",
+          "quote"
+        ],
+        "title": "Citation"
+      },
+      "CitationKind": {
+        "type": "string",
+        "enum": [
+          "memory",
+          "chunk",
+          "quote"
+        ]
+      },
+      "CitationSource": {
+        "properties": {
+          "memory_id": {
+            "type": "string",
+            "title": "Memory Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_document_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Document Id"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "form_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Type"
+          },
+          "section_anchor": {
+            "type": "string",
+            "title": "Section Anchor"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "section_char_start": {
+            "type": "integer",
+            "title": "Section Char Start"
+          },
+          "section_char_end": {
+            "type": "integer",
+            "title": "Section Char End"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "available_at_basis": {
+            "type": "string",
+            "title": "Available At Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "memory_id",
+          "document_id",
+          "source_version_id",
+          "source_document_id",
+          "company_id",
+          "form_type",
+          "section_anchor",
+          "section_heading",
+          "section_char_start",
+          "section_char_end",
+          "available_at",
+          "available_at_basis"
+        ],
+        "title": "CitationSource",
+        "description": "A world fact resolved to the Source Version section it was extracted from."
+      },
+      "CitationState": {
+        "type": "string",
+        "enum": [
+          "resolved",
+          "unverified",
+          "broken"
+        ]
+      },
       "Company": {
         "properties": {
           "id": {
@@ -1480,6 +1915,106 @@
           "error"
         ],
         "title": "ErrorEnvelope"
+      },
+      "Evidence": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_document_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Document Id"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "form_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Type"
+          },
+          "section_anchor": {
+            "type": "string",
+            "title": "Section Anchor"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "section_char_start": {
+            "type": "integer",
+            "title": "Section Char Start"
+          },
+          "section_char_end": {
+            "type": "integer",
+            "title": "Section Char End"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "available_at_basis": {
+            "type": "string",
+            "title": "Available At Basis"
+          },
+          "memory_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Memory Ids"
+          },
+          "quotes": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteSpan"
+            },
+            "type": "array",
+            "title": "Quotes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "source_document_id",
+          "company_id",
+          "form_type",
+          "section_anchor",
+          "section_heading",
+          "section_char_start",
+          "section_char_end",
+          "available_at",
+          "available_at_basis",
+          "memory_ids",
+          "quotes"
+        ],
+        "title": "Evidence",
+        "description": "A Source Version section that resolved citations lead to (Evidence, not Memory)."
       },
       "FetchObservation": {
         "properties": {
@@ -2362,6 +2897,522 @@
         ],
         "title": "QueueStatus"
       },
+      "QuoteSpan": {
+        "properties": {
+          "quoted": {
+            "type": "string",
+            "title": "Quoted"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "archived_text": {
+            "type": "string",
+            "title": "Archived Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quoted",
+          "source_version_id",
+          "char_start",
+          "char_end",
+          "archived_text"
+        ],
+        "title": "QuoteSpan",
+        "description": "A quote matched in the archived parsed text: code-point offsets, like an Assertion's."
+      },
+      "RecallRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ResearchScope"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget",
+            "default": "mid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query",
+          "scope"
+        ],
+        "title": "RecallRequest"
+      },
+      "RecallResponse": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AppliedScope"
+          },
+          "memories": {
+            "items": {
+              "$ref": "#/components/schemas/RecalledMemory"
+            },
+            "type": "array",
+            "title": "Memories"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/CitationState"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "scope",
+          "memories",
+          "counts",
+          "evidence"
+        ],
+        "title": "RecallResponse"
+      },
+      "RecalledMemory": {
+        "properties": {
+          "memory_id": {
+            "type": "string",
+            "title": "Memory Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "occurred_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred Start"
+          },
+          "occurred_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred End"
+          },
+          "mentioned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mentioned At"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Citation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "memory_id",
+          "type",
+          "text",
+          "context",
+          "tags",
+          "occurred_start",
+          "occurred_end",
+          "mentioned_at",
+          "provenance"
+        ],
+        "title": "RecalledMemory"
+      },
+      "ReflectAccepted": {
+        "properties": {
+          "research_answer": {
+            "$ref": "#/components/schemas/ResearchAnswer"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "audit_event_id": {
+            "type": "integer",
+            "title": "Audit Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "research_answer",
+          "job_id",
+          "audit_event_id"
+        ],
+        "title": "ReflectAccepted"
+      },
+      "ReflectRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ResearchScope"
+          },
+          "response_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Schema",
+            "description": "a JSON Schema object for structured output; union types are refused"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question",
+          "scope"
+        ],
+        "title": "ReflectRequest"
+      },
+      "ResearchAnswer": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnswerStatus"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AppliedScope"
+          },
+          "response_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Schema"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "structured_output": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structured Output"
+          },
+          "structured_output_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structured Output Error"
+          },
+          "raw_citations": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Citations"
+          },
+          "citations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Citation"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citations"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/CitationState"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Evidence"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "evidence_missing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Missing"
+          },
+          "quote_rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Rule"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "job_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "running",
+                  "succeeded",
+                  "failed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "answered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answered At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bank_id",
+          "status",
+          "question",
+          "scope",
+          "response_schema",
+          "answer",
+          "structured_output",
+          "structured_output_error",
+          "raw_citations",
+          "citations",
+          "counts",
+          "evidence",
+          "evidence_missing",
+          "quote_rule",
+          "run_id",
+          "job_id",
+          "job_status",
+          "error",
+          "created_at",
+          "answered_at"
+        ],
+        "title": "ResearchAnswer"
+      },
+      "ResearchScope": {
+        "properties": {
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Company Ids"
+          },
+          "theme_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Theme Ids",
+            "description": "theme slugs, e.g. photonics"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ResearchScope"
+      },
       "Security": {
         "properties": {
           "id": {
@@ -2961,6 +4012,27 @@
           "superseded_by_version_id"
         ],
         "title": "SourceVersionSummary"
+      },
+      "TagMatch": {
+        "type": "string",
+        "enum": [
+          "any_strict",
+          "all_strict"
+        ]
+      },
+      "UnresolvedReason": {
+        "type": "string",
+        "enum": [
+          "no_memory_id",
+          "memory_not_found",
+          "source_memory_not_found",
+          "no_source_memories",
+          "not_an_atlas_document",
+          "unknown_document",
+          "metadata_mismatch",
+          "too_many_hops",
+          "quote_mismatch"
+        ]
       },
       "ValidationError": {
         "properties": {

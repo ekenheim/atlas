@@ -193,7 +193,7 @@ Append-only and hash-chained (build plan §5.8; spec stories 43–45; ticket 03)
 | `audit_event_id` | bigint PK (identity) | Total order of the chain |
 | `occurred_at` | timestamptz not null | |
 | `actor` | text not null | From config (`ATLAS_ACTOR`) in the pilot |
-| `action` | text not null | For example `source_version.created`, `fetch.unchanged`, `assertion.created`, `assertion.reviewed`, `bank_template.applied`, `research_answer.created` |
+| `action` | text not null | For example `source_version.created`, `fetch.unchanged`, `assertion.created`, `assertion.reviewed`, `bank_template.applied`, `research_answer.requested` |
 | `entity_type`, `entity_id` | text not null | What changed |
 | `old_hash`, `new_hash` | text null | SHA-256 of the canonical JSON of the entity before and after |
 | `payload_json` | jsonb not null default `{}` | Non-secret context (job ID, run ID) |
@@ -305,25 +305,30 @@ Not implemented: `memory_ids_json`. Hindsight's document read returns counts, no
 
 ### 3.4 `research_answer`
 
-A stored recall or reflect result with citation states (spec Part B stories 16–25).
+A stored reflect answer with its citation states (spec Part B stories 18–25; ticket 15, migration `0009`).
 
 | Column | Type | Notes |
 |---|---|---|
-| `research_answer_id` | uuid PK | |
-| `run_id` | uuid not null FK → run | |
-| `job_id` | uuid null FK → job | Reflect runs as a job |
-| `kind` | text not null | `reflect`, `mental_model` |
+| `id` | uuid PK | |
+| `bank_id` | text not null | |
 | `question` | text not null | |
-| `scope_json` | jsonb not null | Company IDs, theme slugs, tag mode (strict only) |
+| `scope` | jsonb not null | `company_ids`, `theme_ids` (theme slugs), and the `tags` and `tags_match` (`any_strict`) sent to Hindsight |
+| `response_schema` | jsonb null | The optional JSON Schema object (no union types) |
+| `status` | text not null | `pending`, `completed`, `failed` (the API also shows `running` while the job runs) |
 | `answer_text` | text null | |
-| `structured_output_json` | jsonb null | |
-| `structured_output_error` | text null | Reported explicitly; HTTP 200 doesn't imply success |
-| `citations_json` | jsonb not null | Per citation: memory ID and type, resolved `source_version_id` and `section_anchor`, quote, and state `resolved`, `unverified` or `broken` with a reason |
-| `evidence_missing` | boolean not null | The answer said evidence is missing |
-| `created_by` | text not null | Actor |
-| `created_at` | timestamptz not null | |
+| `structured_output` | jsonb null | As Hindsight returned it |
+| `structured_output_error` | text null | Hindsight's error, a missing output, or a schema validation failure; HTTP 200 doesn't imply success |
+| `raw_citations` | jsonb null | `based_on.memories` exactly as returned (`id`, `text`, `type`, `context`, `occurred_*`) |
+| `citations` | jsonb null | Every cited memory, chunk and quote: kind, state (`resolved`/`unverified`/`broken`), reason, the resolved sources (world fact → Source Version, section, `available_at`) and, for a quote, its matched span |
+| `quote_rule` | text null | The quote normalization rule used (`whitespace-and-typographic-quotes-v1`) |
+| `run_id` | uuid null FK → run | Null when LiteLLM isn't configured (no run can be recorded) |
+| `job_id` | uuid not null, unique | The reflect job's deterministic ID; no FK, because the job is enqueued right after the row commits |
+| `error` | text null | Why the job gave up (`failed`) |
+| `created_at`, `answered_at` | timestamptz | |
 
-Rows are immutable after the job completes. Recall is synchronous and isn't stored in Phase 2 **(open, ticket 15)**.
+Invariants: `completed` exactly when the text, citations, raw citations, quote rule and answer time are set; `failed` exactly when an error is set; structured output (or its error) only with a schema. A trigger (ENABLE ALWAYS) allows updates only of a `pending` row and never of its question, scope, schema, bank or job, and rejects DELETE and TRUNCATE. Audit actions: `research_answer.requested`, `.answered`, `.failed`.
+
+Not stored: `evidence_missing` and the Evidence list are derived on read from the citations (resolved ones only). The actor is on the audit events. Recall is synchronous and isn't stored. Mental models (ticket 16) may add a `kind`.
 
 ### 3.5 Queue pause state
 
@@ -509,11 +514,12 @@ erDiagram
     uuid linked_to_source_version_id FK
   }
   research_answer {
-    uuid research_answer_id PK
+    uuid id PK
     uuid run_id FK
-    uuid job_id FK
+    uuid job_id
     text question
-    jsonb citations_json
+    jsonb scope
+    jsonb citations
     text structured_output_error
   }
 ```

@@ -4,11 +4,16 @@ from datetime import UTC, datetime
 
 import pytest
 
-from atlas.hindsight import HindsightGateway, RetainItem
+from atlas.hindsight import HindsightGateway, HindsightNotFound, RetainItem, TagScope
 from tests.fakes.hindsight import (
     DERIVED_DOCUMENT,
+    DERIVED_FACT,
+    DERIVED_OBSERVATION,
+    DERIVED_RECALL,
+    DERIVED_REFLECT,
     DERIVED_RETAIN,
     DERIVED_RETAIN_FINAL,
+    ChunkContent,
     RecordedHindsight,
     UnrecordedRequest,
 )
@@ -122,3 +127,86 @@ def test_a_held_retain_can_carry_an_error_message_for_its_first_batches_only() -
         final["status"],
         final["error_message"],
     )
+
+
+# --- derived memories, recall and reflect ---
+
+
+def derived_memories() -> tuple[RecordedHindsight, HindsightGateway]:
+    fake = RecordedHindsight()
+    fake.derive_memories()
+    client = gateway(fake)
+    client.retain_batch(ITEMS)
+    return fake, client
+
+
+def test_a_derived_fact_changes_only_its_identity_and_content_fields() -> None:
+    fake, client = derived_memories()
+    fact_id = fake.derived_fact(ITEMS[0].document_id)
+
+    fact = client.get_memory(fact_id)
+
+    recorded = fake.recording(DERIVED_FACT).response_object()
+    assert fact.id == fact_id != recorded["id"]
+    assert fact.type == recorded["type"] == "world"
+    assert fact.document_id == ITEMS[0].document_id
+    assert fact.metadata == ITEMS[0].metadata
+    assert fact.tags == ITEMS[0].tags
+    assert fact.text == ITEMS[0].content
+    assert fact.occurred_start is not None  # as recorded
+    assert fact.state == recorded["state"]
+
+
+def test_a_derived_observation_lists_its_source_facts() -> None:
+    fake, client = derived_memories()
+    sources = [fake.derived_fact(item.document_id) for item in ITEMS]
+    observation_id = fake.derive_observation([item.document_id for item in ITEMS])
+
+    observation = client.get_memory(observation_id)
+
+    assert observation.type == "observation"
+    assert observation.document_id is None
+    assert observation.source_memory_ids == sources
+    assert [m.id for m in observation.source_memories] == sources
+    assert observation.tags == ITEMS[0].tags
+    assert fake.served[-1] == f"{DERIVED_OBSERVATION} (derived)"
+
+
+def test_a_derived_recall_matches_tags_strictly_and_forgotten_memories_are_404() -> None:
+    fake, client = derived_memories()
+    observation_id = fake.derive_observation([ITEMS[0].document_id])
+    forgotten = fake.derived_fact(ITEMS[1].document_id)
+    fake.forget(forgotten)
+
+    in_scope = client.recall("q", scope=TagScope(["company:x"], "any_strict"))
+    all_of = client.recall("q", scope=TagScope(["company:x", "form:10-K"], "all_strict"))
+    out_of_scope = client.recall("q", scope=TagScope(["company:y"], "any_strict"))
+
+    assert [m.id for m in in_scope.memories] == [
+        observation_id,
+        fake.derived_fact(ITEMS[0].document_id),
+    ]
+    assert all_of.memories == [] and out_of_scope.memories == []
+    assert fake.served[-1] == f"{DERIVED_RECALL} (derived)"
+    with pytest.raises(HindsightNotFound):
+        client.get_memory(forgotten)
+    assert client.get_memory(observation_id).source_memory_ids == [
+        fake.derived_fact(ITEMS[0].document_id)
+    ]
+
+
+def test_a_scripted_reflect_changes_only_its_answer_and_citations() -> None:
+    fake, client = derived_memories()
+    fact_id = fake.derived_fact(ITEMS[0].document_id)
+    fake.script_reflect("An answer.", [fact_id, ChunkContent(ITEMS[1].document_id)])
+
+    answer = client.reflect("q", scope=TagScope(["company:x"], "any_strict"))
+
+    recorded = fake.recording(DERIVED_REFLECT).response_object()
+    assert answer.text == "An answer."
+    assert [(m.id, m.type) for m in answer.memories] == [(fact_id, "world"), (None, None)]
+    assert answer.memories[1].text == ITEMS[1].content
+    assert answer.usage is not None
+    assert answer.usage.model_dump() == recorded["usage"]
+    with pytest.raises(UnrecordedRequest):  # one scripted answer, one reflect
+        client.reflect("q", scope=TagScope(["company:x"], "any_strict"))

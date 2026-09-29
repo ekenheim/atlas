@@ -15,6 +15,7 @@ from atlas.api.common import invalid_request
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
 from atlas.api.queue import queue_router
+from atlas.api.research import research_router
 from atlas.api.sources import sources_router
 from atlas.archive import open_archive
 from atlas.audit import Actor
@@ -74,6 +75,11 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(sources_router(engine, archive))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(memory_router(engine, settings.hindsight_bank_id))
+    app.include_router(
+        research_router(
+            engine, archive, hindsight, Actor.from_settings(settings), settings.themes_config
+        )
+    )
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:
