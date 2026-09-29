@@ -14,6 +14,10 @@ the local time in the configured timezone is inside the window: one or more dail
 (for example `01:00-07:00,13:00-15:00`; a range may wrap past midnight). Without a window,
 backfill runs at any time. Interactive jobs always run at any time.
 
+**Requeue.** A handler may raise `Requeue` when its attempt stops short for a reason of its
+own making (not a failure): the job goes back to the queue without using an attempt, and
+nothing is paused.
+
 **Budgets.** Whether or not a window is set, LLM-backed kinds are also held by their
 provider's rolling-window budget (`atlas.jobs.budget`).
 
@@ -58,6 +62,15 @@ class TransientFailure(Exception):
     def __init__(self, failure_class: FailureClass, message: str) -> None:
         super().__init__(message)
         self.failure_class: FailureClass = failure_class
+
+
+class Requeue(Exception):
+    """Raised by a handler that can't finish in this attempt through no fault of the job or
+    of a dependency (e.g. a triage run spent its own token budget): the worker requeues the
+    job without using up an attempt and **without** pausing the queue. The next claim waits
+    for whatever else holds the kind (its provider's budget, the backfill window) as usual.
+    A handler raising it must make progress on each attempt, or the job never ends.
+    """
 
 
 # Error text that marks a quota failure: the MiniMax cap-out reaches Hindsight as a 429 from

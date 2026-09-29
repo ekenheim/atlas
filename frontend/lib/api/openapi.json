@@ -10623,7 +10623,8 @@
                   "quota",
                   "unavailable",
                   "error",
-                  "lease_expired"
+                  "lease_expired",
+                  "requeued"
                 ]
               },
               {

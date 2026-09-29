@@ -3240,7 +3240,7 @@ export interface components {
              */
             at: string;
             /** Classification */
-            classification?: ("quota" | "unavailable" | "error" | "lease_expired") | null;
+            classification?: ("quota" | "unavailable" | "error" | "lease_expired" | "requeued") | null;
         };
         JsonValue: unknown;
         /**

@@ -38,7 +38,7 @@ Artifacts = dict[str, JsonValue]
 
 # How a failed attempt was classified: `quota`/`unavailable` paused the queue and didn't use
 # up the attempt; `error` is an ordinary failure; `lease_expired` a worker that disappeared.
-FailureClassification = Literal["quota", "unavailable", "error", "lease_expired"]
+FailureClassification = Literal["quota", "unavailable", "error", "lease_expired", "requeued"]
 
 # Fixed namespace for job IDs; changing it would re-key every job.
 _JOB_NAMESPACE = uuid.UUID("5b0d6f6e-3c1a-4d4e-9a57-0c7b1f3e9a10")
@@ -342,6 +342,17 @@ class JobQueue:
             "finished_at = CASE WHEN :retry AND attempts < max_attempts "
             "                   THEN NULL ELSE now() END",
             {"error": error, "retry": retry},
+        )
+
+    def requeue(self, job: Job, owner: str, reason: str) -> bool:
+        """Put the job back in the queue without using up its attempt and without pausing,
+        with the reason recorded (`requeued`). False if `owner` lost the attempt's lease."""
+        return self._finish(
+            job,
+            owner,
+            f"{_record_failure('CAST(:error AS text)', 'requeued')}, "
+            "status = 'queued', attempts = attempts - 1",
+            {"error": reason},
         )
 
     def pause(

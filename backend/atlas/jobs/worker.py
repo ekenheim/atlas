@@ -12,7 +12,7 @@ from datetime import timedelta
 from sqlalchemy.exc import OperationalError
 
 from atlas.jobs.handlers import HandlerRegistry, Schedule
-from atlas.jobs.pacing import classify_failure
+from atlas.jobs.pacing import Requeue, classify_failure
 from atlas.jobs.queue import Job, JobQueue
 
 log = logging.getLogger("atlas.worker")
@@ -81,6 +81,11 @@ class Worker:
         try:
             artifacts = handler(job) or {}
             json.dumps(artifacts)  # unserializable artifacts fail the attempt, not the worker
+        except Requeue as error:
+            # Not a failure: the job goes back to the queue with its attempt, nothing paused.
+            log.info(f"job requeued: {error}", extra=context)
+            self.queue.requeue(job, self.worker_id, f"{type(error).__name__}: {error}")
+            return
         except Exception as error:
             message = f"{type(error).__name__}: {error}"
             failure_class = classify_failure(error)
