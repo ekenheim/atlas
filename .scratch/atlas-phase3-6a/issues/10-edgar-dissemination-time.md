@@ -1,7 +1,7 @@
 # available_at must respect EDGAR's after-hours dissemination
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: none
 
 ## Question

@@ -31,12 +31,15 @@ It ends in the spec §15 demo. The spec will be at `.scratch/atlas-phase3-6a/spe
 
 <!-- one line per closed ticket -->
 
+- [Seed list](issues/01-seed-list.md): 12 companies across 7 layers (Marvell added for DSP); Innolight via HKEXnews (HKEX-listed since 2026-07); most US IR sites block automation, so non-SEC names need HKEXnews/RNS/Euronext-style adapters.
+
 - [XBRL normalization](issues/04-xbrl-normalization.md): as-of by filing availability, never `frame`; tag precedence per concept (revenue tags drift); no segment facts in companyfacts, so product exposure comes from text; restatement plus suspect flag; found the after-hours dissemination bug (→ ticket 10).
 
 - [Entity-resolution sources](issues/03-identity-apis.md): SEC + GLEIF + OpenFIGI in a 4-tier deterministic pipeline; no CIK↔LEI link exists (reviewed once per company); 8 `security` schema gaps; OpenFIGI needs segment MICs.
 
 ## Not yet specified
 
+- **Non-SEC source adapters:** HKEXnews (Innolight), LSE RNS (IQE), Euronext/AMF or issuer site (Soitec). Which adapters, feed formats, terms; affects Phase 3 scope. Graduates into a research ticket once 05/06 settle the ingest model.
 - **Evaluation gold set** (spec §9.5): 20–30 labelled cases, including the layer-conflation and partner-page traps from ticket 12. Its format is in `docs/evaluation-methodology.md`; which cases, and who labels them, is open.
 - **Frontend screens for the pilot** (§10.1 A/B/D/E: Theme explorer, Company dossier, Research workbench, Hypothesis dossier), in what order, and how much UI the demo needs.
 - **Mental-model and consolidation cost at scale** on the shared Hindsight (Codex): whether Phase 3's extra sources need the parked dedicated Atlas Hindsight first.
