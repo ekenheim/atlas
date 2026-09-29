@@ -59,7 +59,7 @@ def builtin_registry(
 
     Kinds that touch the database, the archive, sources or Hindsight (`ingest`, `retain`,
     `poll_operation`, `reprocess`, `reflect`, `refresh_mental_model`, `extract_claims`,
-    `discover`) need
+    `review_relationships`, `discover`) need
     `settings`.
     `clock` is the application clock of handlers that measure time (a mental model's
     minimum refresh interval).
@@ -71,6 +71,7 @@ def builtin_registry(
         from atlas.discovery import register_discovery_handlers
         from atlas.ledger.ingest import INGEST_KIND, make_ingest_handler
         from atlas.mental_models import register_mental_model_handlers
+        from atlas.relationships import register_relationship_handlers
         from atlas.research import register_research_handlers
         from atlas.retention import register_retention_handlers
 
@@ -79,6 +80,7 @@ def builtin_registry(
         register_research_handlers(registry, settings)
         register_mental_model_handlers(registry, settings, clock)
         register_claim_handlers(registry, settings)
+        register_relationship_handlers(registry, settings)
         register_discovery_handlers(registry, settings)
     return registry
 

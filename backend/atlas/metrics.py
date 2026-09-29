@@ -36,6 +36,8 @@ _DISCOVERY_QUERY_OUTCOMES = ("searched", "failed")
 _RECALL_BUCKETS = (0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)
 RECALL_OUTCOMES = ("ok", "refused", "error")
 _CLAIM_OUTCOMES = ("accepted", "rejected")
+_RELATIONSHIP_STATES = ("machine_reviewed", "needs_human_review", "approved", "rejected")
+_RELATIONSHIP_REVIEW_OUTCOMES = ("machine_reviewed", "needs_human_review", "not_eligible")
 
 
 def recall_latency(registry: CollectorRegistry) -> Histogram:
@@ -80,6 +82,7 @@ class StateCollector(Collector):
             yield from self._sections(connection)
             yield from self._research(connection)
             yield from self._claims(connection)
+            yield from self._relationships(connection)
 
             yield from self._discovery(connection)
 
@@ -331,6 +334,36 @@ class StateCollector(Collector):
             claims.add_metric([outcome], count)
         yield claims
         yield rejected
+
+    def _relationships(self, connection: Connection) -> Iterator[Metric]:
+        # A Relationship's state changes (the owner's review), so it is a gauge; machine
+        # reviews are insert-only rows, so their count is a counter.
+        states = GaugeMetricFamily(
+            "atlas_relationships", "Relationships by review state", labels=["review_state"]
+        )
+        by_state: dict[str, int] = {
+            state: count
+            for state, count in connection.execute(
+                text("SELECT review_state, count(*) FROM relationship GROUP BY 1")
+            ).all()
+        }
+        for state in _RELATIONSHIP_STATES:
+            states.add_metric([state], by_state.get(state, 0))
+        yield states
+        reviews = CounterMetricFamily(
+            "atlas_relationship_reviews",
+            "Machine reviews of Assertions into Relationships, by outcome",
+            labels=["outcome"],
+        )
+        by_outcome: dict[str, int] = {
+            outcome: count
+            for outcome, count in connection.execute(
+                text("SELECT outcome, count(*) FROM relationship_review GROUP BY 1")
+            ).all()
+        }
+        for outcome in _RELATIONSHIP_REVIEW_OUTCOMES:
+            reviews.add_metric([outcome], by_outcome.get(outcome, 0))
+        yield reviews
 
     def _discovery(self, connection: Connection) -> Iterator[Metric]:
         queries = CounterMetricFamily(

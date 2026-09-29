@@ -439,6 +439,49 @@ Discovery (`atlas.discovery`): the Scout's SearXNG queries and the Tier C leads 
 | `first_seen_at`, `last_seen_at` | timestamptz | |
 
 `lead_sighting`: each query result that returned a lead (primary key lead + query): position, URL, title, snippet, engines, published date and `seen_at`, as that result gave them.
+
+### 3.1e `relationship`, `relationship_assertion`, `relationship_review` and `relationship_review_job` (Phases 3–6a, migration 0022)
+
+Relationships (`atlas.relationships`; ticket 12): build plan §5.5's typed, directed, layer-tagged edges, backed by Assertions and machine-reviewed by the `review_relationships` job. `GET /api/v1/relationships[/{id}]`, `GET /api/v1/relationships/exceptions` and `POST /api/v1/relationships/{id}/review` read and review them.
+
+`relationship`: one per edge. Only the review columns ever change (a trigger refuses identity changes, DELETE and TRUNCATE).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `subject_company_id` | uuid not null FK → `company` | |
+| `predicate` | text not null | The §5.5 whitelist (check constraint) |
+| `object_company_id` | uuid FK → `company` | A company object (`supplies`, `buys_from`, `owns`, `competes_with`, `depends_on`) |
+| `object_text` | text | A product/material/technology object (the other four); exactly one of the two is set |
+| `object_key` | text not null | The company ID, or `object_text` casefolded with whitespace collapsed |
+| `layer` | text not null | The layer taxonomy (check constraint) |
+| `review_state` | text not null | `machine_reviewed`, `needs_human_review` (the exceptions queue), `approved`, `rejected` |
+| `reviewed_by`, `reviewed_at`, `review_note` | | The owner's decision; set exactly when `approved` or `rejected` |
+| `created_at`, `updated_at` | timestamptz | |
+
+Unique `(subject_company_id, predicate, object_key, layer)`: the edge's identity. `competes_with` is stored in the direction proposed. §5.5's `product_id`, `theme_id`, `event_start/end` and `effective_status` aren't modelled yet; the edge's products are read from its Assertions' `value_json.product`.
+
+`relationship_assertion` (insert-only): `assertion_id` (PK, FK → `assertion`: an Assertion supports at most one edge), `relationship_id`, `added_at`. §5.5's `supporting_assertion_ids[]`.
+
+`relationship_review` (insert-only, at most one per Assertion): one Assertion's machine review.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `assertion_id` | uuid not null unique FK → `assertion` | |
+| `relationship_id` | uuid FK → `relationship` | Null exactly when `not_eligible` |
+| `job_id`, `run_id`, `role_call_id` | uuid FKs | The job; the run and Reviewer call (null when the Reviewer wasn't asked) |
+| `verbatim_span`, `tier_a` | bool | The deterministic checks (null when not eligible) |
+| `directional_language`, `directional_cue`, `hedge` | text | `explicit`, `hedged` or `absent`, with the cue and the first hedge |
+| `reviewer_status` | text not null | `answered`, `skipped` (not asked), `quarantined`, `no_answer` |
+| `reviewer_verdict`, `reviewer_direction`, `reviewer_layer`, `reviewer_suggested_layer`, `reviewer_reasoning` | text | The Reviewer's answer (set exactly when `answered`) |
+| `outcome` | text not null | `machine_reviewed` (no reasons), `needs_human_review`, `not_eligible` |
+| `reasons` | text[] not null | Reason codes (`atlas/relationships/checks.py` and `review.py` list them) |
+| `created_at` | timestamptz | |
+
+`relationship_review_job`: `job_id` (PK), `run_id`, `owns_run`, `started_at`: the run a `review_relationships` job calls the Reviewer in, kept across retries.
+
+Audit events: `relationship_review.recorded` (each review row), `relationship.created`, `relationship.evidence_added`, `relationship.machine_reviewed` (an exception lifted by a passing witness), all by `atlas-reviewer`; `relationship.approved` and `relationship.rejected` by the owner. Each relationship event hashes the row with its supporting Assertion IDs.
 ### 3.1b `bank_template_application`
 
 One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.
