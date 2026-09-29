@@ -26,6 +26,7 @@ from atlas.retention.service import (
     NoTemplateApplied,
     enqueue_retains,
     retain_payload,
+    retry_failed,
 )
 
 __all__ = [
@@ -44,6 +45,7 @@ __all__ = [
     "enqueue_retains",
     "register_retention_handlers",
     "retain_payload",
+    "retry_failed",
     "source_version_memory",
     "split_sections",
 ]

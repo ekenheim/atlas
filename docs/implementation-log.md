@@ -1226,3 +1226,10 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
   - `--stack cluster` reads `HINDSIGHT_URL`/`HINDSIGHT_API_KEY` from `.env`, else `~/.hindsight/config`.
   - Throwaway banks (`atlas-live-<stamp>`) are now **deleted at the end of a run** (`--keep-bank` to keep one). The leftover `atlas-live-20260929-064603` from the first cluster attempt was deleted. The cluster again has only `atlas-dev` and `hermes`.
 - **Bank policy, clarified for the owner:** production is **one** long-lived research bank (`atlas-ai-infrastructure`); per-run banks exist only for test isolation; `atlas-dev` stays the coding agents' engineering-notes bank and is never used for research data.
+
+## 2026-09-29: first cluster deploy (tickets 21–22), backlog incident, ingest lookback
+
+- **Deployed:** home-ops PR #7071 (Atlas in `development`: one pod api+worker, archive PVC, Crunchy `atlas` DB, shared Hindsight bank `atlas-ai-infrastructure`, Renovate automerge off) and #7072 (reloader, `companies seed` initContainer, bootstrap ingest Job, nightly CronJob 01:30 UTC). Image `ghcr.io/ekenheim/atlas:0.1.0` (public). `https://atlas.<domain>/health/ready`: database, archive and Hindsight `ok`, LiteLLM `not_configured` (by design for now).
+- **Incident:** the bootstrap ingest had no lookback. It pulled 543 Source Documents and queued 1,397 operations on the shared Hindsight (Codex subscription), using ~1.27M tokens before the owner approved cancelling. Cancelled: 1,329 pending operations in `atlas-ai-infrastructure` only; 58 retained documents kept; `hermes` and `atlas-dev` untouched. Atlas's 540 queued polls then drained (a `cancelled` status is terminal).
+- **Fix (TDD):** default ingest lookback (730 days, `--since`, `--all-history`), the enqueue summary shows the job payload, and `atlas retention retry-failed`. 5 new integration tests.
+- **Not yet done:** the Phase 2 in-cluster smoke check (a resolved recall through the deployed API); re-running the in-window cancelled sections (nightly, backfill class).

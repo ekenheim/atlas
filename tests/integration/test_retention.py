@@ -532,3 +532,44 @@ def add_exhibit_copy(root: Path, exhibit_url: str, copy_url: str) -> None:
             schema_entry, b"&lt;TYPE&gt;EX-99.2\n&lt;SEQUENCE&gt;3\n&lt;FILENAME&gt;" + copy_name
         )
     )
+
+
+def test_retry_failed_resubmits_failed_sections_of_versions_in_the_window(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # The first 10-K batch fails (derived: no failed operation was recorded); a resubmitted
+    # batch is served as recorded.
+    fake.hold_retains(
+        "failed", where=lambda ids: any(i.endswith(":part-i-item-1a") for i in ids), times=1
+    )
+    atlas.ingest("lumentum")
+    version_id = atlas.version(LITE_10K)["id"]
+    assert atlas.memory(version_id)["counts"]["failed"] == len(TEN_K_ANCHORS)
+
+    retried = atlas.cli("retention", "retry-failed", "--since", "2026-01-01")
+    assert retried.returncode == 0, retried.stderr
+    summary = json.loads(retried.stdout)
+    while atlas.worker_pass():
+        pass
+
+    assert summary["sections"] == len(TEN_K_ANCHORS)
+    assert summary["source_versions"] == 1
+    memory = atlas.memory(version_id)
+    assert memory["counts"]["failed"] == 0
+    assert memory["counts"]["completed"] + memory["counts"]["zero_fact"] == len(TEN_K_ANCHORS)
+    assert len(memory["operations"]) == 2  # the failed one stays visible
+
+
+def test_retry_failed_leaves_versions_before_the_window_alone(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    fake.hold_retains(
+        "failed", where=lambda ids: any(i.endswith(":part-i-item-1a") for i in ids), times=1
+    )
+    atlas.ingest("lumentum")
+
+    retried = atlas.cli("retention", "retry-failed", "--since", "2026-09-01")  # after the 10-K
+
+    assert retried.returncode == 0, retried.stderr
+    assert json.loads(retried.stdout)["sections"] == 0
+    assert atlas.memory(atlas.version(LITE_10K)["id"])["counts"]["failed"] == len(TEN_K_ANCHORS)

@@ -15,9 +15,10 @@ re-checks only cheaply (unchanged documents cost a 304 or a hash comparison).
 import asyncio
 import math
 import uuid
+from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue
 
 from atlas.archive import open_archive
 from atlas.audit import Actor
@@ -47,6 +48,7 @@ class IngestPayload(BaseModel):
     company: str
     forms: list[str] | None = None  # default: the adapter's (10-K, 10-Q, 8-K and amendments)
     limit: int | None = Field(default=None, ge=1)  # at most this many recent filings
+    since: AwareDatetime | None = None  # only filings accepted after this (None: all history)
 
 
 class IngestIncomplete(Exception):
@@ -54,9 +56,12 @@ class IngestIncomplete(Exception):
 
 
 def ingest_payload(
-    company: str, forms: list[str] | None, limit: int | None
+    company: str,
+    forms: list[str] | None,
+    limit: int | None,
+    since: datetime | None = None,
 ) -> dict[str, JsonValue]:
-    payload = IngestPayload(company=company, forms=forms, limit=limit)
+    payload = IngestPayload(company=company, forms=forms, limit=limit, since=since)
     return payload.model_dump(mode="json", exclude_none=True)
 
 
@@ -86,6 +91,7 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
             cik=config.cik,
             forms=tuple(payload.forms) if payload.forms else None,
             limit=payload.limit,
+            since=payload.since,
         )
         recorded, errors = asyncio.run(
             _fetch_all(client, ledger, config.cik, query, seeded.company_id, job.id)

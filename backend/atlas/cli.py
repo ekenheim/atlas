@@ -137,7 +137,9 @@ def _print_enqueued(enqueued: "Enqueued") -> None:
                 "job_class": job.job_class,
                 "status": job.status,
                 "created": enqueued.created,
-            }
+                "payload": job.payload,
+            },
+            default=str,
         )
     )
 
@@ -160,8 +162,10 @@ def enqueue_ingest(
     limit: int | None,
     max_attempts: int,
     backfill: bool = False,
+    since: str | None = None,
+    all_history: bool = False,
 ) -> None:
-    from datetime import UTC, datetime
+    from datetime import UTC, datetime, timedelta
 
     from atlas.audit import Actor
     from atlas.db import create_engine
@@ -181,6 +185,21 @@ def enqueue_ingest(
         print("atlas: --limit and --max-attempts must be at least 1", file=sys.stderr)
         raise SystemExit(2)
     form_list = [form.strip() for form in forms.split(",") if form.strip()] if forms else None
+    if since is not None and all_history:
+        print("atlas: --since and --all-history exclude each other", file=sys.stderr)
+        raise SystemExit(2)
+    if since is not None:
+        try:
+            cutoff: datetime | None = datetime.fromisoformat(since)
+        except ValueError:
+            print(f"atlas: --since must be a date like 2025-01-31, not {since!r}", file=sys.stderr)
+            raise SystemExit(2) from None
+        if cutoff.tzinfo is None:
+            cutoff = cutoff.replace(tzinfo=UTC)
+    elif all_history:
+        cutoff = None
+    else:
+        cutoff = datetime.now(UTC) - timedelta(days=settings.ingest_lookback_days)
     # Without --key, each invocation is a new ingest run; reuse a key to make it idempotent.
     key = key or f"ingest:{company}:{datetime.now(UTC).isoformat(timespec='seconds')}"
     engine = create_engine(settings)
@@ -188,13 +207,52 @@ def enqueue_ingest(
         enqueued = JobQueue(engine, actor=Actor.from_settings(settings)).enqueue(
             INGEST_KIND,
             key,
-            ingest_payload(company, form_list, limit),
+            ingest_payload(company, form_list, limit, cutoff),
             max_attempts=max_attempts,
             job_class="backfill" if backfill else "interactive",
         )
     finally:
         engine.dispose()
     _print_enqueued(enqueued)
+
+
+def run_retry_failed(
+    settings: Settings, since: str | None, all_history: bool, backfill: bool
+) -> None:
+    import json
+    from datetime import UTC, datetime, timedelta
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.retention import retry_failed
+
+    if since is not None and all_history:
+        print("atlas: --since and --all-history exclude each other", file=sys.stderr)
+        raise SystemExit(2)
+    cutoff: datetime | None
+    if since is not None:
+        try:
+            cutoff = datetime.fromisoformat(since)
+        except ValueError:
+            print(f"atlas: --since must be a date like 2025-01-31, not {since!r}", file=sys.stderr)
+            raise SystemExit(2) from None
+        if cutoff.tzinfo is None:
+            cutoff = cutoff.replace(tzinfo=UTC)
+    elif all_history:
+        cutoff = None
+    else:
+        cutoff = datetime.now(UTC) - timedelta(days=settings.ingest_lookback_days)
+    engine = create_engine(settings)
+    try:
+        summary = retry_failed(
+            engine,
+            Actor.from_settings(settings),
+            since=cutoff,
+            job_class="backfill" if backfill else "interactive",
+        )
+    finally:
+        engine.dispose()
+    print(json.dumps(summary | {"since": cutoff.isoformat() if cutoff else None}))
 
 
 def seed_companies(settings: Settings) -> None:
@@ -325,12 +383,30 @@ def main(argv: list[str] | None = None) -> None:
     ingest.add_argument("--key", help="idempotency key (default: a new run each time)")
     ingest.add_argument("--forms", help="comma-separated SEC forms (default 10-K,10-Q,8-K)")
     ingest.add_argument("--limit", type=int, help="at most this many recent filings")
+    ingest.add_argument(
+        "--since",
+        help="only filings accepted after this date (default: ATLAS_INGEST_LOOKBACK_DAYS ago)",
+    )
+    ingest.add_argument(
+        "--all-history",
+        action="store_true",
+        help="no lookback: every filing SEC lists (costly: each one is LLM-extracted)",
+    )
     ingest.add_argument("--max-attempts", type=int, default=3, help="retry bound (default 3)")
     ingest.add_argument(
         "--backfill",
         action="store_true",
         help="a backfill: it and the retains it enqueues run only in the nightly window",
     )
+    retention = commands.add_parser("retention", help="memory retention maintenance")
+    retention_commands = retention.add_subparsers(dest="retention_command", required=True)
+    retry = retention_commands.add_parser(
+        "retry-failed",
+        help="resubmit the failed sections of Source Versions in the window (default lookback)",
+    )
+    retry.add_argument("--since", help="only versions available after this date")
+    retry.add_argument("--all-history", action="store_true", help="every failed section")
+    retry.add_argument("--backfill", action="store_true", help="run in the nightly window")
     companies = commands.add_parser("companies", help="the configured company universe")
     companies_commands = companies.add_subparsers(dest="companies_command", required=True)
     companies_commands.add_parser("seed", help="create or update companies from the config")
@@ -375,7 +451,11 @@ def main(argv: list[str] | None = None) -> None:
             args.limit,
             args.max_attempts,
             args.backfill,
+            since=args.since,
+            all_history=args.all_history,
         )
+    elif args.command == "retention":
+        run_retry_failed(settings, args.since, args.all_history, args.backfill)
     elif args.command == "companies":
         seed_companies(settings)
     else:

@@ -14,7 +14,7 @@ import sys
 import uuid
 from collections import Counter
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -679,3 +679,35 @@ def test_metrics_count_fetches_parses_retries_and_archive_writes(
     assert last[("atlas_job_retries_total", labels(kind="ingest"))] == 2
     assert last[("atlas_jobs_failed_total", labels(kind="ingest"))] == 1
     atlas.engine.dispose()
+
+
+def test_ingest_since_fetches_only_filings_accepted_after_that_date(atlas: Atlas) -> None:
+    enqueued = atlas.cli(
+        "ingest", "--company", "lumentum", "--key", "since", "--since", "2026-06-01"
+    )
+    assert enqueued.returncode == 0, enqueued.stderr
+    atlas.worker_pass()
+
+    forms = sorted({doc["form_type"] for doc in atlas.documents().values() if doc["form_type"]})
+
+    # The fixture's 10-K (2026-08-17) and 8-K (2026-08-11) are inside; the 10-Q (2026-05-05) is not.
+    assert "10-Q" not in forms
+    assert {"10-K", "8-K"} <= set(forms)
+
+
+def test_ingest_defaults_to_a_rolling_lookback_from_settings(atlas: Atlas) -> None:
+    enqueued = atlas.cli("ingest", "--company", "lumentum", "--key", "lookback")
+    assert enqueued.returncode == 0, enqueued.stderr
+
+    payload = json.loads(enqueued.stdout)["payload"]
+
+    since = datetime.fromisoformat(payload["since"])
+    expected = datetime.now(UTC) - timedelta(days=730)  # the default ATLAS_INGEST_LOOKBACK_DAYS
+    assert abs((since - expected).total_seconds()) < 120
+
+
+def test_ingest_all_history_sets_no_lookback(atlas: Atlas) -> None:
+    enqueued = atlas.cli("ingest", "--company", "lumentum", "--key", "all", "--all-history")
+    assert enqueued.returncode == 0, enqueued.stderr
+
+    assert "since" not in json.loads(enqueued.stdout)["payload"]

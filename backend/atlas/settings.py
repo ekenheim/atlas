@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     code_version: str | None = None
     # Live SEC EDGAR fetching is opt-in; without it the EDGAR adapter replays fixtures.
     sec_live: bool = False
+    # How far back an ingest reaches by default (spec §3: a rolling two to three years). Each
+    # ingest is bounded when it is enqueued, so the nightly window rolls forward; every
+    # filing in the window is extracted by an LLM, so a wider window costs tokens.
+    ingest_lookback_days: int = Field(default=730, ge=1)
     # SEC fair-access policy: a requester name and contact email, e.g. "Atlas Research ops@x.com".
     sec_user_agent: str | None = Field(default=None, validate_default=True)
     # Fixture mode: recorded EDGAR responses, one directory per company slug

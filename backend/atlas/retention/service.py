@@ -86,6 +86,7 @@ def enqueue_retains(
     source_version_ids: Sequence[uuid.UUID],
     job_class: JobClass = "interactive",
     actor: Actor = SYSTEM_ACTOR,
+    key_suffix: str = "",
 ) -> list[str]:
     """Enqueue a retain job for each given Source Version that has a parse; returns job IDs.
 
@@ -106,10 +107,59 @@ def enqueue_retains(
     queue = JobQueue(engine, actor=actor)
     return [
         str(
-            queue.enqueue(RETAIN_KIND, f"retain:{i}", retain_payload(i), job_class=job_class).job.id
+            queue.enqueue(
+                RETAIN_KIND, f"retain:{i}{key_suffix}", retain_payload(i), job_class=job_class
+            ).job.id
         )
         for i in ids
     ]
+
+
+def retry_failed(
+    engine: Engine,
+    actor: Actor,
+    *,
+    since: datetime | None,
+    job_class: JobClass = "interactive",
+) -> dict[str, Any]:
+    """Reset the failed sections of Source Versions available after `since` (None: all) to
+    `pending`, and enqueue a new retain for each such version, which resubmits them.
+
+    A failed operation stays recorded; each section's reset is audited. Resubmitting the same
+    content under the same document ID is allowed (ADR-0001, amendment).
+    """
+    stamp = datetime.now().astimezone().strftime("%Y%m%dT%H%M%S%f")
+    with engine.begin() as connection:
+        rows = (
+            connection.execute(
+                text(
+                    "UPDATE memory_document m SET retain_state = 'pending', operation_id = NULL,"
+                    " error = NULL FROM source_version v"
+                    " WHERE m.source_version_id = v.id AND m.retain_state = 'failed'"
+                    " AND (CAST(:since AS timestamptz) IS NULL OR v.available_at >= :since)"
+                    " RETURNING m.id, m.source_version_id, m.hindsight_document_id"
+                ),
+                {"since": since},
+            )
+            .mappings()
+            .all()
+        )
+        for row in rows:
+            record(
+                connection,
+                actor,
+                "memory_document.retry",
+                entity_type="memory_document",
+                entity_id=str(row["id"]),
+                new_hash=content_hash(
+                    {"retain_state": "pending", "document": row["hindsight_document_id"]}
+                ),
+            )
+    versions = list(dict.fromkeys(row["source_version_id"] for row in rows))
+    jobs = enqueue_retains(
+        engine, versions, job_class=job_class, actor=actor, key_suffix=f":retry:{stamp}"
+    )
+    return {"sections": len(rows), "source_versions": len(versions), "retain_jobs": jobs}
 
 
 def retain_payload(source_version_id: uuid.UUID) -> dict[str, JsonValue]:
