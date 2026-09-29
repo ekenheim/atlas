@@ -437,3 +437,13 @@ Checked robots.txt and the terms pages on 2026-09-29 (no filings downloaded):
 ## 2026-09-29: No personal data in the User-Agent of non-SEC sources
 
 SEC's EDGAR access rules require a User-Agent with a contact email, so `ATLAS_SEC_USER_AGENT` keeps one. Every other source (the exchange adapters, and any later non-SEC HTTP source) sends the generic `ATLAS_EXCHANGE_USER_AGENT` (default `AtlasResearch`). Settings validation refuses any value containing `@`, so an email address can't be configured there by mistake. This follows an incident during ticket 05: two NSM robots.txt requests carried the owner's email because the SEC contact string was reused. The owner delegated the choice ("You decide").
+
+## 2026-09-30: Owner accepts the AMF API-client exception; TradingView findings
+
+- **AMF (ticket 06):** the owner accepted option (a). Atlas uses the AMF info-financière dataset as a documented API client despite the hosts' crawler-oriented robots.txt: the dataset's API records and the `datadila/INFOFI/` document folder only, at 0.5 requests/s and at most 10 API calls per discovery. The robots verdict is recorded with every fetch. Everything else on those hosts stays blocked. The reasons: the data is under Licence Ouverte / Etalab 2.0, and the API is published for programmatic clients.
+- **No further per-exchange adapters.** SEC EDGAR, the FCA NSM and the AMF cover the US, UK and France. Other markets go through manual import until a better route exists.
+- **TradingView MCP, tested live 2026-09-30 in the owner's session:**
+  - `get_documents` lists any listed company's filings, releases, slides and transcripts. Lumentum has 169; Innolight HKEX:3308 has 29, including English annual and interim reports. Provider: Quartr.
+  - `get_document_view` returns full verbatim transcripts with speaker labels, but only AI summaries of filings; filing PDFs aren't retrievable.
+  - `get_news` returns headlines with the original publisher and timestamps.
+  - Consequence: TradingView is not a Tier A filing source, since Atlas has no original text to quote from. It is a filing and event catalog, a transcript source (candidate Tier B) and a news-lead source (Tier C). Whether Atlas may store any of it depends on the terms check (ticket 29).
