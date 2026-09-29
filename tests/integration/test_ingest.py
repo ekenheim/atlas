@@ -546,12 +546,12 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
 
     events = atlas.audit_events()
     company = atlas.company()
-    coherent = atlas.company("coherent")
+    universe = atlas.get("/api/v1/companies", limit=100)["items"]  # the 12 seeded companies
     documents = atlas.documents()
     versions = [atlas.version(url) for url in ALL_URLS]
     fetches = [fetch for version in versions for fetch in version["fetches"]]
     expected = Counter(
-        [("company", company["id"]), ("company", coherent["id"])]
+        [("company", seeded["id"]) for seeded in universe]
         + [("security", security["id"]) for security in company["securities"]]
         + [("source_document", document["id"]) for document in documents.values()]
         + [("source_version", version["id"]) for version in versions]
@@ -563,7 +563,7 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
     assert len(fetches) == 10
     assert {e["actor"] for e in events} == {"local-researcher"}
     assert Counter(e["action"] for e in events) == {
-        "company.created": 2,
+        "company.created": 12,
         "security.created": 1,
         "source_document.created": 5,
         "source_version.created": 5,
@@ -587,10 +587,14 @@ def test_companies_are_seeded_from_config_idempotently(atlas: Atlas) -> None:
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr
-    assert len(atlas.audit_events()) == events_after_first == 3
-    page = atlas.get("/api/v1/companies")
-    assert page["total"] == 2
-    assert [(c["slug"], c["cik"]) for c in page["items"]] == [
+    # The photonics universe's 12 companies plus Lumentum's security (test_universe.py
+    # covers the rest of the universe).
+    assert len(atlas.audit_events()) == events_after_first == 13
+    page = atlas.get("/api/v1/companies", limit=100)
+    assert page["total"] == 12
+    assert [
+        (c["slug"], c["cik"]) for c in page["items"] if c["slug"] in ("coherent", "lumentum")
+    ] == [
         ("coherent", "0000820318"),
         ("lumentum", "0001633978"),
     ]

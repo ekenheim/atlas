@@ -1,19 +1,99 @@
 # The AI-infrastructure research universe: which companies Atlas monitors, and which
 # themes they belong to (spec Part A "Shape": company universe and theme membership are
 # configuration, never code). Seeded idempotently by `atlas companies seed` and by each
-# ingest job; a company row is keyed by its slug and CIK.
+# ingest job; a company row is keyed by its slug and CIK (else its slug alone).
+#
+# Each company has:
+# - `layer`: its primary layer in the photonics supply chain: substrate, epi, chip-laser,
+#   dsp, module, contract-manufacturing or system. Vertically integrated companies span
+#   several; Relationships carry the layer of each link.
+# - `source_path`: where its primary disclosures come from. `sec` (SEC EDGAR: 10-K/10-Q/8-K
+#   by default, or the `sec_forms` listed) or `exchange:<hkex|lse-rns|euronext>`. Only `sec`
+#   companies are fetched by the SEC ingest; the exchange adapters are later work.
+# - `ignored_ciks`: CIKs that SEC's ticker files map to the company but that are only
+#   unsponsored-ADR shells (depositary F-6EF registrations, no issuer reports). They are
+#   never used as the company's filer; the config refuses a company whose `cik` is one.
+#
+# Identities are from the seed-list research (branch `research/seed-list`,
+# docs/research/seed-list.md, 2026-09-29, primary sources). LEIs are noted in comments, not
+# set: the CIK<->LEI link is owner-confirmed once per company (ticket 03, entity resolution).
+# Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 1
+version: 2
 name: ai-infrastructure
 
 companies:
+  # --- substrate ---
+
+  axt:
+    legal_name: AXT, Inc.
+    display_name: AXT
+    # AXTI on Nasdaq (XNAS); 10-K filed 2026-03-17. LEI 549300M2142IVLVIJN37 (LAPSED 2022).
+    cik: "0001051627"
+    country: US
+    website: https://www.axt.com
+    layer: substrate  # InP, GaAs and Ge wafers
+    source_path: sec
+
+  soitec:
+    legal_name: Soitec SA
+    display_name: Soitec
+    # SOI on Euronext Paris (XPAR), ISIN FR0013227113. LEI 969500ZR92SQCU9TST26 (ISSUED).
+    # Regulated information and the English Universal Registration Document are on soitec.com.
+    country: FR
+    website: https://www.soitec.com
+    layer: substrate  # Photonics-SOI engineered substrates
+    source_path: exchange:euronext
+    ignored_ciks:
+      - cik: "0001445214"
+        reason: unsponsored-ADR shell (OTC SLOIF); depositary F-6EF filings only
+
+  # --- epi ---
+
+  iqe:
+    legal_name: IQE plc
+    display_name: IQE
+    # IQE on AIM (XLON, segment AIMX), moving to the Main Market. LEI 213800Y33WHD3ESJJP16
+    # (ISSUED). Regulatory news via LSE RNS.
+    country: GB
+    website: https://www.iqep.com
+    layer: epi  # InP and GaAs epitaxial wafers
+    source_path: exchange:lse-rns
+    ignored_ciks:
+      - cik: "0001550405"
+        reason: unsponsored-ADR shell (OTC IQEPF, "IQE PLC/ADR"); depositary F-6EF filing only
+
+  # --- chip-laser ---
+
+  # The second company (spec Part B story 11): recorded EDGAR fixtures in
+  # tests/fixtures/edgar/coherent (10-K, 10-Q and companyfacts; no 8-K yet).
+  coherent:
+    legal_name: Coherent Corp.
+    display_name: Coherent
+    # Verified 2026-09-28 against data.sec.gov/submissions/CIK0000820318.json:
+    # "COHERENT CORP.", ticker COHR on NYSE, formerly II-VI INC (until 2022-09-01).
+    # LEI 549300O5C25A0MMHHU33 (LAPSED 2026-02-13).
+    cik: "0000820318"
+    country: US
+    website: https://www.coherent.com
+    # Vertically integrated (substrate and epi through module); its 6-inch InP laser capacity
+    # is the chip-laser layer.
+    layer: chip-laser
+    source_path: sec
+    # TODO(phase 2): add the COHR (XNYS) security once its listing start date is taken
+    # from a primary source; II-VI traded as IIVI on Nasdaq before the 2022 rename.
+    securities: []
+
   lumentum:
     legal_name: Lumentum Holdings Inc.
     display_name: Lumentum
     cik: "0001633978"  # SEC submissions index (tests/fixtures/edgar/lumentum)
+    # LEI 549300JLWRRC38DWEF52 (ISSUED).
     country: US
     website: https://www.lumentum.com
+    layer: chip-laser  # laser chips, plus modules and optical circuit switches
+    source_path: sec
     securities:
       # The 10-K (FY2026) says the common stock trades on the Nasdaq Global Select Market
       # as "LITE" since the August 2015 spin-off from JDSU. The start day (2015-08-04, the
@@ -25,24 +105,108 @@ companies:
         currency: USD
         valid_from: 2015-08-04
 
-  # The second company (spec Part B story 11): recorded EDGAR fixtures in
-  # tests/fixtures/edgar/coherent (10-K, 10-Q and companyfacts; no 8-K yet).
-  coherent:
-    legal_name: Coherent Corp.
-    display_name: Coherent
-    # Verified 2026-09-28 against data.sec.gov/submissions/CIK0000820318.json:
-    # "COHERENT CORP.", ticker COHR on NYSE, formerly II-VI INC (until 2022-09-01).
-    cik: "0000820318"
+  macom:
+    legal_name: MACOM Technology Solutions Holdings, Inc.
+    display_name: MACOM
+    # MTSI on Nasdaq (XNAS). No LEI for the registrant (254900DATW3ZWYAKZM76 is a
+    # subsidiary's, LAPSED).
+    cik: "0001493594"
     country: US
-    website: https://www.coherent.com
-    # TODO(phase 2): add the COHR (XNYS) security once its listing start date is taken
-    # from a primary source; II-VI traded as IIVI on Nasdaq before the 2022 rename.
-    securities: []
+    website: https://www.macom.com
+    layer: chip-laser  # drivers, TIAs, CDRs, DFB lasers and photodetectors
+    source_path: sec
+
+  stmicroelectronics:
+    legal_name: STMicroelectronics N.V.
+    display_name: STMicroelectronics
+    # STM on NYSE (XNYS); also Euronext Paris (XPAR) and Milan (XMIL), ISIN NL0000226223.
+    # LEI 213800Z8NOHIKRI42W10 (ISSUED). A foreign private issuer reporting under US GAAP.
+    cik: "0000932787"
+    country: NL
+    website: https://www.st.com
+    layer: chip-laser  # 300 mm silicon photonics (SiPho) at Crolles
+    source_path: sec
+    sec_forms: [20-F, 6-K]
+
+  # --- dsp ---
+
+  marvell:
+    legal_name: Marvell Technology, Inc.
+    display_name: Marvell
+    # MRVL on Nasdaq (XNAS); 10-K filed 2026-03-11. LEI 254900WVU0BM7ZCJ9E93 (ISSUED).
+    cik: "0001835632"
+    country: US
+    website: https://www.marvell.com
+    layer: dsp  # PAM4 and coherent DSPs
+    source_path: sec
+
+  # --- module ---
+
+  innolight:
+    legal_name: Zhongji Innolight Co., Ltd.
+    display_name: Zhongji Innolight
+    # A shares 300308 on SZSE ChiNext (XSHE); H shares 03308 on HKEX (XHKG) since July 2026.
+    # LEI 655600K7YZDKAI214O83 (ISSUED). Its own IR site's robots.txt disallows everything;
+    # English filings come from HKEXnews.
+    country: CN
+    website: https://www.zj-innolight.com
+    layer: module  # 800G/1.6T optical transceivers
+    source_path: exchange:hkex
+    ignored_ciks:
+      - cik: "0002150915"
+        reason: unsponsored-ADR shell (OTC ZHILF/ZHJIY); depositary F-6EF filings only
+
+  applied-optoelectronics:
+    legal_name: Applied Optoelectronics, Inc.
+    display_name: Applied Optoelectronics
+    # AAOI on Nasdaq (XNAS); 10-K filed 2026-02-26. LEI 529900I8U6Q5SYDNLT48 (LAPSED 2019).
+    cik: "0001158114"
+    country: US
+    website: https://ao-inc.com
+    layer: module  # data-centre transceivers, with its own laser chips
+    source_path: sec
+
+  # --- contract-manufacturing ---
+
+  fabrinet:
+    legal_name: Fabrinet
+    display_name: Fabrinet
+    # FN on NYSE (XNYS); Cayman Islands, operations in Thailand; files domestic forms.
+    # LEI 5493004TETZ6IYF7CV44 (ISSUED).
+    cik: "0001408710"
+    country: KY
+    website: https://www.fabrinet.com
+    layer: contract-manufacturing
+    source_path: sec
+
+  # --- system ---
+
+  ciena:
+    legal_name: Ciena Corporation
+    display_name: Ciena
+    # CIEN on NYSE (XNYS). LEI W0CZ7N0GH8UIGXDM1H41 (ISSUED).
+    cik: "0000936395"
+    country: US
+    website: https://www.ciena.com
+    layer: system  # optical transport platforms
+    source_path: sec
 
 themes:
   photonics:
     title: Photonics for AI data centers
     description: >-
       Optical transceivers, lasers and components whose capacity may constrain AI
-      data-center build-outs. Stub: the full 8-12 company seed list is Phase 3 work.
-    companies: [lumentum, coherent]
+      data-center build-outs, across the supply chain from substrate to system.
+    companies:
+      - axt
+      - soitec
+      - iqe
+      - coherent
+      - lumentum
+      - macom
+      - stmicroelectronics
+      - marvell
+      - innolight
+      - applied-optoelectronics
+      - fabrinet
+      - ciena

@@ -1942,6 +1942,40 @@
             ],
             "title": "Website"
           },
+          "layer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Layer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_path": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourcePath"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sec_forms": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sec Forms"
+          },
           "parent_company_id": {
             "anyOf": [
               {
@@ -1986,6 +2020,9 @@
           "lei",
           "country",
           "website",
+          "layer",
+          "source_path",
+          "sec_forms",
           "parent_company_id",
           "review_state",
           "securities",
@@ -2472,6 +2509,18 @@
         "title": "JobFailure"
       },
       "JsonValue": {},
+      "Layer": {
+        "type": "string",
+        "enum": [
+          "substrate",
+          "epi",
+          "chip-laser",
+          "dsp",
+          "module",
+          "contract-manufacturing",
+          "system"
+        ]
+      },
       "MemoryDocument": {
         "properties": {
           "section_anchor": {
@@ -4195,6 +4244,15 @@
           "latest_version_id"
         ],
         "title": "SourceDocument"
+      },
+      "SourcePath": {
+        "type": "string",
+        "enum": [
+          "sec",
+          "exchange:hkex",
+          "exchange:lse-rns",
+          "exchange:euronext"
+        ]
       },
       "SourceVersionDetail": {
         "properties": {

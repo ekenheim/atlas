@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -45,14 +45,52 @@ class SecurityConfig(_Config):
     figi: str | None = None
 
 
+# A company's primary layer in the photonics supply chain (spec Phases 3-6a, "Theme config").
+type Layer = Literal[
+    "substrate", "epi", "chip-laser", "dsp", "module", "contract-manufacturing", "system"
+]
+# Where a company's primary disclosures come from: SEC EDGAR, or its exchange's feed.
+type SourcePath = Literal["sec", "exchange:hkex", "exchange:lse-rns", "exchange:euronext"]
+
+_CIK = r"^[0-9]{10}$"
+
+
+class IgnoredCik(_Config):
+    """A CIK that SEC files map to the company but that must never be used as its filer, e.g.
+    an unsponsored-ADR shell holding only depositary F-6EF registrations."""
+
+    cik: str = Field(pattern=_CIK)
+    reason: str = Field(min_length=1)
+
+
 class CompanyConfig(_Config):
     legal_name: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
-    cik: str | None = Field(default=None, pattern=r"^[0-9]{10}$")
+    cik: str | None = Field(default=None, pattern=_CIK)
     lei: str | None = None
     country: str = Field(pattern=r"^[A-Z]{2}$")
     website: str | None = None
+    layer: Layer | None = None
+    source_path: SourcePath
+    # The SEC forms to ingest (amendments included); None means the adapter's default
+    # (10-K, 10-Q, 8-K). A foreign private issuer files 20-F/6-K instead.
+    sec_forms: tuple[str, ...] | None = Field(default=None, min_length=1)
+    ignored_ciks: tuple[IgnoredCik, ...] = ()
     securities: tuple[SecurityConfig, ...] = ()
+
+    @model_validator(mode="after")
+    def _source_path(self) -> Self:
+        if self.source_path == "sec" and self.cik is None:
+            raise ValueError("source_path 'sec' needs a cik")
+        if self.source_path != "sec":
+            if self.cik is not None:
+                raise ValueError(
+                    f"source_path {self.source_path!r} is not an SEC filer: remove the cik"
+                    " (list an SEC-mapped CIK under ignored_ciks instead)"
+                )
+            if self.sec_forms is not None:
+                raise ValueError(f"source_path {self.source_path!r} takes no sec_forms")
+        return self
 
 
 class ThemeConfig(_Config):
@@ -84,6 +122,13 @@ class Universe(_Config):
         ciks = [c.cik for c in self.companies.values() if c.cik]
         if len(ciks) != len(set(ciks)):
             raise ValueError("two companies share a CIK")
+        ignored = {i.cik: slug for slug, c in self.companies.items() for i in c.ignored_ciks}
+        for slug, company in self.companies.items():
+            if company.cik in ignored:
+                raise ValueError(
+                    f"company {slug!r} uses CIK {company.cik}, which {ignored[company.cik]!r}"
+                    " lists as ignored"
+                )
         return self
 
 
@@ -121,7 +166,18 @@ class Seeded:
     changes: int  # audited creations and updates (company and securities)
 
 
-_COMPANY_FIELDS = ("slug", "legal_name", "display_name", "cik", "lei", "country", "website")
+_COMPANY_FIELDS = (
+    "slug",
+    "legal_name",
+    "display_name",
+    "cik",
+    "lei",
+    "country",
+    "website",
+    "layer",
+    "source_path",
+    "sec_forms",
+)
 _SECURITY_FIELDS = (
     "company_id",
     "ticker",
@@ -147,6 +203,7 @@ def seed(
 def _seed_company(connection: Connection, actor: Actor, slug: str, config: CompanyConfig) -> Seeded:
     company_id = company_id_for(slug, config)
     desired: dict[str, Any] = {"slug": slug} | config.model_dump(include=set(_COMPANY_FIELDS))
+    desired["sec_forms"] = list(config.sec_forms) if config.sec_forms is not None else None
     changes = _upsert(connection, actor, "company", company_id, desired, _COMPANY_FIELDS)
     for security in config.securities:
         fields = {"company_id": company_id} | security.model_dump()
@@ -239,6 +296,9 @@ class Company(BaseModel):
     lei: str | None
     country: str
     website: str | None
+    layer: Layer | None
+    source_path: SourcePath | None
+    sec_forms: list[str] | None
     parent_company_id: uuid.UUID | None
     review_state: str
     securities: list[Security]
@@ -247,7 +307,8 @@ class Company(BaseModel):
 
 
 _COMPANY_COLUMNS = (
-    "id, slug, legal_name, display_name, cik, lei, country, website, parent_company_id,"
+    "id, slug, legal_name, display_name, cik, lei, country, website, layer, source_path,"
+    " sec_forms, parent_company_id,"
     " review_state, created_at, updated_at"
 )
 

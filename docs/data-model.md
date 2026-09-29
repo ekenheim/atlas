@@ -38,9 +38,12 @@ A legal entity, not a ticker (build plan §5.1). Built by ticket 07 (migration `
 | `legal_name` | text not null | |
 | `display_name` | text not null | |
 | `lei` | text null | External mapping; not available for every company |
-| `cik` | text null, unique | Zero-padded 10 digits. Lumentum (Phase 1) and Coherent (Phase 2) are seeded from config |
+| `cik` | text null, unique | Zero-padded 10 digits. The 12 photonics companies are seeded from config (Phase 3); the three exchange-disclosed ones have none |
 | `country` | text not null | ISO 3166-1 alpha-2 |
 | `website` | text null | |
+| `layer` | text null | Primary photonics supply-chain layer: `substrate`, `epi`, `chip-laser`, `dsp`, `module`, `contract-manufacturing`, `system` (migration `0013`) |
+| `source_path` | text null | `sec`, or `exchange:<hkex\|lse-rns\|euronext>`. Only `sec` companies are fetched by the SEC ingest; `sec` requires a `cik`. Unsponsored-ADR CIKs (Soitec, IQE, Innolight) are listed as `ignored_ciks` in config, never stored as a company's `cik` |
+| `sec_forms` | text[] null | SEC forms to ingest (e.g. `20-F`, `6-K` for STMicroelectronics); NULL means 10-K/10-Q/8-K. Only for `sec` companies |
 | `parent_company_id` | uuid null FK → company | Parent/subsidiary structure |
 | `review_state` | text not null | `unreviewed`, `reviewed` |
 | `created_at`, `updated_at` | timestamptz not null | |

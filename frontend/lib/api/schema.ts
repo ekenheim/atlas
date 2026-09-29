@@ -608,6 +608,10 @@ export interface components {
             country: string;
             /** Website */
             website: string | null;
+            layer: components["schemas"]["Layer"] | null;
+            source_path: components["schemas"]["SourcePath"] | null;
+            /** Sec Forms */
+            sec_forms: string[] | null;
             /** Parent Company Id */
             parent_company_id: string | null;
             /** Review State */
@@ -797,6 +801,8 @@ export interface components {
             classification?: ("quota" | "unavailable" | "error" | "lease_expired") | null;
         };
         JsonValue: unknown;
+        /** @enum {string} */
+        Layer: "substrate" | "epi" | "chip-laser" | "dsp" | "module" | "contract-manufacturing" | "system";
         /**
          * MemoryDocument
          * @description One section of the Source Version, as retained (or linked) into the bank.
@@ -1323,6 +1329,8 @@ export interface components {
             /** Latest Version Id */
             latest_version_id: string | null;
         };
+        /** @enum {string} */
+        SourcePath: "sec" | "exchange:hkex" | "exchange:lse-rns" | "exchange:euronext";
         /**
          * SourceVersionDetail
          * @description A Source Version's full provenance.
