@@ -68,9 +68,14 @@ jobs:
           load: true
           tags: atlas:release
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ATLAS_CODE_VERSION=${{ github.sha }}
+          build-args: |
+            ATLAS_CODE_VERSION=${{ github.sha }}
+            ATLAS_VERSION=${{ steps.meta.outputs.version }}
       - name: Smoke the image
         run: scripts/image-smoke.sh atlas:release
+        env:
+          # atlas_build_info must report the tag's version (vX.Y.Z -> X.Y.Z).
+          ATLAS_SMOKE_EXPECT_VERSION: ${{ steps.meta.outputs.version }}
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -85,4 +90,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ATLAS_CODE_VERSION=${{ github.sha }}
+          build-args: |
+            ATLAS_CODE_VERSION=${{ github.sha }}
+            ATLAS_VERSION=${{ steps.meta.outputs.version }}

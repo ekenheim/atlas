@@ -213,3 +213,9 @@ Deviations from `hindsight_investment_research_build_plan.md` v1.1, and decision
   - **Press-release 8-Ks** (items only within `ATLAS_SEC_8K_EXHIBITS_ONLY_ITEMS=2.02,7.01,8.01,9.01`) keep only their EX-99 exhibits; the cover document is boilerplate. 1.01 and 2.01 keep their body, where the terms are.
   - `ATLAS_SEC_8K_ITEMS=*` disables selection.
   - **Measured on the 2-year window:** Lumentum keeps 13 of 21 8-Ks, Coherent 17 of 23. The window drops from ~98 parsed documents (~2M tokens est.) to ~45–55 (~0.7–1M est.).
+
+## 2026-09-29: Atlas's LiteLLM key and the release version (ticket 02, Phases 3–6a)
+
+- **No `atlas-extract` / `atlas-reflect` aliases for now.** Adding them to the LiteLLM configmap restarts the gateway, so Atlas calls `MiniMax-M3` by name: `ATLAS_LLM_EXTRACT_ALIAS` and `ATLAS_LLM_REFLECT_ALIAS` are both `MiniMax-M3` in the Deployment. Runs still record what it routes to. Dedicated aliases can come later as an env change. This refines the 2026-09-28 LLM entry.
+- **The key** (`llm/litellm/keys/atlas.yaml`, home-ops PR #7086) allows `MiniMax-M3`, `qwen3-embedding-0.6b` and `rerank`, with `maxBudget "25"` per 30d and `maxParallelRequests 3`. It reaches `development` through the ClusterSecretStore `litellm-key-secrets`, which admits only `development` and can read only `litellm-key-atlas`.
+- **The release version comes from the tag.** The release workflow passes the tag's version as the build arg `ATLAS_VERSION`, and `atlas_build_info` reports it (`Settings.version`). Without it, the metric falls back to `atlas.__version__`, which is now read from the installed distribution (`importlib.metadata`), so `pyproject.toml` is the only place it is written. The release smoke checks the metric against the tag.

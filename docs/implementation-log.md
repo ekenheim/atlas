@@ -1233,3 +1233,22 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
 - **Incident:** the bootstrap ingest had no lookback. It pulled 543 Source Documents and queued 1,397 operations on the shared Hindsight (Codex subscription), using ~1.27M tokens before the owner approved cancelling. Cancelled: 1,329 pending operations in `atlas-ai-infrastructure` only; 58 retained documents kept; `hermes` and `atlas-dev` untouched. Atlas's 540 queued polls then drained (a `cancelled` status is terminal).
 - **Fix (TDD):** default ingest lookback (730 days, `--since`, `--all-history`), the enqueue summary shows the job payload, and `atlas retention retry-failed`. 5 new integration tests.
 - **Not yet done:** the Phase 2 in-cluster smoke check (a resolved recall through the deployed API); re-running the in-window cancelled sections (nightly, backfill class).
+
+## 2026-09-29: ticket 02 (Phases 3–6a), Atlas LiteLLM key and the release version
+
+- **home-ops PR #7086** (`atlas/litellm-key`, off `origin/main` @ `db10b37dd`, in the fresh clone `home-ops-atlas-pr`). Not merged; the owner merges.
+  - It reuses ticket 20's saved `atlas/litellm` patch, minus the configmap: no aliases and no gateway restart.
+  - The store now admits `development`, not `datasci`.
+  - The key allows `MiniMax-M3`, `qwen3-embedding-0.6b` and `rerank`.
+  - Atlas side: an ExternalSecret `atlas-litellm` (`ATLAS_LITELLM_API_KEY`), and `ATLAS_LITELLM_URL` plus both alias envs (`MiniMax-M3`) in the shared env. The Kustomization now dependsOn `litellm-stores` and `litellm-keys`.
+- **Validation:**
+  - yamllint on the 9 changed files: passed.
+  - flux-local v8.4.0: 184 passed.
+  - kubeconform v0.6.7 `-strict`, on the rendered `clustersecretstore/`, `keys/` and `atlas/app`: 20 valid, 0 invalid. The `LiteLLMVirtualKey` schema was generated from the pinned litellm-operator 0.0.19 CRD, which has `maxParallelRequests`.
+- **Release version (TDD):**
+  - Two tests in `tests/unit/test_health.py`:
+    - `atlas_build_info` reports `Settings.version` when stamped. This one went red first.
+    - `atlas.__version__` equals the installed distribution's version.
+  - `Dockerfile` has `ARG ATLAS_VERSION`, and `release.yml` passes `steps.meta.outputs.version`.
+  - `scripts/image-smoke.sh` checks the metric when `ATLAS_SMOKE_EXPECT_VERSION` is set. A local image built with `ATLAS_VERSION=9.8.7` passed the check, and a mismatched expectation failed it.
+- **Open:** the ticket resolves once PR #7086 is merged and deployed, `/health/ready` reports litellm `ok`, and runs record routed models. The deployed 0.1.1 image already reads the LiteLLM and alias settings. The version stamp shows from the next release tag on.

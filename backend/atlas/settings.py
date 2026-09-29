@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     mental_model_poll_interval_seconds: float = Field(default=5.0, gt=0)
     # Recorded on every run: the image's commit SHA (a build arg), else the package version.
     code_version: str | None = None
+    # The release version (the git tag without the v), stamped into the image by the release
+    # workflow and reported by atlas_build_info; else the installed package version.
+    version: str | None = None
     # Live SEC EDGAR fetching is opt-in; without it the EDGAR adapter replays fixtures.
     sec_live: bool = False
     # How far back an ingest reaches by default (spec §3: a rolling two to three years). Each

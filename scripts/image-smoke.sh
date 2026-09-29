@@ -23,4 +23,9 @@ curl -fsS "http://127.0.0.1:${port}/health/live" | grep -q '"status":"ok"' \
   || { echo "FAIL: /health/live" >&2; docker logs "$name" >&2; exit 1; }
 curl -fsS "http://127.0.0.1:${port}/" | grep -q 'id="atlas-root"' \
   || { echo "FAIL: frontend not served" >&2; exit 1; }
+if [[ -n "${ATLAS_SMOKE_EXPECT_VERSION:-}" ]]; then
+  curl -fsS "http://127.0.0.1:${port}/metrics" \
+    | grep -qF "atlas_build_info{version=\"${ATLAS_SMOKE_EXPECT_VERSION}\"}" \
+    || { echo "FAIL: atlas_build_info is not version ${ATLAS_SMOKE_EXPECT_VERSION}" >&2; exit 1; }
+fi
 echo "image smoke OK (uid ${uid}, read-only root)"

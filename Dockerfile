@@ -29,11 +29,15 @@ COPY configs/ configs/
 RUN useradd --system --uid 10001 --no-create-home atlas \
     && mkdir -p /data/archive && chown 10001 /data/archive
 USER 10001
-# The commit SHA, recorded on every run (the release workflow passes it).
+# The commit SHA, recorded on every run, and the release version (the tag without the v),
+# reported by atlas_build_info. The release workflow passes both; a local build leaves them
+# empty, and Atlas falls back to the package version.
 ARG ATLAS_CODE_VERSION
+ARG ATLAS_VERSION
 ENV PATH="/app/.venv/bin:$PATH" \
     ATLAS_FRONTEND_DIR=/app/frontend \
-    ATLAS_CODE_VERSION=${ATLAS_CODE_VERSION}
+    ATLAS_CODE_VERSION=${ATLAS_CODE_VERSION} \
+    ATLAS_VERSION=${ATLAS_VERSION}
 EXPOSE 8000
 ENTRYPOINT ["atlas"]
 CMD ["api"]
