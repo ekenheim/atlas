@@ -28,8 +28,9 @@ async def test_lumentum_latest_8k_is_discovered_fetched_and_rechecked_conditiona
     primary = next(c for c in candidates if c.document_type in {"8-K", "8-K/A"})
     assert primary.filing is not None
     assert primary.filing.cik == LUMENTUM
-    assert primary.available_at_basis == "sec_acceptance"
-    assert primary.available_at is not None and primary.available_at < datetime.now(UTC)
+    # Public at acceptance, or, if EDGAR held it after hours, at the next opening.
+    assert primary.available_at_basis in {"sec_acceptance", "sec_dissemination"}
+    assert primary.filing.acceptance_datetime <= primary.available_at < datetime.now(UTC)
 
     # Request 3: the document itself; request 4: the same, conditionally.
     document = await source.fetch(primary)

@@ -4251,6 +4251,15 @@
             "type": "string",
             "title": "Available At Basis"
           },
+          "recorded_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded Available At"
+          },
+          "recorded_available_at_basis": {
+            "type": "string",
+            "title": "Recorded Available At Basis"
+          },
           "fetched_at": {
             "type": "string",
             "format": "date-time",
@@ -4387,6 +4396,8 @@
           "parse_status",
           "available_at",
           "available_at_basis",
+          "recorded_available_at",
+          "recorded_available_at_basis",
           "fetched_at",
           "ingested_at",
           "supersedes_version_id",
@@ -4539,6 +4550,15 @@
             "type": "string",
             "title": "Available At Basis"
           },
+          "recorded_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded Available At"
+          },
+          "recorded_available_at_basis": {
+            "type": "string",
+            "title": "Recorded Available At Basis"
+          },
           "fetched_at": {
             "type": "string",
             "format": "date-time",
@@ -4585,6 +4605,8 @@
           "parse_status",
           "available_at",
           "available_at_basis",
+          "recorded_available_at",
+          "recorded_available_at_basis",
           "fetched_at",
           "ingested_at",
           "supersedes_version_id",

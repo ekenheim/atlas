@@ -71,31 +71,35 @@ async def test_discovers_target_filings_their_press_release_exhibit_and_companyf
     assert found[URL_EX991].filing == eight_k
 
 
-async def test_acceptance_datetime_is_surfaced_per_filing_as_available_at() -> None:
+async def test_available_at_is_when_edgar_disseminated_each_filing() -> None:
     found = by_url(await adapter().discover(SearchQuery(cik=LUMENTUM)))
 
-    expected = {
-        URL_10K: datetime(2026, 8, 17, 20, 3, 17, tzinfo=UTC),
-        URL_8K: datetime(2026, 8, 11, 20, 24, 11, tzinfo=UTC),
+    accepted = {
+        URL_10K: datetime(2026, 8, 17, 20, 3, 17, tzinfo=UTC),  # Monday 16:03 EDT
+        URL_8K: datetime(2026, 8, 11, 20, 24, 11, tzinfo=UTC),  # Tuesday 16:24 EDT
         URL_EX991: datetime(2026, 8, 11, 20, 24, 11, tzinfo=UTC),
-        URL_10Q: datetime(2026, 5, 5, 22, 3, 3, tzinfo=UTC),
+        URL_10Q: datetime(2026, 5, 5, 22, 3, 3, tzinfo=UTC),  # Tuesday 18:03 EDT
     }
-    for url, accepted in expected.items():
-        candidate = found[url]
-        assert candidate.filing is not None
-        assert candidate.filing.acceptance_datetime == accepted
-        assert candidate.available_at == accepted
-        assert candidate.available_at_basis == "sec_acceptance"
+    for url, acceptance in accepted.items():
+        filing = found[url].filing
+        assert filing is not None
+        assert filing.acceptance_datetime == acceptance
+    # Accepted within EDGAR's dissemination window: public at acceptance.
+    for url in (URL_10K, URL_8K, URL_EX991):
+        assert found[url].available_at == accepted[url]
+        assert found[url].available_at_basis == "sec_acceptance"
+    # Accepted after 17:30 ET: held until EDGAR opens the next business day, 06:00 EDT,
+    # which is also the date EDGAR gave it as its filing date.
+    assert found[URL_10Q].available_at == datetime(2026, 5, 6, 10, 0, tzinfo=UTC)
+    assert found[URL_10Q].available_at_basis == "sec_dissemination"
+    ten_q = found[URL_10Q].filing
+    assert ten_q is not None and ten_q.filing_date == date(2026, 5, 6)
 
     # The submissions index's "Z" is real UTC: the 8-K's own SEC header records
     # <ACCEPTANCE-DATETIME>20260811162411 in Eastern time.
-    assert expected[URL_8K] == datetime(
+    assert accepted[URL_8K] == datetime(
         2026, 8, 11, 16, 24, 11, tzinfo=ZoneInfo("America/New_York")
     )
-    # Accepted after 17:30 ET, the 10-Q carries the next day's filing date; availability
-    # follows acceptance, not the filing date.
-    ten_q = found[URL_10Q].filing
-    assert ten_q is not None and ten_q.filing_date == date(2026, 5, 6)
     # companyfacts has no acceptance time: it falls back to the observed discovery time.
     assert found[URL_FACTS].available_at == NOW
     assert found[URL_FACTS].available_at_basis == "observed_discovery"

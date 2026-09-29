@@ -1,6 +1,7 @@
 """The source ledger: Source Documents, immutable Source Versions and fetch observations
 (spec Part A, Source ledger). `service` writes, `reads` reads, `ingest` is the job."""
 
+from atlas.ledger.availability import CorrectionSummary, correct_availability
 from atlas.ledger.reads import (
     Content,
     ContentKind,
@@ -29,6 +30,7 @@ __all__ = [
     "SEC_EDGE_SCRIPT_RULE",
     "Content",
     "ContentKind",
+    "CorrectionSummary",
     "FetchObservation",
     "LedgerError",
     "RecordedFetch",
@@ -38,6 +40,7 @@ __all__ = [
     "SourceVersionSummary",
     "canonical_url",
     "comparison_bytes",
+    "correct_availability",
     "get_content",
     "get_source_document",
     "get_version",

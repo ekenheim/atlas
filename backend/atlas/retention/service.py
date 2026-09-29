@@ -144,9 +144,10 @@ def retry_failed(
                     "   AND x.document_type LIKE 'EX-%') AS has_exhibits"
                     " FROM memory_document m"
                     " JOIN source_version v ON v.id = m.source_version_id"
+                    " JOIN source_version_availability a ON a.source_version_id = v.id"
                     " JOIN source_document d ON d.id = v.source_document_id"
                     " WHERE m.retain_state = 'failed'"
-                    " AND (CAST(:since AS timestamptz) IS NULL OR v.available_at >= :since)"
+                    " AND (CAST(:since AS timestamptz) IS NULL OR a.available_at >= :since)"
                 ),
                 {"since": since},
             )
@@ -292,9 +293,10 @@ class Retention:
                 connection.execute(
                     text(
                         "SELECT v.id, v.raw_sha256, v.parse_status, v.parsed_object_uri,"
-                        " v.available_at, d.provider, d.source_type, d.form_type,"
+                        " a.available_at, d.provider, d.source_type, d.form_type,"
                         " d.document_type, d.title, d.company_id, c.slug AS company_slug"
                         " FROM source_version v"
+                        " JOIN source_version_availability a ON a.source_version_id = v.id"
                         " JOIN source_document d ON d.id = v.source_document_id"
                         " LEFT JOIN company c ON c.id = d.company_id WHERE v.id = :id"
                     ),

@@ -31,6 +31,8 @@ It ends in the spec §15 demo. The spec will be at `.scratch/atlas-phase3-6a/spe
 
 <!-- one line per closed ticket -->
 
+- [EDGAR dissemination time](issues/10-edgar-dissemination-time.md): `available_at` = EDGAR public time (06:00–17:30 ET business days, else the next business day 06:00 ET; holidays 2019–2027), basis `sec_dissemination`; existing rows corrected through an append-only correction table (`atlas ledger correct-availability`); Phase 5 XBRL must use `filing_availability`.
+
 - [Atlas LiteLLM key](issues/02-atlas-litellm-key.md): home-ops PR #7086 (key, a store scoped to development, the Atlas ExternalSecret and envs; MiniMax-M3 directly, no configmap change); release version stamping merged.
 
 - [Seed list](issues/01-seed-list.md): 12 companies across 7 layers (Marvell added for DSP); Innolight via HKEXnews (HKEX-listed since 2026-07); most US IR sites block automation, so non-SEC names need HKEXnews/RNS/Euronext-style adapters.

@@ -5,10 +5,13 @@ Discovery reads each filer's submissions index (data.sec.gov) and lists, per tar
 press-release exhibits (EX-99.*, found in the filing's index headers). Each filer's XBRL
 companyfacts is listed too and fetched raw, never interpreted here.
 
-`available_at` for filing documents is EDGAR's `acceptanceDateTime` (basis
-`sec_acceptance`). The submissions index gives it in UTC: its trailing "Z" is genuine, as
-the filing headers' Eastern-time ACCEPTANCE-DATETIME confirms. companyfacts has no
-acceptance time, so it falls back to the observed discovery time.
+`available_at` for filing documents is when EDGAR disseminated the filing
+(`filing_availability`): its `acceptanceDateTime` (basis `sec_acceptance`) when accepted
+within the dissemination window on a business day, otherwise 06:00 ET on the next business
+day (basis `sec_dissemination`; atlas.sources.edgar_calendar). The submissions index gives
+`acceptanceDateTime` in UTC: its trailing "Z" is genuine, as the filing headers'
+Eastern-time ACCEPTANCE-DATETIME confirms. companyfacts has no acceptance time, so it falls
+back to the observed discovery time; an XBRL fact takes its filing's `filing_availability`.
 
 The submissions index's `filings.files` (older pages) is not followed: `filings.recent`
 holds the latest 1,000 filings, years more than the pilot's backfill window.
@@ -22,12 +25,14 @@ from html import unescape
 from pydantic import BaseModel, ConfigDict, Field
 
 from atlas.sources.adapter import (
+    AvailabilityBasis,
     FetchedDocument,
     HttpValidators,
     SearchQuery,
     SecFiling,
     SourceCandidate,
 )
+from atlas.sources.edgar_calendar import edgar_dissemination_time
 from atlas.sources.sec_http import SecHttpClient
 
 PROVIDER_ID = "sec_edgar"
@@ -53,6 +58,15 @@ def parse_acceptance_datetime(value: str) -> datetime:
     if parsed.tzinfo is None:
         raise ValueError(f"acceptanceDateTime without a time zone: {value!r}")
     return parsed.astimezone(UTC)
+
+
+def filing_availability(filing: SecFiling) -> tuple[datetime, AvailabilityBasis]:
+    """(available_at, basis) of a filing and of everything in it: its documents and its XBRL
+    facts. The basis is `sec_dissemination` only when EDGAR held the filing past acceptance."""
+    public = edgar_dissemination_time(filing.acceptance_datetime, filing.form)
+    if public == filing.acceptance_datetime:
+        return filing.acceptance_datetime, "sec_acceptance"
+    return public, "sec_dissemination"
 
 
 class _RecentFilings(BaseModel):
@@ -246,6 +260,7 @@ class EdgarAdapter:
         title = f"{filing.company_name} {filing.form} filed {filing.filing_date.isoformat()}"
         if document_type != filing.form:
             title += f", {document_type}"
+        available_at, basis = filing_availability(filing)
         return SourceCandidate(
             provider_id=self.provider_id,
             kind="sec_filing_document",
@@ -253,8 +268,8 @@ class EdgarAdapter:
             title=title,
             document_type=document_type,
             discovered_at=discovered_at,
-            available_at=filing.acceptance_datetime,
-            available_at_basis="sec_acceptance",
+            available_at=available_at,
+            available_at_basis=basis,
             filing=filing,
         )
 

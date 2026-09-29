@@ -196,3 +196,15 @@ The model's answers aren't scripted, so the suite asserts only what must hold fo
 - the token usage
 
 It also says plainly which paths ran live. A rehearsal is not a live run.
+
+## EDGAR availability corrections (after deploying migration `0012`)
+
+Source Versions ingested before the EDGAR dissemination rule (docs/decisions.md, 2026-09-29) are dated at acceptance even when EDGAR held the filing to the next business day. After `atlas migrate` has applied `0012`, run once, with the app's settings:
+
+```
+atlas ledger correct-availability
+```
+
+It prints `{"corrected": [<source version ids>], "out_of_calendar": [...]}`. It is idempotent (a second run corrects nothing), appends one audited row per affected version to `source_version_availability_correction`, and never edits a version. A version in `out_of_calendar` has dates beyond the EDGAR holiday table (`backend/atlas/sources/edgar_calendar.py`): extend the table and run it again.
+
+The holiday table ends on 2027-12-31. When SEC publishes its next EDGAR Calendar (<https://www.sec.gov/submit-filings/filer-support-resources/edgar-calendar>), add that year and any announced closures, and move `EDGAR_CALENDAR_RANGE`. Past the end, ingest of a new filing fails with `EdgarCalendarRangeError`.

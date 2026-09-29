@@ -121,6 +121,15 @@ function Provenance({ version }: { version: SourceVersionDetail }) {
         <tbody>
           <Clock name="available_at" value={version.available_at}>
             <Code>{version.available_at_basis}</Code>: earliest public availability
+            {version.recorded_available_at_basis !== version.available_at_basis ||
+            version.recorded_available_at !== version.available_at ? (
+              <>
+                {" "}
+                (a recorded correction; the version itself records{" "}
+                <Timestamp value={version.recorded_available_at} />,{" "}
+                <Code>{version.recorded_available_at_basis}</Code>)
+              </>
+            ) : null}
           </Clock>
           <Clock name="published_at" value={version.published_at}>
             the publisher&apos;s own release time, when it gives one distinct from availability

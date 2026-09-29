@@ -372,7 +372,18 @@ def test_original_bytes_are_returned_exactly_and_match_raw_sha256(atlas: Atlas) 
         assert version["object_uri"] == f"archive://raw/sha256/{version['raw_sha256']}"
 
 
-def test_available_at_is_the_acceptance_datetime_and_the_clocks_stay_distinct(
+# When EDGAR disseminated each fixture filing (docs/decisions.md): the 10-K (Monday 16:03 EDT)
+# and the 8-K (Tuesday 16:24 EDT) within the window, at acceptance; the 10-Q, accepted Tuesday
+# 2026-05-05 at 18:03 EDT, at 06:00 EDT on Wednesday, its filing date.
+DISSEMINATED = {
+    URL_10K: (datetime(2026, 8, 17, 20, 3, 17, tzinfo=UTC), "sec_acceptance"),
+    URL_8K: (datetime(2026, 8, 11, 20, 24, 11, tzinfo=UTC), "sec_acceptance"),
+    URL_EX991: (datetime(2026, 8, 11, 20, 24, 11, tzinfo=UTC), "sec_acceptance"),
+    URL_10Q: (datetime(2026, 5, 6, 10, 0, tzinfo=UTC), "sec_dissemination"),
+}
+
+
+def test_available_at_is_when_edgar_disseminated_and_the_clocks_stay_distinct(
     atlas: Atlas,
 ) -> None:
     started = datetime.now(UTC)
@@ -383,18 +394,121 @@ def test_available_at_is_the_acceptance_datetime_and_the_clocks_stay_distinct(
     for url in FILING_URLS:
         version = atlas.version(url)
         accepted = acceptance_of(documents[url]["accession"])
-        assert datetime.fromisoformat(version["available_at"]) == accepted
-        assert version["available_at_basis"] == "sec_acceptance"
+        available, basis = DISSEMINATED[url]
+        assert datetime.fromisoformat(version["available_at"]) == available
+        assert version["available_at_basis"] == basis
+        # Nothing corrected: what the ledger shows is what the version recorded.
+        assert version["recorded_available_at"] == version["available_at"]
+        assert version["recorded_available_at_basis"] == basis
         assert version["metadata"]["acceptance_datetime"] == accepted.isoformat()
         assert version["published_at"] is None
         assert version["event_at"] is None
         first_seen = datetime.fromisoformat(version["source_document"]["first_seen_at"])
         fetched = datetime.fromisoformat(version["fetched_at"])
         ingested = datetime.fromisoformat(version["ingested_at"])
-        assert accepted < started < first_seen <= fetched <= ingested <= finished
+        assert accepted <= available < started < first_seen <= fetched <= ingested <= finished
     facts = atlas.version(URL_FACTS)
     assert facts["available_at_basis"] == "observed_discovery"
     assert facts["available_at"] == documents[URL_FACTS]["first_seen_at"]
+
+
+def insert_phase_1_version(atlas: Atlas, url: str) -> str:
+    """A copy of the document's version as Phase 1 recorded it: available at acceptance.
+
+    It is a new Source Document (its own URL), since existing rows can't be changed."""
+    version = atlas.version(url)
+    accepted = version["metadata"]["acceptance_datetime"]
+    with atlas.engine.begin() as connection:
+        document_id = connection.execute(
+            text(
+                "INSERT INTO source_document (id, company_id, provider, canonical_url,"
+                " origin_url, accession, form_type, document_type, source_type, title,"
+                " publisher, source_tier, license_class, first_seen_at)"
+                " SELECT gen_random_uuid(), company_id, provider, canonical_url || '#phase-1',"
+                " origin_url, accession, form_type, document_type, source_type, title,"
+                " publisher, source_tier, license_class, first_seen_at"
+                " FROM source_document WHERE id = :document RETURNING id"
+            ),
+            {"document": version["source_document"]["id"]},
+        ).scalar_one()
+        return str(
+            connection.execute(
+                text(
+                    "INSERT INTO source_version (id, source_document_id, version_number,"
+                    " raw_sha256, comparison_sha256, comparison_rule, object_uri, byte_size,"
+                    " media_type, parse_status, available_at, available_at_basis, fetched_at,"
+                    " fetch_status, metadata)"
+                    " SELECT gen_random_uuid(), :document, 1, raw_sha256, comparison_sha256,"
+                    " comparison_rule, object_uri, byte_size, media_type, 'not_applicable',"
+                    " CAST(:accepted AS timestamptz), 'sec_acceptance', fetched_at,"
+                    " fetch_status, metadata FROM source_version WHERE id = :id RETURNING id"
+                ),
+                {"document": document_id, "accepted": accepted, "id": version["id"]},
+            ).scalar_one()
+        )
+
+
+def test_phase_1_versions_are_corrected_by_a_recorded_correction_never_by_an_edit(
+    atlas: Atlas,
+) -> None:
+    atlas.ingest("first")
+    held = insert_phase_1_version(atlas, URL_10Q)  # accepted after hours
+    in_window = insert_phase_1_version(atlas, URL_10K)
+    current = atlas.version(URL_10Q)["id"]  # already recorded as sec_dissemination
+    stored = "SELECT available_at, available_at_basis, metadata FROM source_version WHERE id = :id"
+    with atlas.engine.connect() as connection:
+        before = connection.execute(text(stored), {"id": held}).one()
+
+    corrected = atlas.cli("ledger", "correct-availability")
+
+    assert corrected.returncode == 0, corrected.stderr
+    summary = json.loads(corrected.stdout)
+    assert summary["corrected"] == [held]
+    assert summary["out_of_calendar"] == []
+    version = atlas.get(f"/api/v1/source-versions/{held}")
+    accepted = acceptance_of(version["metadata"]["accession_number"])
+    assert datetime.fromisoformat(version["available_at"]) == DISSEMINATED[URL_10Q][0]
+    assert version["available_at_basis"] == "sec_dissemination"
+    assert datetime.fromisoformat(version["recorded_available_at"]) == accepted
+    assert version["recorded_available_at_basis"] == "sec_acceptance"
+    assert version["metadata"]["acceptance_datetime"] == accepted.isoformat()
+    history = atlas.get(f"/api/v1/sources/{version['source_document']['id']}/versions")
+    assert history["items"][0]["available_at"] == version["available_at"]
+    # The version row itself is untouched.
+    with atlas.engine.connect() as connection:
+        assert connection.execute(text(stored), {"id": held}).one() == before
+    # Within the window, or already right: nothing to correct.
+    unchanged = atlas.get(f"/api/v1/source-versions/{in_window}")
+    assert unchanged["available_at_basis"] == "sec_acceptance"
+    assert unchanged["available_at"] == unchanged["recorded_available_at"]
+    assert atlas.get(f"/api/v1/source-versions/{current}")["recorded_available_at_basis"] == (
+        "sec_dissemination"
+    )
+    # Audited, idempotent, and the correction itself is append-only.
+    events = [
+        e for e in atlas.audit_events() if e["action"] == "source_version.availability_corrected"
+    ]
+    assert [e["entity_id"] for e in events] == [held]
+    again = atlas.cli("ledger", "correct-availability")
+    assert again.returncode == 0, again.stderr
+    assert json.loads(again.stdout)["corrected"] == []
+    for statement in (
+        "UPDATE source_version_availability_correction SET available_at = now()",
+        "DELETE FROM source_version_availability_correction",
+        "TRUNCATE source_version_availability_correction",
+    ):
+        with pytest.raises(DBAPIError), atlas.engine.begin() as connection:
+            connection.execute(text(statement))
+    # A correction can only make a version later, never earlier.
+    with pytest.raises(DBAPIError, match="later"), atlas.engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO source_version_availability_correction (id, source_version_id,"
+                " available_at, available_at_basis, reason)"
+                " VALUES (gen_random_uuid(), :id, '2000-01-01', 'sec_dissemination', 'test')"
+            ),
+            {"id": in_window},
+        )
 
 
 def test_the_parse_is_deterministic_archived_separately_and_versioned(atlas: Atlas) -> None:

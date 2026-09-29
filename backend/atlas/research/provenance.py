@@ -278,10 +278,11 @@ class ProvenanceResolver:
                     text(
                         "SELECT m.hindsight_document_id, m.source_version_id,"
                         " m.section_anchor, m.section_heading, m.char_start, m.char_end,"
-                        " v.source_document_id, v.available_at, v.available_at_basis,"
+                        " v.source_document_id, a.available_at, a.available_at_basis,"
                         " v.parsed_object_uri, d.company_id, d.form_type"
                         " FROM memory_document m"
                         " JOIN source_version v ON v.id = m.source_version_id"
+                        " JOIN source_version_availability a ON a.source_version_id = v.id"
                         " JOIN source_document d ON d.id = v.source_document_id"
                         " WHERE m.hindsight_document_id = :document AND m.bank_id = :bank"
                     ),
