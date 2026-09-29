@@ -12,8 +12,8 @@ from atlas import __version__
 from atlas.api.assertions import assertions_router
 from atlas.api.claims import claims_router
 from atlas.api.common import invalid_request
-from atlas.api.financials import financials_router
 from atlas.api.discovery import discovery_router
+from atlas.api.financials import financials_router
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
 from atlas.api.mental_models import mental_models_router
