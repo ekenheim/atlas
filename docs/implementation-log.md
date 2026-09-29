@@ -1570,3 +1570,21 @@ Tickets 01–04, 07, 08, 10–12, 14 were built in parallel with reserved revisi
 - 0021 → 0023 (fetch gate)
 
 The chain is now 0012 → 0013 → … → 0023.
+
+## 2026-09-29: ticket 13, edge table page (C)
+
+- **Built:**
+  - `frontend/app/relationships/`: the edge table (subject, predicate, object, layer, review state with its reasons and the owner's decision, Evidence and family counts). Every column header is a sort button (`aria-sort`); a second press reverses the order. The layer and review-state filters are selects. Filters and sort live in the query string (`lib/relationships.ts`), so the table survives a reload and can be linked.
+  - `frontend/app/relationship/`: one edge, its owner review (approve/reject with an optional note, audited by the API), and its Evidence. Each supporting Assertion shows its quote, source (tier, Evidence Family) and machine review (checks, cue, hedge, Reviewer), and links to its source span.
+  - `frontend/app/exceptions/`: the exceptions queue with the reasons and inline approve/reject; a decided edge leaves the queue.
+  - Version page: `?assertion=<id>` highlights that Assertion's span (`<mark>`, scrolled into view) after checking the quote is at its offsets, and says so. Otherwise it shows an alert. `lib/offsets.ts` gained `splitAtSpan`, and the selection code already handles text split across elements.
+  - `lib/api/client.ts`: the relationship and assertion calls. Site nav: Companies, Relationships, Exceptions queue.
+  - `scripts/e2e.py`: seeds the company universe (`atlas companies seed`). It then builds three Relationships through the real services: Assertions on three hedged sentences of the Lumentum FY2026 10-K (`Assertions.create`), and one `review_relationships` job on the queue run by a `Worker` pass with `RelationshipReviewer`. Hedged quotes fail the deterministic checks, so the Reviewer is never asked; its role caller is a `MockTransport` that aborts the seed if called. The owner then approves the `manufactures` edge (`Relationships.review`).
+- **API:** unchanged. Ticket 12's list, sort, filter, exceptions and review routes cover the page, so the generated client needed no regeneration (`gen_api_client.sh --check` passes).
+- **Tests:**
+  - `frontend/e2e/relationships.spec.ts` (2 tests): sort by object in both directions and by layer (upstream order); filter by review state and layer, surviving a reload; open an edge; open its span, check the highlighted `<mark>` is the quote at its offsets and in the viewport. Then in the exceptions queue: reject one edge with a note, approve the other, the queue empties and stays empty on reload, and the rejected edge shows in the filtered table; re-decide it on the edge page. `uv run python scripts/e2e.py` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`): **6 passed** (the 4 existing ones too).
+  - `frontend/unit/relationships.test.ts` (3) and `splitAtSpan` in `offsets.test.ts` (1): `npm run test` **15 passed**. lint, typecheck and build are clean.
+  - Local `scripts/ci.sh --no-image`: ruff, pyright, the frontend gates and the API client check passed, and pytest **751 passed, 10 deselected**. The run was stopped during its e2e step when CI moved to the self-hosted runners; the GitHub Actions run on the pushed branch is the gate.
+- **Fixture-only vs live:** everything is from the recorded EDGAR fixtures. No LLM was called; the seed's edges are all hedged, so no Reviewer call is needed. No `machine_reviewed` edge is seeded, since that needs a Reviewer answer.
+- **Deviations:** none from the ticket. The edge table shows the API's largest page (500 edges) with its total; there's no paging UI yet.
+- **Next:** the Theme explorer and Company dossier pages can link into `/relationships/` (the query string is the filter), and a `company_id` filter select is a small addition when they need one.

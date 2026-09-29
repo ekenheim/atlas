@@ -20,7 +20,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <nav aria-label="Site">
             <Link href="/">Atlas Research</Link>
             <span aria-hidden="true"> · </span>
-            <span>Source viewer</span>
+            <Link href="/">Companies</Link>
+            <span aria-hidden="true"> · </span>
+            <Link href="/relationships/">Relationships</Link>
+            <span aria-hidden="true"> · </span>
+            <Link href="/exceptions/">Exceptions queue</Link>
           </nav>
         </header>
         <main id="atlas-root">{children}</main>

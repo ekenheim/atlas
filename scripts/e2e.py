@@ -8,10 +8,12 @@ static export (`npm --prefix frontend run build`). In order, it:
 1. installs Playwright's chromium (`--with-deps` when `CI` is set) and checks that it
    launches. If it can't, the test is skipped with a message locally, and fails in CI.
 2. creates an empty database (`atlas_e2e_<hex>`) next to the test databases
-   (`ATLAS_TEST_DATABASE_URL`) and, through the `atlas` CLI, migrates it, enqueues the
-   Lumentum ingest and runs one worker pass against the recorded EDGAR fixtures
-   (`tests/fixtures/edgar`), archiving into a temporary directory. It then records the
-   synthetic annual-report PDF (`tests/fixtures/pdf`) for Lumentum through the ledger.
+   (`ATLAS_TEST_DATABASE_URL`) and, through the `atlas` CLI, migrates it, seeds the
+   company universe, enqueues the Lumentum ingest and runs one worker pass against the
+   recorded EDGAR fixtures (`tests/fixtures/edgar`), archiving into a temporary directory.
+   It then records the synthetic annual-report PDF (`tests/fixtures/pdf`) for Lumentum
+   through the ledger, and builds three Relationships through the Assertions service and a
+   `review_relationships` job (hedged quotes, so no Reviewer call), approving one.
 3. starts the API with uvicorn on a free localhost port, serving `frontend/out` on the
    same origin (`ATLAS_FRONTEND_DIR`), and runs `playwright test` against it.
 4. stops the API and drops the database.
@@ -34,14 +36,26 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx2
 import uvicorn
-from sqlalchemy import create_engine, text
+from pydantic import JsonValue
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
 from atlas.api.app import create_app
 from atlas.archive import open_archive
+from atlas.assertions import AssertionCreate, Assertions
 from atlas.audit import Actor
+from atlas.jobs import HandlerRegistry, JobQueue, Worker
 from atlas.ledger import SourceLedger
+from atlas.relationships import (
+    REVIEW_RELATIONSHIPS_KIND,
+    OwnerReview,
+    RelationshipReviewer,
+    Relationships,
+    list_relationships,
+)
+from atlas.roles import RoleCaller
 from atlas.settings import Settings
 from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 
@@ -146,6 +160,7 @@ def seed(database_url: str, archive: Path, workdir: Path) -> None:
     }
     for args in (
         ["migrate"],
+        ["companies", "seed"],
         ["ingest", "--company", "lumentum", "--key", "e2e-smoke"],
         ["worker", "--once"],
     ):
@@ -160,6 +175,125 @@ def seed(database_url: str, archive: Path, workdir: Path) -> None:
         if done.returncode != 0:
             raise SystemExit(f"e2e: `atlas {' '.join(args)}` failed:\n{done.stderr}")
     seed_pdf(database_url, archive)
+    seed_relationships(database_url, archive)
+
+
+# Hedged sentences of Lumentum's FY2026 10-K (the recorded fixture's parsed text): each
+# names a relation with a directional cue and a hedge ("may"), so machine review sends its
+# edge to the exceptions queue (`hedged_language`) without asking the Reviewer (an LLM).
+LUMENTUM_10K = (
+    "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
+)
+SEEDED_EDGES: tuple[tuple[str, str | None, str, dict[str, JsonValue]], ...] = (
+    # (predicate, object company slug, quote, value_json)
+    (
+        "depends_on",
+        "fabrinet",
+        "For many products, a particular contract manufacturer may be the sole source of the"
+        " finished good products.",
+        {"layer": "contract-manufacturing", "product": None},
+    ),
+    (
+        "competes_with",
+        "coherent",
+        "Our current or potential customers may also determine to develop and produce products"
+        " for their own use which may be competitive to our products.",
+        {"layer": "module", "product": None},
+    ),
+    (
+        "manufactures",
+        None,
+        "Changes in demand and customer requirements for our products may reduce manufacturing"
+        " yields, which could negatively impact our profitability.",
+        {"layer": "module", "object_text": "optical and photonic products", "product": None},
+    ),
+)
+
+
+def seed_relationships(database_url: str, archive_root: Path) -> None:
+    """Build three Relationships through the real services: Assertions on the Lumentum 10-K,
+    then one `review_relationships` job on the queue, run by a worker pass. Each is hedged,
+    so each edge lands in the exceptions queue; the owner then approves the `manufactures`
+    edge, leaving two in the queue for the test to decide."""
+    settings = Settings.model_validate(
+        {"database_url": database_url, "actor": "e2e-smoke", "archive_root": archive_root}
+    )
+    engine = create_engine(database_url)
+    archive = open_archive(settings)
+    actor = Actor("e2e-smoke")
+    try:
+        with engine.connect() as connection:
+            version_id, parsed_uri = connection.execute(
+                text(
+                    "SELECT v.id, v.parsed_object_uri FROM source_version v"
+                    " JOIN source_document d ON d.id = v.source_document_id"
+                    " WHERE d.canonical_url = :url ORDER BY v.version_number DESC LIMIT 1"
+                ),
+                {"url": LUMENTUM_10K},
+            ).one()
+            companies: dict[str, uuid.UUID] = {
+                row.slug: row.id for row in connection.execute(text("SELECT slug, id FROM company"))
+            }
+        parsed = archive.get(parsed_uri).decode("utf-8")
+        assertions = Assertions(engine, archive, actor)
+        assertion_ids: list[JsonValue] = []
+        for predicate, target, quote, value in SEEDED_EDGES:
+            start = parsed.index(quote)
+            recorded = assertions.create(
+                AssertionCreate(
+                    subject_company_id=companies["lumentum"],
+                    predicate=predicate,
+                    object_company_id=None if target is None else companies[target],
+                    value_json=value,
+                    source_version_id=version_id,
+                    quote=quote,
+                    span_start=start,
+                    span_end=start + len(quote),
+                    epistemic_type="company_claim",
+                )
+            )
+            assertion_ids.append(str(recorded.assertion.id))
+
+        queue = JobQueue(engine)
+        queue.enqueue(
+            REVIEW_RELATIONSHIPS_KIND, "e2e-relationships", {"assertion_ids": assertion_ids}
+        )
+        registry = HandlerRegistry()
+        with no_reviewer(engine) as caller:
+            reviewer = RelationshipReviewer(engine, archive, caller, None, per_call=10)
+            registry.register(REVIEW_RELATIONSHIPS_KIND, reviewer.review, pausable=True)
+            Worker(queue, registry).run_once()
+        with engine.connect() as connection:
+            edges = list_relationships(connection, limit=10, offset=0)[0]
+        if [edge.review_state for edge in edges] != ["needs_human_review"] * len(SEEDED_EDGES):
+            raise SystemExit(f"e2e: the seeded relationships were not all exceptions: {edges}")
+        (made,) = [edge for edge in edges if edge.predicate == "manufactures"]
+        Relationships(engine, actor).review(
+            made.id, OwnerReview(review_state="approved", note="seeded by scripts/e2e.py")
+        )
+    finally:
+        engine.dispose()
+
+
+@contextmanager
+def no_reviewer(engine: Engine) -> Generator[RoleCaller]:
+    """A role caller whose every call fails: the seeded Assertions never reach the Reviewer."""
+
+    def refuse(request: httpx2.Request) -> httpx2.Response:
+        raise SystemExit(f"e2e: the Reviewer was asked ({request.url}); the seed expects not")
+
+    caller = RoleCaller(
+        engine,
+        "http://reviewer.invalid",
+        "unused",
+        model="unused",
+        extra_body={},
+        token_budget=0,
+        timeout=1,
+        transport=httpx2.MockTransport(refuse),
+    )
+    with caller:
+        yield caller
 
 
 def seed_pdf(database_url: str, archive: Path) -> None:

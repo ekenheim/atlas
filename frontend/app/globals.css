@@ -129,3 +129,29 @@ td .field {
 .crumbs {
   margin: 1rem 0 0;
 }
+
+/* An Assertion's span, highlighted in the parsed text (an edge's Evidence links to it). */
+mark.span {
+  outline: 2px solid currentColor;
+  scroll-margin: 4rem;
+}
+
+/* The edge table's filters, side by side. */
+form.filters {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5rem;
+}
+
+/* A sortable column's header: a button that looks like the header text. */
+button.sort {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { spanFromUtf16, utf16Index } from "../lib/offsets";
+import { spanFromUtf16, splitAtSpan, utf16Index } from "../lib/offsets";
 
 test("a page anchor's code-point offset maps to its UTF-16 index", () => {
   // 😀 is two UTF-16 units: code point 2 (the "p" of "page") is UTF-16 index 3.
@@ -77,4 +77,13 @@ test("offsets outside the text are refused", () => {
   expect(() => spanFromUtf16("abc", 0, 4)).toThrow(RangeError);
   expect(() => spanFromUtf16("abc", -1, 2)).toThrow(RangeError);
   expect(() => spanFromUtf16("abc", 2, 1)).toThrow(RangeError);
+});
+
+test("an Assertion's code-point span splits the text for highlighting", () => {
+  // 😀 is one code point but two UTF-16 units: code points 2–5 are "cat".
+  const text = "😀 cat!";
+  expect(splitAtSpan(text, 2, 5)).toEqual(["😀 ", "cat", "!"]);
+  expect(splitAtSpan(text, 0, 0)).toEqual(["", "", text]);
+  expect(splitAtSpan(text, 5, 99)).toEqual(["😀 cat", "!", ""]);
+  expect(() => splitAtSpan(text, 3, 2)).toThrow(RangeError);
 });

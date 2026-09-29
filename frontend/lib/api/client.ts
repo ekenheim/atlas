@@ -14,6 +14,18 @@ export type AssertionCreate = Schemas["AssertionCreate"];
 export type AssertionReview = Schemas["AssertionReview"];
 export type AssertionRecorded = Schemas["AssertionRecorded"];
 export type ReviewState = Assertion["review_state"];
+export type Layer = Schemas["Layer"];
+export type Relationship = Schemas["Relationship"];
+export type RelationshipDetail = Schemas["RelationshipDetail"];
+export type RelationshipEvidence = Schemas["RelationshipEvidence"];
+export type RelationshipState = Relationship["review_state"];
+export type OwnerReview = Schemas["OwnerReview"];
+export type RelationshipRecorded = Schemas["RelationshipRecorded"];
+/** The edge table's filters and sort (the page is added here). */
+export type RelationshipQuery = Omit<
+  NonNullable<Params<"/api/v1/relationships">["query"]>,
+  "limit" | "offset"
+>;
 export type EpistemicType = Assertion["epistemic_type"];
 export type ContentKind =
   Params<"/api/v1/source-versions/{version_id}/content">["query"]["kind"];
@@ -134,6 +146,23 @@ export const api = {
     get("/api/v1/assertions", { query: { source_version_id: id, ...PAGE } }),
   /** Record an Assertion; a quote not exactly at its offsets is refused (`quote_mismatch`). */
   createAssertion: (body: AssertionCreate) => post("/api/v1/assertions", {}, body),
+  assertion: (id: string) =>
+    get("/api/v1/assertions/{assertion_id}", { path: { assertion_id: id } }),
+  /** The edge table, filtered and sorted as `query` says (its first 500 edges). */
+  relationships: (query: RelationshipQuery) =>
+    get("/api/v1/relationships", { query: { ...query, ...PAGE } }),
+  /** The exceptions queue: edges needing human review, oldest first. */
+  relationshipExceptions: () => get("/api/v1/relationships/exceptions", { query: PAGE }),
+  /** One edge with its Evidence (each supporting Assertion and its machine review). */
+  relationship: (id: string) =>
+    get("/api/v1/relationships/{relationship_id}", { path: { relationship_id: id } }),
+  /** The owner approves or rejects an edge; repeating its decision is `invalid_transition`. */
+  reviewRelationship: (id: string, body: OwnerReview) =>
+    post(
+      "/api/v1/relationships/{relationship_id}/review",
+      { path: { relationship_id: id } },
+      body,
+    ),
   /** Review an Assertion; a transition not allowed is refused (`invalid_transition`). */
   reviewAssertion: (id: string, body: AssertionReview) =>
     post("/api/v1/assertions/{assertion_id}/review", { path: { assertion_id: id } }, body),
