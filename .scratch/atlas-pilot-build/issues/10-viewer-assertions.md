@@ -4,8 +4,8 @@
 
 **Blocked by:** 08 (Assertions and review), 09 (Source viewer (read-only))
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Selection-to-Assertion submits the exact span and anchor, and a rejected span shows the reason
-- [ ] Review actions update the state and are reflected in the list
-- [ ] The Playwright test creates and reviews an Assertion
+- [x] Selection-to-Assertion submits the exact span and anchor, and a rejected span shows the reason
+- [x] Review actions update the state and are reflected in the list
+- [x] The Playwright test creates and reviews an Assertion

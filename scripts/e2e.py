@@ -1,4 +1,4 @@
-"""Run the frontend's Playwright smoke test against a live, freshly seeded Atlas.
+"""Run the frontend's Playwright tests against a live, freshly seeded Atlas.
 
     uv run python scripts/e2e.py
 

@@ -17,12 +17,13 @@ uv run ruff format --check backend tests scripts
 uv run ruff check backend tests scripts
 uv run pyright
 
-step "frontend: install, lint, types, API client is current, static export"
+step "frontend: install, lint, types, unit tests, API client is current, static export"
 if [[ -n "${CI:-}" || ! -d frontend/node_modules ]]; then
   npm --prefix frontend ci --no-audit --no-fund
 fi
 npm --prefix frontend run lint
 npm --prefix frontend run typecheck
+npm --prefix frontend run test
 scripts/gen_api_client.sh --check
 npm --prefix frontend run build
 
@@ -32,7 +33,7 @@ docker compose up -d --wait postgres-app silo
 step "tests: unit + integration (includes migrations from empty)"
 uv run pytest
 
-step "e2e: Playwright smoke test of the source viewer (fixture-seeded API + static export)"
+step "e2e: Playwright tests of the source viewer and Assertions (fixture-seeded API + static export)"
 # Installs chromium (with its OS deps in CI). Locally it skips, saying why, if chromium
 # can't be installed or launched; in CI that is a failure.
 uv run python scripts/e2e.py
