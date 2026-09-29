@@ -1,0 +1,43 @@
+{
+  "query": "Coherent share issuance convertible notes dilution 2026",
+  "number_of_results": 0,
+  "results": [
+    {
+      "url": "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm",
+      "title": "iivi-20260331 - 10-Q - Coherent Corp.",
+      "content": "Common stock, no par value; authorized - 300,000,000 shares; issued ...",
+      "publishedDate": "2026-05-06T00:00:00",
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "parsed_url": ["https", "www.sec.gov", "/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm", "", "", ""],
+      "img_src": "",
+      "priority": "",
+      "engines": ["bing", "brave"],
+      "positions": [1, 1],
+      "score": 2.0,
+      "category": "general"
+    },
+    {
+      "url": "https://markets-wire.test/2026/09/coherent-convertible-notes-equitization",
+      "title": "Coherent equitizes convertible notes, share count rises",
+      "content": "Analysts note the higher share count after the equitization of convertible notes.",
+      "publishedDate": "2026-09-02",
+      "thumbnail": null,
+      "engine": "brave",
+      "template": "default.html",
+      "parsed_url": ["https", "markets-wire.test", "/2026/09/coherent-convertible-notes-equitization", "", "", ""],
+      "img_src": "",
+      "priority": "",
+      "engines": ["brave"],
+      "positions": [2],
+      "score": 0.8,
+      "category": "general"
+    }
+  ],
+  "answers": [],
+  "corrections": [],
+  "infoboxes": [],
+  "suggestions": [],
+  "unresponsive_engines": []
+}

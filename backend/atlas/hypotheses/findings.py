@@ -2,9 +2,11 @@
 nothing else. A proposed finding (the Editor's or the researcher's) that cites none, or cites
 anything else, is unsupported: recorded, never promoted to a finding. A kept finding is the
 §7.2 claim shape with its spans, Source Versions, Assertions and Evidence Families filled in
-by code from the cited Claims (atlas.investigations.tasks.card_finding)."""
+by code from the cited Claims (atlas.investigations.tasks.card_finding), and so is the
+independent counterevidence against them."""
 
-from collections.abc import Sequence
+import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from sqlalchemy import RowMapping
@@ -22,9 +24,12 @@ class ProposedFinding:
 
 
 def resolve_findings(
-    proposed: Sequence[ProposedFinding], claims: Sequence[RowMapping]
+    proposed: Sequence[ProposedFinding],
+    claims: Sequence[RowMapping],
+    counterevidence: Mapping[uuid.UUID, list[uuid.UUID]] | None = None,
 ) -> tuple[list[CardFinding], list[UnsupportedFinding]]:
-    """The findings citing only accepted Claims (in `claims`), and the unsupported rest."""
+    """The findings citing only accepted Claims (in `claims`), and the unsupported rest.
+    `counterevidence`: claim ID -> the independent counterevidence against it."""
     by_id = {str(claim["id"]): claim for claim in claims}
     findings: list[CardFinding] = []
     unsupported: list[UnsupportedFinding] = []
@@ -44,5 +49,7 @@ def resolve_findings(
                 )
             )
             continue
-        findings.append(card_finding(each.statement, [by_id[c] for c in cited], each))
+        findings.append(
+            card_finding(each.statement, [by_id[c] for c in cited], each, counterevidence)
+        )
     return findings, unsupported

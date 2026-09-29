@@ -38,6 +38,7 @@ from atlas.hypotheses.model import (
     VersionProvenance,
     version_from_row,
 )
+from atlas.investigations.skeptic import counterevidence_by_claim
 from atlas.investigations.tasks import accepted_claims
 from atlas.jobs.queue import JobQueue
 
@@ -272,7 +273,9 @@ class Hypotheses:
                     if run_id is None
                     else accepted_claims(connection, hypothesis["investigation_id"], run_id)
                 )
-                findings, unsupported = resolve_findings(correction.findings, claims)
+                findings, unsupported = resolve_findings(
+                    correction.findings, claims, counterevidence_by_claim(content.contradictions)
+                )
                 if unsupported:
                     raise UnsupportedFindings(
                         "every finding must cite accepted Claims of the investigation: "
