@@ -1270,6 +1270,197 @@
           }
         }
       }
+    },
+    "/api/v1/leads": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "Leads",
+        "operationId": "leads_api_v1_leads_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only leads found for this theme",
+              "title": "Theme"
+            },
+            "description": "only leads found for this theme"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Lead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/discoveries": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "Discoveries",
+        "operationId": "discoveries_api_v1_discoveries_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Discovery_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/discoveries/{discovery_id}": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "Discovery",
+        "operationId": "discovery_api_v1_discoveries__discovery_id__get",
+        "parameters": [
+          {
+            "name": "discovery_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Discovery Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Discovery"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2072,6 +2263,238 @@
         ],
         "title": "ContentLinks"
       },
+      "Discovery": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "engines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Engines"
+          },
+          "max_queries": {
+            "type": "integer",
+            "title": "Max Queries"
+          },
+          "gaps_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gaps Source"
+          },
+          "queries_proposed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queries Proposed"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scouting",
+              "searching",
+              "completed"
+            ],
+            "title": "Status"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "queries": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryQuery"
+            },
+            "type": "array",
+            "title": "Queries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "job_id",
+          "run_id",
+          "theme",
+          "question",
+          "engines",
+          "max_queries",
+          "gaps_source",
+          "queries_proposed",
+          "status",
+          "last_error",
+          "started_at",
+          "finished_at",
+          "queries"
+        ],
+        "title": "Discovery"
+      },
+      "DiscoveryQuery": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "searched",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "result_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Count"
+          },
+          "new_leads": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Leads"
+          },
+          "unresponsive_engines": {
+            "items": {
+              "$ref": "#/components/schemas/UnresponsiveEngine"
+            },
+            "type": "array",
+            "title": "Unresponsive Engines"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "searched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "query",
+          "purpose",
+          "status",
+          "result_count",
+          "new_leads",
+          "unresponsive_engines",
+          "error",
+          "searched_at"
+        ],
+        "title": "DiscoveryQuery"
+      },
       "ErrorDetail": {
         "properties": {
           "code": {
@@ -2594,6 +3017,94 @@
         ],
         "title": "LLMAttempt",
         "description": "One chat completion: the routed model, its usage, its raw content and why it failed\nvalidation (None: it validated)."
+      },
+      "Lead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "tier": {
+            "type": "string",
+            "const": "C",
+            "title": "Tier"
+          },
+          "canonical_url": {
+            "type": "string",
+            "title": "Canonical Url"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "snippet": {
+            "type": "string",
+            "title": "Snippet"
+          },
+          "published_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Date"
+          },
+          "engines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Engines"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "sightings": {
+            "type": "integer",
+            "title": "Sightings"
+          },
+          "first_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Seen At"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tier",
+          "canonical_url",
+          "url",
+          "title",
+          "snippet",
+          "published_date",
+          "engines",
+          "query",
+          "theme",
+          "sightings",
+          "first_seen_at",
+          "last_seen_at"
+        ],
+        "title": "Lead"
       },
       "MemoryDocument": {
         "properties": {
@@ -3312,6 +3823,68 @@
           "offset"
         ],
         "title": "Page[Company]"
+      },
+      "Page_Discovery_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Discovery"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Discovery]"
+      },
+      "Page_Lead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Lead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Lead]"
       },
       "Page_SourceDocument_": {
         "properties": {
@@ -4942,6 +5515,24 @@
           "too_many_hops",
           "quote_mismatch"
         ]
+      },
+      "UnresponsiveEngine": {
+        "properties": {
+          "engine": {
+            "type": "string",
+            "title": "Engine"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "engine",
+          "reason"
+        ],
+        "title": "UnresponsiveEngine"
       },
       "ValidationError": {
         "properties": {

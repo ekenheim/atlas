@@ -32,6 +32,7 @@ _FETCH_OUTCOMES = ("new_version", "unchanged", "not_modified")
 _PARSE_STATUSES = ("parsed", "incomplete", "failed", "not_applicable")
 # Seconds; a reflect is a job, so its latency includes the wait in the queue.
 _REFLECT_BUCKETS = (5.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0, 3600.0)
+_DISCOVERY_QUERY_OUTCOMES = ("searched", "failed")
 _RECALL_BUCKETS = (0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)
 RECALL_OUTCOMES = ("ok", "refused", "error")
 
@@ -77,6 +78,7 @@ class StateCollector(Collector):
             yield from self._operations(connection)
             yield from self._sections(connection)
             yield from self._research(connection)
+            yield from self._discovery(connection)
 
     def _pause(self) -> Iterator[Metric]:
         pause = self._queue.pause_state()
@@ -301,3 +303,41 @@ class StateCollector(Collector):
         ).all():
             tokens.add_metric([kind, direction], total)
         yield tokens
+
+    def _discovery(self, connection: Connection) -> Iterator[Metric]:
+        queries = CounterMetricFamily(
+            "atlas_discovery_queries",
+            "Discovery (Scout) queries sent to SearXNG, by outcome (a failed query searched"
+            " again by a retry counts once, as its final outcome)",
+            labels=["status"],
+        )
+        by_status: dict[str, int] = {
+            status: count
+            for status, count in connection.execute(
+                text(
+                    "SELECT status, count(*) FROM discovery_query"
+                    " WHERE status <> 'pending' GROUP BY 1"
+                )
+            ).all()
+        }
+        for status in _DISCOVERY_QUERY_OUTCOMES:
+            queries.add_metric([status], by_status.get(status, 0))
+        yield queries
+        unresponsive = CounterMetricFamily(
+            "atlas_discovery_unresponsive_engines",
+            "Searches in which SearXNG reported an engine unresponsive, by engine",
+            labels=["engine"],
+        )
+        for engine, count in connection.execute(
+            text(
+                "SELECT e ->> 'engine', count(*) FROM discovery_query,"
+                " jsonb_array_elements(unresponsive_engines) e GROUP BY 1 ORDER BY 1"
+            )
+        ).all():
+            unresponsive.add_metric([engine], count)
+        yield unresponsive
+        leads = CounterMetricFamily(
+            "atlas_leads", "Tier C leads found by discovery (one per canonical URL)"
+        )
+        leads.add_metric([], connection.execute(text("SELECT count(*) FROM lead")).scalar_one())
+        yield leads

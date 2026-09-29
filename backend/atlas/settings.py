@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     )
     llm_role_timeout_seconds: float = Field(default=180.0, gt=0)
     run_token_budget: int = Field(default=200_000, gt=0)
+    # Discovery (atlas.discovery): SearXNG's base URL (optional; without it the `discover`
+    # job fails), the engines every search names (comma-separated; the instance's defaults
+    # are partly broken, so they're always named), its HTTP timeout, and how many queries
+    # the Scout may have searched per discovery (at most 10, spec §7.4).
+    searxng_url: str | None = None
+    searxng_engines: str = Field(default="bing,brave", pattern=r"^\s*[\w-]+(\s*,\s*[\w-]+)*\s*$")
+    searxng_timeout_seconds: float = Field(default=30.0, gt=0)
+    discovery_max_queries: int = Field(default=10, ge=1, le=10)
     # Retention: how long one poll job waits for a retain operation to reach a terminal
     # status (keep it below job_lease_seconds), and how often it asks. A poll that times out
     # fails its attempt and is retried, up to retain_poll_attempts.
@@ -161,6 +169,9 @@ class Settings(BaseSettings):
         """The LiteLLM aliases whose routed deployments each run records."""
         return list(dict.fromkeys([self.llm_extract_alias, self.llm_reflect_alias]))
 
+    def searxng_engine_list(self) -> list[str]:
+        return [engine.strip() for engine in self.searxng_engines.split(",") if engine.strip()]
+
     def disabled_providers(self) -> list[tuple[str, str]]:
         """(provider, missing setting) for each optional provider that is not configured."""
         missing: list[tuple[str, str]] = []
@@ -172,4 +183,6 @@ class Settings(BaseSettings):
             missing.append(("litellm", "ATLAS_LITELLM_API_KEY"))
         if not self.sec_live:
             missing.append(("sec", "ATLAS_SEC_LIVE"))
+        if not self.searxng_url:
+            missing.append(("searxng", "ATLAS_SEARXNG_URL"))
         return missing

@@ -379,6 +379,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Leads */
+        get: operations["leads_api_v1_leads_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/discoveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discoveries */
+        get: operations["discoveries_api_v1_discoveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/discoveries/{discovery_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discovery */
+        get: operations["discovery_api_v1_discoveries__discovery_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -649,6 +700,78 @@ export interface components {
             /** Parsed */
             parsed: string | null;
         };
+        /** Discovery */
+        Discovery: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Job Id */
+            job_id: string | null;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Theme */
+            theme: string;
+            /** Question */
+            question: string;
+            /** Engines */
+            engines: string[];
+            /** Max Queries */
+            max_queries: number;
+            /** Gaps Source */
+            gaps_source: string | null;
+            /** Queries Proposed */
+            queries_proposed: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scouting" | "searching" | "completed";
+            /** Last Error */
+            last_error: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Queries */
+            queries: components["schemas"]["DiscoveryQuery"][];
+        };
+        /** DiscoveryQuery */
+        DiscoveryQuery: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /** Query */
+            query: string;
+            /** Purpose */
+            purpose: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "searched" | "failed";
+            /** Result Count */
+            result_count: number | null;
+            /** New Leads */
+            new_leads: number | null;
+            /** Unresponsive Engines */
+            unresponsive_engines: components["schemas"]["UnresponsiveEngine"][];
+            /** Error */
+            error: string | null;
+            /** Searched At */
+            searched_at: string | null;
+        };
         /** ErrorDetail */
         ErrorDetail: {
             /** Code */
@@ -841,6 +964,47 @@ export interface components {
              * Format: date-time
              */
             called_at: string;
+        };
+        /** Lead */
+        Lead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tier
+             * @constant
+             */
+            tier: "C";
+            /** Canonical Url */
+            canonical_url: string;
+            /** Url */
+            url: string;
+            /** Title */
+            title: string;
+            /** Snippet */
+            snippet: string;
+            /** Published Date */
+            published_date: string | null;
+            /** Engines */
+            engines: string[];
+            /** Query */
+            query: string;
+            /** Theme */
+            theme: string;
+            /** Sightings */
+            sightings: number;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
         };
         /**
          * MemoryDocument
@@ -1049,6 +1213,28 @@ export interface components {
         Page_Company_: {
             /** Items */
             items: components["schemas"]["Company"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[Discovery] */
+        Page_Discovery_: {
+            /** Items */
+            items: components["schemas"]["Discovery"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[Lead] */
+        Page_Lead_: {
+            /** Items */
+            items: components["schemas"]["Lead"][];
             /** Total */
             total: number;
             /** Limit */
@@ -1609,6 +1795,13 @@ export interface components {
         TagMatch: "any_strict" | "all_strict";
         /** @enum {string} */
         UnresolvedReason: "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
+        /** UnresponsiveEngine */
+        UnresponsiveEngine: {
+            /** Engine */
+            engine: string;
+            /** Reason */
+            reason: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -2516,6 +2709,116 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunRoleCalls"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leads_api_v1_leads_get: {
+        parameters: {
+            query?: {
+                /** @description only leads found for this theme */
+                theme?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Lead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discoveries_api_v1_discoveries_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Discovery_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discovery_api_v1_discoveries__discovery_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                discovery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Discovery"];
                 };
             };
             /** @description Not Found */

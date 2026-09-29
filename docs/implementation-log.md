@@ -1295,3 +1295,30 @@ Run with the owner's go-ahead: `scripts/live-tests.sh --model MiniMax-M3` (Compo
   - The role model isn't added to `llm_aliases()`: that would change every run's recorded routes and the `/model/info` readiness check. Each call records its routed model from the response instead.
   - `run.tokens_in/out` are not updated per call. The run's finisher sets them from `run_usage`.
 - **Next:** tickets 08 (Scout) and later add roles and their prompts, and register their job kinds `pausable=True`. Ticket 14 finishes runs with `run_usage` and maps `TokenBudgetExhausted` to the `budget_exhausted` stop reason.
+
+## 2026-09-29: Phase 3-6a ticket 08, Scout and leads
+
+- **Built:**
+  - `backend/atlas/roles/scout.py` + `roles/prompts/scout.v1.md`: the Scout role on the ticket-07 role caller (request: theme id/title/description, research question, `max_queries`; strict response `{queries: [{query, purpose}]}`)
+  - `backend/atlas/discovery/`: `searxng.py` (`SearXNGClient`: `GET /search?q&format=json&engines=bing,brave`, results with URL/title/snippet/engines/published day, `unresponsive_engines` as `{engine, reason}`; every failure is `SearchFailed`), `leads.py` (`canonical_url`, lead + sighting storage, `list_leads`), `service.py` (`Scout.discover`: Bottlenecks content as quoted gaps once refreshed, one Scout call, first ≤ 10 distinct queries kept, per-query search with failures recorded, retry reuses the Scout's queries, run finished with its tokens; `get_discovery`/`list_discoveries`), `handlers.py` (the pausable `discover` job; payload `{theme, question}`)
+  - migration `0018` (down_revision `0015`): `discovery`, `discovery_query`, `lead` (tier always `C`, unique canonical URL), `lead_sighting`
+  - `GET /api/v1/leads[?theme=]`, `GET /api/v1/discoveries[/{id}]` (`api/discovery.py`); API client regenerated
+  - settings `searxng_url` (optional provider, logs `searxng disabled: missing ATLAS_SEARXNG_URL`), `searxng_engines` (default `bing,brave`), `searxng_timeout_seconds`, `discovery_max_queries` (default 10, ≤ 10)
+  - metrics `atlas_discovery_queries_total{status}`, `atlas_discovery_unresponsive_engines_total{engine}`, `atlas_leads_total`
+  - `tests/fakes/searxng.py` (scripted per query: fixture, HTTP error, dropped connection) and three hand-written fixtures in `tests/fixtures/searxng/`
+  - docs: `docs/decisions.md` entry, `docs/data-model.md` §3.1c, `AGENTS.md`, `.env.example`
+- **Tests:**
+  - new `tests/unit/test_searxng.py` (21): request shape and configured engines, result fields and published dates, unresponsive engines, 403/429/502/connection failure and a non-SearXNG body as `SearchFailed`, no client without a URL, canonical-URL cases, non-web URLs
+  - new `tests/integration/test_discovery.py` (15): the Scout request (role, strict schema, prompt, Bottlenecks gaps as quoted data, `gaps_source`) and the searches; no gaps before the model's first refresh; ≤ 10 distinct queries (12 proposed, one a case/space duplicate); the configurable cap (and > 10 refused); Tier C leads deduplicated across queries (tracking-parameter, `www.`, port and fragment variants), FTP result dropped; a rerun deduplicates (same lead IDs, sightings grow, no new leads); theme filter and paging; **leads never create retain jobs or Evidence** (only `discover` jobs, no Source Documents/Versions, Assertions or memory documents, nothing retained into the Hindsight fake, after a further worker pass); a failed search recorded while the others proceed, with unresponsive engines, and no pause; all searches failing fails the attempt without pausing and the retry reuses the Scout's queries (one LLM call); no SearXNG → the job fails before any LLM call; unknown theme; a Scout 429 pauses the queue; 404 for an unknown discovery; metrics
+  - `tests/unit/test_cli.py`: the worker also logs `searxng disabled: missing ATLAS_SEARXNG_URL`; migration head → `0018`
+  - the tests were written before the code (the import failed, so not run red on their own); the integration module then passed first time
+  - `tests/integration/test_queue_pause.py`: `discover` added to the expected pausable kinds (the first CI run failed there, 1 of 494, as expected from the new pausable kind)
+  - `scripts/ci.sh --no-image` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`): **passed** (ruff, strict pyright, frontend gates, API client check, pytest 494 passed and 9 deselected in 17.9 min, e2e 3 passed)
+- **Fixture-only vs live:** all of it. No SearXNG, LiteLLM or Hindsight request was made to a live service. The SearXNG fixtures are **hand-written**, not recordings, in the shape of SearXNG's JSON output (https://docs.searxng.org/dev/search_api.html): `results[]` with `url`, `title`, `content`, `engine`, `engines`, `publishedDate`, and `unresponsive_engines` as `[engine, reason]` pairs; the reasons ("timeout", "Suspended: access denied") are SearXNG's messages but weren't observed on the owner's instance. Whether that instance enables `format=json` for these engines, and how often Bing/Brave come back unresponsive, is unverified. The Scout's answers are scripted; the prompt hasn't been tried on MiniMax.
+- **Deviations:**
+  - The job payload requires the research `question`; the theme config has no question field yet.
+  - The "open gaps" are the Bottlenecks model's whole content, read by the Scout, not gaps parsed by code.
+  - Only SearXNG's first result page is read. The per-run lead budget (spec §7.4) is left to ticket 14; this ticket bounds queries.
+  - Leads dedupe globally, not per theme; `http` and `https` stay distinct in the canonical URL, `www.` doesn't.
+  - A discovery whose job exhausts its attempts leaves its run unfinished (its role calls stay visible).
+- **Next:** ticket 09 resolves entity mentions in leads (the Sumitomo Electric fixture lead names an unseeded company) into Candidates; ticket 14 runs the Scout inside an investigation (it will need `Scout` to use the investigation's run instead of starting its own) and applies the lead budget. A live discovery against the owner's SearXNG belongs in the opt-in live suite.

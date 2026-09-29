@@ -278,6 +278,55 @@ Every research role's LLM call in a run (`atlas.roles`). A run's usage, which it
 | `validation_errors` | jsonb | Pydantic errors (`type`, `loc`, `msg`, no input); null when it validated |
 | `called_at` | timestamptz | |
 
+### 3.1c `discovery`, `discovery_query`, `lead` and `lead_sighting` (Phases 3–6a, migration 0018)
+
+Discovery (`atlas.discovery`): the Scout's SearXNG queries and the Tier C leads they found. `GET /api/v1/discoveries[/{id}]` and `GET /api/v1/leads` read them. A lead is never Evidence: no Source Version, Assertion or memory document references it, and nothing retains it.
+
+`discovery`: one per `discover` job.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `job_id` | uuid FK → `job`, unique | A retry resumes the same discovery |
+| `run_id` | uuid FK → `run` | Kind `discovery`; the Scout's role call is in it |
+| `theme`, `question` | text not null | The theme (config slug) and its research question |
+| `engines` | text[] not null | The SearXNG engines every search named |
+| `max_queries` | smallint 1–10 | `ATLAS_DISCOVERY_MAX_QUERIES` |
+| `gaps_source` | text | `mental-model:bottlenecks@<last_refreshed_at>` when the Bottlenecks model's content was sent; null: none (not refreshed yet) |
+| `scout_role_call_id` | uuid FK → `role_call` | The accepted Scout call |
+| `queries_proposed` | int | How many queries the Scout wrote, before dedupe and the cap |
+| `status` | text | `scouting`, `searching`, `completed` |
+| `last_error` | text | The latest failed attempt's error (kept after a retry succeeds) |
+| `started_at`, `finished_at` | timestamptz | `finished_at` set only when `completed` |
+
+`discovery_query`: one per query searched (position 1–10, unique per discovery).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `discovery_id` | uuid FK → `discovery` | |
+| `position` | smallint 1–10 | The Scout's order |
+| `query`, `purpose` | text | The query (whitespace collapsed) and which gap it is for |
+| `status` | text | `pending`, `searched`, `failed` (a retry searches a failed query again) |
+| `result_count`, `new_leads` | int | Results SearXNG returned; of them, canonical URLs never seen before |
+| `unresponsive_engines` | jsonb array | `[{engine, reason}]` from SearXNG's `unresponsive_engines` |
+| `error` | text | Why the search failed |
+| `searched_at` | timestamptz | |
+
+`lead`: one per canonical URL, ever (the dedupe key; rule in `atlas/discovery/leads.py` and `docs/decisions.md`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `canonical_url` | text unique | |
+| `url`, `title`, `snippet`, `published_date` | | As the first result gave them (`snippet` is SearXNG's `content`) |
+| `engines` | text[] | Every engine that has returned it (union over sightings) |
+| `first_query_id` | uuid FK → `discovery_query` | The query that found it first |
+| `tier` | text, always `C` | |
+| `first_seen_at`, `last_seen_at` | timestamptz | |
+
+`lead_sighting`: each query result that returned a lead (primary key lead + query): position, URL, title, snippet, engines, published date and `seen_at`, as that result gave them.
+
 ### 3.1b `bank_template_application`
 
 One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.

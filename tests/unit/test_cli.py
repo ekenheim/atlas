@@ -94,6 +94,7 @@ def test_worker_reports_each_disabled_provider_once_and_fails_cleanly_without_a_
         ("hindsight", "ATLAS_HINDSIGHT_URL"),
         ("litellm", "ATLAS_LITELLM_URL"),
         ("sec", "ATLAS_SEC_LIVE"),
+        ("searxng", "ATLAS_SEARXNG_URL"),
     ]:
         assert result.stderr.count(f"{provider} disabled: missing {setting}") == 1
 
