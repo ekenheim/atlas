@@ -1,5 +1,7 @@
 # Recorded source fixtures are replayed byte for byte (their hashes matter).
 tests/fixtures/** -text
+# The evaluation gold set is pinned by SHA-256 (cases and sources alike).
+tests/evaluation/gold/** -text
 # Generated from the OpenAPI schema by scripts/gen_api_client.sh.
 frontend/lib/api/openapi.json linguist-generated
 frontend/lib/api/schema.ts linguist-generated

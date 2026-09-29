@@ -1129,6 +1129,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluations */
+        get: operations["evaluations_api_v1_evaluations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evaluations/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluation */
+        get: operations["evaluation_api_v1_evaluations__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1594,6 +1628,61 @@ export interface components {
             needs_review: boolean;
             /** Open Questions */
             open_questions: string[];
+        };
+        /** CaseResult */
+        CaseResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Case Id */
+            case_id: string;
+            /** Case Sha256 */
+            case_sha256: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Temporal Convention */
+            temporal_convention: string | null;
+            /** Passed */
+            passed: boolean;
+            /** Scores */
+            scores: {
+                [key: string]: number;
+            };
+            /** Checks */
+            checks: components["schemas"]["Check"][];
+            /** Predicted */
+            predicted: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error: string | null;
+            /** Duration Ms */
+            duration_ms: number;
+            /**
+             * Evaluated At
+             * Format: date-time
+             */
+            evaluated_at: string;
+        };
+        /**
+         * Check
+         * @description One gold expectation, what was observed, and whether it held.
+         */
+        Check: {
+            /** Key */
+            key: string;
+            /** Metric */
+            metric: string;
+            /** Expected */
+            expected: unknown;
+            /** Observed */
+            observed: unknown;
+            /** Passed */
+            passed: boolean;
         };
         /** @enum {string} */
         CitationKind: "memory" | "chunk" | "quote";
@@ -2118,6 +2207,96 @@ export interface components {
             kind: "estimated";
             /** Basis */
             basis: string;
+        };
+        /** EvaluationRun */
+        EvaluationRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "fake" | "live";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed" | "failed";
+            /** Model */
+            model: string;
+            /** Code Version */
+            code_version: string;
+            /** Gold Manifest Sha256 */
+            gold_manifest_sha256: string;
+            /** Case Ids */
+            case_ids: string[];
+            /** Cases Total */
+            cases_total: number;
+            /** Cases Passed */
+            cases_passed: number;
+            /** Actor */
+            actor: string;
+            /** Error */
+            error: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Categories */
+            categories: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Results */
+            results: components["schemas"]["CaseResult"][];
+        };
+        /** EvaluationRunSummary */
+        EvaluationRunSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "fake" | "live";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed" | "failed";
+            /** Model */
+            model: string;
+            /** Code Version */
+            code_version: string;
+            /** Gold Manifest Sha256 */
+            gold_manifest_sha256: string;
+            /** Case Ids */
+            case_ids: string[];
+            /** Cases Total */
+            cases_total: number;
+            /** Cases Passed */
+            cases_passed: number;
+            /** Actor */
+            actor: string;
+            /** Error */
+            error: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
         };
         /**
          * Evidence
@@ -3724,6 +3903,17 @@ export interface components {
         Page_Discovery_: {
             /** Items */
             items: components["schemas"]["Discovery"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[EvaluationRunSummary] */
+        Page_EvaluationRunSummary_: {
+            /** Items */
+            items: components["schemas"]["EvaluationRunSummary"][];
             /** Total */
             total: number;
             /** Limit */
@@ -8421,6 +8611,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Scenario"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluations_api_v1_evaluations_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EvaluationRunSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluation_api_v1_evaluations__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRun"];
                 };
             };
             /** @description Not Found */

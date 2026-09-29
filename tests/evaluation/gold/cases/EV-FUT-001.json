@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-FUT-001",
+  "category": "FUT",
+  "title": "A contract disclosed after the cutoff must not leak into an investigation as of it",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "Which customers had Aurora Photonics disclosed for its transceivers?",
+  "scope": {
+    "companies": [
+      "aurora"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "aurora",
+      "legal_name": "Aurora Photonics Inc.",
+      "display_name": "Aurora Photonics",
+      "country": "US",
+      "cik": "0999900001",
+      "layer": "module",
+      "fictional": true
+    },
+    {
+      "key": "cirrus",
+      "legal_name": "Cirrus Compute Corp.",
+      "display_name": "Cirrus Compute",
+      "country": "US",
+      "cik": "0999900003",
+      "layer": "system",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s1",
+      "sha256": "3bab97d935c8a49e7954d2870c3484ef1277ab9ce3e46110169d8daf3c8c47df",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "10-K",
+      "title": "Aurora Photonics 10-K fiscal 2024",
+      "company": "aurora",
+      "origin_url": "https://ir.aurora-photonics.example/sec/10-k-2024-fut.htm",
+      "clocks": {
+        "published_at": "2025-02-20T21:05:00+00:00",
+        "available_at": "2025-02-20T21:05:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    },
+    {
+      "key": "s2",
+      "sha256": "2b3dd19c535ca4a79f9c9af5258d186988de85cf34a13811a5fa2fda04ad96eb",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "8-K",
+      "title": "Aurora Photonics 8-K (supply agreement)",
+      "company": "aurora",
+      "origin_url": "https://ir.aurora-photonics.example/sec/8-k-2025-06-02.htm",
+      "clocks": {
+        "published_at": "2025-06-02T20:10:00+00:00",
+        "available_at": "2025-06-02T20:10:00+00:00",
+        "available_at_basis": "publisher_timestamp",
+        "event_at": "2025-03-15T00:00:00+00:00"
+      }
+    }
+  ],
+  "pipeline": {
+    "kind": "investigation",
+    "seeds": [
+      "aurora"
+    ]
+  },
+  "script": {
+    "scout": [
+      {
+        "queries": [
+          {
+            "query": "Aurora Photonics transceiver customers",
+            "purpose": "customers"
+          }
+        ]
+      }
+    ],
+    "investigator": [
+      {
+        "claims": [
+          {
+            "subject": "aurora",
+            "predicate": "supplies",
+            "object": "cirrus",
+            "layer": "module",
+            "quote": "On March 15, 2025, we entered into a supply agreement with Cirrus Compute to ship 1.6T transceivers beginning in 2026.",
+            "product": "1.6T transceivers",
+            "epistemic_type": "company_claim"
+          }
+        ]
+      }
+    ],
+    "skeptic_plan": [
+      {
+        "queries": [],
+        "documents": []
+      }
+    ],
+    "editor": [
+      {
+        "statement": "Aurora Photonics supplies Cirrus Compute.",
+        "verdict": "answered"
+      }
+    ],
+    "reviewer": [
+      {
+        "reviews": [],
+        "otherwise": {
+          "verdict": "confirmed",
+          "direction": "as_proposed",
+          "layer_verdict": "correct"
+        }
+      }
+    ]
+  },
+  "gold": {
+    "answer": {
+      "evidence_missing": true,
+      "must_not_mention": [
+        "cirrus"
+      ]
+    },
+    "forbidden_sources": [
+      "s2"
+    ],
+    "investigation": {
+      "stop_reason": [
+        "no_new_independent_evidence"
+      ]
+    }
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "as_of_isolation"
+  ],
+  "earliest_phase": "6a",
+  "as_of": "2025-03-31T00:00:00+00:00",
+  "temporal_convention": "available_at",
+  "notes": "s2 describes an event before as_of (March 15) but became available after it (June 2), so it is also a LAT-style trap. In fake mode the scripted Investigator would quote s2 if it were ever sent."
+}

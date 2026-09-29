@@ -4776,6 +4776,119 @@
           }
         }
       }
+    },
+    "/api/v1/evaluations": {
+      "get": {
+        "tags": [
+          "evaluations"
+        ],
+        "summary": "Evaluations",
+        "operationId": "evaluations_api_v1_evaluations_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_EvaluationRunSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evaluations/{run_id}": {
+      "get": {
+        "tags": [
+          "evaluations"
+        ],
+        "summary": "Evaluation",
+        "operationId": "evaluation_api_v1_evaluations__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationRun"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6106,6 +6219,134 @@
         ],
         "title": "CardFinding",
         "description": "A research card finding in the §7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
+      },
+      "CaseResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "case_sha256": {
+            "type": "string",
+            "title": "Case Sha256"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "temporal_convention": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temporal Convention"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          },
+          "scores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Scores"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/Check"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "predicted": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Predicted"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms"
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evaluated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "case_id",
+          "case_sha256",
+          "category",
+          "title",
+          "temporal_convention",
+          "passed",
+          "scores",
+          "checks",
+          "predicted",
+          "error",
+          "duration_ms",
+          "evaluated_at"
+        ],
+        "title": "CaseResult"
+      },
+      "Check": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "expected": {
+            "title": "Expected"
+          },
+          "observed": {
+            "title": "Observed"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "metric",
+          "expected",
+          "observed",
+          "passed"
+        ],
+        "title": "Check",
+        "description": "One gold expectation, what was observed, and whether it held."
       },
       "CitationKind": {
         "type": "string",
@@ -7692,6 +7933,229 @@
           "basis"
         ],
         "title": "EstimatedInput"
+      },
+      "EvaluationRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fake",
+              "live"
+            ],
+            "title": "Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "code_version": {
+            "type": "string",
+            "title": "Code Version"
+          },
+          "gold_manifest_sha256": {
+            "type": "string",
+            "title": "Gold Manifest Sha256"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Case Ids"
+          },
+          "cases_total": {
+            "type": "integer",
+            "title": "Cases Total"
+          },
+          "cases_passed": {
+            "type": "integer",
+            "title": "Cases Passed"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "categories": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Categories"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CaseResult"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "mode",
+          "status",
+          "model",
+          "code_version",
+          "gold_manifest_sha256",
+          "case_ids",
+          "cases_total",
+          "cases_passed",
+          "actor",
+          "error",
+          "started_at",
+          "finished_at",
+          "categories",
+          "results"
+        ],
+        "title": "EvaluationRun"
+      },
+      "EvaluationRunSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fake",
+              "live"
+            ],
+            "title": "Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "code_version": {
+            "type": "string",
+            "title": "Code Version"
+          },
+          "gold_manifest_sha256": {
+            "type": "string",
+            "title": "Gold Manifest Sha256"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Case Ids"
+          },
+          "cases_total": {
+            "type": "integer",
+            "title": "Cases Total"
+          },
+          "cases_passed": {
+            "type": "integer",
+            "title": "Cases Passed"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "mode",
+          "status",
+          "model",
+          "code_version",
+          "gold_manifest_sha256",
+          "case_ids",
+          "cases_total",
+          "cases_passed",
+          "actor",
+          "error",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "EvaluationRunSummary"
       },
       "Evidence": {
         "properties": {
@@ -12270,6 +12734,37 @@
           "offset"
         ],
         "title": "Page[Discovery]"
+      },
+      "Page_EvaluationRunSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationRunSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[EvaluationRunSummary]"
       },
       "Page_FetchGateDecision_": {
         "properties": {

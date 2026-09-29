@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-COM-001",
+  "category": "COM",
+  "title": "Companies named together as exhibitors are not a supply relationship",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "Does Aurora Photonics supply Cirrus Compute?",
+  "scope": {
+    "companies": [
+      "aurora"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "aurora",
+      "legal_name": "Aurora Photonics Inc.",
+      "display_name": "Aurora Photonics",
+      "country": "US",
+      "cik": "0999900001",
+      "layer": "module",
+      "fictional": true
+    },
+    {
+      "key": "cirrus",
+      "legal_name": "Cirrus Compute Corp.",
+      "display_name": "Cirrus Compute",
+      "country": "US",
+      "cik": "0999900003",
+      "layer": "system",
+      "fictional": true
+    },
+    {
+      "key": "ember",
+      "legal_name": "Ember Lasers Inc.",
+      "display_name": "Ember Lasers",
+      "country": "US",
+      "cik": "0999900005",
+      "layer": "chip-laser",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s1",
+      "sha256": "0ad254d5639cc6502fdbe6f1ccec8110835dda4ced8b9d9e20f9828100edf5ac",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "8-K",
+      "title": "Aurora Photonics OFC 2025 recap",
+      "company": "aurora",
+      "origin_url": "https://ir.aurora-photonics.example/news/ofc-2025.htm",
+      "clocks": {
+        "published_at": "2025-04-02T13:00:00+00:00",
+        "available_at": "2025-04-02T13:00:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    }
+  ],
+  "pipeline": {
+    "kind": "relationships"
+  },
+  "script": {
+    "investigator": [
+      {
+        "claims": [
+          {
+            "subject": "aurora",
+            "predicate": "supplies",
+            "object": "cirrus",
+            "layer": "module",
+            "quote": "Aurora Photonics, Cirrus Compute and Ember Lasers were among the forty exhibitors at the OFC 2025 conference in San Francisco.",
+            "product": null,
+            "epistemic_type": "company_claim"
+          }
+        ]
+      }
+    ],
+    "reviewer": [
+      {
+        "reviews": [],
+        "otherwise": {
+          "verdict": "confirmed",
+          "direction": "as_proposed",
+          "layer_verdict": "correct"
+        }
+      }
+    ]
+  },
+  "gold": {
+    "claims": [
+      {
+        "subject": "aurora",
+        "predicate": "supplies",
+        "object": "cirrus",
+        "accepted": false
+      }
+    ],
+    "relationships": [
+      {
+        "subject": "aurora",
+        "predicate": "supplies",
+        "object": "cirrus",
+        "expect": "absent"
+      },
+      {
+        "subject": "cirrus",
+        "predicate": "supplies",
+        "object": "aurora",
+        "expect": "absent"
+      }
+    ]
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "relationship_precision"
+  ],
+  "earliest_phase": "3"
+}

@@ -1861,3 +1861,66 @@ The chain is now 0012 → 0013 → … → 0023.
 - **Fixture-tested only:** everything; no LLM or Hindsight call was made.
 - **Deviations:** a `Requeue`d job is claimable again straight away. It has no delay of its own; only the `minimax` window budget (and the backfill window) hold it. Each retry starts a fresh run, whose first call always goes out, so every requeue makes progress.
 - **Next:** an alert rule on `atlas_triage_failed_jobs > 0` in `configs/prometheus/atlas-alerts.yaml` if the owner wants paging.
+## 2026-09-30: Phase 3-6a ticket 25, the evaluation set
+
+- **Built:**
+  - **12 gold cases** in `tests/evaluation/gold/` (the `docs/evaluation-methodology.md` layout: `manifest.json`, immutable `cases/EV-*.json` pinned by SHA-256, 27 content-addressed `sources/`). Eleven are synthetic, about fictional companies (Aurora Photonics, Borealis Substrates, Cirrus Compute, Dunmore Epitaxy, Ember Lasers; `.example` URLs, CIKs `09999000NN`). One (RST) reuses the hand-written Nokia EDGAR sample (`public_regulatory`). The cases:
+    - `EV-SUP-001` a correct directed supplier edge (`supplies`, substrate layer, machine-reviewed, citation resolves);
+    - `EV-SUP-002` a `buys_from` stated by the buyer (and never the reverse);
+    - `EV-DIR-001` the reversed-direction trap: the reverse is proposed, and the Reviewer's `reversed` keeps it `not_verified`;
+    - `EV-COM-001` a trade-show co-mention and `EV-COM-002` a market ranking (rejected `no_directional_language`; no edge);
+    - `EV-INF-001` a partner page, "works with", and a supplier removed in a second version (no edge; `party_not_in_quote`);
+    - `EV-LAY-001` substrate vs epi (the substrate edge is verified; the epi one waits on `layer_not_confirmed`);
+    - `EV-SYN-001` one release with ten mirrors is one Evidence Family, and an unrelated release is a second;
+    - `EV-HED-001` "in discussions / expect to / non-binding" goes to the exceptions queue with `hedged_language`;
+    - `EV-FUT-001` an 8-K published after the as-of time (for an event before it) never reaches the investigation (`no_new_independent_evidence`, forbidden source unused);
+    - `EV-RST-001` Nokia's FY2023 revenue as of before and after the restating 20-F (22,258 then 21,138 EUR million, `restates`);
+    - `EV-CON-001` the Skeptic finds a later 10-Q contradicting the supply claim: an independent contradiction on the card, stop `needs_review`.
+  - **`atlas.evaluation`:**
+    - `gold.py`: the Pydantic case and manifest models and the §9 validator (ID pattern, hashes of cases and sources, licence classes, gold quotes occurring exactly in the parse, every entity and source key defined, including the script's).
+    - `stubs.py`: localhost stubs for Hindsight (version `evaluation-stub`, template import, empty recall) and SearXNG (no results), and the scripted LiteLLM. Its answers are written per role in the case's terms and computed against the request Atlas sent. The Investigator proposes only quotes a sent passage holds.
+    - `runner.py`: one database per case, cloned from a migrated template per run and dropped afterwards; manual imports or the EDGAR fixture path; the real job handlers in worker passes; observation through the read side.
+    - `scoring.py`: the checks, each feeding a methodology §7 metric.
+    - `store.py`: runs and results.
+  - **Migration `0037`:** `evaluation_run` and `evaluation` (insert-only by trigger).
+  - **CLI:** `atlas evaluate [--case ID]... [--live]` prints one line per case to stderr and the run as JSON. Exit 0 when all pass, 1 on a failed case, 2 when refused.
+  - **API:** `GET /api/v1/evaluations[/{id}]` (per-category tallies, every check with what was expected and observed, per-metric scores, the predicted output).
+  - **Setting:** `ATLAS_EVALUATION_GOLD_DIR`.
+  - **Docs:** the methodology gains the `pipeline` and `script` keys, the `claims`/`investigation` gold keys and the `relationships` extensions, the `DIR`/`HED` codes, `agent_draft` and the manifest's `adjudicated`, and §10 on running. AGENTS.md and `.env.example` are updated.
+- **Files:** `backend/atlas/evaluation/{__init__,gold,stubs,runner,scoring,store}.py` (new), `backend/atlas/api/evaluations.py` (new), `backend/atlas/api/app.py`, `backend/atlas/cli.py`, `backend/atlas/settings.py`, `backend/atlas/db/migrations/versions/0037_evaluations.py` (new), `tests/evaluation/gold/` (new), `tests/unit/test_evaluation_gold.py` (new), `tests/integration/test_evaluations.py` (new), `tests/integration/test_migrations.py` (head `0037`), `docs/evaluation-methodology.md`, `AGENTS.md`, `.env.example`, `frontend/lib/api/` (regenerated; this also picks up the base branch's stale counterevidence schema).
+- **Tests:**
+  - `test_evaluation_gold.py` (7):
+    - the committed set validates;
+    - 10-15 active cases cover the ticket's categories;
+    - a changed case, a changed source, a paraphrased gold quote, unknown keys and licences, and bad or duplicate IDs are each caught.
+  - `test_evaluations.py` (4, CLI subprocess and API):
+    - every case passes in fake mode, and the run is stored and served with per-case hashes, checks, scores and categories;
+    - the traps are caught for the right reason (rejection codes, the review reasons, the investigation's documents and stops, families, the as-of values);
+    - no case database is left behind;
+    - a copy of the gold set with a wrong expectation fails with the observed edge list and exit 1;
+    - `--live` refuses without `ATLAS_LIVE_TESTS=1`, and without LiteLLM; an unknown case is refused;
+    - results are insert-only.
+  - Local results:
+    - `test_evaluation_gold.py` + `test_evaluations.py` + `test_migrations.py`: **15 passed**;
+    - `tests/unit`: 447 passed;
+    - ruff format and check on backend, tests and scripts, and strict pyright: clean;
+    - `scripts/gen_api_client.sh --check`: current.
+    - A full fake-mode run takes about 30 s.
+  - The full suite runs on the runners.
+- **Fixture-only vs live:** everything is fake mode. The model answers are the cases' scripts, and Hindsight and SearXNG are stubs. **No live evaluation was run**, so model quality on these cases is unmeasured. `--live` was only checked to refuse.
+- **Deviations:**
+  - 12 cases, not 20-30 (spec: a first 10-15).
+  - Two category codes were added: `DIR` (reversed direction) and `HED` (hedged language).
+  - The Skeptic case is `CON`.
+  - The gold labels are **agent drafts** (`adjudication.method: agent_draft`). The owner still has to adjudicate them; a confirmation goes in the manifest's `adjudicated`, a correction is a new case.
+  - The LAY case uses the primary filing alone. A misnaming news item would reach Atlas only as a Tier C lead, while manual imports are Tier A.
+  - Memory (retain, recall, reflect) isn't evaluated here: the Hindsight stub recalls nothing.
+  - Gold keys not yet scored are refused by the validator: `assertions`, `entity_mappings`, `coverage`, `retain`, `forbidden_effects`, `must_mention`, `status_at_as_of` and `min_mark`.
+  - The per-case databases need `CREATEDB`.
+  - The case databases, with their Atlas `run` rows, are dropped, so only the evaluation run's code version and model are kept, not each role call.
+  - The migration's `down_revision` is `"0030"`, the current head of `integrate-p3e`, so it could be tested locally. The lead re-chains it after `"0032"`.
+- **Next:**
+  - The owner adjudicates the 12 drafts.
+  - With the owner's go-ahead, a first `ATLAS_LIVE_TESTS=1 atlas evaluate --live` to measure MiniMax on them.
+  - Cases for the remaining categories (ENT, NOX, EXP, LAT, NUS, INJ, RET) as their gold keys become scorable.
+  - The Evaluation Dashboard (screen G) over `GET /evaluations`.

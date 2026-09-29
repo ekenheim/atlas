@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-COM-002",
+  "category": "COM",
+  "title": "A market ranking naming two wafer companies is not a purchase",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "Does Dunmore Epitaxy buy substrates from Borealis Substrates?",
+  "scope": {
+    "companies": [
+      "dunmore"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "dunmore",
+      "legal_name": "Dunmore Epitaxy Ltd.",
+      "display_name": "Dunmore Epitaxy",
+      "country": "GB",
+      "cik": "0999900004",
+      "layer": "epi",
+      "fictional": true
+    },
+    {
+      "key": "borealis",
+      "legal_name": "Borealis Substrates Corp.",
+      "display_name": "Borealis Substrates",
+      "country": "US",
+      "cik": "0999900002",
+      "layer": "substrate",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s1",
+      "sha256": "7f4b74a4a29779531d20fbe74bfcc2352e524aeb4846441233a0062dfcc0a85f",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "20-F",
+      "title": "Dunmore Epitaxy annual report 2025",
+      "company": "dunmore",
+      "origin_url": "https://www.dunmore-epitaxy.example/investors/annual-report-2025.htm",
+      "clocks": {
+        "published_at": "2025-06-30T08:00:00+00:00",
+        "available_at": "2025-06-30T08:00:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    }
+  ],
+  "pipeline": {
+    "kind": "relationships"
+  },
+  "script": {
+    "investigator": [
+      {
+        "claims": [
+          {
+            "subject": "dunmore",
+            "predicate": "buys_from",
+            "object": "borealis",
+            "layer": "substrate",
+            "quote": "The largest independent wafer companies by 2025 revenue were Borealis Substrates, Dunmore Epitaxy and two private companies.",
+            "product": null,
+            "epistemic_type": "company_claim"
+          }
+        ]
+      }
+    ],
+    "reviewer": [
+      {
+        "reviews": [],
+        "otherwise": {
+          "verdict": "confirmed",
+          "direction": "as_proposed",
+          "layer_verdict": "correct"
+        }
+      }
+    ]
+  },
+  "gold": {
+    "claims": [
+      {
+        "subject": "dunmore",
+        "predicate": "buys_from",
+        "object": "borealis",
+        "accepted": false
+      }
+    ],
+    "relationships": [
+      {
+        "subject": "dunmore",
+        "predicate": "buys_from",
+        "object": "borealis",
+        "expect": "absent"
+      },
+      {
+        "subject": "borealis",
+        "predicate": "supplies",
+        "object": "dunmore",
+        "expect": "absent"
+      }
+    ]
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "relationship_precision"
+  ],
+  "earliest_phase": "3"
+}

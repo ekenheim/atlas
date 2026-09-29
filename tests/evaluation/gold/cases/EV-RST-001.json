@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-RST-001",
+  "category": "RST",
+  "title": "Nokia's FY2023 revenue: the original value before the restating 20-F, the restated one after",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "What was Nokia's FY2023 revenue as known just before and just after its FY2024 20-F?",
+  "scope": {
+    "companies": [
+      "nokia"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "nokia",
+      "legal_name": "Nokia Oyj",
+      "display_name": "Nokia",
+      "country": "FI",
+      "cik": "0000924613",
+      "fictional": false
+    }
+  ],
+  "sources": [
+    {
+      "key": "submissions",
+      "sha256": "57827c63ae324197a047ae4a4ef36cd490b6a8e8580dcab468c094138c20f5a4",
+      "kind": "edgar_response",
+      "media_type": "application/json",
+      "provenance": "redistributable",
+      "license_class": "public_regulatory",
+      "licence_basis": "hand-written from SEC EDGAR public data quoted in docs/research/xbrl-normalization.md (branch research/xbrl-normalization); the same bytes as tests/fixtures/edgar/nokia",
+      "source_tier": "A",
+      "source_type": "submissions",
+      "form_type": null,
+      "title": "Nokia submissions index",
+      "company": "nokia",
+      "origin_url": "https://data.sec.gov/submissions/CIK0000924613.json",
+      "clocks": {
+        "published_at": "2025-03-13T17:24:32+00:00",
+        "available_at": "2025-03-13T17:24:32+00:00",
+        "available_at_basis": "sec_acceptance"
+      }
+    },
+    {
+      "key": "companyfacts",
+      "sha256": "f3769ffd6bc1eb69cdae59cd064eb37ef6d74e163c2218528a7877d8faa33678",
+      "kind": "edgar_response",
+      "media_type": "application/json",
+      "provenance": "redistributable",
+      "license_class": "public_regulatory",
+      "licence_basis": "hand-written from SEC EDGAR public data quoted in docs/research/xbrl-normalization.md (branch research/xbrl-normalization); the same bytes as tests/fixtures/edgar/nokia",
+      "source_tier": "A",
+      "source_type": "xbrl_companyfacts",
+      "form_type": null,
+      "title": "Nokia companyfacts",
+      "company": "nokia",
+      "origin_url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000924613.json",
+      "clocks": {
+        "published_at": "2025-03-13T17:24:32+00:00",
+        "available_at": "2025-03-13T17:24:32+00:00",
+        "available_at_basis": "sec_acceptance"
+      }
+    }
+  ],
+  "pipeline": {
+    "kind": "financials"
+  },
+  "script": {},
+  "gold": {
+    "financials": [
+      {
+        "concept": "RevenueFromContractsWithCustomers",
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "unit": "EUR",
+        "as_of": "2025-03-13T17:00:00+00:00",
+        "value": "22258000000",
+        "from_source": "companyfacts",
+        "accession": "0000924613-24-000013",
+        "linkage": "first"
+      },
+      {
+        "concept": "RevenueFromContractsWithCustomers",
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "unit": "EUR",
+        "as_of": "2025-03-13T17:30:00+00:00",
+        "value": "21138000000",
+        "from_source": "companyfacts",
+        "accession": "0000924613-25-000008",
+        "linkage": "restates"
+      }
+    ]
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "as_of_isolation"
+  ],
+  "earliest_phase": "5",
+  "as_of": "2025-03-13T17:30:00+00:00",
+  "temporal_convention": "available_at",
+  "notes": "The values are the research note's worked example (spec 'Unit tests': the Nokia FY2023 restatement); the restating 20-F was accepted 2025-03-13 17:24:32Z."
+}

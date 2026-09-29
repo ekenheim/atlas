@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-LAY-001",
+  "category": "LAY",
+  "title": "A substrate supplier isn't an epitaxy supplier: the layer the filing names wins",
+  "created_at": "2026-09-30",
+  "supersedes": null,
+  "question": "What does Borealis Substrates supply to Aurora Photonics: substrates or epitaxial wafers?",
+  "scope": {
+    "companies": [
+      "aurora"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "aurora",
+      "legal_name": "Aurora Photonics Inc.",
+      "display_name": "Aurora Photonics",
+      "country": "US",
+      "cik": "0999900001",
+      "layer": "module",
+      "fictional": true
+    },
+    {
+      "key": "borealis",
+      "legal_name": "Borealis Substrates Corp.",
+      "display_name": "Borealis Substrates",
+      "country": "US",
+      "cik": "0999900002",
+      "layer": "substrate",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s1",
+      "sha256": "00f484ccb11182eb303ec3ac136efa8bbfd5751f1632c7c3db4de62d0f6a32f1",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "filing",
+      "form_type": "10-K",
+      "title": "Aurora Photonics 10-K fiscal 2024",
+      "company": "aurora",
+      "origin_url": "https://ir.aurora-photonics.example/sec/10-k-2024.htm",
+      "clocks": {
+        "published_at": "2024-08-22T21:00:00+00:00",
+        "available_at": "2024-08-22T21:00:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      }
+    }
+  ],
+  "pipeline": {
+    "kind": "relationships"
+  },
+  "script": {
+    "investigator": [
+      {
+        "claims": [
+          {
+            "subject": "borealis",
+            "predicate": "supplies",
+            "object": "aurora",
+            "layer": "epi",
+            "quote": "Borealis Substrates supplies the bare indium phosphide substrates on which we grow the epitaxial layers of our laser chips in our own fab.",
+            "product": "indium phosphide wafers",
+            "epistemic_type": "company_claim"
+          },
+          {
+            "subject": "borealis",
+            "predicate": "supplies",
+            "object": "aurora",
+            "layer": "substrate",
+            "quote": "Borealis Substrates supplies the bare indium phosphide substrates on which we grow the epitaxial layers of our laser chips in our own fab.",
+            "product": "indium phosphide substrates",
+            "epistemic_type": "company_claim"
+          }
+        ]
+      }
+    ],
+    "reviewer": [
+      {
+        "reviews": [
+          {
+            "subject": "borealis",
+            "predicate": "supplies",
+            "object": "aurora",
+            "verdict": "confirmed",
+            "direction": "as_proposed",
+            "layer_verdict": "correct",
+            "layer": "substrate"
+          },
+          {
+            "subject": "borealis",
+            "predicate": "supplies",
+            "object": "aurora",
+            "layer": "epi",
+            "verdict": "confirmed",
+            "direction": "as_proposed",
+            "layer_verdict": "wrong",
+            "suggested_layer": "substrate",
+            "reasoning": "the epitaxy is Aurora's own"
+          }
+        ]
+      }
+    ]
+  },
+  "gold": {
+    "relationships": [
+      {
+        "subject": "borealis",
+        "predicate": "supplies",
+        "object": "aurora",
+        "layer": "substrate",
+        "expect": "present",
+        "review_state": "machine_reviewed"
+      },
+      {
+        "subject": "borealis",
+        "predicate": "supplies",
+        "object": "aurora",
+        "layer": "epi",
+        "expect": "not_verified"
+      }
+    ]
+  },
+  "adjudication": {
+    "labeler": "claude-agent (ticket 25)",
+    "adjudicated_at": "2026-09-30",
+    "method": "agent_draft",
+    "disagreements": []
+  },
+  "metrics": [
+    "relationship_recall",
+    "relationship_precision"
+  ],
+  "earliest_phase": "3",
+  "notes": "Methodology §5 LAY also foresees a news item misnaming the layer. Manual imports are recorded as Tier A, and news reaches Atlas only as Tier C leads (never Evidence), so this first case uses the primary source alone, with the misnamed layer proposed by the Investigator."
+}

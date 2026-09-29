@@ -167,6 +167,8 @@ class Settings(BaseSettings):
     themes_config: Path = Path("configs/themes/ai-infrastructure.yaml")
     # The canonical financial metrics: XBRL concept families by precedence (versioned config).
     financial_metrics_config: Path = Path("configs/financials/metrics.yaml")
+    # The evaluation gold set `atlas evaluate` runs (docs/evaluation-methodology.md).
+    evaluation_gold_dir: Path = Path("tests/evaluation/gold")
 
     @field_validator("*", mode="before")
     @classmethod
