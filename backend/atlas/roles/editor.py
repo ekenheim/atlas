@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-EDITOR_PROMPT_VERSION = 2  # v2: the Skeptic's counterevidence (ticket 15)
+EDITOR_PROMPT_VERSION = 3  # v2: counterevidence (ticket 15); v3: the bottleneck method
 
 
 class _Request(BaseModel):
@@ -90,7 +90,7 @@ EDITOR = Role(
 
 # --- the Hypothesis draft (spec §5.6, §8.1) ------------------------------------------------------
 
-HYPOTHESIS_EDITOR_PROMPT_VERSION = 2  # v2: contradictions (ticket 15)
+HYPOTHESIS_EDITOR_PROMPT_VERSION = 3  # v2: contradictions (ticket 15); v3: the bottleneck method
 
 
 class CardFindingSummary(_Request):

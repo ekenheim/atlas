@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-INVESTIGATOR_PROMPT_VERSION = 1
+INVESTIGATOR_PROMPT_VERSION = 2  # v2: the bottleneck method
 
 # An Investigator Claim quotes a source; an agent's own inference is never a Claim.
 ClaimEpistemicType = Literal["direct_source_statement", "company_claim", "third_party_report"]

@@ -1438,7 +1438,7 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     assert (assertion["predicate"], assertion["created_by"], assertion["extractor_version"]) == (
         "counterevidence",
         "atlas-skeptic",
-        "skeptic.v1",
+        "skeptic.v2",
     )
     assert assertion["value_json"]["checklist_item"] == "dilution_financing"
     assert assertion["value_json"]["counterevidence_id"] == dilution["id"]
