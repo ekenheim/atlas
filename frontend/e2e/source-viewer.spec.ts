@@ -32,7 +32,7 @@ const entry = manifest.responses.find((response) => response.url === URL_10K);
 if (!entry) throw new Error(`${URL_10K} is not in the fixture manifest`);
 const rawBytes = readFileSync(path.join(LUMENTUM, entry.file));
 const RAW_SHA256 = sha256(rawBytes);
-const CONTENT_SHA256 = golden["text-v2"]?.["lite-20260627.htm"];
+const CONTENT_SHA256 = golden["text-v3"]?.["lite-20260627.htm"];
 const recent = submissions.filings.recent;
 const ACCEPTED_AT = recent.acceptanceDateTime[recent.accessionNumber.indexOf(ACCESSION)];
 
@@ -61,7 +61,7 @@ test("a Source Version shows its provenance and parsed text", async ({ page }) =
     Accession: ACCESSION,
     "Raw SHA-256": RAW_SHA256,
     "Content SHA-256": CONTENT_SHA256!,
-    "Parser version": "text-v2",
+    "Parser version": "text-v3",
     "Fetch status": "ok",
     Supersedes: "none",
   };

@@ -121,7 +121,7 @@ def test_a_pdf_version_has_its_text_language_and_page_anchors(atlas: Atlas) -> N
 
     assert version["media_type"] == "application/pdf"
     assert version["parse_status"] == "parsed"
-    assert version["parser_version"] == "text-v2"
+    assert version["parser_version"] == "text-v3"
     assert version["language"] == "en"
     text = atlas.parsed(version["id"])
     assert text.startswith(COVER + "Chair's statement\n" + REVENUE_QUOTE + "\n")
@@ -167,7 +167,7 @@ def test_an_image_only_pdf_is_unsupported_and_cannot_be_quoted(atlas: Atlas) -> 
     version = atlas.get(f"/api/v1/source-versions/{atlas.record('scanned.pdf')}")
 
     assert version["parse_status"] == "unsupported"
-    assert version["parser_version"] == "text-v2"
+    assert version["parser_version"] == "text-v3"
     assert version["parse_error"] == (
         "no extractable text on any of its 2 pages (an image-only or scanned PDF)"
     )

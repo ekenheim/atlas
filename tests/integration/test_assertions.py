@@ -2,8 +2,9 @@
 
 Seam: the `/api/v1` API, on a fresh database holding Lumentum's recorded EDGAR filings,
 ingested through the fixture path (the `ingest` job, one worker pass). Quotes and their
-offsets come from the recorded Q4 FY26 press release (EX-99.1) as parsed by `text-v2`
-(`html-text-v1`'s HTML rules), whose output is pinned by `tests/fixtures/parser/golden.json`.
+offsets come from the recorded Q4 FY26 press release (EX-99.1) as parsed by `text-v3` (the
+same text as under `text-v2` and `html-text-v1`: it has no page artifacts), whose output is
+pinned by `tests/fixtures/parser/golden.json`.
 """
 
 import json
@@ -189,7 +190,7 @@ def assert_error(response: Any, status: int, code: str) -> str:
 
 def test_the_fixture_parse_is_the_pinned_golden_text(atlas: Atlas) -> None:
     version = atlas.get(f"/api/v1/source-versions/{atlas.version_id(URL_EX991)}")
-    assert version["content_sha256"] == GOLDEN_PARSES["text-v2"]["lite_ex991xq4fy26.htm"]
+    assert version["content_sha256"] == GOLDEN_PARSES["text-v3"]["lite_ex991xq4fy26.htm"]
 
 
 def test_an_assertion_whose_quote_occurs_exactly_at_its_offsets_is_recorded_unreviewed(

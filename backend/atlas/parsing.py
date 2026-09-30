@@ -9,6 +9,9 @@ output for some input is a new parser version.
 
 `text-v2` is `html-text-v1` (its HTML and text rules are unchanged, so an HTML or text
 parse has the same text and content hash as under v1) plus PDF text and the language.
+`text-v3` is `text-v2` plus the page-artifact rules for HTML below. Its text and PDF rules
+are unchanged, and so is the parse of an HTML document without page breaks (the same text
+and content hash as under v2).
 
 Rules for HTML and text (from `html-text-v1`):
 - Decoding: the charset declared in the document (XML declaration or `<meta>`), else
@@ -25,6 +28,35 @@ Rules for HTML and text (from `html-text-v1`):
 - Per line, runs of whitespace collapse to one space (or one tab, if the run held a cell
   break), and the line is trimmed. Empty lines are dropped. Lines end with "\\n".
 - `text/plain`: decoded the same way, then the same line rules.
+
+Page artifacts in HTML, new in `text-v3` (pilot fix 04). A filing rendered from a paginated
+document repeats a footer and a header around every page break, and they land inside
+sentences ("... design and manufacture\n9\nTable of Contents\nof transceivers ..."), so a
+true quote is no span of the parse. Text is removed only where the markup shows it is an
+artifact; a false removal would corrupt the text Evidence quotes.
+- A page break is a block element whose `style` sets `page-break-before` or
+  `page-break-after` to `always` (or `break-before`/`break-after` to `page`), outside hidden
+  content: before the element or after it, as the property says (`<hr
+  style="page-break-after:always"/>` in the recorded filings). The page breaks cut the
+  document into pages. A document without one is not paginated: none of these rules apply.
+- Back-link: a page's first line is removed when the whole line is the text of one
+  same-document link (`<a href="#...">`) reading "Table of Contents" (in any case). A
+  contents heading that is not a link, such a link further down the page, a link to another
+  document, and a link that shares its line with other text all stay.
+- Page number: a page's last line is removed when it is 1 to 3 ASCII digits and counts up
+  with the pages: the nearest other page before it, or after it, that ends in such a number
+  differs from it by exactly the number of page breaks between them. A lone number and one
+  out of sequence (a contents page's last page reference, a table value) stay.
+- Split paragraph: with those removed, the last line before a page break and the first line
+  after it become one line, joined by one space, when the first does not end a sentence (it
+  does not end in `.`, `!`, `?`, `:` or `;`, closing quotes and brackets aside), the second
+  starts with a lowercase letter and is not a list marker (`a.`, `ii)`), and neither is a
+  table row (no tab).
+- Left in the text, deliberately: a running title (a company name or statement title
+  repeated at the top of pages, which is also how a statement is headed), page numbers in
+  any other form ("F-12", "Page 3", "- 3 -", roman numerals), back-links with other wording,
+  a split paragraph whose second part starts with a capital or a digit (a capital also
+  starts a heading), and everything in plain text and PDF.
 
 Rules for PDF (`application/pdf`), new in `text-v2`:
 - Each page's text is pypdf's `extract_text()` (plain mode), with C0 control characters
@@ -58,6 +90,7 @@ ledger records the parse as failed.
 Other media types (JSON, XBRL instance data, ...) are not parsed: `parse` returns None.
 """
 
+import bisect
 import codecs
 import hashlib
 import io
@@ -67,11 +100,12 @@ import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 from html.parser import HTMLParser
+from itertools import pairwise
 from typing import cast
 
 from pypdf import PdfReader
 
-PARSER_VERSION = "text-v2"
+PARSER_VERSION = "text-v3"
 UNDETERMINED = "und"
 
 HTML_MEDIA_TYPES = frozenset({"text/html", "application/xhtml+xml"})
@@ -162,6 +196,13 @@ _HORIZONTAL_RUN = re.compile(r"[ \t\f\v]+")
 _DISPLAY_NONE = re.compile(r"display\s*:\s*none", re.IGNORECASE)
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0e-\x1f\x7f]")
 _LANGUAGE_TAG = re.compile(r"\s*([A-Za-z]{2,3})(?:[-_][A-Za-z0-9]{1,8})*\s*")
+_PAGE_BREAK = re.compile(
+    r"(?:^|;)\s*(?:page-)?break-(before|after)\s*:\s*(?:always|page)\b", re.IGNORECASE
+)
+_BACK_LINK = "table of contents"
+_PAGE_NUMBER = re.compile(r"[0-9]{1,3}")
+_SENTENCE_END = re.compile(r"[.!?:;][\"'\u201d\u2019)\]]*$")
+_LIST_MARKER = re.compile(r"[a-z]{1,4}[.)](?:\s|$)")
 
 
 @dataclass(frozen=True)
@@ -219,11 +260,10 @@ def parse(raw: bytes, media_type: str) -> ParsedText | Unsupported | None:
         extractor = _TextExtractor()
         extractor.feed(decoded)
         extractor.close()
-        text = extractor.text()
+        text = _without_page_artifacts(extractor.pages())
         declared = extractor.language
     else:
-        text = _lines(decoded)
-    text = _normalize(text)
+        text = _normalize(_lines(decoded))
     return ParsedText(text, PARSER_VERSION, complete, _language(declared, text))
 
 
@@ -376,6 +416,10 @@ def _declared_charset(head: bytes) -> str | None:
 
 
 def _normalize(text: str) -> str:
+    return _text(_normalized_lines(text))
+
+
+def _normalized_lines(text: str) -> list[str]:
     text = unicodedata.normalize("NFC", text)
     text = _ZERO_WIDTH.sub("", _SPACES.sub(" ", text))
     lines: list[str] = []
@@ -384,7 +428,81 @@ def _normalize(text: str) -> str:
         line = line.strip(" \t")
         if line:
             lines.append(line)
+    return lines
+
+
+def _text(lines: list[str]) -> str:
     return "".join(f"{line}\n" for line in lines)
+
+
+@dataclass(frozen=True)
+class _Page:
+    """One page of an HTML document: what lies between two page breaks."""
+
+    text: str  # as extracted, not yet normalized
+    opening_link: str | None  # the text of the same-document link the page opens with, if any
+
+
+def _without_page_artifacts(pages: list[_Page]) -> str:
+    """The document's normalized text without its page artifacts (the module docstring has
+    the rules). One page is a document without page breaks: its text, untouched."""
+    if len(pages) == 1:
+        return _normalize(pages[0].text)
+    paged = [_normalized_lines(page.text) for page in pages]
+    for page, lines in zip(pages, paged, strict=True):
+        if _opens_with_back_link(page, lines):
+            del lines[0]
+    for index in _pages_ending_in_their_number(paged):
+        del paged[index][-1]
+    text: list[str] = []
+    for lines in paged:
+        if text and lines and _continues(text[-1], lines[0]):
+            text[-1] = f"{text[-1]} {lines[0]}"
+            lines = lines[1:]
+        text.extend(lines)
+    return _text(text)
+
+
+def _opens_with_back_link(page: _Page, lines: list[str]) -> bool:
+    """Whether the page's first line is, whole, a same-document "Table of Contents" link."""
+    if page.opening_link is None or not lines:
+        return False
+    return _normalized_lines(page.opening_link) == [lines[0]] and lines[0].casefold() == _BACK_LINK
+
+
+def _pages_ending_in_their_number(paged: list[list[str]]) -> list[int]:
+    """The pages whose last line is a page number that counts up with the pages."""
+    numbers = {
+        index: int(lines[-1])
+        for index, lines in enumerate(paged)
+        if lines and _PAGE_NUMBER.fullmatch(lines[-1])
+    }
+    numbered = sorted(numbers)
+
+    def counts_up(earlier: int, later: int) -> bool:
+        return numbers[later] - numbers[earlier] == later - earlier
+
+    return [
+        index
+        for position, index in enumerate(numbered)
+        if (position > 0 and counts_up(numbered[position - 1], index))
+        or (position + 1 < len(numbered) and counts_up(index, numbered[position + 1]))
+    ]
+
+
+def _continues(before: str, after: str) -> bool:
+    """Whether `after`, the first line after a page break, continues the sentence `before`,
+    the last line before it, leaves open."""
+    if "\t" in before or "\t" in after:
+        return False
+    if _SENTENCE_END.search(before):
+        return False
+    return after[0].islower() and not _LIST_MARKER.match(after)
+
+
+def _attribute(attrs: list[tuple[str, str | None]], name: str) -> str:
+    """The attribute's value, or "" when the element has none."""
+    return next((value or "" for attribute, value in attrs if attribute == name), "")
 
 
 @dataclass
@@ -392,6 +510,8 @@ class _Element:
     tag: str
     hidden: bool
     pre: bool
+    page_break_after: bool = False
+    link_start: int | None = None  # for a same-document link: where its text starts in the output
 
 
 class _TextExtractor(HTMLParser):
@@ -399,10 +519,23 @@ class _TextExtractor(HTMLParser):
         super().__init__(convert_charrefs=True)
         self._stack: list[_Element] = []
         self._out: list[str] = []
+        self._page_breaks: list[int] = []  # indexes into `_out`, each just after a line break
+        self._links: list[tuple[int, int]] = []  # same-document links' texts, as `_out[a:b]`
         self.language: str | None = None  # the <html> element's `lang`, if any
 
-    def text(self) -> str:
-        return "".join(self._out)
+    def pages(self) -> list[_Page]:
+        """The extracted text, cut at the page breaks (one page if there are none)."""
+        links = sorted(self._links)
+        pages: list[_Page] = []
+        for start, end in pairwise([0, *self._page_breaks, len(self._out)]):
+            opening_link = None
+            first = bisect.bisect_left(links, (start, 0))
+            if first < len(links) and links[first][0] < end:
+                link_start, link_end = links[first]
+                if not _normalized_lines("".join(self._out[start:link_start])):
+                    opening_link = "".join(self._out[link_start : min(link_end, end)])
+            pages.append(_Page("".join(self._out[start:end]), opening_link))
+        return pages
 
     def _hidden(self) -> bool:
         return bool(self._stack) and self._stack[-1].hidden
@@ -418,27 +551,50 @@ class _TextExtractor(HTMLParser):
         elif tag in _CELL:
             self._out.append(_CELL_BREAK)
 
+    def _page_break_edges(self, tag: str, style: str) -> set[str]:
+        """Where an element with this `style` breaks the page: `before` it, `after` it, both
+        or neither. Only a visible block element does, so a page break always falls between
+        two lines."""
+        if tag not in _BLOCK or self._hidden() or _DISPLAY_NONE.search(style):
+            return set()
+        return {edge[1].lower() for edge in _PAGE_BREAK.finditer(style)}
+
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._break(tag)
         if tag == "html" and self.language is None:
             self.language = next((value for name, value in attrs if name == "lang" and value), None)
+        style = _attribute(attrs, "style")
+        edges = self._page_break_edges(tag, style)
+        if "before" in edges or (edges and tag in _VOID):
+            self._page_breaks.append(len(self._out))
         if tag in _VOID:
             return
-        style = next((value or "" for name, value in attrs if name == "style"), "")
         hidden = self._hidden() or tag in _SKIPPED or bool(_DISPLAY_NONE.search(style))
-        self._stack.append(_Element(tag, hidden, self._pre() or tag == "pre"))
+        same_document_link = tag == "a" and _attribute(attrs, "href").startswith("#")
+        link_start = len(self._out) if same_document_link and not hidden else None
+        self._stack.append(
+            _Element(tag, hidden, self._pre() or tag == "pre", "after" in edges, link_start)
+        )
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         # `<br/>`, `<div/>`: an element with no content.
         self._break(tag)
+        if self._page_break_edges(tag, _attribute(attrs, "style")):
+            self._page_breaks.append(len(self._out))
 
     def handle_endtag(self, tag: str) -> None:
         # Close the nearest open element of this name (and anything left open inside it);
         # a stray end tag with no open element is ignored.
         for index in range(len(self._stack) - 1, -1, -1):
             if self._stack[index].tag == tag:
+                closed = self._stack[index:]
                 del self._stack[index:]
+                for element in closed:
+                    if element.link_start is not None:
+                        self._links.append((element.link_start, len(self._out)))
                 self._break(tag)
+                if closed[0].page_break_after:
+                    self._page_breaks.append(len(self._out))
                 return
 
     def handle_data(self, data: str) -> None:

@@ -149,7 +149,7 @@ One immutable, hash-identified copy of a Source Document (build plan §5.3, §4.
 | `media_type` | text not null | As served, for the raw download |
 | `content_sha256` | text null | Hash of the parsed text; null when not parsed |
 | `parsed_object_uri` | text null | Internal URI of the parsed object (`archive://parsed/sha256/<hex>`) |
-| `parser_version` | text null | Set with the parse (`html-text-v1`; `text-v2` from migration `0014`: the same HTML/text rules plus PDF and the language) |
+| `parser_version` | text null | Set with the parse (`html-text-v1`; `text-v2` from migration `0014`: the same HTML/text rules plus PDF and the language; `text-v3` from pilot fix 04: page artifacts removed from paginated HTML, for new versions only) |
 | `parse_status` | text not null | `pending`, `parsed`, `incomplete` (undecodable bytes were replaced), `failed`, `unsupported` (0014: a parsed format with no usable text, e.g. an image-only or scanned PDF; Atlas does no OCR), or `not_applicable` (media types the parser doesn't handle, e.g. companyfacts JSON) (spec story 22) |
 | `parse_error` | text null | Set iff `parse_status` is `failed` or `unsupported` (why) |
 | `language` | text null | 0014. ISO 639 primary subtag (`en`, `fr`, `zh`, ...) or `und` (undetermined): the adapter's declaration (EDGAR: `en`), else the parse's (a declared `<html lang>` or PDF `/Lang`, else a deterministic guess). Null when neither says (an unparsed format without a declaration). Only `en` versions are retained (and, later, extracted); versions before 0014 are all EDGAR, so `en` |
@@ -172,7 +172,7 @@ Invariants enforced in the database:
 - `supersedes_version_id` is the previous version (`version_number - 1`) of the same Source Document (trigger). It is unique, so the chain never forks, and it is null exactly for version 1.
 - The parse columns are consistent: `content_sha256` and `parsed_object_uri` are set iff the status is `parsed` or `incomplete`.
 
-The ledger parses in the same transaction that creates the version, so Phase 1 never leaves a version `pending`. A re-parse under a new parser version must not overwrite the recorded parse. It will be a separate parse record (a `source_parse` table keyed by version and parser version), built when a re-parse is first needed. `text-v2` doesn't need one: its HTML and text output is `html-text-v1`'s, so versions parsed under v1 keep that record (`docs/decisions.md`, "PDF parsing and language").
+The ledger parses in the same transaction that creates the version, so Phase 1 never leaves a version `pending`. A re-parse under a new parser version must not overwrite the recorded parse. It will be a separate parse record (a `source_parse` table keyed by version and parser version), built when a re-parse is first needed. `text-v2` doesn't need one: its HTML and text output is `html-text-v1`'s, so versions parsed under v1 keep that record (`docs/decisions.md`, "PDF parsing and language"). `text-v3` does change the text of paginated HTML, and still builds none: versions recorded under `text-v2` keep their v2 parse, and only new versions are parsed by v3 (`docs/decisions.md`, "Page artifacts and parser version `text-v3`", which also has the re-parse design).
 
 ### 2.4a `fetch_observation`
 

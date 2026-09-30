@@ -514,7 +514,7 @@ def test_phase_1_versions_are_corrected_by_a_recorded_correction_never_by_an_edi
 def test_the_parse_is_deterministic_archived_separately_and_versioned(atlas: Atlas) -> None:
     atlas.ingest("first")
 
-    golden = GOLDEN_PARSES["text-v2"]
+    golden = GOLDEN_PARSES["text-v3"]
     for url in FILING_URLS:
         version = atlas.version(url)
         response = atlas.api.get(
@@ -523,7 +523,7 @@ def test_the_parse_is_deterministic_archived_separately_and_versioned(atlas: Atl
         assert response.status_code == 200
         assert response.headers["content-type"] == "text/plain; charset=utf-8"
         assert version["parse_status"] == "parsed"
-        assert version["parser_version"] == "text-v2"
+        assert version["parser_version"] == "text-v3"
         assert version["language"] == "en"  # EDGAR filings are in English (Reg. S-T 306)
         assert version["page_anchors"] is None  # HTML has no pages
         assert hashlib.sha256(response.content).hexdigest() == version["content_sha256"]
