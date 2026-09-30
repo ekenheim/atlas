@@ -106,6 +106,9 @@ from typing import cast
 from pypdf import PdfReader
 
 PARSER_VERSION = "text-v3"
+# The HTML/text/PDF parser's versions, oldest first: a Source Version recorded under an
+# earlier one can be re-parsed with `PARSER_VERSION` (`atlas ledger reparse`).
+PARSER_LINEAGE = ("html-text-v1", "text-v2", PARSER_VERSION)
 UNDETERMINED = "und"
 
 HTML_MEDIA_TYPES = frozenset({"text/html", "application/xhtml+xml"})

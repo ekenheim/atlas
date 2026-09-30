@@ -611,6 +611,24 @@
               "title": "Kind"
             },
             "description": "raw bytes or the parsed text"
+          },
+          {
+            "name": "parser_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "with kind=parsed: the parse under this parser version (the recorded parse or a re-parse, as `parses` lists them); default the recorded parse",
+              "title": "Parser Version"
+            },
+            "description": "with kind=parsed: the parse under this parser version (the recorded parse or a re-parse, as `parses` lists them); default the recorded parse"
           }
         ],
         "responses": {
@@ -6407,6 +6425,10 @@
             "type": "string",
             "title": "Created By"
           },
+          "parser_version": {
+            "type": "string",
+            "title": "Parser Version"
+          },
           "reviewer_id": {
             "anyOf": [
               {
@@ -6463,6 +6485,7 @@
           "extracted_at",
           "extractor_version",
           "created_by",
+          "parser_version",
           "reviewer_id",
           "reviewed_at",
           "superseded_by"
@@ -6564,6 +6587,18 @@
               "quantitative_derived"
             ],
             "title": "Epistemic Type"
+          },
+          "parser_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parser Version",
+            "description": "the parse the offsets are in (one of the version's `parses`); default the parse the version was recorded with"
           }
         },
         "additionalProperties": false,
@@ -8475,6 +8510,17 @@
               }
             ],
             "title": "Offset Source"
+          },
+          "parser_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parser Version"
           },
           "proposed": {
             "additionalProperties": {
@@ -15993,6 +16039,17 @@
             },
             "type": "array",
             "title": "Selected By"
+          },
+          "parser_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parser Version"
           }
         },
         "type": "object",
@@ -20176,6 +20233,137 @@
         ],
         "title": "SourceDocument"
       },
+      "SourceParse": {
+        "properties": {
+          "parser_version": {
+            "type": "string",
+            "title": "Parser Version"
+          },
+          "recorded": {
+            "type": "boolean",
+            "title": "Recorded"
+          },
+          "parse_status": {
+            "type": "string",
+            "title": "Parse Status"
+          },
+          "parse_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parse Error"
+          },
+          "content_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sha256"
+          },
+          "parsed_object_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parsed Object Uri"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "page_anchors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PageAnchor"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Anchors"
+          },
+          "source_parse_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Parse Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "parsed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Parsed At"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "parser_version",
+          "recorded",
+          "parse_status",
+          "parse_error",
+          "content_sha256",
+          "parsed_object_uri",
+          "language",
+          "page_anchors",
+          "source_parse_id",
+          "job_id",
+          "parsed_at",
+          "content"
+        ],
+        "title": "SourceParse",
+        "description": "One parse of a Source Version: the one it was recorded with (`recorded`, the version's\nown parse columns), or a re-parse under a later parser version (a `source_parse` row)."
+      },
       "SourcePath": {
         "type": "string",
         "enum": [
@@ -20465,6 +20653,24 @@
                 "type": "null"
               }
             ]
+          },
+          "parses": {
+            "items": {
+              "$ref": "#/components/schemas/SourceParse"
+            },
+            "type": "array",
+            "title": "Parses"
+          },
+          "current_parser_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Parser Version"
           }
         },
         "type": "object",
@@ -20501,7 +20707,9 @@
           "metadata",
           "content",
           "fetches",
-          "evidence_family"
+          "evidence_family",
+          "parses",
+          "current_parser_version"
         ],
         "title": "SourceVersionDetail",
         "description": "A Source Version's full provenance."

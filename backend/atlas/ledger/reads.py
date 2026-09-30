@@ -11,6 +11,7 @@ from sqlalchemy import Connection, text
 
 from atlas.archive import Archive
 from atlas.ledger.families import Match, simhash_hex
+from atlas.parsing import PARSER_VERSION
 
 ContentKind = Literal["raw", "parsed"]
 
@@ -41,6 +42,24 @@ class PageAnchor(BaseModel):
     label: str  # the page's label as the PDF gives it (e.g. "iv"), else its number
     start: int
     end: int
+
+
+class SourceParse(BaseModel):
+    """One parse of a Source Version: the one it was recorded with (`recorded`, the version's
+    own parse columns), or a re-parse under a later parser version (a `source_parse` row)."""
+
+    parser_version: str
+    recorded: bool
+    parse_status: str
+    parse_error: str | None
+    content_sha256: str | None
+    parsed_object_uri: str | None
+    language: str | None
+    page_anchors: list[PageAnchor] | None
+    source_parse_id: uuid.UUID | None  # None for the recorded parse
+    job_id: uuid.UUID | None  # the `reparse` job that made it; None for the recorded parse
+    parsed_at: datetime  # for the recorded parse, when the version was ingested
+    content: str | None  # the parsed text's URL, when the parse has text
 
 
 class SourceVersionSummary(BaseModel):
@@ -145,6 +164,11 @@ class SourceVersionDetail(SourceVersionSummary):
     content: ContentLinks
     fetches: list[FetchObservation]
     evidence_family: EvidenceFamilyMembership | None
+    # Every parse: the recorded one (the parse columns above) first, then re-parses.
+    parses: list[SourceParse]
+    # The parse the Investigator's extraction reads: a re-parse under the current parser
+    # when there is one with text, else the recorded parse's version (None: never parsed).
+    current_parser_version: str | None
 
 
 @dataclass(frozen=True)
@@ -252,6 +276,7 @@ def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionD
         {"id": version_id},
     ).mappings()
     base = f"/api/v1/source-versions/{version_id}/content"
+    current = current_parse(connection, version_id)
     return SourceVersionDetail.model_validate(
         {
             **_version_fields(row),
@@ -262,6 +287,8 @@ def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionD
             ),
             "fetches": [FetchObservation.model_validate(dict(fetch)) for fetch in fetches],
             "evidence_family": _membership(connection, version_id),
+            "parses": list_parses(connection, version_id),
+            "current_parser_version": current.parser_version if current else None,
         }
     )
 
@@ -323,13 +350,19 @@ def get_evidence_family(connection: Connection, family_id: uuid.UUID) -> Evidenc
 
 
 def get_content(
-    connection: Connection, archive: Archive, version_id: uuid.UUID, kind: ContentKind
+    connection: Connection,
+    archive: Archive,
+    version_id: uuid.UUID,
+    kind: ContentKind,
+    parser_version: str | None = None,
 ) -> Content | None:
-    """The archived raw bytes or parse of a version; None if the version or parse is absent."""
+    """The archived raw bytes or parse of a version; None if the version or parse is absent.
+    The parse is the recorded one unless `parser_version` names one of the version's parses
+    (a re-parse's file name carries its parser version)."""
     row: Any = connection.execute(
         text(
             "SELECT v.object_uri, v.raw_sha256, v.media_type, v.parsed_object_uri,"
-            " v.content_sha256, d.canonical_url FROM source_version v"
+            " v.content_sha256, v.parser_version, d.canonical_url FROM source_version v"
             " JOIN source_document d ON d.id = v.source_document_id WHERE v.id = :id"
         ),
         {"id": version_id},
@@ -340,7 +373,73 @@ def get_content(
     name = name.strip(".") or "document"
     if kind == "raw":
         return Content(archive.get(row.object_uri), row.media_type, row.raw_sha256, name)
-    if row.parsed_object_uri is None:
+    uri, sha, filename = row.parsed_object_uri, row.content_sha256, f"{name}.txt"
+    if parser_version is not None and parser_version != row.parser_version:
+        chosen = get_parse(connection, version_id, parser_version)
+        if chosen is None:
+            return None
+        uri, sha = chosen.parsed_object_uri, chosen.content_sha256
+        filename = f"{name}.{re.sub(r'[^A-Za-z0-9._-]', '_', parser_version)}.txt"
+    if uri is None or sha is None:
         return None
-    data = archive.get(row.parsed_object_uri)
-    return Content(data, "text/plain; charset=utf-8", row.content_sha256, f"{name}.txt")
+    return Content(archive.get(uri), "text/plain; charset=utf-8", sha, filename)
+
+
+# --- parses -------------------------------------------------------------------------------------
+
+_WITH_TEXT = ("parsed", "incomplete")
+_PARSE = (
+    "SELECT source_version_id, parser_version, recorded, parse_status, parse_error,"
+    " content_sha256, parsed_object_uri, language, page_anchors, source_parse_id, job_id,"
+    " parsed_at FROM source_version_parse"
+)
+
+
+def _source_parse(row: Any) -> SourceParse:
+    values = dict(row)
+    link: str | None = None
+    if values["parse_status"] in _WITH_TEXT:
+        link = f"/api/v1/source-versions/{values['source_version_id']}/content?kind=parsed"
+        if not values["recorded"]:
+            link += f"&parser_version={values['parser_version']}"
+    return SourceParse.model_validate({**values, "content": link})
+
+
+def list_parses(connection: Connection, version_id: uuid.UUID) -> list[SourceParse]:
+    """A version's parses: the recorded one first, then its re-parses, oldest first."""
+    rows = connection.execute(
+        text(
+            f"{_PARSE} WHERE source_version_id = :id"
+            " ORDER BY recorded DESC, parsed_at, parser_version"
+        ),
+        {"id": version_id},
+    ).mappings()
+    return [_source_parse(row) for row in rows]
+
+
+def get_parse(
+    connection: Connection, version_id: uuid.UUID, parser_version: str | None = None
+) -> SourceParse | None:
+    """A version's parse under `parser_version` (the recorded one, or a re-parse); None names
+    the recorded parse."""
+    if parser_version is None:
+        condition, params = "recorded", {"id": version_id}
+    else:
+        condition = "parser_version = :parser"
+        params = {"id": version_id, "parser": parser_version}
+    row = (
+        connection.execute(text(f"{_PARSE} WHERE source_version_id = :id AND {condition}"), params)
+        .mappings()
+        .one_or_none()
+    )
+    return None if row is None else _source_parse(row)
+
+
+def current_parse(connection: Connection, version_id: uuid.UUID) -> SourceParse | None:
+    """The parse the Investigator reads: the version's parse under the current parser
+    (`PARSER_VERSION`) when it has text, else the recorded parse (whatever its status). None
+    for an unknown version or one never parsed (a format Atlas doesn't parse)."""
+    current = get_parse(connection, version_id, PARSER_VERSION)
+    if current is not None and current.parse_status in _WITH_TEXT:
+        return current
+    return get_parse(connection, version_id)

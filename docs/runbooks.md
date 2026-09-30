@@ -368,6 +368,21 @@ For each company with a companyfacts document it normalizes the latest version u
 
 Afterwards, `GET /api/v1/companies/{id}/financials?as_of=` returns figures, and the next investigation's Financial Analyst is sent them. Ingests normalize a pending version themselves from now on, whether or not they fetch companyfacts again, so this is a one-off per normalizer version.
 
+## Re-parsing recorded filings (after deploying migration `0046`)
+
+Source Versions recorded under an earlier parser (`text-v2`, `html-text-v1`) keep that parse; page-break artifacts stay in their text, so a quote across a page break is refused `quote_mismatch` there. To give them a `text-v3` parse (docs/decisions.md, "Re-parsing recorded Source Versions"), after `atlas migrate` has applied `0046`, with the app's settings:
+
+```
+atlas ledger reparse --company coherent     # one company; omit --company for every company
+atlas worker --once                          # or let the running worker take the job
+```
+
+`reparse` prints the enqueued job (kind `reparse`, not pausable, no LLM or Hindsight use). `GET /api/v1/jobs/{id}` shows its artifacts: `selected`, `inserted` and one entry per new parse (`source_parse_id`, the version, the recorded parser version, status, content hash, `same_text_as_recorded`). Each new parse is audited (`source_parse.created`). It is idempotent: a second run selects nothing that already has a `text-v3` parse (`inserted: 0`).
+
+To check a version: `GET /api/v1/source-versions/{id}` lists `parses` (the recorded one first; its own `parser_version` and `content_sha256` are unchanged) and `current_parser_version`; `GET /api/v1/source-versions/{id}/content?kind=parsed&parser_version=text-v3` serves the re-parse's text.
+
+What changes afterwards: new `extract_claims` runs (and investigations' Investigator tasks) read the re-parse, and their Claims and Assertions record `parser_version: text-v3`. Existing Assertions keep their `text-v2` spans; a better quote on the new parse is a new Assertion, and the owner may supersede the old one through the normal review. **Memory is not re-retained:** recall, reflect, triage and the Skeptic still read the recorded parse (retaining the re-parse is designed, not built). Nothing to undo: the migration's downgrade refuses once a re-parse exists, and the recorded parses were never touched.
+
 ## Universe rollout and quota budgets (ticket 27)
 
 The owner's ChatGPT/Codex subscription (spent by the shared Hindsight's retain, consolidation and mental models) and MiniMax subscription (spent by Atlas's roles through LiteLLM) each renew in rolling 5-hour windows. The queue rations both (`atlas.jobs.budget`; rules in `docs/decisions.md`, "Quota-window pacing"), so the ten companies not yet ingested come in **one company per window**, never in one bootstrap like the 2026-09 incident (1,397 operations, ~1.27M Codex tokens in minutes).

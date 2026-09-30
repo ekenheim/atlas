@@ -579,8 +579,9 @@ def _assertions(
     rows = connection.execute(
         text(
             "SELECT a.subject_company_id, a.predicate, a.object_company_id, a.quote,"
-            " a.span_start, a.span_end, a.source_version_id, v.parsed_object_uri"
-            " FROM assertion a JOIN source_version v ON v.id = a.source_version_id"
+            " a.span_start, a.span_end, a.source_version_id, p.parsed_object_uri"
+            " FROM assertion a LEFT JOIN source_version_parse p"
+            " ON p.source_version_id = a.source_version_id AND p.parser_version = a.parser_version"
             " ORDER BY a.extracted_at, a.id"
         )
     ).all()

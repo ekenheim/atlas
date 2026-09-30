@@ -35,7 +35,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0045"
+    assert revision == "0046"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -134,4 +134,74 @@ def test_a_company_on_euronext_moves_to_the_amf_api(empty_database_url: str) -> 
         refused = False
     engine.dispose()
     assert path == "exchange:amf"
+    assert refused
+
+
+def test_assertions_recorded_before_0046_quote_their_versions_recorded_parse(
+    empty_database_url: str,
+) -> None:
+    # 0046: an Assertion records the parse its span is in; earlier ones are all in the parse
+    # their Source Version was recorded with.
+    upgrade(empty_database_url, "0045")
+    engine = create_engine(empty_database_url)
+    sha = "b" * 64
+    with engine.begin() as connection:
+        company = connection.execute(
+            text(
+                "INSERT INTO company (id, slug, legal_name, display_name, country, source_path,"
+                " cik) VALUES (gen_random_uuid(), 'x', 'X Inc.', 'X', 'US', 'sec', '0000000001')"
+                " RETURNING id"
+            )
+        ).scalar_one()
+        document = connection.execute(
+            text(
+                "INSERT INTO source_document (id, provider, canonical_url, origin_url,"
+                " source_type, title, publisher, source_tier, license_class, first_seen_at)"
+                " VALUES (gen_random_uuid(), 'sec_edgar', 'https://www.sec.gov/y.htm',"
+                " 'https://www.sec.gov/y.htm', 'filing', 'y', 'SEC EDGAR', 'A',"
+                " 'public_regulatory', now()) RETURNING id"
+            )
+        ).scalar_one()
+        version = connection.execute(
+            text(
+                "INSERT INTO source_version (id, source_document_id, version_number,"
+                " raw_sha256, comparison_sha256, comparison_rule, object_uri, byte_size,"
+                " media_type, content_sha256, parsed_object_uri, parser_version, parse_status,"
+                " language, available_at, available_at_basis, fetched_at, fetch_status)"
+                " VALUES (gen_random_uuid(), :document, 1, :sha, :sha, 'identity', :uri, 1,"
+                " 'text/html', :sha, :parsed, 'text-v2', 'parsed', 'en', now(),"
+                " 'sec_acceptance', now(), 'ok') RETURNING id"
+            ),
+            {
+                "document": document,
+                "sha": sha,
+                "uri": f"archive://raw/sha256/{sha}",
+                "parsed": f"archive://parsed/sha256/{sha}",
+            },
+        ).scalar_one()
+        connection.execute(
+            text(
+                "INSERT INTO assertion (id, subject_company_id, predicate, source_version_id,"
+                " quote, span_start, span_end, epistemic_type, extractor_version, created_by)"
+                " VALUES (gen_random_uuid(), :company, 'manufactures', :version, 'lasers', 0, 6,"
+                " 'company_claim', 'manual', 'x')"
+            ),
+            {"company": company, "version": version},
+        )
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        parser_version = connection.execute(
+            text("SELECT parser_version FROM assertion")
+        ).scalar_one()
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE assertion SET parser_version = 'text-v3'"))
+    except DBAPIError as error:
+        refused = "immutable" in str(error)
+    else:
+        refused = False
+    engine.dispose()
+    assert parser_version == "text-v2"
     assert refused

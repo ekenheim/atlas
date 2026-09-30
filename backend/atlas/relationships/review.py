@@ -110,6 +110,7 @@ class _Candidate:
     span_start: int
     span_end: int
     verification_status: str
+    parser_version: str  # the parse the span is in: its text is `parsed_object_uri`'s
     parsed_object_uri: str | None
     source_tier: str
     title: str
@@ -143,7 +144,7 @@ class RelationshipReviewer:
         self._caller = caller
         self._runs = runs
         self._per_call = per_call
-        self._texts: dict[uuid.UUID, str | None] = {}
+        self._texts: dict[tuple[uuid.UUID, str], str | None] = {}
 
     def review(self, job: Job) -> Artifacts:
         payload = ReviewRelationshipsPayload.model_validate(job.payload)
@@ -344,10 +345,13 @@ class RelationshipReviewer:
         select = (
             "SELECT a.id, a.subject_company_id, a.predicate, a.object_company_id, a.value_json,"
             " a.source_version_id, a.quote, a.span_start, a.span_end, a.verification_status,"
-            " v.parsed_object_uri, d.source_tier, d.title, d.publisher, d.form_type,"
-            " d.company_id AS filer_company_id FROM assertion a"
+            " a.parser_version, p.parsed_object_uri, d.source_tier, d.title, d.publisher,"
+            " d.form_type, d.company_id AS filer_company_id FROM assertion a"
             " JOIN source_version v ON v.id = a.source_version_id"
             " JOIN source_document d ON d.id = v.source_document_id"
+            # The parse the Assertion was made on (pilot-fixes ticket 11), and only that one.
+            " LEFT JOIN source_version_parse p ON p.source_version_id = a.source_version_id"
+            "  AND p.parser_version = a.parser_version"
             " WHERE NOT EXISTS (SELECT FROM relationship_review r WHERE r.assertion_id = a.id)"
         )
         with self._engine.connect() as connection:
@@ -384,8 +388,8 @@ class RelationshipReviewer:
         return {row.id: company_names(row.display_name, row.legal_name) for row in rows}
 
     def _parsed(self, candidate: _Candidate) -> str | None:
-        """The Source Version's archived parse, or None if it can't be read as recorded."""
-        version = candidate.source_version_id
+        """The archived parse the Assertion was made on, or None if it can't be read."""
+        version = (candidate.source_version_id, candidate.parser_version)
         if version not in self._texts:
             text_: str | None = None
             if candidate.parsed_object_uri is not None:

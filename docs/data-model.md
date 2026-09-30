@@ -174,7 +174,26 @@ Invariants enforced in the database:
 - `supersedes_version_id` is the previous version (`version_number - 1`) of the same Source Document (trigger). It is unique, so the chain never forks, and it is null exactly for version 1.
 - The parse columns are consistent: `content_sha256` and `parsed_object_uri` are set iff the status is `parsed` or `incomplete`.
 
-The ledger parses in the same transaction that creates the version, so Phase 1 never leaves a version `pending`. A re-parse under a new parser version must not overwrite the recorded parse. It will be a separate parse record (a `source_parse` table keyed by version and parser version), built when a re-parse is first needed. `text-v2` doesn't need one: its HTML and text output is `html-text-v1`'s, so versions parsed under v1 keep that record (`docs/decisions.md`, "PDF parsing and language"). `text-v3` does change the text of paginated HTML, and still builds none: versions recorded under `text-v2` keep their v2 parse, and only new versions are parsed by v3 (`docs/decisions.md`, "Page artifacts and parser version `text-v3`", which also has the re-parse design).
+The ledger parses in the same transaction that creates the version, so Phase 1 never leaves a version `pending`. A re-parse under a new parser version never overwrites the recorded parse: it is a separate `source_parse` row (below; migration `0046`, pilot-fixes ticket 11). `text-v2` didn't need one: its HTML and text output is `html-text-v1`'s, so versions parsed under v1 keep that record (`docs/decisions.md`, "PDF parsing and language"). `text-v3` does change the text of paginated HTML: new versions are parsed by it, and versions recorded under an earlier parser keep their recorded parse and may gain a `text-v3` re-parse (`atlas ledger reparse`; `docs/decisions.md`, "Page artifacts and parser version `text-v3`" and "Re-parsing recorded Source Versions").
+
+#### `source_parse` (migration `0046`)
+
+A Source Version's parse under a later parser version than the one it was recorded with: the version's archived raw bytes parsed again by the `reparse` job. Insert-only.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `source_version_id` | uuid not null FK → source_version | |
+| `parser_version` | text not null | Never the version's own `parser_version` (insert trigger) |
+| `parse_status` | text not null | `parsed`, `incomplete`, `failed` or `unsupported` |
+| `parse_error` | text null | Set iff `failed` or `unsupported` |
+| `content_sha256`, `parsed_object_uri` | text null | Set iff `parsed` or `incomplete`; the parse is archived at `archive://parsed/sha256/<hex>` |
+| `language` | text null | The version's recorded language, else the parse's |
+| `page_anchors` | jsonb null | As on `source_version` (a PDF's pages) |
+| `job_id` | uuid null | The `reparse` job |
+| `created_at` | timestamptz not null | |
+
+Invariants: `UNIQUE (source_version_id, parser_version)`; a trigger (ENABLE ALWAYS) rejects every `UPDATE`, `DELETE` and `TRUNCATE`. The view **`source_version_parse`** lists every parse of every version: the recorded one (`recorded` true, from the `source_version` columns; `source_parse_id` null) and its re-parses, with `parser_version`, status, hash, URI, language, page anchors and `parsed_at`. Readers name the parse they read: the Investigator reads the current parser's re-parse when it has text, else the recorded parse; an Assertion's span is checked against its own `parser_version`; everything else reads the recorded parse.
 
 ### 2.4a `fetch_observation`
 
@@ -258,7 +277,7 @@ A statement bound to one Source Version and an exact quote span (build plan §5.
 | `predicate` | text not null | Free text in Phase 1; the Relationship predicate whitelist applies to Relationships (Phase 3), not to Assertions |
 | `object_company_id` | uuid null FK → company | The spec's `object_entity_id` |
 | `value_json` | jsonb null | A value instead of, or as well as, an object |
-| `source_version_id` | uuid not null FK → source_version | Must have parsed text (`parse_status` `parsed` or `incomplete`; insert trigger) |
+| `source_version_id` | uuid not null FK → source_version | Must have parsed text in the parse `parser_version` names (`parse_status` `parsed` or `incomplete`; insert trigger) |
 | `quote` | text not null | The spec's `quote_or_span`. Must occur exactly at the span in the archived parse |
 | `span_start`, `span_end` | integer not null | Character (Unicode code point) offsets into the parsed text, `[span_start, span_end)`; `quote = parsed_text[span_start:span_end]` is validated on create, and `span_end - span_start = char_length(quote)` is a CHECK |
 | `page_or_anchor` | text null | A label for people; the offsets are the binding. Omitted on a PDF version (with `page_anchors`), it is set to the span's page label, e.g. `page 1 (PDF page 2)` |
@@ -269,13 +288,14 @@ A statement bound to one Source Version and an exact quote span (build plan §5.
 | `extracted_at` | timestamptz not null | |
 | `extractor_version` | text not null | `manual` for researcher-created Assertions; `investigator.v<N>` (the prompt version) for ones the Investigator's Claims became (ticket 10), created by `atlas-investigator` with `value_json` `{claim_id, layer, product, object_text}` |
 | `created_by` | text not null | Actor |
+| `parser_version` | text not null | 0046. The parse of the Source Version the span is in: the recorded parse (the default, and every Assertion before 0046) or one of its `source_parse` re-parses with text (insert trigger). Immutable like the statement columns |
 | `reviewer_id` | text null | Actor of the latest review; set exactly when reviewed |
 | `reviewed_at` | timestamptz null | Set exactly when reviewed |
 | `superseded_by` | uuid null FK → assertion | Set exactly when `verification_status = superseded`; never the row itself |
 
 Invariants (migration `0006`, triggers ENABLE ALWAYS):
 
-- Every column except the review columns (`verification_status`, `reviewer_id`, `reviewed_at`, `superseded_by`) is immutable after insert. A correction is a new Assertion plus supersession, never an edit.
+- Every column except the review columns (`verification_status`, `reviewer_id`, `reviewed_at`, `superseded_by`) is immutable after insert. (`parser_version` joined the immutable columns in 0046.) A correction is a new Assertion plus supersession, never an edit.
 - New rows are `unreviewed`.
 - Review transitions: `unreviewed`, `corroborated` and `disputed` may move to any other state except `unreviewed`; `rejected` and `superseded` are final.
 - A successor must not itself be `rejected` or `superseded`, so supersession never forms a cycle.
@@ -308,7 +328,7 @@ The Postgres job queue (build plan §5.8; spec Part A "Jobs"; ticket 04). `run` 
 |---|---|---|
 | `job_id` | uuid PK | UUIDv5 of `idempotency_key` |
 | `idempotency_key` | text not null, unique | Re-enqueuing the same key returns the existing job |
-| `kind` | text not null | Phase 1: `ingest`. Phase 2 adds `retain`, `poll_operation`, `reprocess`, `reflect`, `refresh_mental_model` |
+| `kind` | text not null | Phase 1: `ingest`. Phase 2 adds `retain`, `poll_operation`, `reprocess`, `reflect`, `refresh_mental_model`; pilot-fixes ticket 11 adds `reparse` (not pausable) |
 | `job_class` | text not null default `interactive` | `interactive` or `backfill`; backfill is claimed only in the backfill window (if set) and below its provider's backfill limit (ticket 27). Migration 0008 (ticket 14); set at enqueue (`--backfill`), inherited by a backfill ingest's retains and their reprocesses |
 | `payload_json` | jsonb not null | |
 | `status` | text not null | `queued`, `running`, `succeeded`, `failed` (retries exhausted), `cancelled` |
@@ -410,6 +430,7 @@ The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and 
 | `quote` | text not null | |
 | `span_start`, `span_end` | int null | Absolute offsets in the parsed text: passage start + the proposed offsets, or + the located ones (`offset_source`) |
 | `offset_source` | text null | `model` (the quote was at the proposed offsets) or `located` (its one exact occurrence in the passage). Null when the quote was never placed, or recorded before migration 0024 |
+| `parser_version` | text null | 0046. The parse of the Source Version the Claim's passage was cut from (the current parse when the extraction started; the extraction's stored passages name it too). Null for Claims before 0046 (the recorded parse) and for a passage not sent |
 | `epistemic_type` | text not null | |
 | `directional_cue` | text null | The words that expressed the predicate (accepted Claims) |
 | `outcome` | text not null | `accepted` (then `assertion_id` is set) or `rejected` (then `reason_code` and `reason` are) |

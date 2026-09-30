@@ -577,6 +577,50 @@ def run_financials_normalize(settings: Settings, company: str | None) -> int:
     return 0 if all(each.status in ("already_normalized", "succeeded") for each in results) else 1
 
 
+def enqueue_reparse(
+    settings: Settings, company: str | None, parser_version: str, key: str | None
+) -> None:
+    """`atlas ledger reparse`: enqueue a `reparse` job for the Source Versions whose recorded
+    parse is an earlier parser version's (one company's, or all)."""
+    from datetime import UTC, datetime
+
+    from sqlalchemy import text
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.jobs import JobQueue
+    from atlas.ledger.parses import REPARSE_KIND, reparse_payload
+    from atlas.parsing import PARSER_VERSION
+
+    if parser_version != PARSER_VERSION:
+        print(
+            f"atlas: only the current parser ({PARSER_VERSION}) can re-parse, not"
+            f" {parser_version!r}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    engine = create_engine(settings)
+    try:
+        company_id = None
+        if company is not None:
+            with engine.connect() as connection:
+                company_id = connection.execute(
+                    text("SELECT id FROM company WHERE slug = :slug"), {"slug": company}
+                ).scalar_one_or_none()
+            if company_id is None:
+                print(f"atlas: no company {company!r} (seed the universe first)", file=sys.stderr)
+                raise SystemExit(2)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        enqueued = JobQueue(engine, actor=Actor.from_settings(settings)).enqueue(
+            REPARSE_KIND,
+            key or f"reparse-{parser_version}-{company or 'all'}-{stamp}",
+            reparse_payload(company_id=company_id, parser_version=parser_version),
+        )
+    finally:
+        engine.dispose()
+    _print_enqueued(enqueued)
+
+
 def seed_companies(settings: Settings) -> None:
     import json
 
@@ -918,6 +962,18 @@ def main(argv: list[str] | None = None) -> None:
     financials_normalize.add_argument(
         "--company", default=None, help="only this company (slug); default: every company"
     )
+    reparse = ledger_commands.add_parser(
+        "reparse",
+        help="enqueue a re-parse, with the current parser, of the Source Versions recorded"
+        " under an earlier one (a separate parse record; the recorded parse is kept)",
+    )
+    reparse.add_argument("--company", help="only this company's Source Versions (slug)")
+    reparse.add_argument(
+        "--parser-version",
+        default=None,
+        help="the parser to re-parse with; must be the current one (the default)",
+    )
+    reparse.add_argument("--key", help="the job's idempotency key (default: a timestamped one)")
     sources = commands.add_parser("sources", help="source material fetched outside Atlas")
     sources_commands = sources.add_subparsers(dest="sources_command", required=True)
     source_import = sources_commands.add_parser(
@@ -1043,6 +1099,10 @@ def main(argv: list[str] | None = None) -> None:
         )
     elif args.command == "ledger" and args.ledger_command == "assign-families":
         run_assign_families(settings)
+    elif args.command == "ledger" and args.ledger_command == "reparse":
+        from atlas.parsing import PARSER_VERSION
+
+        enqueue_reparse(settings, args.company, args.parser_version or PARSER_VERSION, args.key)
     elif args.command == "ledger":
         run_correct_availability(settings)
     elif args.command == "financials":

@@ -3,8 +3,10 @@
 - `GET /companies?role=researched|counterparty`, `GET /companies/{id}`,
   `GET /companies/{id}/sources`
 - `GET /sources/{id}`, `GET /sources/{id}/versions` (version history, oldest first)
-- `GET /source-versions/{id}` (metadata, provenance and fetch observations)
-- `GET /source-versions/{id}/content?kind=raw|parsed` (streamed from the archive)
+- `GET /source-versions/{id}` (metadata, provenance, fetch observations and its parses: the
+  recorded one and any re-parse)
+- `GET /source-versions/{id}/content?kind=raw|parsed[&parser_version=]` (streamed from the
+  archive; the parsed text is the recorded parse unless `parser_version` names another)
 - `GET /evidence-families/{id}` (an Evidence Family and its member Source Versions)
 - `GET /companies/{id}/fetch-gate-decisions?status=allowed|blocked` (whether each exchange
   request was allowed, newest first: a `blocked` one names the gate that blocked it) and
@@ -137,9 +139,17 @@ def sources_router(engine: Engine, archive: Archive) -> APIRouter:
     def source_version_content(  # pyright: ignore[reportUnusedFunction]
         version_id: uuid.UUID,
         kind: Annotated[ContentKind, Query(description="raw bytes or the parsed text")],
+        parser_version: Annotated[
+            str | None,
+            Query(
+                description="with kind=parsed: the parse under this parser version (the"
+                " recorded parse or a re-parse, as `parses` lists them); default the recorded"
+                " parse"
+            ),
+        ] = None,
     ) -> StreamingResponse | JSONResponse:
         with engine.connect() as connection:
-            content = get_content(connection, archive, version_id, kind)
+            content = get_content(connection, archive, version_id, kind, parser_version)
         if content is None:
             return not_found("source version" if kind == "raw" else "parsed content")
         disposition = "attachment" if kind == "raw" else "inline"
