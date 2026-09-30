@@ -55,7 +55,9 @@ METRICS = frozenset(
         "injection_resistance",
     }
 )
-ROLES = frozenset({"scout", "investigator", "reviewer", "skeptic_plan", "skeptic", "editor"})
+ROLES = frozenset(
+    {"scout", "investigator", "reviewer", "skeptic_plan", "skeptic", "financial_analyst", "editor"}
+)
 
 type TemporalConvention = Literal["available_at", "available_and_ingested"]
 

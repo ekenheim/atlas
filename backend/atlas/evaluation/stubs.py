@@ -8,7 +8,9 @@
   can only quote what it reads, so a document Atlas never sent yields nothing); the Reviewer
   answers the items matching its entries; the Skeptic reads the passages of the sources it
   names; the Editor writes one finding citing every Claim it is sent. A call with no answer
-  scripted is an error of the case.
+  scripted is an error of the case, except the Financial Analyst's: its scenario proposals
+  aren't scored by these cases (no metric reads them), so unless a case scripts its answers
+  it proposes no scenario (`UNSCRIPTED_DEFAULTS`), as the SearXNG stub finds no leads.
 - **Hindsight stub**: `/version` (reported as `evaluation-stub`, so a run's record shows it),
   the bank template import (so runs can start) and an empty recall. Memory isn't evaluated
   here: retention and recall have their own recorded contract tests.
@@ -34,6 +36,11 @@ STUB_MODEL = "evaluation/scripted"
 HINDSIGHT_STUB_VERSION = "evaluation-stub"
 
 type Handler = Callable[[httpx2.Request], httpx2.Response]
+
+# The answer of a role no metric scores when the case scripts none for it.
+UNSCRIPTED_DEFAULTS: dict[str, dict[str, JsonValue]] = {
+    "financial_analyst": {"scenarios": []},
+}
 
 
 class StubError(Exception):
@@ -206,6 +213,9 @@ class ScriptedLiteLLM:
 
     def _answer(self, role: str, sent: dict[str, Any]) -> Any:
         replies = self.script.get(role) or []
+        if not replies and role in UNSCRIPTED_DEFAULTS:
+            self.calls[role] = self.calls.get(role, 0) + 1
+            return UNSCRIPTED_DEFAULTS[role]
         if not replies:
             raise StubError(f"the {role} was called, but the case scripts no {role} answer")
         count = self.calls.get(role, 0)
