@@ -69,8 +69,17 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         SKEPTIC_PLAN,
         "skeptic-plan",
-        2,
+        # v3: it must choose archived documents from the catalog, and why (pilot fix 06)
+        3,
         (
+            "Search results are leads: Atlas never reads them",
+            "Only archived documents are Evidence",
+            "You must choose documents from the `catalog`",
+            "at least one document of each seed company",
+            "risk factors",
+            "8-K",
+            "older filings",
+            "An empty `documents` list reads nothing",
             "bear case",
             "technology transitions",
             "VCSEL",

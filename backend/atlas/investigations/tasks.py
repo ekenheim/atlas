@@ -21,7 +21,8 @@ One attempt:
      task continues its budget-exhausted extraction.
    - **Skeptic** (atlas.investigations.skeptic): skipped without an LLM call when the
      Investigators accepted no Claim (nothing to challenge); otherwise its own plan, SearXNG
-     queries and reading of the Source Versions it chose, for counterevidence. Its accepted,
+     queries and reading of the Source Versions it chose (and, for a seed company its plan
+     chose nothing of, the ones code chooses: the fallback), for counterevidence. Its accepted,
      independent counterevidence may disprove a company premise, applied when the task is
      recorded (by `atlas-skeptic`), which cancels only what depends on it.
    - **Financial Analyst:** the seed companies the accepted Claims name, with their as-of
@@ -607,6 +608,7 @@ class TaskRunner:
                 run_id,
                 theme_title=theme.title if theme else investigation["theme"],
                 company_ids=company_ids,
+                theme_company_ids=theme_companies,
                 claims=claims,
                 supporting_families={_family(c) for c in claims},
             )
@@ -735,6 +737,8 @@ class TaskRunner:
                     detail=reading.detail,
                 )
                 for reading in read
+                # The Skeptic's reading reaches the Editor as its counterevidence.
+                if reading.role == "investigator"
             ],
         )
         retrieved = (

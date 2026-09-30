@@ -277,8 +277,17 @@ def scout_reply(tokens: tuple[int, int] = (900, 120)) -> ChatReply:
     return ChatReply.json({"queries": QUERIES}, tokens=tokens)
 
 
-# The Skeptic's plan when it searches and reads nothing: one call, no passages to read.
-NOTHING_TO_READ = ChatReply.json({"queries": [], "documents": []}, tokens=(500, 50))
+def finding_nothing(body: dict[str, Any]) -> JsonValue:
+    """The Skeptic finding nothing: its plan chooses no query and no document (as pilot
+    investigation 1's did), and its reading of what code's fallback then chose proposes
+    nothing."""
+    if "catalog" in asked(body)["request"]:
+        return {"queries": [], "documents": []}
+    return {"counterevidence": []}
+
+
+# Enough answers for the plan and every reading call (the unused ones are never asked for).
+NOTHING_TO_READ = (ChatReply.answer(finding_nothing, tokens=(500, 50)),) * 8
 
 
 def script_searches(searxng: FakeSearXNG) -> None:
@@ -385,11 +394,13 @@ ANALYSED = ChatReply.json({"scenarios": []}, tokens=(1500, 200))
 
 
 def script_parallel(
-    llm: FakeLiteLLM, skeptic: ChatReply = NOTHING_TO_READ, analyst: ChatReply = ANALYSED
+    llm: FakeLiteLLM,
+    skeptic: tuple[ChatReply, ...] = NOTHING_TO_READ,
+    analyst: ChatReply = ANALYSED,
 ) -> None:
     """Script the Skeptic's and the Financial Analyst's answers by role: their jobs are queued
     together and run in either order."""
-    llm.script_role("skeptic", skeptic).script_role("financial_analyst", analyst)
+    llm.script_role("skeptic", *skeptic).script_role("financial_analyst", analyst)
 
 
 def metric(atlas: Atlas, name: str, **labels: str) -> float:
@@ -532,39 +543,44 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         "scout",
         "investigator",
         "skeptic",
+        "skeptic",
         "financial_analyst",
         "editor",
         "reviewer",
     ]
-    # The Skeptic planned no search and no reading: it found no counterevidence.
+    # The Skeptic's plan chose no search and no document, so code's fallback chose Coherent's
+    # filings (pilot fix 06); it read them and found no counterevidence.
     skeptic = tasks(found)["skeptic"]["artifacts"]
-    assert (skeptic["supporting_claims"], skeptic["passages"]) == (1, 0)
+    assert skeptic["supporting_claims"] == 1
+    assert (skeptic["documents_fallback"], skeptic["documents"]) == (True, 2)
+    assert skeptic["passages"] > 0
     assert skeptic["counterevidence_accepted"] == 0
     assert found["counterevidence"] == []
     # Every role call is in the investigation's run, which the stop finished (the chained
     # relationship review has its own).
     run_id = found["run_id"]
     assert run_id is not None and found["request"]["run_id"] == run_id
-    assert {body["metadata"]["run_id"] for body in llm.chat_requests()[:5]} == {run_id}
+    assert {body["metadata"]["run_id"] for body in llm.chat_requests()[:6]} == {run_id}
     calls = atlas.get(f"/api/v1/runs/{run_id}/role-calls")
     assert call_roles(calls["role_calls"]) == [
         ("scout", "accepted"),
         ("investigator", "accepted"),
         ("skeptic", "accepted"),
+        ("skeptic", "accepted"),
         ("financial_analyst", "accepted"),
         ("editor", "accepted"),
     ]
-    assert (calls["tokens_in"], calls["tokens_out"]) == (14_900, 1_470)
+    assert (calls["tokens_in"], calls["tokens_out"]) == (15_400, 1_520)
     assert found["usage"] == {
         "rounds": 1,
         "leads": 3,
         "documents": 2,
-        "tokens_in": 14_900,
-        "tokens_out": 1_470,
+        "tokens_in": 15_400,
+        "tokens_out": 1_520,
     }
     tokens = "atlas_llm_tokens_total"
-    assert metric(atlas, tokens, kind="investigation", direction="input") == 14_900
-    assert metric(atlas, tokens, kind="investigation", direction="output") == 1_470
+    assert metric(atlas, tokens, kind="investigation", direction="input") == 15_400
+    assert metric(atlas, tokens, kind="investigation", direction="output") == 1_520
     discovery = atlas.get(
         f"/api/v1/discoveries/{tasks(found)['scout']['artifacts']['discovery_id']}"
     )
@@ -586,7 +602,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert [d["source_version_id"] for d in found["documents"]] == [ten_k, ten_q]
     assert extraction["source_version_ids"] == [ten_k, ten_q]
     # The Editor was sent the accepted Claim (its quote as low-trust data) and the leads.
-    editor = asked(requests(llm)[4])
+    editor = asked(requests(llm)[5])
     assert editor["request"]["counterevidence"] == []
     [sent] = editor["request"]["claims"]
     [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
@@ -643,8 +659,8 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert log[-1]["detail"] == {
         "reason": "answered",
         "detail": found["stop_detail"],
-        "tokens_in": 14_900,
-        "tokens_out": 1_470,
+        "tokens_in": 15_400,
+        "tokens_out": 1_520,
     }
     assert metric(atlas, "atlas_investigation_stops_total", reason="answered") == 1
 
@@ -834,8 +850,9 @@ def test_the_lead_and_document_budgets_and_the_as_of_time_bound_what_is_read(
     assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
     assert tasks(found)["editor"]["status"] == "succeeded"
     assert found["research_card"]["findings"] == []
-    [read] = found["research_card"]["read"]
+    read, skeptic_read = found["research_card"]["read"]
     assert [d["source_version_id"] for d in read["documents"]] == [ten_q]
+    assert (skeptic_read["role"], skeptic_read["status"]) == ("skeptic", "skipped")
     assert (
         metric(atlas, "atlas_investigation_stops_total", reason="no_new_independent_evidence") == 1
     )
@@ -1023,7 +1040,16 @@ def test_with_no_accepted_claim_the_editor_writes_a_card_of_what_was_searched_an
     assert searched["discovery_id"] == tasks(found)["scout"]["artifacts"]["discovery_id"]
     assert (searched["round"], searched["queries"], searched["leads_found"]) == (1, QUERIES, 3)
     assert searched["lead_ids"] == [lead["lead_id"] for lead in found["leads"]]
-    coherent_card, lumentum_card = card["read"]
+    coherent_card, lumentum_card, skeptic_card = card["read"]
+    # The Skeptic's row says it read nothing, and why (pilot fix 06).
+    assert (skeptic_card["role"], skeptic_card["task_key"], skeptic_card["status"]) == (
+        "skeptic",
+        "skeptic",
+        "skipped",
+    )
+    assert (skeptic_card["documents"], skeptic_card["passages"]) == ([], 0)
+    assert skeptic_card["detail"] == "nothing to challenge: the Investigators accepted no Claim"
+    assert (coherent_card["role"], lumentum_card["role"]) == ("investigator", "investigator")
     assert (coherent_card["task_key"], coherent_card["company_id"]) == (
         "investigator:coherent",
         company_id(atlas, "coherent"),
@@ -1135,7 +1161,7 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
         ("editor", "accepted"),
     ]
     # The card counts the passages sent across the extraction and its continuation.
-    [read] = found["research_card"]["read"]
+    read, _skeptic = found["research_card"]["read"]
     assert (read["passages"], read["claims_proposed"]) == (3, 0)
     assert metric(atlas, tokens, kind="investigation", direction="input") == calls["tokens_in"]
     assert [
@@ -1195,7 +1221,8 @@ def test_a_budget_spent_before_the_skeptic_and_the_analyst_resumes_into_them_and
     assert roles(llm) == [
         "scout",
         "investigator",
-        "skeptic",
+        "skeptic",  # its plan
+        "skeptic",  # its reading of the fallback's documents
         "financial_analyst",
         "editor",
         "reviewer",
@@ -1251,6 +1278,7 @@ def test_an_llm_outage_pauses_the_investigation_and_it_resumes_with_nothing_inve
         ("scout", "accepted"),
         ("investigator", "accepted"),
         ("skeptic", "accepted"),
+        ("skeptic", "accepted"),  # its reading of the fallback's documents
         ("financial_analyst", "accepted"),
         ("editor", "failed"),
         ("editor", "accepted"),
@@ -1310,7 +1338,8 @@ def test_a_disproven_premise_cancels_only_the_tasks_that_depend_on_it(
     assert found["research_card"]["disproven_premises"] == [
         "Lumentum is part of the supply chain the question is about"
     ]
-    assert asked(requests(llm)[4])["request"]["disproven_premises"] == [
+    editor = next(b for b in requests(llm) if b["metadata"]["role"] == "editor")
+    assert asked(editor)["request"]["disproven_premises"] == [
         "Lumentum is part of the supply chain the question is about"
     ]
     again = atlas.api.post(
@@ -1737,6 +1766,97 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     [queued] = [e for e in events(atlas, found["id"]) if e["type"] == "relationship_review_queued"]
     assert queued["detail"]["assertions"] == 1
     assert [p["status"] for p in found["premises"]] == ["open", "open"]
+
+
+LITE_10K = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
+LITE_10Q = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026030777/lite-20260328.htm"
+
+
+def test_a_skeptic_plan_that_chooses_no_document_falls_back_to_each_seed_company_s_filings(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot investigation 1's seeds and archive: Coherent's and Lumentum's recorded filings.
+    atlas = services.start()
+    atlas.ingest_company("lumentum")
+    coherent, lumentum = company_id(atlas, "coherent"), company_id(atlas, "lumentum")
+    started = seeded(atlas, "coherent", "lumentum")
+    script_parallel(llm)  # its plan answers `"documents": []`, as the pilot's did
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert tasks(found)["skeptic"]["status"] == "succeeded"
+    plan, *readings = skeptic_calls(llm)
+    assert plan["request"]["catalog"]  # it had archived documents to choose from
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    [plan_call] = [c for c in calls if c["prompt_name"] == "skeptic-plan"]
+    assert plan_call["prompt_version"] == 3
+    # Code chose for it: each seed company's latest 10-K and 10-Q, in seed order; the
+    # Investigators had read them, so the document budget isn't charged again.
+    expected = [
+        atlas.version(COHR_10K, "coherent")["id"],
+        atlas.version(COHR_10Q, "coherent")["id"],
+        atlas.version(LITE_10K)["id"],
+        atlas.version(LITE_10Q)["id"],
+    ]
+    artifacts = tasks(found)["skeptic"]["artifacts"]
+    assert (artifacts["documents_fallback"], artifacts["documents_from_fallback"]) == (True, 4)
+    assert (artifacts["documents"], artifacts["documents_dropped"]) == (4, 0)
+    assert {d["task_key"] for d in found["documents"]} == {
+        "investigator:coherent",
+        "investigator:lumentum",
+    }
+    # A researcher sees that the model chose nothing.
+    [fell_back] = [
+        e for e in events(atlas, found["id"]) if e["type"] == "skeptic_documents_fallback"
+    ]
+    assert (fell_back["round"], fell_back["task_key"]) == (1, "skeptic")
+    assert fell_back["detail"] == {
+        "plan_documents": 0,
+        "seed_company_ids": [coherent, lumentum],
+        "documents": 4,
+    }
+    # It read passages of at least one archived Source Version of each seed company.
+    sent = [p for reading in readings for p in reading["retrieved_data"]]
+    read_versions = {p["source"].split("#")[0] for p in sent}
+    assert read_versions & set(expected[:2])
+    assert read_versions & set(expected[2:])
+    assert artifacts["passages"] == len(sent)
+    # The card states what the Skeptic read, like the Investigators' rows.
+    card = found["research_card"]
+    assert [(r["role"], r["task_key"]) for r in card["read"]] == [
+        ("investigator", "investigator:coherent"),
+        ("investigator", "investigator:lumentum"),
+        ("skeptic", "skeptic"),
+    ]
+    skeptic = card["read"][2]
+    assert (skeptic["status"], skeptic["detail"], skeptic["documents_fallback"]) == (
+        "succeeded",
+        None,
+        True,
+    )
+    assert [d["source_version_id"] for d in skeptic["documents"]] == expected
+    assert {d["selected_by"] for d in skeptic["documents"]} == {"fallback"}
+    titles = {d["source_version_id"]: d["title"] for d in found["documents"]}
+    assert [d["title"] for d in skeptic["documents"]] == [titles[v] for v in expected]
+    for document in skeptic["documents"]:  # sections where it was sent passages
+        assert bool(document["sections"]) == (document["source_version_id"] in read_versions)
+    assert (skeptic["passages"], skeptic["claims_proposed"], skeptic["claims_accepted"]) == (
+        len(sent),
+        0,
+        0,
+    )
+    # The Editor is sent the Investigators' reading; the Skeptic's reaches it as counterevidence.
+    editor = asked(next(b for b in requests(llm) if b["metadata"]["role"] == "editor"))
+    assert [r["company"] for r in editor["request"]["read"]] == ["Coherent", "Lumentum"]
 
 
 def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_not_independent(

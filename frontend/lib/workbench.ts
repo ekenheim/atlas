@@ -83,24 +83,41 @@ export function canSaveHypothesis(investigation: Investigation): boolean {
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count} ${count === 1 ? one : many}`;
 
+/** Who a row of the card's "What was read" is: the Investigator's company, or the Skeptic. */
+export function readerName(reading: CardReading): string {
+  if (reading.role === "skeptic") return ROLES.skeptic;
+  return reading.company_name ?? reading.task_key;
+}
+
 /**
- * What one Investigator task's reading came to, in words: why it read nothing, or its
- * documents, passages and Claims, with the rejected ones by reason.
+ * What one Investigator's or the Skeptic's reading came to, in words: why it read nothing,
+ * or its documents (for the Skeptic, how many code chose because its plan chose none for a
+ * seed company), passages and proposals (Claims, or counterevidence items), with the
+ * rejected ones by reason.
  */
 export function readingOutcome(reading: CardReading): string {
   if (reading.documents.length === 0) return reading.detail ?? "Read nothing.";
+  const skeptic = reading.role === "skeptic";
+  const chosenByCode = reading.documents.filter((d) => d.selected_by === "fallback").length;
   const parts = [
     `${plural(reading.documents.length, "document")} read`,
+    ...(chosenByCode > 0
+      ? [`${chosenByCode} chosen by code (its plan chose none for a seed company)`]
+      : []),
     ...(reading.documents_dropped > 0
       ? [`${reading.documents_dropped} left out by the document budget`]
       : []),
     plural(reading.passages, "passage"),
-    `${plural(reading.claims_proposed, "Claim")} proposed, ${reading.claims_accepted} accepted`,
+    `${plural(
+      reading.claims_proposed,
+      skeptic ? "counterevidence item" : "Claim",
+    )} proposed, ${reading.claims_accepted} accepted`,
   ];
   const rejected = Object.entries(reading.rejected)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([reason, count]) => `${reason.replaceAll("_", " ")} ×${count}`);
   if (rejected.length > 0) parts.push(`rejected: ${rejected.join(", ")}`);
+  if (reading.passages === 0 && reading.detail) parts.push(reading.detail);
   return `${parts.join("; ")}.`;
 }
 

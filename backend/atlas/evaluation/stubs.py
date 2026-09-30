@@ -10,7 +10,10 @@
   names; the Editor writes one finding citing every Claim it is sent. A call with no answer
   scripted is an error of the case, except the Financial Analyst's: its scenario proposals
   aren't scored by these cases (no metric reads them), so unless a case scripts its answers
-  it proposes no scenario (`UNSCRIPTED_DEFAULTS`), as the SearXNG stub finds no leads.
+  it proposes no scenario (`UNSCRIPTED_DEFAULTS`), as the SearXNG stub finds no leads; and
+  the Skeptic's reading: a case whose Skeptic plan chooses no document now has code's
+  fallback choose the seed companies' documents (pilot fix 06), and unless the case scripts
+  `skeptic` answers, that reading proposes no counterevidence.
 - **Hindsight stub**: `/version` (reported as `evaluation-stub`, so a run's record shows it),
   the bank template import (so runs can start) and an empty recall. Memory isn't evaluated
   here: retention and recall have their own recorded contract tests.
@@ -40,6 +43,7 @@ type Handler = Callable[[httpx2.Request], httpx2.Response]
 # The answer of a role no metric scores when the case scripts none for it.
 UNSCRIPTED_DEFAULTS: dict[str, dict[str, JsonValue]] = {
     "financial_analyst": {"scenarios": []},
+    "skeptic": {"counterevidence": []},
 }
 
 

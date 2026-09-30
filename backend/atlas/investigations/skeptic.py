@@ -16,6 +16,17 @@ continues where it stopped:
    Code keeps the first `max_queries` distinct queries and the catalog documents it named (in
    order, each once); a document the investigation hasn't read yet is counted against the
    document budget, the rest dropped (`document_budget_reached`).
+   **The fallback** (pilot fix 06), applied after the search (step 2): when neither the plan
+   nor its search chose a document of a seed company that has one archived, code chooses for
+   it, after the plan's and the search's documents: for each such seed company
+   its latest 10-K and latest 10-Q (its latest two primary documents when it has neither),
+   and, when none of those is one the investigation already read, the newest document of it
+   the investigation read (which costs no budget, so every seed company is read even when
+   the Investigators spent the budget); then the latest 10-K of each of the theme's other
+   companies, while the budget has room. Those documents are `selected_by` `fallback`, and
+   a `skeptic_documents_fallback` event and the task's `documents_fallback` say the model
+   chose nothing for them. A follow-up round's fallback leaves out the documents an earlier
+   round's Skeptic read. (The pilot's plan answered `"documents": []` with a full catalog.)
 2. **Search.** Each query is searched once with SearXNG, its results stored as Tier C leads in
    a discovery of the run (atlas.discovery.leads): a lead is never Evidence. A failed search
    is recorded on its query and the others proceed. A result whose canonical URL is a catalog
@@ -92,11 +103,15 @@ from atlas.roles.skeptic import (
 SKEPTIC_ACTOR = Actor("atlas-skeptic")
 EXTRACTOR_VERSION = f"skeptic.v{SKEPTIC_PROMPT_VERSION}"
 COUNTEREVIDENCE_PREDICATE = "counterevidence"
+FALLBACK_EVENT = "skeptic_documents_fallback"
 CATALOG_LIMIT = 60
 PASSAGE_CHARS = 3000  # as the Investigator's
 _PARSED = ("parsed", "incomplete")
 _ERROR_LIMIT = 500
 _SPACE = re.compile(r"\s+")
+
+
+type Selection = Literal["plan", "search", "fallback"]
 
 
 class SkepticDocument(BaseModel):
@@ -106,7 +121,7 @@ class SkepticDocument(BaseModel):
 
     source_version_id: uuid.UUID
     checklist_item: str | None
-    selected_by: Literal["plan", "search"]
+    selected_by: Selection
     counted: bool  # new to the investigation: counted against the document budget
 
 
@@ -198,6 +213,7 @@ class Skeptic:
         *,
         theme_title: str,
         company_ids: Sequence[uuid.UUID],
+        theme_company_ids: Sequence[uuid.UUID],
         claims: Sequence[RowMapping],
         supporting_families: set[str],
     ) -> SkepticOutcome:
@@ -207,7 +223,7 @@ class Skeptic:
             self._plan(investigation, task, search, catalog, theme_title, claims)
             search = self._load(search["id"])
         if search["phase"] == "searching":
-            self._search(investigation, task, search, catalog)
+            self._search(investigation, task, search, catalog, theme_company_ids)
             search = self._load(search["id"])
         if search["phase"] == "reading":
             stopped = self._read(investigation, search, claims, supporting_families)
@@ -229,6 +245,7 @@ class Skeptic:
             search = self._load(search["id"])
         return SkepticOutcome(
             "succeeded",
+            detail=_read_nothing(investigation, task, search),
             artifacts=self._artifacts(search),
             disproofs=self._disproofs(search["id"]),
         )
@@ -352,7 +369,7 @@ class Skeptic:
                 queries.append((query, each.checklist_item))
         queries = queries[: self._max_queries]
         known = {str(v.id): v for v in catalog}
-        wanted: list[tuple[uuid.UUID, str | None, Literal["plan", "search"]]] = []
+        wanted: list[tuple[uuid.UUID, str | None, Selection]] = []
         for each in plan.documents:
             version = known.get(each.source_version_id.strip())
             if version is not None and version.id not in {w[0] for w in wanted}:
@@ -420,6 +437,7 @@ class Skeptic:
         task: RowMapping,
         search: RowMapping,
         catalog: Sequence[_Version],
+        theme_company_ids: Sequence[uuid.UUID],
     ) -> None:
         discovery_id: uuid.UUID | None = search["discovery_id"]
         found_urls: list[str] = []
@@ -438,7 +456,7 @@ class Skeptic:
                     ).scalars()
                 )
         by_url = {canonical_url(v.canonical_url): v for v in catalog}
-        matched: list[tuple[uuid.UUID, str | None, Literal["plan", "search"]]] = []
+        matched: list[tuple[uuid.UUID, str | None, Selection]] = []
         for url in found_urls:
             version = by_url.get(url)
             if version is not None and version.id not in {m[0] for m in matched}:
@@ -447,6 +465,37 @@ class Skeptic:
             _lock(connection, investigation["id"])
             current = [SkepticDocument.model_validate(d) for d in search["documents"]]
             documents, dropped = _take_documents(connection, investigation, task, current, matched)
+            # The fallback: a seed company neither the plan nor its search chose a document of.
+            companies = {v.id: v.company_id for v in catalog}
+            seeds = list(investigation["seed_company_ids"])
+            fallback, uncovered = _fallback(
+                connection,
+                investigation,
+                task["id"],
+                seeds=seeds,
+                others=[c for c in theme_company_ids if c not in seeds],
+                covered={
+                    company
+                    for d in documents
+                    if (company := companies.get(d.source_version_id)) is not None
+                },
+                chosen={d.source_version_id for d in documents},
+            )
+            if uncovered:
+                documents, more = _take_documents(
+                    connection, investigation, task, documents, fallback
+                )
+                dropped += more
+                event(
+                    connection,
+                    investigation["id"],
+                    FALLBACK_EVENT,
+                    round=task["round"],
+                    task_key=task["key"],
+                    plan_documents=search["documents_proposed"] or 0,
+                    seed_company_ids=[str(each) for each in uncovered],
+                    documents=sum(1 for d in documents if d.selected_by == "fallback"),
+                )
             _budget_event(connection, investigation, task, dropped)
             if discovery_id is not None:
                 connection.execute(
@@ -943,6 +992,7 @@ class Skeptic:
                 ),
                 {"id": search["discovery_id"]},
             ).one()
+            fell_back = used_fallback(connection, search["task_id"])
         documents = [SkepticDocument.model_validate(d) for d in search["documents"]]
         return {
             "skeptic_search_id": str(search["id"]),
@@ -953,6 +1003,8 @@ class Skeptic:
             "new_leads": int(queries[2]),
             "documents": len(documents),
             "documents_from_search": sum(1 for d in documents if d.selected_by == "search"),
+            "documents_fallback": fell_back,
+            "documents_from_fallback": sum(1 for d in documents if d.selected_by == "fallback"),
             "documents_dropped": search["documents_dropped"],
             "passages": len(search["passages"]),
             "passages_dropped": search["passages_dropped"],
@@ -1097,7 +1149,7 @@ def _take_documents(
     investigation: RowMapping,
     task: RowMapping,
     current: list[SkepticDocument],
-    wanted: Sequence[tuple[uuid.UUID, str | None, Literal["plan", "search"]]],
+    wanted: Sequence[tuple[uuid.UUID, str | None, Selection]],
 ) -> tuple[list[SkepticDocument], int]:
     """`current` plus the `wanted` Source Versions not in it: one the investigation already
     read costs nothing; a new one is recorded for the task while the document budget has
@@ -1141,6 +1193,139 @@ def _take_documents(
             )
         )
     return documents, dropped
+
+
+_FALLBACK_FORMS = ("10-K", "10-Q")
+
+
+def _fallback(
+    connection: Connection,
+    investigation: RowMapping,
+    task_id: uuid.UUID,
+    *,
+    seeds: Sequence[uuid.UUID],
+    others: Sequence[uuid.UUID],
+    covered: set[uuid.UUID],
+    chosen: set[uuid.UUID],
+) -> tuple[list[tuple[uuid.UUID, str | None, Selection]], list[uuid.UUID]]:
+    """The documents code chooses when the plan chose none of a seed company's (see the
+    module), in reading order; and those seed companies. Nothing when the plan covered every
+    seed company that has an archived document. The caller holds the investigation's lock."""
+    companies = list(dict.fromkeys([*seeds, *others]))
+    if not companies:
+        return [], []
+    rows = connection.execute(
+        text(
+            "SELECT * FROM (SELECT DISTINCT ON (v.source_document_id) v.id, d.company_id,"
+            " d.form_type, d.document_type, v.available_at"
+            " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
+            " WHERE d.company_id = ANY(:companies) AND d.source_tier = 'A'"
+            " AND d.source_type <> 'xbrl_companyfacts' AND v.available_at <= :as_of"
+            " AND v.parse_status IN ('parsed', 'incomplete') AND v.parsed_object_uri IS NOT NULL"
+            " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
+            " ORDER BY available_at DESC, id"
+        ),
+        {"companies": companies, "as_of": investigation["as_of"]},
+    ).all()
+    held = set(
+        connection.execute(
+            text(
+                "SELECT source_version_id FROM investigation_document WHERE investigation_id = :id"
+            ),
+            {"id": investigation["id"]},
+        ).scalars()
+    )
+    # A follow-up round's fallback leaves out what an earlier round's Skeptic read.
+    read_before = set(
+        connection.execute(
+            text(
+                "SELECT CAST(d ->> 'source_version_id' AS uuid) FROM skeptic_search s,"
+                " jsonb_array_elements(s.documents) d"
+                " WHERE s.investigation_id = :id AND s.task_id <> :task"
+            ),
+            {"id": investigation["id"], "task": task_id},
+        ).scalars()
+    )
+    by_company: dict[uuid.UUID, list[Any]] = {}
+    for row in rows:
+        if row.id not in read_before:
+            by_company.setdefault(row.company_id, []).append(row)
+    uncovered = [s for s in dict.fromkeys(seeds) if s not in covered and by_company.get(s)]
+    if not uncovered:
+        return [], []
+
+    def primary(row: Any) -> bool:  # a filing's own document, not an exhibit
+        return row.document_type is None or row.document_type == row.form_type
+
+    picks: list[uuid.UUID] = []
+    for seed in uncovered:
+        documents = by_company[seed]
+        filings = [row for row in documents if primary(row)] or documents
+        mine = [
+            first.id
+            for form in _FALLBACK_FORMS
+            if (first := next((row for row in filings if row.form_type == form), None))
+        ] or [row.id for row in filings[:2]]
+        if not held.intersection(mine):
+            # Read already by the investigation, so free: the seed company is read even when
+            # the Investigators spent the document budget.
+            read = next((row.id for row in documents if row.id in held), None)
+            if read is not None:
+                mine.append(read)
+        picks += mine
+    for company in dict.fromkeys(others):
+        ten_k = next(
+            (
+                row.id
+                for row in by_company.get(company, [])
+                if row.form_type == "10-K" and primary(row)
+            ),
+            None,
+        )
+        if ten_k is not None:
+            picks.append(ten_k)
+    return [(each, None, "fallback") for each in dict.fromkeys(picks) if each not in chosen], (
+        uncovered
+    )
+
+
+def used_fallback(connection: Connection, task_id: uuid.UUID) -> bool:
+    """Whether the Skeptic task's documents include ones code chose because its plan chose
+    none of a seed company's (the `skeptic_documents_fallback` event)."""
+    return bool(
+        connection.execute(
+            text(
+                "SELECT EXISTS (SELECT FROM investigation_event e JOIN investigation_task t"
+                " ON t.investigation_id = e.investigation_id AND t.round = e.round"
+                " AND t.key = e.task_key WHERE t.id = :task AND e.type = :type)"
+            ),
+            {"task": task_id, "type": FALLBACK_EVENT},
+        ).scalar_one()
+    )
+
+
+def _read_nothing(investigation: RowMapping, task: RowMapping, search: RowMapping) -> str | None:
+    """Why the Skeptic read no passage, when it read none (for its task and the card)."""
+    documents = len(search["documents"])
+    if documents == 0 and search["documents_dropped"]:
+        return (
+            f"the Skeptic read nothing: the document budget ({investigation['max_documents']})"
+            f" was spent, and {search['documents_dropped']} documents were left out"
+        )
+    if documents == 0:
+        return (
+            "the Skeptic read nothing: its plan chose no archived document, and no seed"
+            " company has a parsed Tier A Source Version available as of"
+            f" {investigation['as_of'].isoformat()}"
+            + (" that an earlier round's Skeptic hasn't read" if task["round"] > 1 else "")
+        )
+    if not search["passages"]:
+        return (
+            "the Skeptic read no passage: no passage of the"
+            f" {documents} document{'s' if documents != 1 else ''} it chose matches a"
+            " bear-checklist item"
+        )
+    return None
 
 
 def _budget_event(

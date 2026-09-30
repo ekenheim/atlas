@@ -7575,6 +7575,22 @@
             },
             "type": "array",
             "title": "Sections"
+          },
+          "selected_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "plan",
+                  "search",
+                  "fallback"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected By"
           }
         },
         "type": "object",
@@ -7584,7 +7600,7 @@
           "sections"
         ],
         "title": "CardDocumentRead",
-        "description": "A Source Version an Investigator task read, and the sections of the passages it was\nsent."
+        "description": "A Source Version an Investigator or Skeptic task read, and the sections of the\npassages it was sent."
       },
       "CardFinding": {
         "properties": {
@@ -7794,6 +7810,20 @@
             },
             "type": "object",
             "title": "Rejected"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "investigator",
+              "skeptic"
+            ],
+            "title": "Role",
+            "default": "investigator"
+          },
+          "documents_fallback": {
+            "type": "boolean",
+            "title": "Documents Fallback",
+            "default": false
           }
         },
         "type": "object",
@@ -7812,7 +7842,7 @@
           "rejected"
         ],
         "title": "CardReading",
-        "description": "What one Investigator task read and what came of it: the extraction's outcomes, so a\ncard with no finding still says why nothing was accepted."
+        "description": "What one Investigator or Skeptic task read and what came of it, so a card with no\nfinding (or no contradiction) still says why. For an Investigator the counts are its\nextraction's Claims; for the Skeptic (pilot fix 06) its proposed counterevidence items."
       },
       "CardSearch": {
         "properties": {

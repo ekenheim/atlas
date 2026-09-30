@@ -29,7 +29,8 @@ from pydantic import BaseModel, ConfigDict
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
 SKEPTIC_PROMPT_VERSION = 2  # v2: the bottleneck method
-SKEPTIC_PLAN_PROMPT_VERSION = 2
+# v3: it must choose archived documents from the catalog, and why (pilot fix 06)
+SKEPTIC_PLAN_PROMPT_VERSION = 3
 
 
 @dataclass(frozen=True)

@@ -23,6 +23,7 @@ import {
   followUpBlocked,
   openQuestions,
   outputParts,
+  readerName,
   readingOutcome,
   statusText,
   tokenUse,
@@ -738,7 +739,7 @@ function Read({ card }: { card: ResearchCard }) {
       <caption>What was read</caption>
       <thead>
         <tr>
-          <th scope="col">Investigator</th>
+          <th scope="col">Reader</th>
           <th scope="col">Documents and sections</th>
           <th scope="col">Outcome</th>
         </tr>
@@ -747,7 +748,7 @@ function Read({ card }: { card: ResearchCard }) {
         {read.map((reading) => (
           <tr key={`${reading.round}:${reading.task_key}`}>
             <th scope="row">
-              {reading.company_name ?? reading.task_key}
+              {readerName(reading)}
               {reading.round > 1 && ` (round ${reading.round})`}
             </th>
             <td>
@@ -762,6 +763,9 @@ function Read({ card }: { card: ResearchCard }) {
                       </Link>
                       {document.sections.length > 0 && (
                         <span className="muted-small"> {document.sections.join(", ")}</span>
+                      )}
+                      {document.selected_by === "fallback" && (
+                        <span className="muted-small"> (chosen by code)</span>
                       )}
                     </li>
                   ))}

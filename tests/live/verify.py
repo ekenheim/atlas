@@ -404,8 +404,12 @@ class RehearsalModel:
                     for item in request["items"]
                 ]
             }
+        if role == "skeptic" and "catalog" in request:
+            # It plans no search and no document; code's fallback then chooses the seed
+            # companies' filings (pilot fix 06).
+            return {"queries": [], "documents": []}
         if role == "skeptic":
-            return {"queries": [], "documents": []}  # it searches and reads nothing
+            return {"counterevidence": []}  # its reading of them finds none
         if role == "financial_analyst":
             return {"scenarios": []}  # the scenario then comes from the researcher's table
         if role == "editor":
