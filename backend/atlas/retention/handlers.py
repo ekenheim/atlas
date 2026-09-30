@@ -1,5 +1,7 @@
-"""The retention job handlers: `retain`, `poll_operation`, `reprocess` and `triage`."""
+"""The retention job handlers: `retain`, `poll_operation`, `reprocess`, `triage` and
+`triage_audit`."""
 
+import uuid
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
@@ -9,6 +11,7 @@ from atlas.companies import extend_universe, load_universe
 from atlas.jobs.handlers import HandlerRegistry
 from atlas.jobs.queue import Artifacts, Job
 from atlas.jobs.resources import hindsight_resources, run_recorder
+from atlas.retention.audit import AUDIT_KIND, TriageAuditor
 from atlas.retention.service import (
     POLL_KIND,
     REPROCESS_KIND,
@@ -60,7 +63,30 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
                     excerpt_chars=settings.triage_excerpt_chars,
                     windows_per_section=settings.triage_windows_per_section,
                     sections_per_call=settings.triage_sections_per_call,
+                    window_overlap_chars=settings.triage_window_overlap_chars,
                 ).triage(payload.source_version_id, job.job_class)
+            finally:
+                if caller is not None:
+                    caller.close()
+
+    def triage_audit(job: Job) -> Artifacts:
+        with (
+            hindsight_resources(settings) as (_, engine),
+            run_recorder(settings, engine) as runs,
+        ):
+            with engine.connect() as connection:
+                universe = extend_universe(connection, load_universe(settings.themes_config))
+            caller = RoleCaller.from_settings(settings, engine)
+            try:
+                return TriageAuditor(
+                    engine,
+                    open_archive(settings),
+                    Actor.from_settings(settings),
+                    universe,
+                    caller,
+                    runs,
+                    samples_per_attempt=settings.triage_audit_samples_per_attempt,
+                ).run(uuid.UUID(str(job.payload["triage_audit_id"])))
             finally:
                 if caller is not None:
                     caller.close()
@@ -70,9 +96,11 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
         POLL_KIND: poll,
         REPROCESS_KIND: reprocess,
         TRIAGE_KIND: triage,
+        AUDIT_KIND: triage_audit,
     }
     # All depend on Hindsight or LiteLLM (the retains on Hindsight and, through it, LiteLLM;
-    # triage on LiteLLM): a quota or outage failure pauses them together (atlas.jobs.pacing).
+    # triage and its audit on LiteLLM): a quota or outage failure pauses them together
+    # (atlas.jobs.pacing).
     for kind, handler in handlers.items():
         registry.register(kind, handler, pausable=True)
 

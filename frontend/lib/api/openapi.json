@@ -1707,6 +1707,119 @@
         }
       }
     },
+    "/api/v1/triage/audits": {
+      "get": {
+        "tags": [
+          "triage"
+        ],
+        "summary": "Triage Audits",
+        "operationId": "triage_audits_api_v1_triage_audits_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_TriageAuditRun_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/triage/audits/{audit_id}": {
+      "get": {
+        "tags": [
+          "triage"
+        ],
+        "summary": "Triage Audit",
+        "operationId": "triage_audit_api_v1_triage_audits__audit_id__get",
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Audit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriageAudit"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/memory/recall": {
       "post": {
         "tags": [
@@ -6590,6 +6703,163 @@
         ],
         "title": "AssumptionTable",
         "description": "One company's exposure through one product, in one currency. An input left out is\nmissing."
+      },
+      "AuditStratum": {
+        "properties": {
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "length_band": {
+            "type": "string",
+            "title": "Length Band"
+          },
+          "population": {
+            "type": "integer",
+            "title": "Population"
+          },
+          "sampled": {
+            "type": "integer",
+            "title": "Sampled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "form",
+          "length_band",
+          "population",
+          "sampled"
+        ],
+        "title": "AuditStratum"
+      },
+      "AuditSummary": {
+        "properties": {
+          "sampled": {
+            "type": "integer",
+            "title": "Sampled"
+          },
+          "judged": {
+            "type": "integer",
+            "title": "Judged"
+          },
+          "unjudged": {
+            "type": "integer",
+            "title": "Unjudged"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "misses": {
+            "type": "integer",
+            "title": "Misses"
+          },
+          "miss_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Miss Rate"
+          },
+          "wilson_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wilson Low"
+          },
+          "wilson_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wilson High"
+          },
+          "weighted_miss_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weighted Miss Rate"
+          },
+          "by_length_band": {
+            "items": {
+              "$ref": "#/components/schemas/MissRate"
+            },
+            "type": "array",
+            "title": "By Length Band"
+          },
+          "by_category": {
+            "items": {
+              "$ref": "#/components/schemas/MissRate"
+            },
+            "type": "array",
+            "title": "By Category"
+          },
+          "by_method": {
+            "items": {
+              "$ref": "#/components/schemas/MissRate"
+            },
+            "type": "array",
+            "title": "By Method"
+          },
+          "by_form": {
+            "items": {
+              "$ref": "#/components/schemas/MissRate"
+            },
+            "type": "array",
+            "title": "By Form"
+          },
+          "misses_by_judge_category": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Misses By Judge Category"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/MissExample"
+            },
+            "type": "array",
+            "title": "Examples"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sampled",
+          "judged",
+          "unjudged",
+          "pending",
+          "misses",
+          "miss_rate",
+          "wilson_low",
+          "wilson_high",
+          "weighted_miss_rate",
+          "by_length_band",
+          "by_category",
+          "by_method",
+          "by_form",
+          "misses_by_judge_category",
+          "examples"
+        ],
+        "title": "AuditSummary"
       },
       "BackfillWindowStatus": {
         "properties": {
@@ -14451,6 +14721,152 @@
         "title": "Mention",
         "description": "What a source said about a company. Any field may be missing; `mic` may be an\noperating (XNAS) or segment (XNGS) MIC; `as_of` bounds historical names and listings."
       },
+      "MissExample": {
+        "properties": {
+          "sample_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Sample Id"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "section_anchor": {
+            "type": "string",
+            "title": "Section Anchor"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "length_band": {
+            "type": "string",
+            "title": "Length Band"
+          },
+          "length": {
+            "type": "integer",
+            "title": "Length"
+          },
+          "triage_method": {
+            "type": "string",
+            "title": "Triage Method"
+          },
+          "triage_category": {
+            "type": "string",
+            "title": "Triage Category"
+          },
+          "triage_reason": {
+            "type": "string",
+            "title": "Triage Reason"
+          },
+          "windows_read": {
+            "type": "integer",
+            "title": "Windows Read"
+          },
+          "windows_total": {
+            "type": "integer",
+            "title": "Windows Total"
+          },
+          "judge_category": {
+            "type": "string",
+            "title": "Judge Category"
+          },
+          "judge_reason": {
+            "type": "string",
+            "title": "Judge Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sample_id",
+          "source_version_id",
+          "section_anchor",
+          "section_heading",
+          "form",
+          "length_band",
+          "length",
+          "triage_method",
+          "triage_category",
+          "triage_reason",
+          "windows_read",
+          "windows_total",
+          "judge_category",
+          "judge_reason"
+        ],
+        "title": "MissExample"
+      },
+      "MissRate": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "judged": {
+            "type": "integer",
+            "title": "Judged"
+          },
+          "misses": {
+            "type": "integer",
+            "title": "Misses"
+          },
+          "miss_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Miss Rate"
+          },
+          "wilson_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wilson Low"
+          },
+          "wilson_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wilson High"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "judged",
+          "misses",
+          "miss_rate",
+          "wilson_low",
+          "wilson_high"
+        ],
+        "title": "MissRate"
+      },
       "MissingInput": {
         "properties": {
           "kind": {
@@ -15157,6 +15573,37 @@
           "offset"
         ],
         "title": "Page[SourceVersionSummary]"
+      },
+      "Page_TriageAuditRun_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TriageAuditRun"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[TriageAuditRun]"
       },
       "Page_TriageDecision_": {
         "properties": {
@@ -20433,6 +20880,480 @@
           "to"
         ],
         "title": "TransitionRequest"
+      },
+      "TriageAudit": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed"
+            ],
+            "title": "Status"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "job_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Status"
+          },
+          "sample_requested": {
+            "type": "integer",
+            "title": "Sample Requested"
+          },
+          "sample_size": {
+            "type": "integer",
+            "title": "Sample Size"
+          },
+          "company_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Slug"
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed"
+          },
+          "population": {
+            "type": "integer",
+            "title": "Population"
+          },
+          "judge_rubric_version": {
+            "type": "string",
+            "title": "Judge Rubric Version"
+          },
+          "triage_rubric_version": {
+            "type": "string",
+            "title": "Triage Rubric Version"
+          },
+          "excerpt_chars": {
+            "type": "integer",
+            "title": "Excerpt Chars"
+          },
+          "windows_per_section": {
+            "type": "integer",
+            "title": "Windows Per Section"
+          },
+          "window_overlap_chars": {
+            "type": "integer",
+            "title": "Window Overlap Chars"
+          },
+          "judge_max_chars": {
+            "type": "integer",
+            "title": "Judge Max Chars"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "samples_judged": {
+            "type": "integer",
+            "title": "Samples Judged"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "plan": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Plan"
+          },
+          "strata": {
+            "items": {
+              "$ref": "#/components/schemas/AuditStratum"
+            },
+            "type": "array",
+            "title": "Strata"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/AuditSummary"
+          },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/TriageAuditSample"
+            },
+            "type": "array",
+            "title": "Samples"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "job_id",
+          "job_status",
+          "sample_requested",
+          "sample_size",
+          "company_slug",
+          "seed",
+          "population",
+          "judge_rubric_version",
+          "triage_rubric_version",
+          "excerpt_chars",
+          "windows_per_section",
+          "window_overlap_chars",
+          "judge_max_chars",
+          "actor",
+          "samples_judged",
+          "created_at",
+          "finished_at",
+          "plan",
+          "strata",
+          "summary",
+          "samples"
+        ],
+        "title": "TriageAudit"
+      },
+      "TriageAuditRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed"
+            ],
+            "title": "Status"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "job_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Status"
+          },
+          "sample_requested": {
+            "type": "integer",
+            "title": "Sample Requested"
+          },
+          "sample_size": {
+            "type": "integer",
+            "title": "Sample Size"
+          },
+          "company_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Slug"
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed"
+          },
+          "population": {
+            "type": "integer",
+            "title": "Population"
+          },
+          "judge_rubric_version": {
+            "type": "string",
+            "title": "Judge Rubric Version"
+          },
+          "triage_rubric_version": {
+            "type": "string",
+            "title": "Triage Rubric Version"
+          },
+          "excerpt_chars": {
+            "type": "integer",
+            "title": "Excerpt Chars"
+          },
+          "windows_per_section": {
+            "type": "integer",
+            "title": "Windows Per Section"
+          },
+          "window_overlap_chars": {
+            "type": "integer",
+            "title": "Window Overlap Chars"
+          },
+          "judge_max_chars": {
+            "type": "integer",
+            "title": "Judge Max Chars"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "samples_judged": {
+            "type": "integer",
+            "title": "Samples Judged"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "job_id",
+          "job_status",
+          "sample_requested",
+          "sample_size",
+          "company_slug",
+          "seed",
+          "population",
+          "judge_rubric_version",
+          "triage_rubric_version",
+          "excerpt_chars",
+          "windows_per_section",
+          "window_overlap_chars",
+          "judge_max_chars",
+          "actor",
+          "samples_judged",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "TriageAuditRun"
+      },
+      "TriageAuditSample": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "triage_decision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Triage Decision Id"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "section_anchor": {
+            "type": "string",
+            "title": "Section Anchor"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "length_band": {
+            "type": "string",
+            "title": "Length Band"
+          },
+          "triage_decision": {
+            "type": "string",
+            "enum": [
+              "retain",
+              "skip"
+            ],
+            "title": "Triage Decision"
+          },
+          "triage_method": {
+            "type": "string",
+            "title": "Triage Method"
+          },
+          "triage_category": {
+            "type": "string",
+            "title": "Triage Category"
+          },
+          "triage_reason": {
+            "type": "string",
+            "title": "Triage Reason"
+          },
+          "windows_read": {
+            "type": "integer",
+            "title": "Windows Read"
+          },
+          "windows_total": {
+            "type": "integer",
+            "title": "Windows Total"
+          },
+          "judge_decision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "retain",
+                  "skip"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Decision"
+          },
+          "judge_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Category"
+          },
+          "judge_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Reason"
+          },
+          "judge_chunks": {
+            "type": "integer",
+            "title": "Judge Chunks"
+          },
+          "role_call_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Role Call Ids"
+          },
+          "agreement": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreement"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "judged_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Judged At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "triage_decision_id",
+          "source_version_id",
+          "section_anchor",
+          "section_heading",
+          "char_start",
+          "char_end",
+          "form",
+          "length_band",
+          "triage_decision",
+          "triage_method",
+          "triage_category",
+          "triage_reason",
+          "windows_read",
+          "windows_total",
+          "judge_decision",
+          "judge_category",
+          "judge_reason",
+          "judge_chunks",
+          "role_call_ids",
+          "agreement",
+          "error",
+          "judged_at"
+        ],
+        "title": "TriageAuditSample"
       },
       "TriageDecision": {
         "properties": {

@@ -35,6 +35,7 @@ MINIMAX_KINDS = [
     "investigation_task",
     "review_relationships",
     "triage",
+    "triage_audit",
 ]
 LUMENTUM = "https://www.sec.gov/Archives/edgar/data/1633978"
 LUMENTUM_DOCUMENTS = {

@@ -430,6 +430,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/triage/audits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Triage Audits */
+        get: operations["triage_audits_api_v1_triage_audits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/triage/audits/{audit_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Triage Audit */
+        get: operations["triage_audit_api_v1_triage_audits__audit_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/memory/recall": {
         parameters: {
             query?: never;
@@ -1615,6 +1649,52 @@ export interface components {
             inputs?: {
                 [key: string]: components["schemas"]["SourcedInput"] | components["schemas"]["EstimatedInput"] | components["schemas"]["MissingInput"];
             };
+        };
+        /** AuditStratum */
+        AuditStratum: {
+            /** Form */
+            form: string;
+            /** Length Band */
+            length_band: string;
+            /** Population */
+            population: number;
+            /** Sampled */
+            sampled: number;
+        };
+        /** AuditSummary */
+        AuditSummary: {
+            /** Sampled */
+            sampled: number;
+            /** Judged */
+            judged: number;
+            /** Unjudged */
+            unjudged: number;
+            /** Pending */
+            pending: number;
+            /** Misses */
+            misses: number;
+            /** Miss Rate */
+            miss_rate: number | null;
+            /** Wilson Low */
+            wilson_low: number | null;
+            /** Wilson High */
+            wilson_high: number | null;
+            /** Weighted Miss Rate */
+            weighted_miss_rate: number | null;
+            /** By Length Band */
+            by_length_band: components["schemas"]["MissRate"][];
+            /** By Category */
+            by_category: components["schemas"]["MissRate"][];
+            /** By Method */
+            by_method: components["schemas"]["MissRate"][];
+            /** By Form */
+            by_form: components["schemas"]["MissRate"][];
+            /** Misses By Judge Category */
+            misses_by_judge_category: {
+                [key: string]: number;
+            };
+            /** Examples */
+            examples: components["schemas"]["MissExample"][];
         };
         /** BackfillWindowStatus */
         BackfillWindowStatus: {
@@ -4359,6 +4439,58 @@ export interface components {
             /** As Of */
             as_of?: string | null;
         };
+        /** MissExample */
+        MissExample: {
+            /**
+             * Sample Id
+             * Format: uuid
+             */
+            sample_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Section Anchor */
+            section_anchor: string;
+            /** Section Heading */
+            section_heading: string | null;
+            /** Form */
+            form: string;
+            /** Length Band */
+            length_band: string;
+            /** Length */
+            length: number;
+            /** Triage Method */
+            triage_method: string;
+            /** Triage Category */
+            triage_category: string;
+            /** Triage Reason */
+            triage_reason: string;
+            /** Windows Read */
+            windows_read: number;
+            /** Windows Total */
+            windows_total: number;
+            /** Judge Category */
+            judge_category: string;
+            /** Judge Reason */
+            judge_reason: string;
+        };
+        /** MissRate */
+        MissRate: {
+            /** Key */
+            key: string;
+            /** Judged */
+            judged: number;
+            /** Misses */
+            misses: number;
+            /** Miss Rate */
+            miss_rate: number | null;
+            /** Wilson Low */
+            wilson_low: number | null;
+            /** Wilson High */
+            wilson_high: number | null;
+        };
         /** MissingInput */
         MissingInput: {
             /**
@@ -4609,6 +4741,17 @@ export interface components {
         Page_SourceVersionSummary_: {
             /** Items */
             items: components["schemas"]["SourceVersionSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[TriageAuditRun] */
+        Page_TriageAuditRun_: {
+            /** Items */
+            items: components["schemas"]["TriageAuditRun"][];
             /** Total */
             total: number;
             /** Limit */
@@ -6531,6 +6674,183 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** TriageAudit */
+        TriageAudit: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed";
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Status */
+            job_status: string | null;
+            /** Sample Requested */
+            sample_requested: number;
+            /** Sample Size */
+            sample_size: number;
+            /** Company Slug */
+            company_slug: string | null;
+            /** Seed */
+            seed: number;
+            /** Population */
+            population: number;
+            /** Judge Rubric Version */
+            judge_rubric_version: string;
+            /** Triage Rubric Version */
+            triage_rubric_version: string;
+            /** Excerpt Chars */
+            excerpt_chars: number;
+            /** Windows Per Section */
+            windows_per_section: number;
+            /** Window Overlap Chars */
+            window_overlap_chars: number;
+            /** Judge Max Chars */
+            judge_max_chars: number;
+            /** Actor */
+            actor: string;
+            /** Samples Judged */
+            samples_judged: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Plan */
+            plan: string[];
+            /** Strata */
+            strata: components["schemas"]["AuditStratum"][];
+            summary: components["schemas"]["AuditSummary"];
+            /** Samples */
+            samples: components["schemas"]["TriageAuditSample"][];
+        };
+        /** TriageAuditRun */
+        TriageAuditRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed";
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Status */
+            job_status: string | null;
+            /** Sample Requested */
+            sample_requested: number;
+            /** Sample Size */
+            sample_size: number;
+            /** Company Slug */
+            company_slug: string | null;
+            /** Seed */
+            seed: number;
+            /** Population */
+            population: number;
+            /** Judge Rubric Version */
+            judge_rubric_version: string;
+            /** Triage Rubric Version */
+            triage_rubric_version: string;
+            /** Excerpt Chars */
+            excerpt_chars: number;
+            /** Windows Per Section */
+            windows_per_section: number;
+            /** Window Overlap Chars */
+            window_overlap_chars: number;
+            /** Judge Max Chars */
+            judge_max_chars: number;
+            /** Actor */
+            actor: string;
+            /** Samples Judged */
+            samples_judged: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** TriageAuditSample */
+        TriageAuditSample: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Triage Decision Id
+             * Format: uuid
+             */
+            triage_decision_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Section Anchor */
+            section_anchor: string;
+            /** Section Heading */
+            section_heading: string | null;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Form */
+            form: string;
+            /** Length Band */
+            length_band: string;
+            /**
+             * Triage Decision
+             * @enum {string}
+             */
+            triage_decision: "retain" | "skip";
+            /** Triage Method */
+            triage_method: string;
+            /** Triage Category */
+            triage_category: string;
+            /** Triage Reason */
+            triage_reason: string;
+            /** Windows Read */
+            windows_read: number;
+            /** Windows Total */
+            windows_total: number;
+            /** Judge Decision */
+            judge_decision: ("retain" | "skip") | null;
+            /** Judge Category */
+            judge_category: string | null;
+            /** Judge Reason */
+            judge_reason: string | null;
+            /** Judge Chunks */
+            judge_chunks: number;
+            /** Role Call Ids */
+            role_call_ids: string[];
+            /** Agreement */
+            agreement: boolean | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Judged At
+             * Format: date-time
+             */
+            judged_at: string;
+        };
         /**
          * TriageDecision
          * @description One decision about one section of a Source Version.
@@ -7796,6 +8116,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    triage_audits_api_v1_triage_audits_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TriageAuditRun_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    triage_audit_api_v1_triage_audits__audit_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                audit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageAudit"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

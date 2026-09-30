@@ -375,6 +375,99 @@ def run_triage_retry(settings: Settings, source_version: str | None, failed: boo
     print(json.dumps({"enqueued": enqueued}))
 
 
+def run_triage_audit(
+    settings: Settings,
+    sample: int,
+    company: str | None,
+    seed: int,
+    *,
+    backfill: bool,
+    wait: bool,
+    timeout: float,
+    poll_seconds: float,
+) -> int:
+    """Create a triage audit and enqueue its job; print it as JSON (stdout). With `wait`,
+    poll until it completes and print its summary instead (and a one-line reading on stderr).
+
+    0 when created (or, waiting, completed), 1 when its job failed or the wait timed out, 2
+    when the audit was refused.
+    """
+    import json
+    import time
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.retention import AuditRefused, ReaderSettings, create_audit, get_audit
+
+    engine = create_engine(settings)
+    try:
+        try:
+            audit = create_audit(
+                engine,
+                Actor.from_settings(settings),
+                sample=sample,
+                company_slug=company,
+                seed=seed,
+                reader=ReaderSettings(
+                    excerpt_chars=settings.triage_excerpt_chars,
+                    windows_per_section=settings.triage_windows_per_section,
+                    window_overlap_chars=settings.triage_window_overlap_chars,
+                    judge_max_chars=settings.triage_judge_max_chars,
+                ),
+                job_class="backfill" if backfill else "interactive",
+            )
+        except AuditRefused as refused:
+            print(f"atlas: {refused}", file=sys.stderr)
+            return 2
+        created = {
+            "triage_audit_id": str(audit.id),
+            "job_id": str(audit.job_id),
+            "status": audit.status,
+            "sample_size": audit.sample_size,
+            "population": audit.population,
+        }
+        if not wait:
+            print(json.dumps(created))
+            return 0
+        print(
+            f"atlas: triage audit {audit.id}: {audit.sample_size} of {audit.population} skipped"
+            " sections sampled; waiting for the worker to judge them",
+            file=sys.stderr,
+        )
+        deadline = time.monotonic() + timeout
+        while True:
+            with engine.connect() as connection:
+                found = get_audit(connection, audit.id)
+            assert found is not None
+            if found.status == "completed":
+                break
+            if found.job_status == "failed":
+                print(f"atlas: the triage audit's job {audit.job_id} failed", file=sys.stderr)
+                return 1
+            if time.monotonic() >= deadline:
+                print(
+                    f"atlas: timed out after {timeout:g} s ({found.samples_judged} of"
+                    f" {found.sample_size} judged); the audit continues: GET"
+                    f" /api/v1/triage/audits/{audit.id}",
+                    file=sys.stderr,
+                )
+                return 1
+            time.sleep(poll_seconds)
+    finally:
+        engine.dispose()
+    summary = found.summary
+    if summary.miss_rate is not None:
+        print(
+            f"atlas: miss rate {summary.misses}/{summary.judged} = {summary.miss_rate:.1%}"
+            f" (Wilson 95% {summary.wilson_low:.1%} to {summary.wilson_high:.1%})",
+            file=sys.stderr,
+        )
+    print(
+        json.dumps(created | {"status": found.status, "summary": summary.model_dump(mode="json")})
+    )
+    return 0
+
+
 def run_correct_availability(settings: Settings) -> None:
     import dataclasses
     import json
@@ -764,6 +857,29 @@ def main(argv: list[str] | None = None) -> None:
     triage_retry.add_argument(
         "--failed", action="store_true", help="every version whose latest triage job failed"
     )
+    triage_audit = triage_commands.add_parser(
+        "audit",
+        help="measure what triage skips that a full reading would retain: sample skipped"
+        " sections (seeded, stratified by form and length) and enqueue their judging"
+        " (GET /api/v1/triage/audits)",
+    )
+    triage_audit.add_argument(
+        "--sample", type=int, default=40, help="how many skipped sections (default 40)"
+    )
+    triage_audit.add_argument("--company", help="only this company's sections (slug)")
+    triage_audit.add_argument(
+        "--seed", type=int, default=1, help="the sampling seed: same seed, same sample"
+    )
+    triage_audit.add_argument("--backfill", action="store_true", help="backfill class")
+    triage_audit.add_argument(
+        "--wait", action="store_true", help="wait for the worker to finish, then print the summary"
+    )
+    triage_audit.add_argument(
+        "--timeout", type=float, default=6 * 3600, help="how long --wait waits (seconds)"
+    )
+    triage_audit.add_argument(
+        "--poll-seconds", type=float, default=5.0, help="how often --wait looks (seconds)"
+    )
     ledger = commands.add_parser("ledger", help="source ledger maintenance")
     ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
     ledger_commands.add_parser(
@@ -901,6 +1017,19 @@ def main(argv: list[str] | None = None) -> None:
         run_assign_families(settings)
     elif args.command == "ledger":
         run_correct_availability(settings)
+    elif args.command == "triage" and args.triage_command == "audit":
+        raise SystemExit(
+            run_triage_audit(
+                settings,
+                args.sample,
+                args.company,
+                args.seed,
+                backfill=args.backfill,
+                wait=args.wait,
+                timeout=args.timeout,
+                poll_seconds=args.poll_seconds,
+            )
+        )
     elif args.command == "triage":
         run_triage_retry(settings, args.source_version, args.failed)
     elif args.command == "retention":

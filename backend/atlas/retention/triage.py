@@ -15,8 +15,10 @@ before any section is retained:
    (`None.`, `Not applicable.`) are `skip`, without a call.
 3. **The Triage role** (`atlas.roles.triage`, its prompt the versioned rubric) decides the
    rest from the document's metadata and each section's heading and text, read in
-   **windows** of `triage_excerpt_chars` characters: at most `triage_windows_per_section`
-   of them, the first always and the rest spread evenly over a section that has more,
+   **windows** of `triage_excerpt_chars` characters, each overlapping the previous one by
+   `triage_window_overlap_chars` (so a sentence at a boundary is read whole in the next
+   window; `window_spans`): at most `triage_windows_per_section` of them, the first always
+   and the rest spread evenly over a section that has more,
    `triage_sections_per_call` windows to a call. A section is `retain` when any of its
    windows is (that window's category and reason, marked `part p/n`), `skip` when every
    window is. Until 2026-09-30 the role saw a section's first window only, so a capacity or
@@ -168,17 +170,41 @@ class _Window:
         return base if self.part == 1 else f"{base}~{self.part}"
 
 
-def _windows(pending: _Pending, size: int, cap: int) -> list[_Window]:
-    """The section's windows of `size` characters, at most `cap` of them: the first always,
-    the rest spread evenly over the section when it has more than `cap`."""
-    parts = max(1, -(-len(pending.text) // size))
-    if parts <= cap or cap == 1:
-        chosen: list[int] = list(range(1, min(parts, cap) + 1))
+@dataclass(frozen=True)
+class WindowSpan:
+    """One window of a text: its 1-based position among the text's windows and its offsets."""
+
+    part: int
+    parts: int
+    start: int
+    end: int
+
+
+def window_spans(length: int, size: int, overlap: int, cap: int | None = None) -> list[WindowSpan]:
+    """The windows of `size` characters over a text of `length`, each starting `overlap`
+    characters before the previous one ends (so a sentence at a boundary is read whole in the
+    next window), and at most `cap` of them (None: all): the first always, the rest spread
+    evenly over the text when it has more than `cap`. The last window ends at `length` and
+    always reaches past the previous one's end."""
+    if size < 1 or not 0 <= overlap < size:
+        raise ValueError("a window needs size >= 1 and 0 <= overlap < size")
+    stride = size - overlap
+    parts = 1 if length <= size else 1 + -(-(length - size) // stride)
+    if cap is None or parts <= cap or cap == 1:
+        chosen: list[int] = list(range(1, parts + 1 if cap is None else min(parts, cap) + 1))
     else:
         chosen = sorted({1 + round(i * (parts - 1) / (cap - 1)) for i in range(cap)})
     return [
-        _Window(pending, part, parts, pending.text[(part - 1) * size : part * size])
+        WindowSpan(part, parts, (part - 1) * stride, min((part - 1) * stride + size, length))
         for part in chosen
+    ]
+
+
+def _windows(pending: _Pending, size: int, overlap: int, cap: int) -> list[_Window]:
+    """The section's windows (`window_spans`) as the role is asked about them."""
+    return [
+        _Window(pending, span.part, span.parts, pending.text[span.start : span.end])
+        for span in window_spans(len(pending.text), size, overlap, cap)
     ]
 
 
@@ -205,6 +231,33 @@ def _aggregate(
     }
 
 
+def triage_document(version: SourceVersionInfo, universe: Universe) -> TriageDocument:
+    """The document's metadata as the Triage role (and its judge) are told it."""
+    company = None
+    if version.company_slug is not None:
+        config = universe.companies.get(version.company_slug)
+        company = config.display_name if config is not None else version.company_slug
+    return TriageDocument(
+        source_version_id=str(version.id),
+        company=company,
+        title=version.title,
+        form_type=version.form_type,
+        document_type=version.document_type,
+        provider=version.provider,
+        source_type=version.source_type,
+        available_at=version.available_at.isoformat(),
+    )
+
+
+def triage_themes(version: SourceVersionInfo, universe: Universe) -> list[TriageTheme]:
+    """The themes of the version's company: the bottleneck questions triage judges against."""
+    return [
+        TriageTheme(theme_id=slug, title=theme.title, description=theme.description)
+        for slug, theme in sorted(universe.themes.items())
+        if version.company_slug is not None and version.company_slug in theme.companies
+    ]
+
+
 class Triage:
     """Runs one `triage` job: decides every undecided section of a Source Version."""
 
@@ -220,6 +273,7 @@ class Triage:
         excerpt_chars: int,
         windows_per_section: int,
         sections_per_call: int,
+        window_overlap_chars: int,
     ) -> None:
         self._engine = engine
         self._archive = archive
@@ -229,6 +283,7 @@ class Triage:
         self._runs = runs
         self._excerpt_chars = excerpt_chars
         self._windows_per_section = windows_per_section
+        self._overlap = window_overlap_chars
         self._per_call = sections_per_call
         self._queue = JobQueue(engine, actor=actor)
 
@@ -331,7 +386,9 @@ class Triage:
         windows = [
             window
             for each in undecided
-            for window in _windows(each, self._excerpt_chars, self._windows_per_section)
+            for window in _windows(
+                each, self._excerpt_chars, self._overlap, self._windows_per_section
+            )
         ]
         answers: dict[str, tuple[TriageSectionDecision, uuid.UUID]] = {}
         unanswered: dict[str, str] = {}  # window anchor -> why
@@ -383,8 +440,8 @@ class Triage:
         undecided. `TokenBudgetExhausted` propagates to `_ask_role`."""
         assert self._caller is not None
         request = TriageRequest(
-            document=self._document(version),
-            themes=self._themes(version),
+            document=triage_document(version, self._universe),
+            themes=triage_themes(version, self._universe),
             sections=[
                 TriageSection(
                     anchor=window.anchor,
@@ -420,29 +477,6 @@ class Triage:
             role_call_id,
             f"role call {role_call_id} returned no decision for it",
         )
-
-    def _document(self, version: SourceVersionInfo) -> TriageDocument:
-        company = None
-        if version.company_slug is not None:
-            config = self._universe.companies.get(version.company_slug)
-            company = config.display_name if config is not None else version.company_slug
-        return TriageDocument(
-            source_version_id=str(version.id),
-            company=company,
-            title=version.title,
-            form_type=version.form_type,
-            document_type=version.document_type,
-            provider=version.provider,
-            source_type=version.source_type,
-            available_at=version.available_at.isoformat(),
-        )
-
-    def _themes(self, version: SourceVersionInfo) -> list[TriageTheme]:
-        return [
-            TriageTheme(theme_id=slug, title=theme.title, description=theme.description)
-            for slug, theme in sorted(self._universe.themes.items())
-            if version.company_slug is not None and version.company_slug in theme.companies
-        ]
 
     def _finish(self, run_id: uuid.UUID) -> None:
         assert self._runs is not None

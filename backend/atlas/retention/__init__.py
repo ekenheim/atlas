@@ -2,10 +2,21 @@
 
 `service` runs the `retain`, `poll_operation` and `reprocess` jobs, `sections` splits a
 parse into anchored sections, `triage` decides which sections are worth retaining (the
-`triage` job, retain on demand) and `decisions` records and reads those decisions, and
+`triage` job, retain on demand), `audit` measures what triage skips that a full reading would
+retain (the `triage_audit` job) and `decisions` records and reads those decisions, and
 `reads` serves a version's memory documents to the API.
 """
 
+from atlas.retention.audit import (
+    AUDIT_KIND,
+    AuditRefused,
+    ReaderSettings,
+    TriageAudit,
+    TriageAuditRun,
+    create_audit,
+    get_audit,
+    list_audits,
+)
 from atlas.retention.decisions import TriageDecision, list_decisions
 from atlas.retention.handlers import register_retention_handlers
 from atlas.retention.reads import (
@@ -43,6 +54,7 @@ from atlas.retention.triage import (
 )
 
 __all__ = [
+    "AUDIT_KIND",
     "MAX_CHUNK_CHARS",
     "POLL_KIND",
     "REPROCESS_KIND",
@@ -51,18 +63,25 @@ __all__ = [
     "RULES_VERSION",
     "SECTIONER_VERSION",
     "TRIAGE_KIND",
+    "AuditRefused",
     "MemoryDocument",
     "MemoryOperation",
     "NoTemplateApplied",
+    "ReaderSettings",
     "RetainOnDemand",
     "RetainRefused",
     "RetainRequested",
     "RetainState",
     "Section",
     "SourceVersionMemory",
+    "TriageAudit",
+    "TriageAuditRun",
     "TriageDecision",
     "TriageRetryRefused",
+    "create_audit",
     "enqueue_retains",
+    "get_audit",
+    "list_audits",
     "list_decisions",
     "register_retention_handlers",
     "request_retain",

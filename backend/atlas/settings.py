@@ -109,6 +109,16 @@ class Settings(BaseSettings):
     triage_excerpt_chars: int = Field(default=1500, ge=200, le=20_000)
     triage_windows_per_section: int = Field(default=6, ge=1, le=50)
     triage_sections_per_call: int = Field(default=15, ge=1, le=50)
+    # Consecutive windows overlap by this many characters, so a sentence at a window's
+    # boundary is read whole in the next one (less than triage_excerpt_chars).
+    triage_window_overlap_chars: int = Field(default=200, ge=0, le=10_000)
+    # The triage audit (`atlas triage audit`, ticket 33): the full-section judge reads a
+    # skipped section whole, in chunks of at most this many characters only when it is
+    # longer (overlapping like the windows), and one `triage_audit` attempt judges at most
+    # this many samples before it is requeued (so it stays inside a job lease and is paced by
+    # the minimax budget between attempts).
+    triage_judge_max_chars: int = Field(default=60_000, ge=2_000, le=1_000_000)
+    triage_audit_samples_per_attempt: int = Field(default=3, ge=1, le=100)
     # Mental models: the worker enqueues each template model's daily refresh from this UTC
     # time of day on (HH:MM; empty: never scheduled). The template's own refresh_cron runs
     # at 06:00 UTC, so by default Atlas's job finds and records its refresh. A refresh job
@@ -249,6 +259,18 @@ class Settings(BaseSettings):
         if self.queue_pause_base_seconds > self.queue_pause_max_seconds:
             raise ValueError(
                 "ATLAS_QUEUE_PAUSE_BASE_SECONDS must not exceed ATLAS_QUEUE_PAUSE_MAX_SECONDS"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _window_overlap_below_the_window(self) -> Self:
+        if self.triage_window_overlap_chars >= self.triage_excerpt_chars:
+            raise ValueError(
+                "ATLAS_TRIAGE_WINDOW_OVERLAP_CHARS must be less than ATLAS_TRIAGE_EXCERPT_CHARS"
+            )
+        if self.triage_window_overlap_chars >= self.triage_judge_max_chars:
+            raise ValueError(
+                "ATLAS_TRIAGE_WINDOW_OVERLAP_CHARS must be less than ATLAS_TRIAGE_JUDGE_MAX_CHARS"
             )
         return self
 

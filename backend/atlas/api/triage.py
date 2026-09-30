@@ -7,6 +7,12 @@
   asked (the actor, and the investigation when one asked) and why, and a `retain` job is
   enqueued. 404 for an unknown version, section or investigation; 409 `not_retainable`,
   `linked` or `already_retained`.
+- `GET /triage/audits?limit=&offset=`: triage audits (`atlas triage audit`, ticket 33), newest
+  first: what was asked, the reader settings audited, status and progress.
+- `GET /triage/audits/{id}`: one audit with its strata, every judged sample (the section, the
+  triage decision, the full-section judge's decision and reason, agreement) and its summary
+  (miss rate with a Wilson 95% interval, by length band, category, method and form, example
+  misses).
 """
 
 import uuid
@@ -23,6 +29,7 @@ from atlas.api.common import (
     Page,
     Pagination,
     error_response,
+    not_found,
     pagination,
 )
 from atlas.archive import Archive
@@ -31,7 +38,11 @@ from atlas.retention import (
     RetainOnDemand,
     RetainRefused,
     RetainRequested,
+    TriageAudit,
+    TriageAuditRun,
     TriageDecision,
+    get_audit,
+    list_audits,
     list_decisions,
     request_retain,
 )
@@ -82,5 +93,17 @@ def triage_router(engine: Engine, archive: Archive, actor: Actor, bank_id: str) 
             )
         except RetainRefused as refused:
             return error_response(refused.status, refused.code, refused.message)
+
+    @router.get("/triage/audits", response_model=Page[TriageAuditRun])
+    def triage_audits(page: Paged) -> Page[TriageAuditRun]:  # pyright: ignore[reportUnusedFunction]
+        with engine.connect() as connection:
+            items, total = list_audits(connection, limit=page.limit, offset=page.offset)
+        return Page(items=items, total=total, limit=page.limit, offset=page.offset)
+
+    @router.get("/triage/audits/{audit_id}", response_model=TriageAudit, responses=NOT_FOUND)
+    def triage_audit(audit_id: uuid.UUID) -> TriageAudit | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        with engine.connect() as connection:
+            found = get_audit(connection, audit_id)
+        return found if found is not None else not_found("triage audit")
 
     return router

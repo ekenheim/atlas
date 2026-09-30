@@ -313,6 +313,26 @@ A rehearsal's model answers are scripted (`RehearsalModel`), and so are its Sear
 
 **Record it** in `docs/implementation-log.md` as LIVE, from `summary.md`, with exactly which parts ran. Fix what failed.
 
+## Triage audit (ticket 33)
+
+**What:** `atlas triage audit` measures how often retention triage skips a section that a full reading would retain (rules in `docs/decisions.md`, "Measuring what triage misses"). It draws a seeded, stratified sample of skipped sections and enqueues a `triage_audit` job; the worker gives each sample's archived text, whole, to the full-section judge (MiniMax through LiteLLM). It needs LiteLLM and Hindsight configured, as triage does, and spends MiniMax quota (paced by the `minimax` budget), so a live audit runs with the owner's go-ahead (given for the first, 2026-09-30).
+
+**Where to run it.** Anywhere with the deployment's settings and a worker running:
+- **On the cluster:** in the Atlas API or worker pod (`kubectl exec` into it), against the production database and archive: `atlas triage audit --company lumentum --sample 40 --seed 1`, then again for `coherent` (or leave out `--company` for every company). The cluster worker judges it; add `--wait` to print the summary when it is done, or read `GET /api/v1/triage/audits/{id}` later.
+- **On a live-verify database:** run `scripts/live-verify.sh --only sec --companies lumentum,coherent --keep-db --keep-bank` (triage runs on the live filings), then point `ATLAS_DATABASE_URL` and `ATLAS_ARCHIVE_ROOT` at the kept `atlas_live_*` database and its archive, with the same `ATLAS_LITELLM_*` and `ATLAS_HINDSIGHT_URL`, and run `atlas triage audit --sample 40 --wait` alongside `atlas worker`. Drop the database and the bank afterwards.
+
+**Cost.** One judge call per sample, more for a section past 60,000 characters (`ATLAS_TRIAGE_JUDGE_MAX_CHARS`: a 143,000-character Item 1A is up to three calls). A 40-sample audit is about 40 to 60 calls and, with long Items, a few hundred thousand input tokens: it can take more than one 5 h `minimax` window at the default 400,000-token budget. `--backfill` keeps it out of the interactive reserve. `GET /api/v1/queue` shows it held by the budget.
+
+**Reading it.** `GET /api/v1/triage/audits/{id}` (or `--wait`'s output):
+- `summary.miss_rate` with `wilson_low`/`wilson_high`: of the judged samples, the share triage skipped but the judge would retain. With 40 samples the interval is wide (0 misses: 0 to 8.8%); read it as "at most", not a point value.
+- `weighted_miss_rate`: the same, each stratum weighted by its share of all skipped sections (the sample over-represents rare strata on purpose).
+- `by_length_band`: where the misses are. Misses in `10k-50k` and `50k-plus` with `windows_read` well below `windows_total` mean triage's windows are too few for long Items (raise `ATLAS_TRIAGE_WINDOWS_PER_SECTION`); misses in `under-2k` mean the rubric or the model, not the windows.
+- `by_method`: misses by `rule` point at a boilerplate rule; by `inherited`, at an earlier decision copied forward.
+- `misses_by_judge_category` and `examples`: what was missed (the anchor, heading and the judge's reason). Open an example in the source viewer; if it is a real miss, retain the section on demand (`POST /api/v1/source-versions/{id}/sections/{anchor}/retain`). The judge can be wrong too: check a few by hand before changing triage.
+- `unjudged`: samples the judge gave no usable answer for (their `error`); re-run with a new seed if there are many.
+
+**Record it** in `docs/implementation-log.md` as LIVE: the command, the audit ID, the sample, the miss rate with its interval, the misses by band and category, and a note on each example.
+
 ## EDGAR availability corrections (after deploying migration `0012`)
 
 Source Versions ingested before the EDGAR dissemination rule (docs/decisions.md, 2026-09-29) are dated at acceptance even when EDGAR held the filing to the next business day. After `atlas migrate` has applied `0012`, run once, with the app's settings:

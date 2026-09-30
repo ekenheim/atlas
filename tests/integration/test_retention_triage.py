@@ -53,6 +53,9 @@ RETAINED_HEADINGS = {
 }
 RETAINED_CHUNKS = {"chunk-001": "segment_guidance"}
 EXCERPT_CHARS = 1500
+# Windows overlap by 200 characters (the default), so each starts 1300 after the last.
+OVERLAP_CHARS = 200
+STRIDE = EXCERPT_CHARS - OVERLAP_CHARS
 
 
 def triage_answer(body: dict[str, Any]) -> JsonValue:
@@ -337,6 +340,7 @@ def test_a_long_section_is_read_in_windows_and_retained_when_a_later_window_is(
             retention_triage="on",
             triage_excerpt_chars=EXCERPT_CHARS,
             triage_windows_per_section=3,
+            triage_window_overlap_chars=OVERLAP_CHARS,
             searxng_url="http://127.0.0.1:9",
         )
         atlas.fixtures = editable_fixtures(tmp_path)
@@ -368,15 +372,10 @@ def test_a_long_section_is_read_in_windows_and_retained_when_a_later_window_is(
         assert parts == [1, 1 + round((first["parts"] - 1) / 2), first["parts"]]
         last = texts[f"{anchor}~{first['parts']}"]
         assert last["trust"] == "low"
+        # The last window ends at the section's end and starts one stride after the one before.
         assert (
             last["text"]
-            == parsed[decision["char_start"] :][
-                (first["parts"] - 1) * EXCERPT_CHARS : first["parts"] * EXCERPT_CHARS
-            ][
-                : decision["char_end"]
-                - decision["char_start"]
-                - (first["parts"] - 1) * EXCERPT_CHARS
-            ]
+            == parsed[decision["char_start"] + (first["parts"] - 1) * STRIDE : decision["char_end"]]
         )
         # Retained because a later window was, and the decision says which.
         assert decision["decision"] == "retain"
@@ -387,10 +386,11 @@ def test_a_long_section_is_read_in_windows_and_retained_when_a_later_window_is(
         if decisions[anchor]["method"] == "role":
             assert decisions[anchor]["decision"] == "skip"
             assert not decisions[anchor]["reason"].startswith("part ")
-    # Every window's text is a slice of its section, sent as low-trust data by its anchor.
+    # Every window's text is a slice of its section, sent as low-trust data by its anchor;
+    # consecutive windows overlap by OVERLAP_CHARS.
     for anchor, entry in by_anchor.items():
         section = decisions[anchor.split("~")[0]]
-        offset = section["char_start"] + (entry["part"] - 1) * EXCERPT_CHARS
+        offset = section["char_start"] + (entry["part"] - 1) * STRIDE
         assert (
             texts[anchor]["text"]
             == parsed[offset : min(offset + EXCERPT_CHARS, section["char_end"])]
