@@ -67,6 +67,7 @@ from atlas.discovery.leads import canonical_url, store_result
 from atlas.discovery.searxng import SearchFailed, SearXNGClient
 from atlas.investigations.model import CardContradiction, SourceSpan
 from atlas.investigations.service import event
+from atlas.proposed_updates.triggers import on_counterevidence
 from atlas.retention.sections import split_sections
 from atlas.roles import QuotedText, RoleCaller, RoleOutputQuarantined, TokenBudgetExhausted
 from atlas.roles.skeptic import (
@@ -891,6 +892,9 @@ class Skeptic:
             entity_id=str(counterevidence_id),
             new_hash=content_hash(dict(row)),
         )
+        if independent:
+            # Against a statement a published Hypothesis version cites (ticket 21).
+            on_counterevidence(connection, counterevidence_id)
 
     # --- 7. premises, artifacts -----------------------------------------------------------------
 

@@ -23,6 +23,7 @@ from atlas.api.investigations import investigations_router
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
 from atlas.api.mental_models import mental_models_router
+from atlas.api.proposed_updates import proposed_updates_router
 from atlas.api.queue import queue_router
 from atlas.api.relationships import relationships_router
 from atlas.api.research import research_router
@@ -148,6 +149,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     )
     app.include_router(scenarios_router(engine, Actor.from_settings(settings)))
     app.include_router(snapshots_router(engine, archive))
+    app.include_router(proposed_updates_router(engine, Actor.from_settings(settings)))
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:

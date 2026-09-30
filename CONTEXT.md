@@ -64,6 +64,10 @@ _Avoid_: Link, connection, edge (outside the UI)
 An immutable, dated record of exactly what was considered and concluded at a decision time, including the Memory text as it was returned. It is the only exact mechanism for reproducing past beliefs.
 _Avoid_: Backup, export, replay
 
+**Proposed Update**:
+A flag on a Hypothesis (and the Candidates it concerns) that later Evidence contradicts what a published version depends on, listing that Evidence. The owner accepts it, which starts a correction, or dismisses it with a reason. The published version and its Research Snapshot never change.
+_Avoid_: Amendment, alert
+
 **Replay Bank**:
 An isolated Hindsight bank populated only with material available before a cutoff, used to evaluate the pipeline. It does not reproduce a past run.
 _Avoid_: Historical bank, backtest

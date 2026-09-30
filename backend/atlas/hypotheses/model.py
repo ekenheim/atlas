@@ -155,6 +155,9 @@ class Hypothesis(BaseModel):
     first_published_at: datetime | None
     next_review_at: datetime | None
     latest_version: int | None
+    # Later Evidence contradicting a published version, awaiting the owner (ticket 21:
+    # GET /hypotheses/{id}/proposed-updates).
+    open_proposed_updates: int
     versions: list[HypothesisVersion]
     transitions: list[HypothesisTransition]
 
@@ -236,6 +239,10 @@ def _hypothesis(connection: Connection, row: RowMapping) -> Hypothesis:
             params,
         ).mappings()
     ]
+    open_updates = connection.execute(
+        text("SELECT count(*) FROM proposed_update WHERE hypothesis_id = :id AND state = 'open'"),
+        params,
+    ).scalar_one()
     status: HypothesisStatus = row["status"]
     values: dict[str, Any] = dict(row)
     return Hypothesis.model_validate(
@@ -243,6 +250,7 @@ def _hypothesis(connection: Connection, row: RowMapping) -> Hypothesis:
         | {
             "allowed_transitions": list(TRANSITIONS[status]),
             "latest_version": versions[-1].version if versions else None,
+            "open_proposed_updates": int(open_updates),
             "versions": versions,
             "transitions": transitions,
         }

@@ -1163,10 +1163,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposed-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_proposed_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/proposed-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Of Hypothesis */
+        get: operations["of_hypothesis_api_v1_hypotheses__hypothesis_id__proposed_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposed-updates/{proposed_update_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Proposed Update */
+        get: operations["proposed_update_api_v1_proposed_updates__proposed_update_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposed-updates/{proposed_update_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept */
+        post: operations["accept_api_v1_proposed_updates__proposed_update_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposed-updates/{proposed_update_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss */
+        post: operations["dismiss_api_v1_proposed_updates__proposed_update_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptRequest */
+        AcceptRequest: {
+            /**
+             * Note
+             * @description the correction's note; default the summary
+             */
+            note?: string | null;
+        };
+        /** AffectedFinding */
+        AffectedFinding: {
+            /**
+             * Index
+             * @description the finding's position in the version, from 0
+             */
+            index: number;
+            /** Claim Text */
+            claim_text: string;
+            /**
+             * Assertion Ids
+             * @description its contradicted Assertions
+             */
+            assertion_ids: string[];
+        };
         /** Alias */
         Alias: {
             /** Name */
@@ -1915,6 +2023,48 @@ export interface components {
             /** Parsed */
             parsed: string | null;
         };
+        /**
+         * ContradictingEvidence
+         * @description One piece of Evidence against the version: what changed, and where it is stated.
+         */
+        ContradictingEvidence: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "assertion" | "relationship" | "source_version" | "counterevidence";
+            /**
+             * Id
+             * Format: uuid
+             * @description the Assertion reviewed, the Relationship rejected, the revised Source Version, or the counterevidence item
+             */
+            id: string;
+            /** Description */
+            description: string;
+            /**
+             * State
+             * @description the Assertion's or Relationship's review state
+             */
+            state: string | null;
+            /**
+             * Note
+             * @description the reviewer's note, if any
+             */
+            note: string | null;
+            /** Assertion Id */
+            assertion_id: string | null;
+            /** Source Version Id */
+            source_version_id: string | null;
+            /** Quote */
+            quote: string | null;
+            /** Revises Source Version Id */
+            revises_source_version_id: string | null;
+            /**
+             * Contradicts Assertion Ids
+             * @description the version's Assertions this bears on
+             */
+            contradicts_assertion_ids: string[];
+        };
         /** Contradiction */
         Contradiction: {
             /** Assertion Id */
@@ -2095,6 +2245,11 @@ export interface components {
             error: string | null;
             /** Searched At */
             searched_at: string | null;
+        };
+        /** DismissRequest */
+        DismissRequest: {
+            /** Reason */
+            reason: string;
         };
         /** DisproveRequest */
         DisproveRequest: {
@@ -2748,6 +2903,8 @@ export interface components {
             next_review_at: string | null;
             /** Latest Version */
             latest_version: number | null;
+            /** Open Proposed Updates */
+            open_proposed_updates: number;
             /** Versions */
             versions: components["schemas"]["HypothesisVersion"][];
             /** Transitions */
@@ -3842,6 +3999,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[ProposedUpdate] */
+        Page_ProposedUpdate_: {
+            /** Items */
+            items: components["schemas"]["ProposedUpdate"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[Relationship] */
         Page_Relationship_: {
             /** Items */
@@ -3992,6 +4160,72 @@ export interface components {
         };
         /** @enum {string} */
         ProposalTier: "exact" | "corroborated" | "candidate";
+        /** ProposedUpdate */
+        ProposedUpdate: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Hypothesis Id
+             * Format: uuid
+             */
+            hypothesis_id: string;
+            /**
+             * Hypothesis Version
+             * @description the published version it flags
+             */
+            hypothesis_version: number;
+            /**
+             * Hypothesis Version Id
+             * Format: uuid
+             */
+            hypothesis_version_id: string;
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "assertion_reviewed" | "relationship_rejected" | "source_revised" | "counterevidence";
+            /** Trigger Key */
+            trigger_key: string;
+            /** Summary */
+            summary: string;
+            /** Evidence */
+            evidence: components["schemas"]["ContradictingEvidence"][];
+            /** Affected Findings */
+            affected_findings: components["schemas"]["AffectedFinding"][];
+            /**
+             * Candidate Ids
+             * @description the Candidates it concerns
+             */
+            candidate_ids: string[];
+            /** Detected By Job Id */
+            detected_by_job_id: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "accepted" | "dismissed";
+            /** Resolved By */
+            resolved_by: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Resolution Note */
+            resolution_note: string | null;
+            /** Dismiss Reason */
+            dismiss_reason: string | null;
+            /**
+             * Correction Version
+             * @description the correction an acceptance started
+             */
+            correction_version: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * ProviderBudget
          * @description One provider's rolling window as the queue sees it now.
@@ -8680,6 +8914,235 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listing_api_v1_proposed_updates_get: {
+        parameters: {
+            query?: {
+                hypothesis_id?: string | null;
+                candidate_id?: string | null;
+                state?: ("open" | "accepted" | "dismissed") | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ProposedUpdate_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    of_hypothesis_api_v1_hypotheses__hypothesis_id__proposed_updates_get: {
+        parameters: {
+            query?: {
+                state?: ("open" | "accepted" | "dismissed") | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ProposedUpdate_"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proposed_update_api_v1_proposed_updates__proposed_update_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposed_update_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposedUpdate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_api_v1_proposed_updates__proposed_update_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposed_update_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposedUpdate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_api_v1_proposed_updates__proposed_update_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposed_update_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposedUpdate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

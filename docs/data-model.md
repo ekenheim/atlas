@@ -647,6 +647,39 @@ A Research Snapshot (`atlas.snapshots`, spec §5.7 "research_snapshot") freezes 
 
 Audit events: `research_snapshot.created` (`new_hash` = the snapshot's SHA-256).
 
+### 3.1j `hypothesis_dependency`, `proposed_update` (Phases 3–6a, ticket 21, migration 0039)
+
+Later Evidence against a published Hypothesis version proposes an update (`atlas.proposed_updates`, spec §5.7 "Contradiction flow"); the version and its Research Snapshot never change.
+
+`hypothesis_dependency`: **insert-only** (triggers `ENABLE ALWAYS` refuse UPDATE, DELETE, TRUNCATE), written in the publishing transaction. The migration fills it for versions published before it, from their content.
+
+| Column | Type | Notes |
+|---|---|---|
+| `hypothesis_version_id` | uuid FK → `hypothesis_version` | The published version |
+| `kind` | text | `assertion` (the findings' Assertions), `claim` (the Claims they cite), `relationship` (the Relationships those Assertions support), `source_version` (their spans' Source Versions) |
+| `ref_id` | uuid | Indexed with `kind`; PK (version, kind, ref) |
+
+`proposed_update`: one per (published version, contradicting event). Never deleted; a trigger allows only one change, `open` → `accepted` or `dismissed` with the resolution columns.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `hypothesis_id`, `hypothesis_version_id` | uuid FK | The Hypothesis and its latest published version when detected |
+| `trigger` | text | `assertion_reviewed`, `relationship_rejected`, `source_revised`, `counterevidence` |
+| `trigger_key` | text | The event (`<trigger>:<id>[:<state>]`); unique per version |
+| `summary` | text | One line |
+| `evidence` | jsonb array | The contradicting Evidence: kind, id, description, state, note, where it is stated (`assertion_id`, `source_version_id`, `quote`, `revises_source_version_id`) and `contradicts_assertion_ids` |
+| `affected_findings` | jsonb array | `{index, claim_text, assertion_ids}` of the version's findings it bears on |
+| `candidate_ids` | uuid[] | Open Candidates in the theme committed as a related company or a contradicted Assertion's party (GIN index) |
+| `detected_by_job_id` | uuid FK → `job` | The `check_contradictions` job |
+| `state` | text | `open`, `accepted`, `dismissed` |
+| `resolved_by`, `resolved_at`, `resolution_note` | | The owner's decision |
+| `dismiss_reason` | text | Exactly when dismissed |
+| `correction_version` | integer | Exactly when accepted: the new draft version |
+| `created_at` | timestamptz | |
+
+Audit events: `proposed_update.created` (actor `atlas-contradictions`), `proposed_update.accepted` (with `hypothesis.corrected` or `hypothesis.version_created` for the new version), `proposed_update.dismissed`.
+
 ### 3.1b `bank_template_application`
 
 One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.

@@ -4916,10 +4916,474 @@
           }
         }
       }
+    },
+    "/api/v1/proposed-updates": {
+      "get": {
+        "tags": [
+          "proposed-updates"
+        ],
+        "summary": "Listing",
+        "operationId": "listing_api_v1_proposed_updates_get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "candidate_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Candidate Id"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "accepted",
+                    "dismissed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ProposedUpdate_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/proposed-updates": {
+      "get": {
+        "tags": [
+          "proposed-updates"
+        ],
+        "summary": "Of Hypothesis",
+        "operationId": "of_hypothesis_api_v1_hypotheses__hypothesis_id__proposed_updates_get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "accepted",
+                    "dismissed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ProposedUpdate_"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/proposed-updates/{proposed_update_id}": {
+      "get": {
+        "tags": [
+          "proposed-updates"
+        ],
+        "summary": "Proposed Update",
+        "operationId": "proposed_update_api_v1_proposed_updates__proposed_update_id__get",
+        "parameters": [
+          {
+            "name": "proposed_update_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Proposed Update Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedUpdate"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/proposed-updates/{proposed_update_id}/accept": {
+      "post": {
+        "tags": [
+          "proposed-updates"
+        ],
+        "summary": "Accept",
+        "operationId": "accept_api_v1_proposed_updates__proposed_update_id__accept_post",
+        "parameters": [
+          {
+            "name": "proposed_update_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Proposed Update Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedUpdate"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/proposed-updates/{proposed_update_id}/dismiss": {
+      "post": {
+        "tags": [
+          "proposed-updates"
+        ],
+        "summary": "Dismiss",
+        "operationId": "dismiss_api_v1_proposed_updates__proposed_update_id__dismiss_post",
+        "parameters": [
+          {
+            "name": "proposed_update_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Proposed Update Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedUpdate"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AcceptRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "the correction's note; default the summary"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AcceptRequest"
+      },
+      "AffectedFinding": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index",
+            "description": "the finding's position in the version, from 0"
+          },
+          "claim_text": {
+            "type": "string",
+            "title": "Claim Text"
+          },
+          "assertion_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Assertion Ids",
+            "description": "its contradicted Assertions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "claim_text",
+          "assertion_ids"
+        ],
+        "title": "AffectedFinding"
+      },
       "Alias": {
         "properties": {
           "name": {
@@ -7054,6 +7518,125 @@
         ],
         "title": "ContentLinks"
       },
+      "ContradictingEvidence": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "assertion",
+              "relationship",
+              "source_version",
+              "counterevidence"
+            ],
+            "title": "Kind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "the Assertion reviewed, the Relationship rejected, the revised Source Version, or the counterevidence item"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State",
+            "description": "the Assertion's or Relationship's review state"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "the reviewer's note, if any"
+          },
+          "assertion_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assertion Id"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          },
+          "revises_source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revises Source Version Id"
+          },
+          "contradicts_assertion_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Contradicts Assertion Ids",
+            "description": "the version's Assertions this bears on"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "description",
+          "state",
+          "note",
+          "assertion_id",
+          "source_version_id",
+          "quote",
+          "revises_source_version_id",
+          "contradicts_assertion_ids"
+        ],
+        "title": "ContradictingEvidence",
+        "description": "One piece of Evidence against the version: what changed, and where it is stated."
+      },
       "Contradiction": {
         "properties": {
           "assertion_id": {
@@ -7639,6 +8222,23 @@
           "searched_at"
         ],
         "title": "DiscoveryQuery"
+      },
+      "DismissRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "DismissRequest"
       },
       "DisproveRequest": {
         "properties": {
@@ -9371,6 +9971,10 @@
             ],
             "title": "Latest Version"
           },
+          "open_proposed_updates": {
+            "type": "integer",
+            "title": "Open Proposed Updates"
+          },
           "versions": {
             "items": {
               "$ref": "#/components/schemas/HypothesisVersion"
@@ -9404,6 +10008,7 @@
           "first_published_at",
           "next_review_at",
           "latest_version",
+          "open_proposed_updates",
           "versions",
           "transitions"
         ],
@@ -12633,6 +13238,37 @@
         ],
         "title": "Page[Lead]"
       },
+      "Page_ProposedUpdate_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProposedUpdate"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ProposedUpdate]"
+      },
       "Page_Relationship_": {
         "properties": {
           "items": {
@@ -13015,6 +13651,176 @@
           "corroborated",
           "candidate"
         ]
+      },
+      "ProposedUpdate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "hypothesis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Id"
+          },
+          "hypothesis_version": {
+            "type": "integer",
+            "title": "Hypothesis Version",
+            "description": "the published version it flags"
+          },
+          "hypothesis_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Version Id"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "assertion_reviewed",
+              "relationship_rejected",
+              "source_revised",
+              "counterevidence"
+            ],
+            "title": "Trigger"
+          },
+          "trigger_key": {
+            "type": "string",
+            "title": "Trigger Key"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/ContradictingEvidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "affected_findings": {
+            "items": {
+              "$ref": "#/components/schemas/AffectedFinding"
+            },
+            "type": "array",
+            "title": "Affected Findings"
+          },
+          "candidate_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Candidate Ids",
+            "description": "the Candidates it concerns"
+          },
+          "detected_by_job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected By Job Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "accepted",
+              "dismissed"
+            ],
+            "title": "State"
+          },
+          "resolved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved By"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Note"
+          },
+          "dismiss_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismiss Reason"
+          },
+          "correction_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Version",
+            "description": "the correction an acceptance started"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "hypothesis_id",
+          "hypothesis_version",
+          "hypothesis_version_id",
+          "trigger",
+          "trigger_key",
+          "summary",
+          "evidence",
+          "affected_findings",
+          "candidate_ids",
+          "detected_by_job_id",
+          "state",
+          "resolved_by",
+          "resolved_at",
+          "resolution_note",
+          "dismiss_reason",
+          "correction_version",
+          "created_at"
+        ],
+        "title": "ProposedUpdate"
       },
       "ProviderBudget": {
         "properties": {

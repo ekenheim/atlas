@@ -1897,3 +1897,49 @@ The chain is now 0012 → 0013 → … → 0023.
   - `relationship_review_pending` has no integration test. The investigation's final stop always chains the machine review, so the seams can't produce an unreviewed finding Assertion without reaching into internals.
   - The snapshot's `put` happens inside the DB transaction. If the transaction later rolls back, an orphaned content-addressed object stays in the archive (harmless).
 - **Next:** the replay (map ticket 09's local `atlas-replay-<id>` bank seeded from Source Versions with `available_at ≤ cutoff`) can read the snapshot's `source_versions` and `cutoff`. The Hypothesis dossier page (ticket 24) can link a published version's snapshot.
+
+## 2026-09-30: Phase 3-6a ticket 21, contradiction proposes an update
+
+- **Built:**
+  - **Dependencies** (`backend/atlas/proposed_updates/triggers.py`): `Hypotheses.publish` records, in the publishing transaction, what the version depends on: its findings' Assertions, the Claims they cite, the Relationships those Assertions support and the spans' Source Versions (`hypothesis_dependency`, insert-only).
+  - **Event hooks**, each in the transaction that records its event. Each runs one indexed query and enqueues the deterministic `check_contradictions` job only when a published version is touched:
+    - `Assertions.review`: a dependent Assertion disputed, rejected or superseded;
+    - `Relationships.review`: the owner rejects a dependent edge;
+    - `SourceLedger.record`: a new Source Version of a document whose earlier version is cited;
+    - the Skeptic's `_insert`: accepted, independent counterevidence against a Claim stating a dependent span.
+  - **The job** (`detection.py`, not pausable: no LLM) works out the contradicting Evidence. For a revision that is "the new parsed text no longer contains a cited quote"; a revision that still states it, or has no parsed text, proposes nothing. The job flags each Hypothesis's latest published version with one `proposed_update` per event (unique per version and event key). The update lists the Evidence, the affected findings and the open Candidates it concerns, and is audited `proposed_update.created` by `atlas-contradictions`.
+  - **API** (`backend/atlas/api/proposed_updates.py`):
+    - `GET /api/v1/proposed-updates[/{id}]?hypothesis_id=&candidate_id=&state=` and `GET /api/v1/hypotheses/{id}/proposed-updates`;
+    - `Hypothesis.open_proposed_updates`;
+    - `POST .../accept` (`{note?}`): a new draft correction from the latest version, its affected findings `needs_review` with the summary as a limitation, audited `hypothesis.corrected` + `proposed_update.accepted`;
+    - `POST .../dismiss` (`{reason}`), audited.
+  - **Migration `0039_proposed_updates`** (down_revision `0038`): both tables. It backfills the dependencies of versions already published. A trigger lets a proposed update be resolved once and never deleted.
+- **Files:**
+  - new: `backend/atlas/proposed_updates/{__init__,triggers,detection,model,service}.py`, `backend/atlas/api/proposed_updates.py`, `backend/atlas/db/migrations/versions/0039_proposed_updates.py`, `tests/integration/test_proposed_updates.py`
+  - hooks (a few lines each): `backend/atlas/hypotheses/service.py`, `backend/atlas/assertions.py`, `backend/atlas/relationships/service.py`, `backend/atlas/ledger/service.py`, `backend/atlas/investigations/skeptic.py`
+  - `backend/atlas/hypotheses/model.py` (`open_proposed_updates`)
+  - shared files: `backend/atlas/api/app.py` (one router), `backend/atlas/jobs/handlers.py` (one registration)
+  - `frontend/lib/api/{openapi.json,schema.ts}` (regenerated)
+  - `tests/integration/test_migrations.py` (head `0039`)
+  - docs: `docs/decisions.md` ("Proposed updates"), `docs/data-model.md` §3.1j, `CONTEXT.md` (Proposed Update), `AGENTS.md`; the ticket
+- **Tests** (HTTP API, CLI and worker-pass seams, real Postgres, editable copy of the recorded EDGAR fixtures; recorded Hindsight fake, scripted LiteLLM and SearXNG fakes):
+  - The gate test, `test_a_later_contradictory_source_proposes_one_update_and_leaves_the_snapshot_untouched`:
+    - A Hypothesis is published on the Coherent 10-K's supply quote.
+    - Collection re-runs on a revision that keeps the quote: no update.
+    - A revision that drops "strategic multi-year supply agreement" gives **exactly one** `source_revised` update. It names the new and old Source Versions, the withdrawn Assertion, the finding, and a Candidate for Coherent (inserted in the DB as setup).
+    - The version row, the snapshot row, the archived snapshot bytes (so the hash) and the verified snapshot read are identical before and after.
+    - A further ingest and a hand-re-enqueued job add nothing.
+    - Checked red: with the source hook disabled, the test fails.
+  - `test_the_owner_accepts_an_update_as_a_correction_or_dismisses_it_with_a_reason`:
+    - A later document is imported by hand (`atlas sources import`). The owner's Assertion on it supersedes the cited one, and the owner rejects the dependent edge: two updates.
+    - Dismiss needs a reason (422 without one) and resolves once (409 after).
+    - Accept creates draft version 2 (correction, based on 1, finding `needs_review` with the limitation).
+    - Checked: the audit trail; that version 2 is refused by the gate while its edge is rejected; that the DB refuses re-opening or deleting an update; and that the snapshot is unchanged.
+  - `test_later_independent_counterevidence_against_a_cited_statement_proposes_an_update`: a second investigation's Skeptic quotes the 10-Q against the same 10-K span. One `counterevidence` update bears on the published version's own Assertion.
+  - Results: `test_proposed_updates.py` **3 passed**. `test_hypotheses`, `test_migrations`, `test_assertions`, `test_relationships`, `test_queue_pause`, `test_jobs` and `tests/unit`: **560 passed**. `test_investigations`, `test_ingest`, `test_manual_import`, `test_evidence_families` and `test_retention`: **69 passed**. ruff format/check (backend, tests, scripts), strict pyright, `gen_api_client.sh --check` and the frontend typecheck are clean. The full suite runs on the owner's runners.
+- **Fixture-only vs live:** everything. No live LLM, Hindsight, SearXNG or SEC call was made.
+- **Deviations:**
+  - "Contradiction" is deterministic, so a new, separate document contradicts a version only through an Assertion review (supersede/dispute) or the Skeptic's counterevidence. A revision of a cited document contradicts only when a cited quote disappears.
+  - The Candidate flag is the update's `candidate_ids` and `GET /proposed-updates?candidate_id=`. The Candidate read model is unchanged. The test's Candidate is inserted directly, because committing one for an already-seeded company isn't possible through the API.
+  - Only the latest published version of each Hypothesis is flagged. No metric was added.
+- **Next:** the Hypothesis dossier page (ticket 24) can show open proposed updates with accept/dismiss. A metric `atlas_proposed_updates{state}` if the owner wants one.

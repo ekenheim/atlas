@@ -45,6 +45,7 @@ from atlas.archive import Archive, Namespace
 from atlas.audit import Actor, content_hash, record
 from atlas.ledger import families
 from atlas.parsing import PARSER_VERSION, ParsedText, is_parseable, parse
+from atlas.proposed_updates.triggers import on_source_revised
 from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 from atlas.sources.edgar import PROVIDER_ID as SEC_EDGAR
 
@@ -329,6 +330,9 @@ class SourceLedger:
                     version_id,
                     created_version,
                 )
+                if created_version["supersedes_version_id"] is not None:
+                    # A revision of what a published Hypothesis version cites (ticket 21).
+                    on_source_revised(connection, version_id)
             if assignment is not None:
                 families.audit(connection, self._actor, assignment)
             self._audit(

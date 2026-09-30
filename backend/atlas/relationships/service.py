@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import Connection, Engine, text
 
 from atlas.audit import Actor, content_hash, record
+from atlas.proposed_updates.triggers import on_relationship_rejected
 from atlas.relationships.reads import (
     MachineOutcome,
     Relationship,
@@ -111,6 +112,9 @@ class Relationships:
                 old_hash=before,
                 new_hash=_snapshot(connection, relationship_id),
             )
+            if request.review_state == "rejected":
+                # A published Hypothesis version depending on it gets a proposed update.
+                on_relationship_rejected(connection, relationship_id)
             after = get_relationship(connection, relationship_id)
         assert after is not None
         return RelationshipRecorded(relationship=after, audit_event_id=event.id)
