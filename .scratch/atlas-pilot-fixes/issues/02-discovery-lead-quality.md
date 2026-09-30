@@ -6,8 +6,10 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The SearXNG client sends the language; a unit test checks it.
-- [ ] The ranking is a pure function with unit tests: a dictionary or encyclopedia page ranks below an on-topic industry article for the same query.
-- [ ] An investigation's `leads` shows each lead's score and why it was kept. Integration test at the investigation seam, with the SearXNG fake.
+- [x] The SearXNG client sends the language; a unit test checks it.
+- [x] The ranking is a pure function with unit tests: a dictionary or encyclopedia page ranks below an on-topic industry article for the same query.
+- [x] An investigation's `leads` shows each lead's score and why it was kept. Integration test at the investigation seam, with the SearXNG fake.
+
+Owner direction (during the build): English everywhere. `ATLAS_SEARXNG_LANGUAGE` defaults to `en` and is validated as a language code (never empty); every search sends it; non-English results rank below English ones for the same query.

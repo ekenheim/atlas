@@ -563,11 +563,12 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         f"{tasks(found)['investigator:coherent']['artifacts']['extraction_id']}"
     )
     assert (extraction["run_id"], extraction["question"]) == (run_id, QUESTION)
-    # The leads, in the order the queries found them (never Evidence), and the documents.
+    # The leads, best-ranked first (never Evidence), and the documents. The Sumitomo article
+    # names its query's terms only in its snippet, so the blog, found later, ranks above it.
     assert [(lead["rank"], lead["canonical_url"], lead["tier"]) for lead in found["leads"]] == [
         (1, AXT, "C"),
-        (2, SUMITOMO, "C"),
-        (3, BLOG, "C"),
+        (2, BLOG, "C"),
+        (3, SUMITOMO, "C"),
     ]
     ten_k = atlas.version(COHR_10K, "coherent")["id"]
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
@@ -731,6 +732,59 @@ def test_a_final_stop_queues_the_relationship_review_of_the_investigation_s_asse
     assert (edge["review_state"], edge["evidence_count"]) == ("machine_reviewed", 1)
 
 
+# --- lead ranking ---------------------------------------------------------------------------------
+
+# Pilot investigation 1's query (`.scratch/pilot/results.md`) and the kinds of results it kept:
+# dictionary, encyclopedia, Swedish broker and translation pages ahead of on-topic articles.
+EML = "Coherent EML laser chip capacity 200G per lane 800G transceiver"
+EML_ARTICLE = "https://photonics-news.test/2026/09/coherent-200g-eml-capacity"
+EML_RACE = "https://optics-trade.test/articles/eml-capacity-race"
+
+
+def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    started = seeded(atlas, "coherent")
+    llm.script_chat(
+        ChatReply.json({"queries": [{"query": EML, "purpose": "chip-laser: EML capacity"}]}),
+        ChatReply.json({"claims": []}),
+    )
+    searxng.script(EML, SearchReply.of("coherent-eml-capacity"))
+
+    atlas.worker_pass()
+
+    # English was asked for, whatever the instance's locale.
+    assert searxng.searches()[0]["language"] == "en"
+    found = investigation(atlas, started["id"])
+    # The on-topic articles, found last, are kept, best first; the dictionary, encyclopedia,
+    # broker and translation pages found first are not.
+    assert [(lead["rank"], lead["canonical_url"]) for lead in found["leads"]] == [
+        (1, EML_ARTICLE),
+        (2, EML_RACE),
+    ]
+    article, race = found["leads"]
+    assert article["score"] > race["score"] >= 15
+    assert (article["query"], article["ranking_version"]) == (EML, 1)
+    assert article["reasons"] == [
+        "query terms in the title: coherent, eml, laser, capacity, 200g, lane, 800g, transceiver",
+        "query terms in the snippet: chip",
+        "names Coherent",
+        "product and layer terms: laser, chip, transceiver, eml, indium phosphide, indium, 800g,"
+        " 1.6t, 200g, capacity, supply",
+    ]
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (
+        scout["leads_found"],
+        scout["leads_taken"],
+        scout["leads_dropped"],
+        scout["leads_rejected"],
+        scout["ranking_version"],
+    ) == (7, 2, 0, 5, 1)
+    # Rejected leads are still leads (Tier C metadata), just not the investigation's.
+    assert atlas.get("/api/v1/leads", theme="photonics")["total"] == 7
+
+
 # --- budgets and no new evidence ------------------------------------------------------------------
 
 
@@ -752,7 +806,7 @@ def test_the_lead_and_document_budgets_and_the_as_of_time_bound_what_is_read(
     atlas.worker_pass()
 
     found = investigation(atlas, started["id"])
-    assert [lead["canonical_url"] for lead in found["leads"]] == [AXT, SUMITOMO]
+    assert [lead["canonical_url"] for lead in found["leads"]] == [AXT, BLOG]  # the top two
     scout = tasks(found)["scout"]["artifacts"]
     assert (scout["leads_found"], scout["leads_taken"], scout["leads_dropped"]) == (3, 2, 1)
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]

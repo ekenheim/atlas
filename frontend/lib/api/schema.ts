@@ -3896,6 +3896,14 @@ export interface components {
              * @constant
              */
             tier: "C";
+            /** Score */
+            score: number | null;
+            /** Reasons */
+            reasons: string[];
+            /** Query */
+            query: string | null;
+            /** Ranking Version */
+            ranking_version: number | null;
         };
         /**
          * InvestigationRequest

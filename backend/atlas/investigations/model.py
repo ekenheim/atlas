@@ -143,6 +143,13 @@ class InvestigationLead(BaseModel):
     title: str
     snippet: str
     tier: Literal["C"]
+    # Why it was kept (atlas.discovery.ranking): its relevance score to the query whose
+    # result scored best, the reasons in words, and the ranking config's version. None (and
+    # no reasons) for a lead kept before leads were ranked.
+    score: float | None
+    reasons: list[str]
+    query: str | None
+    ranking_version: int | None
 
 
 class InvestigationDocument(BaseModel):
@@ -427,7 +434,8 @@ def get_investigation(
         for each in connection.execute(
             text(
                 "SELECT il.rank, il.lead_id, il.discovery_id, l.url, l.canonical_url, l.title,"
-                " l.snippet, l.tier FROM investigation_lead il JOIN lead l ON l.id = il.lead_id"
+                " l.snippet, l.tier, il.score, il.reasons, il.query, il.ranking_version"
+                " FROM investigation_lead il JOIN lead l ON l.id = il.lead_id"
                 " WHERE il.investigation_id = :id ORDER BY il.rank"
             ),
             params,

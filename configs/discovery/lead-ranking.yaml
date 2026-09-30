@@ -1,0 +1,108 @@
+# Lead ranking (atlas.discovery.ranking): how an investigation chooses which of a
+# discovery's leads to keep. Each lead is scored for relevance to the query that found it
+# and that query's purpose; the top-scoring leads, down to `min_score`, are kept, up to the
+# lead budget. A lead stays Tier C metadata whatever its score: it is never Evidence.
+#
+# - `min_score`: leads scoring below it are never kept (0 to 100).
+# - `denied_hosts`: never kept (dictionaries and translation sites: a company name that is
+#   also an English word, "coherent", finds its definition). A host matches an entry when
+#   it is the entry or a subdomain of it.
+# - `demoted_hosts`: kept only on merit, their score times `demoted_host_factor`
+#   (encyclopedias, broker and quote pages: rarely where a bottleneck is reported).
+# - `non_english_factor`: a result that doesn't read as English has its score multiplied by
+#   it (searches ask SearXNG for English; an engine may still answer in another language).
+# - `terms`: the product and layer vocabulary of the research themes; each one a result
+#   names adds to its score. Lowercase; a term of several words matches as a phrase.
+#
+# Bump `version` on any change: an investigation's leads record the version that ranked them.
+version: 1
+min_score: 15
+demoted_host_factor: 0.25
+non_english_factor: 0.25
+
+denied_hosts:
+  - merriam-webster.com
+  - dictionary.cambridge.org
+  - dictionary.com
+  - collinsdictionary.com
+  - thefreedictionary.com
+  - oxfordlearnersdictionaries.com
+  - vocabulary.com
+  - wordreference.com
+  - wiktionary.org
+  - urbandictionary.com
+  - bab.la
+  - linguee.com
+  - linguee.se
+  - reverso.net
+  - synonyms.com
+  - thesaurus.com
+
+demoted_hosts:
+  # encyclopedias
+  - wikipedia.org
+  - britannica.com
+  - investopedia.com
+  # broker, quote and screener pages
+  - avanza.se
+  - nordnet.se
+  - nordnet.com
+  - finance.yahoo.com
+  - google.com
+  - investing.com
+  - marketscreener.com
+  - stockanalysis.com
+  - macrotrends.net
+  - companiesmarketcap.com
+  - tradingview.com
+  - robinhood.com
+  - morningstar.com
+  - zacks.com
+
+terms:
+  # layers
+  - substrate
+  - wafer
+  - epitaxy
+  - epi
+  - mocvd
+  - laser
+  - chip
+  - dsp
+  - transceiver
+  - optical module
+  - contract manufacturing
+  - photonics
+  - silicon photonics
+  - optics
+  # products and materials
+  - eml
+  - electro-absorption
+  - vcsel
+  - cw laser
+  - dfb
+  - indium phosphide
+  - inp
+  - gallium arsenide
+  - gaas
+  - germanium
+  - gallium
+  - indium
+  - soi
+  - co-packaged optics
+  - cpo
+  - 400g
+  - 800g
+  - 1.6t
+  - 200g
+  # the bottleneck method's vocabulary
+  - capacity
+  - supply
+  - shortage
+  - lead time
+  - qualification
+  - second source
+  - allocation
+  - supplier
+  - customer
+  - export controls
