@@ -9,9 +9,9 @@ Also make triage windows overlap by a small margin, so a sentence at a window bo
 
 **Blocked by:** PR #1, "Measure the real system" (triage windows)
 
-**Status:** done (the first live audit waits for a run on the cluster; see the implementation log)
+**Status:** done
 
 - [x] `ATLAS_TRIAGE_WINDOW_OVERLAP_CHARS` (default 200). Windows overlap by that many characters, and unit tests cover the window boundaries.
 - [x] `atlas triage audit [--sample N] [--company slug] [--seed S]` samples skipped sections deterministically (seeded), asks the full-section judge (a role call using the rubric with the whole text, chunked only when it exceeds the model context), and stores the results in an insert-only `triage_audit` table: section, triage decision and windows read, the judge's decision and reason, and agreement. It is paced under the `minimax` budget, and its summary (miss rate with a Wilson interval, by category and length) is printed and exposed at `GET /api/v1/triage/audits[/{id}]`.
 - [x] Tests use the scripted LiteLLM fake: a skipped section whose key detail sits past the first windows is found by the judge and counted as a miss, and the sampling is deterministic.
-- [ ] Runbook (written, `docs/runbooks.md`, "Triage audit"; the live audit is not run yet): how to run the audit on the cluster archive or on a live-verify database, and how to read it. The first live audit (for example N=40 on Lumentum and Coherent) runs with the owner's go-ahead (given), and its numbers go in the implementation log.
+- [x] Runbook (written, `docs/runbooks.md`, "Triage audit"; the live audit is not run yet): how to run the audit on the cluster archive or on a live-verify database, and how to read it. The first live audit (for example N=40 on Lumentum and Coherent) runs with the owner's go-ahead (given), and its numbers go in the implementation log.
