@@ -20,7 +20,7 @@ from sqlalchemy.exc import DBAPIError
 from atlas.jobs import JobQueue
 from atlas.ledger.ingest import ingest_payload
 from atlas.settings import Settings
-from tests.harness import EDGAR_FIXTURES, REPO, Atlas
+from tests.harness import EDGAR_FIXTURES, REPO, Atlas, scrape_metrics
 
 THEMES = REPO / "tests" / "fixtures" / "financials" / "themes.yaml"
 LITE = EDGAR_FIXTURES / "lumentum"
@@ -327,3 +327,104 @@ def test_financials_errors(atlas: FinancialsAtlas) -> None:
     assert missing.status_code == 404
     assert naive.status_code == 422
     assert no_observation.status_code == 404
+
+
+FINANCIALS_EDGAR = REPO / "tests" / "fixtures" / "financials" / "edgar"
+COHR_OCI = (
+    "OtherComprehensiveIncomeForeignCurrencyTransactionAndTranslationAdjustment"
+    "NetOfTaxPortionAttributableToParent"
+)
+COHR_TAX_INTEREST = "UnrecognizedTaxBenefitsIncomeTaxPenaltiesAndInterestExpense"
+
+
+@pytest.fixture
+def trimmed(database_url: str, tmp_path: Path) -> Iterator[FinancialsAtlas]:
+    """The harness replaying tests/fixtures/financials/edgar (Coherent, schema drift)."""
+    atlas = FinancialsAtlas(
+        database_url,
+        tmp_path,
+        "http://127.0.0.1:1",
+        themes_config=THEMES,
+        sec_fixtures_dir=FINANCIALS_EDGAR,
+    )
+    yield atlas
+    atlas.engine.dispose()
+
+
+def history_of(atlas: FinancialsAtlas, concept: str) -> list[dict[str, Any]]:
+    [latest] = atlas.observations("coherent", concept=concept)
+    return atlas.get(f"/api/v1/financial-observations/{latest['id']}")["history"]
+
+
+def test_facts_listed_newest_filing_first_link_in_filing_order(
+    trimmed: FinancialsAtlas,
+) -> None:
+    # Live Coherent companyfacts (2026-09-30) lists a key's facts newest filing first; its
+    # normalization failed on the restatement link's foreign key. See the fixture manifest.
+    job = trimmed.ingest_job("coherent")
+
+    normalization = job["artifacts"]["financial_normalization"]
+    assert (normalization["status"], normalization["facts_read"]) == ("succeeded", 9)
+    assert normalization["observations_created"] == 9
+
+    oci = history_of(trimmed, COHR_OCI)
+    assert [(o["accession"], Decimal(o["value"]), o["linkage"]) for o in oci] == [
+        ("0001193125-11-233520", Decimal("9107000"), "first"),
+        ("0001193125-12-371833", Decimal("9107000"), "reaffirms"),
+        ("0001193125-13-350423", Decimal("9108000"), "restates"),
+    ]
+    assert [o["previous_observation_id"] for o in oci] == [None, oci[0]["id"], oci[1]["id"]]
+    assert oci[2]["suspect_reasons"] == []
+
+    tax = history_of(trimmed, COHR_TAX_INTEREST)
+    assert [(Decimal(o["value"]), o["linkage"]) for o in tax] == [
+        (Decimal("-100000"), "first"),
+        (Decimal("100000"), "restates"),
+    ]
+    assert tax[1]["previous_observation_id"] == tax[0]["id"]
+    assert tax[1]["suspect_reasons"] == ["sign_change", "large_change"]
+
+    bonuses = history_of(trimmed, "AccruedBonusesCurrent")
+    assert [(o["filed"], o["linkage"]) for o in bonuses] == [
+        ("2010-11-08", "first"),
+        ("2011-02-08", "reaffirms"),
+        ("2011-05-09", "reaffirms"),
+        ("2011-08-26", "reaffirms"),
+    ]
+    assert [o["previous_observation_id"] for o in bonuses[1:]] == [o["id"] for o in bonuses[:-1]]
+
+
+def test_a_failed_normalization_is_recorded_and_the_ingest_succeeds(
+    trimmed: FinancialsAtlas,
+) -> None:
+    first = trimmed.ingest_job("schema-drift", "first")
+    second = trimmed.ingest_job("schema-drift", "second")  # retried: nothing was normalized
+
+    failures = [j["artifacts"]["financial_normalization"] for j in (first, second)]
+    for failure in failures:
+        assert failure["status"] == "failed"
+        assert "val" in failure["error"]
+    assert failures[0]["source_version_id"] == failures[1]["source_version_id"]
+    assert first["artifacts"]["counts"]["new_version"] >= 1
+    with trimmed.engine.connect() as connection:
+        stored = connection.execute(text("SELECT count(*) FROM financial_observation")).scalar()
+        recorded = connection.execute(
+            text("SELECT id FROM financial_normalization_failure ORDER BY created_at")
+        ).all()
+        events = connection.execute(
+            text(
+                "SELECT entity_id FROM audit_event WHERE action = 'financial_normalization.failed'"
+            )
+        ).all()
+    assert stored == 0
+    assert [str(r.id) for r in recorded] == [f["id"] for f in failures]
+    assert sorted(e.entity_id for e in events) == sorted(f["id"] for f in failures)
+    metrics = scrape_metrics(trimmed.api)
+    by_outcome = {
+        dict(labels)["outcome"]: value
+        for (name, labels), value in metrics.items()
+        if name == "atlas_financial_normalizations_total"
+    }
+    assert by_outcome == {"succeeded": 0, "failed": 2}
+    verify = trimmed.cli("audit", "verify")
+    assert verify.returncode == 0, verify.stderr

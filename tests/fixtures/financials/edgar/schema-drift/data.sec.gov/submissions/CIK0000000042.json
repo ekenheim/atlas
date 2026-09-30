@@ -1,0 +1,17 @@
+{
+  "cik": "0000000042",
+  "name": "SCHEMA DRIFT TEST CO",
+  "fiscalYearEnd": "1231",
+  "filings": {
+    "recent": {
+      "accessionNumber": [],
+      "filingDate": [],
+      "reportDate": [],
+      "acceptanceDateTime": [],
+      "form": [],
+      "items": [],
+      "primaryDocument": []
+    },
+    "files": []
+  }
+}

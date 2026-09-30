@@ -1,0 +1,121 @@
+{
+  "cik": 820318,
+  "entityName": "COHERENT CORP.",
+  "facts": {
+    "us-gaap": {
+      "AccruedBonusesCurrent": {
+        "label": "Accrued Bonuses, Current",
+        "description": "Carrying value as of the balance sheet date of obligations incurred and payable for incentive compensation awarded to employees and directors or earned by them based on the terms of one or more relevant arrangements. Used to reflect the current portion of the liabilities (due within one year or within the normal operating cycle if longer).",
+        "units": {
+          "USD": [
+            {
+              "end": "2010-06-30",
+              "val": 11210000,
+              "accn": "0001193125-11-233520",
+              "fy": 2011,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2011-08-26",
+              "frame": "CY2010Q2I"
+            },
+            {
+              "end": "2010-06-30",
+              "val": 11210000,
+              "accn": "0001193125-11-132041",
+              "fy": 2011,
+              "fp": "Q3",
+              "form": "10-Q",
+              "filed": "2011-05-09"
+            },
+            {
+              "end": "2010-06-30",
+              "val": 11210000,
+              "accn": "0001193125-11-027023",
+              "fy": 2011,
+              "fp": "Q2",
+              "form": "10-Q",
+              "filed": "2011-02-08"
+            },
+            {
+              "end": "2010-06-30",
+              "val": 11210000,
+              "accn": "0001193125-10-251878",
+              "fy": 2011,
+              "fp": "Q1",
+              "form": "10-Q",
+              "filed": "2010-11-08"
+            }
+          ]
+        }
+      },
+      "OtherComprehensiveIncomeForeignCurrencyTransactionAndTranslationAdjustmentNetOfTaxPortionAttributableToParent": {
+        "label": "Other Comprehensive Income (Loss), Foreign Currency Transaction and Translation Adjustment, Net of Tax, Portion Attributable to Parent",
+        "description": "Amount after tax and reclassification adjustments of gain (loss) on foreign currency translation adjustments, foreign currency transactions designated and effective as economic hedges of a net investment in a foreign entity and intra-entity foreign currency transactions that are of a long-term-investment nature, attributable to parent entity.",
+        "units": {
+          "USD": [
+            {
+              "start": "2010-07-01",
+              "end": "2011-06-30",
+              "val": 9108000,
+              "accn": "0001193125-13-350423",
+              "fy": 2013,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2013-08-28",
+              "frame": "CY2011"
+            },
+            {
+              "start": "2010-07-01",
+              "end": "2011-06-30",
+              "val": 9107000,
+              "accn": "0001193125-12-371833",
+              "fy": 2012,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2012-08-28"
+            },
+            {
+              "start": "2010-07-01",
+              "end": "2011-06-30",
+              "val": 9107000,
+              "accn": "0001193125-11-233520",
+              "fy": 2011,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2011-08-26"
+            }
+          ]
+        }
+      },
+      "UnrecognizedTaxBenefitsIncomeTaxPenaltiesAndInterestExpense": {
+        "label": "Unrecognized Tax Benefits, Income Tax Penalties and Interest Expense",
+        "description": "Amount of expense for interest on an underpayment of income taxes and penalties related to a tax position claimed or expected to be claimed in the tax return.",
+        "units": {
+          "USD": [
+            {
+              "start": "2010-07-01",
+              "end": "2011-06-30",
+              "val": 100000,
+              "accn": "0001193125-12-371833",
+              "fy": 2012,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2012-08-28",
+              "frame": "CY2011"
+            },
+            {
+              "start": "2010-07-01",
+              "end": "2011-06-30",
+              "val": -100000,
+              "accn": "0001193125-11-233520",
+              "fy": 2011,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2011-08-26"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

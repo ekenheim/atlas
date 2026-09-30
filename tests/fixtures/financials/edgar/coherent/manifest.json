@@ -1,0 +1,25 @@
+{
+  "description": "Recorded SEC EDGAR responses for Coherent Corp. (CIK 0000820318), trimmed to reproduce the restatement-link insert-order bug that live verification found on 2026-09-30 (financial_observation_previous_observation_id_fkey). SEC data is public domain. The companyfacts body is what SEC served on 2026-09-30 (one request, User-Agent below), trimmed to three us-gaap period keys whose facts SEC lists newest filing first: AccruedBonusesCurrent at 2010-06-30 (four equal values, 10-Qs and the 10-K of 2010-11..2011-08), the FY2011 foreign-currency translation OCI (9,107,000 in the FY2011 and FY2012 10-Ks, 9,108,000 in the FY2013 10-K) and the FY2011 unrecognized tax benefits penalties and interest (-100,000 in the FY2011 10-K, 100,000 in the FY2012 10-K); labels and descriptions kept, re-serialized with indentation. The submissions index is HAND-WRITTEN: no filings.recent rows, so no documents are fetched and every fact takes the conservative fallback availability (the filing date's end of day, ET).",
+  "recorded_at": "2026-09-30T00:29Z",
+  "user_agent": "Atlas Research ekenheim@gmail.com",
+  "responses": [
+    {
+      "url": "https://data.sec.gov/submissions/CIK0000820318.json",
+      "file": "data.sec.gov/submissions/CIK0000820318.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "hand-written: the filer's cik, name and fiscal year end with no filings.recent rows"
+    },
+    {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json",
+      "file": "data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "facts trimmed to three us-gaap period keys (see description), in SEC's order; re-serialized"
+    }
+  ]
+}

@@ -3,7 +3,10 @@
 `normalize_source_version` reads an archived companyfacts Source Version, turns its facts
 into observations (`atlas.financials.xbrl.normalize`, with the filer's submissions index for
 acceptance times) and inserts the new ones, with one `financial_normalization` row and one
-audit event, in one transaction. It runs at most once per (version, normalizer version).
+audit event, in one transaction, in filing order so every restatement link names a stored
+row. It runs at most once per (version, normalizer version). A failed attempt stores nothing;
+the ingest records it with `record_normalization_failure` (`financial_normalization_failure`,
+audited) and the version is tried again at the next ingest.
 """
 
 import uuid
@@ -76,6 +79,10 @@ def normalize_source_version(
             text("SELECT pg_advisory_xact_lock(hashtext('financial_observation:' || :cik))"),
             {"cik": companyfacts.cik},
         )
+        # A concurrent normalization of this version may have committed while we waited.
+        done = _normalization(connection, source_version_id)
+        if done is not None:
+            return done
         existing = _load(connection, "cik = :cik", {"cik": companyfacts.cik})
         new = normalize(
             companyfacts,
@@ -84,7 +91,9 @@ def normalize_source_version(
             snapshot_available_at=version["available_at"],
             existing=existing,
         )
+        _check_links(existing, new)
         if new:
+            # In filing order, so each restatement link names a row already inserted.
             connection.execute(_INSERT, [_row(o, company_id) for o in new])
         summary = NormalizationSummary(
             id=uuid.uuid4(),
@@ -125,6 +134,88 @@ def normalize_source_version(
             ),
         )
     return summary
+
+
+class NormalizationLinkError(Exception):
+    """A new observation's predecessor is neither stored nor inserted before it."""
+
+
+def _check_links(existing: Sequence[Observation], new: Sequence[Observation]) -> None:
+    present = {observation.id for observation in existing}
+    for observation in new:
+        previous = observation.previous_observation_id
+        if previous is not None and previous not in present:
+            raise NormalizationLinkError(
+                f"observation {observation.id} ({observation.concept}, {observation.accession})"
+                f" links to {previous}, which is neither stored nor inserted before it"
+            )
+        present.add(observation.id)
+
+
+@dataclass(frozen=True)
+class NormalizationFailure:
+    id: uuid.UUID
+    source_version_id: uuid.UUID
+    normalizer_version: str
+    error_class: str
+    error: str
+
+
+def record_normalization_failure(
+    engine: Engine,
+    actor: Actor,
+    *,
+    source_version_id: uuid.UUID,
+    company_id: uuid.UUID,
+    error: Exception,
+    job_id: uuid.UUID | None = None,
+) -> NormalizationFailure:
+    """Record (insert-only, audited) that normalizing `source_version_id` failed. Nothing of
+    the attempt was stored, so the version stays unnormalized and is tried again later."""
+    failure = NormalizationFailure(
+        id=uuid.uuid4(),
+        source_version_id=source_version_id,
+        normalizer_version=NORMALIZER_VERSION,
+        error_class=type(error).__name__,
+        error=str(error)[:_MAX_ERROR],
+    )
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO financial_normalization_failure (id, source_version_id,"
+                " company_id, normalizer_version, error_class, error, job_id) VALUES (:id,"
+                " :source_version_id, :company_id, :normalizer_version, :error_class, :error,"
+                " :job_id)"
+            ),
+            {
+                "id": failure.id,
+                "source_version_id": source_version_id,
+                "company_id": company_id,
+                "normalizer_version": NORMALIZER_VERSION,
+                "error_class": failure.error_class,
+                "error": failure.error,
+                "job_id": job_id,
+            },
+        )
+        record(
+            connection,
+            actor,
+            "financial_normalization.failed",
+            entity_type="financial_normalization_failure",
+            entity_id=str(failure.id),
+            new_hash=content_hash(
+                {
+                    "source_version_id": source_version_id,
+                    "normalizer_version": NORMALIZER_VERSION,
+                    "error_class": failure.error_class,
+                    "error": failure.error,
+                }
+            ),
+        )
+    return failure
+
+
+_MAX_ERROR = 2000  # an IntegrityError's message carries its whole parameter list
 
 
 def is_normalized(connection: Connection, source_version_id: uuid.UUID) -> bool:

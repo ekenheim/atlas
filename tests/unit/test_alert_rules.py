@@ -31,6 +31,7 @@ def test_every_alert_rule_has_an_expression_severity_and_summary() -> None:
         "AtlasHindsightOperationsFailing",
         "AtlasJobsFailing",
         "AtlasZeroFactSpike",
+        "AtlasFinancialNormalizationFailing",
         "AtlasQueuePausedLong",
         "AtlasStateMetricsDown",
     }

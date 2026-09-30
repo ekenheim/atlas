@@ -44,6 +44,20 @@ spec:
             description: >-
               {{ $value | humanize }} sections were flagged zero_fact in the last 6 hours, which
               suggests the extraction model or the bank template is misbehaving.
+    - name: atlas.financials
+      rules:
+        # A companyfacts document that couldn't be normalized: its ingest succeeded, so
+        # AtlasJobsFailing stays quiet, but the company has no (new) as-of financials.
+        - alert: AtlasFinancialNormalizationFailing
+          expr: increase(atlas_financial_normalizations_total{outcome="failed"}[24h]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "XBRL companyfacts normalization failed"
+            description: >-
+              {{ $value | humanize }} normalization attempts failed in the last 24 hours. Each
+              is a financial_normalization_failure row (and a failed financial_normalization in
+              its ingest job's artifacts) with the error; the next ingest tries again.
     - name: atlas.queue
       rules:
         # Long pause: quota or outage failures have held back queued work for over 2 hours

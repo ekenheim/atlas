@@ -254,6 +254,11 @@ def normalize(
     available from when Atlas saw it (`snapshot_available_at`, basis `observed_revision`).
     Linkage and suspect flags of new observations are computed against the key's whole
     history; stored observations are never changed.
+
+    The result is in filing order (`Observation.order`), so each new observation's
+    predecessor is either stored already or earlier in the list: inserting it in this order
+    satisfies the restatement link's foreign key. companyfacts' own order can't be used: it
+    lists some keys' facts newest filing first (Coherent's, 2026-09-30).
     """
     by_accession = {filing.accession_number: filing for filing in filings}
     report_dates = _report_dates(companyfacts.facts, by_accession)
@@ -309,7 +314,7 @@ def normalize(
         for previous, current in zip([None, *ordered], ordered, strict=False):
             if current.id in new_ids:
                 linked[current.id] = _link(current, previous, report_dates)
-    return [linked[observation.id] for observation in new]
+    return sorted((linked[observation.id] for observation in new), key=lambda o: o.order)
 
 
 def _link(
