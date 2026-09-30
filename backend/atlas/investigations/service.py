@@ -847,11 +847,24 @@ def _seeds(
     connection: Connection, theme_slugs: list[str], requested: Sequence[uuid.UUID] | None
 ) -> list[_Seed]:
     rows = connection.execute(
-        text("SELECT id, slug, display_name FROM company ORDER BY slug")
+        text("SELECT id, slug, display_name, role FROM company ORDER BY slug")
     ).all()
-    by_id = {row.id: _Seed(row.id, row.slug, row.display_name) for row in rows}
+    # A counterparty is only the other end of an edge: it is never researched, so never a seed.
+    by_id = {
+        row.id: _Seed(row.id, row.slug, row.display_name)
+        for row in rows
+        if row.role == "researched"
+    }
     if requested:
         wanted = list(dict.fromkeys(requested))
+        counterparties = {row.id: row.slug for row in rows if row.role == "counterparty"}
+        refused = [counterparties[each] for each in wanted if each in counterparties]
+        if refused:
+            raise InvalidSeeds(
+                f"a counterparty can't be a seed company: {', '.join(refused)} (counterparties"
+                " are never researched; add the company to the theme config or commit its"
+                " Candidate first)"
+            )
         unknown = [str(each) for each in wanted if each not in by_id]
         if unknown:
             raise InvalidSeeds(f"unknown seed companies: {', '.join(unknown)}")

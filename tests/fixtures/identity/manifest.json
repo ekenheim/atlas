@@ -5,15 +5,19 @@
     "Lumentum's and Coherent's submissions are the recorded EDGAR fixtures in tests/fixtures/edgar/{lumentum,coherent}/data.sec.gov/submissions/ (see their manifests)."
   ],
   "sec": {
-    "company_tickers_exchange.json": "rows quoted in the research (LITE, COHR, TSM, IFNNY, BRK-B, AYR null exchange) and the seed-list's unsponsored-ADR rows (SLOIF, IQEPF, ZHILF); GOOG/GOOGL, BRK-A and ASML rows are hand-written from their well-known CIKs, trimmed to 13 rows",
+    "company_tickers_exchange.json": "rows quoted in the research (LITE, COHR, TSM, IFNNY, BRK-B, AYR null exchange) and the seed-list's unsponsored-ADR rows (SLOIF, IQEPF, ZHILF); GOOG/GOOGL, BRK-A and ASML rows are hand-written from their well-known CIKs, trimmed to 13 rows; the NVDA row (pilot fix 05, counterparty companies) is hand-written from NVIDIA's well-known CIK 1045810, title as SEC's conformed name 'NVIDIA CORP'",
     "submissions/CIK0001046179.json": "TSMC header keys only; stateOfIncorporation F5 is assumed (EDGAR's code for Taiwan is not verified here), forms trimmed",
-    "submissions/CIK0001445214.json": "Soitec's unsponsored-ADR CIK: only F-6EF forms (seed-list finding 3); other keys assumed"
+    "submissions/CIK0001445214.json": "Soitec's unsponsored-ADR CIK: only F-6EF forms (seed-list finding 3); other keys assumed",
+    "submissions/CIK0001045810.json": "NVIDIA header keys only, hand-written (pilot fix 05): name, ticker and exchange as in the ticker row; stateOfIncorporation DE; forms trimmed. Not recorded from SEC."
   },
   "gleif": {
     "records/": "one JSON:API lei-records item per LEI, trimmed to the attributes the resolver reads (lei, entity.legalName/otherNames/transliteratedOtherNames/jurisdiction/status/successorEntities, registration.status)",
-    "queries.json": "filter → the LEIs returned. Recorded in the research: isin=US55024U1097 (by the same LEI's /isins), isin=US8740391003, entity.legalName=COHERENT CORP., fulltext=Lumentum (three records). Assumed: the other legal-name and full-text answers (whether GLEIF's legalName filter is case-insensitive, and what full text returns for 'Soitec SA' and TSMC's SEC name, was not checked). Synthetic (ticket 09): 'Acme Photonics' (a made-up company) has no legal-name or full-text match.",
+    "queries.json": "filter → the LEIs returned. Recorded in the research: isin=US55024U1097 (by the same LEI's /isins), isin=US8740391003, entity.legalName=COHERENT CORP., fulltext=Lumentum (three records). Assumed: the other legal-name and full-text answers (whether GLEIF's legalName filter is case-insensitive, and what full text returns for 'Soitec SA' and TSMC's SEC name, was not checked). Synthetic (ticket 09): 'Acme Photonics' (a made-up company) has no legal-name or full-text match. Hand-written for counterparty companies (pilot fix 05; none checked against GLEIF): 'NVIDIA' has no exact legal-name match and one full-text hit; 'Huawei' has no exact legal-name match and one full-text hit that carries 'Huawei' as an other name; 'Corning' has two full-text hits whose legal names normalise alike (an ambiguous name); 'IPG Photonics Corp.' has no match at all.",
     "synthetic": [
-      "5493000SYNTHETIC0133 'Lumentum Operations LLC' (LAPSED): the research names this full-text hit but not its LEI; the LEI is made up with valid check digits"
+      "5493000SYNTHETIC0133 'Lumentum Operations LLC' (LAPSED): the research names this full-text hit but not its LEI; the LEI is made up with valid check digits",
+      "5493000SYNTHETIC0230 'NVIDIA Corporation' (US-DE): a made-up LEI (valid check digits) for the full-text hit on 'NVIDIA'; NVIDIA's real LEI is not used",
+      "5493000SYNTHETIC0327 'Huawei Technologies Co., Ltd.' (CN) with the other name 'Huawei': made-up LEI and record, so that a name resolves through GLEIF alone",
+      "5493000SYNTHETIC0424 'Corning Incorporated' (US-NY) and 5493000SYNTHETIC0521 'Corning Inc.' (US-DE): made-up LEIs and records, two entities whose names normalise to 'CORNING'"
     ]
   },
   "openfigi": {

@@ -4,8 +4,8 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A company role, `researched` or `counterparty`, with a migration. Counterparties are excluded from ingest and seeds, and included in the edge table, the theme map and the dossier.
-- [ ] When the Investigator names a known non-universe company (e.g. "NVIDIA"), the extraction resolves it (a deterministic ticker or name match via entity resolution) into a counterparty, so the Claim can become an Assertion with a company object. Tests use a Coherent/NVIDIA fixture.
-- [ ] Glossary term (`CONTEXT.md`) and a decision entry.
+- [x] A company role, `researched` or `counterparty`, with a migration. Counterparties are excluded from ingest and seeds, and included in the edge table, the theme map and the dossier.
+- [x] When the Investigator names a known non-universe company (e.g. "NVIDIA"), the extraction resolves it (a deterministic ticker or name match via entity resolution) into a counterparty, so the Claim can become an Assertion with a company object. Tests use a Coherent/NVIDIA fixture.
+- [x] Glossary term (`CONTEXT.md`) and a decision entry.

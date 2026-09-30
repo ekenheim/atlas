@@ -5,6 +5,13 @@ and `security` rows match it, idempotently, auditing only real changes. Company 
 deterministic (from the CIK, else the slug), so every database seeded from the same config
 agrees on them. Securities are effective-dated and never deleted: a listing that ends gets
 a `valid_to` in config.
+
+A company has a **role**. `researched`: a universe company (the config's, or a committed
+Candidate's), ingested and investigated. `counterparty`: a company outside the universe that
+an accepted quote names, kept only so the Relationship has its other end
+(`atlas.counterparties`); never ingested, never an investigation seed, in no theme. Seeding a
+company from the config makes it `researched`, which is how a counterparty the owner adds to
+the theme config (under its slug or CIK) is promoted.
 """
 
 import re
@@ -51,6 +58,8 @@ type Layer = Literal[
 ]
 # Where a company's primary disclosures come from: SEC EDGAR, or its exchange's feed.
 type SourcePath = Literal["sec", "exchange:hkex", "exchange:fca-nsm", "exchange:amf"]
+# Whether Atlas researches the company or only knows it as the other end of an edge.
+type CompanyRole = Literal["researched", "counterparty"]
 
 _CIK = r"^[0-9]{10}$"
 
@@ -175,16 +184,39 @@ def company_id_from(slug: str, cik: str | None) -> uuid.UUID:
     return uuid.uuid5(_NAMESPACE, f"company:{key}")
 
 
+def default_slug(name: str) -> str:
+    """A slug from a company name: lowercase words joined by `-` (the owner may choose one)."""
+    words = re.findall(r"[a-z0-9]+", name.lower())
+    return "-".join(words)[:64].strip("-") or "company"
+
+
+def is_counterparty(connection: Connection, slug: str) -> bool:
+    """Whether `slug` is a counterparty company: known, but not researched."""
+    role = connection.execute(
+        text("SELECT role FROM company WHERE slug = :slug"), {"slug": slug}
+    ).scalar_one_or_none()
+    return role == "counterparty"
+
+
+def counterparty_refusal(slug: str) -> str:
+    return (
+        f"company {slug!r} is a counterparty: it is known only as the other end of"
+        " Relationships and is never ingested. To research it, add it to the theme config or"
+        " commit its Candidate"
+    )
+
+
 def extend_universe(connection: Connection, universe: Universe) -> Universe:
     """The universe with its database extension: each company a committed Candidate added
     (`universe_company`), in its theme. Config wins where both name a slug. A company with no
-    source path (no automated source yet) is left out, as no config entry could hold it."""
+    source path (no automated source yet) is left out, as no config entry could hold it.
+    Counterparties are never part of it."""
     rows = connection.execute(
         text(
             "SELECT u.theme, c.slug, c.legal_name, c.display_name, c.cik, c.lei, c.country,"
             " c.website, c.layer, c.source_path, c.sec_forms FROM universe_company u"
             " JOIN company c ON c.id = u.company_id WHERE c.source_path IS NOT NULL"
-            " ORDER BY c.slug, u.theme"
+            " AND c.role = 'researched' ORDER BY c.slug, u.theme"
         )
     ).mappings()
     companies = dict(universe.companies)
@@ -229,6 +261,7 @@ _COMPANY_FIELDS = (
     "layer",
     "source_path",
     "sec_forms",
+    "role",
 )
 _SECURITY_FIELDS = (
     "company_id",
@@ -265,6 +298,8 @@ def _seed_company(connection: Connection, actor: Actor, slug: str, config: Compa
     company_id = company_id_for(slug, config)
     desired: dict[str, Any] = {"slug": slug} | config.model_dump(include=set(_COMPANY_FIELDS))
     desired["sec_forms"] = list(config.sec_forms) if config.sec_forms is not None else None
+    # A company the config names is researched: seeding promotes a counterparty.
+    desired["role"] = "researched"
     changes = _upsert(
         connection,
         actor,
@@ -382,20 +417,39 @@ class CompanyAlias(BaseModel):
     observed_at: datetime
 
 
+class CounterpartyOrigin(BaseModel):
+    """How a counterparty was identified when a quote first named it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    named_as: str = Field(description="the company's name as the quote wrote it")
+    source: Literal["sec", "gleif"] = Field(description="the registry whose one entity it is")
+    source_url: str
+    observed_at: datetime
+
+
 class Company(BaseModel):
     id: uuid.UUID
     slug: str
+    role: CompanyRole = Field(
+        description="`researched`: a universe company; `counterparty`: known only as the other"
+        " end of Relationships (never ingested, never an investigation seed)"
+    )
     legal_name: str
     display_name: str
     cik: str | None
     lei: str | None
-    country: str
+    country: str | None = Field(description="None only for a counterparty no registry placed")
     website: str | None
     layer: Layer | None
     source_path: SourcePath | None
     sec_forms: list[str] | None
     parent_company_id: uuid.UUID | None
     review_state: str
+    counterparty: CounterpartyOrigin | None = Field(
+        description="how entity resolution identified it, if it was created as a counterparty"
+        " (kept once it is researched)"
+    )
     securities: list[Security]
     aliases: list[CompanyAlias]
     created_at: datetime
@@ -403,19 +457,27 @@ class Company(BaseModel):
 
 
 _COMPANY_COLUMNS = (
-    "id, slug, legal_name, display_name, cik, lei, country, website, layer, source_path,"
+    "id, slug, role, legal_name, display_name, cik, lei, country, website, layer, source_path,"
     " sec_forms, parent_company_id,"
-    " review_state, created_at, updated_at"
+    " review_state, counterparty_resolution AS counterparty, created_at, updated_at"
 )
 
 
-def list_companies(connection: Connection, *, limit: int, offset: int) -> tuple[list[Company], int]:
-    total = connection.execute(text("SELECT count(*) FROM company")).scalar_one()
+def list_companies(
+    connection: Connection, *, limit: int, offset: int, role: CompanyRole | None = None
+) -> tuple[list[Company], int]:
+    """Companies by slug, researched and counterparty alike unless `role` names one."""
+    where = " WHERE (CAST(:role AS text) IS NULL OR role = :role)"
+    total = connection.execute(
+        text(f"SELECT count(*) FROM company{where}"),  # noqa: S608 (constant SQL)
+        {"role": role},
+    ).scalar_one()
     rows = connection.execute(
         text(
-            f"SELECT {_COMPANY_COLUMNS} FROM company ORDER BY slug LIMIT :limit OFFSET :offset"  # noqa: S608
+            f"SELECT {_COMPANY_COLUMNS} FROM company{where}"  # noqa: S608
+            " ORDER BY slug LIMIT :limit OFFSET :offset"
         ),
-        {"limit": limit, "offset": offset},
+        {"role": role, "limit": limit, "offset": offset},
     ).mappings()
     return [_company(connection, row) for row in rows.all()], total
 

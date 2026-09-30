@@ -1,0 +1,31 @@
+{
+  "type": "lei-records",
+  "id": "5493000SYNTHETIC0327",
+  "attributes": {
+    "lei": "5493000SYNTHETIC0327",
+    "entity": {
+      "legalName": {
+        "name": "Huawei Technologies Co., Ltd.",
+        "language": "en"
+      },
+      "otherNames": [
+        {
+          "name": "Huawei",
+          "language": "en",
+          "type": "TRADING_OR_OPERATING_NAME"
+        }
+      ],
+      "transliteratedOtherNames": [],
+      "legalAddress": {
+        "city": "",
+        "country": "CN"
+      },
+      "jurisdiction": "CN",
+      "status": "ACTIVE",
+      "successorEntities": []
+    },
+    "registration": {
+      "status": "ISSUED"
+    }
+  }
+}

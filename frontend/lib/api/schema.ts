@@ -2337,6 +2337,8 @@ export interface components {
             id: string;
             /** Slug */
             slug: string;
+            /** @description `researched`: a universe company; `counterparty`: known only as the other end of Relationships (never ingested, never an investigation seed) */
+            role: components["schemas"]["CompanyRole"];
             /** Legal Name */
             legal_name: string;
             /** Display Name */
@@ -2345,8 +2347,11 @@ export interface components {
             cik: string | null;
             /** Lei */
             lei: string | null;
-            /** Country */
-            country: string;
+            /**
+             * Country
+             * @description None only for a counterparty no registry placed
+             */
+            country: string | null;
             /** Website */
             website: string | null;
             layer: components["schemas"]["Layer"] | null;
@@ -2357,6 +2362,8 @@ export interface components {
             parent_company_id: string | null;
             /** Review State */
             review_state: string;
+            /** @description how entity resolution identified it, if it was created as a counterparty (kept once it is researched) */
+            counterparty: components["schemas"]["CounterpartyOrigin"] | null;
             /** Securities */
             securities: components["schemas"]["Security"][];
             /** Aliases */
@@ -2435,6 +2442,8 @@ export interface components {
             /** Fetch Gate Block Total */
             fetch_gate_block_total: number;
         };
+        /** @enum {string} */
+        CompanyRole: "researched" | "counterparty";
         /** ContentLinks */
         ContentLinks: {
             /** Raw */
@@ -2563,6 +2572,30 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * CounterpartyOrigin
+         * @description How a counterparty was identified when a quote first named it.
+         */
+        CounterpartyOrigin: {
+            /**
+             * Named As
+             * @description the company's name as the quote wrote it
+             */
+            named_as: string;
+            /**
+             * Source
+             * @description the registry whose one entity it is
+             * @enum {string}
+             */
+            source: "sec" | "gleif";
+            /** Source Url */
+            source_url: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
         };
         /** @enum {string} */
         CoverageGap: "not_seeded" | "no_sources";
@@ -6680,6 +6713,34 @@ export interface components {
             /** Gaps */
             gaps: components["schemas"]["CoverageGap"][];
         };
+        /**
+         * ThemeCounterparty
+         * @description A counterparty company at the other end of a theme company's edge.
+         */
+        ThemeCounterparty: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Display Name */
+            display_name: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Country */
+            country: string | null;
+            /** Cik */
+            cik: string | null;
+            /** Lei */
+            lei: string | null;
+            /**
+             * Relationship Count
+             * @description the map's edges naming it
+             */
+            relationship_count: number;
+        };
         /** ThemeLayer */
         ThemeLayer: {
             layer: components["schemas"]["Layer"];
@@ -6706,9 +6767,14 @@ export interface components {
             unlayered: components["schemas"]["ThemeCompany"][];
             /**
              * Relationships
-             * @description edges between the theme's companies (or to a product), by layer
+             * @description edges between the theme's companies (or to a product, or between one of them and a counterparty), by layer
              */
             relationships: components["schemas"]["Relationship"][];
+            /**
+             * Counterparties
+             * @description the counterparty companies those edges name, by name
+             */
+            counterparties: components["schemas"]["ThemeCounterparty"][];
             /**
              * Candidates
              * @description the theme's Candidates, newest first
@@ -7368,6 +7434,8 @@ export interface operations {
     companies_api_v1_companies_get: {
         parameters: {
             query?: {
+                /** @description only researched companies, or only counterparties */
+                role?: components["schemas"]["CompanyRole"] | null;
                 /** @description page size */
                 limit?: number;
                 /** @description items to skip */

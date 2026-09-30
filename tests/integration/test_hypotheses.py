@@ -168,6 +168,7 @@ def asked(body: dict[str, Any]) -> dict[str, Any]:
 def claim(**fields: JsonValue) -> dict[str, JsonValue]:
     return {
         "object_company_id": None,
+        "object_name": None,
         "object_text": None,
         "product": None,
         "layer": "chip-laser",

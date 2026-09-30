@@ -8,8 +8,13 @@ no company is itself a coverage gap. The Bottlenecks mental model (Hindsight) is
 API, so these reads never call Hindsight.
 
 **Relationships between them:** every edge whose subject is a theme company and whose object
-is a theme company or a product, material or technology (no company). An edge to a company
-outside the theme is on the companies' dossiers, not on the map.
+is a theme company or a product, material or technology (no company). An edge to a
+researched company outside the theme is on the companies' dossiers, not on the map.
+
+**Counterparties:** a counterparty company (`atlas.counterparties`) is in no theme, but the
+edges between it and a theme company are on the map, and `counterparties` lists the ones at
+the end of those edges. They are never among the theme's companies, so they count in neither
+the layers nor the coverage gaps.
 """
 
 import uuid
@@ -44,6 +49,19 @@ class ThemeCompany(BaseModel):
     gaps: list[CoverageGap]
 
 
+class ThemeCounterparty(BaseModel):
+    """A counterparty company at the other end of a theme company's edge."""
+
+    id: uuid.UUID
+    slug: str
+    display_name: str
+    legal_name: str
+    country: str | None
+    cik: str | None
+    lei: str | None
+    relationship_count: int = Field(description="the map's edges naming it")
+
+
 class ThemeLayer(BaseModel):
     layer: Layer
     covers: str = Field(description="what the layer holds")
@@ -67,7 +85,11 @@ class ThemeMap(BaseModel):
     layers: list[ThemeLayer] = Field(description="upstream to downstream, empty ones included")
     unlayered: list[ThemeCompany] = Field(description="companies with no layer set")
     relationships: list[Relationship] = Field(
-        description="edges between the theme's companies (or to a product), by layer"
+        description="edges between the theme's companies (or to a product, or between one of"
+        " them and a counterparty), by layer"
+    )
+    counterparties: list[ThemeCounterparty] = Field(
+        description="the counterparty companies those edges name, by name"
     )
     candidates: list[Candidate] = Field(description="the theme's Candidates, newest first")
 
@@ -90,17 +112,37 @@ def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMa
     ]
 
     members = set(ids.values())
+    outside = {
+        company_id: counterparty
+        for company_id, counterparty in _counterparties(connection).items()
+        if company_id not in members
+    }
+    ends = members | set(outside)
     edges: dict[uuid.UUID, Relationship] = {}
     for company_id in members:
         for edge in list_relationships(
             connection, company_id=company_id, sort="layer", limit=_MAX_ROWS, offset=0
         )[0]:
-            inside = edge.object_company_id is None or edge.object_company_id in members
-            if edge.subject_company_id in members and inside:
+            # One end is the theme company asked for; the other a theme company, a
+            # counterparty, or (as the object) a product.
+            inside = edge.object_company_id is None or edge.object_company_id in ends
+            if edge.subject_company_id in ends and inside:
                 edges[edge.id] = edge
     rank = {layer.name: position for position, layer in enumerate(LAYERS)}
     relationships = sorted(
         edges.values(), key=lambda e: (rank[e.layer], e.subject_name, e.predicate, e.created_at)
+    )
+    named: dict[uuid.UUID, int] = {}
+    for edge in relationships:
+        for end in {edge.subject_company_id, edge.object_company_id}:
+            if end is not None and end in outside:
+                named[end] = named.get(end, 0) + 1
+    counterparties = sorted(
+        (
+            outside[company_id].model_copy(update={"relationship_count": count})
+            for company_id, count in named.items()
+        ),
+        key=lambda c: (c.display_name, c.slug),
     )
     candidates = list_candidates(connection, state=None, theme=theme_id, limit=_MAX_ROWS, offset=0)[
         0
@@ -130,8 +172,19 @@ def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMa
         layers=layers,
         unlayered=[c for c in companies if c.layer is None],
         relationships=relationships,
+        counterparties=counterparties,
         candidates=candidates,
     )
+
+
+def _counterparties(connection: Connection) -> dict[uuid.UUID, ThemeCounterparty]:
+    rows = connection.execute(
+        text(
+            "SELECT id, slug, display_name, legal_name, country, cik, lei,"
+            " 0 AS relationship_count FROM company WHERE role = 'counterparty'"
+        )
+    ).mappings()
+    return {row["id"]: ThemeCounterparty.model_validate(dict(row)) for row in rows}
 
 
 def _theme_company(

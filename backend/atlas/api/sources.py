@@ -1,6 +1,7 @@
 """`/api/v1` reads of the company universe and the source ledger.
 
-- `GET /companies`, `GET /companies/{id}`, `GET /companies/{id}/sources`
+- `GET /companies?role=researched|counterparty`, `GET /companies/{id}`,
+  `GET /companies/{id}/sources`
 - `GET /sources/{id}`, `GET /sources/{id}/versions` (version history, oldest first)
 - `GET /source-versions/{id}` (metadata, provenance and fetch observations)
 - `GET /source-versions/{id}/content?kind=raw|parsed` (streamed from the archive)
@@ -23,7 +24,7 @@ from sqlalchemy import Engine
 
 from atlas.api.common import NOT_FOUND, Page, Pagination, not_found, pagination
 from atlas.archive import Archive
-from atlas.companies import Company, get_company, list_companies
+from atlas.companies import Company, CompanyRole, get_company, list_companies
 from atlas.ledger import (
     ContentKind,
     EvidenceFamily,
@@ -59,9 +60,17 @@ def sources_router(engine: Engine, archive: Archive) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["sources"])
 
     @router.get("/companies", response_model=Page[Company])
-    def companies(page: Paged) -> Page[Company]:  # pyright: ignore[reportUnusedFunction]
+    def companies(  # pyright: ignore[reportUnusedFunction]
+        page: Paged,
+        role: Annotated[
+            CompanyRole | None,
+            Query(description="only researched companies, or only counterparties"),
+        ] = None,
+    ) -> Page[Company]:
         with engine.connect() as connection:
-            items, total = list_companies(connection, limit=page.limit, offset=page.offset)
+            items, total = list_companies(
+                connection, limit=page.limit, offset=page.offset, role=role
+            )
         return Page(items=items, total=total, limit=page.limit, offset=page.offset)
 
     @router.get("/companies/{company_id}", response_model=Company, responses=NOT_FOUND)

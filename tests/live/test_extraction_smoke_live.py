@@ -448,6 +448,7 @@ def _claim(passage_id: str, quote: str, start: int, **fields: JsonValue) -> Json
     return {
         "passage_id": passage_id,
         "object_company_id": None,
+        "object_name": None,
         "object_text": None,
         "product": None,
         "epistemic_type": "company_claim",

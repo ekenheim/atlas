@@ -157,6 +157,7 @@ def asked(body: dict[str, Any]) -> dict[str, Any]:
 def claim(**fields: JsonValue) -> dict[str, JsonValue]:
     return {
         "object_company_id": None,
+        "object_name": None,
         "object_text": None,
         "product": None,
         "layer": "chip-laser",
@@ -971,7 +972,7 @@ def test_a_company_s_own_bottleneck_facts_become_assertions_and_edges_to_product
         assert assertion["object_company_id"] is None
         assert assertion["value_json"]["object_text"] == product
         assert assertion["value_json"]["layer"] == layer
-        assert assertion["extractor_version"] == "investigator.v3"
+        assert assertion["extractor_version"] == "investigator.v4"
 
     llm.script_chat(ChatReply.answer(reviewing(expect=len(BOTTLENECK_FACTS))))
     reviewed = review(atlas, "sweep")

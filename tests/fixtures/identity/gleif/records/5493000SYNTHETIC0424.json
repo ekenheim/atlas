@@ -1,0 +1,25 @@
+{
+  "type": "lei-records",
+  "id": "5493000SYNTHETIC0424",
+  "attributes": {
+    "lei": "5493000SYNTHETIC0424",
+    "entity": {
+      "legalName": {
+        "name": "Corning Incorporated",
+        "language": "en"
+      },
+      "otherNames": [],
+      "transliteratedOtherNames": [],
+      "legalAddress": {
+        "city": "",
+        "country": "US"
+      },
+      "jurisdiction": "US-NY",
+      "status": "ACTIVE",
+      "successorEntities": []
+    },
+    "registration": {
+      "status": "ISSUED"
+    }
+  }
+}
