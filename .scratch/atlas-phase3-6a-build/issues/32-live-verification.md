@@ -14,7 +14,7 @@ Each check runs against a throwaway local Postgres and archive. Hindsight is eit
 
 **Blocked by:** the wave-4 merge (06, 15, 19, 23, 30, the triage fix, 31). Parts 6 and 7 extend as 20–22 land.
 
-**Status:** done (the harness; the live run and its LIVE log entry are the lead's, the last two boxes)
+**Status:** done
 
 - [x] `scripts/live-verify.sh [--only <part>] [--rehearse]` with the same two locks as the live suite (`live` marker plus `ATLAS_LIVE_TESTS=1`). It never runs in CI. It refuses to start without `.env` LiteLLM settings, and it prints no secrets.
 - [x] Hard caps: at most ~40 MiniMax calls and ~25 Hindsight retain operations per full run. Each part has its own budget, reported.
