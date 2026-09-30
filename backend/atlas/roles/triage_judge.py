@@ -2,7 +2,7 @@
 
 Retention triage reads a section in windows, at most a few of them (`atlas.retention.triage`),
 so a long section is only sampled. The judge reads a skipped section **whole**: the same
-rubric's criteria (triage rubric v2), but with the section's entire text as quoted, low-trust
+rubric's criteria (triage rubric v3), but with the section's entire text as quoted, low-trust
 `retrieved_data`, one section per call. A section longer than `triage_judge_max_chars` is
 read in overlapping chunks, one call each (`chunk` of `chunks`), and the section is `retain`
 when any chunk is (`atlas.retention.audit`). Its prompt is versioned like every role's
@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 from atlas.roles.triage import TriageCategory, TriageDocument, TriageTheme, TriageVerdict
 
-TRIAGE_JUDGE_PROMPT_VERSION = 1
+TRIAGE_JUDGE_PROMPT_VERSION = 2
 
 
 class TriageJudgeSection(BaseModel):

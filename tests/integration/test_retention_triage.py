@@ -41,9 +41,8 @@ COHR_10K = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/ii
 NVIDIA_SUPPLY = "strategic multi-year supply agreement with NVIDIA"
 
 # Sections the pre-filter skips without a call: 10-K Items 1B ("None."), 4 (mine safety) and
-# 6 ("[RESERVED]"), and the 8-K's Item 9.01 (exhibits).
+# 6 ("[RESERVED]"). An exhibit index is read by the role (rules v2): it can name a contract.
 TEN_K_RULE_SKIPS = {"part-i-item-1b", "part-i-item-4", "part-ii-item-6"}
-EIGHT_K_RULE_SKIPS = {"item-9-01"}
 TEN_K_ASKED = [anchor for anchor in TEN_K_ANCHORS if anchor not in TEN_K_RULE_SKIPS]
 # What the model retains, by heading (or chunk anchor), with the value category.
 RETAINED_HEADINGS = {
@@ -162,19 +161,15 @@ def test_boilerplate_is_skipped_by_rule_without_a_call_and_the_rest_is_asked_of_
         assert decision["method"] == "rule"
         assert decision["category"] == "boilerplate"
         assert decision["role_call_id"] is None
-        assert decision["rules_version"] == "triage-rules-v1"
+        assert decision["rules_version"] == "triage-rules-v2"
     assert decisions["part-ii-item-6"]["reason"].startswith("boilerplate heading (reserved)")
     assert decisions["part-i-item-1b"]["reason"].startswith("no content past its heading")
-    eight_k = atlas.version(LITE_8K)
-    assert effective(atlas, eight_k["id"])["item-9-01"]["method"] == "rule"
 
     # One call per version, never naming a rule-skipped section.
     calls = asked_anchors(llm)
     assert len(calls) == 4  # the 10-K, the 10-Q, the 8-K and its EX-99.1
     assert TEN_K_ASKED in calls
-    assert not {anchor for call in calls for anchor in call} & (
-        TEN_K_RULE_SKIPS | EIGHT_K_RULE_SKIPS
-    )
+    assert not {anchor for call in calls for anchor in call} & TEN_K_RULE_SKIPS
     # The role sees each section's opening as quoted, low-trust data, and the metadata.
     parsed = atlas.parsed(ten_k["id"])
     message = next(m for m in asked(llm) if m["request"]["sections"][0]["anchor"] == "cover")
@@ -200,7 +195,7 @@ def test_only_the_sections_triage_retains_reach_hindsight_and_the_rest_stay_cita
     assert item_1["decision"] == "retain"
     assert item_1["method"] == "role"
     assert item_1["category"] == "supplier_customer"
-    assert item_1["rubric_version"] == "triage.v2"
+    assert item_1["rubric_version"] == "triage.v3"
     # The role read the opening only (one window per section here) of a 22-window Item.
     assert item_1["reason"].startswith("part 1/")
     assert item_1["reason"].endswith(": names bottleneck content in part-i-item-1")
@@ -304,6 +299,33 @@ def test_an_unchanged_section_of_a_revised_source_inherits_its_decision_without_
     assert retained_anchors(fake, v2["id"]) == [["item-2-02"]]
 
 
+def test_an_exhibit_index_is_read_by_the_role_not_skipped_by_rule(
+    atlas: Atlas, fake: RecordedHindsight, llm: FakeLiteLLM
+) -> None:
+    # The first live audits (2026-09-30) found a 10-Q's "Item 6. Exhibits" skipped by rule
+    # while its index named a Master Development and Supply Agreement with Coherent.
+    atlas.ingest("lumentum")
+
+    eight_k = atlas.version(LITE_8K)
+    exhibits = effective(atlas, eight_k["id"])["item-9-01"]
+    assert exhibits["section_heading"] == "Item 9.01. Financial Statements and Exhibits."
+    assert exhibits["method"] == "role"
+    assert exhibits["role_call_id"] is not None
+    assert exhibits["rules_version"] == "triage-rules-v2"
+    assert exhibits["rubric_version"] == "triage.v3"
+    message = next(
+        m for m in asked(llm) if m["request"]["document"]["source_version_id"] == eight_k["id"]
+    )
+    assert "item-9-01" in [s["anchor"] for s in message["request"]["sections"]]
+    parsed = atlas.parsed(eight_k["id"])
+    sent = next(r for r in message["retrieved_data"] if r["id"] == "item-9-01")
+    assert sent["text"] == parsed[exhibits["char_start"] : exhibits["char_end"]]
+    # The rubric the role is given retains an exhibit index that names an agreement.
+    system = llm.chat_requests()[0]["messages"][0]["content"]
+    assert "triage rubric v3" in system
+    assert "An exhibit index that lists such an agreement" in system
+
+
 # --- windows: the role reads the whole section, not its opening ----------------------------------
 
 
@@ -395,6 +417,43 @@ def test_a_long_section_is_read_in_windows_and_retained_when_a_later_window_is(
             texts[anchor]["text"]
             == parsed[offset : min(offset + EXCERPT_CHARS, section["char_end"])]
         )
+
+
+def test_by_default_a_12k_section_is_read_in_full(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+) -> None:
+    # The first live audit (2026-09-30) missed a footnote in the EX-99.1's second chunk
+    # (11,948 characters, ten windows) when triage read six of them. The default reads ten.
+    llm = FakeLiteLLM().script_chat(*[ChatReply.answer(later_window_answer)] * 40)
+    with serve(llm.handle) as litellm:
+        atlas = Atlas(
+            database_url,
+            tmp_path,
+            hindsight[1].url,
+            litellm.url,
+            retention_triage="on",
+            searxng_url="http://127.0.0.1:9",
+        )
+        atlas.fixtures = editable_fixtures(tmp_path)
+        atlas.apply_template()
+        job = atlas.ingest("lumentum")
+        assert job["status"] == "succeeded", job["failures"]
+        litellm.raise_errors()
+
+    ex991 = atlas.version(LITE_EX991)
+    parsed = atlas.parsed(ex991["id"])
+    chunk = effective(atlas, ex991["id"])["chunk-002"]
+    assert chunk["char_end"] - chunk["char_start"] == 11_948
+    calls = [m for m in asked(llm) if m["request"]["document"]["source_version_id"] == ex991["id"]]
+    entries = [s for m in calls for s in m["request"]["sections"]]
+    parts = sorted(s["part"] for s in entries if s["anchor"].split("~")[0] == "chunk-002")
+    assert parts == list(range(1, 11))  # every window, none sampled out
+    texts = {r["id"]: r["text"] for m in calls for r in m["retrieved_data"]}
+    read = "".join(texts["chunk-002" if p == 1 else f"chunk-002~{p}"][:STRIDE] for p in parts)
+    last = texts["chunk-002~10"][STRIDE:]
+    assert read + last == parsed[chunk["char_start"] : chunk["char_end"]]
 
 
 # --- retain on demand ---------------------------------------------------------------------------
@@ -515,8 +574,8 @@ def test_decisions_are_filterable_audited_insert_only_and_counted_in_metrics(
         "item-2-02",
         "part-i-item-1",
     ]
-    assert len(triage(atlas, method="rule")) == 4
-    assert len(triage(atlas, category="boilerplate")) == 4
+    assert len(triage(atlas, method="rule")) == 3
+    assert len(triage(atlas, category="boilerplate")) == 3
     assert atlas.api.get("/api/v1/triage", params={"method": "guess"}).status_code == 422
 
     with atlas.engine.connect() as connection:
@@ -540,10 +599,10 @@ def test_decisions_are_filterable_audited_insert_only_and_counted_in_metrics(
     assert (
         sample("atlas_triage_sections_total", decision="retain", category="segment_guidance") == 2
     )
-    assert sample("atlas_triage_sections_total", decision="skip", category="boilerplate") == 4
-    assert sample("atlas_triage_sections_total", decision="skip", category="other") == 12
-    assert sample("atlas_triage_decisions_total", method="rule") == 4
-    assert sample("atlas_triage_decisions_total", method="role") == 15
+    assert sample("atlas_triage_sections_total", decision="skip", category="boilerplate") == 3
+    assert sample("atlas_triage_sections_total", decision="skip", category="other") == 13
+    assert sample("atlas_triage_decisions_total", method="rule") == 3
+    assert sample("atlas_triage_decisions_total", method="role") == 16
     saved = "atlas_triage_hindsight_operations_saved_estimate"
     assert sample(saved, unit="documents") == 16
     assert sample(saved, unit="batches") == 1  # the 10-Q: every section skipped

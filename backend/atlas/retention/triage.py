@@ -10,9 +10,12 @@ before any section is retained:
    most recent earlier triaged Source Version of the same Source Document, else of the same
    company, form and document type (last year's 10-K for this year's), available no later.
 2. **Rules** (`RULES_VERSION`, on Item headings only): known boilerplate headings
-   (forward-looking-statement legends, signatures, exhibit indexes, mine safety,
-   `[Reserved]`, the 10-K summary) and sections with no content past their heading
-   (`None.`, `Not applicable.`) are `skip`, without a call.
+   (forward-looking-statement legends, signatures, mine safety, `[Reserved]`, the 10-K
+   summary) and sections with no content past their heading (`None.`, `Not applicable.`)
+   are `skip`, without a call. Exhibit indexes (`Item 6. Exhibits`, `Item 9.01. Financial
+   Statements and Exhibits`, `Exhibit Index`) are not boilerplate since `triage-rules-v2`:
+   they can name material contracts (the first live audit found a 10-Q's index naming a
+   supply agreement with Coherent), so the role reads them; they are short.
 3. **The Triage role** (`atlas.roles.triage`, its prompt the versioned rubric) decides the
    rest from the document's metadata and each section's heading and text, read in
    **windows** of `triage_excerpt_chars` characters, each overlapping the previous one by
@@ -96,7 +99,7 @@ from atlas.roles.triage import (
 )
 from atlas.runs import RunNotFound, RunRecorder
 
-RULES_VERSION = "triage-rules-v1"
+RULES_VERSION = "triage-rules-v2"
 RUN_KIND = "triage"
 ON_DEMAND_CATEGORY = "on_demand"
 
@@ -107,8 +110,6 @@ _BOILERPLATE: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     for name, pattern in (
         ("forward-looking statements", r"forward[\s-]+looking\s+statements?"),
         ("signatures", rf"^(?:{_ITEM})?signatures?\.?$"),
-        ("exhibit index", r"exhibit\s+index|index\s+to\s+exhibits"),
-        ("exhibits", rf"^{_ITEM}(?:financial\s+statements\s+and\s+)?exhibits"),
         ("mine safety", r"mine\s+safety\s+disclosures?"),
         ("reserved", r"\[\s*reserved\s*\]"),
         ("form 10-k summary", r"form\s+10-k\s+summary"),

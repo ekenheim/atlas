@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-TRIAGE_PROMPT_VERSION = 2
+TRIAGE_PROMPT_VERSION = 3
 
 TriageCategory = Literal[
     "supplier_customer",
