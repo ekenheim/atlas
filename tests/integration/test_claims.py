@@ -33,6 +33,11 @@ from tests.fakes.serve import Served, serve
 from tests.harness import THEMES, Atlas, Clock, at
 
 COHR_10K = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm"
+COHR_10Q = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm"
+# Lumentum's Q4 FY2026 results press release, the 8-K's EX-99.1.
+LITE_EX991 = (
+    "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm"
+)
 # From the Coherent FY2026 10-K (the recorded fixture's parsed text).
 SUPPLY_QUOTE = (
     "we announced the expansion of our Sherman, Texas, manufacturing facility, entered into a"
@@ -478,6 +483,75 @@ def test_recall_hits_for_a_question_add_their_sections_after_the_entity_tagged_o
     # At most the configured number of passages; the rest are counted, not sent.
     assert len(selected) == 24
     assert extraction["passages_dropped"] > 0
+
+
+def test_the_passage_budget_is_dealt_equally_across_the_documents_in_their_order(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    litellm: Served,
+    llm: FakeLiteLLM,
+    themes: Path,
+) -> None:
+    # Pilot fix 10: every window of Coherent's 10-K and 10-Q is a recall hit here, and the 10-K
+    # alone has far more than the budget; before, it took every passage.
+    atlas = start_atlas(
+        database_url, tmp_path, hindsight, litellm, themes, investigator_max_passages=5
+    )
+    llm.script_chat(ChatReply.json({"claims": []}))
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+
+    job = extract(
+        atlas,
+        "shared",
+        source_version_ids=[ten_k(atlas), ten_q],
+        question="Who buys lasers?",
+    )
+
+    extraction = atlas.get(f"/api/v1/claim-extractions/{job['artifacts']['extraction_id']}")
+    # One passage per document per round, in the documents' order; the odd one to the first.
+    assert [p["source_version_id"] for p in extraction["passages"]] == [
+        ten_k(atlas),
+        ten_q,
+        ten_k(atlas),
+        ten_q,
+        ten_k(atlas),
+    ]
+    # Within a document the entity-tagged windows still come first.
+    ten_k_passages = [p for p in extraction["passages"] if p["source_version_id"] != ten_q]
+    assert all(any(tag.startswith("entity:") for tag in p["selected_by"]) for p in ten_k_passages)
+    assert job["artifacts"]["passages_by_document"] == {ten_k(atlas): 3, ten_q: 2}
+    assert extraction["passages_dropped"] > 0
+
+
+def test_a_document_with_no_tagged_or_recalled_window_is_read_from_its_lead_windows(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    # Lumentum's Q4 FY2026 press release (EX-99.1) names no other known company, and without a
+    # question nothing is recalled: before pilot fix 10 it was never read.
+    atlas.ingest_company("lumentum")
+    release = atlas.version(LITE_EX991, "lumentum")["id"]
+    llm.script_chat(ChatReply.json({"claims": []}))
+
+    job = extract(atlas, "lead", source_version_ids=[ten_k(atlas), release])
+
+    extraction = atlas.get(f"/api/v1/claim-extractions/{job['artifacts']['extraction_id']}")
+    released = [p for p in extraction["passages"] if p["source_version_id"] == release]
+    assert released
+    assert all(p["selected_by"] == ["lead"] for p in released)
+    # The release is short enough to be read whole: its chunks, in text order.
+    assert [p["char_start"] for p in released] == sorted(p["char_start"] for p in released)
+    assert released[0]["char_start"] == 0
+    assert released[-1]["char_end"] == len(atlas.parsed(release))
+    # The 10-K's passages are its entity-tagged windows, as before; none were left out.
+    others = [p for p in extraction["passages"] if p["source_version_id"] != release]
+    assert others
+    assert all(any(t.startswith("entity:") for t in p["selected_by"]) for p in others)
+    assert extraction["passages_dropped"] == 0
+    assert job["artifacts"]["passages_by_document"] == {
+        ten_k(atlas): len(others),
+        release: len(released),
+    }
 
 
 # --- rejected Claims ------------------------------------------------------------------------------

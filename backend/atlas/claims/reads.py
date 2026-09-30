@@ -23,7 +23,8 @@ class Passage(BaseModel):
     char_start: int
     char_end: int
     # Why it was chosen: `entity:<company_id>` (the text names that company) and/or `recall`
-    # (a recall hit for the extraction's question resolved to its section).
+    # (a recall hit for the extraction's question resolved to its section), or `lead` alone (a
+    # lead window of a document with neither, sent for its share of the passage budget).
     selected_by: list[str]
 
 

@@ -939,6 +939,69 @@ def test_the_document_budget_is_split_fairly_across_the_seed_companies(
         assert (len(card[key]["documents"]), card[key]["documents_dropped"]) == (documents, dropped)
 
 
+LITE = "https://www.sec.gov/Archives/edgar/data/1633978"
+LITE_10K = f"{LITE}/000162828026057358/lite-20260627.htm"
+LITE_8K = f"{LITE}/000162828026055726/lite-20260811.htm"
+LITE_EX991 = f"{LITE}/000162828026055726/lite_ex991xq4fy26.htm"
+LITE_10Q = f"{LITE}/000162828026030777/lite-20260328.htm"
+
+
+def test_the_passage_budget_is_spread_across_the_documents_the_investigator_took(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot fix 10: in the re-run each Investigator's 24 passages all came from its 10-K. The
+    # recorded Lumentum filings: the FY2026 10-K (August 17), the Q4 results 8-K with its press
+    # release, EX-99.1 (August 11), and the Q3 10-Q (May); the 10-K alone has far more than 24
+    # windows its recall hits select.
+    atlas = services.start(ingest=False)
+    atlas.ingest_company("lumentum")
+    started = seeded(atlas, "lumentum")
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    task = tasks(found)["investigator:lumentum"]["artifacts"]
+    extraction = atlas.get(f"/api/v1/claim-extractions/{task['extraction_id']}")
+    ids = {
+        name: atlas.version(url, "lumentum")["id"]
+        for name, url in [
+            ("10-K", LITE_10K),
+            ("8-K", LITE_8K),
+            ("EX-99.1", LITE_EX991),
+            ("10-Q", LITE_10Q),
+        ]
+    }
+    per_document: dict[str, int] = {}
+    for passage in extraction["passages"]:
+        per_document[passage["source_version_id"]] = (
+            per_document.get(passage["source_version_id"], 0) + 1
+        )
+    # The default budget, 24 passages, spread over the four documents (6 each): the recorded
+    # 8-K and 10-Q have only 3 and 5 windows with text (all recall hits here), and the share
+    # they can't use passes on to the 10-K and the press release. (Before the fix: 24 of the
+    # 10-K.)
+    assert len(found["documents"]) == 4
+    assert {name: per_document.get(id_) for name, id_ in ids.items()} == {
+        "10-K": 8,
+        "8-K": 3,
+        "EX-99.1": 8,
+        "10-Q": 5,
+    }
+    # The first round deals one passage to each document, newest first.
+    newest_first = [d["source_version_id"] for d in found["documents"]]
+    first_round = [p["source_version_id"] for p in extraction["passages"][: len(per_document)]]
+    assert first_round == [each for each in newest_first if each in per_document]
+    # The task's and the extraction's artifacts count the passages per document.
+    assert task["passages_by_document"] == per_document
+    # The card's `read` shows the passages sent of each document.
+    [read] = found["research_card"]["read"]
+    shown = {d["source_version_id"]: d["passages"] for d in read["documents"]}
+    assert {key: n for key, n in shown.items() if n} == per_document
+    assert read["passages"] == sum(shown.values()) == 24
+
+
 def test_with_no_accepted_claim_the_editor_writes_a_card_of_what_was_searched_and_read(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
@@ -1056,7 +1119,7 @@ def test_with_no_accepted_claim_the_editor_writes_a_card_of_what_was_searched_an
 def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_run(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
-    atlas = services.start(investigator_passages_per_call=1, investigator_max_passages=3)
+    atlas = services.start(investigator_passages_per_call=1, investigation_max_passages=3)
     started = seeded(atlas, "coherent", budgets={"token_budget": 1000, "max_documents": 1})
     llm.script_chat(
         scout_reply(tokens=(100, 20)), ChatReply.json({"claims": []}, tokens=(900, 150))
@@ -1137,6 +1200,7 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
     # The card counts the passages sent across the extraction and its continuation.
     [read] = found["research_card"]["read"]
     assert (read["passages"], read["claims_proposed"]) == (3, 0)
+    assert [d["passages"] for d in read["documents"]] == [3]
     assert metric(atlas, tokens, kind="investigation", direction="input") == calls["tokens_in"]
     assert [
         e["type"] for e in events(atlas, started["id"]) if e["type"] in ("stopped", "resumed")

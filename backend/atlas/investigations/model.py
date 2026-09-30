@@ -305,6 +305,8 @@ class CardDocumentRead(BaseModel):
     source_version_id: uuid.UUID
     title: str
     sections: list[str]  # section anchors, in the order sent
+    # How many passages of it were sent (0 for a card stored before pilot fix 10).
+    passages: int = 0
 
 
 class CardReading(BaseModel):
