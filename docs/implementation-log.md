@@ -2303,3 +2303,32 @@ The corpus was a live-verify SEC run of Lumentum, Coherent, AXT and Applied Opto
 ## 2026-09-30: 0.2.1 deployed
 
 The home-ops PR #7130 was merged by the owner. The cluster reports `atlas_build_info{version="0.2.1"}` and all readiness checks are `ok`. The nightly CronJob now enqueues all nine SEC filers (`--backfill --max-retains 5`) plus IQE and Soitec, from 2026-10-01 01:30 UTC. The rolling budgets were 0/40 Codex operations and 0/400k MiniMax tokens at deploy.
+
+## 2026-09-30: Investigator yield and company-level bottleneck predicates (pilot-fixes ticket 03, LIVE)
+
+- **Built:** `scripts/investigator_replay.py`, an offline replay of pilot investigation 1's extraction. It uses Coherent's FY2026 10-K from the recorded EDGAR fixtures, recall stubbed to Items 1 and 1A, 24 passages at 6 per call, and the pilot's question, run through the production `ClaimExtractor` in a throwaway database, once per prompt variant, live or `--rehearse`. `ClaimExtractor` gains an `investigator` role argument (default the committed prompt; its prompt names the Assertions' `extractor_version`). The owner authorized extending the domain model, so four company-level bottleneck predicates join the whitelist: `capacity_constrained`, `sole_sources`, `vertically_integrates` and `qualified_for`. Each has a product object and its own cues, and forms an edge to a product node. Migration `0043` (down `0040`) extends `relationship.predicate`. Also new: prompts `investigator.v3` and `reviewer.v2`; CONTEXT.md "Bottleneck Predicate"; a `docs/decisions.md` entry; the report `docs/research/investigator-yield.md`.
+- **Files:** `scripts/investigator_replay.py` (new), `backend/atlas/claims/{extraction,predicates}.py`, `backend/atlas/roles/{investigator,reviewer}.py`, `backend/atlas/roles/prompts/{investigator.v3,reviewer.v2}.md` (new), `backend/atlas/db/migrations/versions/0043_bottleneck_predicates.py` (new), `tests/unit/{test_claim_predicates,test_bottleneck_prompts,test_relationship_checks}.py`, `tests/integration/{test_claims,test_relationships,test_migrations}.py`, `docs/research/investigator-yield.md` and `docs/research/investigator-yield/` (variant prompts, live results), `CONTEXT.md`, `AGENTS.md`, `docs/decisions.md`.
+- **Tests:** `tests/unit` (all): 524 passed. `tests/integration/{test_claims,test_migrations,test_relationships}.py`: 31 passed. New in these runs:
+  - the whitelist is 13 predicates, and the bottleneck predicates are product-object and directed;
+  - their cues fire, and plain product or demand statements and list fragments give none;
+  - the v3 and reviewer v2 prompt checks;
+  - an integration test: a hand-written Coherent-style supply update imported as a Tier A `manual_import` ("We manufacture our own indium phosphide substrates …", "Demand for our 200G EML lasers exceeded our supply …", "… from a single supplier.", "… were qualified at two hyperscale customers …") gives four accepted Claims and Assertions with exact spans, then four `machine_reviewed` Relationships from Coherent to product nodes.
+
+  The replay's `--rehearse` mode ran green (v2, relaxed and v3). Ruff (backend, tests, scripts) and strict pyright are clean.
+- **Live (MiniMax-M3 via the owner's LiteLLM, owner go-ahead), 25 chat completions:**
+  - With the 9-predicate whitelist:
+    - v2: 5 proposed, 3 accepted.
+    - relaxed: 9 proposed, 0 accepted (7 `party_not_in_quote`, list fragments).
+    - self-statements: 17 proposed, 4 accepted (sole-source and in-house statements rejected `missing_object` or `no_directional_language`; 1 batch quarantined).
+  - With the 13-predicate whitelist:
+    - **v3: 14 proposed, 8 accepted**, 3 of them bottleneck predicates (`sole_sources` 1, `vertically_integrates` 2); 42.5k tokens in, 4.0k out, 2 repairs.
+    - v2 control: 7 proposed, 4 accepted.
+
+  Details and examples are in the report. The Reviewer (v2) was **not** run live; relationship review of the new predicates is fixture-tested only.
+- **Deviations:**
+  - The replay's passages include 1 entity-tagged Item 5 window (the peer group) ahead of the Items 1 and 1A windows, as the production selection puts it; the pilot's passages were reported as Items 1 and 1A only.
+  - "Demand exceeds supply" is not its own predicate but part of `capacity_constrained`.
+  - Triage and evaluation scoring are unchanged: rubric v3 already retains these facts, and scoring compares predicates as strings.
+- **Next:**
+  - A live `review_relationships` over v3's Assertions, to measure whether `reviewer.v2` rejects the two weak ones (a `vertically_integrates` whose object is what Coherent sells, and an `expands_capacity_for` passed on a sibling clause).
+  - Separate findings: the parser leaves "9\nTable of Contents" page furniture inside sentences, so true quotes can't be located; NVIDIA is outside the universe, so Coherent's supply agreement can't become an edge; the 24-passage budget stops at the start of Item 1A.

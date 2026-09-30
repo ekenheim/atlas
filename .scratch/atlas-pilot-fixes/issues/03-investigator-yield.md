@@ -8,8 +8,8 @@ Deliver a short report with numbers from prompt variants on the same passages, a
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An offline replay harness reproduces the pilot's extraction: the same passages and prompt, with the scripted and the live model.
-- [ ] Live comparison of the current prompt against at least two variants: Claims proposed, accepted, rejection reasons and tokens.
-- [ ] A recommendation, written up in the report.
+- [x] An offline replay harness reproduces the pilot's extraction: the same passages and prompt, with the scripted and the live model.
+- [x] Live comparison of the current prompt against at least two variants: Claims proposed, accepted, rejection reasons and tokens.
+- [x] A recommendation, written up in the report.

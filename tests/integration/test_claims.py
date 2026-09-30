@@ -61,6 +61,10 @@ WHITELIST = [
     "substitutes_for",
     "expands_capacity_for",
     "depends_on",
+    "capacity_constrained",
+    "sole_sources",
+    "vertically_integrates",
+    "qualified_for",
 ]
 LAYERS = ["substrate", "epi", "chip-laser", "dsp", "module", "contract-manufacturing", "system"]
 
@@ -284,7 +288,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
         )
         assert assertion["source_version_id"] == version_id
         assert assertion["review_state"] == "unreviewed"
-        assert assertion["extractor_version"] == "investigator.v2"
+        assert assertion["extractor_version"] == "investigator.v3"
         assert assertion["created_by"] == "atlas-investigator"
         assert assertion["value_json"]["claim_id"] == accepted["id"]
     supplied = atlas.get(f"/api/v1/assertions/{supplies['assertion_id']}")

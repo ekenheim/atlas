@@ -43,7 +43,7 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         INVESTIGATOR,
         "investigator",
-        2,
+        3,  # v3: a company's own bottleneck facts, the bottleneck predicates (pilot-fixes 03)
         (
             "Atlas hunts supply-chain bottlenecks",
             "who supplies whom",
@@ -51,7 +51,13 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "capacity, allocation and lead times",
             "qualification and design wins",
             "feedstock and equipment dependencies",
-            "These are priorities, not new predicates",
+            "A company's own statements",
+            "`capacity_constrained`",
+            "`sole_sources`",
+            "`vertically_integrates`",
+            "`qualified_for`",
+            "Growing demand alone is not a constraint",
+            "A list item or a sentence fragment without the company",
             "exactly one name from `request.predicates`",
             "copied exactly, character for character",
         ),

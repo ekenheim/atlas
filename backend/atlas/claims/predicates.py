@@ -1,13 +1,24 @@
 """The predicate whitelist (build plan §5.5), its direction rules and the photonics layers.
 
-**Predicates.** Only these nine may name a Claim's relation. Each has an explicit direction:
-the subject does something *to* the object, and nothing is ever inferred the other way.
-`supplies` and `buys_from` are two predicates, never derived from each other; "works with",
-"partners with" and "collaborates with" name no direction and map to no predicate at all.
-An object is either a company (`supplies`, `buys_from`, `owns`, `competes_with`,
-`depends_on`) or a product, material or technology named in text (`manufactures`,
-`uses_material`, `substitutes_for`, `expands_capacity_for`). `competes_with` is the one
+**Predicates.** Only these thirteen may name a Claim's relation: build plan §5.5's nine and
+four **company-level bottleneck predicates** (pilot-fixes ticket 03, owner-authorized; see
+`docs/decisions.md`). Each has an explicit direction: the subject does something *to* the
+object, and nothing is ever inferred the other way. `supplies` and `buys_from` are two
+predicates, never derived from each other; "works with", "partners with" and "collaborates
+with" name no direction and map to no predicate at all. An object is either a company
+(`supplies`, `buys_from`, `owns`, `competes_with`, `depends_on`) or a product, material or
+technology named in text (`manufactures`, `uses_material`, `substitutes_for`,
+`expands_capacity_for`, and the bottleneck predicates `capacity_constrained`,
+`sole_sources`, `vertically_integrates`, `qualified_for`). `competes_with` is the one
 symmetric predicate; it is still stored in the direction proposed.
+
+**Company-level bottleneck predicates** state a fact a company discloses about itself and a
+product, with no counterparty named: that it can't meet demand for the product
+(`capacity_constrained`), that it gets an input from one or a few suppliers, named or not
+(`sole_sources`; `depends_on` when the supplier is a named company), that it makes an input
+for its own products (`vertically_integrates`), or that customers have qualified it as a
+supplier of a product (`qualified_for`; `supplies` when the customer is a named company).
+They form edges from the company to a product node like `manufactures` does.
 
 **Layers.** Every Claim carries the supply-chain layer of what the link is about (ticket 12
 tags Relationships with it): substrate → epi → chip/laser → DSP → module → system, plus
@@ -190,6 +201,74 @@ _PREDICATES: tuple[Predicate, ...] = (
             r"\bconcentrat\w*",
         ),
     ),
+    # --- company-level bottleneck predicates (pilot-fixes ticket 03) ---
+    Predicate(
+        "capacity_constrained",
+        "product",
+        False,
+        "the subject company cannot fully meet demand for the object product: its capacity,"
+        " supply or allocation of it is constrained (demand exceeds its supply, it allocates"
+        " or backlogs it, it is short of it)",
+        _cues(
+            r"\bconstrain\w*",
+            r"\bshortages?\b",
+            r"\ballocat\w*",
+            r"\bdemand (?:exceed|exceeds|exceeded|exceeding|outpac\w*|outstrip\w*|outgrew)\b",
+            r"\b(?:exceed|exceeds|exceeded|exceeding) (?:our )?(?:supply|capacity)\b",
+            r"\b(?:unable|not able) to (?:fully )?(?:meet|satisfy|fulfill)\b",
+            r"\bbacklogs?\b",
+            r"\blead[- ]times?\b",
+            r"\b(?:tight|limited) (?:supply|capacity)\b",
+            r"\bsold out\b",
+        ),
+    ),
+    Predicate(
+        "sole_sources",
+        "product",
+        False,
+        "the subject company obtains the object input from a single supplier or a limited"
+        " number of suppliers (sole, single or limited source), whether or not the supplier is"
+        " named",
+        _cues(
+            r"\b(?:sole|single|limited)[- ]sourc\w*",
+            r"\b(?:sole|single|one|only) (?:supplier|vendor|source|manufacturer)s?\b",
+            r"\blimited number of (?:\w+[- ]?){0,3}(?:suppliers|vendors|sources|manufacturers)\b",
+            r"\b(?:few|small number of) (?:\w+[- ]?){0,3}(?:suppliers|vendors|sources)\b",
+        ),
+    ),
+    Predicate(
+        "vertically_integrates",
+        "product",
+        False,
+        "the subject company makes the object input itself for its own products (in-house,"
+        " captive or vertically integrated supply) rather than buying it",
+        _cues(
+            r"\bvertical(?:ly)?[- ]integrat\w*",
+            r"\bin[- ]house\b",
+            r"\bour own\b",
+            r"\bcaptive\b",
+            r"\binternal(?:ly)? (?:produc|manufactur|sourc|suppl|develop|grow|fabricat)\w*",
+            r"\bself[- ]suppl\w*",
+        ),
+    ),
+    Predicate(
+        "qualified_for",
+        "product",
+        False,
+        "customers have qualified the subject company, or chosen it in a design win, as a"
+        " supplier of the object product (the customers named or not)",
+        _cues(
+            r"\bqualif(?:y|ies|ied|ying|ication|ications)\b",
+            r"\bdesign[- ]wins?\b",
+            r"\b(?:selected|chosen|awarded) (?:as|by|for)\b",
+        ),
+    ),
+)
+
+# The four company-level bottleneck predicates (pilot-fixes ticket 03): a company's own
+# statement about itself and a product; they need no named counterparty.
+BOTTLENECK_PREDICATES = frozenset(
+    {"capacity_constrained", "sole_sources", "vertically_integrates", "qualified_for"}
 )
 
 PREDICATES: dict[str, Predicate] = {predicate.name: predicate for predicate in _PREDICATES}
