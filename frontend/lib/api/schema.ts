@@ -1198,6 +1198,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposed-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_proposed_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/proposed-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Of Hypothesis */
+        get: operations["of_hypothesis_api_v1_hypotheses__hypothesis_id__proposed_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposed-updates/{proposed_update_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Proposed Update */
+        get: operations["proposed_update_api_v1_proposed_updates__proposed_update_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposed-updates/{proposed_update_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept */
+        post: operations["accept_api_v1_proposed_updates__proposed_update_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposed-updates/{proposed_update_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss */
+        post: operations["dismiss_api_v1_proposed_updates__proposed_update_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/evaluations": {
         parameters: {
             query?: never;
@@ -1232,10 +1317,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/replay-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_replay_jobs_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_replay_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/replay-jobs/{replay_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Replay */
+        get: operations["replay_api_v1_replay_jobs__replay_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/replay-jobs/{replay_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_v1_replay_jobs__replay_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptRequest */
+        AcceptRequest: {
+            /**
+             * Note
+             * @description the correction's note; default the summary
+             */
+            note?: string | null;
+        };
+        /** AffectedFinding */
+        AffectedFinding: {
+            /**
+             * Index
+             * @description the finding's position in the version, from 0
+             */
+            index: number;
+            /** Claim Text */
+            claim_text: string;
+            /**
+             * Assertion Ids
+             * @description its contradicted Assertions
+             */
+            assertion_ids: string[];
+        };
         /** Alias */
         Alias: {
             /** Name */
@@ -1250,6 +1410,15 @@ export interface components {
             /** Valid To */
             valid_to?: string | null;
             source: components["schemas"]["Source"];
+        };
+        /** AnswerLeakage */
+        AnswerLeakage: {
+            /** Recall Memories */
+            recall_memories: number;
+            /** Citations */
+            citations: number;
+            /** Source Version Ids */
+            source_version_ids: string[];
         };
         /** @enum {string} */
         AnswerStatus: "pending" | "running" | "completed" | "failed";
@@ -2097,6 +2266,48 @@ export interface components {
             /** Parsed */
             parsed: string | null;
         };
+        /**
+         * ContradictingEvidence
+         * @description One piece of Evidence against the version: what changed, and where it is stated.
+         */
+        ContradictingEvidence: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "assertion" | "relationship" | "source_version" | "counterevidence";
+            /**
+             * Id
+             * Format: uuid
+             * @description the Assertion reviewed, the Relationship rejected, the revised Source Version, or the counterevidence item
+             */
+            id: string;
+            /** Description */
+            description: string;
+            /**
+             * State
+             * @description the Assertion's or Relationship's review state
+             */
+            state: string | null;
+            /**
+             * Note
+             * @description the reviewer's note, if any
+             */
+            note: string | null;
+            /** Assertion Id */
+            assertion_id: string | null;
+            /** Source Version Id */
+            source_version_id: string | null;
+            /** Quote */
+            quote: string | null;
+            /** Revises Source Version Id */
+            revises_source_version_id: string | null;
+            /**
+             * Contradicts Assertion Ids
+             * @description the version's Assertions this bears on
+             */
+            contradicts_assertion_ids: string[];
+        };
         /** Contradiction */
         Contradiction: {
             /** Assertion Id */
@@ -2277,6 +2488,11 @@ export interface components {
             error: string | null;
             /** Searched At */
             searched_at: string | null;
+        };
+        /** DismissRequest */
+        DismissRequest: {
+            /** Reason */
+            reason: string;
         };
         /** DisproveRequest */
         DisproveRequest: {
@@ -2848,6 +3064,8 @@ export interface components {
             /** Owner Override */
             owner_override?: string | null;
         };
+        /** @enum {string} */
+        FinalStatus: "completed" | "failed" | "cancelled";
         /**
          * FinancialFigure
          * @description A canonical metric's value for one period and unit, as of the cutoff.
@@ -3141,6 +3359,8 @@ export interface components {
             next_review_at: string | null;
             /** Latest Version */
             latest_version: number | null;
+            /** Open Proposed Updates */
+            open_proposed_updates: number;
             /** Versions */
             versions: components["schemas"]["HypothesisVersion"][];
             /** Transitions */
@@ -4313,10 +4533,32 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[ProposedUpdate] */
+        Page_ProposedUpdate_: {
+            /** Items */
+            items: components["schemas"]["ProposedUpdate"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[Relationship] */
         Page_Relationship_: {
             /** Items */
             items: components["schemas"]["Relationship"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[ReplayJobSummary] */
+        Page_ReplayJobSummary_: {
+            /** Items */
+            items: components["schemas"]["ReplayJobSummary"][];
             /** Total */
             total: number;
             /** Limit */
@@ -4463,6 +4705,72 @@ export interface components {
         };
         /** @enum {string} */
         ProposalTier: "exact" | "corroborated" | "candidate";
+        /** ProposedUpdate */
+        ProposedUpdate: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Hypothesis Id
+             * Format: uuid
+             */
+            hypothesis_id: string;
+            /**
+             * Hypothesis Version
+             * @description the published version it flags
+             */
+            hypothesis_version: number;
+            /**
+             * Hypothesis Version Id
+             * Format: uuid
+             */
+            hypothesis_version_id: string;
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "assertion_reviewed" | "relationship_rejected" | "source_revised" | "counterevidence";
+            /** Trigger Key */
+            trigger_key: string;
+            /** Summary */
+            summary: string;
+            /** Evidence */
+            evidence: components["schemas"]["ContradictingEvidence"][];
+            /** Affected Findings */
+            affected_findings: components["schemas"]["AffectedFinding"][];
+            /**
+             * Candidate Ids
+             * @description the Candidates it concerns
+             */
+            candidate_ids: string[];
+            /** Detected By Job Id */
+            detected_by_job_id: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "accepted" | "dismissed";
+            /** Resolved By */
+            resolved_by: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Resolution Note */
+            resolution_note: string | null;
+            /** Dismiss Reason */
+            dismiss_reason: string | null;
+            /**
+             * Correction Version
+             * @description the correction an acceptance started
+             */
+            correction_version: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * ProviderBudget
          * @description One provider's rolling window as the queue sees it now.
@@ -4819,6 +5127,293 @@ export interface components {
             /** Audit Event Id */
             audit_event_id: number;
         };
+        /**
+         * ReplayAnswer
+         * @description One question of the set: its scoped recall, and its reflect with resolved citations.
+         */
+        ReplayAnswer: {
+            /** Position */
+            position: number;
+            /** Question Key */
+            question_key: string;
+            /** Question */
+            question: string;
+            /** Recall */
+            recall: components["schemas"]["ReplayRecalledMemory"][];
+            /** Answer Text */
+            answer_text: string;
+            /** Citations */
+            citations: components["schemas"]["atlas__research__provenance__Citation"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Evidence */
+            evidence: components["schemas"]["Evidence"][];
+            leakage: components["schemas"]["AnswerLeakage"];
+            /**
+             * Answered At
+             * Format: date-time
+             */
+            answered_at: string;
+        };
+        /** ReplayConsolidation */
+        ReplayConsolidation: {
+            /** Operation Id */
+            operation_id: string | null;
+            /** Status */
+            status: string;
+            /** Polls */
+            polls: number;
+        };
+        /** ReplayJob */
+        ReplayJob: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Cutoff
+             * Format: date-time
+             */
+            cutoff: string;
+            /**
+             * Availability Convention
+             * @constant
+             */
+            availability_convention: "available_at";
+            /** Company Ids */
+            company_ids: string[];
+            /** Question Set */
+            question_set: string;
+            /** Question Set Version */
+            question_set_version: string;
+            status: components["schemas"]["ReplayStatus"];
+            stage: components["schemas"]["ReplayStage"];
+            final_status: components["schemas"]["FinalStatus"] | null;
+            /** Eligible Source Versions */
+            eligible_source_versions: number;
+            /** Max Source Versions */
+            max_source_versions: number;
+            /** Selected Source Versions */
+            selected_source_versions: number;
+            leakage: components["schemas"]["ReplayLeakage"] | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Requested By */
+            requested_by: string;
+            /** Cancel Requested At */
+            cancel_requested_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Bank Deleted At */
+            bank_deleted_at: string | null;
+            /** Bank Delete Error */
+            bank_delete_error: string | null;
+            scope: components["schemas"]["AppliedScope"];
+            /** Question Set Sha256 */
+            question_set_sha256: string;
+            /** Questions */
+            questions: components["schemas"]["ReplayQuestion"][];
+            /** Template Version */
+            template_version: string | null;
+            /** Template Manifest Sha256 */
+            template_manifest_sha256: string | null;
+            consolidation: components["schemas"]["ReplayConsolidation"] | null;
+            /** Source Versions */
+            source_versions: components["schemas"]["ReplaySourceVersion"][];
+            /** Answers */
+            answers: components["schemas"]["ReplayAnswer"][];
+        };
+        /** ReplayJobSummary */
+        ReplayJobSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Cutoff
+             * Format: date-time
+             */
+            cutoff: string;
+            /**
+             * Availability Convention
+             * @constant
+             */
+            availability_convention: "available_at";
+            /** Company Ids */
+            company_ids: string[];
+            /** Question Set */
+            question_set: string;
+            /** Question Set Version */
+            question_set_version: string;
+            status: components["schemas"]["ReplayStatus"];
+            stage: components["schemas"]["ReplayStage"];
+            final_status: components["schemas"]["FinalStatus"] | null;
+            /** Eligible Source Versions */
+            eligible_source_versions: number;
+            /** Max Source Versions */
+            max_source_versions: number;
+            /** Selected Source Versions */
+            selected_source_versions: number;
+            leakage: components["schemas"]["ReplayLeakage"] | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Requested By */
+            requested_by: string;
+            /** Cancel Requested At */
+            cancel_requested_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Bank Deleted At */
+            bank_deleted_at: string | null;
+            /** Bank Delete Error */
+            bank_delete_error: string | null;
+        };
+        /**
+         * ReplayLeakage
+         * @description What the replay accepted from after its cutoff: every count must be 0 (§9.2).
+         *
+         *     Counted independently of the replay's own section ledger: from the Source Version each
+         *     retained version, recalled memory (its document ID and metadata) and resolved citation
+         *     names, checked against the versions the replay may see.
+         */
+        ReplayLeakage: {
+            /** Retained */
+            retained: number;
+            /** Recall Memories */
+            recall_memories: number;
+            /** Citations */
+            citations: number;
+            /** Source Version Ids */
+            source_version_ids: string[];
+            /** Future Accepted */
+            future_accepted: number;
+        };
+        /** ReplayQuestion */
+        ReplayQuestion: {
+            /** Key */
+            key: string;
+            /** Question */
+            question: string;
+        };
+        /**
+         * ReplayRecalledMemory
+         * @description A recalled memory, with the document and Source Version it names.
+         */
+        ReplayRecalledMemory: {
+            /** Memory Id */
+            memory_id: string;
+            /** Type */
+            type: string;
+            /** Text */
+            text: string;
+            /** Context */
+            context: string | null;
+            /** Tags */
+            tags: string[];
+            /** Occurred Start */
+            occurred_start: string | null;
+            /** Occurred End */
+            occurred_end: string | null;
+            /** Mentioned At */
+            mentioned_at: string | null;
+            provenance: components["schemas"]["atlas__research__provenance__Citation"];
+            /** Document Id */
+            document_id: string | null;
+            /** Source Version Id */
+            source_version_id: string | null;
+        };
+        /** ReplayRequest */
+        ReplayRequest: {
+            /**
+             * Cutoff
+             * Format: date-time
+             * @description only Source Versions available by then are retained; not in the future
+             */
+            cutoff: string;
+            /**
+             * Company Ids
+             * @description the companies whose Source Versions are replayed and whose tags scope the questions; default: every company, the questions scoped by every theme
+             */
+            company_ids?: string[] | null;
+            /**
+             * Question Set
+             * @description a configured set
+             * @default default
+             */
+            question_set: string;
+            /**
+             * Max Source Versions
+             * @description retain at most this many (the latest eligible); default and ceiling: ATLAS_REPLAY_MAX_SOURCE_VERSIONS
+             */
+            max_source_versions?: number | null;
+        };
+        /**
+         * ReplaySourceVersion
+         * @description A Source Version the replay may see, in retain order, with its retain's outcome.
+         */
+        ReplaySourceVersion: {
+            /** Position */
+            position: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Available At Basis */
+            available_at_basis: string;
+            retain_status: components["schemas"]["RetainStatus"];
+            /** Operation Id */
+            operation_id: string | null;
+            /** Polls */
+            polls: number;
+            /** Sections */
+            sections: number | null;
+            /** Facts */
+            facts: number | null;
+            /** Error */
+            error: string | null;
+        };
+        /** @enum {string} */
+        ReplayStage: "create_bank" | "retain" | "consolidate" | "questions" | "delete_bank" | "done";
+        /** @enum {string} */
+        ReplayStatus: "pending" | "running" | "completed" | "failed" | "cancelled";
         /** ResearchAnswer */
         ResearchAnswer: {
             /**
@@ -5114,6 +5709,8 @@ export interface components {
              */
             retain_job_id: string;
         };
+        /** @enum {string} */
+        RetainStatus: "pending" | "submitted" | "completed" | "failed";
         /** @enum {string} */
         ReviewState: "committed" | "pending" | "confirmed" | "rejected";
         /**
@@ -9282,6 +9879,235 @@ export interface operations {
             };
         };
     };
+    listing_api_v1_proposed_updates_get: {
+        parameters: {
+            query?: {
+                hypothesis_id?: string | null;
+                candidate_id?: string | null;
+                state?: ("open" | "accepted" | "dismissed") | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ProposedUpdate_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    of_hypothesis_api_v1_hypotheses__hypothesis_id__proposed_updates_get: {
+        parameters: {
+            query?: {
+                state?: ("open" | "accepted" | "dismissed") | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ProposedUpdate_"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proposed_update_api_v1_proposed_updates__proposed_update_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposed_update_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposedUpdate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_api_v1_proposed_updates__proposed_update_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposed_update_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposedUpdate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_api_v1_proposed_updates__proposed_update_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposed_update_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposedUpdate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     evaluations_api_v1_evaluations_get: {
         parameters: {
             query?: {
@@ -9338,6 +10164,171 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listing_api_v1_replay_jobs_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ReplayJobSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_replay_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayJob"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    replay_api_v1_replay_jobs__replay_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                replay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayJob"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_replay_jobs__replay_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                replay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayJob"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -2114,3 +2114,4 @@ Migration renumbering: ticket 20's 0038 → 0036 (after 0035 tradingview).
   - one step per attempt via `Requeue` (the job's `failures` list shows one `requeued` entry per step)
   - `POST .../cancel` added (the design mentions cancel)
 - **Next:** a live replay on the Compose Hindsight with the owner's go-ahead, replacing the fake's deletion/consolidation derivations with recordings.
+Migration renumbering at the final merge (none deployed): ticket 21's 0039 → 0038 (proposed updates), ticket 22's 0040 → 0039 (replay); the XBRL-failure table stays 0037. Chain ... 0036 → 0037 → 0038 → 0039.

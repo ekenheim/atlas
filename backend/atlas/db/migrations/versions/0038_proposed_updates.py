@@ -14,13 +14,13 @@ changes the version or its Research Snapshot.
   reason). A trigger allows only that one resolution; every other UPDATE, and every DELETE and
   TRUNCATE, is refused.
 
-Revision ID: 0039
+Revision ID: 0038
 Revises: 0037 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0039"
+revision = "0038"
 down_revision = "0037"
 branch_labels = None
 depends_on = None

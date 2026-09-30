@@ -17,14 +17,14 @@
 - `replay_answer`: each question's recall and reflect, with resolved citations and the
   leakage found in them.
 
-Revision ID: 0040
-Revises: 0039 (re-chained at merge)
+Revision ID: 0039
+Revises: 0038 (re-chained at merge)
 """
 
 from alembic import op
 
-revision = "0040"
-down_revision = "0039"
+revision = "0039"
+down_revision = "0038"
 branch_labels = None
 depends_on = None
 

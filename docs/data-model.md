@@ -647,7 +647,7 @@ A Research Snapshot (`atlas.snapshots`, spec §5.7 "research_snapshot") freezes 
 
 Audit events: `research_snapshot.created` (`new_hash` = the snapshot's SHA-256).
 
-### 3.1j `hypothesis_dependency`, `proposed_update` (Phases 3–6a, ticket 21, migration 0039)
+### 3.1j `hypothesis_dependency`, `proposed_update` (Phases 3–6a, ticket 21, migration 0038)
 
 Later Evidence against a published Hypothesis version proposes an update (`atlas.proposed_updates`, spec §5.7 "Contradiction flow"); the version and its Research Snapshot never change.
 
