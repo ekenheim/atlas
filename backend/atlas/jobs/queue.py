@@ -219,9 +219,12 @@ class JobQueue:
             return _select(connection, job_id)
 
     def claim(self, owner: str, lease: timedelta) -> Job | None:
-        """Lease the oldest runnable job to `owner`, or return None if there is none.
+        """Lease the oldest runnable interactive job to `owner`, else the oldest runnable
+        backfill job, or return None if there is none.
 
-        Runnable means queued, or running under an expired lease (its worker is presumed
+        Interactive work (the owner's own ingests, investigations, reflects) goes first
+        whatever its age: a backfill enqueued hours earlier never makes the owner wait behind
+        it. Runnable means queued, or running under an expired lease (its worker is presumed
         dead), and held back neither by the queue pause (its kind is paused), nor by the
         backfill window (a backfill job outside it), nor by its provider's budget (the
         window's usage is at the limit for its class; `atlas.jobs.budget`). Provider usage
@@ -243,7 +246,7 @@ class JobQueue:
                         "  AND (job.job_class <> 'backfill' OR :window_open) "
                         "  AND job.kind <> ALL(:held_all) "
                         "  AND (job.job_class <> 'backfill' OR job.kind <> ALL(:held_backfill)) "
-                        "ORDER BY created_at, id LIMIT 1 "
+                        "ORDER BY (job_class = 'backfill'), created_at, id LIMIT 1 "
                         "FOR UPDATE OF job SKIP LOCKED"
                     ),
                     {

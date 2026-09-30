@@ -9,6 +9,10 @@ share of its checks that held; the case passes when all of them hold. Semantics 
 - `relationships`: `present` needs the edge (subject, predicate, object or object text, and
   layer if given), in `review_state` with `reasons_include` if given; `absent` needs no such
   edge in any state; `not_verified` needs none machine-reviewed or approved.
+- `relationships.unexpected` (every case whose pipeline produces edges, no gold key): no
+  machine-reviewed or approved edge that neither a `relationships` nor a `claims` entry names
+  (`relationship_precision`). Without it a wrong extra edge escaped scoring unless the case
+  had foreseen it (Codex review, 2026-09-30).
 - `citations`: an Assertion of that source quotes exactly the gold quote, and (`resolved`) its
   span in the archived parse is that quote (`citation_correctness`).
 - `evidence_families`: the sources' distinct Evidence Families number exactly `count`
@@ -29,7 +33,7 @@ from typing import Any, cast
 
 from pydantic import JsonValue
 
-from atlas.evaluation.gold import Case, GoldClaim, GoldRelationship
+from atlas.evaluation.gold import Case, Gold, GoldClaim, GoldRelationship
 from atlas.evaluation.store import Check
 
 _VERIFIED = ("machine_reviewed", "approved")
@@ -44,6 +48,8 @@ def score(case: Case, observed: dict[str, JsonValue]) -> list[Check]:
     edges = _list(observed, "relationships")
     for index, edge in enumerate(gold.relationships):
         checks.append(_relationship(f"relationships[{index}]", edge, edges))
+    if case.pipeline.kind in ("relationships", "investigation"):
+        checks.append(_unexpected(gold, edges))
     assertions = _list(observed, "assertions")
     for index, citation in enumerate(gold.citations):
         quoting = [
@@ -191,6 +197,31 @@ def _relationship(key: str, gold: GoldRelationship, edges: list[dict[str, Any]])
             ]
         },
         passed=passed,
+    )
+
+
+def _unexpected(gold: Gold, edges: list[dict[str, Any]]) -> Check:
+    """Every verified edge Atlas produced that no gold expectation names."""
+    named = {(g.subject, g.predicate, g.object or g.object_text) for g in gold.relationships}
+    named |= {(c.subject, c.predicate, c.object) for c in gold.claims}
+    verified = [e for e in edges if e["review_state"] in _VERIFIED]
+    unexpected = [
+        e
+        for e in verified
+        if (e["subject"], e["predicate"], e["object"] or e["object_text"]) not in named
+    ]
+    return Check(
+        key="relationships.unexpected",
+        metric="relationship_precision",
+        expected={"unexpected_verified_edges": 0},
+        observed={
+            "verified": len(verified),
+            "unexpected": [
+                {k: e[k] for k in ("subject", "predicate", "object", "object_text", "layer")}
+                for e in unexpected
+            ],
+        },
+        passed=not unexpected,
     )
 
 

@@ -101,10 +101,13 @@ class Settings(BaseSettings):
     # Retention triage (atlas.retention.triage): `on` reads each new Source Version section
     # by section (deterministic rules, then the Triage role through LiteLLM) and retains only
     # the sections worth retaining; `off` retains every section; `auto` (the default) is `on`
-    # when LiteLLM is configured. The role sees each section's first triage_excerpt_chars
-    # characters, triage_sections_per_call sections to a call.
+    # when LiteLLM is configured. The role reads each section in windows of
+    # triage_excerpt_chars characters, at most triage_windows_per_section of them (spread
+    # over the section when it has more, the first always included), triage_sections_per_call
+    # windows to a call; a section is retained when any window is.
     retention_triage: Literal["auto", "on", "off"] = "auto"
     triage_excerpt_chars: int = Field(default=1500, ge=200, le=20_000)
+    triage_windows_per_section: int = Field(default=6, ge=1, le=50)
     triage_sections_per_call: int = Field(default=15, ge=1, le=50)
     # Mental models: the worker enqueues each template model's daily refresh from this UTC
     # time of day on (HH:MM; empty: never scheduled). The template's own refresh_cron runs

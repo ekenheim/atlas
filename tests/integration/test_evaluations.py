@@ -30,11 +30,13 @@ from tests.harness import REPO, SITES, TEMPLATE, make_settings
 GOLD = REPO / "tests" / "evaluation" / "gold"
 CASES = [e["case_id"] for e in json.loads((GOLD / "manifest.json").read_text("utf-8"))["cases"]]
 # The metric each category's checks feed (methodology §7).
+# Every case whose pipeline produces edges also feeds `relationship_precision` through the
+# `relationships.unexpected` check (no verified edge the gold doesn't name).
 METRICS = {
-    "EV-SUP-001": {"relationship_recall", "citation_correctness"},
+    "EV-SUP-001": {"relationship_recall", "citation_correctness", "relationship_precision"},
     "EV-COM-001": {"relationship_precision"},
     "EV-SYN-001": {"independent_families"},
-    "EV-FUT-001": {"as_of_isolation", "contradiction_discovery"},
+    "EV-FUT-001": {"as_of_isolation", "contradiction_discovery", "relationship_precision"},
     "EV-RST-001": {"as_of_isolation"},
 }
 
@@ -210,6 +212,18 @@ def test_a_live_evaluation_needs_both_locks_and_the_model(
     without_model = evaluate(database_url, tmp_path, "--live", ATLAS_LIVE_TESTS="1")
     assert without_model.returncode == 2
     assert "set ATLAS_LITELLM_URL and ATLAS_LITELLM_API_KEY" in without_model.stderr
+
+    # Live mode measures memory too, so it needs the real Hindsight, never the stub.
+    without_memory = evaluate(
+        database_url,
+        tmp_path,
+        "--live",
+        ATLAS_LIVE_TESTS="1",
+        ATLAS_LITELLM_URL="http://127.0.0.1:9",
+        ATLAS_LITELLM_API_KEY="sk-unused",
+    )
+    assert without_memory.returncode == 2
+    assert "set ATLAS_HINDSIGHT_URL" in without_memory.stderr
 
     unknown = evaluate(database_url, tmp_path, "--case", "EV-SUP-404")
     assert unknown.returncode == 2

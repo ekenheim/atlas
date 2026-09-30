@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 import pytest
 import yaml
 from fastapi.testclient import TestClient
+from sqlalchemy import Engine
 
 from atlas.api.app import create_app
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry, job_id_for
@@ -288,6 +289,23 @@ def test_a_pausable_job_failing_for_its_own_reason_is_retried_without_pausing(
     assert "NoTemplateApplied" in retain["last_error"]
     pause = paced.pause()
     assert (pause["paused"], pause["level"], pause["pauses_total"]) == (False, 0, 0)
+
+
+# --- interactive work first -------------------------------------------------------------------
+
+
+def test_interactive_jobs_are_claimed_before_older_backfill_jobs(engine: Engine) -> None:
+    """The owner's own work never waits behind a backfill enqueued earlier (the queue used
+    to be strictly oldest-first; Codex review, item 5)."""
+    queue = JobQueue(engine)  # no window and no budgets: every class is runnable now
+    queue.enqueue("ingest", "old-backfill", {}, job_class="backfill")
+    queue.enqueue("ingest", "newer-interactive", {})
+    queue.enqueue("ingest", "newest-backfill", {}, job_class="backfill")
+    lease = timedelta(minutes=5)
+    claimed = [job for _ in range(4) if (job := queue.claim("worker", lease)) is not None]
+    assert next(job.idempotency_key for job in claimed) == "newer-interactive"
+    assert {job.idempotency_key for job in claimed[1:]} == {"old-backfill", "newest-backfill"}
+    assert [job.job_class for job in claimed] == ["interactive", "backfill", "backfill"]
 
 
 # --- the backfill window --------------------------------------------------------------------
