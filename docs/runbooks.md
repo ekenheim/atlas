@@ -256,6 +256,63 @@ The totals give the mismatch share of the Claims that reached the span check. If
 
 `POST /api/v1/replay-jobs/{id}/cancel` stops a replay; its next step deletes the bank.
 
+## Live verification (ticket 32)
+
+**What:** `tests/live/test_live_verify.py` checks each Phase 3–6a part against the real services, in one small, bounded run that always writes a report. `scripts/live-verify.sh` runs it. **Never run in CI.**
+
+**When:** by hand, with the owner's go-ahead (given 2026-09-30). A live run spends MiniMax quota and calls SEC, GLEIF, OpenFIGI, the FCA NSM, the AMF and SearXNG.
+
+**The parts.** Each part is one test, can be chosen with `--only`, and has its own budget:
+
+| Part | What it does | Chat calls | Retain ops |
+|---|---|---|---|
+| `sec` | For each `--companies` company, a live SEC ingest of its `--limit` newest filings (default 2; 10-K/10-Q/8-K per config) with triage on. At most `--max-retains` versions are retained per company. It waits for the operations and consolidation, then runs a cross-company recall and one reflect. The report gives citations resolved, unverified and broken, and the companies cited. | 12 | 25 |
+| `exchanges` | IQE (FCA NSM) and Soitec (AMF): discovery and one document each through the fetch gate (`ATLAS_EXCHANGE_LIVE`, generic User-Agent), with the gate's decisions. Retention is off. | 0 | 0 |
+| `tradingview` | Ticket 31's `tradingview_catalog` (`{"company": <slug>}`) for the first `--companies` company with a `tradingview_symbol`, then the `tradingview_transcripts` job the catalog enqueues. At most two tool calls per job, so at most two transcripts; they are archived as Tier B Source Versions, not retained. The report gives the catalog's entries by category, the news leads and each transcript. Skipped, saying what to do, unless `ATLAS_TRADINGVIEW_ENABLED=true` (from the environment or `.env`) and there is a token: the token file `atlas tradingview login` wrote (`ATLAS_TRADINGVIEW_TOKEN_FILE`, relative to the repo root) or `ATLAS_TRADINGVIEW_ACCESS_TOKEN`/`_REFRESH_TOKEN`. A rehearsal serves the TradingView fake (`tests/fakes/tradingview.py`) with a token file of its own. | 0 | 0 |
+| `discovery` | The Scout (3 queries) and SearXNG give leads. `propose_candidates` (the mention extractor, then live entity resolution) gives Candidates. Skipped without SearXNG. | 8 | 0 |
+| `relationships` | `extract_claims` on the recorded Coherent FY2026 10-K (the NVIDIA supply agreement; 8 passages, one call), then `review_relationships` (the Reviewer). | 6 | 0 |
+| `investigation` | One investigation on Coherent and Lumentum (their recorded filings), run to its stop. Then a Hypothesis draft and a scenario: the Financial Analyst's table, or an all-estimated researcher table if the Analyst proposed none. The scenario is recomputed and resent, and both must be byte-identical. Finally version 1 goes through the publish gate (ticket 20): `evidence_ready`, then `GET .../publish-gate`. When the only failure is `relationship_not_approved`, the harness plays the owner: it approves each named edge through `POST /api/v1/relationships/{id}/review` with a note saying so, and the report lists them under `owner_step` (a harness decision, not a human one). It then publishes when the gate allows and reads the Research Snapshot back (`GET /api/v1/snapshots/{id}`, re-hashed on read). A gate the owner can't open (no falsifier, no unresolved question, an Assertion not machine-reviewed) is reported, not forced. Skipped without SearXNG. | 14 | 0 |
+| `identity` | `atlas companies resolve --company lumentum --company coherent` (live SEC, GLEIF, OpenFIGI), then the pending reviews. | 0 | 0 |
+
+**Caps.** Atlas reaches LiteLLM and Hindsight only through two counting proxies on localhost (`tests/live/verify.py`, `CappedProxy`). The part is aborted, and reported `aborted`, when either of these happens:
+- a chat completion beyond the part's budget, or beyond the run's cap of 40 (`--max-chat-calls N` lowers it), is refused with HTTP 400
+- a retain batch beyond 25 is refused with HTTP 400
+
+The leftover jobs are then failed, so they don't spill into the next part. Settings bound the rest: 30 sections per triage call, `--max-retains`, a 150,000-token budget per run, 8 passages per extraction, 3 discovery queries, and at most 5 leads and 6 documents per investigation. Each part reports two sets of usage figures:
+- the proxies' counts
+- what the database recorded since the part began: `llm_call` calls and tokens, `role_call` by role and status, and `hindsight_operation` by kind and status
+
+Hindsight's own LLM use (retain extraction, consolidation, reflect) runs on the Hindsight side and isn't in the 40. The report adds the bank's `llm_request_stats` after a live `sec` part.
+
+**Stack.** The stack is `tests/live/stack.py`'s, with the same two locks as the live suite: the `live` marker and `ATLAS_LIVE_TESTS` (`1` live, `rehearse` fakes). The preflight refuses (exit status 4) in these cases, before any model call:
+- under `CI`
+- without LiteLLM settings
+- when Hindsight isn't 0.10.1
+- when an alias or the role model isn't routed
+
+The default `--stack cluster` uses the owner's cluster Hindsight (`HINDSIGHT_URL`/`HINDSIGHT_API_KEY` in `.env`, else `~/.hindsight/config`). It creates a throwaway `atlas-live-<stamp>` bank from the bank template, which is always deleted at the end unless `--keep-bank` is given. `--stack compose` uses the Compose Hindsight on :58888.
+
+The run has one throwaway app database (`atlas_live_*`, dropped unless `--keep-db`) and archive. The universe is seeded as the repo's plus NVIDIA. The script reads its settings from the environment, else `.env`. It reads them CRLF-safe and never prints them:
+- `ATLAS_LITELLM_*` or `LITELLM_*` (required)
+- `ATLAS_SEC_USER_AGENT` (required by `sec`, `discovery` and `identity`)
+- `ATLAS_SEARXNG_URL` or `SEARXNG_URL`
+- `ATLAS_EXCHANGE_USER_AGENT`
+- `ATLAS_TRADINGVIEW_*`
+
+**Steps:**
+```sh
+scripts/live-verify.sh --rehearse                        # free: every part against the fakes
+scripts/live-verify.sh --only sec --companies lumentum --limit 1   # one live part, small
+scripts/live-verify.sh                                    # the full live run; asks first unless --yes
+```
+Other options: `--model M` (default `MiniMax-M3`, also Atlas's extract/reflect aliases), `--results DIR` (default `.scratch/live-runs/<stamp>-verify/`, gitignored) and `--dry-run`.
+
+**The report:** `summary.md` has a table with each part's result (passed, failed, aborted, skipped with the reason), chat calls and retain operations against the budget, recorded LLM calls, tokens and seconds. After the table come each part's numbers. `results.json` has everything.
+
+A rehearsal's model answers are scripted (`RehearsalModel`), and so are its SearXNG and identity responses (the fakes over `tests/fixtures/`). It checks the harness, never a model. In a rehearsal, the `sec` part uses the companies with recorded EDGAR fixtures (Lumentum, Coherent) and lists the others.
+
+**Record it** in `docs/implementation-log.md` as LIVE, from `summary.md`, with exactly which parts ran. Fix what failed.
+
 ## EDGAR availability corrections (after deploying migration `0012`)
 
 Source Versions ingested before the EDGAR dissemination rule (docs/decisions.md, 2026-09-29) are dated at acceptance even when EDGAR held the filing to the next business day. After `atlas migrate` has applied `0012`, run once, with the app's settings:

@@ -21,4 +21,11 @@ export const routes = {
   workbench: "/workbench/",
   /** One investigation: its plan, events, Evidence tray, contradictions and actions. */
   investigation: withId("investigation"),
+  /** Every Hypothesis, newest first. */
+  hypotheses: "/hypotheses/",
+  /** A Hypothesis dossier, at one version (default: the latest). */
+  hypothesis: (id: string, version?: number) =>
+    version === undefined
+      ? withId("hypothesis")(id)
+      : `${withId("hypothesis")(id)}&version=${version}`,
 };

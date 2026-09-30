@@ -4494,6 +4494,59 @@
         }
       }
     },
+    "/api/v1/hypotheses/{hypothesis_id}/publish-gate": {
+      "get": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Publish Gate",
+        "operationId": "publish_gate_api_v1_hypotheses__hypothesis_id__publish_gate_get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishGateView"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/hypotheses/{hypothesis_id}/diff": {
       "get": {
         "tags": [
@@ -15626,6 +15679,75 @@
         ],
         "title": "ProviderBudget",
         "description": "One provider's rolling window as the queue sees it now."
+      },
+      "PublishGateView": {
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version",
+            "description": "the latest version; null before the first draft"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "researching",
+              "evidence_ready",
+              "reviewed",
+              "paper_tracking",
+              "closed",
+              "rejected",
+              "needs_more_evidence"
+            ],
+            "title": "Status"
+          },
+          "blocked": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "no_version",
+                  "already_published",
+                  "status_not_publishable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked",
+            "description": "why the version can't be published whatever the checks say"
+          },
+          "publishable": {
+            "type": "boolean",
+            "title": "Publishable",
+            "description": "not blocked and no check failed"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/GateFailureView"
+            },
+            "type": "array",
+            "title": "Failures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "status",
+          "blocked",
+          "publishable",
+          "failures"
+        ],
+        "title": "PublishGateView",
+        "description": "The publish gate for the latest version, read without publishing."
       },
       "PublishRefusal": {
         "properties": {

@@ -6,8 +6,8 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 20 (Publish gate and Research Snapshot)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Frontend page with version diff and scenario tables
-- [ ] Export links for JSON/Markdown
-- [ ] Playwright test: open a published Hypothesis and follow a citation to its span
+- [x] Frontend page with version diff and scenario tables
+- [x] Export links for JSON/Markdown
+- [x] Playwright test: open a published Hypothesis and follow a citation to its span

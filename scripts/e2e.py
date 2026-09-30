@@ -20,11 +20,16 @@ static export (`npm --prefix frontend run build`). In order, it:
    NVIDIA, which the Coherent 10-K names), ingests and retains Coherent from the EDGAR
    fixtures, then runs two investigations through the API and worker passes to answered
    research cards with open questions (`seed_workbench`).
-4. starts the API with uvicorn on a free localhost port, serving `frontend/out` on the
-   same origin (`ATLAS_FRONTEND_DIR`), and a second one on the workbench database with the
-   fakes configured, and runs `playwright test` against them (`ATLAS_E2E_BASE_URL`,
-   `ATLAS_E2E_WORKBENCH_URL`).
-5. stops the APIs and the fakes and drops the databases.
+4. creates a third database for the Hypothesis dossier (`scripts/e2e_hypothesis.py`):
+   Coherent ingested, an investigation, a Hypothesis drafted, published and corrected, all
+   through the real services with the LLM, Hindsight and SearXNG faked on localhost. The
+   workbench and the dossier each get their own database because their companies, edges and
+   investigations would change what the other pages' tests count.
+5. starts an API with uvicorn on a free localhost port for each database, serving
+   `frontend/out` on the same origin (`ATLAS_FRONTEND_DIR`; the workbench's with the fakes
+   configured), and runs `playwright test` against them (`ATLAS_E2E_BASE_URL`,
+   `ATLAS_E2E_WORKBENCH_URL` and `ATLAS_E2E_HYPOTHESIS_BASE_URL`).
+6. stops the APIs and the fakes and drops the databases.
 """
 
 # The commands run here are fixed (npm, node and the atlas CLI), never user input.
@@ -50,6 +55,7 @@ from typing import Any
 import httpx2
 import uvicorn
 import yaml
+from e2e_hypothesis import seed_hypothesis
 from pydantic import JsonValue
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
@@ -58,6 +64,7 @@ from atlas.api.app import create_app
 from atlas.archive import open_archive
 from atlas.assertions import AssertionCreate, Assertions
 from atlas.audit import Actor
+from atlas.db.migrate import upgrade
 from atlas.jobs import HandlerRegistry, JobQueue, Worker
 from atlas.ledger import SourceLedger
 from atlas.relationships import (
@@ -117,11 +124,14 @@ def main() -> int:
         fresh_database() as url,
         fresh_database() as workbench_url,
         workbench_fakes() as fakes,
+        fresh_database() as hypothesis_url,
     ):
         workdir = Path(tmp)  # the CLI runs here, so no developer .env is picked up
         archive = workdir / "archive"
         archive.mkdir()
         seed(url, archive, workdir)
+        upgrade(hypothesis_url)
+        dossier = seed_hypothesis(hypothesis_url, workdir / "hypothesis")
         settings = Settings.model_validate(
             {
                 "database_url": url,
@@ -134,14 +144,29 @@ def main() -> int:
         workbench = workdir / "workbench"
         workbench.mkdir()
         workbench_settings = seed_workbench(workbench_url, workbench, fakes)
-        with running_api(settings) as base_url, running_api(workbench_settings) as bench_url:
-            print(f"e2e: API and static export at {base_url}; workbench at {bench_url}")
+        hypothesis_settings = Settings.model_validate(
+            {
+                "database_url": hypothesis_url,
+                "actor": "e2e-smoke",
+                "archive_root": dossier.archive,
+                "themes_config": dossier.themes,
+                "frontend_dir": STATIC_EXPORT,
+            }
+        )
+        with (
+            running_api(settings) as base_url,
+            running_api(workbench_settings) as bench_url,
+            running_api(hypothesis_settings) as dossier_url,
+        ):
+            print(f"e2e: API and static export at {base_url}", flush=True)
+            print(f"e2e: the research workbench's API at {bench_url}", flush=True)
+            print(f"e2e: the Hypothesis dossier's API at {dossier_url}", flush=True)
             env = {
                 **os.environ,
                 "ATLAS_E2E_BASE_URL": base_url,
                 "ATLAS_E2E_WORKBENCH_URL": bench_url,
+                "ATLAS_E2E_HYPOTHESIS_BASE_URL": dossier_url,
             }
-            sys.stdout.flush()
             return subprocess.run(npx("playwright", "test"), cwd=FRONTEND, env=env).returncode
 
 

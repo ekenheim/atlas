@@ -2115,3 +2115,103 @@ Migration renumbering: ticket 20's 0038 → 0036 (after 0035 tradingview).
   - `POST .../cancel` added (the design mentions cancel)
 - **Next:** a live replay on the Compose Hindsight with the owner's go-ahead, replacing the fake's deletion/consolidation derivations with recordings.
 Migration renumbering at the final merge (none deployed): ticket 21's 0039 → 0038 (proposed updates), ticket 22's 0040 → 0039 (replay); the XBRL-failure table stays 0037. Chain ... 0036 → 0037 → 0038 → 0039.
+## 2026-09-30: Phase 3-6a ticket 24, the Hypothesis dossier page (E)
+
+- **Built:**
+  - **`/hypotheses/`**: the Hypotheses list (thesis of the latest version, status, theme, versions, which are published, updated), linked from the site navigation.
+  - **`/hypothesis/?id=&version=`**: the dossier of one version (default the latest), with a version selector that puts the version in the URL. Sections:
+    - the Hypothesis (status, theme, author, first publication, next review, investigation) and JSON/Markdown export links for the chosen version (`/export?format=json|markdown&version=`);
+    - the version's record (origin, note, author, publication, content SHA-256), thesis, mechanism, predictions, catalysts, falsifiers, required evidence, alternative explanations, unresolved questions;
+    - findings from the JSON export, each citation `[n]` opening its span highlighted on the version page (`/version/?id=&assertion=`), a citations table (quote, source, the Assertion's review state now and when written), needs-review, limitations, open questions, counterevidence anchors; the Editor's unsupported statements labeled "Unsupported (not promoted)";
+    - the Skeptic's contradictions, each with its quote and span link;
+    - the diff between two versions (from/to selectors; default the chosen version and the one before), claims grouped new / contradicted / unchanged / removed with counts, and the other fields changed;
+    - the version's scenarios: inputs (low/base/high; sourced from an XBRL observation with a link to its Source Version, or from an Assertion with its quote and span link; estimated with its basis; missing), outputs per case (blocked lines say which inputs they need), and the ±20% sensitivity table; the hashes and whether recomputation is byte-identical;
+    - lifecycle and publication: buttons for the allowed transitions, the publish gate for the latest version with each failed check explained, `relationship_not_approved` listing each edge by name and linking to `/relationship/?id=`, `relationship_review_pending` linking each Assertion's span; "Publish version N". A refusal re-reads the gate;
+    - Research Snapshots: per snapshot, the integrity check (`GET /snapshots/{id}` verifies on read; a 500 `snapshot_integrity_failed` is shown as a failed check), SHA-256, archive URI and size, cutoff, who froze it, and a contents summary (Source Versions, Assertions, Relationships, scenarios, XBRL observations, runs, role calls, whether Memory reached the run, the question);
+    - history: the status changes.
+  - **`GET /api/v1/hypotheses/{id}/publish-gate`** (new read endpoint): the default gate checks run against the latest version without publishing (`Hypotheses.check_gate`), plus `blocked` (`no_version`, `already_published`, `status_not_publishable`) and `publishable`. The page shows what publishing needs before the owner clicks.
+  - `ApiError` in the frontend client carries a publish refusal's typed `failures`.
+  - **e2e seeding** (`scripts/e2e_hypothesis.py`): a second database seeded through the real services, as the integration tests do. The recorded Hindsight fake, the scripted SearXNG fake and the scripted LiteLLM fake (every role's answer written in the script) are served on localhost. Coherent is ingested from the EDGAR fixtures and an investigation runs (the Investigator quotes the supply agreement and NVIDIA's investment; the Skeptic quotes the 10-Q's share count). The Hypothesis is saved and drafted with the supply finding. A researcher scenario is attached (FY2026 revenue from XBRL, Coherent's share sourced from the supply Assertion, the rest estimated). Then the Hypothesis is moved to evidence-ready, the supply edge is approved, version 1 is published, and a correction (version 2) adds the investment finding, whose `owns` edge is left unapproved. `scripts/e2e.py` serves a second API on it (`ATLAS_E2E_HYPOTHESIS_BASE_URL`).
+- **Files:**
+  - backend: `backend/atlas/hypotheses/service.py` (`check_gate`, `GateCheck`), `backend/atlas/hypotheses/__init__.py`, `backend/atlas/api/hypotheses.py` (the endpoint, `PublishGateView`)
+  - frontend: `app/hypotheses/page.tsx`, `app/hypothesis/page.tsx`, `components/hypothesis.tsx`, `lib/hypotheses.ts` (new); `lib/api/client.ts`, `lib/routes.ts`, `app/layout.tsx` (a nav link); `lib/api/{openapi.json,schema.ts}` (regenerated)
+  - tests: `tests/integration/test_hypotheses.py` (one test), `frontend/unit/hypotheses.test.ts`, `frontend/e2e/hypothesis-dossier.spec.ts` (new)
+  - scripts: `scripts/e2e_hypothesis.py` (new), `scripts/e2e.py`
+  - docs: `AGENTS.md`, the ticket
+- **Tests:**
+  - `test_the_publish_gate_reads_what_publishing_would_meet_without_publishing` (HTTP API; real Postgres; fakes as in the module). It covers:
+    - a draft is `status_not_publishable` and still lists its failed checks;
+    - once evidence-ready, it lists exactly what a refused publish lists, and writes no snapshot;
+    - after a correction and the owner's approval it is `publishable`;
+    - once published it is `already_published`;
+    - an unknown Hypothesis is 404.
+  - `test_hypotheses.py`: **12 passed** (the whole module, the new test included).
+  - Frontend unit tests (`npm --prefix frontend run test`): **22 passed** (5 new: the version from the URL, labels, the gate explanations, the diff grouping, the snapshot summary).
+  - Playwright (`PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64 uv run python scripts/e2e.py`): **8 passed**, the 7 existing and the new `hypothesis-dossier.spec.ts`. The new spec:
+    - opens the list, then the Hypothesis (version 2 by default): its two findings with citations `[1]` `[2]`, the falsifier, the dilution contradiction;
+    - the diff "Version 1 → 2: 1 new, 0 contradicted, 1 unchanged, 0 removed. Also changed: Thesis statement.";
+    - the gate's `relationship_not_approved`: it follows the "NVIDIA owns Coherent" link, approves the edge, goes back, publishes version 2;
+    - both snapshots verified, with their contents (1 Relationship + 1 scenario; 2 Relationships + 0 scenarios);
+    - selects version 1 for its scenario: XBRL-sourced revenue, the Assertion-sourced share with its quote, estimates, base-case incremental revenue 500,000,000, sensitivity rows;
+    - fetches the JSON and Markdown export links;
+    - follows citation 1 to the highlighted supply quote on the 10-K.
+  - Local checks: ruff format/check (backend, tests, scripts), strict pyright, `gen_api_client.sh --check`, frontend lint, typecheck and build, `tests/unit` (463 passed). The full suite runs on the owner's runners.
+  - The gate-read test was written with the endpoint, not run red first.
+- **Fixture-only vs live:** everything. No live LLM, Hindsight, SearXNG or SEC call was made. The e2e Hypothesis comes from the recorded EDGAR fixtures and scripted role answers.
+- **Deviations:**
+  - The dossier's e2e data lives in a second database with its own API. It adds Coherent, NVIDIA and two edges, which would change the counts the Theme explorer, edge table and exceptions queue tests assert.
+  - `scripts/e2e_hypothesis.py` imports the test fakes and `tests.harness.Atlas` (adding the repo root to `sys.path`). No test module imports it. Its scripted answers repeat those in `test_hypotheses.py`, because test modules don't import each other.
+  - After a publication or a status change, the whole Hypothesis is re-read, so the page briefly shows its loading state.
+- **Next:** the Company dossier (B) could list the company's Hypotheses; a correction form on the dossier page (the API takes corrections, the page only reads them).
+
+## 2026-09-30: Phase 3-6a ticket 32, live verification harness
+
+- **Built:**
+  - `scripts/live-verify.sh [--only <part>] [--rehearse] [--companies …] [--limit N] [--max-chat-calls N] [--stack cluster|compose|none] [--model M] [--keep-db] [--keep-bank] [--results DIR] [--yes] [--dry-run]`. It follows `scripts/live-tests.sh`: it dies under `CI`, and without LiteLLM settings in the environment or `.env`. It reads `.env` CRLF-safe and never prints a secret. It asks before a live run, and the default stack is the cluster Hindsight. A live run also needs `ATLAS_SEC_USER_AGENT` when `sec`, `discovery` or `identity` is selected. Reports go to `.scratch/live-runs/<stamp>-verify[-rehearse]/`.
+  - `tests/live/test_live_verify.py` has seven parts, one test each, in order. The preflight, fresh database, throwaway bank (deleted unless kept) and bank deletion are `tests/live/stack.py`'s. The template is applied once, and the universe (the repo's plus NVIDIA) is seeded once.
+    1. `sec`: live ingest with `--limit` and `--max-retains`, and triage on. Then it waits for consolidation and runs a recall and a reflect with citation counts and the companies cited.
+    2. `exchanges`: IQE on the FCA NSM and Soitec on the AMF, `--limit 1` each, with retention off. It reports gate decisions and documents.
+    3. `tradingview`: a hook. It is skipped unless the build registers `tradingview_catalog`/`tradingview_transcripts` and `ATLAS_TRADINGVIEW_ENABLED` is set.
+    4. `discovery`: Scout, SearXNG and leads, then `propose_candidates` with live resolution. It is skipped without SearXNG.
+    5. `relationships`: `extract_claims` on the recorded Coherent 10-K, then `review_relationships`.
+    6. `investigation`: runs on Coherent and Lumentum to a stop. Then a Hypothesis draft and a scenario: the Analyst's table, or an all-estimated researcher table after a 409. The scenario is recomputed and resent, and both must be byte-identical. Last, it publishes version 1 and reports whether a snapshot exists.
+    7. `identity`: `atlas companies resolve` for Lumentum and Coherent, then the pending reviews.
+  - `tests/live/verify.py`:
+    - `CappedProxy`: a forwarding proxy on localhost that counts chat completions and retain batches per part and per run. Over a cap it answers HTTP 400, and the part is `aborted`. Its leftover jobs are then failed without retry.
+    - `PART_BUDGETS`: chat 12/0/0/8/6/14/0 (sum 40); retains 25 for `sec`, 0 elsewhere.
+    - `VerifyReport`: `results.json` and a `summary.md` table. Each part has a status, reason, budget, the proxies' counts, what the database recorded since the part began (`llm_call`, `role_call`, `hindsight_operation`), numbers and seconds.
+    - `RehearsalModel`: scripted answers for every role.
+  - Settings bound the rest: 30 sections per triage call, 8 passages per extraction, a 150,000-token run budget, 3 discovery queries, and 5 leads and 6 documents per investigation.
+  - `tests/live/stack.py`: `Rehearsal` keeps its `FakeLiteLLM` (`llm`), so a suite can script chat replies. `tests/live/conftest.py` adds the suite's opt-in skip.
+  - Docs: `docs/runbooks.md` "Live verification (ticket 32)" and an `AGENTS.md` command and layout line.
+- **Files:** `scripts/live-verify.sh`, `tests/live/{test_live_verify,verify}.py`, `tests/live/{stack,conftest}.py`, `tests/unit/test_live_suite_guard.py`, `docs/runbooks.md`, `AGENTS.md`, this log, the ticket.
+- **Tests:**
+  - `scripts/live-verify.sh --rehearse` covers every part against the fakes on localhost. Those fakes are the recorded Hindsight, the scripted LiteLLM, SearXNG over `tests/fixtures/searxng`, identity over `tests/fixtures/identity`, and the EDGAR, FCA NSM and AMF fixtures. Result: **6 passed, 1 skipped** (tradingview: not in this build), 16/40 chat completions and 4/25 retain operations, about 75 s.
+  - The abort was checked by hand. `ATLAS_LIVE_VERIFY_MAX_CHAT_CALLS=5`, with `sec` and `investigation` selected, left `sec` passed and `investigation` **aborted** ("LiteLLM chat cap reached").
+  - `tests/unit/test_live_suite_guard.py` +2: the suite is deselected by default and skipped without the opt-in, and a live run under `CI` is refused with exit 4. Result: 7 passed.
+  - The Phase 2 rehearsal still passes after the `Rehearsal` change (7 passed, 1 skipped).
+  - ruff format and check (backend, tests, scripts) and strict pyright are clean. The harness was written with its rehearsal, not test-first; it is test infrastructure, not a product seam.
+- **Fixture-only vs live:** **nothing was run live.** Every number above comes from a rehearsal against fakes. The live run is the lead's, with the owner's go-ahead of 2026-09-30.
+- **Deviations:**
+  - The caps are enforced at the transport by counting proxies, as well as by settings. `--max-retains` bounds versions, not operations, and the role caller has no call cap of its own. Hindsight's own LLM use (retain extraction, consolidation, mental-model refreshes after the template import, reflect) is on the Hindsight side. It is outside the 40; after a live `sec` part the report adds the bank's `llm_request_stats`.
+  - `relationships` and `investigation` read the recorded Coherent (and Lumentum) EDGAR filings, ingested with retention off, so they need no retain budget and have a known supplier-rich passage. In a live run, `sec` ingests the live filings into the same database first.
+  - The rehearsal is "CI-verifiable", but CI doesn't run it: the `live` marker is deselected there, as for the other rehearsals.
+  - Publishing is reported, not required. Ticket 20's Research Snapshot isn't on this base, so the report says "none in this build".
+  - The TradingView hook guesses ticket 31's payloads (`{"company"}`, `{"company", "limit": 1}`). Check them when 31 lands.
+- **Next:** the lead runs `scripts/live-verify.sh` (the owner's go-ahead is given), records the table here as LIVE and fixes what fails. Extend part 6 when tickets 20–22 land.
+
+## 2026-09-30: merging tickets 24 and 32 onto main (with 17, 20, 25, 31)
+
+- **Built:**
+  - Ticket 24 merged with ticket 17 (the research workbench). The site nav keeps every link (Research workbench, Hypotheses). `lib/routes.ts` and `lib/api/client.ts` keep both tickets' routes, types and helpers; the duplicate `hypothesis` helper and type are kept once. The investigation page's "Saved as Hypothesis" now links to the Hypothesis dossier, and the workbench e2e test follows that link.
+  - `scripts/e2e.py` seeds three databases: the base one (`ATLAS_E2E_BASE_URL`), the workbench's (`seed_workbench`, `ATLAS_E2E_WORKBENCH_URL`) and the Hypothesis dossier's (`scripts/e2e_hypothesis.py`, `ATLAS_E2E_HYPOTHESIS_BASE_URL`). It serves an API for each.
+  - Ticket 32's `tradingview` part uses ticket 31's real jobs. It enqueues `tradingview_catalog` with `{"company": <slug>}` for the first selected company with a `tradingview_symbol`, then reads the `tradingview_transcripts` job the catalog enqueued (`transcripts_job_id`). The old hook enqueued transcripts itself with a `limit` field, which the payload model forbids. It had one more bug: it rebuilt the settings from `model_dump()`, so the dumped default `tradingview_enabled=False` overrode the environment. The part now reads `ATLAS_TRADINGVIEW_*` from the environment and resolves a relative token file against the repo root. It skips, saying what to do, when TradingView is off or has no token file or token secret. It runs with at most two tool calls a job and with retention off (its retain budget is 0). A rehearsal serves `tests/fakes/tradingview.py` with a token file of its own.
+  - Ticket 32's `investigation` part now publishes behind ticket 20's gate. It reads `GET .../publish-gate`. When `relationship_not_approved` is the only failure, the harness approves each named edge through `POST /api/v1/relationships/{id}/review` as the owner step. That approval is recorded in the report (`owner_step`: the edges, their state before, and a note saying the harness approved them, not a human). The part then publishes and reads the Research Snapshot back (`verified`). A gate the owner can't open is reported, not forced.
+- **Files:** `AGENTS.md`, `frontend/app/layout.tsx`, `frontend/lib/routes.ts`, `frontend/lib/api/client.ts`, `frontend/app/investigation/page.tsx`, `frontend/e2e/workbench.spec.ts`, `scripts/e2e.py`, `tests/live/test_live_verify.py`, `docs/runbooks.md`, this log.
+- **Tests:**
+  - ruff format and check (backend, tests, scripts) and strict pyright are clean. `scripts/gen_api_client.sh --check` reports the client current.
+  - Frontend lint, typecheck, unit tests (25 passed) and build all pass. `scripts/e2e.py` (with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`): 10 passed.
+  - `scripts/live-verify.sh --rehearse`: 7 passed. In `tradingview`, the catalog has 3 entries and 2 news leads, and 1 Tier B transcript was stored. In `investigation`, one `supplies` edge (`machine_reviewed`) was approved by the harness; the gate then allowed publishing, and version 1 was published with a verified snapshot.
+  - `tests/unit`: 485 passed. `tests/integration/test_hypotheses.py`, `test_investigation_follow_up.py` and `tests/unit/test_live_suite_guard.py`: 25 passed.
+- **Fixture-only vs live:** nothing live. The TradingView and publish steps were run only against the fakes in a rehearsal.
+- **Next:** the lead's CI run, then the live `scripts/live-verify.sh` with the owner's go-ahead.

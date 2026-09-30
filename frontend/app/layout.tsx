@@ -29,6 +29,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Link href="/exceptions/">Exceptions queue</Link>
             <span aria-hidden="true"> · </span>
             <Link href="/workbench/">Research workbench</Link>
+            <span aria-hidden="true"> · </span>
+            <Link href="/hypotheses/">Hypotheses</Link>
           </nav>
         </header>
         <main id="atlas-root">{children}</main>

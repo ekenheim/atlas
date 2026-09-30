@@ -841,6 +841,70 @@ def test_the_publish_gate_needs_a_falsifier_an_unresolved_question_and_approved_
     )
 
 
+def test_the_publish_gate_reads_what_publishing_would_meet_without_publishing(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    hypothesis = drafted(atlas, llm, searxng, unresolved=[])
+    hypothesis_id = hypothesis["id"]
+    [edge] = atlas.get("/api/v1/relationships")["items"]
+
+    def gate() -> dict[str, Any]:
+        return atlas.get(f"/api/v1/hypotheses/{hypothesis_id}/publish-gate")
+
+    def failures(read: dict[str, Any]) -> list[tuple[str, list[str], list[str]]]:
+        return [(f["code"], f["relationship_ids"], f["assertion_ids"]) for f in read["failures"]]
+
+    # A draft can't be published whatever the checks say; they are listed all the same.
+    draft = gate()
+    assert (draft["version"], draft["status"], draft["blocked"], draft["publishable"]) == (
+        1,
+        "draft",
+        "status_not_publishable",
+        False,
+    )
+    assert failures(draft) == [
+        ("no_unresolved_question", [], []),
+        ("relationship_not_approved", [edge["id"]], []),
+    ]
+
+    # Evidence-ready: only the checks hold it, exactly as a refused publish lists them.
+    assert move(atlas, hypothesis_id, "evidence_ready").status_code == 200
+    ready = gate()
+    assert (ready["blocked"], ready["publishable"]) == (None, False)
+    refused = publish(atlas, hypothesis_id, 1).json()["error"]["failures"]
+    assert failures(ready) == failures({"failures": refused})
+    assert atlas.get("/api/v1/snapshots", hypothesis_id=hypothesis_id)["items"] == []
+
+    # Corrected and approved: publishable; once published, blocked as already published.
+    corrected = correct(
+        atlas,
+        hypothesis_id,
+        based_on_version=1,
+        note="add the open question",
+        unresolved_questions=["What share of Coherent's laser output goes to NVIDIA?"],
+    )
+    assert corrected.status_code == 201, corrected.text
+    owner_review(atlas, edge["id"], "approved")
+    assert gate() == {
+        "version": 2,
+        "status": "evidence_ready",
+        "blocked": None,
+        "publishable": True,
+        "failures": [],
+    }
+    assert publish(atlas, hypothesis_id, 2).status_code == 200
+    published = gate()
+    assert (published["version"], published["status"], published["blocked"]) == (
+        2,
+        "reviewed",
+        "already_published",
+    )
+    assert published["publishable"] is False
+    missing = atlas.api.get(f"/api/v1/hypotheses/{uuid4()}/publish-gate")
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "not_found"
+
+
 # --- corrections and the diff ---------------------------------------------------------------------
 
 
