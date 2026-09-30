@@ -2240,3 +2240,7 @@ The SEC User-Agent carried the owner's contact email, as the deployment's does; 
 | tradingview | skipped | The owner override is off, and no token exists yet (`atlas tradingview login`). |
 
 Operational note: an earlier attempt at run 2 was stopped mid-part by the agent's background time limit. Its throwaway bank was cleaned up by hand: 20 operations cancelled and the bank deleted. The runbook should say to run `live-verify.sh` detached (`setsid nohup`) on a busy Hindsight.
+
+## 2026-09-30: Phase 2 ticket 22 closed (production, LIVE)
+
+After the 2026-09-30 backfill window, the deployed Atlas 0.1.2 (`atlas.ekenhome.se`) answered a cross-company recall scoped to Lumentum and Coherent. The query was "customers and suppliers for optical components and lasers". It returned 43 memories: 34 Lumentum and 9 Coherent, 43 resolved, 0 unverified, 0 broken. Coherent is now in cross-company recall.
