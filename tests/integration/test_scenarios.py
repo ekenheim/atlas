@@ -597,9 +597,13 @@ def test_without_an_accepted_claim_the_analyst_is_skipped_without_an_llm_call(
 
 # Pilot-fixes ticket 07: Lumentum's FY2026 10-K (0001628280-26-057358, filed 2026-08-17) as its
 # companyfacts fixture tags it: the research note's §2 values, and cash from the fixture.
+# Two sentences, as production's accepted Claim quoted it: the second alone names no product
+# (pilot fix 09's `object_not_in_quote`).
 LITE_ALLOCATION = (
-    "This demand is outpacing our current supply which has required us to make decisions on"
-    " supply allocation."
+    "we have seen increasing demand from AI and cloud customers as they continue to expand"
+    " their data centers, driven in part by the continued advances in cloud and AI"
+    " infrastructure. This demand is outpacing our current supply which has required us to"
+    " make decisions on supply allocation."
 )
 LITE_FY2026 = ("2025-06-29", "2026-06-27")
 LITE_REVENUE = "3014000000"

@@ -401,10 +401,28 @@ def object_clause_cue(predicate: str, quote: str, object_text: str) -> str | Non
 
 
 def names_object(quote: str, object_text: str) -> bool:
-    """Whether `quote` contains `object_text` (case and spacing aside)."""
+    """Whether `quote` names `object_text`: contains it whole (case and spacing aside), or at
+    least half of its particular words (not `_GENERIC_WORDS`; a word counts when the quote has
+    a word starting with it, less a plural "s"). The model's `object_text` paraphrases
+    ("products for AI and cloud customers' data center expansion" for a quote about "demand
+    from AI and cloud customers as they continue to expand their data centers"), so a verbatim
+    match alone would reject the statement the pilot needed most; a quote that names none or
+    few of the object's words ("InP substrates" for "indium phosphide substrates") still fails."""
     words = object_text.split()
+    if not words:
+        return False
     pattern = r"\s+".join(re.escape(word) for word in words)
-    return bool(words) and re.search(pattern, quote, re.IGNORECASE) is not None
+    if re.search(pattern, quote, re.IGNORECASE) is not None:
+        return True
+    particular = {w.lower() for w in _WORD.findall(object_text)} - _GENERIC_WORDS
+    if not particular:
+        return False
+    found = 0
+    for word in particular:
+        stem = word[:-1] if len(word) > 3 and word.endswith("s") else word
+        if re.search(rf"(?<!\w){re.escape(stem)}", quote, re.IGNORECASE):
+            found += 1
+    return 2 * found >= len(particular)
 
 
 def is_generic_object(object_text: str) -> bool:

@@ -348,3 +348,20 @@ def test_an_object_is_named_when_the_quote_contains_it_case_and_spacing_aside() 
     assert names_object(quote, "inp substrates")
     assert not names_object(quote, "indium phosphide substrates")
     assert not names_object(quote, "")
+
+
+def test_an_object_paraphrased_from_most_of_the_quote_s_words_is_named() -> None:
+    # Pilot investigation 1's re-run: Lumentum's allocation statement, as the model named it.
+    quote = (
+        "since then, we have seen increasing demand from AI and cloud customers as they"
+        " continue to expand their data centers, driven in part by the continued advances in"
+        " cloud and AI infrastructure. This demand is outpacing our current supply which has"
+        " required us to make decisions on supply allocation."
+    )
+    assert names_object(quote, "products for AI and cloud customers' data center expansion")
+    assert not names_object(quote, "EML laser chips")
+    assert not names_object(
+        "This demand is outpacing our current supply which has required us to make decisions"
+        " on supply allocation.",
+        "optical components for AI and cloud data centers",
+    )

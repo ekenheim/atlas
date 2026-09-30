@@ -1308,8 +1308,11 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
     recalled = content["memory"]["recall_selections"]
     assert recalled
     assert all("recall" in each["selected_by"] for each in recalled)
+    # Since pilot fix 10 the passage budget is spread across the documents taken, so the
+    # recall's hits in the 10-Q get a share beside the 10-K's.
     assert {(each["source_version_id"], each["question"]) for each in recalled} == {
-        (ten_k["id"], QUESTION)
+        (ten_k["id"], QUESTION),
+        (ten_q["id"], QUESTION),
     }
     # The Assertions with their spans: the finding's and the counterevidence's.
     by_predicate = {each["predicate"]: each for each in content["assertions"]}
