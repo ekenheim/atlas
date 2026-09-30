@@ -6,10 +6,10 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 12 (Relationships and review); 16 (Hypotheses); 19 (Scenarios and Financial Analyst)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Publish endpoint enforcing the gate with typed errors
-- [ ] Snapshot contents per §5.7 (cutoff, Source Versions, Memory text as returned, Assertions, financial dataset hash, prompts and model versions, Hindsight version, outputs)
-- [ ] Insert-only trigger; the audit event references the hash; `GET snapshots/{id}` verifies it
-- [ ] Gate test: a published snapshot can't be altered (DB and hash)
-- [ ] Metrics: snapshots
+- [x] Publish endpoint enforcing the gate with typed errors
+- [x] Snapshot contents per §5.7 (cutoff, Source Versions, Memory text as returned, Assertions, financial dataset hash, prompts and model versions, Hindsight version, outputs)
+- [x] Insert-only trigger; the audit event references the hash; `GET snapshots/{id}` verifies it
+- [x] Gate test: a published snapshot can't be altered (DB and hash)
+- [x] Metrics: snapshots

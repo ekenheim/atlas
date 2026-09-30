@@ -1,9 +1,10 @@
 """Archive: immutable, content-addressed objects behind one small interface.
 
 `put` stores bytes and returns an internal application URI keyed by their SHA-256:
-`archive://<namespace>/sha256/<hex>`. Raw fetched bytes and parsed text live in
-separate namespaces. A put is idempotent by hash and never overwrites; `get` returns
-exactly the stored bytes and refuses any whose hash no longer matches their URI.
+`archive://<namespace>/sha256/<hex>`. Raw fetched bytes, parsed text and Research
+Snapshots (canonical JSON, atlas.snapshots) live in separate namespaces. A put is
+idempotent by hash and never overwrites; `get` returns exactly the stored bytes and
+refuses any whose hash no longer matches their URI.
 
 URIs carry no backend location or credentials, so they are safe to store and expose.
 Two backends store objects under the same key, `<namespace>/sha256/<hex>`: a local
@@ -32,6 +33,7 @@ __all__ = [
 class Namespace(StrEnum):
     RAW = "raw"
     PARSED = "parsed"
+    SNAPSHOTS = "snapshots"
 
 
 class ArchiveError(Exception):
@@ -66,7 +68,7 @@ class ObjectStore(Protocol):
     def is_ready(self) -> bool: ...
 
 
-_URI = re.compile(r"archive://(?P<namespace>raw|parsed)/sha256/(?P<digest>[0-9a-f]{64})")
+_URI = re.compile(r"archive://(?P<namespace>raw|parsed|snapshots)/sha256/(?P<digest>[0-9a-f]{64})")
 
 
 def _key(uri: str) -> tuple[str, str]:

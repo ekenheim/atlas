@@ -4239,7 +4239,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "$ref": "#/components/schemas/PublishRefusalEnvelope"
                 }
               }
             },
@@ -4763,6 +4763,146 @@
               }
             },
             "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/snapshots": {
+      "get": {
+        "tags": [
+          "snapshots"
+        ],
+        "summary": "Listing",
+        "operationId": "listing_api_v1_snapshots_get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ResearchSnapshotRecord_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}": {
+      "get": {
+        "tags": [
+          "snapshots"
+        ],
+        "summary": "Snapshot",
+        "operationId": "snapshot_api_v1_snapshots__snapshot_id__get",
+        "parameters": [
+          {
+            "name": "snapshot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Snapshot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchSnapshot"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error"
           },
           "422": {
             "description": "Validation Error",
@@ -9041,6 +9181,42 @@
         "title": "FxBasis",
         "description": "How a value was converted from its reporting currency. Atlas has no FX source yet, so\nevery value is as filed and this is always null."
       },
+      "GateFailureView": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "relationship_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Relationship Ids"
+          },
+          "assertion_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Assertion Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "relationship_ids",
+          "assertion_ids"
+        ],
+        "title": "GateFailureView"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -12488,6 +12664,37 @@
         ],
         "title": "Page[Relationship]"
       },
+      "Page_ResearchSnapshotRecord_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchSnapshotRecord"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ResearchSnapshotRecord]"
+      },
       "Page_SourceDocument_": {
         "properties": {
           "items": {
@@ -12899,6 +13106,44 @@
         ],
         "title": "ProviderBudget",
         "description": "One provider's rolling window as the queue sees it now."
+      },
+      "PublishRefusal": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/GateFailureView"
+            },
+            "type": "array",
+            "title": "Failures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "failures"
+        ],
+        "title": "PublishRefusal"
+      },
+      "PublishRefusalEnvelope": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/PublishRefusal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "PublishRefusalEnvelope"
       },
       "PublishRequest": {
         "properties": {
@@ -14164,6 +14409,145 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ResearchScope"
+      },
+      "ResearchSnapshot": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "hypothesis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Id"
+          },
+          "hypothesis_version": {
+            "type": "integer",
+            "title": "Hypothesis Version"
+          },
+          "hypothesis_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Version Id"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "object_uri": {
+            "type": "string",
+            "title": "Object Uri"
+          },
+          "byte_size": {
+            "type": "integer",
+            "title": "Byte Size"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified"
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "hypothesis_id",
+          "hypothesis_version",
+          "hypothesis_version_id",
+          "sha256",
+          "object_uri",
+          "byte_size",
+          "as_of",
+          "created_by",
+          "created_at",
+          "verified",
+          "content"
+        ],
+        "title": "ResearchSnapshot",
+        "description": "A snapshot read back and verified: `content` hashes to `sha256`."
+      },
+      "ResearchSnapshotRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "hypothesis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Id"
+          },
+          "hypothesis_version": {
+            "type": "integer",
+            "title": "Hypothesis Version"
+          },
+          "hypothesis_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Version Id"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "object_uri": {
+            "type": "string",
+            "title": "Object Uri"
+          },
+          "byte_size": {
+            "type": "integer",
+            "title": "Byte Size"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "hypothesis_id",
+          "hypothesis_version",
+          "hypothesis_version_id",
+          "sha256",
+          "object_uri",
+          "byte_size",
+          "as_of",
+          "created_by",
+          "created_at"
+        ],
+        "title": "ResearchSnapshotRecord",
+        "description": "A snapshot's row: what was frozen, where, and its hash."
       },
       "Resolution": {
         "properties": {
