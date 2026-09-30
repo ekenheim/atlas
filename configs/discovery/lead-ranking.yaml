@@ -8,16 +8,32 @@
 #   also an English word, "coherent", finds its definition). A host matches an entry when
 #   it is the entry or a subdomain of it.
 # - `demoted_hosts`: kept only on merit, their score times `demoted_host_factor`
-#   (encyclopedias, broker and quote pages: rarely where a bottleneck is reported).
+#   (encyclopedias, broker and quote pages, company profile and social sites: rarely where
+#   a bottleneck is reported). An entry with a path (`bloomberg.com/profile`) demotes only
+#   the pages under it.
+# - `company_site_factor`: a universe company's own site (its `website` in the theme config,
+#   subdomains included, plus `company_domains`) has its score multiplied by it: its
+#   homepage, "About us" and investor pages are on topic but tell a researcher nothing an
+#   industry article or its filings don't.
+# - `company_domains`: other domains of universe companies than their `website`.
+# - `generic_titles`: a result whose title has a part (split at `|`, ` - `, `:` and the like)
+#   that is one of these page names has its score multiplied by `generic_title_factor`.
 # - `non_english_factor`: a result that doesn't read as English has its score multiplied by
 #   it (searches ask SearXNG for English; an engine may still answer in another language).
 # - `terms`: the product and layer vocabulary of the research themes; each one a result
 #   names adds to its score. Lowercase; a term of several words matches as a phrase.
 #
+# Whatever it scores, a result naming none of its query's topic terms (the query less the
+# company names in it, and years) is not kept: a company name alone never keeps a lead.
+#
 # Bump `version` on any change: an investigation's leads record the version that ranked them.
-version: 1
+# Version 2 (pilot fix 08): company names count less than the query's topic, company sites,
+# profile and social sites and generic titles are demoted (`docs/decisions.md`).
+version: 2
 min_score: 15
 demoted_host_factor: 0.25
+company_site_factor: 0.25
+generic_title_factor: 0.25
 non_english_factor: 0.25
 
 denied_hosts:
@@ -58,6 +74,42 @@ demoted_hosts:
   - robinhood.com
   - morningstar.com
   - zacks.com
+  # company profile and social sites
+  - linkedin.com
+  - crunchbase.com
+  - zoominfo.com
+  - bloomberg.com/profile
+  - pitchbook.com/profiles
+  - glassdoor.com
+  - x.com
+  - twitter.com
+  - facebook.com
+  - instagram.com
+  - youtube.com
+  # encyclopedia mirrors
+  - wikiwand.com
+
+# Universe companies' domains beside their theme-config `website`.
+company_domains:
+  - ii-vi.com # Coherent's name until 2022
+
+# Page names that say nothing of the topic ("About Us | Coherent", "Lumentum - Investor
+# Relations"). Matched against a whole part of the title, case-insensitively.
+generic_titles:
+  - about
+  - about us
+  - company
+  - company overview
+  - overview
+  - home
+  - homepage
+  - investor relations
+  - investors
+  - careers
+  - jobs
+  - contact
+  - contact us
+  - products
 
 terms:
   # layers

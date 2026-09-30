@@ -1,7 +1,11 @@
 """A transport-level fake SearXNG: `GET /search?q=...&format=json&engines=...`, scripted per query.
 
 The responses are the hand-written fixtures in `tests/fixtures/searxng/` (no real SearXNG
-response has been recorded; none may be requested from tests). Their shape follows SearXNG's
+response has been recorded; none may be requested from tests). The two `rerun-*.json` are
+hand-curated from production's recorded leads (pilot investigation 1's re-run, discovery
+`e9565f0d-9e28-41b2-bb92-f9dbe0cdd4c5`, read from `/api/v1/leads`): each result's URL, title,
+snippet and engines are as recorded, in the order first seen; positions and scores are
+filled in. Their shape follows SearXNG's
 search API documentation (https://docs.searxng.org/dev/search_api.html) and its JSON output:
 `query`, `number_of_results`, `results` (each with `url`, `title`, `content`, `engine`,
 `engines`, `positions`, `score`, `category`, `publishedDate` (ISO 8601 or null) and the
