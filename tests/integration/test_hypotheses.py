@@ -12,6 +12,7 @@ scripted fake. LiteLLM is the scripted chat fake: **every role's answer is writt
 after the investigation, confirms what it is sent). Nothing live is called.
 """
 
+import hashlib
 import json
 import os
 import subprocess
@@ -19,6 +20,7 @@ import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 import sqlalchemy.exc
@@ -54,6 +56,11 @@ THESIS = (
     "Demand for advanced lasers in AI optics may outgrow qualified laser capacity, favouring"
     " suppliers with long-term agreements such as Coherent."
 )
+# The Bottlenecks mental model's content once Hindsight has refreshed it: the Scout's gaps.
+GAPS = "Open gap: whether qualified InP laser capacity binds 800G optics supply in 2027."
+TEN_K_ACCESSION = "0000820318-26-000020"  # Coherent FY2026, filed 2026-08-14
+REVENUE = "RevenueFromContractWithCustomerExcludingAssessedTax"
+SCENARIO_AS_OF = "2026-09-01T00:00:00Z"
 
 
 # --- fixtures -------------------------------------------------------------------------------------
@@ -421,6 +428,22 @@ def correct(atlas: Atlas, hypothesis_id: str, **body: Any) -> Any:
     return atlas.api.post(f"/api/v1/hypotheses/{hypothesis_id}/versions", json=body)
 
 
+def owner_review(atlas: Atlas, relationship_id: str, state: str) -> None:
+    response = atlas.api.post(
+        f"/api/v1/relationships/{relationship_id}/review", json={"review_state": state}
+    )
+    assert response.status_code == 200, response.text
+
+
+def approve_relationships(atlas: Atlas) -> list[str]:
+    """The owner approves every Relationship not yet approved; their IDs."""
+    edges = atlas.get("/api/v1/relationships", limit=500)["items"]
+    pending = [edge["id"] for edge in edges if edge["review_state"] != "approved"]
+    for relationship_id in pending:
+        owner_review(atlas, relationship_id, "approved")
+    return pending
+
+
 def audit_actions(atlas: Atlas, entity_type: str) -> list[str]:
     with atlas.engine.connect() as connection:
         return list(
@@ -692,6 +715,7 @@ def test_the_lifecycle_is_enforced_and_a_published_version_is_immutable(
     assert ready.status_code == 200, ready.text
     assert ready.json()["status"] == "evidence_ready"
     assert publish(atlas, hypothesis_id, 2).status_code == 409  # not the latest version
+    approve_relationships(atlas)
 
     published = publish(atlas, hypothesis_id, 1, note="owner approved")
 
@@ -744,12 +768,19 @@ def test_the_lifecycle_is_enforced_and_a_published_version_is_immutable(
     ]
 
 
-def test_the_publish_gate_needs_a_falsifier_and_an_unresolved_question(
+def test_the_publish_gate_needs_a_falsifier_an_unresolved_question_and_approved_relationships(
     atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
     hypothesis = drafted(atlas, llm, searxng, falsifiers=[], unresolved=[])
     hypothesis_id = hypothesis["id"]
     assert move(atlas, hypothesis_id, "evidence_ready").status_code == 200
+    # The version's one finding rests on the supply Assertion, which the chained machine
+    # review made into a Relationship the owner hasn't decided on.
+    [span] = hypothesis["versions"][0]["content"]["findings"][0]["source_spans"]
+    [edge] = atlas.get("/api/v1/relationships")["items"]
+    evidence = atlas.get(f"/api/v1/relationships/{edge['id']}")
+    assert [e["assertion"]["id"] for e in evidence["evidence"]] == [span["assertion_id"]]
+    assert edge["review_state"] != "approved"
 
     refused = publish(atlas, hypothesis_id, 1)
 
@@ -758,7 +789,13 @@ def test_the_publish_gate_needs_a_falsifier_and_an_unresolved_question(
     assert error["code"] == "publish_gate_failed"
     assert "no_falsifier" in error["message"]
     assert "no_unresolved_question" in error["message"]
+    assert [(f["code"], f["relationship_ids"], f["assertion_ids"]) for f in error["failures"]] == [
+        ("no_falsifier", [], []),
+        ("no_unresolved_question", [], []),
+        ("relationship_not_approved", [edge["id"]], []),
+    ]
     assert get(atlas, hypothesis_id)["versions"][0]["published"] is False
+    assert atlas.get("/api/v1/snapshots", hypothesis_id=hypothesis_id)["items"] == []
 
     # A correction adds them as a new version; version 1 stays as it was.
     corrected = correct(
@@ -782,10 +819,26 @@ def test_the_publish_gate_needs_a_falsifier_and_an_unresolved_question(
     assert v1["content"]["falsifiers"] == []
     assert v2["content_sha256"] != v1["content_sha256"]
     assert publish(atlas, hypothesis_id, 1).status_code == 409  # only the latest
+    # Still not approved: a rejected edge never is.
+    owner_review(atlas, edge["id"], "rejected")
+    still = publish(atlas, hypothesis_id, 2)
+    assert still.status_code == 422
+    [failure] = still.json()["error"]["failures"]
+    assert (failure["code"], failure["relationship_ids"]) == (
+        "relationship_not_approved",
+        [edge["id"]],
+    )
+    assert f"{edge['id']} (rejected)" in failure["message"]
+    owner_review(atlas, edge["id"], "approved")
     published = publish(atlas, hypothesis_id, 2)
     assert published.status_code == 200, published.text
     versions = published.json()["versions"]
     assert [v["published"] for v in versions] == [False, True]
+    [snapshot] = atlas.get("/api/v1/snapshots", hypothesis_id=hypothesis_id)["items"]
+    assert (snapshot["hypothesis_version"], snapshot["hypothesis_version_id"]) == (
+        2,
+        versions[1]["id"],
+    )
 
 
 # --- corrections and the diff ---------------------------------------------------------------------
@@ -803,6 +856,7 @@ def test_a_correction_is_a_new_version_and_the_diff_classifies_its_claims(
     investment_claim = by_text[INVESTMENT_FINDING]["claim_ids"][0]
     investment_assertion = by_text[INVESTMENT_FINDING]["source_spans"][0]["assertion_id"]
     assert move(atlas, hypothesis_id, "evidence_ready").status_code == 200
+    approve_relationships(atlas)
     assert publish(atlas, hypothesis_id, 1).status_code == 200
     # Later, the researcher disputes the investment Assertion.
     disputed = atlas.api.post(
@@ -1036,3 +1090,311 @@ def test_the_skeptic_s_counterevidence_reaches_the_hypothesis_as_contradictions(
     assert f"Contradicted by independent counterevidence: `{against['counterevidence_id']}`" in (
         markdown
     )
+
+
+# --- the Research Snapshot (ticket 20) ------------------------------------------------------------
+
+
+def canonical(value: Any) -> bytes:
+    """Canonical JSON (spec §5.7's content-addressed object): sorted keys, no spaces, UTF-8."""
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def snapshots(atlas: Atlas, hypothesis_id: str) -> list[dict[str, Any]]:
+    return atlas.get("/api/v1/snapshots", hypothesis_id=hypothesis_id)["items"]
+
+
+def fy2026_revenue(atlas: Atlas) -> dict[str, Any]:
+    """Coherent's FY2026 revenue as of the scenario's cutoff (from the 10-K's XBRL)."""
+    observations = atlas.get(
+        f"/api/v1/companies/{company_id(atlas, 'coherent')}/financial-observations",
+        as_of=SCENARIO_AS_OF,
+        concept=REVENUE,
+        limit=500,
+    )["items"]
+    [revenue] = [
+        each
+        for each in observations
+        if (each["period_start"], each["period_end"]) == ("2025-07-01", "2026-06-30")
+    ]
+    assert revenue["accession"] == TEN_K_ACCESSION
+    return revenue
+
+
+def researcher_scenario(atlas: Atlas, hypothesis_id: str) -> dict[str, Any]:
+    """A researcher's scenario on version 1: sourced FY2026 revenue, the rest estimated."""
+    revenue = fy2026_revenue(atlas)
+
+    def guess(low: str, base: str, high: str) -> dict[str, str]:
+        return {"kind": "estimated", "basis": "a guess", "low": low, "base": base, "high": high}
+
+    table = {
+        "company_id": company_id(atlas, "coherent"),
+        "product": "advanced lasers",
+        "currency": "USD",
+        "inputs": {
+            "addressable_units": guess("8000000", "10000000", "12000000"),
+            "company_share": guess("0.2", "0.25", "0.3"),
+            "downstream_unit_price": guess("900", "1000", "1100"),
+            "bom_share": guess("0.15", "0.2", "0.25"),
+            "operating_margin": guess("0.25", "0.3", "0.35"),
+            "reported_revenue": {
+                "kind": "sourced",
+                "source": {"type": "xbrl_observation", "observation_id": revenue["id"]},
+                "low": revenue["value"],
+                "base": revenue["value"],
+                "high": revenue["value"],
+            },
+        },
+    }
+    response = atlas.api.post(
+        f"/api/v1/hypotheses/{hypothesis_id}/scenarios",
+        json={"version": 1, "as_of": SCENARIO_AS_OF, "assumptions": table},
+    )
+    assert response.status_code == 201, response.text
+    [scenario] = response.json()["items"]
+    return scenario
+
+
+def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_from(
+    atlas: Atlas,
+    llm: FakeLiteLLM,
+    searxng: FakeSearXNG,
+    hindsight: tuple[RecordedHindsight, Served],
+) -> None:
+    # Hindsight has refreshed the Bottlenecks model: the Scout is sent its content as gaps.
+    hindsight[0].apply_refresh("bottlenecks", GAPS, [], refreshed_at=at("2026-09-01T06:30:00Z"))
+    hypothesis = drafted(atlas, llm, searxng, supply(atlas), skeptic=dilution_skeptic(atlas))
+    hypothesis_id = hypothesis["id"]
+    [version] = hypothesis["versions"]
+    scenario = researcher_scenario(atlas, hypothesis_id)
+    assert move(atlas, hypothesis_id, "evidence_ready").status_code == 200
+    [edge_id] = approve_relationships(atlas)
+    assert snapshots(atlas, hypothesis_id) == []
+
+    published = publish(atlas, hypothesis_id, 1)
+
+    assert published.status_code == 200, published.text
+    [published_version] = published.json()["versions"]
+    [record] = snapshots(atlas, hypothesis_id)
+    snapshot = atlas.get(f"/api/v1/snapshots/{record['id']}")
+    content = snapshot["content"]
+    # Content-addressed: the archived object is the snapshot's canonical JSON, and its hash.
+    frozen = canonical(content)
+    sha256 = hashlib.sha256(frozen).hexdigest()
+    assert (snapshot["verified"], snapshot["sha256"], snapshot["byte_size"]) == (
+        True,
+        sha256,
+        len(frozen),
+    )
+    assert snapshot["object_uri"] == f"archive://snapshots/sha256/{sha256}"
+    assert (atlas.archive / "snapshots" / "sha256" / sha256).read_bytes() == frozen
+    assert {k: v for k, v in snapshot.items() if k not in ("verified", "content")} == record
+    assert (record["hypothesis_version"], record["hypothesis_version_id"]) == (1, version["id"])
+    assert record["created_by"] == "local-researcher"
+    # The version and its cutoff.
+    investigation = atlas.get(f"/api/v1/investigations/{hypothesis['investigation_id']}")
+    assert content["format"] == "atlas.research_snapshot.v1"
+    frozen_version = content["hypothesis"]
+    assert (frozen_version["id"], frozen_version["version"], frozen_version["version_id"]) == (
+        hypothesis_id,
+        1,
+        version["id"],
+    )
+    assert frozen_version["content_sha256"] == version["content_sha256"]
+    assert frozen_version["published_by"] == "local-researcher"
+    assert at(frozen_version["published_at"]) == at(published_version["published_at"])
+    assert (
+        at(content["cutoff"]["as_of"])
+        == at(investigation["request"]["as_of_utc"])
+        == at(record["as_of"])
+    )
+    assert content["cutoff"]["question"] == QUESTION
+    # The Source Versions considered: the 10-K the Investigator read, the 10-Q the Skeptic
+    # read, the companyfacts the scenario's revenue came from; each with its hashes and
+    # availability as the ledger has them.
+    ten_k = atlas.version(COHR_10K, "coherent")
+    ten_q = atlas.version(COHR_10Q, "coherent")
+    revenue = fy2026_revenue(atlas)
+    companyfacts = atlas.get(f"/api/v1/source-versions/{revenue['source_version_id']}")
+    considered = {each["id"]: each for each in content["source_versions"]}
+    assert set(considered) == {ten_k["id"], ten_q["id"], companyfacts["id"]}
+    for ledger in (ten_k, ten_q, companyfacts):
+        frozen_source = considered[ledger["id"]]
+        for field in ("raw_sha256", "content_sha256", "available_at_basis"):
+            assert frozen_source[field] == ledger[field], field
+        assert at(frozen_source["available_at"]) == at(ledger["available_at"])
+    # Memory exactly as returned to the run: the Scout's gaps; and the sections a recall chose
+    # for the Investigator (Atlas keeps the choice, not the recall's text).
+    [scout_call] = [c for c in content["role_calls"] if c["role"] == "scout"]
+    assert content["memory"]["used"] is True
+    assert content["memory"]["items"] == [
+        {
+            "role_call_id": scout_call["id"],
+            "role": "scout",
+            "id": "bottlenecks",
+            "source": "mental-model:bottlenecks",
+            "text": GAPS,
+        }
+    ]
+    recalled = content["memory"]["recall_selections"]
+    assert recalled
+    assert all("recall" in each["selected_by"] for each in recalled)
+    assert {(each["source_version_id"], each["question"]) for each in recalled} == {
+        (ten_k["id"], QUESTION)
+    }
+    # The Assertions with their spans: the finding's and the counterevidence's.
+    by_predicate = {each["predicate"]: each for each in content["assertions"]}
+    assert set(by_predicate) == {"supplies", "counterevidence"}
+    [span] = version["content"]["findings"][0]["source_spans"]
+    backing = by_predicate["supplies"]
+    assert (backing["id"], backing["source_version_id"], backing["quote"]) == (
+        span["assertion_id"],
+        ten_k["id"],
+        SUPPLY_QUOTE,
+    )
+    assert atlas.parsed(ten_k["id"])[backing["span_start"] : backing["span_end"]] == SUPPLY_QUOTE
+    assert backing["relationship_id"] == edge_id
+    against = by_predicate["counterevidence"]
+    assert (against["source_version_id"], against["quote"]) == (ten_q["id"], DILUTION_QUOTE)
+    assert atlas.parsed(ten_q["id"])[against["span_start"] : against["span_end"]] == (
+        DILUTION_QUOTE
+    )
+    # The Relationship it depends on, with the owner's approval.
+    [edge] = content["relationships"]
+    assert (edge["id"], edge["review_state"], edge["reviewed_by"]) == (
+        edge_id,
+        "approved",
+        "local-researcher",
+    )
+    assert edge["supporting_assertion_ids"] == [span["assertion_id"]]
+    # The scenario and the financial dataset its inputs cite.
+    [frozen_scenario] = content["scenarios"]
+    assert frozen_scenario["id"] == scenario["id"]
+    assert frozen_scenario["assumptions_sha256"] == scenario["assumptions_sha256"]
+    assert frozen_scenario["outputs_sha256"] == scenario["outputs_sha256"]
+    assert frozen_scenario["outputs"] == scenario["outputs_json"]
+    outputs_sha256 = hashlib.sha256(frozen_scenario["outputs"].encode()).hexdigest()
+    assert outputs_sha256 == scenario["outputs_sha256"]
+    dataset = content["financial_dataset"]
+    [observation] = dataset["observations"]
+    assert (observation["id"], observation["accession"], observation["value"]) == (
+        revenue["id"],
+        TEN_K_ACCESSION,
+        revenue["value"],
+    )
+    assert dataset["sha256"] == hashlib.sha256(canonical(dataset["observations"])).hexdigest()
+    # Prompts and models: every role call behind the version, its prompt version and hash,
+    # and the model each attempt was routed to.
+    assert sorted((c["role"], c["prompt_name"]) for c in content["role_calls"]) == [
+        ("editor", "editor"),
+        ("editor", "editor-hypothesis"),
+        ("financial_analyst", "financial-analyst"),
+        ("investigator", "investigator"),
+        ("reviewer", "reviewer"),
+        ("scout", "scout"),
+        ("skeptic", "skeptic"),
+        ("skeptic", "skeptic-plan"),
+    ]
+    recorded = atlas.get(f"/api/v1/runs/{investigation['run_id']}/role-calls")["role_calls"]
+    frozen_calls = {c["id"]: c for c in content["role_calls"]}
+    for call in recorded:
+        frozen_call = frozen_calls[call["id"]]
+        assert (frozen_call["prompt_version"], frozen_call["prompt_sha256"]) == (
+            call["prompt_version"],
+            call["prompt_sha256"],
+        )
+        assert [a["response_model"] for a in frozen_call["attempts"]] == [
+            a["response_model"] for a in call["attempts"]
+        ]
+    assert sorted(run["kind"] for run in content["runs"]) == [
+        "hypothesis_draft",
+        "investigation",
+        "relationship_review",
+    ]
+    assert content["hindsight"]["versions"] == ["0.10.1"]  # the recorded server's version
+    # The outputs: the version's content as published.
+    assert content["outputs"] == {
+        "content": version["content"],
+        "content_sha256": version["content_sha256"],
+    }
+    # Audited with the hash, and counted.
+    with atlas.engine.connect() as connection:
+        events = connection.execute(
+            text(
+                "SELECT action, entity_id, new_hash FROM audit_event"
+                " WHERE entity_type = 'research_snapshot'"
+            )
+        ).all()
+    assert [tuple(event) for event in events] == [
+        ("research_snapshot.created", record["id"], sha256)
+    ]
+    assert atlas.metrics()[("atlas_research_snapshots_total", frozenset())] == 1
+
+
+def test_a_published_snapshot_can_t_be_altered(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    hypothesis = drafted(atlas, llm, searxng)
+    hypothesis_id = hypothesis["id"]
+    assert move(atlas, hypothesis_id, "evidence_ready").status_code == 200
+    approve_relationships(atlas)
+    assert publish(atlas, hypothesis_id, 1).status_code == 200
+    [record] = snapshots(atlas, hypothesis_id)
+    before = atlas.get(f"/api/v1/snapshots/{record['id']}")
+
+    # The database refuses to change or remove a snapshot, whoever asks.
+    for statement in (
+        "UPDATE research_snapshot SET sha256 = repeat('0', 64) WHERE id = :id",
+        "UPDATE research_snapshot SET created_by = 'someone-else' WHERE id = :id",
+        "DELETE FROM research_snapshot WHERE id = :id",
+        "TRUNCATE research_snapshot CASCADE",
+    ):
+        with pytest.raises(sqlalchemy.exc.DBAPIError, match="insert-only"):
+            with atlas.engine.begin() as connection:
+                connection.execute(text(statement), {"id": record["id"]})
+    # Nor snapshots an unpublished version.
+    corrected = correct(atlas, hypothesis_id, based_on_version=1, note="later", catalysts=["x"])
+    assert corrected.status_code == 201, corrected.text
+    unpublished = corrected.json()["versions"][1]["id"]
+    with pytest.raises(sqlalchemy.exc.DBAPIError, match="published version"):
+        with atlas.engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO research_snapshot (id, hypothesis_id, hypothesis_version_id,"
+                    " sha256, object_uri, byte_size, as_of, created_by) VALUES"
+                    " (gen_random_uuid(), :hypothesis, :version, :sha, :uri, 1, now(), 'x')"
+                ),
+                {
+                    "hypothesis": hypothesis_id,
+                    "version": unpublished,
+                    "sha": "0" * 64,
+                    "uri": f"archive://snapshots/sha256/{'0' * 64}",
+                },
+            )
+    assert snapshots(atlas, hypothesis_id) == [record]
+
+    # Every read re-hashes the archived object: an altered one is an integrity error.
+    path = atlas.archive / "snapshots" / "sha256" / record["sha256"]
+    original = path.read_bytes()
+    altered = original.replace(
+        b'"published_by":"local-researcher"', b'"published_by":"someone-else"'
+    )
+    assert altered != original
+    path.chmod(0o644)
+    path.write_bytes(altered)
+    tampered = atlas.api.get(f"/api/v1/snapshots/{record['id']}")
+    assert tampered.status_code == 500
+    error = tampered.json()["error"]
+    assert error["code"] == "snapshot_integrity_failed"
+    assert "altered" in error["message"]
+    assert "someone-else" not in tampered.text
+    path.unlink()
+    missing = atlas.api.get(f"/api/v1/snapshots/{record['id']}")
+    assert missing.status_code == 500
+    assert missing.json()["error"]["code"] == "snapshot_integrity_failed"
+    assert "missing" in missing.json()["error"]["message"]
+    # Restored byte for byte, it verifies again.
+    path.write_bytes(original)
+    assert atlas.get(f"/api/v1/snapshots/{record['id']}") == before
+    assert atlas.api.get(f"/api/v1/snapshots/{uuid4()}").status_code == 404

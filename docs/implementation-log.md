@@ -1990,3 +1990,40 @@ Migration renumbering at the wave-5 merge (none deployed): 0037 → 0033 (evalua
 - **Not a code bug:** the Analyst runs in every round over all of the investigation's accepted Claims, and the Hypothesis takes the latest round's proposals (`ORDER BY round DESC`). That behaviour is consistent, so no production code changed except the evaluation stub.
 - **Tests:** `test_investigation_follow_up.py` **6 passed**, `test_evaluations.py` **4 passed**. Regression run: `test_investigations`, `test_hypotheses`, `test_scenarios`, `test_retention_triage`, `test_tradingview`, `test_tradingview_login` and `tests/unit` **539 passed**. ruff (CI paths) and strict pyright are clean, and `scripts/gen_api_client.sh --check` passes. `scripts/e2e.py` with `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64`: **9 passed**.
 - **Fixture-only:** all of it. No live call was made.
+
+## 2026-09-30: Phase 3-6a ticket 20, the publish gate and Research Snapshots
+
+- **Built:**
+  - **The publish gate** (`backend/atlas/hypotheses/service.py`) gains two default checks. `relationship_not_approved`: every Relationship a version's findings' Assertions support must be owner-approved; machine review is not approval, and rejected never is. `relationship_review_pending`: a finding's Assertion that hasn't been machine-reviewed yet holds publication. `GateFailure` carries `relationship_ids` or `assertion_ids`. The publish endpoint's 422 `publish_gate_failed` now includes typed `failures: [{code, message, relationship_ids, assertion_ids}]` (`PublishRefusalEnvelope` in the OpenAPI schema).
+  - **Research Snapshots** (`backend/atlas/snapshots.py`): a publish hook that the API always installs builds the snapshot in the publishing transaction. It puts the canonical JSON in the archive's new `snapshots` namespace (`archive://snapshots/sha256/<hex>`), inserts the `research_snapshot` row and audits `research_snapshot.created` with the hash. Contents are listed in `docs/decisions.md`, "The publish gate and Research Snapshots". `GET /api/v1/snapshots[?hypothesis_id=]` lists the rows. `GET /api/v1/snapshots/{id}` re-hashes the archived bytes against the row on every read; an altered or missing object is 500 `snapshot_integrity_failed`.
+  - **Migration `0038_research_snapshot`** (down_revision `0032`; the lead re-chains): the insert-only table, with triggers refusing UPDATE, DELETE, TRUNCATE and an INSERT for an unpublished version, and a CHECK tying the URI to the hash.
+  - **Metric** `atlas_research_snapshots_total`.
+- **Files:**
+  - `backend/atlas/snapshots.py` (new), `backend/atlas/api/snapshots.py` (new), `backend/atlas/db/migrations/versions/0038_research_snapshot.py` (new)
+  - `backend/atlas/hypotheses/service.py`, `backend/atlas/api/hypotheses.py` (the router now takes the archive)
+  - shared files: `backend/atlas/api/app.py` (two router lines), `backend/atlas/archive/__init__.py` (the `SNAPSHOTS` namespace and URI regex), `backend/atlas/metrics.py`
+  - `frontend/lib/api/{openapi.json,schema.ts}` (regenerated)
+  - `tests/integration/test_hypotheses.py`, `tests/integration/test_migrations.py` (head `0038`)
+  - docs: `docs/decisions.md`, `docs/data-model.md` §3.1i, `AGENTS.md`; the ticket
+- **Tests** (HTTP API seam, real Postgres, filesystem archive; recorded Hindsight fake, scripted LiteLLM and SearXNG fakes):
+  - `test_the_publish_gate_needs_a_falsifier_an_unresolved_question_and_approved_relationships` (extends ticket 16's gate test). Publishing is refused with `no_falsifier`, `no_unresolved_question` and `relationship_not_approved` naming the machine-reviewed edge, and no snapshot is written. After a correction, a rejected edge is still refused. The owner then approves the edge, the publication succeeds, and it has one snapshot of version 2.
+  - `test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_from`: the refreshed Bottlenecks gaps, the Skeptic's 10-Q counterevidence, and a researcher scenario with an XBRL-sourced input. The test recomputes the canonical JSON's SHA-256 and compares it with the row, the URI and the archived file. It checks:
+    - the cutoff, and the Source Versions considered (10-K, 10-Q, companyfacts) with the ledger's hashes and `available_at`;
+    - Memory as returned (the Scout's gaps, exactly) and the recall selections;
+    - both Assertions' spans against the archived parse, and the approved Relationship;
+    - the scenario's hashes and the dataset hash;
+    - the role calls' prompt versions and hashes and the routed models (against `GET /runs/{id}/role-calls`), the run kinds and Hindsight version 0.10.1;
+    - the outputs, the audit event with the hash, and the metric.
+  - `test_a_published_snapshot_can_t_be_altered`: UPDATE, DELETE and TRUNCATE are refused by the database, and so is a snapshot row for an unpublished version. An archived object altered in place is 500 `snapshot_integrity_failed` without the altered content, a deleted one is too ("missing"), and the restored bytes verify again.
+  - The lifecycle and correction tests now approve the Relationships before publishing.
+  - Results: `test_hypotheses.py` 11 passed. With `test_migrations.py` and `test_archive_contract.py`: 55 passed. Earlier, with `test_scenarios.py` and `tests/unit`: 523 passed. ruff format/check (backend, tests, scripts), strict pyright, `gen_api_client.sh --check` and the frontend typecheck are clean. The full suite runs on the owner's runners.
+  - The gate tests were written with the code, not run red first. The snapshot contents were first dumped from a throwaway test to write concrete expectations.
+- **Fixture-only vs live:** everything. No live LLM, Hindsight or SearXNG call was made. The Hindsight version in the snapshot is the recorded fake's.
+- **Deviations:**
+  - The archive key is `snapshots/sha256/<hex>` (URI `archive://snapshots/sha256/<hex>`), not map ticket 09's `snapshots/<sha256>`, so the archive keeps one key scheme.
+  - Atlas stores no recall results. The Investigator's recall only chose Source Version sections, and the model was sent their text. So the snapshot lists those choices (`recall_selections`) rather than memory text. Memory text that did reach a role (a mental model's content in `retrieved`) is recorded exactly.
+  - An integrity failure is a 500 (`snapshot_integrity_failed`): the server's stored data is wrong, not the request.
+  - `relationship_review_pending` has no integration test. The investigation's final stop always chains the machine review, so the seams can't produce an unreviewed finding Assertion without reaching into internals.
+  - The snapshot's `put` happens inside the DB transaction. If the transaction later rolls back, an orphaned content-addressed object stays in the archive (harmless).
+- **Next:** the replay (map ticket 09's local `atlas-replay-<id>` bank seeded from Source Versions with `available_at ≤ cutoff`) can read the snapshot's `source_versions` and `cutoff`. The Hypothesis dossier page (ticket 24) can link a published version's snapshot.
+Migration renumbering: ticket 20's 0038 → 0036 (after 0035 tradingview).

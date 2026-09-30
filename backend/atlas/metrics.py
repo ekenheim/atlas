@@ -106,6 +106,7 @@ class StateCollector(Collector):
             yield from self._discovery(connection)
             yield from self._candidates(connection)
             yield from self._investigations(connection)
+            yield from self._snapshots(connection)
 
     def _pause(self) -> Iterator[Metric]:
         pause = self._queue.pause_state()
@@ -578,3 +579,15 @@ class StateCollector(Collector):
         for reason in _STOP_REASONS:
             stops.add_metric([reason], by_reason.get(reason, 0))
         yield stops
+
+    def _snapshots(self, connection: Connection) -> Iterator[Metric]:
+        # Research Snapshots are insert-only rows (one per published Hypothesis version).
+        snapshots = CounterMetricFamily(
+            "atlas_research_snapshots",
+            "Research Snapshots frozen, one per published Hypothesis version (spec §5.7)",
+        )
+        snapshots.add_metric(
+            [],
+            connection.execute(text("SELECT count(*) FROM research_snapshot")).scalar_one(),
+        )
+        yield snapshots

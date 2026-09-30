@@ -29,6 +29,7 @@ from atlas.api.relationships import relationships_router
 from atlas.api.research import research_router
 from atlas.api.runs import runs_router
 from atlas.api.scenarios import scenarios_router
+from atlas.api.snapshots import snapshots_router
 from atlas.api.sources import sources_router
 from atlas.api.themes import themes_router
 from atlas.api.tradingview import tradingview_router
@@ -131,7 +132,9 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
             ingest_lookback_days=settings.ingest_lookback_days,
         )
     )
-    app.include_router(hypotheses_router(engine, queue, Actor.from_settings(settings), settings))
+    app.include_router(
+        hypotheses_router(engine, queue, archive, Actor.from_settings(settings), settings)
+    )
     app.include_router(
         themes_router(
             engine,
@@ -147,6 +150,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
         )
     )
     app.include_router(scenarios_router(engine, Actor.from_settings(settings)))
+    app.include_router(snapshots_router(engine, archive))
 
     app.include_router(evaluations_router(engine))
 

@@ -12,10 +12,12 @@ as new versions, and publishing a version behind the publish gate (spec §5.6).
   published version). Findings it names must cite accepted Claims of the investigation, or
   it is refused: nothing unsupported is promoted.
 - **Publish.** `publish` stamps the latest version published (the database refuses any later
-  change to it) if every check of the gate passes. The gate is pluggable: the default
-  requires at least one falsifier and one unresolved question; ticket 20 adds the owner's
-  approval of the Relationships it depends on and the Research Snapshot (`hooks` run in the
-  publishing transaction).
+  change to it) if every check of the gate passes; otherwise `PublishRefused` lists every
+  failed check by code. The gate is pluggable: the default requires at least one falsifier,
+  one unresolved question, and the owner's approval of every Relationship the version depends
+  on (those its findings' Assertions support; an Assertion not yet machine-reviewed holds it
+  too). `hooks` run in the publishing transaction: the API's writes the Research Snapshot
+  (atlas.snapshots), so a version is published with its snapshot or not at all.
 """
 
 import json
@@ -91,6 +93,9 @@ class PublishRefused(HypothesisError):
 class GateFailure:
     code: str
     message: str
+    # The Relationships (or, pending review, Assertions) the failure is about, if any.
+    relationship_ids: tuple[uuid.UUID, ...] = ()
+    assertion_ids: tuple[uuid.UUID, ...] = ()
 
 
 # A check of the publish gate: it reads what it needs within the publishing transaction and
@@ -118,7 +123,86 @@ def requires_unresolved_question(
     )
 
 
-DEFAULT_PUBLISH_GATE: tuple[PublishCheck, ...] = (requires_falsifier, requires_unresolved_question)
+def dependent_assertion_ids(version: HypothesisVersion) -> list[uuid.UUID]:
+    """The Assertions a version's findings rest on (their spans'), in finding order."""
+    return list(
+        dict.fromkeys(
+            span.assertion_id
+            for finding in version.content.findings
+            for span in finding.source_spans
+        )
+    )
+
+
+def _dependencies(connection: Connection, version: HypothesisVersion) -> list[RowMapping]:
+    """Per dependent Assertion: the Relationship it supports (with its review state), and
+    whether it has been machine-reviewed at all."""
+    assertion_ids = dependent_assertion_ids(version)
+    if not assertion_ids:
+        return []
+    return list(
+        connection.execute(
+            text(
+                "SELECT a.id AS assertion_id, ra.relationship_id, r.review_state,"
+                " rr.id IS NOT NULL AS reviewed"
+                " FROM unnest(CAST(:ids AS uuid[])) WITH ORDINALITY AS a(id, n)"
+                " LEFT JOIN relationship_assertion ra ON ra.assertion_id = a.id"
+                " LEFT JOIN relationship r ON r.id = ra.relationship_id"
+                " LEFT JOIN relationship_review rr ON rr.assertion_id = a.id"
+                " ORDER BY a.n"
+            ),
+            {"ids": assertion_ids},
+        ).mappings()
+    )
+
+
+def requires_approved_relationships(
+    connection: Connection, _hypothesis: RowMapping, version: HypothesisVersion
+) -> GateFailure | None:
+    """Every Relationship the version depends on (those its findings' Assertions support) is
+    approved by the owner (`machine_reviewed` is not enough; `rejected` never is)."""
+    unapproved: dict[uuid.UUID, str] = {
+        row["relationship_id"]: row["review_state"]
+        for row in _dependencies(connection, version)
+        if row["relationship_id"] is not None and row["review_state"] != "approved"
+    }
+    if not unapproved:
+        return None
+    listed = ", ".join(f"{each} ({state})" for each, state in unapproved.items())
+    return GateFailure(
+        "relationship_not_approved",
+        f"the owner hasn't approved every Relationship the version depends on: {listed}",
+        relationship_ids=tuple(unapproved),
+    )
+
+
+def requires_reviewed_assertions(
+    connection: Connection, _hypothesis: RowMapping, version: HypothesisVersion
+) -> GateFailure | None:
+    """Every Assertion the version depends on has been machine-reviewed: until then it may
+    still form a Relationship the owner hasn't seen. One reviewed `not_eligible` (no layer,
+    co-mention) supports no edge and holds nothing."""
+    pending = tuple(
+        row["assertion_id"]
+        for row in _dependencies(connection, version)
+        if row["relationship_id"] is None and not row["reviewed"]
+    )
+    if not pending:
+        return None
+    return GateFailure(
+        "relationship_review_pending",
+        "Assertions the version depends on haven't been reviewed into Relationships yet: "
+        + ", ".join(str(each) for each in pending),
+        assertion_ids=pending,
+    )
+
+
+DEFAULT_PUBLISH_GATE: tuple[PublishCheck, ...] = (
+    requires_falsifier,
+    requires_unresolved_question,
+    requires_approved_relationships,
+    requires_reviewed_assertions,
+)
 
 
 # --- corrections ----------------------------------------------------------------------------------

@@ -12,8 +12,12 @@
   changed fields and a note. Findings must cite accepted Claims of the investigation (422
   `unsupported_finding`).
 - `POST /hypotheses/{id}/publish-version` (`{"version", "note"?}`): publish the latest version
-  behind the publish gate (422 `publish_gate_failed` with every failed check); a published
-  version is immutable.
+  behind the publish gate: at least one falsifier, one unresolved question, and the owner's
+  approval of every Relationship the version depends on. A refusal is 422
+  `publish_gate_failed` with `failures`, every failed check by code (`no_falsifier`,
+  `no_unresolved_question`, `relationship_not_approved` with the `relationship_ids`,
+  `relationship_review_pending` with the `assertion_ids`). A published version is immutable,
+  and its Research Snapshot is written in the same transaction (`GET /snapshots`).
 - `GET /hypotheses/{id}/diff?from_version=&to_version=`: claims new, contradicted, unchanged
   or removed between two versions (default: the latest and the one before it).
 - `GET /hypotheses/{id}/export?format=json|markdown&version=`: the dossier of a version
@@ -33,6 +37,7 @@ from atlas.api.common import (
     CONFLICT,
     INVALID,
     NOT_FOUND,
+    ErrorDetail,
     Page,
     Pagination,
     error_response,
@@ -40,6 +45,7 @@ from atlas.api.common import (
     not_found,
     pagination,
 )
+from atlas.archive import Archive
 from atlas.audit import Actor
 from atlas.hypotheses import (
     Correction,
@@ -50,6 +56,7 @@ from atlas.hypotheses import (
     HypothesisExport,
     HypothesisStatus,
     Mechanism,
+    PublishRefused,
     build_export,
     diff_versions,
     get_hypothesis,
@@ -60,6 +67,7 @@ from atlas.hypotheses import (
 from atlas.hypotheses.findings import ProposedFinding
 from atlas.jobs import JobQueue
 from atlas.settings import Settings
+from atlas.snapshots import snapshot_hook
 
 Paged = Annotated[Pagination, Depends(pagination)]
 NOT_CONFIGURED = error_responses(503)
@@ -84,6 +92,21 @@ class PublishRequest(BaseModel):
 
     version: int = Field(ge=1, description="the latest version, which must be unpublished")
     note: str | None = Field(default=None, max_length=2000)
+
+
+class GateFailureView(BaseModel):
+    code: str
+    message: str
+    relationship_ids: list[uuid.UUID]
+    assertion_ids: list[uuid.UUID]
+
+
+class PublishRefusal(ErrorDetail):
+    failures: list[GateFailureView]
+
+
+class PublishRefusalEnvelope(BaseModel):
+    error: PublishRefusal
 
 
 class FindingEdit(BaseModel):
@@ -116,10 +139,11 @@ class VersionCreate(BaseModel):
 
 
 def hypotheses_router(
-    engine: Engine, queue: JobQueue, actor: Actor, settings: Settings
+    engine: Engine, queue: JobQueue, archive: Archive, actor: Actor, settings: Settings
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/hypotheses", tags=["hypotheses"])
-    hypotheses = Hypotheses(engine, queue)
+    # Publishing freezes the version's Research Snapshot in the publishing transaction.
+    hypotheses = Hypotheses(engine, queue, hooks=(snapshot_hook(archive),))
 
     def found(hypothesis_id: uuid.UUID) -> Hypothesis | JSONResponse:
         with engine.connect() as connection:
@@ -230,13 +254,30 @@ def hypotheses_router(
     @router.post(
         "/{hypothesis_id}/publish-version",
         response_model=Hypothesis,
-        responses={**NOT_FOUND, **CONFLICT, **INVALID},
+        responses={**NOT_FOUND, **CONFLICT, 422: {"model": PublishRefusalEnvelope}},
     )
     def publish(  # pyright: ignore[reportUnusedFunction]
         hypothesis_id: uuid.UUID, request: PublishRequest
     ) -> Hypothesis | JSONResponse:
         try:
             hypotheses.publish(actor, hypothesis_id, request.version, _note(request.note))
+        except PublishRefused as refused:
+            body = PublishRefusalEnvelope(
+                error=PublishRefusal(
+                    code=refused.code,
+                    message=refused.message,
+                    failures=[
+                        GateFailureView(
+                            code=each.code,
+                            message=each.message,
+                            relationship_ids=list(each.relationship_ids),
+                            assertion_ids=list(each.assertion_ids),
+                        )
+                        for each in refused.failures
+                    ],
+                )
+            )
+            return JSONResponse(body.model_dump(mode="json"), status_code=refused.status)
         except HypothesisError as error:
             return failed(error)
         return found(hypothesis_id)

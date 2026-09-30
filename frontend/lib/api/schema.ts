@@ -1164,6 +1164,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_snapshots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Snapshot */
+        get: operations["snapshot_api_v1_snapshots__snapshot_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/evaluations": {
         parameters: {
             query?: never;
@@ -3011,6 +3045,17 @@ export interface components {
             /** From Currency */
             from_currency: string;
         };
+        /** GateFailureView */
+        GateFailureView: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Relationship Ids */
+            relationship_ids: string[];
+            /** Assertion Ids */
+            assertion_ids: string[];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4279,6 +4324,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[ResearchSnapshotRecord] */
+        Page_ResearchSnapshotRecord_: {
+            /** Items */
+            items: components["schemas"]["ResearchSnapshotRecord"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[SourceDocument] */
         Page_SourceDocument_: {
             /** Items */
@@ -4440,6 +4496,19 @@ export interface components {
             backfill_resumes_at: string | null;
             /** Kinds */
             kinds: string[];
+        };
+        /** PublishRefusal */
+        PublishRefusal: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Failures */
+            failures: components["schemas"]["GateFailureView"][];
+        };
+        /** PublishRefusalEnvelope */
+        PublishRefusalEnvelope: {
+            error: components["schemas"]["PublishRefusal"];
         };
         /** PublishRequest */
         PublishRequest: {
@@ -4856,6 +4925,94 @@ export interface components {
              * @description theme slugs, e.g. photonics
              */
             theme_ids?: string[];
+        };
+        /**
+         * ResearchSnapshot
+         * @description A snapshot read back and verified: `content` hashes to `sha256`.
+         */
+        ResearchSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Hypothesis Id
+             * Format: uuid
+             */
+            hypothesis_id: string;
+            /** Hypothesis Version */
+            hypothesis_version: number;
+            /**
+             * Hypothesis Version Id
+             * Format: uuid
+             */
+            hypothesis_version_id: string;
+            /** Sha256 */
+            sha256: string;
+            /** Object Uri */
+            object_uri: string;
+            /** Byte Size */
+            byte_size: number;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Verified */
+            verified: boolean;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * ResearchSnapshotRecord
+         * @description A snapshot's row: what was frozen, where, and its hash.
+         */
+        ResearchSnapshotRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Hypothesis Id
+             * Format: uuid
+             */
+            hypothesis_id: string;
+            /** Hypothesis Version */
+            hypothesis_version: number;
+            /**
+             * Hypothesis Version Id
+             * Format: uuid
+             */
+            hypothesis_version_id: string;
+            /** Sha256 */
+            sha256: string;
+            /** Object Uri */
+            object_uri: string;
+            /** Byte Size */
+            byte_size: number;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** Resolution */
         Resolution: {
@@ -8710,7 +8867,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["PublishRefusalEnvelope"];
                 };
             };
         };
@@ -9037,6 +9194,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listing_api_v1_snapshots_get: {
+        parameters: {
+            query?: {
+                hypothesis_id?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ResearchSnapshotRecord_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    snapshot_api_v1_snapshots__snapshot_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchSnapshot"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

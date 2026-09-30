@@ -628,6 +628,25 @@ A scenario (`atlas.scenarios`, spec §5.7 "scenario", §8.2) is a deterministic 
 
 Audit events: `scenario.created` (the version, both hashes, the origin).
 
+### 3.1i `research_snapshot` (Phases 3–6a, ticket 20, migration 0036)
+
+A Research Snapshot (`atlas.snapshots`, spec §5.7 "research_snapshot") freezes what a published Hypothesis version was built from, in the transaction that publishes it. Its content is canonical JSON (format `atlas.research_snapshot.v1`: the version and its cutoff, the Source Versions considered with hashes and `available_at`, Memory as returned to the run, Assertions with spans, the Relationships depended on, scenarios and the financial dataset with its hash, runs and role calls with prompt and model versions, Hindsight versions, the version's content) stored in the archive at `archive://snapshots/sha256/<hex>`; the row holds its hash.
+
+`research_snapshot`: **insert-only** (triggers `ENABLE ALWAYS` refuse UPDATE, DELETE, TRUNCATE, and an INSERT for a version that isn't published); one per published version.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `hypothesis_id` | uuid FK → `hypothesis` | |
+| `hypothesis_version_id` | uuid FK → `hypothesis_version`, unique | The published version |
+| `sha256` | text | SHA-256 of the canonical JSON |
+| `object_uri` | text | `archive://snapshots/sha256/<sha256>` (checked equal) |
+| `byte_size` | bigint | |
+| `as_of` | timestamptz | The investigation's as-of cutoff |
+| `created_by`, `created_at` | | Who published, when |
+
+Audit events: `research_snapshot.created` (`new_hash` = the snapshot's SHA-256).
+
 ### 3.1b `bank_template_application`
 
 One row per application of the bank template (dry run, then import); audited as `bank_template.applied` (entity `hindsight_bank`, old/new hash = the previous/new manifest SHA-256). Migration 0005.
@@ -1005,4 +1024,4 @@ erDiagram
 - `assertion.independence_family_id` stays reserved: an Assertion's Evidence Family is its Source Version's (`evidence_family_member`, section 2.4b).
 - `hypothesis`, `task`, the full `run`: Phase 4.
 - `scenario`: Phase 5 (`financial_observation` is §3.6).
-- `research_snapshot`, `evaluation`: Phase 6a (the evaluation fixture format is in [`evaluation-methodology.md`](evaluation-methodology.md)).
+- `evaluation`: Phase 6a (`research_snapshot` is §3.1i) (the evaluation fixture format is in [`evaluation-methodology.md`](evaluation-methodology.md)).
