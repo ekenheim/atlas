@@ -7,9 +7,13 @@ Each case runs in isolation, through the same code paths as production:
    so the role needs `CREATEDB`); all are dropped when the run ends. A temporary directory
    holds the case's filesystem archive, its universe config (the case's entities, one theme)
    and, for recorded EDGAR responses, a fixture directory.
-2. **Services** on localhost (`atlas.evaluation.stubs`): the Hindsight and SearXNG stubs, and
-   in fake mode the scripted LiteLLM. In live mode the configured LiteLLM answers instead
-   (the model under evaluation); nothing else changes.
+2. **Services** on localhost (`atlas.evaluation.stubs`): the SearXNG stub, and in fake mode
+   the Hindsight stub (it recalls nothing) and the scripted LiteLLM. In live mode the
+   configured LiteLLM answers instead (the model under evaluation), and the configured
+   Hindsight holds a throwaway bank per case (`atlas-eval-<case>-<random>`) into which the
+   case's sources are retained, through triage, before the pipeline runs, so recall is the
+   real system's; the bank is deleted when the case ends. Until 2026-09-30 live mode used the
+   empty stub too, which left memory and retrieval unmeasured (Codex review, item 1).
 3. **The pipeline** the case names: its document sources recorded as manual imports (in
    publication order, `available_at` = the source's publication time), or its EDGAR responses
    ingested through the fixture path; then the jobs (`extract_claims`, `review_relationships`)
@@ -110,6 +114,10 @@ def evaluate(
         raise EvaluationRefused(
             "a live evaluation needs the model: set ATLAS_LITELLM_URL and ATLAS_LITELLM_API_KEY"
         )
+    if mode == "live" and not settings.hindsight_url:
+        raise EvaluationRefused(
+            "a live evaluation needs memory: set ATLAS_HINDSIGHT_URL (and ATLAS_HINDSIGHT_API_KEY)"
+        )
     wanted = case_ids or gold.active_ids()
     unknown = [c for c in wanted if c not in {e.case_id for e in gold.manifest.cases}]
     if unknown:
@@ -193,21 +201,27 @@ def _evaluate_case(base: Settings, loaded: LoadedCase, database_url: str, mode: 
     observed: dict[str, JsonValue] = {}
     try:
         with ExitStack() as stack:
-            hindsight = stack.enter_context(serve(hindsight_stub))
             searxng = stack.enter_context(serve(searxng_stub))
-            served = [hindsight, searxng]
+            served = [searxng]
             if mode == "fake":
+                hindsight = stack.enter_context(serve(hindsight_stub))
+                served.append(hindsight)
+                hindsight_url, bank = hindsight.url, EVALUATION_BANK
                 llm = ScriptedLiteLLM(case.script, context, base.llm_aliases())
                 served.append(stack.enter_context(serve(llm.handle)))
                 litellm_url, litellm_key = served[-1].url, STUB_API_KEY
             else:
+                hindsight_url = base.hindsight_url
+                bank = f"atlas-eval-{case.case_id.lower()}-{uuid.uuid4().hex[:8]}"
                 litellm_url, litellm_key = base.litellm_url, base.litellm_api_key
             settings = _case_settings(
                 base,
                 case,
                 database_url,
                 workdir,
-                hindsight_url=hindsight.url,
+                mode,
+                hindsight_url=hindsight_url,
+                hindsight_bank_id=bank,
                 searxng_url=searxng.url,
                 litellm_url=litellm_url,
                 litellm_api_key=litellm_key,
@@ -215,11 +229,16 @@ def _evaluate_case(base: Settings, loaded: LoadedCase, database_url: str, mode: 
             engine = create_engine(database_url)
             stack.callback(engine.dispose)
             try:
-                _run_pipeline(settings, loaded, engine, context, workdir)
+                _run_pipeline(settings, loaded, engine, context, workdir, mode)
             except Exception as error:  # the case fails; its partial output is still scored
                 errors.append(_describe(error))
             observed = _observe(settings, loaded, engine, context)
             errors.extend(f"stub: {e}" for each in served for e in each.errors)
+            if mode == "live":
+                try:
+                    _delete_bank(settings)
+                except Exception as error:
+                    errors.append(f"bank {bank} not deleted: {_describe(error)}")
     except Exception as error:
         errors.append(_describe(error))
     finally:
@@ -260,7 +279,7 @@ def _jobs(observed: dict[str, JsonValue]) -> list[dict[str, Any]]:
 
 
 def _case_settings(
-    base: Settings, case: Case, database_url: str, workdir: Path, **services: Any
+    base: Settings, case: Case, database_url: str, workdir: Path, mode: Mode, **services: Any
 ) -> Settings:
     themes = workdir / "themes.yaml"
     themes.write_text(yaml.safe_dump(_universe(case)), encoding="utf-8")
@@ -270,9 +289,9 @@ def _case_settings(
         archive_backend="filesystem",
         archive_root=workdir / "archive",
         themes_config=themes,
-        hindsight_bank_id=EVALUATION_BANK,
         hindsight_version=None,
-        retention_triage="off",
+        # Live: the case's sources go through triage into its bank, as in production.
+        retention_triage="off" if mode == "fake" else "auto",
         sec_live=False,
         sec_fixtures_dir=workdir / "edgar",
         sec_8k_items="*",
@@ -309,8 +328,20 @@ def _universe(case: Case) -> dict[str, Any]:
 # --- the pipeline -------------------------------------------------------------------------------
 
 
+def _delete_bank(settings: Settings) -> None:
+    gateway = HindsightGateway.from_settings(settings)
+    assert gateway is not None
+    with gateway:
+        gateway.delete_bank()
+
+
 def _run_pipeline(
-    settings: Settings, loaded: LoadedCase, engine: Engine, context: ScriptContext, workdir: Path
+    settings: Settings,
+    loaded: LoadedCase,
+    engine: Engine,
+    context: ScriptContext,
+    workdir: Path,
+    mode: Mode,
 ) -> None:
     case = loaded.case
     actor = Actor.from_settings(settings)
@@ -322,9 +353,15 @@ def _run_pipeline(
     assert gateway is not None
     with gateway:
         apply_template(engine, gateway, BankTemplate.load(settings.hindsight_template_path), actor)
-    # Recording sources makes no retain and no triage call: memory isn't what's evaluated.
-    ledger_settings = settings.model_copy(
-        update={"hindsight_url": None, "litellm_url": None, "litellm_api_key": None}
+    # Fake: recording sources makes no retain and no triage call (the stub recalls nothing).
+    # Live: each source is retained into the case's bank, through triage, and those jobs
+    # run to completion before the pipeline's, so recall sees the case's evidence.
+    ledger_settings = (
+        settings
+        if mode == "live"
+        else settings.model_copy(
+            update={"hindsight_url": None, "litellm_url": None, "litellm_api_key": None}
+        )
     )
     kind = case.pipeline.kind
     if kind == "financials":
@@ -347,6 +384,8 @@ def _run_pipeline(
         )
         context.versions[source.key] = imported.source_version_id
     queue = JobQueue(engine)
+    if mode == "live":
+        _drain(settings, queue)  # the sources' triage, retain and poll jobs
     key = f"evaluation:{case.case_id}"
     if kind == "relationships":
         read = case.pipeline.extract_sources or [s.key for s in documents]

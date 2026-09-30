@@ -49,7 +49,8 @@ def run_evaluate(settings: Settings, cases: list[str] | None, *, live: bool) -> 
 
     if live and os.environ.get(LIVE_OPT_IN) != "1":
         print(
-            f"atlas: a live evaluation spends MiniMax quota: set {LIVE_OPT_IN}=1 as well as"
+            f"atlas: a live evaluation spends MiniMax and Codex quota (its cases' sources are"
+            f" retained into throwaway Hindsight banks): set {LIVE_OPT_IN}=1 as well as"
             " --live (never in CI)",
             file=sys.stderr,
         )

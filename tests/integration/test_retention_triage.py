@@ -110,6 +110,9 @@ def atlas(
         hindsight[1].url,
         litellm.url,
         retention_triage="on",
+        # One window per section: these tests pin the calls' anchors and reply count as
+        # written for the opening-only reader; windows are tested on their own below.
+        triage_windows_per_section=1,
         # Lets an investigation be created (its tasks never run here, so nothing is searched).
         searxng_url="http://127.0.0.1:9",
     )
@@ -194,8 +197,10 @@ def test_only_the_sections_triage_retains_reach_hindsight_and_the_rest_stay_cita
     assert item_1["decision"] == "retain"
     assert item_1["method"] == "role"
     assert item_1["category"] == "supplier_customer"
-    assert item_1["rubric_version"] == "triage.v1"
-    assert item_1["reason"] == "names bottleneck content in part-i-item-1"
+    assert item_1["rubric_version"] == "triage.v2"
+    # The role read the opening only (one window per section here) of a 22-window Item.
+    assert item_1["reason"].startswith("part 1/")
+    assert item_1["reason"].endswith(": names bottleneck content in part-i-item-1")
     assert decisions["part-i-item-2"]["decision"] == "skip"
     assert decisions["part-i-item-2"]["category"] == "other"
     # Only the retained sections are recorded and submitted, as one batch per version.
@@ -294,6 +299,102 @@ def test_an_unchanged_section_of_a_revised_source_inherits_its_decision_without_
     assert second["item-2-02"]["method"] == "role"
     assert second["item-2-02"]["content_sha256"] != first["item-2-02"]["content_sha256"]
     assert retained_anchors(fake, v2["id"]) == [["item-2-02"]]
+
+
+# --- windows: the role reads the whole section, not its opening ----------------------------------
+
+
+def later_window_answer(body: dict[str, Any]) -> JsonValue:
+    """A stand-in model that retains only a section's later windows (never its opening):
+    what the opening-only reader could never have retained."""
+    user = json.loads(body["messages"][1]["content"])
+    decisions: list[JsonValue] = []
+    for section in user["request"]["sections"]:
+        later = "~" in section["anchor"]
+        decisions.append(
+            {
+                "anchor": section["anchor"],
+                "decision": "retain" if later else "skip",
+                "category": "capacity" if later else "other",
+                "reason": f"{'capacity detail' if later else 'nothing'} in {section['anchor']}",
+            }
+        )
+    return {"decisions": decisions}
+
+
+def test_a_long_section_is_read_in_windows_and_retained_when_a_later_window_is(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+) -> None:
+    llm = FakeLiteLLM().script_chat(*[ChatReply.answer(later_window_answer)] * 40)
+    with serve(llm.handle) as litellm:
+        atlas = Atlas(
+            database_url,
+            tmp_path,
+            hindsight[1].url,
+            litellm.url,
+            retention_triage="on",
+            triage_excerpt_chars=EXCERPT_CHARS,
+            triage_windows_per_section=3,
+            searxng_url="http://127.0.0.1:9",
+        )
+        atlas.fixtures = editable_fixtures(tmp_path)
+        atlas.apply_template()
+        job = atlas.ingest("lumentum")
+        assert job["status"] == "succeeded", job["failures"]
+        litellm.raise_errors()
+
+    ten_k = atlas.version(LITE_10K)
+    parsed = atlas.parsed(ten_k["id"])
+    decisions = effective(atlas, ten_k["id"])
+    assert sorted(decisions) == sorted(TEN_K_ANCHORS)  # one decision per section, still
+    # The 10-K's calls only: the 10-Q's sections share its anchors.
+    calls = [m for m in asked(llm) if m["request"]["document"]["source_version_id"] == ten_k["id"]]
+    by_anchor = {s["anchor"]: s for m in calls for s in m["request"]["sections"]}
+    texts = {r["id"]: r for m in calls for r in m["retrieved_data"]}
+    long = [a for a in TEN_K_ANCHORS if a in by_anchor and by_anchor[a]["parts"] > 3]
+    short = [a for a in TEN_K_ANCHORS if a in by_anchor and by_anchor[a]["parts"] == 1]
+    assert long and short
+    for anchor in long:
+        decision = decisions[anchor]
+        first = by_anchor[anchor]
+        assert (first["part"], first["length"]) == (
+            1,
+            decision["char_end"] - decision["char_start"],
+        )
+        # The role saw three windows: the opening, one from the middle and the last.
+        parts = sorted(s["part"] for s in by_anchor.values() if s["anchor"].split("~")[0] == anchor)
+        assert parts == [1, 1 + round((first["parts"] - 1) / 2), first["parts"]]
+        last = texts[f"{anchor}~{first['parts']}"]
+        assert last["trust"] == "low"
+        assert (
+            last["text"]
+            == parsed[decision["char_start"] :][
+                (first["parts"] - 1) * EXCERPT_CHARS : first["parts"] * EXCERPT_CHARS
+            ][
+                : decision["char_end"]
+                - decision["char_start"]
+                - (first["parts"] - 1) * EXCERPT_CHARS
+            ]
+        )
+        # Retained because a later window was, and the decision says which.
+        assert decision["decision"] == "retain"
+        assert decision["category"] == "capacity"
+        assert decision["reason"].startswith(f"part {parts[1]}/{first['parts']}: capacity detail")
+        assert decision["role_call_id"] is not None
+    for anchor in short:
+        if decisions[anchor]["method"] == "role":
+            assert decisions[anchor]["decision"] == "skip"
+            assert not decisions[anchor]["reason"].startswith("part ")
+    # Every window's text is a slice of its section, sent as low-trust data by its anchor.
+    for anchor, entry in by_anchor.items():
+        section = decisions[anchor.split("~")[0]]
+        offset = section["char_start"] + (entry["part"] - 1) * EXCERPT_CHARS
+        assert (
+            texts[anchor]["text"]
+            == parsed[offset : min(offset + EXCERPT_CHARS, section["char_end"])]
+        )
 
 
 # --- retain on demand ---------------------------------------------------------------------------
@@ -575,6 +676,7 @@ def test_a_spent_budget_holds_triage_until_the_window_rolls_and_nothing_is_retai
         hindsight[1].url,
         litellm.url,
         retention_triage="on",
+        triage_windows_per_section=1,  # one window per section, so the counts below hold
         triage_sections_per_call=4,  # the 10-K's 8 asked sections take two calls
         run_token_budget=reply,  # each attempt's run affords one call
         minimax_budget_tokens=reply,  # each 5 h window affords one call

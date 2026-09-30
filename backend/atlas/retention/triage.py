@@ -14,8 +14,13 @@ before any section is retained:
    `[Reserved]`, the 10-K summary) and sections with no content past their heading
    (`None.`, `Not applicable.`) are `skip`, without a call.
 3. **The Triage role** (`atlas.roles.triage`, its prompt the versioned rubric) decides the
-   rest, `triage_sections_per_call` sections to a call, from each section's heading and first
-   `triage_excerpt_chars` characters and the document's metadata.
+   rest from the document's metadata and each section's heading and text, read in
+   **windows** of `triage_excerpt_chars` characters: at most `triage_windows_per_section`
+   of them, the first always and the rest spread evenly over a section that has more,
+   `triage_sections_per_call` windows to a call. A section is `retain` when any of its
+   windows is (that window's category and reason, marked `part p/n`), `skip` when every
+   window is. Until 2026-09-30 the role saw a section's first window only, so a capacity or
+   customer detail later in a long Item was invisible to triage (Codex review, item 3).
 
 **Hold and retry** (owner decision 2026-09-30): a failed triage retains nothing and decides
 nothing by default. A section is undecided until a rule, its predecessor or the role decides
@@ -148,6 +153,58 @@ class _Pending:
     sha256: str
 
 
+@dataclass(frozen=True)
+class _Window:
+    """One window of a pending section's text, as the role is asked about it."""
+
+    pending: _Pending
+    part: int  # 1-based, by position in the section's text
+    parts: int  # how many windows the section has
+    text: str
+
+    @property
+    def anchor(self) -> str:
+        base = self.pending.section.anchor
+        return base if self.part == 1 else f"{base}~{self.part}"
+
+
+def _windows(pending: _Pending, size: int, cap: int) -> list[_Window]:
+    """The section's windows of `size` characters, at most `cap` of them: the first always,
+    the rest spread evenly over the section when it has more than `cap`."""
+    parts = max(1, -(-len(pending.text) // size))
+    if parts <= cap or cap == 1:
+        chosen: list[int] = list(range(1, min(parts, cap) + 1))
+    else:
+        chosen = sorted({1 + round(i * (parts - 1) / (cap - 1)) for i in range(cap)})
+    return [
+        _Window(pending, part, parts, pending.text[(part - 1) * size : part * size])
+        for part in chosen
+    ]
+
+
+def _aggregate(
+    windows: Sequence[_Window], answers: dict[str, tuple[TriageSectionDecision, uuid.UUID]]
+) -> dict[str, object]:
+    """The section's decision from its windows' answers: `retain` on the first window that
+    retains (its category and reason, marked `part p/n` when the section has several), else
+    `skip` as the first window said (marked with how many windows were read, when several)."""
+    judged = [(window, *answers[window.anchor]) for window in windows]
+    retaining = [each for each in judged if each[1].decision == "retain"]
+    window, answer, role_call_id = retaining[0] if retaining else judged[0]
+    reason = answer.reason.strip() or "no reason given"
+    if retaining and window.parts > 1:
+        reason = f"part {window.part}/{window.parts}: {reason}"
+    elif not retaining and len(windows) > 1:
+        reason = f"none of {len(windows)} windows read (of {window.parts}) retained: {reason}"
+    return {
+        "decision": answer.decision,
+        "category": answer.category,
+        "reason": reason,
+        "method": "role",
+        "role_call_id": role_call_id,
+    }
+
+
 class Triage:
     """Runs one `triage` job: decides every undecided section of a Source Version."""
 
@@ -161,6 +218,7 @@ class Triage:
         runs: RunRecorder | None,
         *,
         excerpt_chars: int,
+        windows_per_section: int,
         sections_per_call: int,
     ) -> None:
         self._engine = engine
@@ -170,6 +228,7 @@ class Triage:
         self._caller = caller
         self._runs = runs
         self._excerpt_chars = excerpt_chars
+        self._windows_per_section = windows_per_section
         self._per_call = sections_per_call
         self._queue = JobQueue(engine, actor=actor)
 
@@ -257,9 +316,10 @@ class Triage:
     # --- the role ------------------------------------------------------------------------------
 
     def _ask_role(self, version: SourceVersionInfo, undecided: list[_Pending]) -> int:
-        """Ask the role about the undecided sections, batch by batch, inserting each decision
-        it returns. Raises `TriageIncomplete` if any section is left undecided, and `Requeue`
-        if the run's token budget ran out with nothing left undecided so far (see the module)."""
+        """Ask the role about the undecided sections, window by window and batch by batch,
+        inserting a section's decision once every window of it is answered. Raises
+        `TriageIncomplete` if any section is left undecided, and `Requeue` if the run's token
+        budget ran out with nothing left undecided so far (see the module)."""
         if self._caller is None or self._runs is None:
             raise RoleCallFailed(
                 "retention triage needs LiteLLM and Hindsight configured"
@@ -268,36 +328,44 @@ class Triage:
             )
         run_id = self._runs.start(RUN_KIND).id
         by_role = 0
-        left: list[str] = []
+        windows = [
+            window
+            for each in undecided
+            for window in _windows(each, self._excerpt_chars, self._windows_per_section)
+        ]
+        answers: dict[str, tuple[TriageSectionDecision, uuid.UUID]] = {}
+        unanswered: dict[str, str] = {}  # window anchor -> why
+        decided: set[str] = set()  # section anchors inserted
         exhausted: TokenBudgetExhausted | None = None
         try:
-            for batch in _batches(undecided, self._per_call):
-                answers, role_call_id, why = self._call(version, batch, run_id)
+            for batch in _batches(windows, self._per_call):
+                got, role_call_id, why = self._call(version, batch, run_id)
+                for window in batch:
+                    answer = got.get(window.anchor)
+                    if answer is None or role_call_id is None:
+                        unanswered[window.anchor] = why
+                    else:
+                        answers[window.anchor] = (answer, role_call_id)
                 with self._engine.begin() as connection:
                     lock_decisions(connection, version.id)
-                    for each in batch:
-                        answer = answers.get(each.section.anchor)
-                        if answer is None or role_call_id is None:
-                            left.append(f"{each.section.anchor} ({why})")
+                    for each in undecided:
+                        if each.section.anchor in decided:
                             continue
-                        by_role += self._insert(
-                            connection,
-                            version,
-                            each,
-                            decision=answer.decision,
-                            category=answer.category,
-                            reason=answer.reason.strip() or "no reason given",
-                            method="role",
-                            role_call_id=role_call_id,
-                        )
+                        mine = [w for w in windows if w.pending is each]
+                        if all(w.anchor in answers for w in mine):
+                            decided.add(each.section.anchor)
+                            by_role += self._insert(
+                                connection, version, each, **_aggregate(mine, answers)
+                            )
         except TokenBudgetExhausted as error:
             exhausted = error
         finally:
             self._finish(run_id)
+        left = [f"{anchor} ({why})" for anchor, why in unanswered.items()]
         if left:
             spent = f"; then {exhausted}" if exhausted is not None else ""
             raise TriageIncomplete(
-                f"{len(left)} section(s) of Source Version {version.id} left undecided,"
+                f"{len(left)} window(s) of Source Version {version.id} left undecided,"
                 f" retried later and not retained meanwhile: {'; '.join(left)}{spent}"
             )
         if exhausted is not None:
@@ -308,31 +376,33 @@ class Triage:
         return by_role
 
     def _call(
-        self, version: SourceVersionInfo, batch: Sequence[_Pending], run_id: uuid.UUID
+        self, version: SourceVersionInfo, batch: Sequence[_Window], run_id: uuid.UUID
     ) -> tuple[dict[str, TriageSectionDecision], uuid.UUID | None, str]:
-        """The role's answers by anchor (the first for each anchor it was asked about), the
-        role call (None: quarantined), and why a section of the batch may be left undecided.
-        `TokenBudgetExhausted` propagates to `_ask_role`."""
+        """The role's answers by window anchor (the first for each anchor it was asked
+        about), the role call (None: quarantined), and why a window of the batch may be left
+        undecided. `TokenBudgetExhausted` propagates to `_ask_role`."""
         assert self._caller is not None
         request = TriageRequest(
             document=self._document(version),
             themes=self._themes(version),
             sections=[
                 TriageSection(
-                    anchor=each.section.anchor,
-                    heading=each.section.heading,
-                    length=len(each.text),
+                    anchor=window.anchor,
+                    heading=window.pending.section.heading,
+                    length=len(window.pending.text),
+                    part=window.part,
+                    parts=window.parts,
                 )
-                for each in batch
+                for window in batch
             ],
         )
         retrieved = [
             QuotedText(
-                id=each.section.anchor,
-                source=f"{version.id}#{each.section.anchor}",
-                text=each.text[: self._excerpt_chars],
+                id=window.anchor,
+                source=f"{version.id}#{window.pending.section.anchor}",
+                text=window.text,
             )
-            for each in batch
+            for window in batch
         ]
         try:
             output, role_call_id = self._caller.call_recorded(
@@ -340,7 +410,7 @@ class Triage:
             )
         except RoleOutputQuarantined as quarantined:
             return {}, None, f"role call {quarantined.role_call_id} quarantined"
-        asked = {each.section.anchor for each in batch}
+        asked = {window.anchor for window in batch}
         answers: dict[str, TriageSectionDecision] = {}
         for answer in output.decisions:
             if answer.anchor in asked:

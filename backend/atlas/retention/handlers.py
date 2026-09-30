@@ -58,6 +58,7 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
                     caller,
                     runs,
                     excerpt_chars=settings.triage_excerpt_chars,
+                    windows_per_section=settings.triage_windows_per_section,
                     sections_per_call=settings.triage_sections_per_call,
                 ).triage(payload.source_version_id, job.job_class)
             finally:
