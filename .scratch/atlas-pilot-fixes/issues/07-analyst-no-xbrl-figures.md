@@ -4,7 +4,13 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The cause is recorded in the ticket with the production run's evidence.
-- [ ] An integration test at the investigation seam: with the Lumentum EDGAR fixtures' companyfacts, the Analyst's request carries the as-of figures and its proposal marks them `sourced`.
+- [x] The cause is recorded in the ticket with the production run's evidence.
+- [x] An integration test at the investigation seam: with the Lumentum EDGAR fixtures' companyfacts, the Analyst's request carries the as-of figures and its proposal marks them `sourced`.
+
+**Cause (recorded 2026-09-30):**
+- **Production's evidence** (above, from the 0.2.3 re-run, investigation `4620f8c2-709c-465a-b0ca-ee0486f3e1b2`, Analyst role call `2150b97c-19db-4868-b9b4-860e3616da0a`): the request carried `figures: []` for both companies; `financial-observations` is empty; `atlas_financial_normalizations_total` is 0 for both outcomes; both companies have an `xbrl_companyfacts` Source Document recorded before normalization existed (Lumentum's `931c7ac1-de20-4518-b020-2215fd3458a2`). So nothing was ever normalized, and the Analyst had nothing to send.
+- **The Analyst's context is not at fault.** `scenarios/analyst.py` selects as of the investigation's `as_of`, sends metrics under the names the prompt's inputs map to, and drops nothing by currency, unit or period before sending. With observations present (test below) it sends Lumentum's FY2026 revenue, cash, total debt and diluted shares, and all four come back `sourced`. Operating margin is not an XBRL-sourceable input (a ratio; `xbrl_allowed: false`): the Analyst estimates it with a basis.
+- **What the code did:** only the companyfacts version the current run's fetch returned was normalized, and `updates()` listed companyfacts only with a new filing. The `ingest` job itself uses `discover`, which always lists companyfacts and would normalize an unnormalized version re-fetched as `unchanged`/`not_modified`; so, on the deployed code, zero normalizations also means no SEC ingest of Lumentum or Coherent completed its companyfacts fetch after 0.2.0 (a failed companyfacts request skips normalization). That last point can't be checked from the repository; the job history in production would show it.
+- **Fixed:** every ingest normalizes the company's latest pending companyfacts version whether or not it fetched it; `updates()` always lists companyfacts; `atlas financials normalize [--company]` is the backfill (runbook "XBRL normalization backfill"; decision "Companyfacts normalized whenever pending"). **The owner runs the backfill in production** after deploying.

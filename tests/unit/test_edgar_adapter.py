@@ -178,7 +178,13 @@ async def test_updates_lists_only_filings_accepted_after_the_cursor() -> None:
     since_july = await source.updates(datetime(2026, 7, 1, tzinfo=UTC))
     assert [c.url for c in since_july] == [URL_10K, URL_8K, URL_EX991, URL_FACTS]
 
-    assert await source.updates(datetime(2026, 9, 1, tzinfo=UTC)) == []
+
+async def test_updates_list_companyfacts_even_without_a_new_filing() -> None:
+    # SEC revises companyfacts without a new filing, and a companyfacts version recorded
+    # before normalization existed must be reachable by later runs (pilot-fixes ticket 07).
+    candidates = await adapter().updates(datetime(2026, 9, 1, tzinfo=UTC))
+
+    assert [(c.url, c.kind) for c in candidates] == [(URL_FACTS, "sec_companyfacts")]
 
 
 async def test_discovery_can_be_narrowed_by_form_and_limit() -> None:

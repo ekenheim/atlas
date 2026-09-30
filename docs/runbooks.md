@@ -355,6 +355,19 @@ It prints `{"assigned": [<source version ids>], "families_created": N}`, oldest 
 
 The holiday table ends on 2027-12-31. When SEC publishes its next EDGAR Calendar (<https://www.sec.gov/submit-filings/filer-support-resources/edgar-calendar>), add that year and any announced closures, and move `EDGAR_CALENDAR_RANGE`. Past the end, ingest of a new filing fails with `EdgarCalendarRangeError`.
 
+## XBRL normalization backfill (pilot-fixes ticket 07)
+
+Companyfacts Source Versions recorded before XBRL normalization existed (0.1.x) have no financial observations, so `GET /api/v1/companies/{id}/financials` is empty and the Financial Analyst is sent `figures: []`. Check first: `atlas_financial_normalizations_total` is 0 for both outcomes, or `GET /api/v1/companies/{id}/financial-observations` is empty for an SEC company with a `xbrl_companyfacts` Source Document. Then run once, with the app's settings (the worker's environment: `ATLAS_SEC_LIVE=true` and `ATLAS_SEC_USER_AGENT`, since each company's submissions index is fetched from SEC to map every fact to its filing's acceptance time):
+
+```
+atlas financials normalize            # every company
+atlas financials normalize --company lumentum
+```
+
+For each company with a companyfacts document it normalizes the latest version unless the current normalizer (`xbrl-normalizer-v1`) already did, and prints `{"companies": [{"company", "source_version_id", "status", "detail"}]}`, by slug. `status` is `succeeded` (`detail` has `facts_read`, `observations_created` and the `financial_normalization` ID), `already_normalized`, `failed` (recorded in `financial_normalization_failure`, audited, counted in `atlas_financial_normalizations_total{outcome="failed"}`; `detail` has the error) or `submissions_unavailable` (the submissions request failed; nothing was attempted or recorded). One company's failure doesn't stop the others; the exit code is 1 if any company is `failed` or `submissions_unavailable`, 2 for an unknown `--company`. It is idempotent: a second run reports `already_normalized` and changes nothing, and retries only what failed.
+
+Afterwards, `GET /api/v1/companies/{id}/financials?as_of=` returns figures, and the next investigation's Financial Analyst is sent them. Ingests normalize a pending version themselves from now on, whether or not they fetch companyfacts again, so this is a one-off per normalizer version.
+
 ## Universe rollout and quota budgets (ticket 27)
 
 The owner's ChatGPT/Codex subscription (spent by the shared Hindsight's retain, consolidation and mental models) and MiniMax subscription (spent by Atlas's roles through LiteLLM) each renew in rolling 5-hour windows. The queue rations both (`atlas.jobs.budget`; rules in `docs/decisions.md`, "Quota-window pacing"), so the ten companies not yet ingested come in **one company per window**, never in one bootstrap like the 2026-09 incident (1,397 operations, ~1.27M Codex tokens in minutes).

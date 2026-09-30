@@ -8,7 +8,10 @@ EX-99.1) and the research note's worked examples, never recomputed the way the c
 
 import json
 import re
+import shutil
+import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -17,9 +20,13 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from atlas.archive import open_archive
+from atlas.audit import Actor
 from atlas.jobs import JobQueue
 from atlas.ledger.ingest import ingest_payload
+from atlas.ledger.service import SourceLedger
 from atlas.settings import Settings
+from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 from tests.harness import EDGAR_FIXTURES, REPO, Atlas, scrape_metrics
 
 THEMES = REPO / "tests" / "fixtures" / "financials" / "themes.yaml"
@@ -428,3 +435,149 @@ def test_a_failed_normalization_is_recorded_and_the_ingest_succeeds(
     assert by_outcome == {"succeeded": 0, "failed": 2}
     verify = trimmed.cli("audit", "verify")
     assert verify.returncode == 0, verify.stderr
+
+
+# --- companyfacts recorded before normalization existed (pilot-fixes ticket 07) -----------------
+
+COHR_FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json"
+LITE_FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK0001633978.json"
+# A companyfacts document whose normalization fails (a fact without `val`).
+DRIFTED_FACTS = next((FINANCIALS_EDGAR / "schema-drift").rglob("companyfacts/*.json"))
+
+
+def record_before_normalization(atlas: FinancialsAtlas, slug: str, url: str, raw: bytes) -> str:
+    """A companyfacts Source Version as ingests recorded it before normalization existed
+    (production's Lumentum and Coherent): in the ledger, never normalized."""
+    seeded = atlas.cli("companies", "seed")
+    assert seeded.returncode == 0, seeded.stderr
+    now = datetime(2026, 9, 20, tzinfo=UTC)
+    candidate = SourceCandidate(
+        provider_id="sec_edgar",
+        kind="sec_companyfacts",
+        url=url,
+        title=f"XBRL companyfacts for {slug}",
+        discovered_at=now,
+        available_at=now,
+        available_at_basis="observed_discovery",
+        language="en",
+    )
+    settings = atlas.settings()
+    ledger = SourceLedger(atlas.engine, open_archive(settings), Actor.from_settings(settings))
+    fetch = ledger.record(
+        FetchedDocument(
+            candidate=candidate,
+            url=url,
+            fetched_at=now,
+            not_modified=False,
+            content=raw,
+            media_type="application/json",
+            validators=HttpValidators(),
+            attempts=(),
+        ),
+        company_id=uuid.UUID(atlas.company(slug)["id"]),
+    )
+    return str(fetch.source_version_id)
+
+
+def normalizations(atlas: FinancialsAtlas) -> list[tuple[str, str]]:
+    """(source version, table) of every recorded normalization and failure."""
+    with atlas.engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT source_version_id::text, 'normalized' FROM financial_normalization"
+                " UNION ALL SELECT source_version_id::text, 'failed'"
+                " FROM financial_normalization_failure"
+            )
+        ).all()
+    return sorted((row[0], row[1]) for row in rows)
+
+
+def test_an_ingest_normalizes_a_pending_companyfacts_version_it_could_not_fetch(
+    atlas: FinancialsAtlas, tmp_path: Path
+) -> None:
+    pending = record_before_normalization(
+        atlas, "lumentum", LITE_FACTS_URL, LITE_FACTS.read_bytes()
+    )
+    # This run's companyfacts request fails (SEC answers 404); the filings are fetched.
+    atlas.fixtures = tmp_path / "edgar"
+    shutil.copytree(EDGAR_FIXTURES, atlas.fixtures)
+    manifest_path = atlas.fixtures / "lumentum" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["responses"] = [e for e in manifest["responses"] if e["url"] != LITE_FACTS_URL]
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+
+    enqueued = JobQueue(atlas.engine).enqueue(
+        "ingest", "lumentum", ingest_payload("lumentum", None, None), max_attempts=1
+    )
+    atlas.worker_pass()
+
+    job = atlas.get(f"/api/v1/jobs/{enqueued.job.id}")
+    assert job["status"] == "failed"  # one document not fetched: the gap stays visible
+    assert LITE_FACTS_URL in job["failures"][-1]["error"]
+    assert normalizations(atlas) == [(pending, "normalized")]
+    fy = atlas.figure("lumentum", "revenue", "2025-06-29", "2026-06-27")
+    assert fy is not None and Decimal(fy["value"]) == Decimal("3014000000")
+    assert {s["source_version_id"] for s in fy["sources"]} == {pending}
+
+
+def test_atlas_financials_normalize_backfills_pending_companyfacts_per_company(
+    atlas: FinancialsAtlas,
+) -> None:
+    lumentum = record_before_normalization(
+        atlas, "lumentum", LITE_FACTS_URL, LITE_FACTS.read_bytes()
+    )
+    coherent = record_before_normalization(
+        atlas, "coherent", COHR_FACTS_URL, DRIFTED_FACTS.read_bytes()
+    )
+    assert atlas.figures("lumentum") == []  # production's state: no observation at all
+
+    first = atlas.cli("financials", "normalize")
+
+    assert first.returncode == 1, first.stderr  # one company's normalization failed
+    done = {each["company"]: each for each in json.loads(first.stdout)["companies"]}
+    assert set(done) == {"coherent", "lumentum"}
+    assert (done["lumentum"]["status"], done["lumentum"]["source_version_id"]) == (
+        "succeeded",
+        lumentum,
+    )
+    assert done["lumentum"]["detail"]["observations_created"] > 0
+    assert (done["coherent"]["status"], done["coherent"]["source_version_id"]) == (
+        "failed",
+        coherent,
+    )
+    assert "val" in done["coherent"]["detail"]["error"]
+    fy = atlas.figure("lumentum", "revenue", "2025-06-29", "2026-06-27")
+    assert fy is not None and Decimal(fy["value"]) == Decimal("3014000000")
+
+    # Idempotent: done is done; only the failed one is tried again (and recorded again).
+    again = atlas.cli("financials", "normalize", "--company", "lumentum")
+    assert again.returncode == 0, again.stderr
+    assert json.loads(again.stdout)["companies"] == [
+        {
+            "company": "lumentum",
+            "source_version_id": lumentum,
+            "status": "already_normalized",
+            "detail": {},
+        }
+    ]
+    assert normalizations(atlas) == sorted([(lumentum, "normalized"), (coherent, "failed")])
+    unknown = atlas.cli("financials", "normalize", "--company", "no-such-company")
+    assert unknown.returncode == 2
+    assert "no-such-company" in unknown.stderr
+    with atlas.engine.connect() as connection:
+        actions = connection.execute(
+            text(
+                "SELECT action FROM audit_event WHERE action LIKE 'financial_normalization.%'"
+                " ORDER BY id"
+            )
+        ).scalars()
+        assert sorted(actions) == [
+            "financial_normalization.created",
+            "financial_normalization.failed",
+        ]
+    verify = atlas.cli("audit", "verify")
+    assert verify.returncode == 0, verify.stderr
+
+    # A later ingest finds nothing pending for Lumentum: its companyfacts is unchanged.
+    job = atlas.ingest_job("lumentum")
+    assert "financial_normalization" not in job["artifacts"]

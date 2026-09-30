@@ -12,9 +12,11 @@ material makes no new Source Version. When Hindsight is configured, each new par
 Version gets a `retain` job (`atlas.retention`); with a retain cap (`max_retains`), the
 company's newest not-yet-retained versions up to the cap instead. A first backfill ingest
 of a company records its ingest plan (`atlas.ledger.plans`) before fetching anything. The
-company's companyfacts Source Version is then normalized into as-of financial observations
-(`atlas.financials`) unless it already was, with each
-fact's availability taken from its filing in the submissions index. A normalization that
+company's latest companyfacts Source Version is then normalized into as-of financial
+observations (`atlas.financials`) unless the current normalizer already did, whether or not
+this run fetched it, with each fact's availability taken from its filing in the submissions
+index. `normalize_pending` (`atlas financials normalize`) does the same for every company
+without an ingest, for versions recorded before normalization existed. A normalization that
 fails is recorded (`financial_normalization_failure`, audited, metric
 `atlas_financial_normalizations_total{outcome="failed"}`) and named in the job's artifacts;
 the ingest still succeeds and the next ingest tries the version again.
@@ -36,10 +38,10 @@ import math
 import uuid
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 from sqlalchemy.exc import InterfaceError, OperationalError
 
 from atlas.archive import Archive, open_archive
@@ -53,9 +55,10 @@ from atlas.companies import (
 )
 from atlas.db import create_engine
 from atlas.financials import (
+    LatestCompanyfacts,
     NormalizationFailure,
     NormalizationSummary,
-    is_normalized,
+    latest_companyfacts,
     normalize_source_version,
     record_normalization_failure,
 )
@@ -214,7 +217,7 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
                 job.id,
                 eight_k_items=settings.eight_k_items(),
                 exhibits_only_items=settings.eight_k_exhibits_only_items(),
-                is_normalized=lambda version_id: _is_normalized(engine, version_id),
+                pending_companyfacts=lambda: _pending_companyfacts(engine, seeded.company_id),
                 on_discovered=plan,
             )
         )
@@ -265,7 +268,7 @@ def _normalize(
     engine: Engine,
     archive: Archive,
     actor: Actor,
-    job_id: uuid.UUID,
+    job_id: uuid.UUID | None,
     company_id: uuid.UUID,
     source_version_id: uuid.UUID,
     filings: list[SecFiling],
@@ -327,7 +330,7 @@ async def _fetch_all(
     *,
     eight_k_items: tuple[str, ...] | None = None,
     exhibits_only_items: tuple[str, ...] = (),
-    is_normalized: Callable[[uuid.UUID], bool] = lambda _: False,
+    pending_companyfacts: Callable[[], uuid.UUID | None] = lambda: None,
     on_discovered: Callable[[list[SourceCandidate]], None] = lambda _: None,
 ) -> tuple[
     list[RecordedFetch],
@@ -335,7 +338,10 @@ async def _fetch_all(
     tuple[uuid.UUID, list[SecFiling]] | None,
 ]:
     """(recorded fetches, failed URLs, the companyfacts version to normalize with the filer's
-    filings), the last None when companyfacts wasn't recorded or is already normalized."""
+    filings), the last None when the company's latest companyfacts version is normalized (or
+    none is recorded). That version is normalized whether or not this run fetched it: one
+    recorded before normalization existed, or whose fetch failed now, is pending all the same
+    (pilot-fixes ticket 07)."""
     recorded: list[RecordedFetch] = []
     errors: list[tuple[str, str]] = []
     companyfacts: tuple[uuid.UUID, list[SecFiling]] | None = None
@@ -357,17 +363,93 @@ async def _fetch_all(
             except FetchError as error:
                 errors.append((candidate.url, str(error)))
                 continue
-            fetch = ledger.record(fetched, company_id=company_id, job_id=job_id)
-            recorded.append(fetch)
-            if candidate.kind == "sec_companyfacts" and not is_normalized(fetch.source_version_id):
-                # The submissions index again (conditionally): each fact's filing's times.
-                companyfacts = (fetch.source_version_id, await adapter.filings(cik))
+            recorded.append(ledger.record(fetched, company_id=company_id, job_id=job_id))
+        pending = pending_companyfacts()
+        if pending is not None:
+            # The submissions index again (conditionally): each fact's filing's times.
+            companyfacts = (pending, await adapter.filings(cik))
     return recorded, errors, companyfacts
 
 
-def _is_normalized(engine: Engine, source_version_id: uuid.UUID) -> bool:
+def _pending_companyfacts(engine: Engine, company_id: uuid.UUID) -> uuid.UUID | None:
+    """The company's latest companyfacts version, if the current normalizer hasn't done it."""
     with engine.connect() as connection:
-        return is_normalized(connection, source_version_id)
+        found = latest_companyfacts(connection, company_id)
+    return next((each.source_version_id for each in found if not each.normalized), None)
+
+
+class CompanyfactsNormalization(BaseModel):
+    """What `atlas financials normalize` did for one company: its latest companyfacts
+    version was `already_normalized`, normalized (`succeeded`), its normalization `failed`
+    (recorded), or its filer's submissions index was `submissions_unavailable` (nothing was
+    attempted, nothing recorded)."""
+
+    company: str
+    source_version_id: str
+    status: Literal["already_normalized", "succeeded", "failed", "submissions_unavailable"]
+    detail: dict[str, JsonValue] = Field(default_factory=dict[str, JsonValue])
+
+
+def normalize_pending(
+    settings: Settings, company: str | None = None
+) -> list[CompanyfactsNormalization]:
+    """Normalize every company's (or only `company`'s) latest companyfacts Source Version
+    that the current normalizer hasn't: the backfill for versions recorded before
+    normalization existed. Idempotent and audited like the ingest's normalization; a failure
+    is recorded the same way and the other companies still run (docs/runbooks.md)."""
+    actor = Actor.from_settings(settings)
+    engine = create_engine(settings)
+    try:
+        with engine.connect() as connection:
+            company_id: uuid.UUID | None = None
+            if company is not None:
+                company_id = connection.execute(
+                    text("SELECT id FROM company WHERE slug = :slug"), {"slug": company}
+                ).scalar_one_or_none()
+                if company_id is None:
+                    raise ValueError(f"company {company!r} is not in the database")
+            found = latest_companyfacts(connection, company_id)
+        archive = open_archive(settings)
+        return [_normalize_one(settings, engine, archive, actor, each) for each in found]
+    finally:
+        engine.dispose()
+
+
+def _normalize_one(
+    settings: Settings, engine: Engine, archive: Archive, actor: Actor, latest: LatestCompanyfacts
+) -> CompanyfactsNormalization:
+    version = str(latest.source_version_id)
+    if latest.normalized:
+        return CompanyfactsNormalization(
+            company=latest.slug, source_version_id=version, status="already_normalized"
+        )
+    try:
+        if latest.cik is None:
+            raise ValueError(f"company {latest.slug!r} has no CIK")
+        filings = asyncio.run(_submissions(_sec_client(settings, latest.slug), latest.cik))
+    except (OperationalError, InterfaceError):
+        raise
+    except Exception as error:
+        logger.warning("no submissions index for %s: %s", latest.slug, error)
+        return CompanyfactsNormalization(
+            company=latest.slug,
+            source_version_id=version,
+            status="submissions_unavailable",
+            detail={"error_class": type(error).__name__, "error": str(error)[:500]},
+        )
+    outcome = _normalize(
+        engine, archive, actor, None, latest.company_id, latest.source_version_id, filings
+    )
+    artifact = _normalization_artifact(outcome)
+    status = "failed" if isinstance(outcome, NormalizationFailure) else "succeeded"
+    return CompanyfactsNormalization(
+        company=latest.slug, source_version_id=version, status=status, detail=artifact
+    )
+
+
+async def _submissions(client: SecHttpClient, cik: str) -> list[SecFiling]:
+    async with client:
+        return await EdgarAdapter(client, ciks=[cik]).filings(cik)
 
 
 def _normalization_artifact(

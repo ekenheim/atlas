@@ -222,6 +222,43 @@ def is_normalized(connection: Connection, source_version_id: uuid.UUID) -> bool:
     return _normalization(connection, source_version_id) is not None
 
 
+@dataclass(frozen=True)
+class LatestCompanyfacts:
+    """A company's latest companyfacts Source Version and whether the current normalizer
+    version has normalized it."""
+
+    company_id: uuid.UUID
+    slug: str
+    cik: str | None
+    source_version_id: uuid.UUID
+    normalized: bool
+
+
+def latest_companyfacts(
+    connection: Connection, company_id: uuid.UUID | None = None
+) -> list[LatestCompanyfacts]:
+    """Each company's (or only `company_id`'s) latest recorded companyfacts Source Version,
+    by slug. It is what an ingest or `atlas financials normalize` normalizes when pending,
+    whether or not the run that normalizes it fetched it (pilot-fixes ticket 07)."""
+    rows = connection.execute(
+        text(
+            "SELECT DISTINCT ON (d.company_id) d.company_id, c.slug, c.cik,"
+            " v.id AS source_version_id, EXISTS (SELECT 1 FROM financial_normalization n"
+            " WHERE n.source_version_id = v.id AND n.normalizer_version = :normalizer)"
+            " AS normalized"
+            " FROM source_version v"
+            " JOIN source_document d ON d.id = v.source_document_id"
+            " JOIN company c ON c.id = d.company_id"
+            " WHERE d.source_type = 'xbrl_companyfacts'"
+            " AND (CAST(:company AS uuid) IS NULL OR d.company_id = CAST(:company AS uuid))"
+            " ORDER BY d.company_id, v.ingested_at DESC, v.version_number DESC"
+        ),
+        {"normalizer": NORMALIZER_VERSION, "company": company_id},
+    ).mappings()
+    found = [LatestCompanyfacts(**row) for row in rows]
+    return sorted(found, key=lambda each: each.slug)
+
+
 def _normalization(
     connection: Connection, source_version_id: uuid.UUID
 ) -> NormalizationSummary | None:
