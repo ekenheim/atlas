@@ -1,0 +1,148 @@
+{
+  "query": "Coherent EML laser chip capacity 200G per lane 800G transceiver",
+  "number_of_results": 0,
+  "results": [
+    {
+      "url": "https://www.merriam-webster.com/dictionary/coherent",
+      "title": "Coherent Definition & Meaning - Merriam-Webster",
+      "content": "The meaning of COHERENT is logically or aesthetically ordered or integrated: consistent. How to use coherent in a sentence.",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing",
+        "brave"
+      ],
+      "positions": [
+        1
+      ],
+      "score": 1.0,
+      "category": "general"
+    },
+    {
+      "url": "https://dictionary.cambridge.org/dictionary/english/coherent",
+      "title": "COHERENT | English meaning - Cambridge Dictionary",
+      "content": "coherent definition: 1. If an argument, set of ideas, or a plan is coherent, it is clear and carefully considered.",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing"
+      ],
+      "positions": [
+        2
+      ],
+      "score": 0.5,
+      "category": "general"
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/Coherent_Corp.",
+      "title": "Coherent Corp. - Wikipedia",
+      "content": "Coherent Corp. is an American manufacturer of optical materials and semiconductors, headquartered in Saxonburg, Pennsylvania.",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing",
+        "brave"
+      ],
+      "positions": [
+        3
+      ],
+      "score": 0.333,
+      "category": "general"
+    },
+    {
+      "url": "https://www.avanza.se/aktier/om-aktien.html/1234/coherent-corp",
+      "title": "Coherent Corp (COHR) - Aktiekurs & information - Avanza",
+      "content": "Se Coherent Corp aktiekurs, köp och sälj aktier, läs nyheter och följ utvecklingen för bolaget på börsen.",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing"
+      ],
+      "positions": [
+        4
+      ],
+      "score": 0.25,
+      "category": "general"
+    },
+    {
+      "url": "https://sv.bab.la/lexikon/engelsk-svensk/coherent",
+      "title": "COHERENT - Översättning på svenska - bab.la",
+      "content": "Översättning av 'coherent' - Engelsk-Svensk ordbok och många andra svenska översättningar.",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing",
+        "brave"
+      ],
+      "positions": [
+        5
+      ],
+      "score": 0.2,
+      "category": "general"
+    },
+    {
+      "url": "https://optics-trade.test/articles/eml-capacity-race",
+      "title": "Lumentum and Coherent race to add EML laser capacity",
+      "content": "Both laser makers are adding indium phosphide capacity as 800G transceiver demand outstrips supply.",
+      "publishedDate": "2026-09-02",
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing"
+      ],
+      "positions": [
+        6
+      ],
+      "score": 0.167,
+      "category": "general"
+    },
+    {
+      "url": "https://photonics-news.test/2026/09/coherent-200g-eml-capacity",
+      "title": "Coherent adds 200G-per-lane EML laser capacity for 800G transceivers",
+      "content": "Coherent said it is expanding indium phosphide EML chip output in Sherman, Texas, as demand for 800G and 1.6T transceivers outstrips supply.",
+      "publishedDate": "2026-09-15T08:00:00",
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing",
+        "brave"
+      ],
+      "positions": [
+        7
+      ],
+      "score": 0.143,
+      "category": "general"
+    }
+  ],
+  "answers": [],
+  "corrections": [],
+  "infoboxes": [],
+  "suggestions": [],
+  "unresponsive_engines": []
+}

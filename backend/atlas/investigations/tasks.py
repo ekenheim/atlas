@@ -8,8 +8,11 @@ One attempt:
    (`task_started`, or `task_resumed` after a pause). The investigation's run (kind
    `investigation`) is started by the first task that needs it.
 2. **The role**, within the investigation's run and token budget:
-   - **Scout:** a discovery (atlas.discovery) in the run; the leads its queries returned, in
-     the order found, are taken up to the lead budget (the rest counted as dropped).
+   - **Scout:** a discovery (atlas.discovery) in the run; the leads its queries returned are
+     ranked for relevance to their query and its purpose (atlas.discovery.ranking), and the
+     top-ranked ones kept up to the lead budget, each with its score and reasons (the rest
+     counted as dropped; those ranking says not to keep, from a denied host or below the
+     minimum score, counted as rejected).
    - **Investigator** (one per seed company): the company's latest parsed Source Versions
      available at the investigation's as-of time, newest first, up to its share of what is
      left of the document budget (an equal share is held back for each of the round's other
@@ -60,7 +63,8 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 from atlas.archive import open_archive
 from atlas.claims.extraction import ExtractClaimsPayload
 from atlas.claims.handlers import claim_extractor
-from atlas.companies import load_universe
+from atlas.companies import Universe, load_universe
+from atlas.discovery.ranking import RankingConfig, Sighting, load_ranking_config, rank_leads
 from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
@@ -376,7 +380,9 @@ class TaskRunner:
         self, job: Job, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
     ) -> _Outcome:
         theme_id: str = investigation["theme"]
-        theme = load_universe(self._settings.themes_config).themes.get(theme_id)
+        universe = load_universe(self._settings.themes_config)
+        ranking = load_ranking_config(self._settings.lead_ranking_config)
+        theme = universe.themes.get(theme_id)
         if theme is None:
             raise UnknownInvestigationTheme(f"no theme {theme_id!r} in the universe config")
         searxng = SearXNGClient.from_settings(self._settings)
@@ -401,8 +407,13 @@ class TaskRunner:
         discovery_id = uuid.UUID(str(found["discovery_id"]))
         with self._engine.begin() as connection:
             lock(connection, investigation["id"])
-            taken, dropped, total = _take_leads(
-                connection, investigation["id"], discovery_id, investigation["max_leads"]
+            taken, dropped, rejected, total = _take_leads(
+                connection,
+                investigation["id"],
+                discovery_id,
+                investigation["max_leads"],
+                companies=_company_names(universe),
+                ranking=ranking,
             )
             if dropped:
                 event(
@@ -422,6 +433,8 @@ class TaskRunner:
                 "leads_found": total,
                 "leads_taken": taken,
                 "leads_dropped": dropped,
+                "leads_rejected": rejected,
+                "ranking_version": ranking.version,
             },
         )
 
@@ -864,42 +877,76 @@ def _set_status(
     )
 
 
+def _company_names(universe: Universe) -> list[str]:
+    """The universe's company names, display and legal, that ranking looks for in a lead."""
+    return sorted(
+        {
+            name
+            for each in universe.companies.values()
+            for name in (each.display_name, each.legal_name)
+        }
+    )
+
+
 def _take_leads(
-    connection: Connection, investigation_id: uuid.UUID, discovery_id: uuid.UUID, max_leads: int
-) -> tuple[int, int, int]:
-    """Keep the discovery's leads, in the order found, up to the budget; (taken, dropped,
-    found)."""
-    found = list(
-        connection.execute(
+    connection: Connection,
+    investigation_id: uuid.UUID,
+    discovery_id: uuid.UUID,
+    max_leads: int,
+    *,
+    companies: Sequence[str],
+    ranking: RankingConfig,
+) -> tuple[int, int, int, int]:
+    """Keep the discovery's top-ranked leads up to the budget, each with its score and
+    reasons; (taken, dropped over the budget, rejected by ranking, found)."""
+    sightings = [
+        Sighting(
+            lead_id=row.lead_id,
+            url=row.url,
+            title=row.title,
+            snippet=row.snippet,
+            query=row.query,
+            purpose=row.purpose,
+        )
+        for row in connection.execute(
             text(
-                "SELECT lead_id FROM (SELECT DISTINCT ON (s.lead_id) s.lead_id,"
-                " q.position AS query_position, s.position AS result_position"
+                "SELECT s.lead_id, s.url, s.title, s.snippet, q.query, q.purpose"
                 " FROM lead_sighting s JOIN discovery_query q ON q.id = s.discovery_query_id"
-                " WHERE q.discovery_id = :discovery"
-                " ORDER BY s.lead_id, q.position, s.position) first"
-                " ORDER BY query_position, result_position, lead_id"
+                " WHERE q.discovery_id = :discovery ORDER BY q.position, s.position, s.lead_id"
             ),
             {"discovery": discovery_id},
-        ).scalars()
-    )
+        )
+    ]
+    ranked = rank_leads(sightings, companies=companies, config=ranking)
     held = set(
         connection.execute(
             text("SELECT lead_id FROM investigation_lead WHERE investigation_id = :id"),
             {"id": investigation_id},
         ).scalars()
     )
-    fresh = [lead for lead in found if lead not in held]
+    fresh = [lead for lead in ranked if lead.lead_id not in held]
+    kept = [lead for lead in fresh if lead.score.kept]
     room = max(max_leads - len(held), 0)
-    for rank, lead_id in enumerate(fresh[:room], start=len(held) + 1):
+    for rank, lead in enumerate(kept[:room], start=len(held) + 1):
         connection.execute(
             text(
-                "INSERT INTO investigation_lead (investigation_id, lead_id, rank, discovery_id)"
-                " VALUES (:id, :lead, :rank, :discovery)"
+                "INSERT INTO investigation_lead (investigation_id, lead_id, rank, discovery_id,"
+                " score, reasons, query, ranking_version) VALUES (:id, :lead, :rank,"
+                " :discovery, :score, CAST(:reasons AS jsonb), :query, :version)"
             ),
-            {"id": investigation_id, "lead": lead_id, "rank": rank, "discovery": discovery_id},
+            {
+                "id": investigation_id,
+                "lead": lead.lead_id,
+                "rank": rank,
+                "discovery": discovery_id,
+                "score": lead.score.score,
+                "reasons": json.dumps(lead.score.reasons),
+                "query": lead.query,
+                "version": ranking.version,
+            },
         )
-    taken = min(len(fresh), room)
-    return taken, len(fresh) - taken, len(found)
+    taken = min(len(kept), room)
+    return taken, len(kept) - taken, len(fresh) - len(kept), len(ranked)
 
 
 def accepted_claims(

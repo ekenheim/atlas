@@ -187,9 +187,10 @@ def test_the_scout_turns_the_question_and_the_bottleneck_gaps_into_queries(
         (2, SECOND_SOURCE, "InP lasers: second sources"),
         (3, NOTHING, "EML lasers: pricing power"),
     ]
-    # Each query searched once, engines named explicitly, JSON asked for.
+    # Each query searched once, engines and language named explicitly, JSON asked for.
     assert atlas.searxng.searches() == [
-        {"q": query["query"], "format": "json", "engines": "bing,brave"} for query in QUERIES
+        {"q": query["query"], "format": "json", "engines": "bing,brave", "language": "en"}
+        for query in QUERIES
     ]
     assert discovery["engines"] == ["bing", "brave"]
     # The Scout's call is a role call of the discovery's run, with its tokens.

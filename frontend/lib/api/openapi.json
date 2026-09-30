@@ -13086,6 +13086,46 @@
             "type": "string",
             "const": "C",
             "title": "Tier"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "ranking_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ranking Version"
           }
         },
         "type": "object",
@@ -13097,7 +13137,11 @@
           "canonical_url",
           "title",
           "snippet",
-          "tier"
+          "tier",
+          "score",
+          "reasons",
+          "query",
+          "ranking_version"
         ],
         "title": "InvestigationLead",
         "description": "A Tier C lead the Scout found and the investigation kept (never Evidence)."

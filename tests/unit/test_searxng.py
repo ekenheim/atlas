@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from atlas.discovery import SearchFailed, SearXNGClient, canonical_url
 from tests.fakes.searxng import FakeSearXNG, SearchReply
@@ -25,14 +26,31 @@ def client(fake: FakeSearXNG, **values: object) -> SearXNGClient:
     return searxng
 
 
-def test_a_search_names_its_engines_and_asks_for_json() -> None:
+def test_a_search_names_its_engines_and_language_and_asks_for_json() -> None:
     fake = FakeSearXNG().script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
 
     client(fake).search(SUBSTRATE)
 
     [call] = fake.calls
     assert (call.method, call.url.host, call.url.path) == ("GET", "searxng.test", "/search")
-    assert fake.searches() == [{"q": SUBSTRATE, "format": "json", "engines": "bing,brave"}]
+    # English by default: without a language SearXNG answers in the instance's locale.
+    assert fake.searches() == [
+        {"q": SUBSTRATE, "format": "json", "engines": "bing,brave", "language": "en"}
+    ]
+
+
+def test_the_language_is_config() -> None:
+    fake = FakeSearXNG().script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+
+    client(fake, searxng_language="en-US").search(SUBSTRATE)
+
+    assert fake.searches()[0]["language"] == "en-US"
+
+
+@pytest.mark.parametrize("language", ["", "english", "EN", "en_US"])
+def test_the_language_must_be_a_language_code(language: str) -> None:
+    with pytest.raises(ValidationError, match="searxng_language"):
+        make_settings(Path("/tmp/unused"), searxng_language=language)
 
 
 def test_the_engines_are_config() -> None:

@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     searxng_url: str | None = None
     searxng_engines: str = Field(default="bing,brave", pattern=r"^\s*[\w-]+(\s*,\s*[\w-]+)*\s*$")
     searxng_timeout_seconds: float = Field(default=30.0, gt=0)
+    # The language every search asks for (SearXNG's `language`), so results never follow
+    # the instance's locale: an ISO 639-1 code, optionally with a region ("en", "en-US").
+    searxng_language: str = Field(default="en", pattern=r"^[a-z]{2}(-[A-Z]{2})?$")
+    # How an investigation ranks a discovery's leads (atlas.discovery.ranking).
+    lead_ranking_config: Path = Path("configs/discovery/lead-ranking.yaml")
     discovery_max_queries: int = Field(default=10, ge=1, le=10)
     # Investigations (atlas.investigations): the default per-run lead and document budgets
     # (spec §7.4: at most 10 new leads and 25 fetched documents); a request may lower them.
