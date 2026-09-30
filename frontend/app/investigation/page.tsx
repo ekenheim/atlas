@@ -739,7 +739,7 @@ function Read({ card }: { card: ResearchCard }) {
       <thead>
         <tr>
           <th scope="col">Investigator</th>
-          <th scope="col">Documents and sections</th>
+          <th scope="col">Documents, sections and passages</th>
           <th scope="col">Outcome</th>
         </tr>
       </thead>
@@ -763,6 +763,10 @@ function Read({ card }: { card: ResearchCard }) {
                       {document.sections.length > 0 && (
                         <span className="muted-small"> {document.sections.join(", ")}</span>
                       )}
+                      <span className="muted-small">
+                        {" "}
+                        ({document.passages} passage{document.passages === 1 ? "" : "s"})
+                      </span>
                     </li>
                   ))}
                 </ul>

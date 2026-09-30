@@ -8,9 +8,14 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    into windows of at most `PASSAGE_CHARS` characters, cut at line breaks. A window is chosen
    when it names a known company other than the document's own (an **entity tag**), or when
    a recall for the question (scoped to the documents' companies) resolves to its section
-   (a **recall hit**). Entity-tagged windows come first, then recall-only ones; at most
-   `max_passages` are kept and the rest counted as dropped. The choice is stored with the
-   extraction, so a resumed job sends the same passages.
+   (a **recall hit**). Within a document, entity-tagged windows come first, then recall-only
+   ones; a document with neither offers its **lead** windows instead (its results sections
+   first: a 10-Q's or 10-K's MD&A, an 8-K's Item 2.02). The `max_passages` budget is spread
+   over the documents (pilot fix 10): passages are dealt one per document per round, in the
+   documents' order, so each gets an equal share (the remainder to the earlier ones) and a
+   share a document can't use passes on. Tagged and recall-only windows not sent are counted
+   as dropped. The choice is stored with the extraction, so a resumed job sends the same
+   passages; the job's artifacts count them per document (`passages_by_document`).
 2. **Calls.** Passages go to the Investigator `passages_per_call` at a time, within the
    extraction's run (its own `claim_extraction` run, or the caller's `run_id`). Each call is
    a batch; progress is stored per batch, so a job requeued by an LLM outage or quota
@@ -57,7 +62,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive
@@ -84,7 +89,7 @@ from atlas.identity import EntityResolver
 from atlas.identity.normalize import normalize_name
 from atlas.jobs.queue import Artifacts, Job
 from atlas.research.provenance import Evidence
-from atlas.retention.sections import split_sections
+from atlas.retention.sections import Section, split_sections
 from atlas.roles import (
     QuotedText,
     RoleCaller,
@@ -117,6 +122,16 @@ _PARSED = ("parsed", "incomplete")
 
 # (question, company IDs) -> the sections a scoped recall resolved to.
 Recall = Callable[[str, list[uuid.UUID]], list[Evidence]]
+# A window considered for a passage: (Source Version, section anchor, start, end, selected_by).
+_Candidate = tuple[uuid.UUID, str, int, int, list[str]]
+# `selected_by` of a lead window (`_lead`): sent for its document's share, not for a match.
+LEAD = "lead"
+# The sections read first among a document's lead windows, by form: the results sections.
+_LEAD_FIRST: dict[str, tuple[str, ...]] = {
+    "10-Q": ("part-i-item-2",),  # Management's Discussion and Analysis
+    "10-K": ("part-ii-item-7",),  # Management's Discussion and Analysis
+    "8-K": ("item-2-02", "item-7-01", "item-8-01"),  # results; Regulation FD; other events
+}
 
 
 class ExtractClaimsPayload(BaseModel):
@@ -372,15 +387,25 @@ class ClaimExtractor:
         companies: Sequence[_Company],
         hits: set[tuple[uuid.UUID, str]],
     ) -> tuple[list[Passage], int]:
-        tagged: list[tuple[uuid.UUID, str, int, int, list[str]]] = []
-        recalled: list[tuple[uuid.UUID, str, int, int, list[str]]] = []
+        """The passages, the budget spread over the documents (pilot fix 10): each document's
+        candidates are its entity-tagged windows, then its recall-only ones, or, when it has
+        neither, its lead windows (`_lead`). Passages are dealt one per document per round, in
+        the documents' order (an investigation's are newest first), until the budget is spent
+        or no document has a candidate left: so each document gets an equal share, the
+        remainder going to the earlier ones, and a share a document can't use passes on.
+        Counted as dropped: the tagged and recall-only windows not sent."""
+        candidates: list[list[_Candidate]] = []
+        preferred_total = 0
         for version in versions:
             parsed = self._text(version)
             others = [company for company in companies if company.id != version.company_id]
             primary = (
                 version.document_type is not None and version.document_type == version.form_type
             )
-            for section in split_sections(parsed, form=version.form_type, primary=primary):
+            sections = split_sections(parsed, form=version.form_type, primary=primary)
+            tagged: list[_Candidate] = []
+            recalled: list[_Candidate] = []
+            for section in sections:
                 hit = (version.id, section.anchor) in hits
                 for start, end in _windows(parsed, section.start, section.end):
                     window = parsed[start:end]
@@ -392,7 +417,10 @@ class ClaimExtractor:
                         tagged.append((version.id, section.anchor, start, end, selected_by))
                     elif hit:
                         recalled.append((version.id, section.anchor, start, end, selected_by))
-        chosen = [*tagged, *recalled]
+            preferred = [*tagged, *recalled]
+            preferred_total += len(preferred)
+            candidates.append(preferred or _lead(version, parsed, sections))
+        chosen = _deal(candidates, self._max_passages)
         passages = [
             Passage(
                 id=f"p{index + 1}",
@@ -402,11 +430,10 @@ class ClaimExtractor:
                 char_end=end,
                 selected_by=selected_by,
             )
-            for index, (version_id, anchor, start, end, selected_by) in enumerate(
-                chosen[: self._max_passages]
-            )
+            for index, (version_id, anchor, start, end, selected_by) in enumerate(chosen)
         ]
-        return passages, len(chosen) - len(passages)
+        sent_preferred = sum(1 for passage in passages if passage.selected_by != [LEAD])
+        return passages, preferred_total - sent_preferred
 
     # --- calls ----------------------------------------------------------------------------------
 
@@ -794,6 +821,42 @@ class ClaimExtractor:
         return self._texts[version.id]
 
 
+def _lead(version: _Version, parsed: str, sections: Sequence[Section]) -> list[_Candidate]:
+    """A document's lead windows, for one with no entity-tagged or recalled window (a press
+    release naming no other known company, say): its results sections first (a 10-Q's MD&A,
+    a 10-K's MD&A, an 8-K's results or Regulation FD items), then the rest in text order;
+    the cover only when there is nothing else. Tagged `lead`."""
+    first = _LEAD_FIRST.get((version.form_type or "").upper().removesuffix("/A"), ())
+    ordered = sorted(
+        (section for section in sections if section.anchor != "cover"),
+        key=lambda section: section.anchor not in first,  # stable: text order otherwise
+    ) or list(sections)
+    return [
+        (version.id, section.anchor, start, end, [LEAD])
+        for section in ordered
+        for start, end in _windows(parsed, section.start, section.end)
+        if parsed[start:end].strip()
+    ]
+
+
+def _deal(candidates: Sequence[Sequence[_Candidate]], budget: int) -> list[_Candidate]:
+    """One candidate per document per round, in document order, until `budget` are dealt or
+    every document's candidates are: an equal share each, the remainder to the earlier
+    documents, and a share a document can't use going to the others."""
+    dealt: list[_Candidate] = []
+    taken = [0] * len(candidates)
+    while len(dealt) < budget:
+        progress = False
+        for index, each in enumerate(candidates):
+            if taken[index] < len(each) and len(dealt) < budget:
+                dealt.append(each[taken[index]])
+                taken[index] += 1
+                progress = True
+        if not progress:
+            break
+    return dealt
+
+
 def _windows(parsed: str, start: int, end: int) -> list[tuple[int, int]]:
     """[start, end) cut into windows of at most PASSAGE_CHARS, each ending at a line break
     when it has one past its first half."""
@@ -874,10 +937,20 @@ def _artifacts(extraction: ClaimExtraction) -> Artifacts:
         "run_id": str(extraction.run_id),
         "status": extraction.status,
         "passages": len(extraction.passages),
+        "passages_by_document": passages_by_document(extraction.passages),
         "accepted": extraction.accepted,
         "rejected": extraction.rejected,
         "batches_quarantined": extraction.batches_quarantined,
     }
+
+
+def passages_by_document(passages: Sequence[Passage]) -> dict[str, JsonValue]:
+    """How many of `passages` each Source Version has, in the order they first appear."""
+    counts: dict[str, int] = {}
+    for passage in passages:
+        key = str(passage.source_version_id)
+        counts[key] = counts.get(key, 0) + 1
+    return dict(counts)
 
 
 def _row(row: RowMapping) -> dict[str, Any]:

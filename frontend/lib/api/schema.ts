@@ -1944,6 +1944,11 @@ export interface components {
             title: string;
             /** Sections */
             sections: string[];
+            /**
+             * Passages
+             * @default 0
+             */
+            passages: number;
         };
         /**
          * CardFinding

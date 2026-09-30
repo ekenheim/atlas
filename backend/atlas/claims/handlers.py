@@ -29,10 +29,13 @@ def claim_extractor(
     gateway: HindsightGateway,
     caller: RoleCaller,
     runs: RunRecorder | None,
+    *,
+    max_passages: int | None = None,
 ) -> Generator[ClaimExtractor]:
     """The Investigator's extractor over the configured archive, recalling through Hindsight.
     With `ATLAS_SEC_USER_AGENT` set it resolves a company a Claim names outside the known
-    ones (a counterparty company); without it such a name is rejected as unresolved."""
+    ones (a counterparty company); without it such a name is rejected as unresolved.
+    `max_passages` is the passage budget (default `investigator_max_passages`)."""
     archive = open_archive(settings)
     research = Research(
         engine,
@@ -59,7 +62,7 @@ def claim_extractor(
             caller,
             runs,
             recall=recall,
-            max_passages=settings.investigator_max_passages,
+            max_passages=max_passages or settings.investigator_max_passages,
             passages_per_call=settings.investigator_passages_per_call,
             resolver=resolver,
             ignored_ciks=ignored_ciks,

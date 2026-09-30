@@ -17,8 +17,9 @@ One attempt:
      available at the investigation's as-of time, newest first, up to its share of what is
      left of the document budget (an equal share is held back for each of the round's other
      Investigators that hasn't chosen yet, so unused share passes on in plan order); then an
-     extraction (atlas.claims) of them in the run, with the question for recall. A resumed
-     task continues its budget-exhausted extraction.
+     extraction (atlas.claims) of them in the run, with the question for recall, within
+     `investigation_max_passages` passages spread over those documents newest first. A
+     resumed task continues its budget-exhausted extraction.
    - **Skeptic** (atlas.investigations.skeptic): skipped without an LLM call when the
      Investigators accepted no Claim (nothing to challenge); otherwise its own plan, SearXNG
      queries and reading of the Source Versions it chose, for counterevidence. Its accepted,
@@ -469,7 +470,14 @@ class TaskRunner:
         with (
             self._caller(investigation) as caller,
             # The run is the investigation's, so the extractor never starts or finishes one.
-            claim_extractor(self._settings, self._engine, self._gateway, caller, None) as extractor,
+            claim_extractor(
+                self._settings,
+                self._engine,
+                self._gateway,
+                caller,
+                None,
+                max_passages=self._settings.investigation_max_passages,
+            ) as extractor,
         ):
             extracted = extractor.extract(job, payload)
         result: dict[str, JsonValue] = {
@@ -478,6 +486,7 @@ class TaskRunner:
             "extraction_id": extracted["extraction_id"],
             "extraction_status": extracted["status"],
             "passages": extracted["passages"],
+            "passages_by_document": extracted["passages_by_document"],
             "accepted": extracted["accepted"],
             "rejected": extracted["rejected"],
         }

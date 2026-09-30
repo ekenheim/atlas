@@ -6,8 +6,9 @@ Written by code, never the Editor, so a card with no finding still says, from th
   the leads the investigation took (Tier C, never Evidence);
 - **read:** each Investigator task, the Source Versions it read with the sections of the
   passages it was sent (across a budget-exhausted extraction and its continuation) and how
-  many passages, the documents the budget left out, and the extraction's outcomes: Claims
-  proposed, accepted, and rejected by reason code; or why it read nothing.
+  many passages of each (pilot fix 10) and in all, the documents the budget left out, and
+  the extraction's outcomes: Claims proposed, accepted, and rejected by reason code; or why
+  it read nothing.
 """
 
 import uuid
@@ -89,12 +90,13 @@ def _read(connection: Connection, investigation_id: uuid.UUID) -> list[CardReadi
     for task in tasks:
         artifacts: dict[str, Any] = task.artifacts
         chain = _extractions(connection, artifacts.get("extraction_id"))
-        sections, sent = _sent(connection, chain)
+        sections, per_document, sent = _sent(connection, chain)
         documents = [
             CardDocumentRead(
                 source_version_id=row.source_version_id,
                 title=row.title,
                 sections=sections.get(row.source_version_id, []),
+                passages=per_document.get(row.source_version_id, 0),
             )
             for row in connection.execute(
                 text(
@@ -155,11 +157,14 @@ def _extractions(connection: Connection, last: Any) -> list[uuid.UUID]:
     )
 
 
-def _sent(connection: Connection, chain: list[uuid.UUID]) -> tuple[dict[uuid.UUID, list[str]], int]:
+def _sent(
+    connection: Connection, chain: list[uuid.UUID]
+) -> tuple[dict[uuid.UUID, list[str]], dict[uuid.UUID, int], int]:
     """The passages the extractions sent the Investigator (the batches done): each Source
-    Version's section anchors, in order, each once; and how many passages. (A continuation
-    holds the passages its predecessor hadn't sent.)"""
+    Version's section anchors, in order, each once, and its passage count; and how many
+    passages in all. (A continuation holds the passages its predecessor hadn't sent.)"""
     sections: dict[uuid.UUID, list[str]] = {}
+    per_document: dict[uuid.UUID, int] = {}
     count = 0
     for extraction_id in chain:
         row = connection.execute(
@@ -172,7 +177,9 @@ def _sent(connection: Connection, chain: list[uuid.UUID]) -> tuple[dict[uuid.UUI
         passages: list[dict[str, Any]] = row.passages[: row.sent]
         count += len(passages)
         for passage in passages:
-            anchors = sections.setdefault(uuid.UUID(str(passage["source_version_id"])), [])
+            version_id = uuid.UUID(str(passage["source_version_id"]))
+            anchors = sections.setdefault(version_id, [])
             if passage["section_anchor"] not in anchors:
                 anchors.append(passage["section_anchor"])
-    return sections, count
+            per_document[version_id] = per_document.get(version_id, 0) + 1
+    return sections, per_document, count
