@@ -47,7 +47,7 @@ def test_the_same_bytes_give_the_same_text_and_the_pinned_hash(path: Path) -> No
 
     assert isinstance(first, ParsedText) and isinstance(second, ParsedText)
     assert first.text == second.text
-    assert first.parser_version == PARSER_VERSION == "text-v2"
+    assert first.parser_version == PARSER_VERSION == "text-v3"
     assert first.complete
     assert hashlib.sha256(first.encoded()).hexdigest() == first.sha256
     assert first.sha256 == GOLDEN[PARSER_VERSION][path.name]

@@ -31,6 +31,7 @@ ANNUAL_REPORT_PAGES = (
 )
 # The content hash of text-v2 on the English annual report, pinned when the version was
 # made. If it changes, the parser's output changed: that needs a new PARSER_VERSION.
+# text-v3 changes paginated HTML only, so the hash is the same under it.
 ANNUAL_REPORT_SHA256 = "49979e9fc46189f2114d3838a6e77caddc1b2e80f13317b2847c43ed8315e5e5"
 
 
@@ -56,7 +57,7 @@ def test_the_checked_in_fixtures_are_exactly_what_the_script_writes(tmp_path: Pa
 def test_a_text_pdf_parses_to_its_text_with_one_anchor_per_page() -> None:
     result = parsed(ANNUAL_REPORT)
 
-    assert result.parser_version == PARSER_VERSION == "text-v2"
+    assert result.parser_version == PARSER_VERSION == "text-v3"
     assert result.complete
     assert result.text == "".join(ANNUAL_REPORT_PAGES)
     # Page labels come from the PDF's /PageLabels: a roman cover, then 1, 2.
@@ -119,7 +120,7 @@ def test_an_image_only_pdf_is_unsupported_with_its_reason() -> None:
     result = parse(SCANNED.read_bytes(), "application/pdf")
 
     assert result == Unsupported(
-        parser_version="text-v2",
+        parser_version="text-v3",
         reason="no extractable text on any of its 2 pages (an image-only or scanned PDF)",
     )
 

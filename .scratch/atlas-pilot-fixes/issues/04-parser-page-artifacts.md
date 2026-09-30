@@ -4,7 +4,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Unit tests on real-shaped fragments from the recorded Coherent and Lumentum filings: a sentence broken by a page artifact comes out whole.
-- [ ] The parser version is bumped. Existing Assertions keep their spans in the old parse; new versions use the new parser. The decision entry says how re-parsing is handled.
+- [x] Unit tests on real-shaped fragments from the recorded Coherent and Lumentum filings: a sentence broken by a page artifact comes out whole.
+- [x] The parser version is bumped. Existing Assertions keep their spans in the old parse; new versions use the new parser. The decision entry says how re-parsing is handled.
