@@ -1,0 +1,17 @@
+{
+  "cik": 42,
+  "entityName": "SCHEMA DRIFT TEST CO",
+  "facts": {
+    "us-gaap": {
+      "Revenues": {
+        "label": "Revenues",
+        "description": null,
+        "units": {
+          "USD": [
+            {"start": "2025-01-01", "end": "2025-12-31", "value": 1000000, "accn": "0000000042-26-000001", "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-27"}
+          ]
+        }
+      }
+    }
+  }
+}

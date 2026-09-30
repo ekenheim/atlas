@@ -1,0 +1,25 @@
+{
+  "description": "HAND-WRITTEN, not recorded: a fictitious filer (CIK 0000000042) whose companyfacts document names a fact's value 'value' instead of the required 'val', standing in for a companyfacts response Atlas can't normalize (a format change). It tests that a failed XBRL normalization is recorded while the ingest succeeds. No SEC request was made to build it.",
+  "recorded_at": null,
+  "user_agent": null,
+  "responses": [
+    {
+      "url": "https://data.sec.gov/submissions/CIK0000000042.json",
+      "file": "data.sec.gov/submissions/CIK0000000042.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "hand-written: no filings.recent rows"
+    },
+    {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000042.json",
+      "file": "data.sec.gov/api/xbrl/companyfacts/CIK0000000042.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "trimmed": "hand-written: one us-gaap fact without 'val'"
+    }
+  ]
+}

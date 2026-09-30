@@ -24,9 +24,11 @@ from atlas.financials.reads import (
 )
 from atlas.financials.service import (
     NORMALIZER_VERSION,
+    NormalizationFailure,
     NormalizationSummary,
     is_normalized,
     normalize_source_version,
+    record_normalization_failure,
 )
 from atlas.financials.xbrl import (
     PERIODIC_FORMS,
@@ -52,6 +54,7 @@ __all__ = [
     "FinancialObservationHistory",
     "MetricCatalog",
     "MetricValue",
+    "NormalizationFailure",
     "NormalizationSummary",
     "Observation",
     "PeriodKey",
@@ -65,6 +68,7 @@ __all__ = [
     "normalize_source_version",
     "observation_history",
     "parse_companyfacts",
+    "record_normalization_failure",
     "select_as_of",
     "selected_observations",
 ]

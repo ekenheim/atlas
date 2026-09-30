@@ -13,7 +13,10 @@ company's newest not-yet-retained versions up to the cap instead. A first backfi
 of a company records its ingest plan (`atlas.ledger.plans`) before fetching anything. The
 company's companyfacts Source Version is then normalized into as-of financial observations
 (`atlas.financials`) unless it already was, with each
-fact's availability taken from its filing in the submissions index.
+fact's availability taken from its filing in the submissions index. A normalization that
+fails is recorded (`financial_normalization_failure`, audited, metric
+`atlas_financial_normalizations_total{outcome="failed"}`) and named in the job's artifacts;
+the ingest still succeeds and the next ingest tries the version again.
 
 The job dispatches on the company's source path: `sec` runs the SEC ingest below;
 `exchange:<name>` runs the exchange ingest (`atlas.ledger.exchange_ingest`) when an adapter
@@ -27,6 +30,7 @@ re-checks only cheaply (unchanged documents cost a 304 or a hash comparison).
 """
 
 import asyncio
+import logging
 import math
 import uuid
 from collections.abc import Callable
@@ -35,12 +39,19 @@ from typing import Any
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import Engine
+from sqlalchemy.exc import InterfaceError, OperationalError
 
-from atlas.archive import open_archive
+from atlas.archive import Archive, open_archive
 from atlas.audit import Actor
 from atlas.companies import extend_universe, load_universe, seed
 from atlas.db import create_engine
-from atlas.financials import NormalizationSummary, is_normalized, normalize_source_version
+from atlas.financials import (
+    NormalizationFailure,
+    NormalizationSummary,
+    is_normalized,
+    normalize_source_version,
+    record_normalization_failure,
+)
 from atlas.jobs.handlers import JobHandler
 from atlas.jobs.queue import Artifacts, Job
 from atlas.ledger.exchange_ingest import exchange_refusal, run_exchange_ingest
@@ -59,6 +70,8 @@ from atlas.sources import (
     TokenBucket,
 )
 from atlas.sources.edgar_fixtures import FIXTURE_USER_AGENT
+
+logger = logging.getLogger(__name__)
 
 INGEST_KIND = "ingest"
 
@@ -215,14 +228,7 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
             else None
         )
         normalization = (
-            normalize_source_version(
-                engine,
-                archive,
-                actor,
-                source_version_id=companyfacts[0],
-                company_id=seeded.company_id,
-                filings=companyfacts[1],
-            )
+            _normalize(engine, archive, actor, job.id, seeded.company_id, *companyfacts)
             if companyfacts is not None
             else None
         )
@@ -243,6 +249,43 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
     if normalization is not None:
         artifacts["financial_normalization"] = _normalization_artifact(normalization)
     return artifacts
+
+
+def _normalize(
+    engine: Engine,
+    archive: Archive,
+    actor: Actor,
+    job_id: uuid.UUID,
+    company_id: uuid.UUID,
+    source_version_id: uuid.UUID,
+    filings: list[SecFiling],
+) -> NormalizationSummary | NormalizationFailure:
+    """Normalize the companyfacts version; a failure is recorded, not raised, so the documents
+    this ingest recorded stand (docs/decisions.md, "XBRL normalization"). A database outage
+    still fails the attempt, which is retried."""
+    try:
+        return normalize_source_version(
+            engine,
+            archive,
+            actor,
+            source_version_id=source_version_id,
+            company_id=company_id,
+            filings=filings,
+        )
+    except (OperationalError, InterfaceError):
+        raise
+    except Exception as error:
+        logger.warning(
+            "XBRL normalization of source version %s failed: %s", source_version_id, error
+        )
+        return record_normalization_failure(
+            engine,
+            actor,
+            source_version_id=source_version_id,
+            company_id=company_id,
+            error=error,
+            job_id=job_id,
+        )
 
 
 def _sec_client(settings: Settings, company: str) -> SecHttpClient:
@@ -317,8 +360,20 @@ def _is_normalized(engine: Engine, source_version_id: uuid.UUID) -> bool:
         return is_normalized(connection, source_version_id)
 
 
-def _normalization_artifact(summary: NormalizationSummary) -> dict[str, JsonValue]:
+def _normalization_artifact(
+    summary: NormalizationSummary | NormalizationFailure,
+) -> dict[str, JsonValue]:
+    if isinstance(summary, NormalizationFailure):
+        return {
+            "status": "failed",
+            "id": str(summary.id),
+            "source_version_id": str(summary.source_version_id),
+            "normalizer_version": summary.normalizer_version,
+            "error_class": summary.error_class,
+            "error": summary.error,
+        }
     return {
+        "status": "succeeded",
         "id": str(summary.id),
         "source_version_id": str(summary.source_version_id),
         "normalizer_version": summary.normalizer_version,

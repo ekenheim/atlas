@@ -19,9 +19,24 @@ companies:
     country: FI
     source_path: sec
     securities: []
+  # Their fixtures are in tests/fixtures/financials/edgar/ (see each manifest.json).
+  coherent:
+    legal_name: Coherent Corp.
+    display_name: Coherent
+    cik: "0000820318"
+    country: US
+    source_path: sec
+    securities: []
+  schema-drift:
+    legal_name: Schema Drift Test Co
+    display_name: Schema Drift
+    cik: "0000000042"
+    country: US
+    source_path: sec
+    securities: []
 
 themes:
   photonics:
     title: Photonics for AI data centers
     description: Test universe.
-    companies: [lumentum, nokia]
+    companies: [lumentum, nokia, coherent, schema-drift]

@@ -107,6 +107,7 @@ class StateCollector(Collector):
             yield from self._candidates(connection)
             yield from self._investigations(connection)
             yield from self._snapshots(connection)
+            yield from self._financials(connection)
 
     def _pause(self) -> Iterator[Metric]:
         pause = self._queue.pause_state()
@@ -269,6 +270,24 @@ class StateCollector(Collector):
         writes.add_metric(["raw"], raw)
         writes.add_metric(["parsed"], parsed)
         yield writes
+
+    def _financials(self, connection: Connection) -> Iterator[Metric]:
+        normalizations = CounterMetricFamily(
+            "atlas_financial_normalizations",
+            "XBRL companyfacts normalization attempts by outcome (a failed one stores nothing,"
+            " is recorded in financial_normalization_failure and is tried again at the next"
+            " ingest, which still succeeds)",
+            labels=["outcome"],
+        )
+        succeeded, failed = connection.execute(
+            text(
+                "SELECT (SELECT count(*) FROM financial_normalization),"
+                " (SELECT count(*) FROM financial_normalization_failure)"
+            )
+        ).one()
+        normalizations.add_metric(["succeeded"], succeeded)
+        normalizations.add_metric(["failed"], failed)
+        yield normalizations
 
     def _jobs(self, connection: Connection) -> Iterator[Metric]:
         failed = CounterMetricFamily(
