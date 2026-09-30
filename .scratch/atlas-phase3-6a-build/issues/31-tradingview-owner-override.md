@@ -8,7 +8,7 @@
 
 **Blocked by:** None
 
-**Status:** done
+**Status:** paused (owner, 2026-09-30): resume the TradingView live check when deploying it to k8s
 
 - [x] `ATLAS_TRADINGVIEW_ENABLED` (default **false**). While off, nothing calls TradingView. Every stored item and fetch observation records `owner_override: TradingView terms (display-only) overridden by the owner for private non-commercial use (2026-09-30)`.
 - [x] An MCP client over HTTP (JSON-RPC, streamable HTTP) with an OAuth 2.1 token supplied by the owner. The access and refresh tokens come from settings or secrets and are never logged. Refresh is supported, and a missing or expired token is a clear error. It is tested at the transport against a scripted fake MCP server; there are no live calls in tests.
