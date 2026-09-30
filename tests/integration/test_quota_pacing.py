@@ -262,13 +262,17 @@ def test_role_calls_are_held_by_their_recorded_minimax_tokens(
 
     first = discover("backfill-1", "--backfill")
     second = discover("backfill-2", "--backfill")
-    own = discover("interactive")
     start = clock.now
 
     paced.worker_pass()
 
-    # The first backfill discovery spent past the backfill limit, so the second waits; the
-    # interactive one runs in the reserve and uses up the window.
+    # The first backfill discovery spent past the backfill limit, so the second waits.
+    assert [paced.job(i)["status"] for i in (first, second)] == ["succeeded", "queued"]
+
+    # The owner's own discovery runs in the reserve (interactive work is claimed before
+    # backfill anyway) and uses up the window.
+    own = discover("interactive")
+    paced.worker_pass()
     assert [paced.job(i)["status"] for i in (first, second, own)] == [
         "succeeded",
         "queued",
