@@ -4,7 +4,9 @@
   LEI, a listing by ISIN or by ticker on its venue valid at `as_of`, a legal, display or
   alias name valid at `as_of`); only an unknown company goes to the external sources. The
   result's `company_id` says which universe company it is (None: an unseeded company). This
-  is what Candidates from leads call.
+  is what Candidates from leads call, with `researched_only`: a counterparty company
+  (`atlas.counterparties`) is not in the universe, so a lead naming one still proposes a
+  Candidate. Claim extraction looks among every company, counterparties included.
 - `resolve_universe`: resolve each configured company and store every proposal as an
   `identity_mapping` row: exact and corroborated ones are committed (applied to `company` /
   `security`) at once, the rest wait as `pending`. A CIK↔LEI link always waits for the owner.
@@ -63,13 +65,20 @@ def _local_resolution(
     )
 
 
-def find_in_universe(connection: Connection, mention: Mention) -> Resolution | None:
-    """The universe company `mention` names, without any network call; None if unknown."""
+def find_in_universe(
+    connection: Connection, mention: Mention, *, researched_only: bool = False
+) -> Resolution | None:
+    """The company `mention` names among the companies Atlas has (`researched_only`: among
+    the universe's, leaving counterparties out), without any network call; None if unknown."""
     as_of = mention.as_of or datetime.now(UTC).date()
     companies = {
         row["id"]: dict(row)
         for row in connection.execute(
-            text("SELECT id, slug, legal_name, display_name, cik, lei FROM company")
+            text(
+                "SELECT id, slug, legal_name, display_name, cik, lei FROM company"
+                " WHERE role = 'researched' OR NOT CAST(:researched_only AS boolean)"
+            ),
+            {"researched_only": researched_only},
         ).mappings()
     }
 
@@ -95,7 +104,7 @@ def find_in_universe(connection: Connection, mention: Mention) -> Resolution | N
         ),
         {"as_of": as_of},
     ).mappings()
-    rows = [dict(r) for r in listings]
+    rows = [dict(r) for r in listings if r["company_id"] in companies]
     if mention.isin:
         isin = mention.isin.strip().upper()
         found = one({r["company_id"] for r in rows if r["isin"] == isin}, "isin", exact=True)
@@ -135,7 +144,7 @@ def find_in_universe(connection: Connection, mention: Mention) -> Resolution | N
             ),
             {"name": wanted, "as_of": as_of},
         ).mappings()
-        hits = [dict(a) for a in aliases]
+        hits = [dict(a) for a in aliases if a["company_id"] in companies]
         kind = "former name" if any(a["kind"] == "former" for a in hits) else "alias"
         found = one({a["company_id"] for a in hits}, kind, exact=False)
         if found:
@@ -149,17 +158,21 @@ def resolve_mention(
     mention: Mention,
     *,
     ignored_ciks: frozenset[str] = frozenset(),
+    researched_only: bool = False,
 ) -> Resolution:
     """Resolve a company mention (e.g. from a lead): the universe first, else the external
-    sources. `company_id` is set when the company is in the universe."""
-    local = find_in_universe(connection, mention)
+    sources. `company_id` is set when the company is one Atlas has (`researched_only`: one in
+    the universe, so a counterparty resolves like any unseeded company)."""
+    local = find_in_universe(connection, mention, researched_only=researched_only)
     if local is not None:
         return local
     resolution = resolver.resolve(mention, ignored_ciks=ignored_ciks)
     entity = resolution.entity
     if entity is not None and resolution.tier != "conflict":
         known = find_in_universe(
-            connection, Mention(cik=entity.cik, lei=entity.lei, as_of=mention.as_of)
+            connection,
+            Mention(cik=entity.cik, lei=entity.lei, as_of=mention.as_of),
+            researched_only=researched_only,
         )
         if known is not None and known.company_id is not None:
             return resolution.model_copy(

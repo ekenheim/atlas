@@ -226,14 +226,18 @@ def enqueue_ingest(
     universe = _universe(settings)
     if company not in universe.companies:
         # A committed Candidate's company is in the universe's database extension.
-        from atlas.companies import extend_universe
+        from atlas.companies import counterparty_refusal, extend_universe, is_counterparty
 
         engine = create_engine(settings)
         try:
             with engine.connect() as connection:
                 universe = extend_universe(connection, universe)
+                counterparty = is_counterparty(connection, company)
         finally:
             engine.dispose()
+        if company not in universe.companies and counterparty:
+            print(f"atlas: {counterparty_refusal(company)}", file=sys.stderr)
+            raise SystemExit(2)
     if company not in universe.companies:
         known = ", ".join(sorted(universe.companies))
         print(

@@ -47,9 +47,14 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
         <caption>Identity</caption>
         <tbody>
           <Row name="Legal name">{company.legal_name}</Row>
+          <Row name="Role">
+            {company.role === "counterparty"
+              ? "Counterparty: known only as the other end of Relationships, not researched"
+              : "Researched"}
+          </Row>
           <Row name="CIK">{company.cik ? <Code>{company.cik}</Code> : <Missing />}</Row>
           <Row name="LEI">{company.lei ? <Code>{company.lei}</Code> : <Missing />}</Row>
-          <Row name="Country">{company.country}</Row>
+          <Row name="Country">{company.country ?? <Missing />}</Row>
           <Row name="Website">
             {company.website ? (
               <a href={company.website} rel="noreferrer noopener">

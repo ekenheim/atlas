@@ -72,10 +72,21 @@ function Theme() {
 
             <h2>Relationships</h2>
             <p>
-              Edges between the theme&apos;s companies, or to a product, by layer. Edges to
-              companies outside the theme are on each company&apos;s dossier; every edge is in the{" "}
-              <Link href={routes.relationships()}>edge table</Link>.
+              Edges between the theme&apos;s companies, to a product, or to a counterparty, by
+              layer. Edges to researched companies outside the theme are on each company&apos;s
+              dossier; every edge is in the <Link href={routes.relationships()}>edge table</Link>.
             </p>
+            {map.counterparties.length > 0 && (
+              <p>
+                Counterparties (known only as the other end of an edge, not researched):{" "}
+                {map.counterparties.map((company, index) => (
+                  <span key={company.id}>
+                    {index > 0 && ", "}
+                    <Link href={routes.company(company.id)}>{company.display_name}</Link>
+                  </span>
+                ))}
+              </p>
+            )}
             {map.relationships.length === 0 ? (
               <p>No Relationships between the theme&apos;s companies yet.</p>
             ) : (

@@ -5,7 +5,10 @@ whitelist with each predicate's direction, the layer taxonomy and the passages. 
 text is sent as quoted, low-trust `retrieved_data` (one item per passage, `id` = passage ID).
 Each Claim names its passage and the exact quote as character offsets into that passage's
 text; Atlas turns those into offsets of the Source Version's parsed text and checks the span
-(`atlas.claims`). The response schema leaves `predicate` and `layer` as strings, so an
+(`atlas.claims`). A company object is one of the known companies (`object_company_id`) or a
+company the quote names that isn't among them (`object_name`, the name as quoted), which
+Atlas resolves to a counterparty company or rejects (`atlas.counterparties`). The response
+schema leaves `predicate` and `layer` as strings, so an
 off-whitelist proposal is recorded as a rejected Claim with its reason instead of failing
 the whole call.
 """
@@ -16,7 +19,9 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-INVESTIGATOR_PROMPT_VERSION = 3  # v2: the bottleneck method; v3: company-level bottleneck facts
+# v2: the bottleneck method; v3: company-level bottleneck facts; v4: a company object outside
+# the known companies, by name (counterparty companies)
+INVESTIGATOR_PROMPT_VERSION = 4
 
 # An Investigator Claim quotes a source; an agent's own inference is never a Claim.
 ClaimEpistemicType = Literal["direct_source_statement", "company_claim", "third_party_report"]
@@ -63,6 +68,7 @@ class ProposedClaim(RoleOutput):
     subject_company_id: str
     predicate: str
     object_company_id: str | None
+    object_name: str | None  # a company object outside `request.companies`, as the quote names it
     object_text: str | None
     product: str | None
     layer: str

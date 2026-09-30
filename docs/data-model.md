@@ -39,7 +39,7 @@ A legal entity, not a ticker (build plan §5.1). Built by ticket 07 (migration `
 | `display_name` | text not null | |
 | `lei` | text null | External mapping; not available for every company |
 | `cik` | text null, unique | Zero-padded 10 digits. The 12 photonics companies are seeded from config (Phase 3); the three exchange-disclosed ones have none |
-| `country` | text not null | ISO 3166-1 alpha-2 |
+| `country` | text null | ISO 3166-1 alpha-2. Not null for a `researched` company; a counterparty no registry placed has none (migration `0045`) |
 | `website` | text null | |
 | `layer` | text null | Primary photonics supply-chain layer: `substrate`, `epi`, `chip-laser`, `dsp`, `module`, `contract-manufacturing`, `system` (migration `0015`) |
 | `source_path` | text null | `sec`, or `exchange:<hkex\|fca-nsm\|amf>` (`lse-rns` until 0025, `euronext` until 0029). Only `sec` companies are fetched by the SEC ingest; `sec` requires a `cik`. Unsponsored-ADR CIKs (Soitec, IQE, Innolight) are listed as `ignored_ciks` in config, never stored as a company's `cik` |
@@ -47,9 +47,11 @@ A legal entity, not a ticker (build plan §5.1). Built by ticket 07 (migration `
 | (config only) `exchange` | | For an `exchange:*` company: `issuer_code` (e.g. HKEX stock code `03308`) and `feed_id` (the feed's own ID, e.g. HKEXnews `stockId`). Read by the exchange ingest; not a column |
 | `parent_company_id` | uuid null FK → company | Parent/subsidiary structure |
 | `review_state` | text not null | `unreviewed`, `reviewed` |
+| `role` | text not null, default `researched` | `researched` (a universe company) or `counterparty` (known only as the other end of Relationships: no `source_path`, never ingested, never an investigation seed, in no theme). Migration `0045`; `docs/decisions.md`, "Counterparty companies" |
+| `counterparty_resolution` | jsonb null | How a counterparty was identified: `named_as` (the name as quoted), `source` (`sec`/`gleif`), `source_url`, `observed_at` and the whole `resolution`. Required for a counterparty; kept when it is promoted |
 | `created_at`, `updated_at` | timestamptz not null | |
 
-Seeding (`atlas companies seed`, and every ingest job for its company) upserts by ID. An unchanged row is left alone and writes no audit event; a changed one writes `company.updated` with the old and new content hashes.
+Seeding (`atlas companies seed`, and every ingest job for its company) upserts by ID. An unchanged row is left alone and writes no audit event; a changed one writes `company.updated` with the old and new content hashes. Seeding sets `role` to `researched`, so a counterparty the config names (same CIK, or same slug without one) is promoted in place. A counterparty is created by claim extraction (`company.counterparty_created`, actor `atlas-investigator`) and promoted by a Candidate's commit too (`company.promoted`).
 
 ### 2.2 `security`
 
@@ -402,7 +404,7 @@ The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and 
 | `extraction_id`, `run_id`, `role_call_id` | uuid FKs | `(role_call_id, ordinal)` is unique: the Claim's place in the answer |
 | `proposed` | jsonb not null | The Claim exactly as the model answered |
 | `passage_id` | text not null | |
-| `source_version_id`, `subject_company_id`, `object_company_id` | uuid null FKs | As resolved; null when the Claim named an unknown passage or company |
+| `source_version_id`, `subject_company_id`, `object_company_id` | uuid null FKs | As resolved; null when the Claim named an unknown passage or company. A company object given by name (`proposed.object_name`) resolves to a company Atlas has, or to the counterparty the accepted Claim created; null when the name didn't resolve or the Claim was rejected before a new counterparty existed |
 | `predicate`, `layer` | text not null | As proposed (a rejected one may be off the whitelist) |
 | `object_text`, `product` | text null | |
 | `quote` | text not null | |

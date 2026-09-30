@@ -1,0 +1,25 @@
+{
+  "cik": "0001045810",
+  "entityType": "operating",
+  "name": "NVIDIA CORP",
+  "tickers": [
+    "NVDA"
+  ],
+  "exchanges": [
+    "Nasdaq"
+  ],
+  "ein": null,
+  "lei": null,
+  "stateOfIncorporation": "DE",
+  "formerNames": [],
+  "filings": {
+    "recent": {
+      "form": [
+        "8-K",
+        "10-Q",
+        "10-K",
+        "8-K"
+      ]
+    }
+  }
+}

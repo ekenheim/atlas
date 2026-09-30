@@ -178,6 +178,7 @@ def claim(**fields: JsonValue) -> dict[str, JsonValue]:
     """A proposed Claim; `passage_id` and the offsets are filled in from the passages sent."""
     return {
         "object_company_id": None,
+        "object_name": None,
         "object_text": None,
         "product": None,
         "layer": "chip-laser",
@@ -288,7 +289,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
         )
         assert assertion["source_version_id"] == version_id
         assert assertion["review_state"] == "unreviewed"
-        assert assertion["extractor_version"] == "investigator.v3"
+        assert assertion["extractor_version"] == "investigator.v4"
         assert assertion["created_by"] == "atlas-investigator"
         assert assertion["value_json"]["claim_id"] == accepted["id"]
     supplied = atlas.get(f"/api/v1/assertions/{supplies['assertion_id']}")

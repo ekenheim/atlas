@@ -43,7 +43,9 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         INVESTIGATOR,
         "investigator",
-        3,  # v3: a company's own bottleneck facts, the bottleneck predicates (pilot-fixes 03)
+        # v3: a company's own bottleneck facts, the bottleneck predicates (pilot-fixes 03);
+        # v4: a company object outside the known companies, by name (pilot-fixes 05)
+        4,
         (
             "Atlas hunts supply-chain bottlenecks",
             "who supplies whom",
@@ -60,6 +62,8 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "A list item or a sentence fragment without the company",
             "exactly one name from `request.predicates`",
             "copied exactly, character for character",
+            "`object_name` is that company's name exactly as the quote writes it",
+            "never a description",
         ),
     ),
     (

@@ -1,7 +1,8 @@
 """The `ingest` job: fetch a configured company's SEC material into the source ledger.
 
 A company is configured in the theme config or, once the owner commits its Candidate, in
-the universe's database extension (`atlas.companies.extend_universe`).
+the universe's database extension (`atlas.companies.extend_universe`). A counterparty
+company is neither: its ingest is refused.
 
 Payload: `{"company": "<slug>", "forms": [...]?, "limit": N?, "since": T?, "max_retains": N?}`.
 The job seeds the company from the theme config, discovers its filings (fixture replay, or
@@ -43,7 +44,13 @@ from sqlalchemy.exc import InterfaceError, OperationalError
 
 from atlas.archive import Archive, open_archive
 from atlas.audit import Actor
-from atlas.companies import extend_universe, load_universe, seed
+from atlas.companies import (
+    counterparty_refusal,
+    extend_universe,
+    is_counterparty,
+    load_universe,
+    seed,
+)
 from atlas.db import create_engine
 from atlas.financials import (
     NormalizationFailure,
@@ -133,9 +140,12 @@ def run_ingest(settings: Settings, job: Job) -> Artifacts:
         try:
             with engine.connect() as connection:
                 universe = extend_universe(connection, universe)
+                counterparty = is_counterparty(connection, payload.company)
         finally:
             engine.dispose()
         config = universe.companies.get(payload.company)
+        if config is None and counterparty:
+            raise ValueError(counterparty_refusal(payload.company))
     if config is None:
         raise ValueError(
             f"company {payload.company!r} is neither in {settings.themes_config} nor a"

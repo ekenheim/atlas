@@ -1,0 +1,25 @@
+{
+  "type": "lei-records",
+  "id": "5493000SYNTHETIC0230",
+  "attributes": {
+    "lei": "5493000SYNTHETIC0230",
+    "entity": {
+      "legalName": {
+        "name": "NVIDIA Corporation",
+        "language": "en"
+      },
+      "otherNames": [],
+      "transliteratedOtherNames": [],
+      "legalAddress": {
+        "city": "",
+        "country": "US"
+      },
+      "jurisdiction": "US-DE",
+      "status": "ACTIVE",
+      "successorEntities": []
+    },
+    "registration": {
+      "status": "ISSUED"
+    }
+  }
+}

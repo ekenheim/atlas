@@ -308,6 +308,7 @@ def build(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG) -> str:
         return response.json()
 
     common: dict[str, JsonValue] = {
+        "object_name": None,
         "object_text": None,
         "product": None,
         "epistemic_type": "company_claim",

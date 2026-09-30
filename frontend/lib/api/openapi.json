@@ -191,6 +191,24 @@
         "operationId": "companies_api_v1_companies_get",
         "parameters": [
           {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CompanyRole"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only researched companies, or only counterparties",
+              "title": "Role"
+            },
+            "description": "only researched companies, or only counterparties"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -8647,6 +8665,10 @@
             "type": "string",
             "title": "Slug"
           },
+          "role": {
+            "$ref": "#/components/schemas/CompanyRole",
+            "description": "`researched`: a universe company; `counterparty`: known only as the other end of Relationships (never ingested, never an investigation seed)"
+          },
           "legal_name": {
             "type": "string",
             "title": "Legal Name"
@@ -8678,8 +8700,16 @@
             "title": "Lei"
           },
           "country": {
-            "type": "string",
-            "title": "Country"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country",
+            "description": "None only for a counterparty no registry placed"
           },
           "website": {
             "anyOf": [
@@ -8742,6 +8772,17 @@
             "type": "string",
             "title": "Review State"
           },
+          "counterparty": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CounterpartyOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "how entity resolution identified it, if it was created as a counterparty (kept once it is researched)"
+          },
           "securities": {
             "items": {
               "$ref": "#/components/schemas/Security"
@@ -8771,6 +8812,7 @@
         "required": [
           "id",
           "slug",
+          "role",
           "legal_name",
           "display_name",
           "cik",
@@ -8782,6 +8824,7 @@
           "sec_forms",
           "parent_company_id",
           "review_state",
+          "counterparty",
           "securities",
           "aliases",
           "created_at",
@@ -8934,6 +8977,13 @@
           "fetch_gate_block_total"
         ],
         "title": "CompanyDossier"
+      },
+      "CompanyRole": {
+        "type": "string",
+        "enum": [
+          "researched",
+          "counterparty"
+        ]
       },
       "ContentLinks": {
         "properties": {
@@ -9347,6 +9397,42 @@
         ],
         "title": "Counterevidence",
         "description": "One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an\nAssertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`\nsays whether its Evidence Family differs from every supporting Claim's (a Source Version\noutside any family is its own). `proposed` is the item exactly as the model answered."
+      },
+      "CounterpartyOrigin": {
+        "properties": {
+          "named_as": {
+            "type": "string",
+            "title": "Named As",
+            "description": "the company's name as the quote wrote it"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sec",
+              "gleif"
+            ],
+            "title": "Source",
+            "description": "the registry whose one entity it is"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "named_as",
+          "source",
+          "source_url",
+          "observed_at"
+        ],
+        "title": "CounterpartyOrigin",
+        "description": "How a counterparty was identified when a quote first named it."
       },
       "CoverageGap": {
         "type": "string",
@@ -20931,6 +21017,78 @@
         ],
         "title": "ThemeCompany"
       },
+      "ThemeCounterparty": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "legal_name": {
+            "type": "string",
+            "title": "Legal Name"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik"
+          },
+          "lei": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lei"
+          },
+          "relationship_count": {
+            "type": "integer",
+            "title": "Relationship Count",
+            "description": "the map's edges naming it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "display_name",
+          "legal_name",
+          "country",
+          "cik",
+          "lei",
+          "relationship_count"
+        ],
+        "title": "ThemeCounterparty",
+        "description": "A counterparty company at the other end of a theme company's edge."
+      },
       "ThemeLayer": {
         "properties": {
           "layer": {
@@ -20984,7 +21142,15 @@
             },
             "type": "array",
             "title": "Relationships",
-            "description": "edges between the theme's companies (or to a product), by layer"
+            "description": "edges between the theme's companies (or to a product, or between one of them and a counterparty), by layer"
+          },
+          "counterparties": {
+            "items": {
+              "$ref": "#/components/schemas/ThemeCounterparty"
+            },
+            "type": "array",
+            "title": "Counterparties",
+            "description": "the counterparty companies those edges name, by name"
           },
           "candidates": {
             "items": {
@@ -21004,6 +21170,7 @@
           "layers",
           "unlayered",
           "relationships",
+          "counterparties",
           "candidates",
           "bottlenecks"
         ],

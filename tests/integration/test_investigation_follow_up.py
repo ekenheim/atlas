@@ -221,6 +221,7 @@ def claim(atlas: Atlas, subject: str, quote: str, product: str) -> dict[str, Jso
         "subject_company_id": company_id(atlas, subject),
         "predicate": "supplies",
         "object_company_id": company_id(atlas, "nvidia"),
+        "object_name": None,
         "object_text": None,
         "product": product,
         "layer": "chip-laser",

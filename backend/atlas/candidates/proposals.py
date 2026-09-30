@@ -11,7 +11,9 @@ when entity resolution is configured) examines the discovery's leads not examine
 2. **Resolution.** Each mention goes through `resolve_mention` (the universe first, then
    SEC, GLEIF and OpenFIGI), with every configured company's ignored (unsponsored-ADR)
    CIKs. A mention of a universe company is recorded as `in_universe`; one no source
-   identifies as `unresolved`; any other is an unseeded match and proposes a Candidate.
+   identifies as `unresolved`; any other is an unseeded match and proposes a Candidate. A
+   counterparty company is not in the universe: a lead naming one proposes a Candidate like
+   any unseeded company, and committing it promotes the counterparty.
 3. **Candidates.** A Candidate is a (theme, company) pair keyed by what identified the
    company: `cik:` its CIK, else `lei:` its LEI, else `name:` the normalized name (several
    or conflicting matches). A second lead naming the same company joins the same Candidate.
@@ -315,7 +317,11 @@ class CandidateProposer:
         if key not in self._resolved:
             with self._engine.connect() as connection:
                 self._resolved[key] = resolve_mention(
-                    connection, self._resolver, mention, ignored_ciks=self._ignored
+                    connection,
+                    self._resolver,
+                    mention,
+                    ignored_ciks=self._ignored,
+                    researched_only=True,
                 )
         return mention, self._resolved[key]
 

@@ -255,6 +255,7 @@ def _investigator(
                 "object_company_id": context.company(claim["object"])
                 if claim.get("object")
                 else None,
+                "object_name": None,
                 "object_text": claim.get("object_text"),
                 "product": claim.get("product"),
                 "layer": claim["layer"],

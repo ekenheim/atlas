@@ -48,6 +48,10 @@ _Avoid_: Shortage, chokepoint, constraint (as a synonym)
 A (company, theme) pair under investigation, with its own lifecycle from lead to rejected or closed. Kept even when rejected, so evaluation isn't winner-only. A Candidate may produce zero or more Hypotheses.
 _Avoid_: Idea, pick, opportunity
 
+**Counterparty**:
+A company outside the universe that an accepted quote names, kept only so a Relationship has its other end (a customer, a supplier, an owner). It has an identity resolved from a registry and nothing else: it is never ingested, never an investigation seed and in no theme. The owner promotes it to a researched company by adding it to the theme config or committing its Candidate.
+_Avoid_: Candidate (a Candidate is under investigation), universe company, external company, third party
+
 **Hypothesis**:
 A versioned, falsifiable research object: statement, mechanism, predictions, catalysts, falsifiers and alternative explanations. A published version is immutable; a correction is a new version.
 _Avoid_: Thesis (as a standalone noun), idea, call
@@ -61,11 +65,11 @@ A reviewed, typed, directed edge between companies (and optionally a product or 
 _Avoid_: Link, connection, edge (outside the UI)
 
 **Bottleneck Predicate**:
-One of four whitelisted predicates for a bottleneck fact a company states about itself and a product, with no counterparty named. Each is directed from the company to the product and needs an exact quote like any other:
+One of four whitelisted predicates for a bottleneck fact a company states about itself and a product, with no other company named. Each is directed from the company to the product and needs an exact quote like any other:
 - `capacity_constrained`: the company cannot fully meet demand for the product (demand exceeds its supply, it allocates, backlogs or is short of it). Growing demand alone is not a constraint.
-- `sole_sources`: the company gets an input from one supplier or a limited number of suppliers, named or not. A named supplier in the universe is `depends_on` or `buys_from` instead.
+- `sole_sources`: the company gets an input from one supplier or a limited number of suppliers, named or not. A named supplier is `depends_on` or `buys_from` instead.
 - `vertically_integrates`: the company makes an input for its own products instead of buying it (in-house, captive, "our own"). Making what it sells is `manufactures`.
-- `qualified_for`: customers have qualified the company, or chosen it in a design win, as a supplier of the product. A named customer in the universe is `supplies` instead.
+- `qualified_for`: customers have qualified the company, or chosen it in a design win, as a supplier of the product. A named customer is `supplies` instead.
 _Avoid_: Company attribute, flag, constraint (as a synonym for `capacity_constrained`)
 
 **Research Snapshot**:

@@ -513,6 +513,7 @@ def investigate(atlas: Atlas, fakes: Fakes, companies: dict[str, str], question:
         "subject_company_id": companies["coherent"],
         "predicate": "supplies",
         "object_company_id": companies["nvidia"],
+        "object_name": None,
         "object_text": None,
         "product": "advanced lasers",
         "layer": "chip-laser",

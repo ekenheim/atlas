@@ -30,5 +30,20 @@
     "969500ZR92SQCU9TST26"
   ],
   "entity.legalName=Acme Photonics": [],
-  "fulltext=Acme Photonics": []
+  "fulltext=Acme Photonics": [],
+  "entity.legalName=NVIDIA": [],
+  "fulltext=NVIDIA": [
+    "5493000SYNTHETIC0230"
+  ],
+  "entity.legalName=Huawei": [],
+  "fulltext=Huawei": [
+    "5493000SYNTHETIC0327"
+  ],
+  "entity.legalName=Corning": [],
+  "fulltext=Corning": [
+    "5493000SYNTHETIC0424",
+    "5493000SYNTHETIC0521"
+  ],
+  "entity.legalName=IPG Photonics Corp.": [],
+  "fulltext=IPG Photonics Corp.": []
 }

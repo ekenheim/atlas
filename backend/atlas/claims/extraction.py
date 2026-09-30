@@ -20,7 +20,12 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    the predicate is whitelisted (`predicate_not_whitelisted`); the layer is known
    (`unknown_layer`); the passage was sent in that call (`unknown_passage`); the subject and
    a company object are known companies (`unknown_company`), a product object is named
-   (`missing_object`) and subject and object differ (`self_relationship`); the offsets lie
+   (`missing_object`) and subject and object differ (`self_relationship`). **A company object
+   may instead be named** (`object_name`, for a company outside the known ones): the quote
+   must contain that name (`party_not_in_quote`), and the name must resolve to one company
+   (`atlas.counterparties`: a company Atlas has, else exactly one SEC registrant or GLEIF
+   record of that name; otherwise `unresolved_company` or `ambiguous_company`, as is every
+   unknown name when entity resolution isn't configured). Then: the offsets lie
    inside the passage (`quote_outside_passage`); **the quote is placed**: if it is not
    exactly the text at the model's offsets it is searched for in the passage as an exact
    substring (no folding of whitespace, quotes or dashes), and its one occurrence gives the
@@ -31,7 +36,11 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    (`no_directional_language`; co-mention is not a relation). See `atlas.claims.predicates`.
 4. **Outcome.** A Claim that passes becomes an Assertion (`extractor_version`
    `investigator.v<N>`, created by `atlas-investigator`, `value_json` holding the claim ID,
-   layer, product and product object), recorded with its `claim` row in one transaction.
+   layer, product and product object), recorded with its `claim` row in one transaction. A
+   named company Atlas didn't have becomes a **counterparty company** in that transaction,
+   only now that every check has passed (audited `company.counterparty_created`), and is a
+   known company from the next batch on. Names are resolved before the transaction (the
+   registries are network calls), once per name and extractor.
    Every Claim, accepted or rejected, is a `claim` row and an audit event (`claim.accepted`,
    `claim.rejected`). Nothing is ever inferred from a Claim: a `supplies` Claim is one
    `supplies` Assertion, never also a `buys_from`.
@@ -45,7 +54,7 @@ twice.
 import json
 import uuid
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -65,6 +74,14 @@ from atlas.claims.predicates import (
     predicate_refusal,
 )
 from atlas.claims.reads import ClaimExtraction, Passage, SkippedVersion, get_extraction
+from atlas.counterparties import (
+    NamedCompany,
+    NewCounterparty,
+    ensure_counterparty,
+    resolve_named_company,
+)
+from atlas.identity import EntityResolver
+from atlas.identity.normalize import normalize_name
 from atlas.jobs.queue import Artifacts, Job
 from atlas.research.provenance import Evidence
 from atlas.retention.sections import split_sections
@@ -155,6 +172,8 @@ class _Judged:
     reason_code: str | None = None
     reason: str | None = None
     offset_source: str | None = None  # `model` or `located`, once the quote is placed
+    # The named object company Atlas doesn't have yet: created when the Claim is accepted.
+    counterparty: NewCounterparty | None = None
 
 
 class ClaimExtractor:
@@ -169,10 +188,14 @@ class ClaimExtractor:
         max_passages: int,
         passages_per_call: int,
         investigator: Role[InvestigatorRequest, InvestigatorClaims] = INVESTIGATOR,
+        resolver: EntityResolver | None = None,
+        ignored_ciks: frozenset[str] = frozenset(),
     ) -> None:
         """`investigator` is the role called: the committed prompt, or a variant under
         measurement (`scripts/investigator_replay.py`); its prompt names the Assertions'
-        `extractor_version`."""
+        `extractor_version`. `resolver` identifies a company object given by name (with the
+        configured companies' `ignored_ciks`); without one, a name that is none of Atlas's
+        companies is rejected as unresolved."""
         self._engine = engine
         self._archive = archive
         self._caller = caller
@@ -182,8 +205,11 @@ class ClaimExtractor:
         self._passages_per_call = passages_per_call
         self._investigator = investigator
         self._extractor_version = f"{investigator.prompt.name}.v{investigator.prompt.version}"
+        self._resolver = resolver
+        self._ignored_ciks = ignored_ciks
         self._assertions = Assertions(engine, archive, INVESTIGATOR_ACTOR)
         self._texts: dict[uuid.UUID, str] = {}
+        self._named: dict[str, NamedCompany] = {}  # by normalized name
 
     def extract(self, job: Job, payload: ExtractClaimsPayload | None = None) -> Artifacts:
         """Run (or resume) the extraction of `job`: its payload's, or `payload` when a caller
@@ -196,7 +222,6 @@ class ClaimExtractor:
         versions = {
             version.id: version for version in self._versions(extraction.source_version_ids)
         }
-        companies = self._companies()
         size = extraction.passages_per_call
         batches = [
             extraction.passages[start : start + size]
@@ -204,6 +229,8 @@ class ClaimExtractor:
         ]
         for index in range(extraction.batches_done, len(batches)):
             batch = batches[index]
+            # Read per batch: a counterparty an earlier batch created is a known company now.
+            companies = self._companies()
             request, retrieved = self._request(extraction.question, batch, versions, companies)
             try:
                 output, role_call_id = self._caller.call_recorded(
@@ -215,6 +242,7 @@ class ClaimExtractor:
                 self._record(extraction, index, [], None, versions, companies, quarantined=True)
                 continue
             claims = [(proposed, batch) for proposed in output.claims]
+            self._resolve_named(output.claims, companies)  # before the transaction: network
             self._record(extraction, index, claims, role_call_id, versions, companies)
         return self._finish(extraction, "completed", owned=owned)
 
@@ -422,6 +450,30 @@ class ClaimExtractor:
 
     # --- outcomes -------------------------------------------------------------------------------
 
+    def _resolve_named(
+        self, claims: Sequence[ProposedClaim], companies: Sequence[_Company]
+    ) -> None:
+        """Resolve each company object the Claims give by name (once per name; the registries
+        are asked only for a name the quote contains and Atlas doesn't have)."""
+        known = {str(company.id) for company in companies}
+        for proposed in claims:
+            rule = PREDICATES.get(proposed.predicate)
+            name = (proposed.object_name or "").strip()
+            key = normalize_name(name)
+            if (
+                rule is None
+                or rule.object_kind != "company"
+                or not name
+                or proposed.object_company_id in known
+                or key in self._named
+                or not mentions(proposed.quote, [name])
+            ):
+                continue
+            with self._engine.connect() as connection:
+                self._named[key] = resolve_named_company(
+                    connection, self._resolver, name, ignored_ciks=self._ignored_ciks
+                )
+
     def _record(
         self,
         extraction: ClaimExtraction,
@@ -476,11 +528,24 @@ class ClaimExtractor:
         judged = self._judge(claim_id, proposed, passages, versions, companies)
         assertion_id: uuid.UUID | None = None
         if judged.assertion is not None:
+            counterparty_id: uuid.UUID | None = None
             try:
-                recorded = self._assertions.create_within(
-                    connection, judged.assertion, extractor_version=self._extractor_version
-                )
+                # One savepoint: a refused Assertion leaves no counterparty behind.
+                with connection.begin_nested():
+                    assertion = judged.assertion
+                    if judged.counterparty is not None:
+                        counterparty_id = ensure_counterparty(
+                            connection, INVESTIGATOR_ACTOR, judged.counterparty
+                        )
+                        assertion = assertion.model_copy(
+                            update={"object_company_id": counterparty_id}
+                        )
+                    recorded = self._assertions.create_within(
+                        connection, assertion, extractor_version=self._extractor_version
+                    )
                 assertion_id = recorded.assertion.id
+                if counterparty_id is not None:
+                    judged = replace(judged, object_company_id=counterparty_id)
             except InvalidAssertion as refusal:
                 judged = _reject(judged, refusal.code, refusal.message)
         row = (
@@ -548,6 +613,9 @@ class ClaimExtractor:
         passage = passages.get(proposed.passage_id)
         subject = by_id.get(proposed.subject_company_id)
         target = by_id.get(proposed.object_company_id or "")
+        object_id = target.id if target else None
+        object_names = target.names if target else []
+        counterparty: NewCounterparty | None = None
         span: tuple[int, int] | None = None
         if passage is not None and 0 <= proposed.quote_start <= proposed.quote_end:
             span = (
@@ -583,13 +651,26 @@ class ClaimExtractor:
             message = f"subject {proposed.subject_company_id!r} is not a known company ID"
             return _reject(judged, "unknown_company", message)
         if rule.object_kind == "company":
-            if not proposed.object_company_id:
-                message = f"{rule.name} needs object_company_id: its object is a company"
+            name = (proposed.object_name or "").strip()
+            if target is None and name:
+                # A company outside the known ones, by the name the quote uses for it.
+                if not mentions(proposed.quote, [name]):
+                    message = f"the quote doesn't name the object ({name}, its `object_name`)"
+                    return _reject(judged, "party_not_in_quote", message)
+                named = self._named[normalize_name(name)]
+                if named.refusal is not None:
+                    return _reject(judged, *named.refusal)
+                object_id, counterparty, object_names = named.company_id, named.new, [name]
+                judged = replace(judged, object_company_id=object_id)
+            elif not proposed.object_company_id:
+                message = (
+                    f"{rule.name} needs object_company_id or object_name: its object is a company"
+                )
                 return _reject(judged, "missing_object", message)
-            if target is None:
+            elif target is None:
                 message = f"object {proposed.object_company_id!r} is not a known company ID"
                 return _reject(judged, "unknown_company", message)
-            if target.id == subject.id:
+            if object_id == subject.id:
                 return _reject(judged, "self_relationship", "subject and object are one company")
         elif not (proposed.object_text or "").strip():
             message = (
@@ -614,7 +695,8 @@ class ClaimExtractor:
             assertion = AssertionCreate(
                 subject_company_id=subject.id,
                 predicate=rule.name,
-                object_company_id=target.id if rule.object_kind == "company" and target else None,
+                # A counterparty not yet created gets its ID when the Claim is recorded.
+                object_company_id=object_id if rule.object_kind == "company" else None,
                 value_json={
                     "claim_id": str(claim_id),
                     "layer": proposed.layer,
@@ -634,12 +716,12 @@ class ClaimExtractor:
         except InvalidAssertion as refusal:
             return _reject(judged, refusal.code, refusal.message)
         quote = proposed.quote
-        parties = [(subject, "subject")]
-        if rule.object_kind == "company" and target is not None:
-            parties.append((target, "object"))
-        for party, role in parties:
-            if not names_party(quote, party.names, is_filer=party.id == version.company_id):
-                message = f"the quote doesn't name the {role} ({party.names[0]})"
+        parties = [(subject.names, subject.id == version.company_id, "subject")]
+        if rule.object_kind == "company":
+            parties.append((object_names, object_id == version.company_id, "object"))
+        for names, is_filer, role in parties:
+            if not names_party(quote, names, is_filer=is_filer):
+                message = f"the quote doesn't name the {role} ({names[0]})"
                 return _reject(judged, "party_not_in_quote", message)
         cue = directional_cue(rule.name, quote)
         if cue is None:
@@ -656,6 +738,7 @@ class ClaimExtractor:
             cue=cue,
             assertion=assertion,
             offset_source=offset_source,
+            counterparty=counterparty,
         )
 
     # --- finishing ------------------------------------------------------------------------------

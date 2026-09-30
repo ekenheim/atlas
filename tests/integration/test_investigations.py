@@ -292,6 +292,7 @@ def supply_claim(atlas: Atlas) -> dict[str, JsonValue]:
         "subject_company_id": company_id(atlas, "coherent"),
         "predicate": "supplies",
         "object_company_id": company_id(atlas, "nvidia"),
+        "object_name": None,
         "object_text": None,
         "product": "advanced lasers",
         "layer": "chip-laser",

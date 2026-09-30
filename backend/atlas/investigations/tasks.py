@@ -466,9 +466,11 @@ class TaskRunner:
             run_id=run_id,
             continues=continues,
         )
-        with self._caller(investigation) as caller:
+        with (
+            self._caller(investigation) as caller,
             # The run is the investigation's, so the extractor never starts or finishes one.
-            extractor = claim_extractor(self._settings, self._engine, self._gateway, caller, None)
+            claim_extractor(self._settings, self._engine, self._gateway, caller, None) as extractor,
+        ):
             extracted = extractor.extract(job, payload)
         result: dict[str, JsonValue] = {
             "documents": len(documents),

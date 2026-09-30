@@ -455,6 +455,7 @@ def _supply_claims(request: dict[str, Any], passages: list[dict[str, Any]]) -> l
                     "subject_company_id": coherent,
                     "predicate": "supplies",
                     "object_company_id": nvidia,
+                    "object_name": None,
                     "object_text": None,
                     "product": "advanced lasers",
                     "layer": "chip-laser",
