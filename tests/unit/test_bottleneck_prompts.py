@@ -18,7 +18,7 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         SCOUT,
         "scout",
-        2,
+        3,  # v3: a filing phrase per query for EDGAR full-text search (pilot fix 12)
         (
             "Hunt for bottlenecks, layer by layer",
             "demand:",
@@ -38,6 +38,9 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "MOCVD",
             "export controls",
             "Don't write generic company news queries",
+            "EDGAR full-text search",
+            "`filing_phrase`",
+            "`InP substrates`",
         ),
     ),
     (
@@ -79,7 +82,8 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         SKEPTIC_PLAN,
         "skeptic-plan",
-        # v3: it must choose archived documents from the catalog, and why (pilot fix 06)
+        # v3: it must choose archived documents from the catalog (pilot fix 06), and a filing
+        # phrase per query (pilot fix 12)
         3,
         (
             "Search results are leads: Atlas never reads them",
@@ -100,6 +104,8 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "customer_concentration",
             "at-the-market",
             "standing falsifier",
+            "EDGAR full-text search",
+            "`filing_phrase`",
         ),
     ),
     (

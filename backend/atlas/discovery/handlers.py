@@ -1,10 +1,12 @@
 """The `discover` job handler (pausable: the Scout calls LiteLLM). With entity resolution
 configured (`ATLAS_SEC_USER_AGENT`), a finished discovery enqueues `propose_candidates` for
-its leads (atlas.candidates)."""
+its leads (atlas.candidates), and EDGAR full-text search is its second channel unless
+`ATLAS_DISCOVERY_EDGAR_FTS` is `off` (atlas.discovery.edgar_fts)."""
 
 from atlas.audit import Actor
 from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND
 from atlas.companies import load_universe
+from atlas.discovery.edgar_fts import EdgarFullTextSearch
 from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import DISCOVER_KIND, DiscoverPayload, Scout
 from atlas.jobs.handlers import HandlerRegistry
@@ -50,6 +52,7 @@ def register_discovery_handlers(registry: HandlerRegistry, settings: Settings) -
                     gateway,
                     searxng,
                     max_queries=settings.discovery_max_queries,
+                    edgar=EdgarFullTextSearch.from_settings(settings),
                 )
                 artifacts = scout.discover(
                     job, payload.theme, theme, payload.question, run_id=payload.run_id

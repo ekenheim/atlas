@@ -8,11 +8,14 @@ One attempt:
    (`task_started`, or `task_resumed` after a pause). The investigation's run (kind
    `investigation`) is started by the first task that needs it.
 2. **The role**, within the investigation's run and token budget:
-   - **Scout:** a discovery (atlas.discovery) in the run; the leads its queries returned are
-     ranked for relevance to their query and its purpose (atlas.discovery.ranking), and the
-     top-ranked ones kept up to the lead budget, each with its score and reasons (the rest
-     counted as dropped; those ranking says not to keep, from a denied host or below the
-     minimum score, counted as rejected).
+   - **Scout:** a discovery (atlas.discovery) in the run, its EDGAR full-text searches (when
+     on) over the 18 months before the investigation's `as_of`; the leads its queries
+     returned are ranked for relevance to their query and its purpose (an EDGAR filing hit
+     to its filing phrase) (atlas.discovery.ranking), and the top-ranked ones kept up to the
+     lead budget, each with its score and reasons (the rest counted as dropped; those
+     ranking says not to keep, from a denied host or below the minimum score, counted as
+     rejected). With entity resolution configured, its filing leads' filers are then
+     proposed as Candidates by CIK (`propose_candidates` with `filers_only`: no LLM call).
    - **Investigator** (one per seed company): the company's latest parsed Source Versions
      available at the investigation's as-of time, newest first, up to its share of what is
      left of the document budget (an equal share is held back for each of the round's other
@@ -63,9 +66,12 @@ from pydantic import JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import open_archive
+from atlas.audit import Actor
+from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND
 from atlas.claims.extraction import ExtractClaimsPayload
 from atlas.claims.handlers import claim_extractor
 from atlas.companies import Universe, load_universe
+from atlas.discovery.edgar_fts import EdgarFullTextSearch
 from atlas.discovery.ranking import (
     RankingConfig,
     Sighting,
@@ -397,6 +403,7 @@ class TaskRunner:
         if searxng is None:
             raise InvestigationNotConfigured("the Scout needs SearXNG: set ATLAS_SEARXNG_URL")
         runs = self._runs()
+        edgar = EdgarFullTextSearch.from_settings(self._settings)
         with searxng, self._caller(investigation) as caller:
             try:
                 scout = Scout(
@@ -406,9 +413,15 @@ class TaskRunner:
                     self._gateway,
                     searxng,
                     max_queries=self._settings.discovery_max_queries,
+                    edgar=edgar,
                 )
                 found = scout.discover(
-                    job, theme_id, theme, self._question(investigation, task), run_id=run_id
+                    job,
+                    theme_id,
+                    theme,
+                    self._question(investigation, task),
+                    run_id=run_id,
+                    as_of=investigation["as_of"],
                 )
             finally:
                 runs.close()
@@ -434,11 +447,24 @@ class TaskRunner:
                     max_leads=investigation["max_leads"],
                     dropped=dropped,
                 )
+        artifacts: dict[str, JsonValue] = {}
+        if edgar is not None and self._settings.sec_user_agent:
+            # The filing leads' filers, by CIK (no mention extractor): Candidates for the
+            # ones outside the universe (atlas.candidates).
+            enqueued = JobQueue(self._engine, actor=Actor.from_settings(self._settings)).enqueue(
+                PROPOSE_CANDIDATES_KIND,
+                f"discovery:{discovery_id}",
+                {"discovery_id": str(discovery_id), "filers_only": True},
+                job_class=job.job_class,
+            )
+            artifacts["propose_candidates_job_id"] = str(enqueued.job.id)
         return _Outcome(
             "succeeded",
-            artifacts={
+            artifacts=artifacts
+            | {
                 "discovery_id": str(discovery_id),
                 "queries": found["queries"],
+                "filing_searches": found["filing_searches"],
                 "leads_found": total,
                 "leads_taken": taken,
                 "leads_dropped": dropped,
@@ -617,6 +643,7 @@ class TaskRunner:
                 max_queries=self._settings.discovery_max_queries,
                 max_passages=self._settings.investigator_max_passages,
                 passages_per_call=self._settings.investigator_passages_per_call,
+                edgar=EdgarFullTextSearch.from_settings(self._settings),
             )
             found = skeptic.run(
                 investigation,
@@ -940,10 +967,15 @@ def _take_leads(
             purpose=row.purpose,
         )
         for row in connection.execute(
+            # An EDGAR filing hit is ranked against the phrase EDGAR matched, not the web query.
             text(
-                "SELECT s.lead_id, s.url, s.title, s.snippet, q.query, q.purpose"
-                " FROM lead_sighting s JOIN discovery_query q ON q.id = s.discovery_query_id"
-                " WHERE q.discovery_id = :discovery ORDER BY q.position, s.position, s.lead_id"
+                "SELECT s.lead_id, s.url, s.title, s.snippet,"
+                " CASE WHEN s.channel = 'edgar_fts' THEN e.query ELSE q.query END AS query,"
+                " q.purpose FROM lead_sighting s"
+                " JOIN discovery_query q ON q.id = s.discovery_query_id"
+                " LEFT JOIN edgar_search e ON e.discovery_query_id = q.id"
+                " WHERE q.discovery_id = :discovery"
+                " ORDER BY q.position, s.channel DESC, s.position, s.lead_id"
             ),
             {"discovery": discovery_id},
         )

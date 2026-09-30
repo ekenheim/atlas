@@ -9755,6 +9755,17 @@
             ],
             "title": "Purpose"
           },
+          "filing_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Phrase"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -9815,6 +9826,16 @@
               }
             ],
             "title": "Searched At"
+          },
+          "edgar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EdgarSearch"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -9823,12 +9844,14 @@
           "position",
           "query",
           "purpose",
+          "filing_phrase",
           "status",
           "result_count",
           "new_leads",
           "unresponsive_engines",
           "error",
-          "searched_at"
+          "searched_at",
+          "edgar"
         ],
         "title": "DiscoveryQuery"
       },
@@ -9865,6 +9888,111 @@
           "reason"
         ],
         "title": "DisproveRequest"
+      },
+      "EdgarSearch": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "forms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Forms"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "searched",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "total_hits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Hits"
+          },
+          "result_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Count"
+          },
+          "new_leads": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Leads"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "searched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "forms",
+          "start_date",
+          "end_date",
+          "status",
+          "total_hits",
+          "result_count",
+          "new_leads",
+          "error",
+          "searched_at"
+        ],
+        "title": "EdgarSearch",
+        "description": "A query's EDGAR full-text search (atlas.discovery.edgar_fts)."
       },
       "Entity": {
         "properties": {
@@ -11298,6 +11426,114 @@
         ],
         "title": "FetchObservation",
         "description": "One fetch of the document that produced or matched this version."
+      },
+      "Filing": {
+        "properties": {
+          "cik": {
+            "type": "string",
+            "title": "Cik"
+          },
+          "filer": {
+            "type": "string",
+            "title": "Filer"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "file_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Type"
+          },
+          "file_date": {
+            "type": "string",
+            "format": "date",
+            "title": "File Date"
+          },
+          "period_ending": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Ending"
+          },
+          "accession": {
+            "type": "string",
+            "title": "Accession"
+          },
+          "document": {
+            "type": "string",
+            "title": "Document"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id"
+          },
+          "ingestable": {
+            "type": "boolean",
+            "title": "Ingestable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cik",
+          "filer",
+          "ticker",
+          "form",
+          "file_type",
+          "file_date",
+          "period_ending",
+          "accession",
+          "document",
+          "company_id",
+          "source_version_id",
+          "ingestable"
+        ],
+        "title": "Filing",
+        "description": "An `edgar_fts` lead's filing (EDGAR full-text search's metadata)."
       },
       "FinalStatus": {
         "type": "string",
@@ -13805,7 +14041,8 @@
             "type": "string",
             "enum": [
               "searxng",
-              "tradingview_news"
+              "tradingview_news",
+              "edgar_fts"
             ],
             "title": "Origin"
           },
@@ -13884,6 +14121,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Headline"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "filing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Filing"
               },
               {
                 "type": "null"

@@ -8,7 +8,8 @@ challenge), the seed companies, and a `catalog` of archived primary documents (f
 announcements already in Atlas's source ledger, each with its `source_version_id`, company,
 title, form type and when it became available).
 
-How your plan is used: Atlas runs your `queries` on a web search engine, and reads the
+How your plan is used: Atlas runs your `queries` on a web search engine (and each
+`filing_phrase` in SEC filings), and reads the
 passages of the `documents` you choose. Search results are leads: Atlas never reads them, and
 a lead is never Evidence (only a result that is itself a catalog document gets read, from the
 archive). Only archived documents are Evidence, so your counterevidence can only come from the
@@ -63,8 +64,13 @@ Answer with:
   at most 12 words, no search operators other than double quotes around an exact phrase. Name
   the specific product, material, technology or company in each query. Prefer queries that can
   find primary sources (company filings, exchange announcements, investor presentations) and
-  sources other than the ones the supporting Claims quote. Don't repeat a query.
+  sources other than the ones the supporting Claims quote. Don't repeat a query. Each query
+  is also searched in SEC filings through EDGAR full-text search, which matches exact wording:
+  in `filing_phrase`, give the exact phrase of two to four words a filing with the
+  counterevidence would contain, as companies write it (for example `second source`,
+  `at-the-market`, `excess inventory`, `capacity expansion`), without a company name, or null
+  when no filing would say it that way.
 
 Nothing you plan is evidence by itself. Answer with `{"queries": [{"query": ...,
-"checklist_item": ...}, ...], "documents": [{"source_version_id": ..., "checklist_item": ...},
-...]}`.
+"checklist_item": ..., "filing_phrase": ...}, ...], "documents": [{"source_version_id": ...,
+"checklist_item": ...}, ...]}`.

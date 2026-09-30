@@ -16,7 +16,13 @@ grouping them is Evidence Families' job.
 TradingView news headline (ticket 31, an owner override that is off by default): its
 metadata only (title, original publisher, published time, TradingView link, related
 symbols), with no query; it belongs to the themes of the company it was listed for. Story
-text is never stored.
+text is never stored. An `edgar_fts` lead is a filing document an EDGAR full-text search
+returned for a query's filing phrase (atlas.discovery.edgar_fts; pilot fix 12): its URL is
+the document's in the EDGAR archive, its title `<filer> <form> filed <date>`, its snippet
+says which phrase EDGAR matched in it (EDGAR returns no text), and its `filing` holds the
+filer's CIK, the form and dates, the universe company that filed it, the Source Version Atlas
+archived of it, if any, and whether it is `ingestable` (a universe company's filing Atlas
+hasn't archived). The document is not fetched: the lead is where to look.
 """
 
 import uuid
@@ -28,6 +34,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from pydantic import BaseModel
 from sqlalchemy import Connection, RowMapping, text
 
+from atlas.discovery.edgar_fts import FilingHit
 from atlas.discovery.searxng import SearchResult
 
 _TRACKING = frozenset({"gclid", "fbclid", "msclkid", "mc_cid", "mc_eid", "igshid"})
@@ -73,10 +80,27 @@ class Headline(BaseModel):
     owner_override: str  # the owner's recorded override of TradingView's terms
 
 
+class Filing(BaseModel):
+    """An `edgar_fts` lead's filing (EDGAR full-text search's metadata)."""
+
+    cik: str  # the filer's
+    filer: str
+    ticker: str | None
+    form: str
+    file_type: str | None  # the document's type when it isn't the form (an exhibit)
+    file_date: date
+    period_ending: date | None
+    accession: str
+    document: str  # the file name in the filing
+    company_id: uuid.UUID | None  # the universe company that filed it, if any
+    source_version_id: uuid.UUID | None  # the latest Source Version Atlas archived of it
+    ingestable: bool  # a universe company's filing Atlas hasn't archived
+
+
 class Lead(BaseModel):
     id: uuid.UUID
     tier: Literal["C"]  # always: a lead is never Evidence
-    origin: Literal["searxng", "tradingview_news"]
+    origin: Literal["searxng", "tradingview_news", "edgar_fts"]
     canonical_url: str
     url: str  # as first found
     title: str
@@ -89,6 +113,7 @@ class Lead(BaseModel):
     first_seen_at: datetime
     last_seen_at: datetime
     headline: Headline | None = None  # a `tradingview_news` lead's metadata
+    filing: Filing | None = None  # an `edgar_fts` lead's filing
 
 
 def store_result(connection: Connection, query_id: uuid.UUID, result: SearchResult) -> bool | None:
@@ -134,6 +159,101 @@ def store_result(connection: Connection, query_id: uuid.UUID, result: SearchResu
             "snippet": result.snippet,
             "engines": result.engines,
             "published": result.published_date,
+        },
+    )
+    return bool(row.created)
+
+
+def filing_snippet(query: str, hit: FilingHit) -> str:
+    """What an `edgar_fts` lead's snippet says: that EDGAR matched the phrase(s) in it."""
+    document = hit.file_type if hit.file_type and hit.file_type != hit.form else hit.form
+    period = f", period ending {hit.period_ending.isoformat()}" if hit.period_ending else ""
+    return (
+        f"EDGAR full-text search matched {query} in this {document} of {hit.filer}"
+        f" (CIK {hit.cik}{period})."
+    )
+
+
+def store_filing(connection: Connection, query_id: uuid.UUID, query: str, hit: FilingHit) -> bool:
+    """Record filing `hit` of query `query_id`'s EDGAR search (`query`: the `q` sent) as a
+    lead sighting, creating the `edgar_fts` lead if its canonical URL is new; its filing is
+    recorded (or refreshed) with the universe company that filed it and its archived Source
+    Version. Returns whether a lead was created."""
+    canonical = canonical_url(hit.url)
+    assert canonical is not None  # an EDGAR archive URL
+    snippet = filing_snippet(query, hit)
+    row = connection.execute(
+        text(
+            "INSERT INTO lead (id, canonical_url, url, title, snippet, published_date, engines,"
+            " first_query_id, origin) VALUES (:id, :canonical, :url, :title, :snippet,"
+            " :published, ARRAY['edgar_fts'], :query, 'edgar_fts')"
+            " ON CONFLICT (canonical_url) DO UPDATE SET last_seen_at = now(),"
+            " engines = ARRAY(SELECT DISTINCT e FROM unnest(lead.engines || EXCLUDED.engines) e"
+            " ORDER BY e)"
+            " RETURNING id, (xmax = 0) AS created"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "canonical": canonical,
+            "url": hit.url,
+            "title": hit.title,
+            "snippet": snippet,
+            "published": hit.file_date,
+            "query": query_id,
+        },
+    ).one()
+    connection.execute(
+        text(
+            "INSERT INTO lead_sighting (lead_id, discovery_query_id, position, url, title,"
+            " snippet, engines, published_date, channel) VALUES (:lead, :query, :position,"
+            " :url, :title, :snippet, ARRAY['edgar_fts'], :published, 'edgar_fts')"
+            " ON CONFLICT DO NOTHING"
+        ),
+        {
+            "lead": row.id,
+            "query": query_id,
+            "position": hit.position,
+            "url": hit.url,
+            "title": hit.title,
+            "snippet": snippet,
+            "published": hit.file_date,
+        },
+    )
+    company_id = connection.execute(
+        text("SELECT id FROM company WHERE cik = :cik AND role = 'researched'"), {"cik": hit.cik}
+    ).scalar_one_or_none()
+    version_id = connection.execute(
+        text(
+            "SELECT v.id FROM source_version v JOIN source_document d"
+            " ON d.id = v.source_document_id WHERE d.canonical_url = :url"
+            " ORDER BY v.available_at DESC, v.id DESC LIMIT 1"
+        ),
+        {"url": hit.url},
+    ).scalar_one_or_none()
+    connection.execute(
+        text(
+            "INSERT INTO edgar_filing (lead_id, cik, filer, ticker, form, file_type, file_date,"
+            " period_ending, accession, document, company_id, source_version_id, ingestable)"
+            " VALUES (:lead, :cik, :filer, :ticker, :form, :file_type, :file_date, :period,"
+            " :accession, :document, :company, :version, :ingestable)"
+            " ON CONFLICT (lead_id) DO UPDATE SET company_id = EXCLUDED.company_id,"
+            " source_version_id = EXCLUDED.source_version_id,"
+            " ingestable = EXCLUDED.ingestable, updated_at = now()"
+        ),
+        {
+            "lead": row.id,
+            "cik": hit.cik,
+            "filer": hit.filer,
+            "ticker": hit.ticker,
+            "form": hit.form,
+            "file_type": hit.file_type,
+            "file_date": hit.file_date,
+            "period": hit.period_ending,
+            "accession": hit.accession,
+            "document": hit.document,
+            "company": company_id,
+            "version": version_id,
+            "ingestable": company_id is not None and version_id is None,
         },
     )
     return bool(row.created)
@@ -211,11 +331,17 @@ _LEADS = """
         (SELECT count(*) FROM lead_sighting s WHERE s.lead_id = lead.id) AS sightings,
         h.headline_id, h.company_id AS headline_company_id, h.symbol AS headline_symbol,
         h.publisher, h.publisher_url, h.published_at AS headline_published_at,
-        h.related_symbols, h.owner_override
+        h.related_symbols, h.owner_override,
+        f.cik AS filing_cik, f.filer AS filing_filer, f.ticker AS filing_ticker,
+        f.form AS filing_form, f.file_type AS filing_file_type, f.file_date AS filing_file_date,
+        f.period_ending AS filing_period_ending, f.accession AS filing_accession,
+        f.document AS filing_document, f.company_id AS filing_company_id,
+        f.source_version_id AS filing_source_version_id, f.ingestable AS filing_ingestable
     FROM lead
     LEFT JOIN discovery_query first ON first.id = lead.first_query_id
     LEFT JOIN discovery ON discovery.id = first.discovery_id
     LEFT JOIN tradingview_headline h ON h.lead_id = lead.id
+    LEFT JOIN edgar_filing f ON f.lead_id = lead.id
 """
 # A lead belongs to a theme when a discovery for that theme has returned it, or when it is a
 # headline listed for a company in that theme.
@@ -241,7 +367,14 @@ _HEADLINE_COLUMNS = (
 
 
 def _lead(row: RowMapping) -> Lead:
-    fields = {k: v for k, v in row.items() if k not in _HEADLINE_COLUMNS}
+    fields = {
+        k: v for k, v in row.items() if k not in _HEADLINE_COLUMNS and not k.startswith("filing_")
+    }
+    filing = None
+    if row["filing_cik"] is not None:
+        filing = Filing.model_validate(
+            {k.removeprefix("filing_"): v for k, v in row.items() if k.startswith("filing_")}
+        )
     headline = None
     if row["headline_id"] is not None:
         headline = Headline(
@@ -254,7 +387,7 @@ def _lead(row: RowMapping) -> Lead:
             related_symbols=list(row["related_symbols"]),
             owner_override=row["owner_override"],
         )
-    return Lead.model_validate({**fields, "headline": headline})
+    return Lead.model_validate({**fields, "headline": headline, "filing": filing})
 
 
 def list_leads(

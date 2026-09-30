@@ -2710,6 +2710,8 @@ export interface components {
             query: string;
             /** Purpose */
             purpose: string | null;
+            /** Filing Phrase */
+            filing_phrase: string | null;
             /**
              * Status
              * @enum {string}
@@ -2725,6 +2727,7 @@ export interface components {
             error: string | null;
             /** Searched At */
             searched_at: string | null;
+            edgar: components["schemas"]["EdgarSearch"] | null;
         };
         /** DismissRequest */
         DismissRequest: {
@@ -2735,6 +2738,41 @@ export interface components {
         DisproveRequest: {
             /** Reason */
             reason: string;
+        };
+        /**
+         * EdgarSearch
+         * @description A query's EDGAR full-text search (atlas.discovery.edgar_fts).
+         */
+        EdgarSearch: {
+            /** Query */
+            query: string;
+            /** Forms */
+            forms: string[];
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "searched" | "failed";
+            /** Total Hits */
+            total_hits: number | null;
+            /** Result Count */
+            result_count: number | null;
+            /** New Leads */
+            new_leads: number | null;
+            /** Error */
+            error: string | null;
+            /** Searched At */
+            searched_at: string | null;
         };
         /** Entity */
         Entity: {
@@ -3300,6 +3338,39 @@ export interface components {
             gate_decision_id: string | null;
             /** Owner Override */
             owner_override?: string | null;
+        };
+        /**
+         * Filing
+         * @description An `edgar_fts` lead's filing (EDGAR full-text search's metadata).
+         */
+        Filing: {
+            /** Cik */
+            cik: string;
+            /** Filer */
+            filer: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Form */
+            form: string;
+            /** File Type */
+            file_type: string | null;
+            /**
+             * File Date
+             * Format: date
+             */
+            file_date: string;
+            /** Period Ending */
+            period_ending: string | null;
+            /** Accession */
+            accession: string;
+            /** Document */
+            document: string;
+            /** Company Id */
+            company_id: string | null;
+            /** Source Version Id */
+            source_version_id: string | null;
+            /** Ingestable */
+            ingestable: boolean;
         };
         /** @enum {string} */
         FinalStatus: "completed" | "failed" | "cancelled";
@@ -4231,7 +4302,7 @@ export interface components {
              * Origin
              * @enum {string}
              */
-            origin: "searxng" | "tradingview_news";
+            origin: "searxng" | "tradingview_news" | "edgar_fts";
             /** Canonical Url */
             canonical_url: string;
             /** Url */
@@ -4261,6 +4332,7 @@ export interface components {
              */
             last_seen_at: string;
             headline?: components["schemas"]["Headline"] | null;
+            filing?: components["schemas"]["Filing"] | null;
         };
         /** LineResult */
         LineResult: {

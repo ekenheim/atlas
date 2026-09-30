@@ -1,0 +1,20 @@
+{
+  "cik": "0001828805",
+  "entityType": "operating",
+  "name": "Aeluma, Inc.",
+  "tickers": [],
+  "exchanges": [],
+  "ein": null,
+  "lei": null,
+  "stateOfIncorporation": "DE",
+  "formerNames": [],
+  "filings": {
+    "recent": {
+      "form": [
+        "10-K",
+        "10-Q",
+        "10-K"
+      ]
+    }
+  }
+}

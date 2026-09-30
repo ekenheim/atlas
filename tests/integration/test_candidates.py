@@ -29,6 +29,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from atlas.audit import verify_chain
+from tests.fakes.edgar_fts import FakeEdgarFullTextSearch, FilingReply
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.identity import FakeIdentitySources
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
@@ -111,9 +112,12 @@ class CandidatesAtlas(Atlas):
         searxng: FakeSearXNG,
         searxng_url: str,
         identity_url: str,
+        edgar: FakeEdgarFullTextSearch,
+        edgar_url: str,
     ) -> None:
         self.litellm = litellm
         self.searxng = searxng
+        self.edgar = edgar
         self.themes = tmp_path / "themes.yaml"
         self.themes.write_text(yaml.safe_dump(THEMES), encoding="utf-8")
         super().__init__(
@@ -128,6 +132,7 @@ class CandidatesAtlas(Atlas):
             sec_data_url=identity_url,
             gleif_url=f"{identity_url}/api/v1",
             openfigi_url=identity_url,
+            sec_efts_url=f"{edgar_url}/LATEST",
         )
 
     def cli(self, *args: str) -> subprocess.CompletedProcess[str]:
@@ -186,10 +191,12 @@ def atlas(
     database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served]
 ) -> Iterator[CandidatesAtlas]:
     litellm, searxng, identity = FakeLiteLLM(), FakeSearXNG(), FakeIdentitySources()
+    edgar = FakeEdgarFullTextSearch()
     with (
         serve(litellm.handle) as litellm_served,
         serve(searxng.handle) as searxng_served,
         serve(identity.handle) as identity_served,
+        serve(edgar.handle) as edgar_served,
     ):
         atlas = CandidatesAtlas(
             database_url,
@@ -200,13 +207,15 @@ def atlas(
             searxng,
             searxng_served.url,
             identity_served.url,
+            edgar,
+            edgar_served.url,
         )
         atlas.apply_template()
         seeded = atlas.cli("companies", "seed")
         assert seeded.returncode == 0, seeded.stderr
         yield atlas
         atlas.engine.dispose()
-        for served in (litellm_served, searxng_served, identity_served):
+        for served in (litellm_served, searxng_served, identity_served, edgar_served):
             served.raise_errors()
 
 
@@ -322,6 +331,51 @@ def test_a_lead_is_examined_once(discovered: CandidatesAtlas) -> None:
     assert (propose["artifacts"]["leads"], propose["artifacts"]["run_id"]) == (0, None)
     assert len(discovered.litellm.chat_requests()) == 3  # two Scouts, one extractor
     assert len(discovered.candidates()) == 2
+
+
+def test_a_filing_hit_proposes_its_filer_by_cik_without_the_mention_extractor(
+    atlas: CandidatesAtlas,
+) -> None:
+    # Pilot fix 12: the Scout's filing phrase finds Aeluma's and Coherent's 10-Ks in EDGAR.
+    atlas.litellm.script_chat(
+        ChatReply.json(
+            {
+                "queries": [
+                    {"query": QUERY, "purpose": "EML suppliers", "filing_phrase": "InP substrates"}
+                ]
+            }
+        ),
+        ChatReply.answer(mentions, tokens=(700, 90)),
+    )
+    atlas.searxng.script(QUERY, SearchReply.of("unseeded-companies"))
+    atlas.edgar.script('"InP substrates"', FilingReply.of("inp-substrates-aeluma-coherent"))
+    payload = json.dumps({"theme": "photonics", "question": QUESTION})
+    job_id = atlas.enqueue("jobs", "enqueue", "discover", "--key", "edgar-1", "--payload", payload)
+    atlas.worker_pass()
+
+    job = atlas.get(f"/api/v1/jobs/{job_id}")
+    assert job["status"] == "succeeded", job["failures"]
+    propose = atlas.get(f"/api/v1/jobs/{job['artifacts']['propose_candidates_job_id']}")
+    assert propose["status"] == "succeeded", propose["failures"]
+    artifacts = propose["artifacts"]
+    # Six leads examined: the two filings by CIK, the four web leads by the extractor.
+    assert (artifacts["leads"], artifacts["filings"]) == (6, 2)
+    extractor = atlas.litellm.chat_requests()[1]
+    sent = json.loads(extractor["messages"][1]["content"])
+    assert {item["source"] for item in sent["retrieved_data"]} == set(MENTIONS)
+    aeluma = atlas.candidate("Aeluma, Inc.")
+    assert (aeluma["identity_key"], aeluma["cik"], aeluma["source_path"]) == (
+        "cik:0001828805",
+        "0001828805",
+        "sec",
+    )
+    [lead] = aeluma["leads"]
+    assert lead["canonical_url"] == (
+        "https://sec.gov/Archives/edgar/data/1828805/000121390026100584/ea0305364-10k_aeluma.htm"
+    )
+    assert (lead["mentioned_as"], lead["ticker"]) == ("Aeluma, Inc.", "ALMU")
+    # Coherent filed the other: a universe company, no Candidate.
+    assert "COHERENT CORP." not in {c["name"] for c in atlas.candidates()}
 
 
 # --- the owner's decisions ------------------------------------------------------------------------
