@@ -16,15 +16,19 @@ which the Coherent 10-K names) seeded. Each part is one test, in this order:
    and one reflect with its citations resolved.
 2. `exchanges`: the FCA NSM (IQE) and the AMF (Soitec): discovery and one document each
    through the fetch gate (retention off), with the gate's decisions.
-3. `tradingview`: skipped unless ticket 31's TradingView source is in the build and enabled
-   with a token; then its catalog and one transcript for one company.
+3. `tradingview`: ticket 31's `tradingview_catalog` for the first selected company with a
+   `tradingview_symbol` (documents and news, at most two tool calls a job), then the
+   `tradingview_transcripts` job it enqueues (at most two transcripts, archived, not
+   retained). Skipped, saying what to do, unless `ATLAS_TRADINGVIEW_ENABLED` is set with a
+   token (`atlas tradingview login`'s token file); a rehearsal serves the TradingView fake.
 4. `discovery`: the Scout (MiniMax) and SearXNG give leads; the mention extractor and live
    entity resolution (SEC, GLEIF, OpenFIGI) give Candidates. Skipped without SearXNG.
 5. `relationships`: the Investigator on the recorded Coherent FY2026 10-K (supplier-rich),
    then the Reviewer (MiniMax): machine-reviewed or exception edges.
 6. `investigation`: Scout -> Investigators (Coherent, Lumentum) -> Skeptic || Financial
    Analyst -> Editor to a stop, a Hypothesis draft, a scenario recomputed byte-identically,
-   and publishing version 1 (a Research Snapshot is reported once ticket 20 adds one).
+   and publishing version 1 behind the gate: the harness approves the edges the version
+   depends on as the owner step (recorded as such), then reads the Research Snapshot back.
 7. `identity`: `atlas companies resolve` for two companies; the pending reviews listed.
 
 **Caps.** Atlas reaches LiteLLM and Hindsight only through `CappedProxy`s
@@ -45,6 +49,7 @@ import sys
 import time
 from collections.abc import Iterator
 from contextlib import ExitStack
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -59,10 +64,14 @@ from atlas.db.migrate import upgrade
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 from atlas.llm_routes import LiteLLMError, LiteLLMRoutes
 from atlas.settings import Settings
+from atlas.tradingview import TokenSet, write_token_file
 from tests.fakes.identity import FakeIdentitySources
 from tests.fakes.litellm import ChatReply
 from tests.fakes.searxng import FakeSearXNG, SearchReply
 from tests.fakes.serve import Served, serve
+from tests.fakes.tradingview import ACCESS_TOKEN as TV_ACCESS_TOKEN
+from tests.fakes.tradingview import SYMBOLS as TV_SYMBOLS
+from tests.fakes.tradingview import FakeTradingView
 from tests.live.stack import REFUSED, REPO, LiveStack, Refused, live_mode, live_stack
 from tests.live.verify import (
     DISCOVERY_QUERY,
@@ -134,6 +143,7 @@ class Verify:
         model: RehearsalModel | None,
         searxng_url: str | None,
         identity_url: str | None,
+        tradingview_url: str | None = None,
     ) -> None:
         self.stack = stack
         self.report = report
@@ -147,6 +157,7 @@ class Verify:
         self.model = model
         self.searxng_url = searxng_url
         self.identity_url = identity_url
+        self.tradingview_url = tradingview_url  # the served fake, in a rehearsal only
         self.selected = _selected_parts()
         self.companies = _env_list("ATLAS_LIVE_VERIFY_COMPANIES", DEFAULT_COMPANIES)
         self.limit = int(os.environ.get("ATLAS_LIVE_VERIFY_LIMIT") or DEFAULT_LIMIT)
@@ -446,6 +457,7 @@ def verify(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Verify]:
         model: RehearsalModel | None = None
         searxng_url = os.environ.get("ATLAS_SEARXNG_URL") or None
         identity_url: str | None = None
+        tradingview_url: str | None = None
         if stack.rehearsal is not None:
             model = RehearsalModel()
             stack.rehearsal.llm.script_chat(
@@ -458,7 +470,10 @@ def verify(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Verify]:
             exits.callback(searxng_served.raise_errors)
             identity_served = exits.enter_context(serve(FakeIdentitySources().handle))
             exits.callback(identity_served.raise_errors)
+            tradingview_served = exits.enter_context(serve(FakeTradingView().handle))
+            exits.callback(tradingview_served.raise_errors)
             searxng_url, identity_url = searxng_served.url, identity_served.url
+            tradingview_url = tradingview_served.url
         try:
             checked = stack.preflight()
             role_model = os.environ.get("ATLAS_LLM_ROLE_MODEL") or DEFAULT_ROLE_MODEL
@@ -496,6 +511,7 @@ def verify(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Verify]:
             model,
             searxng_url,
             identity_url,
+            tradingview_url,
         )
         exits.callback(harness.close)
         hindsight.begin_part("setup", 0)
@@ -718,22 +734,15 @@ def test_part_2_exchanges_discovery_and_one_document_each_through_the_fetch_gate
 # --- 3. TradingView (ticket 31) ---------------------------------------------------------------
 
 
-def test_part_3_tradingview_catalog_and_one_transcript(verify: Verify) -> None:
+def test_part_3_tradingview_catalog_and_its_transcripts(verify: Verify) -> None:
     with verify.part("tradingview") as record:
-        # Settings from the environment too, so ticket 31's ATLAS_TRADINGVIEW_* are read.
-        values = verify.settings().model_dump()
-        settings = Settings(_env_file=None, **values)  # pyright: ignore[reportCallIssue]
-        kinds = set(builtin_registry(settings).kinds())
-        if not {"tradingview_catalog", "tradingview_transcripts"} <= kinds:
-            pytest.skip("the TradingView source is not in this build (ticket 31 lands separately)")
-        enabled = bool(getattr(settings, "tradingview_enabled", False))
-        if not enabled or verify.rehearsing:
-            pytest.skip(
-                "no TradingView token configured: run `atlas tradingview login` and set"
-                " ATLAS_TRADINGVIEW_ENABLED=true (a rehearsal never calls it)"
-            )
-        slug = next((s for s in verify.companies), "lumentum")
-        catalog = verify.enqueue(
+        numbers: dict[str, Any] = record["numbers"]
+        overrides = _tradingview_settings(verify)
+        slug = _tradingview_company(verify)
+        # Archived, not retained (the part's retain budget is 0); at most two tool calls a
+        # job: the catalog's documents and news, then at most two transcripts.
+        settings = verify.settings(hindsight_url=None, tradingview_max_calls_per_job=2, **overrides)
+        catalog_id = verify.enqueue(
             "jobs",
             "enqueue",
             "tradingview_catalog",
@@ -743,23 +752,104 @@ def test_part_3_tradingview_catalog_and_one_transcript(verify: Verify) -> None:
             json.dumps({"company": slug}),
         )
         verify.drain(settings)
-        transcripts = verify.enqueue(
-            "jobs",
-            "enqueue",
-            "tradingview_transcripts",
-            "--key",
-            f"verify-tv-transcripts-{slug}",
-            "--payload",
-            json.dumps({"company": slug, "limit": 1}),
-        )
-        verify.drain(settings)
-        record["numbers"] |= {
-            "company": slug,
-            "catalog": _job_summary(verify.job(catalog)),
-            "transcripts": _job_summary(verify.job(transcripts)),
+        catalog = verify.job(catalog_id)
+        artifacts = as_dict(catalog.get("artifacts"))
+        numbers["company"] = slug
+        numbers["catalog_job"] = _job_summary(catalog)
+        assert catalog["status"] == "succeeded", catalog.get("failures")
+        company_id = verify.company(slug)["id"]
+        entries = verify.get("/api/v1/tradingview/catalog", company_id=company_id, limit=200)
+        numbers["catalog"] = {
+            "entries": entries["total"],
+            "by_category": _count(entries["items"], "category"),
         }
-        assert record["numbers"]["catalog"]["status"] == "succeeded"
-        assert record["numbers"]["transcripts"]["status"] == "succeeded"
+        headlines = [
+            lead
+            for lead in verify.get("/api/v1/leads", limit=200)["items"]
+            if lead.get("origin") == "tradingview_news"
+        ]
+        numbers["news_leads"] = len(headlines)
+        transcripts_id = artifacts.get("transcripts_job_id")
+        if not transcripts_id:  # every transcript in the lookback is already in the ledger
+            numbers["transcripts_job"] = "none enqueued (no transcript pending)"
+            return
+        transcripts = verify.job(str(transcripts_id))
+        numbers["transcripts_job"] = _job_summary(transcripts)
+        stored = as_list(as_dict(transcripts.get("artifacts")).get("source_versions"))
+        numbers["transcripts"] = [
+            {
+                "url": version["source_document"]["canonical_url"],
+                "source_tier": version["source_document"]["source_tier"],
+                "available_at": version["available_at"],
+                "parse_status": version["parse_status"],
+                "language": version.get("language"),
+            }
+            for version in (verify.get(f"/api/v1/source-versions/{v}") for v in stored)
+        ]
+        assert transcripts["status"] == "succeeded", transcripts.get("failures")
+        assert stored, "the transcripts job stored no transcript"
+
+
+def _tradingview_settings(verify: Verify) -> dict[str, Any]:
+    """Ticket 31's settings for this part: in a rehearsal, its fake served with a token file
+    written here; live, the owner's `ATLAS_TRADINGVIEW_*` (exported from .env by
+    `scripts/live-verify.sh`) and the token file `atlas tradingview login` wrote. Skips, with
+    what to do, when TradingView is off or has no token."""
+    if verify.tradingview_url is not None:
+        token_file = verify.tmp_path / "tradingview-token.json"
+        write_token_file(
+            token_file,
+            TokenSet(
+                access_token=TV_ACCESS_TOKEN,
+                refresh_token=None,
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+                token_endpoint=None,
+                client_id=None,
+                resource=f"{verify.tradingview_url}/mcp",
+            ),
+        )
+        return {
+            "tradingview_enabled": True,
+            "tradingview_mcp_url": f"{verify.tradingview_url}/mcp",
+            "tradingview_token_file": token_file,
+            "tradingview_rate_per_s": 1.0,
+        }
+    names = [name for name in Settings.model_fields if name.startswith("tradingview_")]
+    values: dict[str, Any] = {
+        name: os.environ[f"ATLAS_{name.upper()}"]
+        for name in names
+        if os.environ.get(f"ATLAS_{name.upper()}")
+    }
+    configured = verify.settings(**values)
+    if not configured.tradingview_enabled:
+        pytest.skip(
+            "TradingView is off (the owner override is off by default): set"
+            " ATLAS_TRADINGVIEW_ENABLED=true and run `uv run atlas tradingview login`"
+        )
+    token_file = configured.tradingview_token_file
+    if not token_file.is_absolute():  # `atlas tradingview login` writes it from the repo root
+        token_file = REPO / token_file
+    values["tradingview_token_file"] = token_file
+    has_secret = configured.tradingview_access_token or configured.tradingview_refresh_token
+    if not token_file.is_file() and not has_secret:
+        pytest.skip(
+            f"no TradingView token: no token file at {token_file} and no"
+            " ATLAS_TRADINGVIEW_ACCESS_TOKEN; run `uv run atlas tradingview login` first"
+        )
+    return values
+
+
+def _tradingview_company(verify: Verify) -> str:
+    """The first selected company with a `tradingview_symbol` (in a rehearsal, one the fake
+    has documents for)."""
+    universe = load_universe(verify.themes)
+    for slug in verify.companies:
+        company = universe.companies.get(slug)
+        if company is None or company.tradingview_symbol is None:
+            continue
+        if verify.tradingview_url is None or company.tradingview_symbol in TV_SYMBOLS:
+            return slug
+    pytest.skip(f"no selected company ({', '.join(verify.companies)}) has a tradingview_symbol")
 
 
 # --- 4. Discovery -----------------------------------------------------------------------------
@@ -950,26 +1040,82 @@ def test_part_6_investigation_to_a_hypothesis_scenario_and_publish(verify: Verif
         numbers["publish"] = _publish(verify, hypothesis["id"])
 
 
+OWNER_NOTE = "live verification: the harness approved this as the owner step (ticket 32)"
+
+
 def _publish(verify: Verify, hypothesis_id: str) -> dict[str, Any]:
-    """Publish version 1 behind the gate (reported, not required): evidence_ready, then
-    publish-version; a Research Snapshot is named if the build has one (ticket 20)."""
-    moved = verify.api.post(
-        f"/api/v1/hypotheses/{hypothesis_id}/transitions", json={"to": "evidence_ready"}
-    )
+    """Publish version 1 behind the gate (ticket 20) and read its Research Snapshot back.
+
+    evidence_ready, then the gate is read. When the owner's approval of the Relationships the
+    version depends on is all it lacks, the harness plays the owner: it approves each edge
+    through `POST /relationships/{id}/review` and records that it did so (`owner_step`). It
+    then publishes when the gate allows, and reads the snapshot (re-hashed on every read). A
+    gate the owner can't open (no falsifier, no unresolved question, an Assertion not yet
+    machine-reviewed) is reported, not forced."""
+    base = f"/api/v1/hypotheses/{hypothesis_id}"
+    moved = verify.api.post(f"{base}/transitions", json={"to": "evidence_ready"})
     if moved.status_code != 200:
         return {"published": False, "transition": moved.status_code, "detail": moved.json()}
+    gate = verify.get(f"{base}/publish-gate")
+    result: dict[str, Any] = {"gate_before": _gate_summary(gate), "owner_step": None}
+    codes = {failure["code"] for failure in gate["failures"]}
+    if gate["blocked"] is None and codes == {"relationship_not_approved"}:
+        edges = sorted({str(each) for f in gate["failures"] for each in f["relationship_ids"]})
+        approvals: list[dict[str, Any]] = []
+        for edge_id in edges:
+            before = verify.get(f"/api/v1/relationships/{edge_id}")
+            verify.post(
+                f"/api/v1/relationships/{edge_id}/review",
+                {"review_state": "approved", "note": OWNER_NOTE},
+                200,
+            )
+            approvals.append(
+                {
+                    "relationship_id": edge_id,
+                    "predicate": before.get("predicate"),
+                    "review_state_before": before.get("review_state"),
+                }
+            )
+        result["owner_step"] = {
+            "by": "the live-verify harness, as the owner (not a human decision)",
+            "note": OWNER_NOTE,
+            "approved": approvals,
+        }
+        gate = verify.get(f"{base}/publish-gate")
+        result["gate_after"] = _gate_summary(gate)
+    if not gate["publishable"]:
+        return result | {"published": False, "snapshot": None}
     published = verify.api.post(
-        f"/api/v1/hypotheses/{hypothesis_id}/publish-version",
-        json={"version": 1, "note": "live verification"},
+        f"{base}/publish-version", json={"version": 1, "note": "live verification"}
     )
-    body = published.json()
-    snapshot = {k: v for k, v in body.items() if "snapshot" in k} if published.is_success else {}
+    assert published.status_code == 200, f"the gate allowed it, yet: {published.text}"
+    snapshots = verify.get("/api/v1/snapshots", hypothesis_id=hypothesis_id)["items"]
+    assert len(snapshots) == 1, snapshots
+    snapshot = verify.get(f"/api/v1/snapshots/{snapshots[0]['id']}")
+    assert snapshot["verified"] is True
+    return result | {
+        "published": True,
+        "status": published.json()["status"],
+        "snapshot": {
+            "id": snapshot["id"],
+            "hypothesis_version": snapshot["hypothesis_version"],
+            "sha256": snapshot["sha256"],
+            "byte_size": snapshot["byte_size"],
+            "object_uri": snapshot["object_uri"],
+            "verified": snapshot["verified"],
+        },
+    }
+
+
+def _gate_summary(gate: dict[str, Any]) -> dict[str, Any]:
     return {
-        "published": published.is_success,
-        "http_status": published.status_code,
-        "status": body.get("status") if published.is_success else None,
-        "refusal": None if published.is_success else body,
-        "snapshot": snapshot or "none in this build (ticket 20)",
+        "version": gate["version"],
+        "blocked": gate["blocked"],
+        "publishable": gate["publishable"],
+        "failures": [
+            {"code": f["code"], "relationships": len(f["relationship_ids"])}
+            for f in gate["failures"]
+        ],
     }
 
 

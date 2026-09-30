@@ -118,4 +118,8 @@ test("a stopped investigation's research card is saved as a Hypothesis", async (
   await expect(
     page.getByText("No follow-up now: It is saved as a Hypothesis, which is drawn from its research card."),
   ).toBeVisible();
+
+  // The saved Hypothesis opens its dossier.
+  await page.getByText(/^Saved as Hypothesis [0-9a-f-]{36}\.$/).getByRole("link").click();
+  await expect(page).toHaveURL(/\/hypothesis\/\?id=[0-9a-f-]{36}$/);
 });
