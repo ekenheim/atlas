@@ -14,7 +14,7 @@ from atlas.claims import (
 )
 
 
-def test_the_whitelist_is_build_plan_5_5_with_an_explicit_object_per_predicate() -> None:
+def test_the_whitelist_is_build_plan_5_5_and_the_bottleneck_predicates() -> None:
     assert list(PREDICATES) == [
         "manufactures",
         "supplies",
@@ -25,10 +25,24 @@ def test_the_whitelist_is_build_plan_5_5_with_an_explicit_object_per_predicate()
         "substitutes_for",
         "expands_capacity_for",
         "depends_on",
+        # company-level bottleneck predicates (pilot-fixes ticket 03)
+        "capacity_constrained",
+        "sole_sources",
+        "vertically_integrates",
+        "qualified_for",
     ]
     companies = [name for name, p in PREDICATES.items() if p.object_kind == "company"]
     assert companies == ["supplies", "buys_from", "owns", "competes_with", "depends_on"]
     assert [name for name, p in PREDICATES.items() if p.symmetric] == ["competes_with"]
+
+
+def test_the_bottleneck_predicates_state_a_company_fact_about_a_product() -> None:
+    for name in ["capacity_constrained", "sole_sources", "vertically_integrates", "qualified_for"]:
+        predicate = PREDICATES[name]
+        assert (predicate.object_kind, predicate.symmetric) == ("product", False), name
+        assert predicate.reads.startswith(("the subject company", "customers have")), name
+    assert "named or not" in PREDICATES["qualified_for"].reads
+    assert "whether or not the supplier is named" in PREDICATES["sole_sources"].reads
 
 
 def test_supplies_and_buys_from_read_in_opposite_directions() -> None:
@@ -77,6 +91,31 @@ def test_the_layers_run_from_substrate_to_system_with_contract_manufacturing() -
         ("expands_capacity_for", "We are expanding our 6-inch InP capacity.", "expanding"),
         ("substitutes_for", "Silicon photonics can replace EMLs in some links.", "replace"),
         ("uses_material", "Our lasers use indium phosphide.", "use"),
+        ("capacity_constrained", "Demand for our EMLs exceeds our supply.", "exceeds our supply"),
+        ("capacity_constrained", "We are capacity constrained in 200G EMLs.", "constrained"),
+        ("capacity_constrained", "We allocate our InP laser output to customers.", "allocate"),
+        (
+            "sole_sources",
+            "We purchase several key materials from sole-source or limited-source suppliers.",
+            "sole-source",
+        ),
+        (
+            "sole_sources",
+            "There is a limited number of high-quality suppliers of many of the components.",
+            "limited number of high-quality suppliers",
+        ),
+        (
+            "vertically_integrates",
+            "We manufacture our own indium phosphide substrates.",
+            "our own",
+        ),
+        (
+            "vertically_integrates",
+            "Our platform includes the in-house design and manufacture of lasers.",
+            "in-house",
+        ),
+        ("qualified_for", "Our 1.6T transceiver was qualified at a hyperscaler.", "qualified"),
+        ("qualified_for", "We secured design wins for 800G modules.", "design wins"),
     ],
 )
 def test_directional_language_is_found(predicate: str, quote: str, cue: str) -> None:
@@ -94,6 +133,19 @@ def test_directional_language_is_found(predicate: str, quote: str, cue: str) -> 
 )
 def test_co_mention_carries_no_directional_language_for_any_company_predicate(quote: str) -> None:
     for predicate in ["supplies", "buys_from", "owns", "competes_with", "depends_on"]:
+        assert directional_cue(predicate, quote) is None, predicate
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "We manufacture GaAs VCSELs and InP edge-emitting lasers.",
+        "Customer demand for AI transceivers continues to grow.",
+        "indium phosphide (InP);",
+    ],
+)
+def test_a_plain_product_statement_is_no_bottleneck(quote: str) -> None:
+    for predicate in ["capacity_constrained", "sole_sources", "vertically_integrates"]:
         assert directional_cue(predicate, quote) is None, predicate
 
 

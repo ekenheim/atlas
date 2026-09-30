@@ -198,7 +198,7 @@ def test_the_reviewer_role_has_a_strict_schema_and_a_versioned_prompt() -> None:
     schema = REVIEWER.response_schema()
 
     assert REVIEWER.name == "reviewer"
-    assert (REVIEWER.prompt.name, REVIEWER.prompt.version) == ("reviewer", 1)
+    assert (REVIEWER.prompt.name, REVIEWER.prompt.version) == ("reviewer", 2)
     assert schema["additionalProperties"] is False
     review = schema["$defs"]["EdgeReview"]
     assert sorted(review["required"]) == sorted(review["properties"])

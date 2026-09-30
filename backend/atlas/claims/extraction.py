@@ -76,9 +76,11 @@ from atlas.roles import (
     TokenBudgetExhausted,
     run_usage,
 )
+from atlas.roles.contract import Role
 from atlas.roles.investigator import (
     INVESTIGATOR,
     INVESTIGATOR_PROMPT_VERSION,
+    InvestigatorClaims,
     InvestigatorRequest,
     KnownCompany,
     LayerOption,
@@ -166,7 +168,11 @@ class ClaimExtractor:
         recall: Recall | None,
         max_passages: int,
         passages_per_call: int,
+        investigator: Role[InvestigatorRequest, InvestigatorClaims] = INVESTIGATOR,
     ) -> None:
+        """`investigator` is the role called: the committed prompt, or a variant under
+        measurement (`scripts/investigator_replay.py`); its prompt names the Assertions'
+        `extractor_version`."""
         self._engine = engine
         self._archive = archive
         self._caller = caller
@@ -174,6 +180,8 @@ class ClaimExtractor:
         self._recall = recall
         self._max_passages = max_passages
         self._passages_per_call = passages_per_call
+        self._investigator = investigator
+        self._extractor_version = f"{investigator.prompt.name}.v{investigator.prompt.version}"
         self._assertions = Assertions(engine, archive, INVESTIGATOR_ACTOR)
         self._texts: dict[uuid.UUID, str] = {}
 
@@ -199,7 +207,7 @@ class ClaimExtractor:
             request, retrieved = self._request(extraction.question, batch, versions, companies)
             try:
                 output, role_call_id = self._caller.call_recorded(
-                    INVESTIGATOR, request, run_id=extraction.run_id, retrieved=retrieved
+                    self._investigator, request, run_id=extraction.run_id, retrieved=retrieved
                 )
             except TokenBudgetExhausted:
                 return self._finish(extraction, "budget_exhausted", owned=owned)
@@ -470,7 +478,7 @@ class ClaimExtractor:
         if judged.assertion is not None:
             try:
                 recorded = self._assertions.create_within(
-                    connection, judged.assertion, extractor_version=EXTRACTOR_VERSION
+                    connection, judged.assertion, extractor_version=self._extractor_version
                 )
                 assertion_id = recorded.assertion.id
             except InvalidAssertion as refusal:

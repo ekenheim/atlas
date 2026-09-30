@@ -57,8 +57,16 @@ The one-sentence claim at the head of a Hypothesis. It is a field of a Hypothesi
 _Avoid_: Thesis
 
 **Relationship**:
-A reviewed, typed, directed edge between companies (and optionally a product or theme), drawn from a fixed predicate whitelist and backed by Assertions.
+A reviewed, typed, directed edge between companies (and optionally a product or theme), drawn from a fixed predicate whitelist and backed by Assertions. When the object is a product, material or technology, the edge runs from the company to that product node.
 _Avoid_: Link, connection, edge (outside the UI)
+
+**Bottleneck Predicate**:
+One of four whitelisted predicates for a bottleneck fact a company states about itself and a product, with no counterparty named. Each is directed from the company to the product and needs an exact quote like any other:
+- `capacity_constrained`: the company cannot fully meet demand for the product (demand exceeds its supply, it allocates, backlogs or is short of it). Growing demand alone is not a constraint.
+- `sole_sources`: the company gets an input from one supplier or a limited number of suppliers, named or not. A named supplier in the universe is `depends_on` or `buys_from` instead.
+- `vertically_integrates`: the company makes an input for its own products instead of buying it (in-house, captive, "our own"). Making what it sells is `manufactures`.
+- `qualified_for`: customers have qualified the company, or chosen it in a design win, as a supplier of the product. A named customer in the universe is `supplies` instead.
+_Avoid_: Company attribute, flag, constraint (as a synonym for `capacity_constrained`)
 
 **Research Snapshot**:
 An immutable, dated record of exactly what was considered and concluded at a decision time, including the Memory text as it was returned. It is the only exact mechanism for reproducing past beliefs.

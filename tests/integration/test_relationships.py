@@ -877,3 +877,113 @@ def test_review_records_and_evidence_links_are_insert_only_and_an_edge_keeps_its
     ]:
         with pytest.raises(DBAPIError), atlas.engine.begin() as connection:
             connection.execute(text(statement), {"id": edge["id"]})
+
+
+# --- company-level bottleneck predicates (pilot-fixes ticket 03) ------------------------------
+
+# A Coherent-style supply update (hand-written): four facts Coherent states about itself and a
+# product, with no counterparty named, and one sentence naming NVIDIA (so the Investigator is
+# sent it: an entity-tagged passage).
+OWN_SUBSTRATES = "We manufacture our own indium phosphide substrates for our datacom lasers."
+DEMAND_EXCEEDED = "Demand for our 200G EML lasers exceeded our supply throughout fiscal 2026."
+SINGLE_SUPPLIER = "We purchase germanium for our infrared optics from a single supplier."
+QUALIFIED = "Our 1.6T transceivers were qualified at two hyperscale customers during fiscal 2026."
+SUPPLY_UPDATE = f"""<html><head><title>Coherent supply update</title></head><body>
+<h1>Coherent fiscal 2026 supply update</h1>
+<p>{OWN_SUBSTRATES}</p>
+<p>{DEMAND_EXCEEDED}</p>
+<p>{SINGLE_SUPPLIER}</p>
+<p>{QUALIFIED}</p>
+<p>We also supply 800G transceivers to NVIDIA.</p>
+</body></html>
+"""
+BOTTLENECK_FACTS = [
+    ("vertically_integrates", "indium phosphide substrates", "substrate", OWN_SUBSTRATES),
+    ("capacity_constrained", "200G EML lasers", "chip-laser", DEMAND_EXCEEDED),
+    ("sole_sources", "germanium", "substrate", SINGLE_SUPPLIER),
+    ("qualified_for", "1.6T transceivers", "module", QUALIFIED),
+]
+
+
+def supply_update(atlas: Atlas) -> str:
+    """The supply update, imported by hand for Coherent (a Tier A `manual_import`)."""
+    path = atlas.tmp_path / "coherent-supply-update.html"
+    path.write_text(SUPPLY_UPDATE, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "coherent",
+        "--file",
+        str(path),
+        "--origin-url",
+        "https://www.coherent.com/news/fiscal-2026-supply-update",
+        "--published-at",
+        "2026-08-14T08:00-04:00",
+    )
+    assert imported.returncode == 0, imported.stderr
+    return json.loads(imported.stdout)["source_version_id"]
+
+
+def test_a_company_s_own_bottleneck_facts_become_assertions_and_edges_to_product_nodes(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent = company_id(atlas, "coherent")
+    version_id = supply_update(atlas)
+    proposals = [
+        claim(
+            subject_company_id=coherent,
+            predicate=predicate,
+            object_text=product,
+            layer=layer,
+            quote=quote,
+        )
+        for predicate, product, layer, quote in BOTTLENECK_FACTS
+    ]
+    llm.script_chat(ChatReply.answer(quoting(*proposals)))
+    payload = json.dumps({"source_version_ids": [version_id]})
+    job_id = atlas.enqueue(
+        "jobs", "enqueue", "extract_claims", "--key", "update", "--payload", payload
+    )
+    atlas.worker_pass()
+
+    job = atlas.get(f"/api/v1/jobs/{job_id}")
+    assert job["status"] == "succeeded", job["failures"]
+    [body] = llm.chat_requests()
+    objects = {p["name"]: p["object"] for p in asked(body)["request"]["predicates"]}
+    predicates = [predicate for predicate, *_ in BOTTLENECK_FACTS]
+    assert [objects[name] for name in predicates] == ["product"] * 4
+    claims = atlas.get("/api/v1/claims", extraction_id=job["artifacts"]["extraction_id"])["items"]
+    assert [(c["predicate"], c["outcome"], c["reason_code"]) for c in claims] == [
+        (predicate, "accepted", None) for predicate in predicates
+    ]
+    assert [c["directional_cue"] for c in claims] == [
+        "our own",
+        "exceeded our supply",
+        "single supplier",
+        "qualified",
+    ]
+    parsed = atlas.parsed(version_id)
+    for accepted, (predicate, product, layer, quote) in zip(claims, BOTTLENECK_FACTS, strict=True):
+        assertion = atlas.get(f"/api/v1/assertions/{accepted['assertion_id']}")
+        assert parsed[assertion["span_start"] : assertion["span_end"]] == quote
+        assert (assertion["subject_company_id"], assertion["predicate"]) == (coherent, predicate)
+        assert assertion["object_company_id"] is None
+        assert assertion["value_json"]["object_text"] == product
+        assert assertion["value_json"]["layer"] == layer
+        assert assertion["extractor_version"] == "investigator.v3"
+
+    llm.script_chat(ChatReply.answer(reviewing(expect=len(BOTTLENECK_FACTS))))
+    reviewed = review(atlas, "sweep")
+
+    assert reviewed["status"] == "succeeded", reviewed["failures"]
+    assert reviewed["artifacts"]["machine_reviewed"] == len(BOTTLENECK_FACTS)
+    edges = {edge["predicate"]: edge for edge in relationships(atlas)}
+    assert sorted(edges) == sorted(predicates)
+    for predicate, product, layer, _ in BOTTLENECK_FACTS:
+        edge = edges[predicate]
+        assert (edge["subject_company_id"], edge["object_company_id"]) == (coherent, None)
+        assert (edge["object_text"], edge["layer"]) == (product, layer)
+        assert edge["review_state"] == "machine_reviewed"
+    reviewer_request = asked(llm.chat_requests()[-1])["request"]
+    assert {item["predicate"] for item in reviewer_request["items"]} == set(predicates)

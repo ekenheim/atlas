@@ -1,0 +1,716 @@
+{
+  "mode": "live",
+  "model": "MiniMax-M3",
+  "started_at": "2026-09-30T14:03:43.705053+00:00",
+  "question": "For 800G/1.6T AI data-center transceivers, who supplies the laser chips (EML, CW/DFB, VCSEL), which suppliers are capacity- or allocation-constrained, and what feedstock or equipment (InP substrates, MOCVD) limits them?",
+  "passages": [
+    {
+      "id": "p1",
+      "section": "part-ii-item-5",
+      "chars": [
+        160792,
+        163041
+      ],
+      "selected_by": [
+        "entity:552b3120-cb7a-5d85-91e4-ec0f6d1a3148"
+      ]
+    },
+    {
+      "id": "p2",
+      "section": "part-i-item-1",
+      "chars": [
+        16418,
+        18587
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p3",
+      "section": "part-i-item-1",
+      "chars": [
+        18587,
+        21088
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p4",
+      "section": "part-i-item-1",
+      "chars": [
+        21088,
+        23947
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p5",
+      "section": "part-i-item-1",
+      "chars": [
+        23947,
+        26799
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p6",
+      "section": "part-i-item-1",
+      "chars": [
+        26799,
+        29267
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p7",
+      "section": "part-i-item-1",
+      "chars": [
+        29267,
+        32216
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p8",
+      "section": "part-i-item-1",
+      "chars": [
+        32216,
+        35194
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p9",
+      "section": "part-i-item-1",
+      "chars": [
+        35194,
+        37865
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p10",
+      "section": "part-i-item-1",
+      "chars": [
+        37865,
+        40679
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p11",
+      "section": "part-i-item-1",
+      "chars": [
+        40679,
+        43200
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p12",
+      "section": "part-i-item-1",
+      "chars": [
+        43200,
+        46178
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p13",
+      "section": "part-i-item-1",
+      "chars": [
+        46178,
+        49041
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p14",
+      "section": "part-i-item-1",
+      "chars": [
+        49041,
+        51214
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p15",
+      "section": "part-i-item-1",
+      "chars": [
+        51214,
+        53860
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p16",
+      "section": "part-i-item-1",
+      "chars": [
+        53860,
+        56612
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p17",
+      "section": "part-i-item-1",
+      "chars": [
+        56612,
+        59224
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p18",
+      "section": "part-i-item-1",
+      "chars": [
+        59224,
+        60414
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p19",
+      "section": "part-i-item-1a",
+      "chars": [
+        60414,
+        62881
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p20",
+      "section": "part-i-item-1a",
+      "chars": [
+        62881,
+        65600
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p21",
+      "section": "part-i-item-1a",
+      "chars": [
+        65600,
+        67515
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p22",
+      "section": "part-i-item-1a",
+      "chars": [
+        67515,
+        69432
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p23",
+      "section": "part-i-item-1a",
+      "chars": [
+        69432,
+        71952
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    },
+    {
+      "id": "p24",
+      "section": "part-i-item-1a",
+      "chars": [
+        71952,
+        73734
+      ],
+      "selected_by": [
+        "recall"
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "variant": "v3",
+      "prompt": "backend/atlas/roles/prompts/investigator.v3.md",
+      "prompt_sha256": "3b80ed9a629f032647ee0dcd55ac569cddd3255897a5ec2565ec53f691af4902",
+      "job_status": "succeeded",
+      "job_failures": [],
+      "extraction_status": "completed",
+      "passages": 24,
+      "batches_quarantined": 0,
+      "role_calls": [
+        {
+          "status": "accepted",
+          "attempts": 2,
+          "error": null,
+          "failed_attempts": [
+            {
+              "tokens_out": 654,
+              "errors": [
+                {
+                  "loc": [
+                    "claims",
+                    0,
+                    "claim_id"
+                  ],
+                  "msg": "Extra inputs are not permitted",
+                  "type": "extra_forbidden"
+                },
+                {
+                  "loc": [
+                    "claims",
+                    1,
+                    "claim_id"
+                  ],
+                  "msg": "Extra inputs are not permitted",
+                  "type": "extra_forbidden"
+                },
+                {
+                  "loc": [
+                    "claims",
+                    2,
+                    "claim_id"
+                  ],
+                  "msg": "Extra inputs are not permitted",
+                  "type": "extra_forbidden"
+                }
+              ],
+              "content_tail": "ems, as well as engineered materials, for use in the data center, communications and industrial markets.\", \"passage_id\": \"p2\", \"quote_start\": 56, \"quote_end\": 397, \"epistemic_type\": \"company_claim\"}]}"
+            }
+          ]
+        },
+        {
+          "status": "accepted",
+          "attempts": 2,
+          "error": null,
+          "failed_attempts": [
+            {
+              "tokens_out": 1103,
+              "errors": [
+                {
+                  "loc": [
+                    "claims",
+                    0,
+                    "object_company_id"
+                  ],
+                  "msg": "Field required",
+                  "type": "missing"
+                },
+                {
+                  "loc": [
+                    "claims",
+                    1,
+                    "object_company_id"
+                  ],
+                  "msg": "Field required",
+                  "type": "missing"
+                },
+                {
+                  "loc": [
+                    "claims",
+                    2,
+                    "object_company_id"
+                  ],
+                  "msg": "Field required",
+                  "type": "missing"
+                }
+              ],
+              "content_tail": "s, InP edge-emitting lasers and photodiodes, and specialty glass wafers for the consumer electronics market.\",\"quote_start\":1244,\"quote_end\":1364,\"passage_id\":\"p10\",\"epistemic_type\":\"company_claim\"}]}"
+            }
+          ]
+        },
+        {
+          "status": "accepted",
+          "attempts": 1,
+          "error": null,
+          "failed_attempts": []
+        },
+        {
+          "status": "accepted",
+          "attempts": 1,
+          "error": null,
+          "failed_attempts": []
+        }
+      ],
+      "llm_calls": 6,
+      "tokens_in": 42501,
+      "tokens_out": 4025,
+      "proposed": 14,
+      "accepted": 8,
+      "rejections": {
+        "no_directional_language": 2,
+        "party_not_in_quote": 3,
+        "quote_mismatch": 1
+      },
+      "accepted_by_predicate": {
+        "manufactures": 2,
+        "vertically_integrates": 2,
+        "uses_material": 1,
+        "sole_sources": 1,
+        "expands_capacity_for": 2
+      },
+      "proposed_by_predicate": {
+        "vertically_integrates": 4,
+        "manufactures": 6,
+        "uses_material": 1,
+        "sole_sources": 1,
+        "expands_capacity_for": 2
+      },
+      "claims": [
+        {
+          "passage_id": "p3",
+          "predicate": "vertically_integrates",
+          "object_text": "materials growth and fabrication of specialty materials",
+          "product": "specialty materials",
+          "layer": "substrate",
+          "quote": "Coherent has broad technical expertise and a deep technology stack in areas of importance to our products, including materials growth and fabrication of specialty materials, lasers including semiconductor and high power lasers, passive optics including isolators, transceivers, transport equipment, high power lasers for semiconductor capital equipment, display manufacturing, precision manufacturing, consumer electronics, life sciences applications, and scientific research.",
+          "outcome": "rejected",
+          "reason_code": "no_directional_language",
+          "reason": "the quote has no language expressing vertically_integrates (the subject company makes the object input itself for its own products (in-house, captive or vertically integrated supply) rather than buying it); naming companies together is not a relation",
+          "offset_source": null
+        },
+        {
+          "passage_id": "p3",
+          "predicate": "manufactures",
+          "object_text": "lasers, transceivers, and other optical and optoelectronic devices, modules, and systems, as well as engineered materials",
+          "product": "lasers, transceivers, and other optical and optoelectronic devices, modules, and systems, as well as engineered materials",
+          "layer": "module",
+          "quote": "Coherent develops, manufactures, and markets lasers, transceivers, and other optical and optoelectronic devices, modules, and systems, as well as engineered materials, for use in datacenter & communications, as well as industrial applications, including precision manufacturing, energy, semiconductor & display capital equipment, and instrumentation.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p2",
+          "predicate": "vertically_integrates",
+          "object_text": "lasers, transceivers, and other optical and optoelectronic devices, modules, and systems, as well as engineered materials",
+          "product": "lasers, transceivers, and other optical and optoelectronic devices, modules, and systems, as well as engineered materials",
+          "layer": "module",
+          "quote": "Coherent Corp. (\u201cCoherent,\u201d the \u201cCompany,\u201d \u201cwe,\u201d \u201cus,\u201d or \u201cour\u201d), is a vertically integrated manufacturing company that develops, manufactures, and markets lasers, transceivers, and other optical and optoelectronic devices, modules, and systems, as well as engineered materials, for use in the data center, communications and industrial markets.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p7",
+          "predicate": "uses_material",
+          "object_text": "InP substrates",
+          "product": "InP substrates",
+          "layer": "substrate",
+          "quote": "These include InP substrates, ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p7",
+          "predicate": "sole_sources",
+          "object_text": "key components and materials used in the manufacture of our products, including exotic materials, crystals, and optics",
+          "product": "exotic materials, crystals, and optics",
+          "layer": "substrate",
+          "quote": "in the Industrial segment, we currently purchase several key components and materials used in the manufacture of our products, including exotic materials, crystals, and optics, from sole-source or limited-source suppliers.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p7",
+          "predicate": "vertically_integrates",
+          "object_text": "strategic components, crystals, fibers, semiconductor lasers, and laser-based systems",
+          "product": "semiconductor lasers",
+          "layer": "chip-laser",
+          "quote": "We rely on our own production and design capability to manufacture and specify certain strategic components, crystals, fibers, semiconductor lasers, and laser-based systems.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p8",
+          "predicate": "manufactures",
+          "object_text": "VCSELs, EELs, pump lasers, and other components, optics and ICs for datacenter and communication applications",
+          "product": "VCSELs, EELs, pump lasers",
+          "layer": "chip-laser",
+          "quote": "VCSELs, EELs, pump lasers, and other components, optics and ICs for datacenter and communication applications.",
+          "outcome": "rejected",
+          "reason_code": "party_not_in_quote",
+          "reason": "the quote doesn't name the subject (Coherent Corp.)",
+          "offset_source": null
+        },
+        {
+          "passage_id": "p8",
+          "predicate": "vertically_integrates",
+          "object_text": "transceivers and many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs",
+          "product": "transceivers and critical components including lasers, detectors, ICs, passive optics, thermal solutions, and PICs",
+          "layer": "module",
+          "quote": "Our vertically integrated technology platform includes the in-house design and manufacture of transceivers and many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.",
+          "outcome": "rejected",
+          "reason_code": "quote_mismatch",
+          "reason": "the quote does not occur exactly at characters [33202, 33362) of the parsed text of source version 69a06358-e097-475d-a95f-c6009d9cbe86 (214007 characters)",
+          "offset_source": null
+        },
+        {
+          "passage_id": "p8",
+          "predicate": "expands_capacity_for",
+          "object_text": "6-inch InP manufacturing capacity",
+          "product": "6-inch InP wafers and devices",
+          "layer": "chip-laser",
+          "quote": "We continue to expand our global 6-inch InP manufacturing capacity in the United States and Europe to support increasing customer demand, while also operating multiple 6-inch GaAs VCSEL manufacturing facilities.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p8",
+          "predicate": "expands_capacity_for",
+          "object_text": "6-inch GaAs VCSEL manufacturing facilities",
+          "product": "GaAs VCSELs",
+          "layer": "chip-laser",
+          "quote": "We continue to expand our global 6-inch InP manufacturing capacity in the United States and Europe to support increasing customer demand, while also operating multiple 6-inch GaAs VCSEL manufacturing facilities.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p10",
+          "predicate": "manufactures",
+          "object_text": "GaAs VCSELs and VCSEL arrays, InP edge-emitting lasers and photodiodes, and specialty glass wafers",
+          "product": "GaAs VCSELs and InP edge-emitting lasers",
+          "layer": "chip-laser",
+          "quote": "We manufacture GaAs VCSELs and VCSEL arrays, InP edge-emitting lasers and photodiodes, and specialty glass wafers for the consumer electronics market.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p13",
+          "predicate": "manufactures",
+          "object_text": "InP lasers, EMLs, VCSELs, and EEL diodes",
+          "product": "InP lasers, EMLs, VCSELs, and EEL diodes",
+          "layer": "chip-laser",
+          "quote": "Increase output power, bandwidth, performance, and reliability of EEL diodes, VCSELs, InP lasers, EML\u2019s, and detectors for a variety of applications across our markets.",
+          "outcome": "rejected",
+          "reason_code": "no_directional_language",
+          "reason": "the quote has no language expressing manufactures (the subject company makes the object product); naming companies together is not a relation",
+          "offset_source": null
+        },
+        {
+          "passage_id": "p13",
+          "predicate": "manufactures",
+          "object_text": "GaAs- and InP-based edge-emitting semiconductor lasers",
+          "product": "GaAs- and InP-based edge-emitting semiconductor lasers",
+          "layer": "chip-laser",
+          "quote": "Increase output power of GaAs- and InP-based edge-emitting semiconductor lasers for laser pumping, and industrial applications including laser inertial confinement fusion.",
+          "outcome": "rejected",
+          "reason_code": "party_not_in_quote",
+          "reason": "the quote doesn't name the subject (Coherent Corp.)",
+          "offset_source": null
+        },
+        {
+          "passage_id": "p13",
+          "predicate": "manufactures",
+          "object_text": "InP PICs for coherent communications",
+          "product": "InP PICs for coherent communications",
+          "layer": "chip-laser",
+          "quote": "Higher speed InP PIC\u2019s for coherent communications.",
+          "outcome": "rejected",
+          "reason_code": "party_not_in_quote",
+          "reason": "the quote doesn't name the subject (Coherent Corp.)",
+          "offset_source": null
+        }
+      ]
+    },
+    {
+      "variant": "v2",
+      "prompt": "backend/atlas/roles/prompts/investigator.v2.md",
+      "prompt_sha256": "939ea72b4bc71a5067370d6c78344f733875e2e43f3bc39b47ff66af511c18af",
+      "job_status": "succeeded",
+      "job_failures": [],
+      "extraction_status": "completed",
+      "passages": 24,
+      "batches_quarantined": 0,
+      "role_calls": [
+        {
+          "status": "accepted",
+          "attempts": 1,
+          "error": null,
+          "failed_attempts": []
+        },
+        {
+          "status": "accepted",
+          "attempts": 1,
+          "error": null,
+          "failed_attempts": []
+        },
+        {
+          "status": "accepted",
+          "attempts": 1,
+          "error": null,
+          "failed_attempts": []
+        },
+        {
+          "status": "accepted",
+          "attempts": 1,
+          "error": null,
+          "failed_attempts": []
+        }
+      ],
+      "llm_calls": 4,
+      "tokens_in": 24348,
+      "tokens_out": 1348,
+      "proposed": 7,
+      "accepted": 4,
+      "rejections": {
+        "quote_mismatch": 1,
+        "party_not_in_quote": 2
+      },
+      "accepted_by_predicate": {
+        "expands_capacity_for": 1,
+        "uses_material": 1,
+        "sole_sources": 1,
+        "manufactures": 1
+      },
+      "proposed_by_predicate": {
+        "vertically_integrates": 1,
+        "expands_capacity_for": 1,
+        "manufactures": 3,
+        "uses_material": 1,
+        "sole_sources": 1
+      },
+      "claims": [
+        {
+          "passage_id": "p8",
+          "predicate": "vertically_integrates",
+          "object_text": "lasers, detectors, ICs, passive optics, thermal solutions, and PICs for transceivers",
+          "product": "transceivers for AI datacenter and networking applications",
+          "layer": "module",
+          "quote": "Our vertically integrated technology platform includes the in-house design and manufacture of transceivers and many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.",
+          "outcome": "rejected",
+          "reason_code": "quote_mismatch",
+          "reason": "the quote does not occur exactly at characters [33243, 33450) of the parsed text of source version 69a06358-e097-475d-a95f-c6009d9cbe86 (214007 characters)",
+          "offset_source": null
+        },
+        {
+          "passage_id": "p8",
+          "predicate": "expands_capacity_for",
+          "object_text": "6-inch InP manufacturing capacity",
+          "product": "InP-based laser and photonic components",
+          "layer": "chip-laser",
+          "quote": "We continue to expand our global 6-inch InP manufacturing capacity in the United States and Europe to support increasing customer demand, while also operating multiple 6-inch GaAs VCSEL manufacturing facilities.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p8",
+          "predicate": "manufactures",
+          "object_text": "VCSELs, EELs, pump lasers, and other components, optics and ICs for datacenter and communication applications",
+          "product": "VCSELs, EELs, pump lasers, and other components for datacenter and communication applications",
+          "layer": "chip-laser",
+          "quote": "VCSELs, EELs, pump lasers, and other components, optics and ICs for datacenter and communication applications.",
+          "outcome": "rejected",
+          "reason_code": "party_not_in_quote",
+          "reason": "the quote doesn't name the subject (Coherent Corp.)",
+          "offset_source": null
+        },
+        {
+          "passage_id": "p12",
+          "predicate": "manufactures",
+          "object_text": "800G/1.6T transceivers and the datacom components (VCSELs, EMLs, silicon photonics, ICs) inside them",
+          "product": "800G/1.6T transceivers, CPO, VCSELs, EMLs, silicon photonics, ICs",
+          "layer": "module",
+          "quote": "800G/1.6T transceivers, CPO, VCSELs, EMLs, silicon photonics, ICs, isolators, and thermoelectric coolers; 400G/lane components supporting 3.2T and 6.4T.",
+          "outcome": "rejected",
+          "reason_code": "party_not_in_quote",
+          "reason": "the quote doesn't name the subject (Coherent Corp.)",
+          "offset_source": null
+        },
+        {
+          "passage_id": "p7",
+          "predicate": "uses_material",
+          "object_text": "InP substrates",
+          "product": "InP substrates",
+          "layer": "substrate",
+          "quote": "These include InP substrates, ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p7",
+          "predicate": "sole_sources",
+          "object_text": "exotic materials, crystals, and optics used in Industrial-segment product manufacture",
+          "product": "exotic materials, crystals, and optics",
+          "layer": "substrate",
+          "quote": "in the Industrial segment, we currently purchase several key components and materials used in the manufacture of our products, including exotic materials, crystals, and optics, from sole-source or limited-source suppliers.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        },
+        {
+          "passage_id": "p11",
+          "predicate": "manufactures",
+          "object_text": "100 mm, 150 mm, and 200 mm semi-insulating SiC substrates",
+          "product": "semi-insulating SiC substrates (100 mm, 150 mm, 200 mm)",
+          "layer": "substrate",
+          "quote": "We are a market leader in the technology development and large-volume manufacturing of 100 mm, 150 mm, and the industry\u2019s first 200 mm semi-insulating SiC substrates.",
+          "outcome": "accepted",
+          "reason_code": null,
+          "reason": null,
+          "offset_source": "located"
+        }
+      ]
+    }
+  ]
+}
