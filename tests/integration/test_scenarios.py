@@ -702,7 +702,9 @@ def test_the_analyst_is_sent_lumentum_s_as_of_figures_and_sources_its_inputs_fro
     atlas = lumentum_atlas
     lumentum = company_id(atlas, "lumentum")
     searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
-    llm.script_role("skeptic", ChatReply.json({"queries": [], "documents": []}))
+    # The Skeptic's plan chooses nothing; code's fallback (pilot fix 06) then has it read the
+    # 10-K and 10-Q, and it proposes nothing.
+    llm.script_role("skeptic", *[ChatReply.answer(finding_nothing)] * 8)
     llm.script_role("financial_analyst", ChatReply.answer(sourcing_every_figure))
     llm.script_chat(
         ChatReply.json({"queries": [{"query": SUBSTRATE, "purpose": None}]}),
