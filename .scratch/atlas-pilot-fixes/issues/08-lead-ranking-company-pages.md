@@ -4,7 +4,7 @@
 
 **Blocked by:** None
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
 - [ ] A fixture built from the re-run's 100 results; the unit test shows industry articles ranking above the companies' own pages for the same query.
 - [ ] The kept leads of an investigation record why they were kept, as now.
