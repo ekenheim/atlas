@@ -7,6 +7,8 @@ import pytest
 
 from atlas.hindsight import HindsightGateway, HindsightNotFound, RetainItem, TagScope
 from tests.fakes.hindsight import (
+    DERIVED_CONSOLIDATE,
+    DERIVED_CONSOLIDATE_FINAL,
     DERIVED_DOCUMENT,
     DERIVED_FACT,
     DERIVED_MEMORY_LIST,
@@ -344,3 +346,56 @@ def test_a_derived_documents_memories_are_listed_by_document() -> None:
     assert fake.served[-1] == f"{DERIVED_MEMORY_LIST} (derived)"
     with pytest.raises(UnrecordedRequest):
         client.document_memories("srcv:never-retained:cover")
+
+
+def test_derived_banks_are_separate_and_a_deleted_bank_is_gone() -> None:
+    fake = RecordedHindsight()
+    fake.derive_memories()
+    research, replay = (
+        gateway(fake),
+        HindsightGateway("http://hindsight.test", "atlas-replay-test", transport=fake.transport),
+    )
+    research.retain_batch(ITEMS)
+    replay.retain_batch(ITEMS[:1])
+    research_fact = fake.derived_fact(ITEMS[1].document_id)
+    scope = TagScope(["company:x"], "any_strict")
+
+    recalled = replay.recall("anything", scope=scope)
+    with pytest.raises(HindsightNotFound):
+        replay.get_memory(research_fact)
+    with pytest.raises(KeyError):
+        fake.derived_fact(ITEMS[0].document_id)  # held by both banks: name one
+    replay_fact = fake.derived_fact(ITEMS[0].document_id, "atlas-replay-test")
+    deleted = replay.delete_bank()
+
+    assert [m.document_id for m in recalled.memories] == [ITEMS[0].document_id]
+    assert recalled.memories[0].id == replay_fact
+    assert recalled.memories[0].id != fake.derived_fact(ITEMS[0].document_id, BANK)
+    assert deleted.success is True
+    assert deleted.deleted_count == 1
+    assert fake.deleted_banks == ["atlas-replay-test"]
+    assert fake.bank_documents("atlas-replay-test") == []
+    assert fake.bank_documents(BANK) == [item.document_id for item in ITEMS]
+    with pytest.raises(HindsightNotFound):
+        replay.get_memory(replay_fact)  # gone with its bank
+    assert len(fake.retained("atlas-replay-test")) == 1
+
+
+def test_a_derived_consolidation_changes_only_its_operation_id() -> None:
+    fake = RecordedHindsight()
+    client = gateway(fake)
+
+    submitted = client.consolidate()
+    operation = client.operation(submitted.operation_id)
+    fake.hold_consolidations("processing", polls=1)
+    held = client.consolidate()
+
+    recorded = fake.recording(DERIVED_CONSOLIDATE_FINAL).response_object()
+    assert (
+        submitted.operation_id
+        != fake.recording(DERIVED_CONSOLIDATE).response_object()["operation_id"]
+    )
+    assert operation.status == recorded["status"] == "completed"
+    assert operation.operation_type == recorded["operation_type"]
+    assert client.operation(held.operation_id).status == "processing"
+    assert client.operation(held.operation_id).status == "completed"

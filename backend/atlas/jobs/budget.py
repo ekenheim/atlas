@@ -5,8 +5,9 @@ consolidation and mental models) and MiniMax subscription (spent by Atlas's rese
 through LiteLLM) each renew in rolling windows (5 h by default). Each **provider** gets a
 budget per window, and the queue holds a provider's job kinds while its window is spent:
 
-- `codex`, counted in **Hindsight operations submitted** (retain and reprocess batches, one
-  unit each): Atlas can't see Codex tokens, only what it asked Hindsight to do.
+- `codex`, counted in **Hindsight operations submitted** (retain and reprocess batches, and a
+  replay's retain batches and consolidation, one unit each): Atlas can't see Codex tokens,
+  only what it asked Hindsight to do.
 - `minimax`, counted in **LLM tokens** (in + out) of the role calls' recorded `llm_call`
   rows.
 - `tradingview`, counted in **MCP tool calls** Atlas made to TradingView (recorded
@@ -56,6 +57,7 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "reprocess": "codex",
     "refresh_mental_model": "codex",
     "reflect": "codex",
+    "replay": "codex",
     "discover": "minimax",
     "extract_claims": "minimax",
     "review_relationships": "minimax",
@@ -73,6 +75,10 @@ _SWEEPS: dict[Provider, str] = {
         "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"
         " WHERE NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'codex' AND u.source_id = h.id)"
+        # A replay's retain batches and consolidation (atlas.replay), in its own bank.
+        " UNION ALL SELECT r.operation_id, 1 FROM replay_operation r"
+        " WHERE NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'codex' AND u.source_id = r.operation_id)"
     ),
     "minimax": (
         "SELECT c.id::text AS source_id, c.tokens_in + c.tokens_out AS units FROM llm_call c"

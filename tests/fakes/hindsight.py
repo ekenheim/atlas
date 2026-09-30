@@ -57,14 +57,31 @@ Derived behaviours (each serves a recorded response with only the named fields c
   **hand-written** body `{"detail": "Memory not found"}` (only the status is relied on). It
   drops out of derived recalls; an observation keeps its ID in `source_memory_ids` but drops
   it from `source_memories`.
+- **Banks are separate** (ticket 22, replay banks): derived documents, their facts and
+  observations belong to the bank they were retained into, so a recall, memory read or
+  document read in one bank never sees another bank's. A fact's ID is a UUIDv5 of its bank and
+  document ID (`derived_fact(document_id, bank=None)`: None means the one bank holding it).
+  Reading a derived memory from a bank that doesn't hold it (another bank's, or a deleted
+  bank's) answers HTTP 404 with the same hand-written body as `forget`.
+- **Bank deletion** (`DELETE /v1/default/banks/<bank>`; never recorded, feature matrix "Not
+  verified here"): answers 200 with a **hand-written** body in the documented `DeleteResponse`
+  shape (`{"success": true, "message": null, "deleted_count": <documents dropped>}`; only the
+  status is relied on), drops the bank's derived documents and observations, and appends the
+  bank to `deleted_banks`.
+- **Consolidation in any bank** (on by default): an unrecorded `POST .../consolidate` with
+  body `{}` serves `observations/01-consolidate` with only `operation_id` changed; polling that
+  operation serves `observations/02-consolidate-final` with only `operation_id` changed (and
+  any `hold_operation`, or `hold_consolidations(status, polls)` for every later one, applied).
+  It derives no observations.
 - `script_reflect(text, cited, ...)` (a reflect answer is LLM output, and no recorded one can
   cite an Atlas section): the next unrecorded reflect serves `reflect/01-provenance` with only
   `text`, `based_on.memories`, `structured_output` and `structured_output_error` changed.
   Each cited memory is the recorded first `based_on` entry with only `id`, `text`, `type` and
   `context` changed; a `ChunkContent(document_id)` entry is content without memory identity
   (`id: null`, `type: null`), its `text` the retained section's first 400 characters
-  (whitespace collapsed). **The answer text is written by the test**, so the quotes in it are
-  the test's choice.
+  (whitespace collapsed); a `BankFacts()` entry stands for every derived fact the answering
+  bank holds when the answer is served, in retain order. **The answer text is written by the
+  test**, so the quotes in it are the test's choice.
 
 Derived by default (each is anchored to a request the real server was sent):
 
@@ -216,10 +233,16 @@ class ChunkContent:
     document_id: str
 
 
+@dataclass(frozen=True)
+class BankFacts:
+    """Every derived world fact the answering bank holds when the reflect is answered, in
+    retain order (for a bank whose fact IDs the test can't know when it scripts the answer)."""
+
+
 @dataclass
 class _ScriptedReflect:
     text: str
-    cited: "Sequence[str | ChunkContent]"
+    cited: "Sequence[str | ChunkContent | BankFacts]"
     structured_output: dict[str, JsonValue] | None
     structured_output_error: str | None
 
@@ -281,6 +304,8 @@ DERIVED_MENTAL_MODEL = "mental_models/03-get"
 DERIVED_MENTAL_MODEL_REFRESH = "mental_models/04-refresh"
 DERIVED_MENTAL_MODEL_REFRESH_FINAL = "mental_models/05-refresh-final"
 DERIVED_MENTAL_MODEL_HISTORY = "mental_models/06-history"
+DERIVED_CONSOLIDATE = "observations/01-consolidate"
+DERIVED_CONSOLIDATE_FINAL = "observations/02-consolidate-final"
 _TEMPLATE_TRIGGER_FIELDS = (
     "refresh_after_consolidation",
     "refresh_cron",
@@ -307,14 +332,22 @@ class RecordedHindsight:
     _holds: dict[str, _Hold] = field(init=False, default_factory=dict[str, _Hold])
     _derive: bool = field(init=False, default=False)
     _derived_operations: set[str] = field(init=False, default_factory=set[str])
-    _derived_documents: dict[str, dict[str, JsonValue]] = field(
-        init=False, default_factory=dict[str, dict[str, JsonValue]]
+    # bank -> document ID -> the retained item
+    _derived_documents: dict[str, dict[str, dict[str, JsonValue]]] = field(
+        init=False, default_factory=dict[str, dict[str, dict[str, JsonValue]]]
     )
     _zero_facts: Callable[[str], bool] = field(init=False, default_factory=lambda: _never)
     _retain_holds: list[_RetainHold] = field(init=False, default_factory=list[_RetainHold])
     _submissions: dict[str, int] = field(init=False, default_factory=dict[str, int])
     _derive_memories: bool = field(init=False, default=False)
-    _observations: dict[str, list[str]] = field(init=False, default_factory=dict[str, list[str]])
+    # observation ID -> (its bank, its source fact IDs)
+    _observations: dict[str, tuple[str, list[str]]] = field(
+        init=False, default_factory=dict[str, tuple[str, list[str]]]
+    )
+    _known_memories: set[str] = field(init=False, default_factory=set[str])
+    _consolidations: set[str] = field(init=False, default_factory=set[str])
+    _consolidation_holds: list[_Hold] = field(init=False, default_factory=list[_Hold])
+    deleted_banks: list[str] = field(init=False, default_factory=list[str])
     _forgotten: set[str] = field(init=False, default_factory=set[str])
     _reflects: deque[_ScriptedReflect] = field(init=False, default_factory=deque[_ScriptedReflect])
     _mental_models: dict[str, _MentalModel] = field(
@@ -383,19 +416,43 @@ class RecordedHindsight:
         self._derive = True
         self._derive_memories = True
 
-    def derived_fact(self, document_id: str) -> str:
-        """The ID of the derived world fact extracted from a retained document."""
-        if document_id not in self._derived_documents:
-            raise KeyError(f"{document_id} was not retained through the fake")
-        return _fact_id(document_id)
+    def derived_fact(self, document_id: str, bank: str | None = None) -> str:
+        """The ID of the derived world fact extracted from a retained document (in `bank`;
+        None: the one bank that holds the document)."""
+        return _fact_id(self._holding_bank(document_id, bank), document_id)
 
-    def derive_observation(self, document_ids: Sequence[str]) -> str:
-        """An observation consolidated from these documents' facts; returns its ID."""
-        sources = [self.derived_fact(document_id) for document_id in document_ids]
+    def derive_observation(self, document_ids: Sequence[str], bank: str | None = None) -> str:
+        """An observation consolidated from these documents' facts (in `bank`; None: the one
+        bank that holds the first document); returns its ID."""
+        bank = self._holding_bank(document_ids[0], bank)
+        sources = [self.derived_fact(document_id, bank) for document_id in document_ids]
         observation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, "observation:" + "|".join(sources)))
-        self._observations[observation_id] = sources
+        self._observations[observation_id] = (bank, sources)
+        self._known_memories.add(observation_id)
         self._memory_writes += 1
         return observation_id
+
+    def bank_documents(self, bank: str) -> list[str]:
+        """The document IDs retained into `bank` through the fake (none once it's deleted)."""
+        return list(self._derived_documents.get(bank, {}))
+
+    def bank_facts(self, bank: str) -> list[str]:
+        """The IDs of the derived world facts that exist in `bank` now, in retain order."""
+        return list(self._facts(bank))
+
+    def hold_consolidations(self, status: str, polls: int | None = None) -> None:
+        """`hold_operation` for each later derived consolidation operation."""
+        self._consolidation_holds.append(_Hold(status, polls))
+
+    def _holding_bank(self, document_id: str, bank: str | None) -> str:
+        holders = [b for b, docs in self._derived_documents.items() if document_id in docs]
+        if bank is not None:
+            if bank not in holders:
+                raise KeyError(f"{document_id} was not retained into {bank} through the fake")
+            return bank
+        if len(holders) != 1:
+            raise KeyError(f"{document_id} is held by {len(holders)} banks; name the bank")
+        return holders[0]
 
     def forget(self, memory_id: str) -> None:
         """The memory is gone: reading it answers 404 (derived; see the module docstring)."""
@@ -404,7 +461,7 @@ class RecordedHindsight:
     def script_reflect(
         self,
         text: str,
-        cited: "Sequence[str | ChunkContent]",
+        cited: "Sequence[str | ChunkContent | BankFacts]",
         *,
         structured_output: dict[str, JsonValue] | None = None,
         structured_output_error: str | None = None,
@@ -459,10 +516,13 @@ class RecordedHindsight:
             if request.method == method and request.url.path.endswith(f"/{route}")
         ]
 
-    def retained(self) -> list[list[dict[str, Any]]]:
-        """The items of every batch retain received, in order (recorded or derived)."""
+    def retained(self, bank: str | None = None) -> list[list[dict[str, Any]]]:
+        """The items of every batch retain received (into `bank`, if given), in order
+        (recorded or derived)."""
         batches: list[list[dict[str, Any]]] = []
         for request in self.calls:
+            if bank is not None and request.url.path.split("/")[4:5] != [bank]:
+                continue
             if request.method == "POST" and request.url.path.endswith("/memories"):
                 body = cast(dict[str, Any], json.loads(request.content))
                 batches.append(cast(list[dict[str, Any]], body["items"]))
@@ -524,6 +584,8 @@ class RecordedHindsight:
 
     def _derived(self, request: httpx2.Request, body: JsonValue) -> httpx2.Response | None:
         parts = request.url.path.split("/")  # ["", "v1", "default", "banks", bank, ...]
+        if len(parts) == 5 and parts[1:4] == ["v1", "default", "banks"]:
+            return self._deleted_bank(parts[4]) if request.method == "DELETE" else None
         if len(parts) < 6 or parts[1:4] != ["v1", "default", "banks"]:
             return None
         bank, route = parts[4], parts[5:]
@@ -536,7 +598,7 @@ class RecordedHindsight:
             if route[1] in self._derived_operations:
                 return self._derived_operation(route[1])
         if request.method == "GET" and len(route) == 2 and route[0] == "documents":
-            if route[1] in self._derived_documents:
+            if route[1] in self._derived_documents.get(bank, {}):
                 return self._derived_document(bank, route[1])
         if request.method == "GET" and route == ["memories", "list"]:
             listed = self._derived_memory_list(bank, request)
@@ -564,7 +626,8 @@ class RecordedHindsight:
         for item in cast(list[dict[str, JsonValue]], items):
             document_id = str(item["document_id"])
             document_ids.append(document_id)
-            self._derived_documents[document_id] = item
+            self._derived_documents.setdefault(bank, {})[document_id] = item
+            self._known_memories.add(_fact_id(bank, document_id))
             self._memory_writes += 1
         self._derived_operations.add(operation_id)
         for hold in self._retain_holds:
@@ -586,7 +649,7 @@ class RecordedHindsight:
         return httpx2.Response(recording.status, json=self._apply_hold(response))
 
     def _derived_document(self, bank: str, document_id: str) -> httpx2.Response:
-        item = self._derived_documents[document_id]
+        item = self._derived_documents[bank][document_id]
         recording = self.recording(DERIVED_DOCUMENT)
         response = copy.deepcopy(recording.response_object())
         response |= {
@@ -607,7 +670,7 @@ class RecordedHindsight:
         document_id = params.pop("document_id", None)
         offset = int(params.pop("offset", "0"))
         limit = params.pop("limit", None)
-        if document_id not in self._derived_documents or limit is None or params:
+        if document_id not in self._derived_documents.get(bank, {}) or limit is None or params:
             return None
         recording = self.recording(DERIVED_MEMORY_LIST)
         response = copy.deepcopy(recording.response_object())
@@ -627,8 +690,8 @@ class RecordedHindsight:
     def _facts(self, bank: str) -> dict[str, dict[str, JsonValue]]:
         """The derived world facts that exist now, by ID, in retain order."""
         facts: dict[str, dict[str, JsonValue]] = {}
-        for document_id, item in self._derived_documents.items():
-            fact_id = _fact_id(document_id)
+        for document_id, item in self._derived_documents.get(bank, {}).items():
+            fact_id = _fact_id(bank, document_id)
             if self._zero_facts(document_id) or fact_id in self._forgotten:
                 continue
             facts[fact_id] = {
@@ -645,7 +708,7 @@ class RecordedHindsight:
 
     def _observation(self, observation_id: str, bank: str) -> dict[str, JsonValue]:
         facts = self._facts(bank)
-        present = [facts[s] for s in self._observations[observation_id] if s in facts]
+        present = [facts[s] for s in self._observations[observation_id][1] if s in facts]
         tags: list[JsonValue] = []
         for fact in present:
             tags.extend(t for t in cast(list[JsonValue], fact["tags"]) if t not in tags)
@@ -665,11 +728,11 @@ class RecordedHindsight:
             response = copy.deepcopy(recording.response_object()) | facts[memory_id]
             self.served.append(f"{DERIVED_FACT} (derived)")
             return httpx2.Response(recording.status, json=response)
-        if memory_id in self._observations:
+        if self._in_bank(memory_id, bank):
             recording = self.recording(DERIVED_OBSERVATION)
             response = copy.deepcopy(recording.response_object())
             embedded = cast(list[dict[str, JsonValue]], response["source_memories"])[0]
-            sources = self._observations[memory_id]
+            sources = self._observations[memory_id][1]
             response |= self._observation(memory_id, bank)
             response["source_memory_ids"] = list[JsonValue](sources)
             response["source_memories"] = [
@@ -679,7 +742,16 @@ class RecordedHindsight:
             ]
             self.served.append(f"{DERIVED_OBSERVATION} (derived)")
             return httpx2.Response(recording.status, json=response)
+        if memory_id in self._known_memories:
+            # A derived memory of another bank, or of a deleted one: not in this bank.
+            self.served.append("memories/<id> 404 (derived, hand-written body)")
+            return httpx2.Response(404, json={"detail": "Memory not found"})
         return None
+
+    def _in_bank(self, observation_id: str, bank: str) -> bool:
+        return (
+            observation_id in self._observations and self._observations[observation_id][0] == bank
+        )
 
     def _derived_recall(self, bank: str, body: dict[str, JsonValue]) -> httpx2.Response | None:
         match, tags = body.get("tags_match"), body.get("tags")
@@ -698,6 +770,8 @@ class RecordedHindsight:
         world = next(r for r in recorded if r["type"] == "world")
         results: list[JsonValue] = []
         for observation_id in self._observations:
+            if not self._in_bank(observation_id, bank):
+                continue
             fields = self._observation(observation_id, bank)
             if observation_id not in self._forgotten and in_scope(fields["tags"]):
                 results.append(copy.deepcopy(observation) | fields)
@@ -717,10 +791,13 @@ class RecordedHindsight:
         based_on = cast(dict[str, JsonValue], response["based_on"])
         entry = cast(list[dict[str, JsonValue]], based_on["memories"])[0]
         memories: list[JsonValue] = []
+        expanded: list[str | ChunkContent] = []
         for cited in scripted.cited:
+            expanded += self.bank_facts(bank) if isinstance(cited, BankFacts) else [cited]
+        for cited in expanded:
             fields: dict[str, JsonValue]
             if isinstance(cited, ChunkContent):
-                content = self._derived_documents[cited.document_id]["content"]
+                content = self._derived_documents[bank][cited.document_id]["content"]
                 text = _collapsed(content)[:CHUNK_TEXT_CHARS]
                 fields = {"id": None, "text": text, "type": None, "context": None}
             else:
@@ -738,7 +815,7 @@ class RecordedHindsight:
     def _cited_fields(self, bank: str, cited: str) -> dict[str, JsonValue]:
         """The identity and content fields of a cited derived memory (see `script_reflect`)."""
         facts = self._facts(bank)
-        if cited in self._observations:
+        if self._in_bank(cited, bank):
             text = self._observation(cited, bank)["text"]
             return {"id": cited, "text": text, "type": "observation", "context": None}
         if cited in facts:
@@ -765,7 +842,39 @@ class RecordedHindsight:
         if request.method == "GET" and len(route) == 2 and route[0] == "operations":
             if route[1] in self._refresh_operations:
                 return self._derived_refresh_operation(bank, route[1])
+            if route[1] in self._consolidations:
+                return self._derived_consolidation_operation(route[1])
+        if request.method == "POST" and route == ["consolidate"] and body == {}:
+            return self._derived_consolidation(bank)
         return None
+
+    # --- derived consolidation and bank deletion (see the module docstring) --------------------
+
+    def _derived_consolidation(self, bank: str) -> httpx2.Response:
+        count = len(self._consolidations) + 1
+        operation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, f"consolidate:{bank}:{count}"))
+        self._consolidations.add(operation_id)
+        for hold in self._consolidation_holds:
+            self.hold_operation(operation_id, hold.status, hold.polls)
+        recording = self.recording(DERIVED_CONSOLIDATE)
+        response = copy.deepcopy(recording.response_object()) | {"operation_id": operation_id}
+        self.served.append(f"{DERIVED_CONSOLIDATE} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _derived_consolidation_operation(self, operation_id: str) -> httpx2.Response:
+        recording = self.recording(DERIVED_CONSOLIDATE_FINAL)
+        response = copy.deepcopy(recording.response_object()) | {"operation_id": operation_id}
+        self.served.append(f"{DERIVED_CONSOLIDATE_FINAL} (derived)")
+        return httpx2.Response(recording.status, json=self._apply_hold(response))
+
+    def _deleted_bank(self, bank: str) -> httpx2.Response:
+        documents = self._derived_documents.pop(bank, {})
+        for observation_id in [o for o in self._observations if self._in_bank(o, bank)]:
+            del self._observations[observation_id]
+        self.deleted_banks.append(bank)
+        self.served.append("banks/<id> DELETE (derived, hand-written body)")
+        body = {"success": True, "message": None, "deleted_count": len(documents)}
+        return httpx2.Response(200, json=body)
 
     def _derived_import(
         self, bank: str, body: dict[str, JsonValue], dry_run: bool
@@ -929,8 +1038,8 @@ def _iso(moment: datetime | None) -> str | None:
     return None if moment is None else moment.isoformat()
 
 
-def _fact_id(document_id: str) -> str:
-    return str(uuid.uuid5(_DERIVED_NAMESPACE, f"world:{document_id}"))
+def _fact_id(bank: str, document_id: str) -> str:
+    return str(uuid.uuid5(_DERIVED_NAMESPACE, f"world:{bank}:{document_id}"))
 
 
 def _collapsed(content: JsonValue) -> str:

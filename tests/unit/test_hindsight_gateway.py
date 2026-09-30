@@ -206,6 +206,19 @@ def test_a_template_with_a_union_type_mental_model_schema_is_rejected_before_the
     assert fake.calls == []
 
 
+def test_only_a_replay_bank_can_be_deleted() -> None:
+    fake = RecordedHindsight()
+
+    with pytest.raises(HindsightRuleViolation, match="only a replay bank"):
+        gateway(fake).delete_bank()
+    deleted = gateway(fake, bank_id="atlas-replay-1").delete_bank()
+
+    assert deleted.success is True
+    assert [(c.method, c.url.path) for c in fake.calls] == [
+        ("DELETE", "/v1/default/banks/atlas-replay-1")
+    ]
+
+
 def test_an_empty_retain_batch_is_rejected_before_any_call() -> None:
     fake = RecordedHindsight()
 

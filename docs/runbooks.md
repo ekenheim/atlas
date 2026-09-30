@@ -229,6 +229,33 @@ The totals give the mismatch share of the Claims that reached the span check. If
 
 **Record it** in `docs/implementation-log.md` from `summary.md`, and say plainly whether it was live.
 
+## Replay banks (ticket 22)
+
+**What:** `POST /api/v1/replay-jobs` replays the pipeline at a cutoff in an isolated `atlas-replay-<id>` bank and deletes the bank afterwards (`docs/decisions.md`, "Replay banks"). In CI it runs only against the recorded Hindsight fake (`tests/integration/test_replay.py`, the leakage gate). There is no `scripts/live-verify.sh` on this branch, so the live run is this manual procedure.
+
+**Where:** the **local** Hindsight only: the Compose `hindsight` profile (or a throwaway server), never the owner's shared Hindsight. `ATLAS_REPLAY_HINDSIGHT_URL` is separate from `ATLAS_HINDSIGHT_URL` for that reason; don't point it at the shared server.
+
+**Cost:** each chosen Source Version is one retain batch (all its sections; triage is bypassed), then one consolidation and, per question of the set (2 in `default`), a recall and a reflect: LLM work on the local Hindsight's model (MiniMax via LiteLLM). Keep `ATLAS_REPLAY_MAX_SOURCE_VERSIONS` small (default 3) and scope by `company_ids`. The replay's operations count against the `codex` budget. **Run it only with the owner's go-ahead.**
+
+**Steps (opt-in live run):**
+
+1. Start the local Hindsight: `docker compose --profile hindsight up -d --wait` (needs `ATLAS_LITELLM_URL`/`_API_KEY`).
+2. Point the API and a worker at it, with the research database that holds the Source Versions:
+   ```sh
+   export ATLAS_REPLAY_HINDSIGHT_URL=http://127.0.0.1:58888
+   ```
+3. Ask for a replay (the API from `uv run atlas api` listens on 8000; the Compose `api` on 58080) with a cutoff before a source you know was published later (a future-dated source for the cutoff), e.g. for one company:
+   ```sh
+   curl -s -X POST localhost:8000/api/v1/replay-jobs -H 'content-type: application/json' \
+     -d '{"cutoff": "2025-12-31T23:59:59Z", "company_ids": ["<company id>"], "max_source_versions": 2}'
+   ```
+   The response lists the Source Versions the replay may see. Check the later source is not among them.
+4. Run the worker until the replay is done: `uv run atlas worker --once` (it runs one step per attempt and requeues itself, so one pass normally finishes it; a quota pause resumes on a later pass).
+5. Read `GET /api/v1/replay-jobs/{id}`: `status` `completed`, `leakage.future_accepted` **0**, `bank_deleted_at` set. `consolidation.status` `timed_out` means the answers ran before consolidation finished; note it with the results.
+6. Check the bank is gone on the local Hindsight: `curl -s localhost:58888/v1/default/banks | grep atlas-replay` finds nothing. If a replay reports `bank_delete_error`, delete the bank by hand (`curl -X DELETE localhost:58888/v1/default/banks/atlas-replay-<id>`) and record it.
+
+`POST /api/v1/replay-jobs/{id}/cancel` stops a replay; its next step deletes the bank.
+
 ## EDGAR availability corrections (after deploying migration `0012`)
 
 Source Versions ingested before the EDGAR dissemination rule (docs/decisions.md, 2026-09-29) are dated at acceptance even when EDGAR held the filing to the next business day. After `atlas migrate` has applied `0012`, run once, with the app's settings:

@@ -49,6 +49,7 @@ PAUSABLE_KINDS = [
     "poll_operation",
     "propose_candidates",
     "refresh_mental_model",
+    "replay",
     "reprocess",
     "retain",
     "review_relationships",
