@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
+SCOUT_PROMPT_VERSION = 2  # v2: the bottleneck method
+
 
 class ScoutRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -31,7 +33,7 @@ class ScoutQueries(RoleOutput):
 
 SCOUT = Role(
     name="scout",
-    prompt=Prompt.load(PROMPTS_DIR, "scout", 1),
+    prompt=Prompt.load(PROMPTS_DIR, "scout", SCOUT_PROMPT_VERSION),
     request=ScoutRequest,
     response=ScoutQueries,
     max_output_tokens=2048,

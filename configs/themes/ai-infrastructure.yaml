@@ -226,6 +226,11 @@ themes:
     description: >-
       Optical transceivers, lasers and components whose capacity may constrain AI
       data-center build-outs, across the supply chain from substrate to system.
+      The research hunts the bottleneck: trace demand to hardware, components,
+      sub-components and feedstock or process equipment (InP and GaAs substrates,
+      indium, gallium, germanium, MOCVD tools), and ask who chokes each layer
+      (single or sole sources, capacity, lead times, qualification, export controls)
+      and what would relieve it (second sources, substitutes, new capacity).
     companies:
       - axt
       - soitec

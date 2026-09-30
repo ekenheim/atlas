@@ -28,8 +28,8 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-SKEPTIC_PROMPT_VERSION = 1
-SKEPTIC_PLAN_PROMPT_VERSION = 1
+SKEPTIC_PROMPT_VERSION = 2  # v2: the bottleneck method
+SKEPTIC_PLAN_PROMPT_VERSION = 2
 
 
 @dataclass(frozen=True)
