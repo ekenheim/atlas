@@ -17,7 +17,8 @@ transaction that records it. Advancing cancels the unstarted tasks whose premise
 disproven, then the ones whose every (non-skipped) dependency was cancelled, then enqueues an
 `investigation_task` job for each pending task whose dependencies are all done, in the same
 transaction. When every task is done the investigation stops: with the Editor's verdict
-(`answered` or `needs_review`), `no_new_independent_evidence` (the Editor had no new
+(`answered` or `needs_review`), `no_new_independent_evidence` (the Investigators accepted no
+Claim, so the Editor's card has no finding, or a follow-up round's Editor had no new
 independent Evidence to edit), or `premise_disproven` (the Editor was cancelled).
 
 **Stops.** Each stop records its reason in the investigation and as a `stopped` event. A
@@ -772,6 +773,8 @@ def _outcome(editor: _Task) -> tuple[StopReason, str]:
         detail = str(editor.artifacts.get("stop_detail", ""))
         if reason == "answered":
             return "answered", detail
+        if reason == "no_new_independent_evidence":  # a card with no finding
+            return "no_new_independent_evidence", detail
         return "needs_review", detail
     if editor.status == "skipped":
         return "no_new_independent_evidence", editor.detail or "no new independent Evidence"

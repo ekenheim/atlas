@@ -2,8 +2,9 @@
 as new versions, and publishing a version behind the publish gate (spec §5.6).
 
 - **Save.** `create` records a Hypothesis (status `draft`) for a stopped investigation that
-  has a research card (one Hypothesis per investigation) and, in the same transaction,
-  enqueues the `draft_hypothesis` job: the Editor drafts version 1 (atlas.hypotheses.drafting).
+  has a research card with a finding (one Hypothesis per investigation) and, in the same
+  transaction, enqueues the `draft_hypothesis` job: the Editor drafts version 1
+  (atlas.hypotheses.drafting).
 - **Lifecycle.** `transition` moves the status along `TRANSITIONS`; `reviewed` is reached
   only by `publish`. Every change is an insert-only `hypothesis_transition` row and an audit
   event.
@@ -256,10 +257,12 @@ class Hypotheses:
                 raise HypothesisNotFound("investigation not found")
             if investigation["status"] != "stopped":
                 raise HypothesisConflict("the investigation is still running")
-            if investigation["research_card"] is None:
+            card = investigation["research_card"]
+            if card is None or not card.get("findings"):
+                # A card with no finding reports what was searched and read: nothing to save.
                 raise HypothesisConflict(
                     f"the investigation stopped {investigation['stop_reason']} without a"
-                    " research card: there is nothing to save"
+                    " research card finding: there is nothing to save"
                 )
             existing = connection.execute(
                 text("SELECT id FROM hypothesis WHERE investigation_id = :id"),

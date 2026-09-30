@@ -350,6 +350,16 @@ def editing(
     return respond
 
 
+# The Editor's card when no Claim was accepted: no finding, the next round's questions.
+NEXT_ROUND: list[JsonValue] = [
+    "Does Coherent's 10-K state its InP laser capacity or who qualifies its EML lasers?",
+    "Which of Lumentum's filings describe its laser sourcing?",
+]
+NOTHING_ACCEPTED = ChatReply.json(
+    {"findings": [], "open_questions": NEXT_ROUND, "verdict": "needs_review"}, tokens=(2000, 150)
+)
+
+
 def reviewing(body: dict[str, Any]) -> JsonValue:
     """The Reviewer (chained after a final stop) confirms every edge it is sent."""
     return {
@@ -746,7 +756,7 @@ def test_the_lead_and_document_budgets_and_the_as_of_time_bound_what_is_read(
         as_of="2026-07-01T00:00:00Z",
         budgets={"max_leads": 2, "max_documents": 1},
     )
-    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}))
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
     script_searches(searxng)
 
     atlas.worker_pass()
@@ -763,11 +773,13 @@ def test_the_lead_and_document_budgets_and_the_as_of_time_bound_what_is_read(
         if e["type"].endswith("budget_reached")
     ]
     assert budget_events == [("lead_budget_reached", {"max_leads": 2, "dropped": 1})]
-    # No accepted Claim: no new independent Evidence, and the Editor isn't called.
-    assert roles(llm)[-1] != "editor"
+    # No accepted Claim: no new independent Evidence; the Editor's card has no finding.
+    assert roles(llm) == ["scout", "investigator", "editor"]
     assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
-    assert tasks(found)["editor"]["status"] == "skipped"
-    assert found["research_card"] is None
+    assert tasks(found)["editor"]["status"] == "succeeded"
+    assert found["research_card"]["findings"] == []
+    [read] = found["research_card"]["read"]
+    assert [d["source_version_id"] for d in read["documents"]] == [ten_q]
     assert (
         metric(atlas, "atlas_investigation_stops_total", reason="no_new_independent_evidence") == 1
     )
@@ -778,7 +790,7 @@ def test_the_document_budget_is_shared_by_the_investigator_tasks(
 ) -> None:
     atlas = services.start()
     started = seeded(atlas, "coherent", budgets={"max_documents": 1})
-    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}))
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
     script_searches(searxng)
 
     atlas.worker_pass()
@@ -791,6 +803,198 @@ def test_the_document_budget_is_shared_by_the_investigator_tasks(
     assert [
         e["detail"] for e in events(atlas, started["id"]) if e["type"] == "document_budget_reached"
     ] == [{"max_documents": 1, "dropped": 1}]
+
+
+def import_notes(atlas: Atlas, slug: str, name: str, count: int) -> None:
+    """Record `count` short hand-written notes for the company (`atlas sources import`), each
+    published in September 2026 and naming NVIDIA (so the Investigator is sent a passage of
+    each), then run their retention."""
+    for number in range(1, count + 1):
+        note = atlas.tmp_path / f"{slug}-note-{number}.txt"
+        note.write_text(
+            f"Synthetic test note {number}: a hand-written note, not a {name} document.\n\n"
+            f"Note {number} mentions NVIDIA, with no volume, price or direction of supply.\n",
+            encoding="utf-8",
+        )
+        imported = atlas.cli(
+            "sources",
+            "import",
+            "--company",
+            slug,
+            "--file",
+            str(note),
+            "--origin-url",
+            f"https://notes.example.test/{slug}-{number}",
+            "--published-at",
+            f"2026-09-{number:02d}T12:00:00+00:00",
+            "--title",
+            f"{slug}-note-{number}",
+        )
+        assert imported.returncode == 0, imported.stderr
+    atlas.worker_pass()
+
+
+def test_the_document_budget_is_split_fairly_across_the_seed_companies(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot investigation 1: the first Investigator took all 25 documents, the second none.
+    # Here each company has 14 parsed Source Versions, more than half the budget: Coherent its
+    # recorded 10-K and 10-Q and 12 notes, Lumentum 14 notes.
+    atlas = services.start()
+    import_notes(atlas, "coherent", "Coherent", 12)
+    import_notes(atlas, "lumentum", "Lumentum", 14)
+    started = seeded(atlas, "coherent", "lumentum")  # the default budget: 25 documents
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.json({"claims": []}),
+        ChatReply.json({"claims": []}),
+        NOTHING_ACCEPTED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert found["budgets"]["max_documents"] == 25
+    # The Investigators run in either order: the first to choose gets half the budget,
+    # rounded up (12 are held back for the other), the second the 12 left.
+    read = {
+        key: (task["artifacts"]["documents"], task["artifacts"]["documents_dropped"])
+        for key, task in tasks(found).items()
+        if key.startswith("investigator:")
+    }
+    assert sorted(read.values()) == [(12, 2), (13, 1)]
+    assert found["usage"]["documents"] == 25
+    for key, (documents, _) in read.items():
+        assert len([d for d in found["documents"] if d["task_key"] == key]) == documents
+    reached = [
+        (e["task_key"], e["detail"])
+        for e in events(atlas, started["id"])
+        if e["type"] == "document_budget_reached"
+    ]
+    assert sorted(reached) == [
+        (key, {"max_documents": 25, "dropped": dropped})
+        for key, (_, dropped) in sorted(read.items())
+    ]
+    # Both extractions ran, and the card reports what each read.
+    assert roles(llm) == ["scout", "investigator", "investigator", "editor"]
+    card = {each["task_key"]: each for each in found["research_card"]["read"]}
+    for key, (documents, dropped) in read.items():
+        assert (len(card[key]["documents"]), card[key]["documents_dropped"]) == (documents, dropped)
+
+
+def test_with_no_accepted_claim_the_editor_writes_a_card_of_what_was_searched_and_read(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    started = seeded(atlas, "coherent", "lumentum")
+    misquote = "Coherent is the sole qualified supplier of EML lasers to NVIDIA"
+
+    def misquoting(body: dict[str, Any]) -> JsonValue:
+        first = asked(body)["retrieved_data"][0]
+        claim = supply_claim(atlas) | {
+            "quote": misquote,
+            "passage_id": first["id"],
+            "quote_start": 0,
+            "quote_end": len(misquote),
+        }
+        return {"claims": [claim]}
+
+    llm.script_chat(scout_reply(), ChatReply.answer(misquoting), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    # The stop reason is as before; the Skeptic and the Analyst have nothing to work on.
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+    assert (
+        found["stop_detail"] == "no new independent Evidence: the Investigator accepted no Claims"
+    )
+    assert statuses(found) == {
+        "scout": "succeeded",
+        "investigator:coherent": "succeeded",
+        "investigator:lumentum": "succeeded",
+        "skeptic": "skipped",
+        "financial_analyst": "skipped",
+        "editor": "succeeded",
+    }
+    assert roles(llm) == ["scout", "investigator", "editor"]
+    [rejected] = atlas.get("/api/v1/claims")["items"]
+    assert rejected["outcome"] == "rejected"
+    reason = rejected["reason_code"]
+    extraction = atlas.get(
+        "/api/v1/claim-extractions/"
+        f"{tasks(found)['investigator:coherent']['artifacts']['extraction_id']}"
+    )
+    ten_k = atlas.version(COHR_10K, "coherent")["id"]
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    titles = {d["source_version_id"]: d["title"] for d in found["documents"]}
+    sections: dict[str, list[str]] = {}
+    for passage in extraction["passages"]:
+        anchors = sections.setdefault(passage["source_version_id"], [])
+        if passage["section_anchor"] not in anchors:
+            anchors.append(passage["section_anchor"])
+    assert sections[ten_k]  # the Investigator was sent passages of the 10-K
+
+    # The Editor was sent no Claim, and what was searched and read.
+    editor = asked(requests(llm)[-1])["request"]
+    assert editor["claims"] == []
+    assert editor["queries"] == QUERIES
+    coherent_read, lumentum_read = editor["read"]
+    assert coherent_read == {
+        "company": "Coherent",
+        "documents": [
+            {"title": titles[ten_k], "sections": sections[ten_k]},
+            {"title": titles[ten_q], "sections": sections.get(ten_q, [])},
+        ],
+        "documents_dropped": 0,
+        "passages": len(extraction["passages"]),
+        "claims_proposed": 1,
+        "claims_accepted": 0,
+        "rejected": {reason: 1},
+        "detail": None,
+    }
+    assert (lumentum_read["company"], lumentum_read["documents"]) == ("Lumentum", [])
+    assert "no parsed Source Version" in lumentum_read["detail"]
+
+    # The card: no finding; what was searched and read; the next round's questions.
+    card = found["research_card"]
+    assert (card["findings"], card["unsupported_findings"]) == ([], [])
+    assert (card["editor_verdict"], card["claims_considered"]) == ("needs_review", 0)
+    assert card["open_questions"] == NEXT_ROUND
+    [searched] = card["searched"]
+    assert searched["discovery_id"] == tasks(found)["scout"]["artifacts"]["discovery_id"]
+    assert (searched["round"], searched["queries"], searched["leads_found"]) == (1, QUERIES, 3)
+    assert searched["lead_ids"] == [lead["lead_id"] for lead in found["leads"]]
+    coherent_card, lumentum_card = card["read"]
+    assert (coherent_card["task_key"], coherent_card["company_id"]) == (
+        "investigator:coherent",
+        company_id(atlas, "coherent"),
+    )
+    assert [d["source_version_id"] for d in coherent_card["documents"]] == [ten_k, ten_q]
+    assert [d["sections"] for d in coherent_card["documents"]] == [
+        sections[ten_k],
+        sections.get(ten_q, []),
+    ]
+    assert (
+        coherent_card["passages"],
+        coherent_card["claims_proposed"],
+        coherent_card["claims_accepted"],
+        coherent_card["rejected"],
+    ) == (len(extraction["passages"]), 1, 0, {reason: 1})
+    assert (lumentum_card["task_key"], lumentum_card["documents"]) == ("investigator:lumentum", [])
+    assert "no parsed Source Version" in lumentum_card["detail"]
+    # Nothing was accepted, so nothing is queued for relationship review.
+    assert "relationship_review_queued" not in [e["type"] for e in events(atlas, started["id"])]
+    # The card's open questions can start the follow-up round; it has no finding to save.
+    refused = atlas.api.post("/api/v1/hypotheses", json={"investigation_id": started["id"]})
+    assert refused.status_code == 409
+    assert "without a research card finding" in refused.json()["error"]["message"]
+    followed = atlas.api.post(
+        f"/api/v1/investigations/{started['id']}/follow-up", json={"question": NEXT_ROUND[1]}
+    )
+    assert followed.status_code == 200, followed.text
 
 
 def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_run(
@@ -840,7 +1044,9 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
         f"/api/v1/investigations/{started['id']}/resume", json={"token_budget": 1000}
     )
     assert refused.status_code == 422
-    llm.script_chat(ChatReply.json({"claims": []}), ChatReply.json({"claims": []}))
+    llm.script_chat(
+        ChatReply.json({"claims": []}), ChatReply.json({"claims": []}), NOTHING_ACCEPTED
+    )
     resumed = atlas.api.post(
         f"/api/v1/investigations/{started['id']}/resume", json={"token_budget": 50_000}
     )
@@ -857,7 +1063,7 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
     assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
     assert found["run_id"] == run_id
     # The continuation sent the remaining passages only, in the same run.
-    sent = [asked(body)["retrieved_data"][0]["id"] for body in llm.chat_requests()[1:]]
+    sent = [asked(body)["retrieved_data"][0]["id"] for body in llm.chat_requests()[1:4]]
     assert sent == ["p1", "p2", "p3"]
     second = tasks(found)["investigator:coherent"]["artifacts"]["extraction_id"]
     continuation = atlas.get(f"/api/v1/claim-extractions/{second}")
@@ -870,7 +1076,11 @@ def test_budget_exhaustion_stops_resumably_and_resuming_continues_in_the_same_ru
         ("investigator", "budget_exhausted"),
         ("investigator", "accepted"),
         ("investigator", "accepted"),
+        ("editor", "accepted"),
     ]
+    # The card counts the passages sent across the extraction and its continuation.
+    [read] = found["research_card"]["read"]
+    assert (read["passages"], read["claims_proposed"]) == (3, 0)
     assert metric(atlas, tokens, kind="investigation", direction="input") == calls["tokens_in"]
     assert [
         e["type"] for e in events(atlas, started["id"]) if e["type"] in ("stopped", "resumed")
@@ -1644,6 +1854,7 @@ def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
                 counter(DILUTION_QUOTE, "dilution_financing", coherent, disproves="question"),
             )
         ),
+        NOTHING_ACCEPTED,
         REVIEWED,
     )
     script_searches(searxng)
@@ -1664,10 +1875,14 @@ def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
         "atlas-skeptic",
         [first["id"]],
     )
-    # Coherent's Claims no longer count: the Editor has nothing new and makes no call.
-    assert tasks(found)["editor"]["status"] == "skipped"
+    # Coherent's Claims no longer count: the Editor's card has no finding, and names the
+    # disproven premise.
+    assert tasks(found)["editor"]["status"] == "succeeded"
     assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
-    assert "editor" not in roles(llm)
+    [editor] = [body for body in requests(llm) if body["metadata"]["role"] == "editor"]
+    assert asked(editor)["request"]["claims"] == []
+    card = found["research_card"]
+    assert (card["findings"], card["disproven_premises"]) == ([], [disproven["statement"]])
     with atlas.engine.connect() as connection:
         actors = connection.execute(
             text("SELECT actor FROM audit_event WHERE action = 'investigation.premise_disproven'")

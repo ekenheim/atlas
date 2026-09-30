@@ -651,7 +651,7 @@ def test_the_dossier_exports_as_json_and_markdown_with_citations_and_run_metadat
     assert all(run["finished_at"] is not None for run in meta["runs"])
     assert meta["runs"][1]["tokens_in"] == 4000
     assert [(c["role"], c["prompt_name"], c["prompt_version"]) for c in meta["role_calls"]] == [
-        ("editor", "editor", 3),
+        ("editor", "editor", 4),
         ("editor", "editor-hypothesis", 3),
     ]
     assert all(len(c["prompt_sha256"]) == 64 for c in meta["role_calls"])
@@ -1034,18 +1034,21 @@ def test_saving_needs_a_stopped_investigation_with_a_research_card(
     for investigation_id, status in cases:
         response = atlas.api.post("/api/v1/hypotheses", json={"investigation_id": investigation_id})
         assert response.status_code == status, response.text
-    # Stopped without a card (the Investigator accepted nothing): nothing to save.
+    # Stopped with a card with no finding (the Investigator accepted nothing): nothing to save.
     searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
     llm.script_chat(
         ChatReply.json({"queries": [{"query": SUBSTRATE, "purpose": None}]}),
         ChatReply.json({"claims": []}),  # nothing accepted: the Skeptic has nothing to challenge
+        # The Editor still writes a card, with no finding (pilot fix 01).
+        ChatReply.json({"findings": [], "open_questions": [], "verdict": "needs_review"}),
     )
     atlas.worker_pass()
     empty = atlas.get(f"/api/v1/investigations/{running['id']}")
     assert empty["stop_reason"] == "no_new_independent_evidence"
     refused = atlas.api.post("/api/v1/hypotheses", json={"investigation_id": running["id"]})
     assert refused.status_code == 409
-    assert "without a research card" in refused.json()["error"]["message"]
+    assert empty["research_card"]["findings"] == []
+    assert "without a research card finding" in refused.json()["error"]["message"]
 
     found = investigate(atlas, llm, searxng, supply(atlas))
     saved = save(atlas, found["id"])

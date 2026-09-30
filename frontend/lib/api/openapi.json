@@ -7540,6 +7540,34 @@
         "title": "CardContradiction",
         "description": "Accepted counterevidence, as the research card and a Hypothesis carry it."
       },
+      "CardDocumentRead": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "title",
+          "sections"
+        ],
+        "title": "CardDocumentRead",
+        "description": "A Source Version an Investigator task read, and the sections of the passages it was\nsent."
+      },
       "CardFinding": {
         "properties": {
           "claim_text": {
@@ -7644,6 +7672,171 @@
         ],
         "title": "CardFinding",
         "description": "A research card finding in the §7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
+      },
+      "CardQuery": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "purpose"
+        ],
+        "title": "CardQuery",
+        "description": "One query the Scout searched."
+      },
+      "CardReading": {
+        "properties": {
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "task_key": {
+            "type": "string",
+            "title": "Task Key"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/CardDocumentRead"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "documents_dropped": {
+            "type": "integer",
+            "title": "Documents Dropped"
+          },
+          "passages": {
+            "type": "integer",
+            "title": "Passages"
+          },
+          "claims_proposed": {
+            "type": "integer",
+            "title": "Claims Proposed"
+          },
+          "claims_accepted": {
+            "type": "integer",
+            "title": "Claims Accepted"
+          },
+          "rejected": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Rejected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "round",
+          "task_key",
+          "company_id",
+          "company_name",
+          "status",
+          "detail",
+          "documents",
+          "documents_dropped",
+          "passages",
+          "claims_proposed",
+          "claims_accepted",
+          "rejected"
+        ],
+        "title": "CardReading",
+        "description": "What one Investigator task read and what came of it: the extraction's outcomes, so a\ncard with no finding still says why nothing was accepted."
+      },
+      "CardSearch": {
+        "properties": {
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "discovery_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Discovery Id"
+          },
+          "queries": {
+            "items": {
+              "$ref": "#/components/schemas/CardQuery"
+            },
+            "type": "array",
+            "title": "Queries"
+          },
+          "leads_found": {
+            "type": "integer",
+            "title": "Leads Found"
+          },
+          "lead_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Lead Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "round",
+          "discovery_id",
+          "queries",
+          "leads_found",
+          "lead_ids"
+        ],
+        "title": "CardSearch",
+        "description": "What one round's Scout searched: its queries, how many leads they found, and the\nleads the investigation took (in rank order; Tier C, never Evidence)."
       },
       "CaseResult": {
         "properties": {
@@ -18339,6 +18532,20 @@
             },
             "type": "array",
             "title": "Contradictions"
+          },
+          "searched": {
+            "items": {
+              "$ref": "#/components/schemas/CardSearch"
+            },
+            "type": "array",
+            "title": "Searched"
+          },
+          "read": {
+            "items": {
+              "$ref": "#/components/schemas/CardReading"
+            },
+            "type": "array",
+            "title": "Read"
           }
         },
         "type": "object",

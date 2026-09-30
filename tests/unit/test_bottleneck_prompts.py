@@ -94,7 +94,7 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         EDITOR,
         "editor",
-        3,
+        4,  # v4: what was searched and read, and a card with no accepted Claim (pilot fix 01)
         (
             "the bottleneck layer",
             "the chokepoint",
@@ -102,6 +102,11 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "capacity relief",
             "dilution or financing",
             "never cite a lead ID",
+            "When the request has no Claims, write the card anyway",
+            "`findings` is `[]`",
+            "`verdict` is `needs_review`",
+            "what the next round should look for",
+            "Reason from `read`",
         ),
     ),
     (

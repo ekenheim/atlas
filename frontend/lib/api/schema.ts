@@ -1930,6 +1930,22 @@ export interface components {
             evidence_available_at: string;
         };
         /**
+         * CardDocumentRead
+         * @description A Source Version an Investigator task read, and the sections of the passages it was
+         *     sent.
+         */
+        CardDocumentRead: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Title */
+            title: string;
+            /** Sections */
+            sections: string[];
+        };
+        /**
          * CardFinding
          * @description A research card finding in the §7.2 claim shape. The statement is the Editor's; every
          *     other field is filled in by code from the accepted Claims it cites.
@@ -1963,6 +1979,69 @@ export interface components {
             needs_review: boolean;
             /** Open Questions */
             open_questions: string[];
+        };
+        /**
+         * CardQuery
+         * @description One query the Scout searched.
+         */
+        CardQuery: {
+            /** Query */
+            query: string;
+            /** Purpose */
+            purpose: string | null;
+        };
+        /**
+         * CardReading
+         * @description What one Investigator task read and what came of it: the extraction's outcomes, so a
+         *     card with no finding still says why nothing was accepted.
+         */
+        CardReading: {
+            /** Round */
+            round: number;
+            /** Task Key */
+            task_key: string;
+            /** Company Id */
+            company_id: string | null;
+            /** Company Name */
+            company_name: string | null;
+            /** Status */
+            status: string;
+            /** Detail */
+            detail: string | null;
+            /** Documents */
+            documents: components["schemas"]["CardDocumentRead"][];
+            /** Documents Dropped */
+            documents_dropped: number;
+            /** Passages */
+            passages: number;
+            /** Claims Proposed */
+            claims_proposed: number;
+            /** Claims Accepted */
+            claims_accepted: number;
+            /** Rejected */
+            rejected: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * CardSearch
+         * @description What one round's Scout searched: its queries, how many leads they found, and the
+         *     leads the investigation took (in rank order; Tier C, never Evidence).
+         */
+        CardSearch: {
+            /** Round */
+            round: number;
+            /**
+             * Discovery Id
+             * Format: uuid
+             */
+            discovery_id: string;
+            /** Queries */
+            queries: components["schemas"]["CardQuery"][];
+            /** Leads Found */
+            leads_found: number;
+            /** Lead Ids */
+            lead_ids: string[];
         };
         /** CaseResult */
         CaseResult: {
@@ -5698,6 +5777,10 @@ export interface components {
             editor_role_call_id: string;
             /** Contradictions */
             contradictions?: components["schemas"]["CardContradiction"][];
+            /** Searched */
+            searched?: components["schemas"]["CardSearch"][];
+            /** Read */
+            read?: components["schemas"]["CardReading"][];
         };
         /** ResearchScope */
         ResearchScope: {
