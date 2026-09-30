@@ -72,6 +72,12 @@ Local markdown files under `.scratch/` (no remote tracker). See `docs/agents/iss
 
 Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
 
+### Building, releasing and the pilot
+
+- `docs/agents/implementer-brief.md`: what the lead hands each implementer agent (test-first at the seams, local checks only, commit and report; the lead pushes and runs the runners).
+- `release-atlas` (skill): integrate ticket branches, chain migrations, release a tag and open the home-ops PR; the owner merges.
+- `pilot-review` (skill): run a pilot investigation on production and review every accepted Claim against its span; results in `.scratch/pilot/results.md`, defects as tickets.
+
 ### Hindsight skills
 
 - `hindsight-docs` is the Hindsight 0.10.1 documentation and OpenAPI schema, pinned to the server version. The feature matrix and recordings win where they disagree.
