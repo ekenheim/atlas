@@ -2215,3 +2215,28 @@ Migration renumbering at the final merge (none deployed): ticket 21's 0039 → 0
   - `tests/unit`: 485 passed. `tests/integration/test_hypotheses.py`, `test_investigation_follow_up.py` and `tests/unit/test_live_suite_guard.py`: 25 passed.
 - **Fixture-only vs live:** nothing live. The TradingView and publish steps were run only against the fakes in a rehearsal.
 - **Next:** the lead's CI run, then the live `scripts/live-verify.sh` with the owner's go-ahead.
+
+## 2026-09-30: Ticket 32 live verification runs (LIVE)
+
+These ran from the owner's workstation against the real services:
+- SEC EDGAR, the FCA NSM, the AMF, SearXNG, GLEIF and OpenFIGI;
+- MiniMax-M3 via LiteLLM;
+- the cluster Hindsight 0.10.1, in a throwaway `atlas-live-*` bank deleted afterwards.
+
+The SEC User-Agent carried the owner's contact email, as the deployment's does; every other source used the generic `AtlasResearch`.
+
+**Run 1** (2026-09-29 23:57–00:27 UTC, main at 1e0350c plus the harness): 5 of 7 parts passed, TradingView was skipped, and `sec` failed. XBRL normalization hit a ForeignKeyViolation on real Coherent, AXT and Applied Optoelectronics companyfacts, because facts listed newest-first were inserted before their predecessor. The fix is "XBRL normalization inserts in filing order" (merged).
+
+**Run 2** (2026-09-30 01:47–03:18 UTC, the full Phase 3–6a build at 5d22933): 27 of 40 chat calls, 7 of 25 retain operations, 103,330 tokens in and 14,943 out.
+
+| Part | Result | Notes |
+|---|---|---|
+| sec | recall **passed**, reflect **timed out** | 4 companies × 2 filings; all 4 ingests succeeded. Triage kept 17 of 80 sections: Lumentum 6/27, Coherent 5/27, AXT 4/14, Applied Optoelectronics 2/7. XBRL facts 378, 454, 483 and 9. Recall across companies returned 48 memories, 48 of them resolved and 0 broken (Lumentum 30, Coherent 12, AXT 6). Reflect timed out after ~300 s while the shared Hindsight was busy with the production backfill (~100 queued operations). Re-run when it is idle. |
+| exchanges | passed | IQE H1 2026 interim results from the FCA NSM (en, parsed); a Soitec AMF filing (fr, archived, not retained). Every fetch was gate-allowed. |
+| discovery | passed | The Scout wrote 3 queries; SearXNG returned 30 leads; Candidates were proposed. |
+| relationships | passed | Claims came from the recorded Coherent 10-K; the Reviewer ran on MiniMax. |
+| investigation | passed | Scout → Investigators → Skeptic ∥ Financial Analyst → Editor, stopped `needs_review`. A Hypothesis was drafted, and the scenario recomputes byte-identically. The harness approved 4 Relationships as the owner step (recorded as not a human decision). Version 1 was published, and the Research Snapshot was archived and verified (sha256 151d2bd1…, 67,833 bytes). |
+| identity | passed | Lumentum and Coherent resolved as corroborated; their LEIs await owner review. |
+| tradingview | skipped | The owner override is off, and no token exists yet (`atlas tradingview login`). |
+
+Operational note: an earlier attempt at run 2 was stopped mid-part by the agent's background time limit. Its throwaway bank was cleaned up by hand: 20 operations cancelled and the bank deleted. The runbook should say to run `live-verify.sh` detached (`setsid nohup`) on a busy Hindsight.
