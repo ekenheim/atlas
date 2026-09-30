@@ -34,6 +34,26 @@ export type Candidate = Schemas["Candidate"];
 export type CompanyDossier = Schemas["CompanyDossier"];
 export type FinancialFigure = Schemas["FinancialFigure"];
 export type EpistemicType = Assertion["epistemic_type"];
+export type Hypothesis = Schemas["Hypothesis"];
+export type HypothesisVersion = Schemas["HypothesisVersion"];
+export type HypothesisStatus = Hypothesis["status"];
+export type HypothesisTransition = Schemas["HypothesisTransition"];
+export type HypothesisExport = Schemas["HypothesisExport"];
+export type ExportFinding = Schemas["ExportFinding"];
+export type Citation = HypothesisExport["citations"][number];
+export type CardContradiction = Schemas["CardContradiction"];
+export type HypothesisDiff = Schemas["HypothesisDiff"];
+export type DiffClaim = Schemas["DiffClaim"];
+export type PublishGate = Schemas["PublishGateView"];
+export type GateFailure = Schemas["GateFailureView"];
+export type Scenario = Schemas["Scenario"];
+export type ScenarioInput = Schemas["ScenarioInputView"];
+export type ScenarioOutputs = Schemas["ScenarioOutputs"];
+export type SnapshotRecord = Schemas["ResearchSnapshotRecord"];
+export type ResearchSnapshot = Schemas["ResearchSnapshot"];
+export type ExportFormat = NonNullable<
+  NonNullable<Params<"/api/v1/hypotheses/{hypothesis_id}/export">["query"]>["format"]
+>;
 export type ContentKind =
   Params<"/api/v1/source-versions/{version_id}/content">["query"]["kind"];
 
@@ -65,12 +85,14 @@ type Posted<P extends PostPath> = PostOperation<P>["responses"] extends
   ? T
   : never;
 
-/** A non-2xx answer, carrying the API's error envelope when it sent one. */
+/** A non-2xx answer, carrying the API's error envelope when it sent one (and the publish
+ * gate's failed checks when it refused a publication). */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
     message: string,
+    readonly failures: GateFailure[] = [],
   ) {
     super(message);
     this.name = "ApiError";
@@ -104,13 +126,14 @@ async function send(target: string, init: Init = {}): Promise<Response> {
   if (response.ok) return response;
   let code = "http_error";
   let message = `${response.status} ${response.statusText}`.trim();
+  let failures: GateFailure[] = [];
   try {
-    const body = (await response.json()) as Partial<Schemas["ErrorEnvelope"]>;
-    if (body.error) ({ code, message } = body.error);
+    const body = (await response.json()) as Partial<Schemas["PublishRefusalEnvelope"]>;
+    if (body.error) ({ code, message, failures = [] } = body.error);
   } catch {
     // Not the error envelope: keep the status line.
   }
-  throw new ApiError(response.status, code, message);
+  throw new ApiError(response.status, code, message, failures);
 }
 
 async function get<P extends GetPath>(route: P, params: Params<P>): Promise<Ok<P>> {
@@ -178,6 +201,52 @@ export const api = {
       { path: { relationship_id: id } },
       body,
     ),
+  /** Every Hypothesis, newest first, each with its versions and transitions. */
+  hypotheses: () => get("/api/v1/hypotheses", { query: PAGE }),
+  hypothesis: (id: string) =>
+    get("/api/v1/hypotheses/{hypothesis_id}", { path: { hypothesis_id: id } }),
+  /** A version's dossier: its findings with numbered citations, and the run metadata. */
+  hypothesisExport: (id: string, version: number) =>
+    get("/api/v1/hypotheses/{hypothesis_id}/export", {
+      path: { hypothesis_id: id },
+      query: { format: "json", version },
+    }),
+  /** The export's download URL, as JSON or Markdown. */
+  exportUrl: (id: string, format: ExportFormat, version: number) =>
+    url("/api/v1/hypotheses/{hypothesis_id}/export", {
+      path: { hypothesis_id: id },
+      query: { format, version },
+    }),
+  /** The claims new, contradicted, unchanged or removed between two versions. */
+  hypothesisDiff: (id: string, fromVersion: number, toVersion: number) =>
+    get("/api/v1/hypotheses/{hypothesis_id}/diff", {
+      path: { hypothesis_id: id },
+      query: { from_version: fromVersion, to_version: toVersion },
+    }),
+  /** The scenarios attached to one version, oldest first. */
+  scenarios: (id: string, version: number) =>
+    get("/api/v1/hypotheses/{hypothesis_id}/scenarios", {
+      path: { hypothesis_id: id },
+      query: { version },
+    }),
+  /** What publishing the latest version would meet now (nothing is published). */
+  publishGate: (id: string) =>
+    get("/api/v1/hypotheses/{hypothesis_id}/publish-gate", { path: { hypothesis_id: id } }),
+  /** Publish the latest version; a refusal is an `ApiError` listing the gate's `failures`. */
+  publishVersion: (id: string, version: number) =>
+    post(
+      "/api/v1/hypotheses/{hypothesis_id}/publish-version",
+      { path: { hypothesis_id: id } },
+      { version },
+    ),
+  /** A lifecycle change (`reviewed` only by publishing). */
+  transitionHypothesis: (id: string, to: HypothesisStatus) =>
+    post("/api/v1/hypotheses/{hypothesis_id}/transitions", { path: { hypothesis_id: id } }, { to }),
+  /** A Hypothesis's Research Snapshots, oldest first. */
+  snapshots: (hypothesisId: string) =>
+    get("/api/v1/snapshots", { query: { hypothesis_id: hypothesisId, ...PAGE } }),
+  /** One snapshot, verified on read; an altered or missing one is `snapshot_integrity_failed`. */
+  snapshot: (id: string) => get("/api/v1/snapshots/{snapshot_id}", { path: { snapshot_id: id } }),
   /** Review an Assertion; a transition not allowed is refused (`invalid_transition`). */
   reviewAssertion: (id: string, body: AssertionReview) =>
     post("/api/v1/assertions/{assertion_id}/review", { path: { assertion_id: id } }, body),

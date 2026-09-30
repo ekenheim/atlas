@@ -27,6 +27,7 @@ from atlas.hypotheses.model import (
 from atlas.hypotheses.service import (
     DEFAULT_PUBLISH_GATE,
     Correction,
+    GateCheck,
     GateFailure,
     Hypotheses,
     HypothesisConflict,
@@ -43,6 +44,7 @@ __all__ = [
     "HYPOTHESIS_STATUSES",
     "TRANSITIONS",
     "Correction",
+    "GateCheck",
     "GateFailure",
     "Hypotheses",
     "Hypothesis",

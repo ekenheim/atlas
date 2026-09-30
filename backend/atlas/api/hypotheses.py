@@ -18,6 +18,10 @@
   `no_unresolved_question`, `relationship_not_approved` with the `relationship_ids`,
   `relationship_review_pending` with the `assertion_ids`). A published version is immutable,
   and its Research Snapshot is written in the same transaction (`GET /snapshots`).
+- `GET /hypotheses/{id}/publish-gate`: the same gate read for the latest version without
+  publishing: `blocked` says why it can't be published whatever the checks say
+  (`no_version`, `already_published`, `status_not_publishable`), `failures` every failed
+  check as a refusal lists them (ticket 24: the dossier page shows it before publishing).
 - `GET /hypotheses/{id}/diff?from_version=&to_version=`: claims new, contradicted, unchanged
   or removed between two versions (default: the latest and the one before it).
 - `GET /hypotheses/{id}/export?format=json|markdown&version=`: the dossier of a version
@@ -49,6 +53,7 @@ from atlas.archive import Archive
 from atlas.audit import Actor
 from atlas.hypotheses import (
     Correction,
+    GateFailure,
     Hypotheses,
     Hypothesis,
     HypothesisDiff,
@@ -65,6 +70,7 @@ from atlas.hypotheses import (
     render_markdown,
 )
 from atlas.hypotheses.findings import ProposedFinding
+from atlas.hypotheses.service import GateBlock
 from atlas.jobs import JobQueue
 from atlas.settings import Settings
 from atlas.snapshots import snapshot_hook
@@ -99,6 +105,18 @@ class GateFailureView(BaseModel):
     message: str
     relationship_ids: list[uuid.UUID]
     assertion_ids: list[uuid.UUID]
+
+
+class PublishGateView(BaseModel):
+    """The publish gate for the latest version, read without publishing."""
+
+    version: int | None = Field(description="the latest version; null before the first draft")
+    status: HypothesisStatus
+    blocked: GateBlock | None = Field(
+        description="why the version can't be published whatever the checks say"
+    )
+    publishable: bool = Field(description="not blocked and no check failed")
+    failures: list[GateFailureView]
 
 
 class PublishRefusal(ErrorDetail):
@@ -266,21 +284,29 @@ def hypotheses_router(
                 error=PublishRefusal(
                     code=refused.code,
                     message=refused.message,
-                    failures=[
-                        GateFailureView(
-                            code=each.code,
-                            message=each.message,
-                            relationship_ids=list(each.relationship_ids),
-                            assertion_ids=list(each.assertion_ids),
-                        )
-                        for each in refused.failures
-                    ],
+                    failures=[_failure(each) for each in refused.failures],
                 )
             )
             return JSONResponse(body.model_dump(mode="json"), status_code=refused.status)
         except HypothesisError as error:
             return failed(error)
         return found(hypothesis_id)
+
+    @router.get(
+        "/{hypothesis_id}/publish-gate", response_model=PublishGateView, responses=NOT_FOUND
+    )
+    def publish_gate(hypothesis_id: uuid.UUID) -> PublishGateView | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        try:
+            check = hypotheses.check_gate(hypothesis_id)
+        except HypothesisError as error:
+            return failed(error)
+        return PublishGateView(
+            version=check.version,
+            status=check.status,
+            blocked=check.blocked,
+            publishable=check.blocked is None and not check.failures,
+            failures=[_failure(each) for each in check.failures],
+        )
 
     @router.get(
         "/{hypothesis_id}/diff",
@@ -341,3 +367,12 @@ def hypotheses_router(
 
 def _note(note: str | None) -> str | None:
     return note.strip() or None if note is not None else None
+
+
+def _failure(failure: GateFailure) -> GateFailureView:
+    return GateFailureView(
+        code=failure.code,
+        message=failure.message,
+        relationship_ids=list(failure.relationship_ids),
+        assertion_ids=list(failure.assertion_ids),
+    )

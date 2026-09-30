@@ -17,4 +17,11 @@ export const routes = {
   themes: "/themes/",
   /** One theme's map: companies by layer, Relationships, Candidates, open gaps. */
   theme: withId("theme"),
+  /** Every Hypothesis, newest first. */
+  hypotheses: "/hypotheses/",
+  /** A Hypothesis dossier, at one version (default: the latest). */
+  hypothesis: (id: string, version?: number) =>
+    version === undefined
+      ? withId("hypothesis")(id)
+      : `${withId("hypothesis")(id)}&version=${version}`,
 };
