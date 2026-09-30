@@ -176,15 +176,17 @@ class EdgarAdapter:
         ciks = [normalize_cik(query.cik)] if query.cik else self._ciks
         candidates: list[SourceCandidate] = []
         for cik in ciks:
-            candidates += await self._discover(cik, query, companyfacts_always=True)
+            candidates += await self._discover(cik, query)
         return candidates
 
     async def updates(self, since: datetime) -> list[SourceCandidate]:
-        """Filings accepted after `since`, plus companyfacts for each filer that has any."""
+        """Filings accepted after `since`, plus each filer's companyfacts: always, since SEC
+        can revise it without a new filing and a conditional re-fetch of unchanged content
+        records nothing new (pilot-fixes ticket 07)."""
         query = SearchQuery(since=since)
         candidates: list[SourceCandidate] = []
         for cik in self._ciks:
-            candidates += await self._discover(cik, query, companyfacts_always=False)
+            candidates += await self._discover(cik, query)
         return candidates
 
     async def fetch(self, candidate: SourceCandidate) -> FetchedDocument:
@@ -202,9 +204,7 @@ class EdgarAdapter:
             attempts=result.attempts,
         )
 
-    async def _discover(
-        self, cik: str, query: SearchQuery, *, companyfacts_always: bool
-    ) -> list[SourceCandidate]:
+    async def _discover(self, cik: str, query: SearchQuery) -> list[SourceCandidate]:
         forms = query.forms or self._forms
         discovered_at = self._now()
         selected = [
@@ -231,8 +231,7 @@ class EdgarAdapter:
                 candidates += exhibits
             else:
                 candidates.append(body)
-        if selected or companyfacts_always:
-            candidates.append(self._companyfacts(cik, discovered_at))
+        candidates.append(self._companyfacts(cik, discovered_at))
         return candidates
 
     def _selected_8k(self, filing: SecFiling) -> bool:

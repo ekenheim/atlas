@@ -115,14 +115,64 @@ def atlas(
 ) -> Iterator[Atlas]:
     """Atlas with the template applied, the universe seeded and Coherent's filings ingested
     (its companyfacts normalized)."""
-    started = Atlas(
+    started = start(
+        database_url, tmp_path, hindsight[1].url, litellm.url, searxng_served.url, themes
+    )
+    started.ingest_company("coherent")
+    yield started
+    started.engine.dispose()
+
+
+@pytest.fixture
+def lumentum_atlas(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    litellm: Served,
+    searxng_served: Served,
+    themes: Path,
+) -> Iterator[Atlas]:
+    """Atlas with Lumentum's filings ingested instead (its companyfacts normalized). No
+    Lumentum passage names another company, so they reach the Investigator as recall hits:
+    every one fits in one call."""
+    started = start(
         database_url,
         tmp_path,
         hindsight[1].url,
         litellm.url,
-        themes_config=themes,
-        searxng_url=searxng_served.url,
-        investigator_passages_per_call=50,
+        searxng_served.url,
+        themes,
+        investigator_max_passages=1000,
+        investigator_passages_per_call=1000,
+    )
+    started.ingest_company("lumentum")
+    yield started
+    started.engine.dispose()
+
+
+def start(
+    database_url: str,
+    tmp_path: Path,
+    hindsight_url: str,
+    litellm_url: str,
+    searxng_url: str,
+    themes: Path,
+    **overrides: Any,
+) -> Atlas:
+    """Atlas with the template applied and the universe seeded."""
+    started = Atlas(
+        database_url,
+        tmp_path,
+        hindsight_url,
+        litellm_url,
+        **(
+            {
+                "themes_config": themes,
+                "searxng_url": searxng_url,
+                "investigator_passages_per_call": 50,
+            }
+            | overrides
+        ),
     )
     started.apply_template()
     seeded = subprocess.run(
@@ -141,9 +191,7 @@ def atlas(
         timeout=120,
     )
     assert seeded.returncode == 0, seeded.stderr
-    started.ingest_company("coherent")
-    yield started
-    started.engine.dispose()
+    return started
 
 
 # --- helpers --------------------------------------------------------------------------------------
@@ -545,6 +593,155 @@ def test_without_an_accepted_claim_the_analyst_is_skipped_without_an_llm_call(
         "investigator",
         "editor",
     ]
+
+
+# Pilot-fixes ticket 07: Lumentum's FY2026 10-K (0001628280-26-057358, filed 2026-08-17) as its
+# companyfacts fixture tags it: the research note's §2 values, and cash from the fixture.
+LITE_ALLOCATION = (
+    "This demand is outpacing our current supply which has required us to make decisions on"
+    " supply allocation."
+)
+LITE_FY2026 = ("2025-06-29", "2026-06-27")
+LITE_REVENUE = "3014000000"
+LITE_CASH = "2043500000"
+LITE_DEBT = "1637400000"
+LITE_DILUTED_SHARES = "74600000"
+XBRL_INPUTS = {
+    "reported_revenue": "revenue",
+    "cash": "cash",
+    "total_debt": "total_debt",
+    "diluted_shares": "diluted_shares",
+}
+
+
+def lumentum_allocation(atlas: Atlas) -> Callable[[dict[str, Any]], JsonValue]:
+    """The Investigator proposes Lumentum's allocation statement (pilot investigation 1's
+    saved `capacity_constrained` Claim) from the passage holding it."""
+
+    def respond(body: dict[str, Any]) -> JsonValue:
+        passages = asked(body)["retrieved_data"]
+        holding = [p for p in passages if LITE_ALLOCATION in p["text"]]
+        assert holding, "no passage sent holds the allocation statement"
+        start_at = holding[0]["text"].index(LITE_ALLOCATION)
+        claim: dict[str, JsonValue] = {
+            "subject_company_id": company_id(atlas, "lumentum"),
+            "predicate": "capacity_constrained",
+            "object_company_id": None,
+            "object_name": None,
+            "object_text": "optical components for AI and cloud data centers",
+            "product": "optical components",
+            "layer": "module",
+            "quote": LITE_ALLOCATION,
+            "epistemic_type": "company_claim",
+            "passage_id": holding[0]["id"],
+            "quote_start": start_at,
+            "quote_end": start_at + len(LITE_ALLOCATION),
+        }
+        return {"claims": [claim]}
+
+    return respond
+
+
+def sourcing_every_figure(body: dict[str, Any]) -> JsonValue:
+    """The Analyst sources every XBRL-measurable input from the figure it is sent for it and
+    estimates the rest."""
+    request = asked(body)["request"]
+    [company] = request["companies"]
+    sourced: list[JsonValue] = []
+    for name, metric in XBRL_INPUTS.items():
+        sent = figure(request, metric)
+        sourced.append(
+            {
+                "name": name,
+                "kind": "sourced",
+                "observation_id": sent["observation_id"],
+                "assertion_id": None,
+                "basis": None,
+                **same(sent["value"]),
+            }
+        )
+    return {
+        "scenarios": [
+            {
+                "company_id": company["company_id"],
+                "product": "optical components for AI data centers",
+                "currency": "USD",
+                "inputs": [
+                    estimate("addressable_units", "8000000", "10000000", "12000000"),
+                    estimate("company_share", "0.1", "0.15", "0.2"),
+                    estimate("downstream_unit_price", "900", "1000", "1100"),
+                    estimate("bom_share", "0.15", "0.2", "0.25"),
+                    estimate("operating_margin", "0.15", "0.2", "0.25"),
+                    estimate("ev_multiple", "15", "20", "25"),
+                    *sourced,
+                ],
+            }
+        ]
+    }
+
+
+def test_the_analyst_is_sent_lumentum_s_as_of_figures_and_sources_its_inputs_from_them(
+    lumentum_atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot investigation 1's re-run sent `figures: []` for Lumentum and Coherent: production
+    # had no observation, since their companyfacts were never normalized. Once they are, the
+    # Analyst gets the as-of FY2026 figures and inputs sourced from them stand.
+    atlas = lumentum_atlas
+    lumentum = company_id(atlas, "lumentum")
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    llm.script_role("skeptic", ChatReply.json({"queries": [], "documents": []}))
+    llm.script_role("financial_analyst", ChatReply.answer(sourcing_every_figure))
+    llm.script_chat(
+        ChatReply.json({"queries": [{"query": SUBSTRATE, "purpose": None}]}),
+        ChatReply.answer(lumentum_allocation(atlas)),
+        ChatReply.answer(card_editor),
+        ChatReply.answer(reviewing),
+    )
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": "Is laser supply for 800G/1.6T transceivers constrained?",
+            "seed_company_ids": [lumentum],
+            "as_of": AS_OF,
+        },
+    )
+    assert response.status_code == 202, response.text
+    atlas.worker_pass()
+    found = atlas.get(f"/api/v1/investigations/{response.json()['id']}")
+    assert found["status"] == "stopped", found["stop_detail"]
+
+    [sent] = [asked(b) for b in llm.chat_requests() if b["metadata"]["role"] == "financial_analyst"]
+    request = sent["request"]
+    assert [c["company_id"] for c in request["companies"]] == [lumentum]
+    got = {
+        metric: (each["value"], each["period_start"], each["period_end"], each["unit"])
+        for metric in XBRL_INPUTS.values()
+        for each in [figure(request, metric)]
+    }
+    assert got == {
+        "revenue": (LITE_REVENUE, *LITE_FY2026, "USD"),
+        "cash": (LITE_CASH, None, LITE_FY2026[1], "USD"),
+        "total_debt": (LITE_DEBT, None, LITE_FY2026[1], "USD"),
+        "diluted_shares": (LITE_DILUTED_SHARES, *LITE_FY2026, "shares"),
+    }
+    task = analyst_task(found)
+    assert task["status"] == "succeeded"
+    assert task["artifacts"]["rejected_inputs"] == []
+    [proposal] = task["artifacts"]["scenario_proposals"]
+    assert proposal["company_id"] == lumentum
+    for name, metric in XBRL_INPUTS.items():
+        value = figure(request, metric)["value"]
+        assert proposal["inputs"][name] == {
+            "kind": "sourced",
+            "source": {
+                "type": "xbrl_observation",
+                "observation_id": figure(request, metric)["observation_id"],
+            },
+            "low": value,
+            "base": value,
+            "high": value,
+        }, name
 
 
 # --- scenarios on a Hypothesis version ----------------------------------------------------------

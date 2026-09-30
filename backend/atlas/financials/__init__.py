@@ -24,9 +24,11 @@ from atlas.financials.reads import (
 )
 from atlas.financials.service import (
     NORMALIZER_VERSION,
+    LatestCompanyfacts,
     NormalizationFailure,
     NormalizationSummary,
     is_normalized,
+    latest_companyfacts,
     normalize_source_version,
     record_normalization_failure,
 )
@@ -52,6 +54,7 @@ __all__ = [
     "FinancialFigures",
     "FinancialObservation",
     "FinancialObservationHistory",
+    "LatestCompanyfacts",
     "MetricCatalog",
     "MetricValue",
     "NormalizationFailure",
@@ -62,6 +65,7 @@ __all__ = [
     "fact_availability",
     "financial_figures",
     "is_normalized",
+    "latest_companyfacts",
     "load_metric_catalog",
     "metric_values",
     "normalize",

@@ -562,6 +562,21 @@ def run_assign_families(settings: Settings) -> None:
     print(json.dumps(dataclasses.asdict(summary)))
 
 
+def run_financials_normalize(settings: Settings, company: str | None) -> int:
+    """Normalize each pending companyfacts version; exit 1 if any company's didn't succeed."""
+    import json
+
+    from atlas.ledger.ingest import normalize_pending
+
+    try:
+        results = normalize_pending(settings, company)
+    except ValueError as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        return 2
+    print(json.dumps({"companies": [each.model_dump(mode="json") for each in results]}))
+    return 0 if all(each.status in ("already_normalized", "succeeded") for each in results) else 1
+
+
 def seed_companies(settings: Settings) -> None:
     import json
 
@@ -894,6 +909,15 @@ def main(argv: list[str] | None = None) -> None:
         "assign-families",
         help="put parsed Source Versions recorded before Evidence Families into their family",
     )
+    financials = commands.add_parser("financials", help="as-of XBRL financials maintenance")
+    financials_commands = financials.add_subparsers(dest="financials_command", required=True)
+    financials_normalize = financials_commands.add_parser(
+        "normalize",
+        help="normalize each company's latest companyfacts version the normalizer hasn't done",
+    )
+    financials_normalize.add_argument(
+        "--company", default=None, help="only this company (slug); default: every company"
+    )
     sources = commands.add_parser("sources", help="source material fetched outside Atlas")
     sources_commands = sources.add_subparsers(dest="sources_command", required=True)
     source_import = sources_commands.add_parser(
@@ -1021,6 +1045,8 @@ def main(argv: list[str] | None = None) -> None:
         run_assign_families(settings)
     elif args.command == "ledger":
         run_correct_availability(settings)
+    elif args.command == "financials":
+        raise SystemExit(run_financials_normalize(settings, args.company))
     elif args.command == "triage" and args.triage_command == "audit":
         raise SystemExit(
             run_triage_audit(
