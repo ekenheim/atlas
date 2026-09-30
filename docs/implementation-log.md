@@ -2299,3 +2299,7 @@ The corpus was a live-verify SEC run of Lumentum, Coherent, AXT and Applied Opto
 - **Fixture-only vs live:** nothing live. The model answers in every test are scripted, so the tests show the new prompts are loaded, sent and recorded, not that MiniMax follows them. No live run of the new prompts has been made.
 - **Deviations:** no schema change (the bottleneck layer, chokepoint and mechanism go in the existing thesis, `mechanism.possible_constraint`, findings order and open questions); the Skeptic's checklist cues are unchanged (technology-transition terms alone don't select a passage yet).
 - **Next:** a live extraction smoke run and an `atlas evaluate --live` pass with the new prompts (owner's go-ahead; spends MiniMax quota) to compare against the v1/v2 prompts; then decide whether to widen the `substitutes` cues (silicon photonics, VCSEL, co-packaged optics) after measuring which passages it would add.
+
+## 2026-09-30: 0.2.1 deployed
+
+The home-ops PR #7130 was merged by the owner. The cluster reports `atlas_build_info{version="0.2.1"}` and all readiness checks are `ok`. The nightly CronJob now enqueues all nine SEC filers (`--backfill --max-retains 5`) plus IQE and Soitec, from 2026-10-01 01:30 UTC. The rolling budgets were 0/40 Codex operations and 0/400k MiniMax tokens at deploy.
