@@ -10,7 +10,7 @@ LiteLLM is the scripted chat fake; **both roles' answers are written here**:
   (`triage_windows_per_section=1`) and retains nothing but the 10-K's Business section, the
   8-K's results item and the press release's first chunk;
 - the full-section judge (`judge_answer`) retains a text if it contains `KEY`, a sentence from
-  deep inside the 10-K's Item 1A (about 79,000 characters in, of 143,495; the recorded
+  deep inside the 10-K's Item 1A (about 79,000 characters in, of 143,412; the recorded
   fixture's parsed text): a capacity detail the opening-only reader never saw.
 """
 
@@ -33,7 +33,7 @@ from tests.harness import LITE_10K, SITES, THEMES, Atlas
 
 KEY = "lower cost of non-U.S. manufacturing"
 RISK_FACTORS = "part-i-item-1a"
-RISK_FACTORS_LENGTH = 143_495  # the recorded 10-K's Item 1A, in characters
+RISK_FACTORS_LENGTH = 143_412  # the recorded 10-K's Item 1A, in characters (parser text-v3)
 JUDGE_MAX_CHARS = 60_000
 RETAINED_HEADINGS = {
     "ITEM 1. BUSINESS",
