@@ -44,9 +44,19 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         INVESTIGATOR,
         "investigator",
         # v3: a company's own bottleneck facts, the bottleneck predicates (pilot-fixes 03);
-        # v4: a company object outside the known companies, by name (pilot-fixes 05)
-        4,
+        # v4: a company object outside the known companies, by name (pilot-fixes 05);
+        # v5: the layer from the quote's named object, no generic Claims, one clause (09)
+        5,
         (
+            "the layer of the object the quote names",
+            "never from `request.question`",
+            "generic sentences are not Claims",
+            "need the input or product named in the quote",
+            "some of our suppliers are our sole sources for certain materials, equipment and"
+            " components",
+            "We purchase InP substrates from a limited number of suppliers",
+            "**One clause.**",
+            "while also operating multiple 6-inch GaAs VCSEL manufacturing facilities",
             "Atlas hunts supply-chain bottlenecks",
             "who supplies whom",
             "second sourcing",

@@ -13,7 +13,9 @@ An Assertion is machine-reviewed into its Relationship only when all of these ho
    list of **hedges** (`hedged_language`): "may", "could", "expects to", "in discussions",
    "non-binding", "reportedly" and the like, which make a statement conditional, planned or
    second-hand rather than explicit. Patterns can't tell who "we" is, so they never judge the
-   direction itself: that is the Reviewer's `direction`, which must be `as_proposed`.
+   direction itself: that is the Reviewer's `direction`, which must be `as_proposed`. For a
+   product object the cue must also be in a clause naming the object
+   (`atlas.claims.object_clause_cue`); eligibility checks that (`cue_in_other_clause`).
 4. **The Reviewer confirms** (`reviewer_rejected`, `reviewer_uncertain`): its verdict is
    `confirmed`, its direction `as_proposed` (`direction_not_confirmed`) and its layer
    `correct` (`layer_not_confirmed`).

@@ -289,7 +289,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
         )
         assert assertion["source_version_id"] == version_id
         assert assertion["review_state"] == "unreviewed"
-        assert assertion["extractor_version"] == "investigator.v4"
+        assert assertion["extractor_version"] == "investigator.v5"
         assert assertion["created_by"] == "atlas-investigator"
         assert assertion["value_json"]["claim_id"] == accepted["id"]
     supplied = atlas.get(f"/api/v1/assertions/{supplies['assertion_id']}")
@@ -769,3 +769,126 @@ def test_a_claim_s_outcome_is_insert_only(atlas: Atlas, llm: FakeLiteLLM) -> Non
     ]:
         with pytest.raises(DBAPIError, match="insert-only"), atlas.engine.begin() as connection:
             connection.execute(text(statement), {"id": rejected["id"]})
+
+
+# --- claim precision (pilot-fixes ticket 09) ------------------------------------------------------
+
+# Two generic risk-factor sentences from Lumentum's FY2026 10-K (as the pilot's Claims quoted
+# them), a specific one, and the Coherent 10-K's VCSEL sentence, in a hand-written Coherent
+# document; its last line names NVIDIA, so the Investigator is sent it (an entity tag).
+GENERIC_LIMITED = (
+    "We purchase raw materials, packages and components from a limited number of suppliers."
+)
+GENERIC_SOLE = (
+    "Additionally, some of our suppliers are our sole sources for certain materials, equipment"
+    " and components."
+)
+SPECIFIC = "We purchase InP substrates from a limited number of suppliers."
+VCSEL = (
+    "We continue to expand our global 6-inch InP manufacturing capacity in the United States and"
+    " Europe to support increasing customer demand, while also operating multiple 6-inch GaAs"
+    " VCSEL manufacturing facilities."
+)
+PRECISION_DOCUMENT = f"""<html><head><title>Coherent supply notes</title></head><body>
+<h1>Coherent supply notes</h1>
+<p>{GENERIC_LIMITED}</p>
+<p>{GENERIC_SOLE}</p>
+<p>{SPECIFIC}</p>
+<p>{VCSEL}</p>
+<p>We also supply 800G transceivers to NVIDIA.</p>
+</body></html>
+"""
+
+
+def precision_document(atlas: Atlas) -> str:
+    path = atlas.tmp_path / "coherent-supply-notes.html"
+    path.write_text(PRECISION_DOCUMENT, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "coherent",
+        "--file",
+        str(path),
+        "--origin-url",
+        "https://www.coherent.com/news/supply-notes",
+        "--published-at",
+        "2026-08-14T08:00-04:00",
+    )
+    assert imported.returncode == 0, imported.stderr
+    return json.loads(imported.stdout)["source_version_id"]
+
+
+def test_a_generic_sentence_is_no_substrate_claim_and_a_cue_must_share_the_object_s_clause(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent = company_id(atlas, "coherent")
+    version_id = precision_document(atlas)
+
+    def fact(predicate: str, object_text: str, quote: str, layer: str) -> dict[str, JsonValue]:
+        return claim(
+            subject_company_id=coherent,
+            predicate=predicate,
+            object_text=object_text,
+            layer=layer,
+            quote=quote,
+        )
+
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                fact(
+                    "sole_sources",
+                    "raw materials, packages and components",
+                    GENERIC_LIMITED,
+                    "substrate",
+                ),
+                fact(
+                    "sole_sources",
+                    "certain materials, equipment and components",
+                    GENERIC_SOLE,
+                    "substrate",
+                ),
+                fact("sole_sources", "InP substrates", SPECIFIC, "substrate"),
+                fact("sole_sources", "indium phosphide substrates", SPECIFIC, "substrate"),
+                fact(
+                    "expands_capacity_for",
+                    "6-inch GaAs VCSEL manufacturing facilities",
+                    VCSEL,
+                    "chip-laser",
+                ),
+                fact(
+                    "expands_capacity_for", "6-inch InP manufacturing capacity", VCSEL, "chip-laser"
+                ),
+            )
+        )
+    )
+
+    job = extract(atlas, "precision", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    outcomes = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert [(c["outcome"], c["reason_code"]) for c in outcomes] == [
+        ("rejected", "generic_object"),
+        ("rejected", "generic_object"),
+        ("accepted", None),
+        ("rejected", "object_not_in_quote"),
+        ("rejected", "cue_in_other_clause"),
+        ("accepted", None),
+    ]
+    # The generic sentences' rejections name the layer they were tagged with.
+    assert all("'substrate'" in c["reason"] for c in outcomes[:2])
+    specific = atlas.get(f"/api/v1/assertions/{outcomes[2]['assertion_id']}")
+    assert specific["value_json"]["layer"] == "substrate"
+    assert specific["value_json"]["object_text"] == "InP substrates"
+    assert outcomes[2]["directional_cue"] == "limited number of suppliers"
+    assert "VCSEL" in outcomes[4]["reason"]
+    assert outcomes[5]["directional_cue"] == "expand"
+    assert audit_actions(atlas, "claim") == [
+        "claim.rejected",
+        "claim.rejected",
+        "claim.accepted",
+        "claim.rejected",
+        "claim.rejected",
+        "claim.accepted",
+    ]

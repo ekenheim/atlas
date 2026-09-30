@@ -12,8 +12,8 @@ Build:
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Unit tests: the VCSEL sentence yields no `expands_capacity_for` for the VCSEL object; "we continue to expand our 6-inch InP capacity" still does for InP.
-- [ ] Integration test at the extraction seam (scripted Investigator): a generic sole-source sentence tagged `substrate` is rejected with a reason that names the layer; a specific one ("we purchase InP substrates from a limited number of suppliers") is accepted with `substrate`.
-- [ ] Prompt versions bumped (`investigator.v5`, `reviewer.v3`) with the structural prompt tests updated.
+- [x] Unit tests: the VCSEL sentence yields no `expands_capacity_for` for the VCSEL object; "we continue to expand our 6-inch InP capacity" still does for InP.
+- [x] Integration test at the extraction seam (scripted Investigator): a generic sole-source sentence tagged `substrate` is rejected with a reason that names the layer; a specific one ("we purchase InP substrates from a limited number of suppliers") is accepted with `substrate`.
+- [x] Prompt versions bumped (`investigator.v5`, `reviewer.v3`) with the structural prompt tests updated.

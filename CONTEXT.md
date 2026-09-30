@@ -65,7 +65,7 @@ A reviewed, typed, directed edge between companies (and optionally a product or 
 _Avoid_: Link, connection, edge (outside the UI)
 
 **Bottleneck Predicate**:
-One of four whitelisted predicates for a bottleneck fact a company states about itself and a product, with no other company named. Each is directed from the company to the product and needs an exact quote like any other:
+One of four whitelisted predicates for a bottleneck fact a company states about itself and a product, with no other company named. Each is directed from the company to the product and needs an exact quote like any other, and the quote must name the particular input or product (generic "materials, components, equipment" is no bottleneck fact); its layer is that object's layer:
 - `capacity_constrained`: the company cannot fully meet demand for the product (demand exceeds its supply, it allocates, backlogs or is short of it). Growing demand alone is not a constraint.
 - `sole_sources`: the company gets an input from one supplier or a limited number of suppliers, named or not. A named supplier is `depends_on` or `buys_from` instead.
 - `vertically_integrates`: the company makes an input for its own products instead of buying it (in-house, captive, "our own"). Making what it sells is `manufactures`.
