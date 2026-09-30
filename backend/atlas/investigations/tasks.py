@@ -64,7 +64,13 @@ from atlas.archive import open_archive
 from atlas.claims.extraction import ExtractClaimsPayload
 from atlas.claims.handlers import claim_extractor
 from atlas.companies import Universe, load_universe
-from atlas.discovery.ranking import RankingConfig, Sighting, load_ranking_config, rank_leads
+from atlas.discovery.ranking import (
+    RankingConfig,
+    Sighting,
+    load_ranking_config,
+    rank_leads,
+    site_host,
+)
 from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
@@ -413,6 +419,7 @@ class TaskRunner:
                 discovery_id,
                 investigation["max_leads"],
                 companies=_company_names(universe),
+                company_sites=_company_sites(universe),
                 ranking=ranking,
             )
             if dropped:
@@ -890,6 +897,14 @@ def _company_names(universe: Universe) -> list[str]:
     )
 
 
+def _company_sites(universe: Universe) -> list[str]:
+    """The hosts of the universe companies' websites, which ranking demotes: a company's own
+    pages tell a researcher less than an article about it."""
+    return sorted(
+        {site_host(each.website) for each in universe.companies.values() if each.website} - {""}
+    )
+
+
 def _take_leads(
     connection: Connection,
     investigation_id: uuid.UUID,
@@ -897,6 +912,7 @@ def _take_leads(
     max_leads: int,
     *,
     companies: Sequence[str],
+    company_sites: Sequence[str],
     ranking: RankingConfig,
 ) -> tuple[int, int, int, int]:
     """Keep the discovery's top-ranked leads up to the budget, each with its score and
@@ -919,7 +935,7 @@ def _take_leads(
             {"discovery": discovery_id},
         )
     ]
-    ranked = rank_leads(sightings, companies=companies, config=ranking)
+    ranked = rank_leads(sightings, companies=companies, config=ranking, company_sites=company_sites)
     held = set(
         connection.execute(
             text("SELECT lead_id FROM investigation_lead WHERE investigation_id = :id"),

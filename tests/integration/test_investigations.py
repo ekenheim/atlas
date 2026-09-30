@@ -750,6 +750,10 @@ def test_a_final_stop_queues_the_relationship_review_of_the_investigation_s_asse
 EML = "Coherent EML laser chip capacity 200G per lane 800G transceiver"
 EML_ARTICLE = "https://photonics-news.test/2026/09/coherent-200g-eml-capacity"
 EML_RACE = "https://optics-trade.test/articles/eml-capacity-race"
+# The re-run's first query and its real results (`rerun-lumentum-eml-allocation.json`): the
+# companies' own pages, LinkedIn and quote pages, all kept by ranking version 1.
+ALLOCATION = "Lumentum 200G EML chip allocation qualified second source 2026"
+LUMENTUM_IR = "https://investor.lumentum.com/overview/default.aspx"
 
 
 def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
@@ -758,10 +762,18 @@ def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
     atlas = services.start()
     started = seeded(atlas, "coherent")
     llm.script_chat(
-        ChatReply.json({"queries": [{"query": EML, "purpose": "chip-laser: EML capacity"}]}),
+        ChatReply.json(
+            {
+                "queries": [
+                    {"query": ALLOCATION, "purpose": "components: 200G EML chip allocation"},
+                    {"query": EML, "purpose": "chip-laser: EML capacity"},
+                ]
+            }
+        ),
         ChatReply.json({"claims": []}),
         NOTHING_ACCEPTED,
     )
+    searxng.script(ALLOCATION, SearchReply.of("rerun-lumentum-eml-allocation"))
     searxng.script(EML, SearchReply.of("coherent-eml-capacity"))
 
     atlas.worker_pass()
@@ -769,17 +781,17 @@ def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
     # English was asked for, whatever the instance's locale.
     assert searxng.searches()[0]["language"] == "en"
     found = investigation(atlas, started["id"])
-    # The on-topic articles, found last, are kept, best first; the dictionary, encyclopedia,
-    # broker and translation pages found first are not.
+    # The on-topic articles, found last, are kept, best first; the companies' own pages and
+    # the dictionary, encyclopedia, broker and translation pages found first are not.
     assert [(lead["rank"], lead["canonical_url"]) for lead in found["leads"]] == [
         (1, EML_ARTICLE),
         (2, EML_RACE),
     ]
     article, race = found["leads"]
     assert article["score"] > race["score"] >= 15
-    assert (article["query"], article["ranking_version"]) == (EML, 1)
+    assert (article["query"], article["ranking_version"]) == (EML, 2)
     assert article["reasons"] == [
-        "query terms in the title: coherent, eml, laser, capacity, 200g, lane, 800g, transceiver",
+        "query terms in the title: eml, laser, capacity, 200g, lane, 800g, transceiver",
         "query terms in the snippet: chip",
         "names Coherent",
         "product and layer terms: laser, chip, transceiver, eml, indium phosphide, indium, 800g,"
@@ -792,9 +804,11 @@ def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
         scout["leads_dropped"],
         scout["leads_rejected"],
         scout["ranking_version"],
-    ) == (7, 2, 0, 5, 1)
+    ) == (17, 2, 0, 15, 2)
     # Rejected leads are still leads (Tier C metadata), just not the investigation's.
-    assert atlas.get("/api/v1/leads", theme="photonics")["total"] == 7
+    leads = atlas.get("/api/v1/leads", theme="photonics", limit=50)
+    assert leads["total"] == 17
+    assert LUMENTUM_IR in {lead["canonical_url"] for lead in leads["items"]}
 
 
 # --- budgets and no new evidence ------------------------------------------------------------------

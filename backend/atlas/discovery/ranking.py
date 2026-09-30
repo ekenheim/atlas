@@ -1,24 +1,33 @@
 """Lead ranking: how relevant a search result is to the query that found it, and its purpose.
 
 A pure function of the result (URL, title, snippet), the query, the query's purpose, the
-universe's company names and the ranking config (`configs/discovery/lead-ranking.yaml`).
-Nothing is fetched. The score (0 to about 100) adds up:
+universe's company names and sites, and the ranking config
+(`configs/discovery/lead-ranking.yaml`). Nothing is fetched. The score (0 to about 100) adds
+up (version 2; `docs/decisions.md`, "Lead ranking"):
 
-- **Query terms** (up to 60): the share of the query's terms (lowercased words, stopwords
-  dropped, a plural `s` ignored) the result names: a term in the title counts 1, in the
-  snippet only 0.6.
+- **Query terms** (up to 60): the share of the query's topic terms the result names: a term
+  in the title counts 1, in the snippet only 0.6. The topic terms are the query's words
+  (lowercased, stopwords dropped, a plural `s` ignored) less the universe company names it
+  contains (matched as below) and years (`2026`: a snippet's date matches them). So a query
+  "Lumentum 200G EML chip allocation" asks about 200G EML chip allocation, and a page that
+  only names Lumentum matches none of it.
 - **Purpose terms** (up to 10): the share of the purpose's terms that aren't query terms
   the result names (title or snippet).
-- **Companies** (8 each, up to 16): the universe companies the result names, by display or
+- **Companies** (4 each, up to 8): the universe companies the result names, by display or
   legal name, matched case-sensitively as written (a proper noun: "Coherent" the company,
   not "coherent" the adjective of a dictionary entry).
 - **Product and layer terms** (3 each, up to 15): the config's `terms` the result names.
 
-Then the penalties multiply: a demoted host (encyclopedias, quote pages) by
-`demoted_host_factor`, a result that doesn't read as English by `non_english_factor`. A
-denied host (dictionaries, translation sites) is never kept, whatever it scores; nor is a
-result scoring below `min_score`. Each score carries its reasons, in words, so an
-investigation can show why each lead was kept.
+Then the penalties multiply: a demoted host (encyclopedias, quote pages, profile and social
+sites; an entry may name a path, `bloomberg.com/profile`) by `demoted_host_factor`, a
+universe company's own site (`company_sites`, from the universe's websites, plus the
+config's `company_domains`) by `company_site_factor`, a generic title (a part of the title,
+split at `|`, ` - ` and the like, that is one of the config's `generic_titles`: "About us",
+"Investor Relations", "Homepage") by `generic_title_factor`, a result that doesn't read as
+English by `non_english_factor`. A denied host (dictionaries, translation sites) is never
+kept, whatever it scores; nor is a result naming no query topic term (a company name alone
+never keeps a lead), nor one scoring below `min_score`. Each score carries its reasons, in
+words, so an investigation can show why each lead was kept.
 
 **English.** A result reads as non-English when it looks foreign (more than 3% of its
 letters are outside ASCII: å, ö, é, a non-Latin script; or it has at least two common
@@ -42,8 +51,8 @@ QUERY_WEIGHT = 60.0
 TITLE_HIT = 1.0
 SNIPPET_HIT = 0.6
 PURPOSE_WEIGHT = 10.0
-COMPANY_POINTS = 8.0
-COMPANY_CAP = 16.0
+COMPANY_POINTS = 4.0
+COMPANY_CAP = 8.0
 TERM_POINTS = 3.0
 TERM_CAP = 15.0
 NON_ASCII_LIMIT = 0.03
@@ -67,6 +76,10 @@ _FOREIGN_WORDS = frozenset(
 )
 _WORD = re.compile(r"[a-z0-9]+(?:[.\-][a-z0-9]+)*")
 _ANY_WORD = re.compile(r"[^\W\d_]+")
+_YEAR = re.compile(r"(?:19|20)\d\d")
+# Where a title's parts divide: "About Us | Coherent", "Lumentum - Investor Relations" (a
+# hyphen, en or em dash, colon, middle dot or bullet between spaces; a bar or dot anywhere).
+_TITLE_PARTS = re.compile(r"\s+[-\u2013\u2014:\u00b7\u2022|]+\s+|\s*[|\u00b7\u2022]\s*")
 
 
 class RankingConfigError(ValueError):
@@ -79,9 +92,13 @@ class RankingConfig(BaseModel):
     version: int = Field(ge=1)
     min_score: float = Field(ge=0, le=100)
     demoted_host_factor: float = Field(ge=0, le=1)
+    company_site_factor: float = Field(ge=0, le=1)
+    generic_title_factor: float = Field(ge=0, le=1)
     non_english_factor: float = Field(ge=0, le=1)
     denied_hosts: tuple[str, ...] = ()
     demoted_hosts: tuple[str, ...] = ()
+    company_domains: tuple[str, ...] = ()
+    generic_titles: tuple[str, ...] = ()
     terms: tuple[str, ...] = ()
 
 
@@ -129,11 +146,36 @@ def _phrase_in(phrase: str, words: str) -> bool:
     return f" {' '.join(_words(phrase))} " in words
 
 
-def _host_in(host: str, hosts: Iterable[str]) -> str | None:
+def _host_in(host: str, hosts: Iterable[str], path: str = "/") -> str | None:
+    """The first entry the host is or is a subdomain of; an entry with a path
+    (`bloomberg.com/profile`) also needs the URL's path to start with it."""
     for entry in hosts:
         entry = entry.lower().removeprefix("www.")
-        if host == entry or host.endswith(f".{entry}"):
+        domain, slash, prefix = entry.partition("/")
+        if slash and not (path == f"/{prefix}" or path.startswith(f"/{prefix.rstrip('/')}/")):
+            continue
+        if host == domain or host.endswith(f".{domain}"):
             return entry
+    return None
+
+
+def site_host(url: str) -> str:
+    """A URL's host, lowercased, without `www.` (a company website's, as `company_sites`)."""
+    return (urlsplit(url).hostname or "").lower().removeprefix("www.")
+
+
+def _names(name: str, text: str) -> bool:
+    """Whether `text` names `name` as written (case-sensitive, whole words)."""
+    return bool(name) and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) is not None
+
+
+def _generic_title(title: str, generic: Iterable[str]) -> str | None:
+    """The part of the title that is a generic page name ("About Us | Coherent": about us)."""
+    wanted = {" ".join(_ANY_WORD.findall(each.lower())) for each in generic}
+    for part in _TITLE_PARTS.split(title):
+        name = " ".join(_ANY_WORD.findall(part.lower()))
+        if name and name in wanted:
+            return name
     return None
 
 
@@ -156,15 +198,25 @@ def score_lead(
     purpose: str | None,
     companies: Sequence[str],
     config: RankingConfig,
+    company_sites: Sequence[str] = (),
 ) -> LeadScore:
     """The relevance of one search result to its query and purpose (see the module)."""
-    host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    host = site_host(url)
+    path = urlsplit(url).path or "/"
     title_words = set(_words(title))
     snippet_words = set(_words(snippet))
     both = f" {' '.join(_words(title))} | {' '.join(_words(snippet))} "
     reasons: list[str] = []
 
-    query_terms = _terms(query)
+    # The topic of the query and the purpose: their terms less the company names they
+    # contain, and years.
+    asked = f"{query}\n{purpose or ''}"
+    named_words = {word for name in companies if _names(name, asked) for word in _words(name)}
+
+    def topic(text: str) -> list[str]:
+        return [t for t in _terms(text) if t not in named_words and _YEAR.fullmatch(t) is None]
+
+    query_terms = topic(query)
     in_title = [t for t in query_terms if t in title_words]
     in_snippet = [t for t in query_terms if t not in title_words and t in snippet_words]
     score = 0.0
@@ -178,20 +230,14 @@ def score_lead(
     if not in_title and not in_snippet:
         reasons.append("no query term")
 
-    purpose_terms = [t for t in _terms(purpose or "") if t not in query_terms]
+    purpose_terms = [t for t in topic(purpose or "") if t not in query_terms]
     purpose_hits = [t for t in purpose_terms if t in title_words or t in snippet_words]
     if purpose_hits:
         score += PURPOSE_WEIGHT * len(purpose_hits) / len(purpose_terms)
         reasons.append(f"purpose terms: {', '.join(purpose_hits)}")
 
     raw = f"{title}\n{snippet}"
-    named = sorted(
-        {
-            name
-            for name in companies
-            if name and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", raw) is not None
-        }
-    )
+    named = sorted({name for name in companies if _names(name, raw)})
     if named:
         score += min(COMPANY_POINTS * len(named), COMPANY_CAP)
         reasons.append(f"names {', '.join(named)}")
@@ -201,23 +247,34 @@ def score_lead(
         score += min(TERM_POINTS * len(terms), TERM_CAP)
         reasons.append(f"product and layer terms: {', '.join(terms)}")
 
-    demoted = _host_in(host, config.demoted_hosts)
+    demoted = _host_in(host, config.demoted_hosts, path)
     if demoted is not None:
         score *= config.demoted_host_factor
         reasons.append(f"demoted host {demoted} (x{config.demoted_host_factor:g})")
+    own = _host_in(host, (*company_sites, *config.company_domains))
+    if own is not None:
+        score *= config.company_site_factor
+        reasons.append(f"a company's own site {own} (x{config.company_site_factor:g})")
+    generic = _generic_title(title, config.generic_titles)
+    if generic is not None:
+        score *= config.generic_title_factor
+        reasons.append(f'generic title "{generic}" (x{config.generic_title_factor:g})')
     if not reads_as_english(raw):
         score *= config.non_english_factor
         reasons.append(f"not English (x{config.non_english_factor:g})")
 
     score = round(score, 1)
-    denied = _host_in(host, config.denied_hosts)
+    denied = _host_in(host, config.denied_hosts, path)
+    on_topic = bool(in_title or in_snippet)
     if denied is not None:
         reasons.append(f"denied host {denied}")
+    elif not on_topic:
+        reasons.append("not kept without a query term")
     elif score < config.min_score:
         reasons.append(f"below the minimum score {config.min_score:g}")
     return LeadScore(
         score=score,
-        kept=denied is None and score >= config.min_score,
+        kept=denied is None and on_topic and score >= config.min_score,
         denied=denied is not None,
         reasons=reasons,
     )
@@ -243,7 +300,11 @@ class RankedLead:
 
 
 def rank_leads(
-    sightings: Sequence[Sighting], *, companies: Sequence[str], config: RankingConfig
+    sightings: Sequence[Sighting],
+    *,
+    companies: Sequence[str],
+    config: RankingConfig,
+    company_sites: Sequence[str] = (),
 ) -> list[RankedLead]:
     """Each lead once, scored by its best sighting, highest first; ties keep the order the
     sightings are given in (the order found). Leads that aren't kept come after those that
@@ -258,6 +319,7 @@ def rank_leads(
             purpose=each.purpose,
             companies=companies,
             config=config,
+            company_sites=company_sites,
         )
         held = best.get(each.lead_id)
         if held is None or (scored.kept, scored.score) > (held.score.kept, held.score.score):

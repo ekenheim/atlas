@@ -4,7 +4,9 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A fixture built from the re-run's 100 results; the unit test shows industry articles ranking above the companies' own pages for the same query.
-- [ ] The kept leads of an investigation record why they were kept, as now.
+- [x] A fixture built from the re-run's 100 results; the unit test shows industry articles ranking above the companies' own pages for the same query.
+- [x] The kept leads of an investigation record why they were kept, as now.
+
+Done on branch `pf/08-lead-ranking` (ranking version 2). The fixtures hold the real pages the re-run wrongly kept; the re-run found no industry article, so the ones ranked above them are hand-written (`docs/implementation-log.md`).

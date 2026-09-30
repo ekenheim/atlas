@@ -1,0 +1,92 @@
+{
+  "query": "Coherent six-inch InP wafer Sherman Texas yield ramp EML 2026",
+  "number_of_results": 0,
+  "results": [
+    {
+      "url": "https://www.coherent.com/",
+      "title": "Global Leader in Materials, Networking, and Lasers | Coherent",
+      "content": "Transform global communications networks with our comprehensive portfolio of coherent transceivers and modules, lasers, …",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing"
+      ],
+      "positions": [
+        1
+      ],
+      "score": 1.0,
+      "category": "general"
+    },
+    {
+      "url": "https://www.coherent.com/company/about-us",
+      "title": "About Us | Coherent",
+      "content": "Coherent is the global photonics leader. We harness photons to drive innovation. Industry leaders in the datacenter, communications, …",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing"
+      ],
+      "positions": [
+        2
+      ],
+      "score": 0.5,
+      "category": "general"
+    },
+    {
+      "url": "https://www.coherent.com/lasers",
+      "title": "Lasers | Coherent",
+      "content": "Coherent is a recognized leader in the laser industry, bringing technical innovation and superior reliability to the broadest spectrum of …",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing"
+      ],
+      "positions": [
+        3
+      ],
+      "score": 0.333,
+      "category": "general"
+    },
+    {
+      "url": "https://www.coherent.com/company",
+      "title": "Empowering Innovations and Breakthrough Technologies | Coherent",
+      "content": "Coherent is the global photonics leader. We harness photons to drive innovation. Industry leaders in the datacenter, communications, …",
+      "publishedDate": null,
+      "thumbnail": null,
+      "engine": "bing",
+      "template": "default.html",
+      "img_src": "",
+      "priority": "",
+      "engines": [
+        "bing"
+      ],
+      "positions": [
+        4
+      ],
+      "score": 0.25,
+      "category": "general"
+    }
+  ],
+  "answers": [],
+  "corrections": [],
+  "infoboxes": [],
+  "suggestions": [],
+  "unresponsive_engines": [
+    [
+      "brave",
+      "too many requests"
+    ]
+  ]
+}
