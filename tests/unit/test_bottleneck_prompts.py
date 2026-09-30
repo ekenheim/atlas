@@ -18,7 +18,7 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         SCOUT,
         "scout",
-        2,
+        3,  # v3: a filing phrase per query for EDGAR full-text search (pilot fix 12)
         (
             "Hunt for bottlenecks, layer by layer",
             "demand:",
@@ -38,6 +38,9 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "MOCVD",
             "export controls",
             "Don't write generic company news queries",
+            "EDGAR full-text search",
+            "`filing_phrase`",
+            "`InP substrates`",
         ),
     ),
     (
@@ -69,7 +72,7 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         SKEPTIC_PLAN,
         "skeptic-plan",
-        2,
+        3,  # v3: a filing phrase per query (pilot fix 12)
         (
             "bear case",
             "technology transitions",
@@ -81,6 +84,8 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "customer_concentration",
             "at-the-market",
             "standing falsifier",
+            "EDGAR full-text search",
+            "`filing_phrase`",
         ),
     ),
     (

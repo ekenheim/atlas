@@ -14,11 +14,14 @@ articles they are compared with here are hand-written for the same queries.
 
 import json
 import uuid
+from datetime import date
 from typing import Any
 
 import pytest
 
 from atlas.companies import load_universe
+from atlas.discovery.edgar_fts import FilingHit
+from atlas.discovery.leads import filing_snippet
 from atlas.discovery.ranking import (
     LeadScore,
     RankingConfig,
@@ -386,6 +389,42 @@ def test_a_demoted_entry_with_a_path_demotes_only_the_pages_under_it(
     assert demoted("https://www.bloomberg.com/profile/company/LITE:US")
     assert not demoted("https://www.bloomberg.com/news/articles/2026-09-01/eml-allocation")
     assert not demoted("https://www.bloomberg.com/profiles-of-the-week")
+
+
+def test_an_edgar_filing_hit_is_ranked_against_its_phrase_and_not_demoted(
+    config: RankingConfig, universe: tuple[list[str], list[str]]
+) -> None:
+    # Pilot fix 12: an EDGAR full-text search hit (as the recorded AXT hit), whose snippet
+    # says which phrase EDGAR matched; its query is that phrase.
+    companies, sites = universe
+    hit = FilingHit(
+        position=1,
+        cik="0001051627",
+        filer="AXT INC",
+        ticker="AXTI",
+        form="10-K",
+        file_type="10-K",
+        file_date=date(2026, 3, 17),
+        period_ending=date(2025, 12, 31),
+        accession="0001437749-26-008612",
+        document="axti20251231_10k.htm",
+        url="https://www.sec.gov/Archives/edgar/data/1051627/000143774926008612/axti20251231_10k.htm",
+    )
+
+    scored = score_lead(
+        url=hit.url,
+        title=hit.title,
+        snippet=filing_snippet('"InP substrates"', hit),
+        query='"InP substrates"',
+        purpose="feedstock: InP substrate supply",
+        companies=companies,
+        config=config,
+        company_sites=sites,
+    )
+
+    assert scored.kept
+    assert scored.reasons[0] == "query terms in the snippet: inp, substrate"
+    assert not any("own site" in reason or "demoted" in reason for reason in scored.reasons)
 
 
 def test_the_config_is_version_2(config: RankingConfig) -> None:

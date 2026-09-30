@@ -1,7 +1,14 @@
 """Proposing Candidates: the companies a discovery's leads name, resolved against the universe.
 
-One `propose_candidates` job (payload `{"discovery_id"}`; enqueued by each `discover` job
-when entity resolution is configured) examines the discovery's leads not examined before:
+One `propose_candidates` job (payload `{"discovery_id", "filers_only"?}`; enqueued by each
+`discover` job when entity resolution is configured, and with `filers_only` by an
+investigation's Scout) examines the discovery's leads not examined before:
+
+0. **Filings.** An `edgar_fts` lead (an EDGAR full-text search hit; pilot fix 12) names its
+   company exactly: its filer's CIK. It is examined without the mention extractor (method
+   `filer_cik`, no role call): the CIK goes through `resolve_mention`, and the filer is
+   `in_universe`, `unresolved` or, outside the universe, a Candidate keyed by its CIK, as in
+   steps 2-3. With `filers_only` the other leads are left for another job.
 
 1. **Mentions.** The mention extractor role (atlas.roles.mentions) reads the leads' titles
    and snippets, `LEADS_PER_CALL` leads per call, as quoted low-trust data, and lists the
@@ -105,6 +112,12 @@ class ProposePayload(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     discovery_id: uuid.UUID
+    # Only the discovery's filing leads (by their filer's CIK): no mention extractor call.
+    filers_only: bool = False
+
+
+class MentionExtractorNotConfigured(RuntimeError):
+    """Leads need the mention extractor, but LiteLLM isn't configured."""
 
 
 class UnknownDiscovery(LookupError):
@@ -117,6 +130,9 @@ class _Lead:
     canonical_url: str
     title: str
     snippet: str
+    filer_cik: str | None  # an `edgar_fts` lead's filer
+    filer: str | None
+    ticker: str | None
 
 
 @dataclass(frozen=True)
@@ -160,8 +176,8 @@ class CandidateProposer:
     def __init__(
         self,
         engine: Engine,
-        runs: RunRecorder,
-        caller: RoleCaller,
+        runs: RunRecorder | None,
+        caller: RoleCaller | None,
         resolver: EntityResolver,
         actor: Actor,
         *,
@@ -187,14 +203,23 @@ class CandidateProposer:
             ).scalar_one_or_none()
             if theme is None:
                 raise UnknownDiscovery(f"no discovery {payload.discovery_id}")
-            leads = [
-                _Lead(row.id, row.canonical_url, row.title, row.snippet)
+            found = [
+                _Lead(
+                    row.id,
+                    row.canonical_url,
+                    row.title,
+                    row.snippet,
+                    row.cik,
+                    row.filer,
+                    row.ticker,
+                )
                 for row in connection.execute(
                     text(
                         "SELECT DISTINCT lead.id, lead.canonical_url, lead.title, lead.snippet,"
-                        " lead.first_seen_at FROM lead"
+                        " lead.first_seen_at, f.cik, f.filer, f.ticker FROM lead"
                         " JOIN lead_sighting s ON s.lead_id = lead.id"
                         " JOIN discovery_query q ON q.id = s.discovery_query_id"
+                        " LEFT JOIN edgar_filing f ON f.lead_id = lead.id"
                         " WHERE q.discovery_id = :discovery AND NOT EXISTS ("
                         "  SELECT 1 FROM lead_examination e WHERE e.lead_id = lead.id)"
                         " ORDER BY lead.first_seen_at, lead.id"
@@ -202,11 +227,20 @@ class CandidateProposer:
                     {"discovery": payload.discovery_id},
                 )
             ]
-        counts = {"leads": 0, "mentions": 0, "in_universe": 0, "unresolved": 0}
+        filings = [lead for lead in found if lead.filer_cik is not None]
+        leads = [] if payload.filers_only else [lead for lead in found if lead.filer_cik is None]
+        counts = {"leads": 0, "mentions": 0, "in_universe": 0, "unresolved": 0, "filings": 0}
         candidates: set[uuid.UUID] = set()
         created: set[uuid.UUID] = set()
+        if filings:
+            self._filings(payload.discovery_id, theme, filings, counts, candidates, created)
         run_id: uuid.UUID | None = None
         if leads:
+            if self._runs is None or self._caller is None:
+                raise MentionExtractorNotConfigured(
+                    "the mention extractor needs LiteLLM: set ATLAS_LITELLM_URL and"
+                    " ATLAS_LITELLM_API_KEY"
+                )
             run_id = self._runs.start(RUN_KIND).id
             try:
                 for start in range(0, len(leads), self._per_call):
@@ -226,6 +260,59 @@ class CandidateProposer:
             "new_candidates": len(created),
         }
 
+    def _filings(
+        self,
+        discovery_id: uuid.UUID,
+        theme: str,
+        filings: Sequence[_Lead],
+        counts: dict[str, int],
+        candidates: set[uuid.UUID],
+        created: set[uuid.UUID],
+    ) -> None:
+        """Examine filing leads by their filer's CIK (step 0), one transaction each."""
+        for lead in filings:
+            assert lead.filer_cik is not None
+            mention, resolution = self._resolve_cik(lead.filer_cik)
+            with self._engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "INSERT INTO lead_examination (lead_id, discovery_id, role_call_id,"
+                        " mentions, method) VALUES (:lead, :discovery, NULL, 1, 'filer_cik')"
+                    ),
+                    {"lead": lead.id, "discovery": discovery_id},
+                )
+                counts["leads"] += 1
+                counts["filings"] += 1
+                counts["mentions"] += 1
+                self._record_mention(
+                    connection,
+                    theme,
+                    lead,
+                    1,
+                    CompanyMention(
+                        name=lead.filer or lead.filer_cik, ticker=lead.ticker, exchange=None
+                    ),
+                    mention,
+                    resolution,
+                    counts,
+                    candidates,
+                    created,
+                )
+
+    def _resolve_cik(self, cik: str) -> tuple[Mention, Resolution]:
+        mention = Mention(cik=cik)
+        key = (f"cik:{cik}", None, None)
+        if key not in self._resolved:
+            with self._engine.connect() as connection:
+                self._resolved[key] = resolve_mention(
+                    connection,
+                    self._resolver,
+                    mention,
+                    ignored_ciks=self._ignored,
+                    researched_only=True,
+                )
+        return mention, self._resolved[key]
+
     def _batch(
         self,
         discovery_id: uuid.UUID,
@@ -244,6 +331,7 @@ class CandidateProposer:
             for lead_id, lead in zip(ids, batch, strict=True)
         ]
         request = MentionRequest(theme_id=theme, theme_title=self._theme_title(theme), lead_ids=ids)
+        assert self._caller is not None
         answer, role_call_id = self._caller.call_recorded(
             MENTION_EXTRACTOR, request, run_id=run_id, retrieved=retrieved
         )
@@ -273,41 +361,68 @@ class CandidateProposer:
                 counts["leads"] += 1
                 for position, (said, mention, resolution) in enumerate(mentions, start=1):
                     counts["mentions"] += 1
-                    company_id: str | None = resolution.company_id
-                    candidate_id: uuid.UUID | None = None
-                    if company_id is not None:
-                        outcome = "in_universe"
-                        counts["in_universe"] += 1
-                    elif resolution.tier == "unresolved":
-                        outcome = "unresolved"
-                        counts["unresolved"] += 1
-                    else:
-                        outcome = "candidate"
-                        candidate_id, new = self._candidate(connection, theme, mention, resolution)
-                        candidates.add(candidate_id)
-                        if new:
-                            created.add(candidate_id)
-                    connection.execute(
-                        text(
-                            "INSERT INTO lead_mention (id, lead_id, position, name, ticker,"
-                            " exchange, mic, outcome, tier, company_id, candidate_id)"
-                            " VALUES (:id, :lead, :position, :name, :ticker, :exchange, :mic,"
-                            " :outcome, :tier, :company, :candidate)"
-                        ),
-                        {
-                            "id": uuid.uuid4(),
-                            "lead": lead.id,
-                            "position": position,
-                            "name": said.name,
-                            "ticker": said.ticker,
-                            "exchange": said.exchange,
-                            "mic": mention.mic,
-                            "outcome": outcome,
-                            "tier": resolution.tier,
-                            "company": company_id,
-                            "candidate": candidate_id,
-                        },
+                    self._record_mention(
+                        connection,
+                        theme,
+                        lead,
+                        position,
+                        said,
+                        mention,
+                        resolution,
+                        counts,
+                        candidates,
+                        created,
                     )
+
+    def _record_mention(
+        self,
+        connection: Connection,
+        theme: str,
+        lead: _Lead,
+        position: int,
+        said: CompanyMention,
+        mention: Mention,
+        resolution: Resolution,
+        counts: dict[str, int],
+        candidates: set[uuid.UUID],
+        created: set[uuid.UUID],
+    ) -> None:
+        """Record a mention's outcome (steps 2-3), proposing or joining its Candidate."""
+        company_id: str | None = resolution.company_id
+        candidate_id: uuid.UUID | None = None
+        if company_id is not None:
+            outcome = "in_universe"
+            counts["in_universe"] += 1
+        elif resolution.tier == "unresolved":
+            outcome = "unresolved"
+            counts["unresolved"] += 1
+        else:
+            outcome = "candidate"
+            candidate_id, new = self._candidate(connection, theme, mention, resolution)
+            candidates.add(candidate_id)
+            if new:
+                created.add(candidate_id)
+        connection.execute(
+            text(
+                "INSERT INTO lead_mention (id, lead_id, position, name, ticker,"
+                " exchange, mic, outcome, tier, company_id, candidate_id)"
+                " VALUES (:id, :lead, :position, :name, :ticker, :exchange, :mic,"
+                " :outcome, :tier, :company, :candidate)"
+            ),
+            {
+                "id": uuid.uuid4(),
+                "lead": lead.id,
+                "position": position,
+                "name": said.name,
+                "ticker": said.ticker,
+                "exchange": said.exchange,
+                "mic": mention.mic,
+                "outcome": outcome,
+                "tier": resolution.tier,
+                "company": company_id,
+                "candidate": candidate_id,
+            },
+        )
 
     def _resolve(self, said: CompanyMention) -> tuple[Mention, Resolution]:
         ticker = (said.ticker or "").strip() or None

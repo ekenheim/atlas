@@ -1,0 +1,105 @@
+{
+  "took": 73,
+  "timed_out": false,
+  "_shards": {
+    "total": 50,
+    "successful": 50,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 2,
+      "relation": "eq"
+    },
+    "max_score": 16.55134,
+    "hits": [
+      {
+        "_index": "edgar_file",
+        "_id": "0001213900-26-100584:ea0305364-10k_aeluma.htm",
+        "_score": 6.208128,
+        "_source": {
+          "ciks": [
+            "0001828805"
+          ],
+          "period_ending": "2026-06-30",
+          "file_num": [
+            "001-42570"
+          ],
+          "display_names": [
+            "Aeluma, Inc.  (ALMU)  (CIK 0001828805)"
+          ],
+          "xsl": null,
+          "sequence": 1,
+          "root_forms": [
+            "10-K"
+          ],
+          "file_date": "2026-09-16",
+          "biz_states": [
+            "CA"
+          ],
+          "sics": [
+            "3674"
+          ],
+          "form": "10-K",
+          "adsh": "0001213900-26-100584",
+          "film_num": [
+            "261384572"
+          ],
+          "biz_locations": [
+            "Goleta, CA"
+          ],
+          "file_type": "10-K",
+          "file_description": "ANNUAL REPORT",
+          "inc_states": [
+            "DE"
+          ],
+          "items": []
+        }
+      },
+      {
+        "_index": "edgar_file",
+        "_id": "0000820318-26-000020:iivi-20260630.htm",
+        "_score": 3.9159584,
+        "_source": {
+          "ciks": [
+            "0000820318"
+          ],
+          "period_ending": "2026-06-30",
+          "file_num": [
+            "001-39375"
+          ],
+          "display_names": [
+            "COHERENT CORP.  (COHR)  (CIK 0000820318)"
+          ],
+          "xsl": null,
+          "sequence": 1,
+          "root_forms": [
+            "10-K"
+          ],
+          "file_date": "2026-08-14",
+          "biz_states": [
+            "PA"
+          ],
+          "sics": [
+            "3827"
+          ],
+          "form": "10-K",
+          "adsh": "0000820318-26-000020",
+          "film_num": [
+            "261276295"
+          ],
+          "biz_locations": [
+            "Saxonburg, PA"
+          ],
+          "file_type": "10-K",
+          "file_description": "10-K",
+          "inc_states": [
+            "PA"
+          ],
+          "items": []
+        }
+      }
+    ]
+  }
+}

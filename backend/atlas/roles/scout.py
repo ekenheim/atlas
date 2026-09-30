@@ -2,14 +2,27 @@
 Bottlenecks mental model's open gaps in, web search queries out.
 
 The Scout only writes queries. How many are searched is decided by code, not the model: the
-discovery keeps the first `max_queries` distinct ones (atlas.discovery).
+discovery keeps the first `max_queries` distinct ones (atlas.discovery). Each query may name
+a `filing_phrase` (v3, pilot fix 12): the exact phrase to search in SEC filings through EDGAR
+full-text search, the discovery's second channel.
 """
+
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-SCOUT_PROMPT_VERSION = 2  # v2: the bottleneck method
+SCOUT_PROMPT_VERSION = 3  # v2: the bottleneck method; v3: a filing phrase per query
+
+
+def filing_phrase_required(schema: dict[str, Any]) -> None:
+    """Send `filing_phrase` as a required (nullable) property, as strict mode wants every
+    property, while an answer without it (one recorded before v3) still parses as null."""
+    schema.setdefault("required", [])
+    if "filing_phrase" not in schema["required"]:
+        schema["required"].append("filing_phrase")
+    schema["properties"]["filing_phrase"].pop("default", None)
 
 
 class ScoutRequest(BaseModel):
@@ -23,8 +36,12 @@ class ScoutRequest(BaseModel):
 
 
 class ScoutQuery(RoleOutput):
+    model_config = ConfigDict(json_schema_extra=filing_phrase_required)
+
     query: str
     purpose: str | None  # which gap or part of the question it is for
+    # The exact phrase to search in SEC filings (EDGAR full-text search), or None.
+    filing_phrase: str | None = None
 
 
 class ScoutQueries(RoleOutput):

@@ -92,6 +92,13 @@ class Settings(BaseSettings):
     # How an investigation ranks a discovery's leads (atlas.discovery.ranking).
     lead_ranking_config: Path = Path("configs/discovery/lead-ranking.yaml")
     discovery_max_queries: int = Field(default=10, ge=1, le=10)
+    # EDGAR full-text search, the second discovery channel (atlas.discovery.edgar_fts; pilot
+    # fix 12): `auto` (the default) is on when sec_user_agent is set; `on` requires it. Each
+    # query's filing phrase is searched there once, keeping at most discovery_edgar_max_hits
+    # filing documents. Its base URL is sec_efts_url.
+    discovery_edgar_fts: Literal["auto", "on", "off"] = "auto"
+    discovery_edgar_max_hits: int = Field(default=10, ge=1, le=100)
+    sec_efts_url: str = "https://efts.sec.gov/LATEST"
     # Investigations (atlas.investigations): the default per-run lead and document budgets
     # (spec §7.4: at most 10 new leads and 25 fetched documents); a request may lower them.
     # The token ceiling is run_token_budget.
@@ -300,6 +307,19 @@ class Settings(BaseSettings):
         if value and not re.search(r"\S+@\S+\.\S+", value):
             raise ValueError("must include a contact email, e.g. 'Atlas Research ops@example.com'")
         return value or None
+
+    @model_validator(mode="after")
+    def _edgar_fts_needs_the_sec_user_agent(self) -> Self:
+        if self.discovery_edgar_fts == "on" and not self.sec_user_agent:
+            raise ValueError(
+                "ATLAS_DISCOVERY_EDGAR_FTS=on needs ATLAS_SEC_USER_AGENT (SEC fair-access policy)"
+            )
+        return self
+
+    def edgar_fts_enabled(self) -> bool:
+        """Whether discovery searches EDGAR full-text search too (ATLAS_DISCOVERY_EDGAR_FTS;
+        `auto`: with ATLAS_SEC_USER_AGENT)."""
+        return self.discovery_edgar_fts != "off" and bool(self.sec_user_agent)
 
     @field_validator("exchange_user_agent")
     @classmethod

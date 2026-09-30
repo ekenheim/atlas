@@ -1,7 +1,8 @@
-"""The `propose_candidates` job handler (pausable: the mention extractor calls LiteLLM)."""
+"""The `propose_candidates` job handler (pausable: the mention extractor calls LiteLLM). A
+`filers_only` job (an investigation's filing leads, by CIK) needs no LiteLLM."""
 
 from atlas.audit import Actor
-from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND, CandidateProposer
+from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND, CandidateProposer, ProposePayload
 from atlas.companies import load_universe
 from atlas.identity import EntityResolver
 from atlas.jobs.handlers import HandlerRegistry
@@ -32,21 +33,24 @@ def register_candidate_handlers(registry: HandlerRegistry, settings: Settings) -
             EntityResolver.from_settings(settings) as resolver,
         ):
             caller = RoleCaller.from_settings(settings, engine)
-            if runs is None or caller is None:
+            filers_only = ProposePayload.model_validate(job.payload).filers_only
+            if (runs is None or caller is None) and not filers_only:
                 raise CandidatesNotConfigured(
                     "the mention extractor needs LiteLLM: set ATLAS_LITELLM_URL and"
                     " ATLAS_LITELLM_API_KEY"
                 )
+            proposer = CandidateProposer(
+                engine,
+                runs,
+                caller,
+                resolver,
+                Actor.from_settings(settings),
+                theme_title=theme_title,
+                ignored_ciks=ignored,
+            )
+            if caller is None:
+                return proposer.propose(job)
             with caller:
-                proposer = CandidateProposer(
-                    engine,
-                    runs,
-                    caller,
-                    resolver,
-                    Actor.from_settings(settings),
-                    theme_title=theme_title,
-                    ignored_ciks=ignored,
-                )
                 return proposer.propose(job)
 
     # Pausable: a LiteLLM quota or outage pauses the queue and requeues the job, which

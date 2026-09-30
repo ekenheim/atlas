@@ -1,0 +1,14 @@
+{
+  "description": "SEC EDGAR full-text search answers (GET https://efts.sec.gov/LATEST/search-index), served by tests/fakes/edgar_fts.py.",
+  "inp-substrates-10k.json": {
+    "provenance": "RECORDED on 2026-09-30 by one live, read-only request made while building pilot fix 12 (not from a test): GET https://efts.sec.gov/LATEST/search-index?q=%22InP%20substrates%22&forms=10-K&dateRange=custom&startdt=2025-06-01&enddt=2026-09-30 with User-Agent 'Atlas research <owner's contact email>'. HTTP 200, 3,502 bytes.",
+    "trimmed": "The top-level `aggregations` (entity, SIC, state and form buckets) and `query` (the Elasticsearch query EDGAR echoes back) are removed; `took`, `timed_out`, `_shards` and `hits` are kept exactly as recorded (4 hits: AXT 10-K 2026-03-17, Aeluma 10-Ks 2026-09-16 and 2025-09-09, Coherent 10-K 2026-08-14).",
+    "note": "Recorded with forms=10-K only; the fake answers by `q`, so a test asking for the six default forms gets this answer too."
+  },
+  "no-hits.json": {
+    "provenance": "HAND-WRITTEN: the recorded answer's envelope with `hits.total.value` 0 and no hits (what EDGAR answers when nothing matches); not recorded."
+  },
+  "inp-substrates-aeluma-coherent.json": {
+    "provenance": "DERIVED by hand from inp-substrates-10k.json (not recorded): its second and fourth hits (Aeluma's 10-K filed 2026-09-16, Coherent's 10-K) exactly as recorded, with hits.total.value set to 2; for a test universe without AXT."
+  }
+}

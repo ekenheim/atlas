@@ -16,11 +16,13 @@ continues where it stopped:
    Code keeps the first `max_queries` distinct queries and the catalog documents it named (in
    order, each once); a document the investigation hasn't read yet is counted against the
    document budget, the rest dropped (`document_budget_reached`).
-2. **Search.** Each query is searched once with SearXNG, its results stored as Tier C leads in
-   a discovery of the run (atlas.discovery.leads): a lead is never Evidence. A failed search
-   is recorded on its query and the others proceed. A result whose canonical URL is a catalog
-   document's adds that Source Version to what the Skeptic reads (`selected_by` `search`),
-   within the budget.
+2. **Search.** Each query is searched once with SearXNG, and its `filing_phrase`, when it has
+   one and the channel is on, with EDGAR full-text search over the 18 months before the
+   as-of time (atlas.discovery.edgar_fts), the results stored as Tier C leads in a discovery
+   of the run (atlas.discovery.leads): a lead is never Evidence. A failed search is recorded
+   on its query and the others proceed. A result whose canonical URL is a catalog
+   document's (an EDGAR filing hit on an archived filing, say) adds that Source Version to
+   what the Skeptic reads (`selected_by` `search`), within the budget.
 3. **Passages.** Each chosen Source Version's parsed text is cut into sections and windows as
    the Investigator's; a window is kept when it matches a checklist item's cues. Windows are
    taken round-robin over the documents and checklist items, at most
@@ -63,8 +65,10 @@ from atlas.archive import Archive
 from atlas.assertions import AssertionCreate, Assertions, InvalidAssertion, check_quote
 from atlas.audit import Actor, content_hash, record
 from atlas.claims.predicates import company_names, mentions
-from atlas.discovery.leads import canonical_url, store_result
-from atlas.discovery.searxng import SearchFailed, SearXNGClient
+from atlas.discovery.edgar_fts import EdgarFullTextSearch
+from atlas.discovery.leads import canonical_url
+from atlas.discovery.searxng import SearXNGClient
+from atlas.discovery.service import add_query, filing_window, run_searches
 from atlas.investigations.model import CardContradiction, SourceSpan
 from atlas.investigations.service import event
 from atlas.proposed_updates.triggers import on_counterevidence
@@ -179,11 +183,13 @@ class Skeptic:
         max_queries: int,
         max_passages: int,
         passages_per_call: int,
+        edgar: EdgarFullTextSearch | None = None,
     ) -> None:
         self._engine = engine
         self._archive = archive
         self._caller = caller
         self._searxng = searxng
+        self._edgar = edgar
         self._max_queries = max_queries
         self._max_passages = max_passages
         self._passages_per_call = passages_per_call
@@ -343,13 +349,13 @@ class Skeptic:
         plan, role_call_id = self._caller.call_recorded(
             SKEPTIC_PLAN, request, run_id=search["run_id"]
         )
-        queries: list[tuple[str, str]] = []
+        queries: list[tuple[str, str, str | None]] = []
         seen: set[str] = set()
         for each in plan.queries:
             query = _SPACE.sub(" ", each.query).strip()
             if query and query.casefold() not in seen:
                 seen.add(query.casefold())
-                queries.append((query, each.checklist_item))
+                queries.append((query, each.checklist_item, each.filing_phrase))
         queries = queries[: self._max_queries]
         known = {str(v.id): v for v in catalog}
         wanted: list[tuple[uuid.UUID, str | None, Literal["plan", "search"]]] = []
@@ -379,19 +385,17 @@ class Skeptic:
                         "proposed": len(plan.queries),
                     },
                 )
-                for position, (query, item) in enumerate(queries, start=1):
-                    connection.execute(
-                        text(
-                            "INSERT INTO discovery_query (id, discovery_id, position, query,"
-                            " purpose) VALUES (:id, :discovery, :position, :query, :purpose)"
-                        ),
-                        {
-                            "id": uuid.uuid4(),
-                            "discovery": discovery_id,
-                            "position": position,
-                            "query": query,
-                            "purpose": f"skeptic: {item}",
-                        },
+                window = filing_window(investigation["as_of"])
+                for position, (query, item, phrase) in enumerate(queries, start=1):
+                    add_query(
+                        connection,
+                        discovery_id,
+                        position,
+                        query,
+                        f"skeptic: {item}",
+                        phrase,
+                        edgar=self._edgar,
+                        window=window,
                     )
             _budget_event(connection, investigation, task, dropped)
             connection.execute(
@@ -424,7 +428,7 @@ class Skeptic:
         discovery_id: uuid.UUID | None = search["discovery_id"]
         found_urls: list[str] = []
         if discovery_id is not None:
-            self._run_queries(discovery_id)
+            run_searches(self._engine, discovery_id, self._searxng, self._edgar)
             with self._engine.connect() as connection:
                 found_urls = list(
                     connection.execute(
@@ -475,47 +479,6 @@ class Skeptic:
                     "batches": -(-len(passages) // size),
                 },
             )
-
-    def _run_queries(self, discovery_id: uuid.UUID) -> None:
-        with self._engine.connect() as connection:
-            pending = connection.execute(
-                text(
-                    "SELECT id, query FROM discovery_query WHERE discovery_id = :discovery"
-                    " AND status <> 'searched' ORDER BY position"
-                ),
-                {"discovery": discovery_id},
-            ).all()
-        for query_id, query in pending:
-            try:
-                response = self._searxng.search(query)
-            except SearchFailed as error:
-                with self._engine.begin() as connection:
-                    connection.execute(
-                        text(
-                            "UPDATE discovery_query SET status = 'failed', error = :error,"
-                            " searched_at = now() WHERE id = :id"
-                        ),
-                        {"id": query_id, "error": f"{type(error).__name__}: {error}"[:500]},
-                    )
-                continue
-            with self._engine.begin() as connection:
-                created = [store_result(connection, query_id, r) for r in response.results]
-                connection.execute(
-                    text(
-                        "UPDATE discovery_query SET status = 'searched', error = NULL,"
-                        " result_count = :results, new_leads = :new,"
-                        " unresponsive_engines = CAST(:unresponsive AS jsonb),"
-                        " searched_at = now() WHERE id = :id"
-                    ),
-                    {
-                        "id": query_id,
-                        "results": len(response.results),
-                        "new": sum(1 for each in created if each),
-                        "unresponsive": json.dumps(
-                            [e.model_dump() for e in response.unresponsive_engines]
-                        ),
-                    },
-                )
 
     def _passages(self, documents: Sequence[SkepticDocument]) -> tuple[list[SkepticPassage], int]:
         """Checklist-matching windows, round-robin over documents and checklist items."""
