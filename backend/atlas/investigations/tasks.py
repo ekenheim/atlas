@@ -11,9 +11,11 @@ One attempt:
    - **Scout:** a discovery (atlas.discovery) in the run; the leads its queries returned, in
      the order found, are taken up to the lead budget (the rest counted as dropped).
    - **Investigator** (one per seed company): the company's latest parsed Source Versions
-     available at the investigation's as-of time, newest first, up to what is left of the
-     document budget; then an extraction (atlas.claims) of them in the run, with the
-     question for recall. A resumed task continues its budget-exhausted extraction.
+     available at the investigation's as-of time, newest first, up to its share of what is
+     left of the document budget (an equal share is held back for each of the round's other
+     Investigators that hasn't chosen yet, so unused share passes on in plan order); then an
+     extraction (atlas.claims) of them in the run, with the question for recall. A resumed
+     task continues its budget-exhausted extraction.
    - **Skeptic** (atlas.investigations.skeptic): skipped without an LLM call when the
      Investigators accepted no Claim (nothing to challenge); otherwise its own plan, SearXNG
      queries and reading of the Source Versions it chose, for counterevidence. Its accepted,
@@ -25,13 +27,18 @@ One attempt:
      (atlas.scenarios.analyst) and records the assumption tables in the task's artifacts,
      for scenarios on the Hypothesis versions (atlas.scenarios).
    - **Editor:** the investigation's accepted Claims (excluding those from a task whose
-     premise was disproven). With no new independent Evidence (no Evidence Family that an
-     earlier round's Claims hadn't used) it is skipped without an LLM call. Otherwise one
-     Editor call drafts the research card, sent the Skeptic's accepted counterevidence too;
+     premise was disproven). When there are accepted Claims but no new independent Evidence
+     (no Evidence Family that an earlier round's Claims hadn't used) it is skipped without an
+     LLM call, and the earlier card stands. Otherwise one Editor call drafts the research
+     card, sent the Skeptic's accepted counterevidence and what was searched and read too;
      code keeps only findings citing accepted Claims and fills in their spans, the
-     independent counterevidence against each cited Claim (`counterevidence_ids`) and the
-     card's `contradictions`. A finding contradicted by independent counterevidence needs
-     review, and so does the investigation (atlas.roles.editor).
+     independent counterevidence against each cited Claim (`counterevidence_ids`), the
+     card's `contradictions` and its `searched` and `read` sections
+     (atlas.investigations.coverage). A finding contradicted by independent counterevidence
+     needs review, and so does the investigation (atlas.roles.editor). With no accepted
+     Claim at all the card has no finding, only what was searched and read and the open
+     questions for the next round, and the investigation stops
+     `no_new_independent_evidence` as before.
 3. **Outcome.** Under the lock, the task's outcome is recorded and the plan advanced. When
    the run's token budget runs out, the task and the investigation stop `budget_exhausted`
    (resumable). An LLM quota or outage (a pausable failure) records `task_paused` and
@@ -58,6 +65,7 @@ from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
+from atlas.investigations.coverage import coverage
 from atlas.investigations.model import (
     RUN_KIND,
     CardContradiction,
@@ -83,7 +91,10 @@ from atlas.roles.editor import (
     EDITOR,
     EditorClaim,
     EditorCounterevidence,
+    EditorDocumentRead,
     EditorLead,
+    EditorQuery,
+    EditorReading,
     EditorRequest,
 )
 from atlas.roles.financial_analyst import FINANCIAL_ANALYST
@@ -504,7 +515,9 @@ class TaskRunner:
                     },
                 ).scalars()
             )
-            room = max(investigation["max_documents"] - int(used), 0)
+            room = _document_share(
+                connection, investigation, task, max(investigation["max_documents"] - int(used), 0)
+            )
             chosen, dropped = available[:room], max(len(available) - room, 0)
             for version_id in chosen:
                 connection.execute(
@@ -514,6 +527,15 @@ class TaskRunner:
                     ),
                     {"id": investigation["id"], "version": version_id, "task": task["id"]},
                 )
+            # Recorded now, so a sibling Investigator choosing later sees this task has chosen.
+            connection.execute(
+                text(
+                    "UPDATE investigation_task SET artifacts = artifacts"
+                    " || jsonb_build_object('documents', CAST(:n AS integer),"
+                    " 'documents_dropped', CAST(:dropped AS integer)) WHERE id = :id"
+                ),
+                {"id": task["id"], "n": len(chosen), "dropped": dropped},
+            )
             if dropped:
                 event(
                     connection,
@@ -642,18 +664,16 @@ class TaskRunner:
                     {"id": investigation["id"]},
                 ).scalars()
             )
+            searched, read = coverage(connection, investigation["id"])
         round_ = task["round"]
         earlier = {_family(c) for c in claims if c["round"] < round_}
         new_families = sorted({_family(c) for c in claims if c["round"] == round_} - earlier)
-        if not new_families:
+        if claims and not new_families:
+            # A follow-up round that found nothing new: the earlier round's card stands.
             return _Outcome(
                 "skipped",
-                detail=(
-                    "no new independent Evidence: the Investigator accepted no Claims"
-                    if not claims
-                    else "no new independent Evidence: every accepted Claim's Evidence Family"
-                    " was already used"
-                ),
+                detail="no new independent Evidence: every accepted Claim's Evidence Family"
+                " was already used",
                 artifacts={"claims": len(claims), "new_evidence_families": 0},
             )
         theme = load_universe(self._settings.themes_config).themes.get(investigation["theme"])
@@ -680,6 +700,27 @@ class TaskRunner:
             ],
             counterevidence=sent,
             disproven_premises=disproven,
+            queries=[
+                EditorQuery(query=query.query, purpose=query.purpose)
+                for search in searched
+                for query in search.queries
+            ],
+            read=[
+                EditorReading(
+                    company=reading.company_name or reading.task_key,
+                    documents=[
+                        EditorDocumentRead(title=document.title, sections=document.sections)
+                        for document in reading.documents
+                    ],
+                    documents_dropped=reading.documents_dropped,
+                    passages=reading.passages,
+                    claims_proposed=reading.claims_proposed,
+                    claims_accepted=reading.claims_accepted,
+                    rejected=reading.rejected,
+                    detail=reading.detail,
+                )
+                for reading in read
+            ],
         )
         retrieved = (
             [
@@ -724,7 +765,11 @@ class TaskRunner:
                 card_finding(finding.statement, [by_id[each] for each in cited], finding, by_claim)
             )
         contradicted = sum(1 for f in findings if f.counterevidence_ids)
-        if draft.verdict == "answered" and findings and not unsupported and not contradicted:
+        if not claims:
+            # The card reports what was searched and read; the stop reason is as before.
+            stop_reason = "no_new_independent_evidence"
+            stop_detail = "no new independent Evidence: the Investigator accepted no Claims"
+        elif draft.verdict == "answered" and findings and not unsupported and not contradicted:
             stop_reason = "answered"
             stop_detail = f"the Editor judged the question answered by {len(findings)} findings"
         else:
@@ -753,6 +798,8 @@ class TaskRunner:
             disproven_premises=disproven,
             editor_role_call_id=role_call_id,
             contradictions=against,
+            searched=searched,
+            read=read,
         )
         return _Outcome(
             "succeeded",
@@ -772,6 +819,25 @@ class TaskRunner:
 
 
 # --- helpers ------------------------------------------------------------------------------------
+
+
+def _document_share(
+    connection: Connection, investigation: RowMapping, task: RowMapping, left: int
+) -> int:
+    """How many of the `left` documents of the budget this Investigator task may read: an
+    equal share is held back for each of the round's other Investigator tasks that hasn't
+    chosen its documents yet (the remainder of the split going to the earlier ones in plan
+    order), so a task's unused share passes on to the tasks that choose after it."""
+    waiting = connection.execute(
+        text(
+            "SELECT count(*) FROM investigation_task WHERE investigation_id = :id"
+            " AND round = :round AND role = 'investigator' AND id <> :task"
+            " AND status IN ('pending', 'queued', 'running')"
+            " AND artifacts -> 'documents' IS NULL"
+        ),
+        {"id": investigation["id"], "round": task["round"], "task": task["id"]},
+    ).scalar_one()
+    return left - int(waiting) * (left // (int(waiting) + 1))
 
 
 def _task(connection: Connection, task_id: uuid.UUID, *, for_update: bool = False) -> RowMapping:

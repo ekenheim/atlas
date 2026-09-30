@@ -267,6 +267,59 @@ class UnsupportedFinding(BaseModel):
     reason: str
 
 
+class CardQuery(BaseModel):
+    """One query the Scout searched."""
+
+    model_config = ConfigDict(frozen=True)
+
+    query: str
+    purpose: str | None
+
+
+class CardSearch(BaseModel):
+    """What one round's Scout searched: its queries, how many leads they found, and the
+    leads the investigation took (in rank order; Tier C, never Evidence)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    round: int
+    discovery_id: uuid.UUID
+    queries: list[CardQuery]
+    leads_found: int
+    lead_ids: list[uuid.UUID]
+
+
+class CardDocumentRead(BaseModel):
+    """A Source Version an Investigator task read, and the sections of the passages it was
+    sent."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source_version_id: uuid.UUID
+    title: str
+    sections: list[str]  # section anchors, in the order sent
+
+
+class CardReading(BaseModel):
+    """What one Investigator task read and what came of it: the extraction's outcomes, so a
+    card with no finding still says why nothing was accepted."""
+
+    model_config = ConfigDict(frozen=True)
+
+    round: int
+    task_key: str
+    company_id: uuid.UUID | None
+    company_name: str | None
+    status: str  # the task's status
+    detail: str | None  # why it read nothing (the budget spent, nothing available), if so
+    documents: list[CardDocumentRead]
+    documents_dropped: int  # available but left out by the document budget
+    passages: int
+    claims_proposed: int
+    claims_accepted: int
+    rejected: dict[str, int]  # reason code -> how many proposed Claims it rejected
+
+
 class ResearchCard(BaseModel):
     """The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10)."""
 
@@ -285,6 +338,10 @@ class ResearchCard(BaseModel):
     # The Skeptic's accepted counterevidence (independent or not); cards drawn before ticket 15
     # have none.
     contradictions: list[CardContradiction] = Field(default_factory=list[CardContradiction])
+    # What the investigation searched and read, and why nothing was accepted (pilot fix 01);
+    # cards drawn before it have neither.
+    searched: list[CardSearch] = Field(default_factory=list[CardSearch])
+    read: list[CardReading] = Field(default_factory=list[CardReading])
 
 
 class EvidenceItem(BaseModel):

@@ -1,7 +1,13 @@
 import { expect, test } from "@playwright/test";
 
-import type { Investigation, ResearchCard } from "../lib/api/client";
-import { followUpBlocked, openQuestions, outputParts } from "../lib/workbench";
+import type { CardReading, Investigation, ResearchCard } from "../lib/api/client";
+import {
+  canSaveHypothesis,
+  followUpBlocked,
+  openQuestions,
+  outputParts,
+  readingOutcome,
+} from "../lib/workbench";
 
 const card = {
   status: "draft",
@@ -50,6 +56,36 @@ test("a follow-up is offered only when the API would take it", () => {
     ),
   ).toMatch(/Hypothesis/);
   expect(followUpBlocked(investigation({ research_card: null }))).toMatch(/no open question/);
+});
+
+test("only a card with a finding can be saved as a Hypothesis", () => {
+  expect(canSaveHypothesis(investigation({}))).toBe(true);
+  const empty = { ...card, findings: [] } as unknown as ResearchCard;
+  expect(canSaveHypothesis(investigation({ research_card: empty }))).toBe(false);
+  expect(canSaveHypothesis(investigation({ research_card: null }))).toBe(false);
+  expect(canSaveHypothesis(investigation({ status: "running", stop_reason: null }))).toBe(false);
+});
+
+test("an Investigator's reading says what it read and why nothing was accepted", () => {
+  const reading = {
+    documents: [{ source_version_id: "v1", title: "10-K", sections: ["item-1", "item-1a"] }],
+    documents_dropped: 2,
+    passages: 24,
+    claims_proposed: 3,
+    claims_accepted: 0,
+    rejected: { quote_mismatch: 1, no_directional_language: 2 },
+    detail: null,
+  } as unknown as CardReading;
+  expect(readingOutcome(reading)).toBe(
+    "1 document read; 2 left out by the document budget; 24 passages; 3 Claims proposed," +
+      " 0 accepted; rejected: no directional language ×2, quote mismatch ×1.",
+  );
+  const none = {
+    ...reading,
+    documents: [],
+    detail: "the document budget is spent",
+  } as unknown as CardReading;
+  expect(readingOutcome(none)).toBe("the document budget is spent");
 });
 
 test("a task's output is shown from whatever its role recorded", () => {

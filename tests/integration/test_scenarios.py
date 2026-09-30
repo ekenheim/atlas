@@ -521,6 +521,8 @@ def test_without_an_accepted_claim_the_analyst_is_skipped_without_an_llm_call(
     llm.script_chat(
         ChatReply.json({"queries": [{"query": SUBSTRATE, "purpose": None}]}),
         ChatReply.json({"claims": []}),
+        # The Editor still writes a card, with no finding (pilot fix 01).
+        ChatReply.json({"findings": [], "open_questions": [], "verdict": "needs_review"}),
     )
     response = atlas.api.post(
         "/api/v1/investigations",
@@ -540,6 +542,7 @@ def test_without_an_accepted_claim_the_analyst_is_skipped_without_an_llm_call(
     assert [body["metadata"]["role"] for body in llm.chat_requests()] == [
         "scout",
         "investigator",
+        "editor",
     ]
 
 

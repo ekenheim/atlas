@@ -1,6 +1,11 @@
 // The research workbench's pure parts: labels, the research card's open questions, why a
 // follow-up can't be launched, and a task's output as short text.
-import type { Investigation, InvestigationTask, ResearchCard } from "./api/client";
+import type {
+  CardReading,
+  Investigation,
+  InvestigationTask,
+  ResearchCard,
+} from "./api/client";
 
 export const ROLES: Record<InvestigationTask["role"], string> = {
   scout: "Scout",
@@ -63,13 +68,40 @@ export function followUpBlocked(investigation: Investigation): string | null {
   return null;
 }
 
-/** Whether the research card can be saved as a Hypothesis now. */
+/**
+ * Whether the research card can be saved as a Hypothesis now: a card with no finding (no
+ * Claim was accepted) reports what was searched and read, and has nothing to save.
+ */
 export function canSaveHypothesis(investigation: Investigation): boolean {
   return (
     investigation.status === "stopped" &&
-    investigation.research_card !== null &&
+    (investigation.research_card?.findings.length ?? 0) > 0 &&
     !investigation.request.hypothesis_id
   );
+}
+
+const plural = (count: number, one: string, many = `${one}s`) =>
+  `${count} ${count === 1 ? one : many}`;
+
+/**
+ * What one Investigator task's reading came to, in words: why it read nothing, or its
+ * documents, passages and Claims, with the rejected ones by reason.
+ */
+export function readingOutcome(reading: CardReading): string {
+  if (reading.documents.length === 0) return reading.detail ?? "Read nothing.";
+  const parts = [
+    `${plural(reading.documents.length, "document")} read`,
+    ...(reading.documents_dropped > 0
+      ? [`${reading.documents_dropped} left out by the document budget`]
+      : []),
+    plural(reading.passages, "passage"),
+    `${plural(reading.claims_proposed, "Claim")} proposed, ${reading.claims_accepted} accepted`,
+  ];
+  const rejected = Object.entries(reading.rejected)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([reason, count]) => `${reason.replaceAll("_", " ")} ×${count}`);
+  if (rejected.length > 0) parts.push(`rejected: ${rejected.join(", ")}`);
+  return `${parts.join("; ")}.`;
 }
 
 /** The investigation's tasks by round, rounds in order. */

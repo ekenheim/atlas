@@ -3,13 +3,18 @@ research card out; and, when the researcher saves the investigation, a Hypothesi
 (`HYPOTHESIS_EDITOR`, below).
 
 The request lists the accepted Claims (their resolved subject, predicate and object, and the
-Source Version each quotes), the investigation's Tier C leads and the Skeptic's accepted
-counterevidence; each Claim's quote, each lead's snippet and each counterevidence quote go as
-quoted, low-trust `retrieved_data` (`id` = the claim, lead or counterevidence ID). The
+Source Version each quotes), the investigation's Tier C leads, the Skeptic's accepted
+counterevidence, and what the investigation searched and read (the Scout's queries; each
+Investigator's documents, sections and extraction outcomes); each Claim's quote, each lead's
+snippet and each counterevidence quote go as quoted, low-trust `retrieved_data` (`id` = the
+claim, lead or counterevidence ID). The
 Editor answers with findings, each citing the Claims it rests on, open questions, and whether
 the Claims answer the question. Code, not the model, decides what a finding may cite: a
 finding citing no accepted Claim of the investigation is dropped as unsupported, and every
 cited Claim's quote, span and Source Version are filled in by code (atlas.investigations).
+With no accepted Claim the Editor still writes the card: no finding, and open questions for
+the next round drawn from what was searched and read (the card's `searched` and `read`
+sections are code's, never the model's).
 """
 
 from typing import Literal
@@ -18,7 +23,9 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-EDITOR_PROMPT_VERSION = 3  # v2: counterevidence (ticket 15); v3: the bottleneck method
+# v2: counterevidence (ticket 15); v3: the bottleneck method; v4: what was searched and read,
+# and a card with no accepted Claim (pilot fix 01)
+EDITOR_PROMPT_VERSION = 4
 
 
 class _Request(BaseModel):
@@ -56,6 +63,33 @@ class EditorCounterevidence(_Request):
     source_title: str
 
 
+class EditorQuery(_Request):
+    """A query the Scout searched."""
+
+    query: str
+    purpose: str | None
+
+
+class EditorDocumentRead(_Request):
+    """A document an Investigator read, and the sections of the passages it was sent."""
+
+    title: str
+    sections: list[str]
+
+
+class EditorReading(_Request):
+    """What one Investigator task read and what came of it (atlas.investigations.coverage)."""
+
+    company: str
+    documents: list[EditorDocumentRead]
+    documents_dropped: int  # left out by the document budget
+    passages: int
+    claims_proposed: int
+    claims_accepted: int
+    rejected: dict[str, int]  # reason code -> count
+    detail: str | None  # why it read nothing, if so
+
+
 class EditorRequest(_Request):
     theme_id: str
     theme_title: str
@@ -64,6 +98,8 @@ class EditorRequest(_Request):
     leads: list[EditorLead]
     counterevidence: list[EditorCounterevidence]
     disproven_premises: list[str]  # what the researcher or the Skeptic ruled out
+    queries: list[EditorQuery]  # what the Scout searched, every round
+    read: list[EditorReading]  # what each Investigator read, every round
 
 
 class EditorFinding(RoleOutput):

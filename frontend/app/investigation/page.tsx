@@ -23,6 +23,7 @@ import {
   followUpBlocked,
   openQuestions,
   outputParts,
+  readingOutcome,
   statusText,
   tokenUse,
 } from "../../lib/workbench";
@@ -332,7 +333,10 @@ function SaveHypothesis({
           }}
         />
       ) : (
-        <p>A stopped investigation with a research card can be saved as a Hypothesis.</p>
+        <p>
+          A stopped investigation whose research card has a finding can be saved as a
+          Hypothesis.
+        </p>
       )}
     </>
   );
@@ -645,7 +649,13 @@ function Card({ card }: { card: ResearchCard | null }) {
               ` ${card.unsupported_findings.length} finding(s) citing no accepted Claim were dropped.`}
           </p>
           {card.findings.length === 0 ? (
-            <p>No finding.</p>
+            <p>
+              No finding
+              {card.claims_considered === 0 &&
+                ": no Claim was accepted. The card reports what was searched and read, and" +
+                  " the open questions for the next round"}
+              .
+            </p>
           ) : (
             <ol>
               {card.findings.map((finding, index) => (
@@ -675,6 +685,8 @@ function Card({ card }: { card: ResearchCard | null }) {
           {card.disproven_premises.length > 0 && (
             <p>Disproven premises: {card.disproven_premises.join("; ")}</p>
           )}
+          <Searched card={card} />
+          <Read card={card} />
         </>
       )}
       <h3 id="open-questions">Open questions</h3>
@@ -688,6 +700,79 @@ function Card({ card }: { card: ResearchCard | null }) {
         </ul>
       )}
     </section>
+  );
+}
+
+function Searched({ card }: { card: ResearchCard }) {
+  const searched = card.searched ?? [];
+  if (searched.length === 0) return null;
+  return (
+    <>
+      <h3 id="searched">What was searched</h3>
+      <ul aria-labelledby="searched">
+        {searched.map((search) => (
+          <li key={search.discovery_id}>
+            Round {search.round}: {search.queries.length} quer
+            {search.queries.length === 1 ? "y" : "ies"}, {search.leads_found} lead
+            {search.leads_found === 1 ? "" : "s"} found, {search.lead_ids.length} taken.
+            <ul className="muted-small">
+              {search.queries.map((query, index) => (
+                <li key={index}>
+                  {query.query}
+                  {query.purpose && ` (${query.purpose})`}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function Read({ card }: { card: ResearchCard }) {
+  const read = card.read ?? [];
+  if (read.length === 0) return null;
+  return (
+    <table>
+      <caption>What was read</caption>
+      <thead>
+        <tr>
+          <th scope="col">Investigator</th>
+          <th scope="col">Documents and sections</th>
+          <th scope="col">Outcome</th>
+        </tr>
+      </thead>
+      <tbody>
+        {read.map((reading) => (
+          <tr key={`${reading.round}:${reading.task_key}`}>
+            <th scope="row">
+              {reading.company_name ?? reading.task_key}
+              {reading.round > 1 && ` (round ${reading.round})`}
+            </th>
+            <td>
+              {reading.documents.length === 0 ? (
+                "None."
+              ) : (
+                <ul>
+                  {reading.documents.map((document) => (
+                    <li key={document.source_version_id}>
+                      <Link href={routes.version(document.source_version_id)}>
+                        {document.title}
+                      </Link>
+                      {document.sections.length > 0 && (
+                        <span className="muted-small"> {document.sections.join(", ")}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </td>
+            <td>{readingOutcome(reading)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
