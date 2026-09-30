@@ -759,6 +759,7 @@ def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
     llm.script_chat(
         ChatReply.json({"queries": [{"query": EML, "purpose": "chip-laser: EML capacity"}]}),
         ChatReply.json({"claims": []}),
+        NOTHING_ACCEPTED,
     )
     searxng.script(EML, SearchReply.of("coherent-eml-capacity"))
 
