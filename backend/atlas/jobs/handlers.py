@@ -61,7 +61,7 @@ def builtin_registry(
     `poll_operation`, `reprocess`, `reflect`, `refresh_mental_model`, `extract_claims`,
     `review_relationships`, `discover`,
     `investigation_task`, `propose_candidates`,
-    `draft_hypothesis`) need
+    `draft_hypothesis`, `replay`) need
     `settings`.
     `clock` is the application clock of handlers that measure time (a mental model's
     minimum refresh interval).
@@ -77,6 +77,7 @@ def builtin_registry(
         from atlas.ledger.ingest import INGEST_KIND, make_ingest_handler
         from atlas.mental_models import register_mental_model_handlers
         from atlas.relationships import register_relationship_handlers
+        from atlas.replay import register_replay_handlers
         from atlas.research import register_research_handlers
         from atlas.retention import register_retention_handlers
 
@@ -90,6 +91,7 @@ def builtin_registry(
         register_investigation_handlers(registry, settings)
         register_candidate_handlers(registry, settings)
         register_hypothesis_handlers(registry, settings)
+        register_replay_handlers(registry, settings)
     return registry
 
 

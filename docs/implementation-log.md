@@ -1897,3 +1897,32 @@ The chain is now 0012 → 0013 → … → 0023.
   - `relationship_review_pending` has no integration test. The investigation's final stop always chains the machine review, so the seams can't produce an unreviewed finding Assertion without reaching into internals.
   - The snapshot's `put` happens inside the DB transaction. If the transaction later rolls back, an orphaned content-addressed object stays in the archive (harmless).
 - **Next:** the replay (map ticket 09's local `atlas-replay-<id>` bank seeded from Source Versions with `available_at ≤ cutoff`) can read the snapshot's `source_versions` and `cutoff`. The Hypothesis dossier page (ticket 24) can link a published version's snapshot.
+
+## 2026-09-30: Phase 3-6a ticket 22, replay banks
+
+- **Built:**
+  - `backend/atlas/replay/` (`service.py` the request, cancel and the `replay` job's steps; `questions.py` the fixed question sets; `reads.py` the read side; `handlers.py`), `backend/atlas/api/replay.py`: `POST/GET /api/v1/replay-jobs[/{id}]`, `POST .../{id}/cancel`
+  - migration `0040` (`replay_job`, `replay_source_version`, `replay_document`, `replay_operation`, `replay_answer`; down_revision `0038`, to be re-chained)
+  - `configs/replay/question-sets.yaml` (the `default` set, 2 questions)
+  - gateway `consolidate()` and `delete_bank()` (refuses any bank without the `atlas-replay-` prefix before a call), model `BankDeleted`
+  - provenance resolver: pluggable `SectionLookup` (`ledger_sections` default; the replay passes `replay_sections`)
+  - retention: `version_tags` and `retain_item` extracted to module functions (the replay retains through them); no behaviour change
+  - budget: `replay` is a `codex` kind; the codex sweep also counts `replay_operation` rows
+  - settings `ATLAS_REPLAY_HINDSIGHT_URL`/`_API_KEY`, `_QUESTION_SETS_CONFIG`, `_MAX_SOURCE_VERSIONS` (3), `_CONSOLIDATION_TIMEOUT_SECONDS` (240); `.env.example`
+  - Hindsight fake: separate banks, bank deletion (hand-written `DeleteResponse` body), derived consolidation, `hold_consolidations`, `BankFacts()` citations, `retained(bank)`, `bank_documents`, `bank_facts`, `deleted_banks`
+  - synthetic fixtures `tests/fixtures/replay/` (two pre-cutoff documents and a future-dated one)
+  - docs: `docs/decisions.md` "Replay banks" (and the fake-derivation list), `docs/runbooks.md` "Replay banks", AGENTS.md, the regenerated API client
+- **Tests:**
+  - `tests/integration/test_replay.py` (15): the gate (a future-dated fixture held by the research bank is accepted 0 times: not retained, recalled, resolved or quoted; earlier ones retained oldest first; bank deleted; research bank and `memory_document` untouched), template without mental models and theme scope, a failed replay deletes its bank, a quota failure pauses it and keeps the bank, cancel deletes the bank (409 afterwards), bounded consolidation (`timed_out`), codex budget counts replay operations, listing, 6 refusals (422) and 503 without the local Hindsight. **15 passed.**
+  - unit: `test_hindsight_fake_derivations.py` (+2: bank separation and deletion, derived consolidation), `test_hindsight_gateway.py` (+1: only a replay bank can be deleted): 14 and all passed.
+  - updated: `test_migrations.py` (head `0040`), `test_queue_pause.py` (`PAUSABLE_KINDS` + `replay`), `test_quota_pacing.py` (`CODEX_KINDS` + `replay`).
+  - local run of `tests/unit` + `test_research`, `test_quota_pacing`, `test_queue_pause`, `test_migrations`, `test_mental_models`: 512 passed, 1 failed (the new fake unit test in its first draft, since fixed and re-run green); `test_retention`, `test_manual_import`, `test_claims`: 38 passed. Ruff format/check and strict pyright clean. Mutation check: widening the eligibility filter past the cutoff turns the gate test red.
+- **Fixture-tested only, not live:** the whole replay, bank deletion and explicit consolidation in a new bank ran only against the recorded fake (deletion and the per-bank separation are hand-derived, see `docs/decisions.md`). No live run; there is no `scripts/live-verify.sh` on this base, so the opt-in live run is the documented runbook procedure.
+- **Deviations:**
+  - triage is bypassed in replays (every section of a chosen version); cost is bounded by `ATLAS_REPLAY_MAX_SOURCE_VERSIONS` instead
+  - the replay bank gets the template without mental models
+  - a separate `ATLAS_REPLAY_HINDSIGHT_URL` enforces "local, never shared"
+  - consolidation that doesn't finish in its bound is recorded `timed_out` and the questions still run
+  - one step per attempt via `Requeue` (the job's `failures` list shows one `requeued` entry per step)
+  - `POST .../cancel` added (the design mentions cancel)
+- **Next:** a live replay on the Compose Hindsight with the owner's go-ahead, replacing the fake's deletion/consolidation derivations with recordings.

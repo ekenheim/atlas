@@ -1163,6 +1163,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/replay-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_replay_jobs_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_replay_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/replay-jobs/{replay_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Replay */
+        get: operations["replay_api_v1_replay_jobs__replay_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/replay-jobs/{replay_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_v1_replay_jobs__replay_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1181,6 +1233,15 @@ export interface components {
             /** Valid To */
             valid_to?: string | null;
             source: components["schemas"]["Source"];
+        };
+        /** AnswerLeakage */
+        AnswerLeakage: {
+            /** Recall Memories */
+            recall_memories: number;
+            /** Citations */
+            citations: number;
+            /** Source Version Ids */
+            source_version_ids: string[];
         };
         /** @enum {string} */
         AnswerStatus: "pending" | "running" | "completed" | "failed";
@@ -2507,6 +2568,8 @@ export interface components {
             /** Gate Decision Id */
             gate_decision_id: string | null;
         };
+        /** @enum {string} */
+        FinalStatus: "completed" | "failed" | "cancelled";
         /**
          * FinancialFigure
          * @description A canonical metric's value for one period and unit, as of the cutoff.
@@ -3853,6 +3916,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[ReplayJobSummary] */
+        Page_ReplayJobSummary_: {
+            /** Items */
+            items: components["schemas"]["ReplayJobSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[ResearchSnapshotRecord] */
         Page_ResearchSnapshotRecord_: {
             /** Items */
@@ -4348,6 +4422,293 @@ export interface components {
             /** Audit Event Id */
             audit_event_id: number;
         };
+        /**
+         * ReplayAnswer
+         * @description One question of the set: its scoped recall, and its reflect with resolved citations.
+         */
+        ReplayAnswer: {
+            /** Position */
+            position: number;
+            /** Question Key */
+            question_key: string;
+            /** Question */
+            question: string;
+            /** Recall */
+            recall: components["schemas"]["ReplayRecalledMemory"][];
+            /** Answer Text */
+            answer_text: string;
+            /** Citations */
+            citations: components["schemas"]["atlas__research__provenance__Citation"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Evidence */
+            evidence: components["schemas"]["Evidence"][];
+            leakage: components["schemas"]["AnswerLeakage"];
+            /**
+             * Answered At
+             * Format: date-time
+             */
+            answered_at: string;
+        };
+        /** ReplayConsolidation */
+        ReplayConsolidation: {
+            /** Operation Id */
+            operation_id: string | null;
+            /** Status */
+            status: string;
+            /** Polls */
+            polls: number;
+        };
+        /** ReplayJob */
+        ReplayJob: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Cutoff
+             * Format: date-time
+             */
+            cutoff: string;
+            /**
+             * Availability Convention
+             * @constant
+             */
+            availability_convention: "available_at";
+            /** Company Ids */
+            company_ids: string[];
+            /** Question Set */
+            question_set: string;
+            /** Question Set Version */
+            question_set_version: string;
+            status: components["schemas"]["ReplayStatus"];
+            stage: components["schemas"]["ReplayStage"];
+            final_status: components["schemas"]["FinalStatus"] | null;
+            /** Eligible Source Versions */
+            eligible_source_versions: number;
+            /** Max Source Versions */
+            max_source_versions: number;
+            /** Selected Source Versions */
+            selected_source_versions: number;
+            leakage: components["schemas"]["ReplayLeakage"] | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Requested By */
+            requested_by: string;
+            /** Cancel Requested At */
+            cancel_requested_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Bank Deleted At */
+            bank_deleted_at: string | null;
+            /** Bank Delete Error */
+            bank_delete_error: string | null;
+            scope: components["schemas"]["AppliedScope"];
+            /** Question Set Sha256 */
+            question_set_sha256: string;
+            /** Questions */
+            questions: components["schemas"]["ReplayQuestion"][];
+            /** Template Version */
+            template_version: string | null;
+            /** Template Manifest Sha256 */
+            template_manifest_sha256: string | null;
+            consolidation: components["schemas"]["ReplayConsolidation"] | null;
+            /** Source Versions */
+            source_versions: components["schemas"]["ReplaySourceVersion"][];
+            /** Answers */
+            answers: components["schemas"]["ReplayAnswer"][];
+        };
+        /** ReplayJobSummary */
+        ReplayJobSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Cutoff
+             * Format: date-time
+             */
+            cutoff: string;
+            /**
+             * Availability Convention
+             * @constant
+             */
+            availability_convention: "available_at";
+            /** Company Ids */
+            company_ids: string[];
+            /** Question Set */
+            question_set: string;
+            /** Question Set Version */
+            question_set_version: string;
+            status: components["schemas"]["ReplayStatus"];
+            stage: components["schemas"]["ReplayStage"];
+            final_status: components["schemas"]["FinalStatus"] | null;
+            /** Eligible Source Versions */
+            eligible_source_versions: number;
+            /** Max Source Versions */
+            max_source_versions: number;
+            /** Selected Source Versions */
+            selected_source_versions: number;
+            leakage: components["schemas"]["ReplayLeakage"] | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Requested By */
+            requested_by: string;
+            /** Cancel Requested At */
+            cancel_requested_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Bank Deleted At */
+            bank_deleted_at: string | null;
+            /** Bank Delete Error */
+            bank_delete_error: string | null;
+        };
+        /**
+         * ReplayLeakage
+         * @description What the replay accepted from after its cutoff: every count must be 0 (§9.2).
+         *
+         *     Counted independently of the replay's own section ledger: from the Source Version each
+         *     retained version, recalled memory (its document ID and metadata) and resolved citation
+         *     names, checked against the versions the replay may see.
+         */
+        ReplayLeakage: {
+            /** Retained */
+            retained: number;
+            /** Recall Memories */
+            recall_memories: number;
+            /** Citations */
+            citations: number;
+            /** Source Version Ids */
+            source_version_ids: string[];
+            /** Future Accepted */
+            future_accepted: number;
+        };
+        /** ReplayQuestion */
+        ReplayQuestion: {
+            /** Key */
+            key: string;
+            /** Question */
+            question: string;
+        };
+        /**
+         * ReplayRecalledMemory
+         * @description A recalled memory, with the document and Source Version it names.
+         */
+        ReplayRecalledMemory: {
+            /** Memory Id */
+            memory_id: string;
+            /** Type */
+            type: string;
+            /** Text */
+            text: string;
+            /** Context */
+            context: string | null;
+            /** Tags */
+            tags: string[];
+            /** Occurred Start */
+            occurred_start: string | null;
+            /** Occurred End */
+            occurred_end: string | null;
+            /** Mentioned At */
+            mentioned_at: string | null;
+            provenance: components["schemas"]["atlas__research__provenance__Citation"];
+            /** Document Id */
+            document_id: string | null;
+            /** Source Version Id */
+            source_version_id: string | null;
+        };
+        /** ReplayRequest */
+        ReplayRequest: {
+            /**
+             * Cutoff
+             * Format: date-time
+             * @description only Source Versions available by then are retained; not in the future
+             */
+            cutoff: string;
+            /**
+             * Company Ids
+             * @description the companies whose Source Versions are replayed and whose tags scope the questions; default: every company, the questions scoped by every theme
+             */
+            company_ids?: string[] | null;
+            /**
+             * Question Set
+             * @description a configured set
+             * @default default
+             */
+            question_set: string;
+            /**
+             * Max Source Versions
+             * @description retain at most this many (the latest eligible); default and ceiling: ATLAS_REPLAY_MAX_SOURCE_VERSIONS
+             */
+            max_source_versions?: number | null;
+        };
+        /**
+         * ReplaySourceVersion
+         * @description A Source Version the replay may see, in retain order, with its retain's outcome.
+         */
+        ReplaySourceVersion: {
+            /** Position */
+            position: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Available At Basis */
+            available_at_basis: string;
+            retain_status: components["schemas"]["RetainStatus"];
+            /** Operation Id */
+            operation_id: string | null;
+            /** Polls */
+            polls: number;
+            /** Sections */
+            sections: number | null;
+            /** Facts */
+            facts: number | null;
+            /** Error */
+            error: string | null;
+        };
+        /** @enum {string} */
+        ReplayStage: "create_bank" | "retain" | "consolidate" | "questions" | "delete_bank" | "done";
+        /** @enum {string} */
+        ReplayStatus: "pending" | "running" | "completed" | "failed" | "cancelled";
         /** ResearchAnswer */
         ResearchAnswer: {
             /**
@@ -4643,6 +5004,8 @@ export interface components {
              */
             retain_job_id: string;
         };
+        /** @enum {string} */
+        RetainStatus: "pending" | "submitted" | "completed" | "failed";
         /** @enum {string} */
         ReviewState: "committed" | "pending" | "confirmed" | "rejected";
         /**
@@ -8680,6 +9043,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listing_api_v1_replay_jobs_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ReplayJobSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_replay_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayJob"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    replay_api_v1_replay_jobs__replay_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                replay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayJob"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_replay_jobs__replay_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                replay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayJob"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

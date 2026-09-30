@@ -449,3 +449,11 @@ class ServerVersion(_Result):
 
     api_version: str
     features: dict[str, bool] = {}
+
+
+class BankDeleted(_Result):
+    """`DELETE /banks/{id}`'s `DeleteResponse` (never recorded; the documented shape)."""
+
+    success: bool
+    message: str | None = None
+    deleted_count: int | None = None

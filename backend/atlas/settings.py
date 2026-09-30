@@ -113,6 +113,17 @@ class Settings(BaseSettings):
     mental_model_refresh_at: str = Field(default="06:30", pattern=r"^$|^([01]\d|2[0-3]):[0-5]\d$")
     mental_model_poll_timeout_seconds: float = Field(default=240.0, gt=0)
     mental_model_poll_interval_seconds: float = Field(default=5.0, gt=0)
+    # Replay banks (atlas.replay, §9.2): the **local** Hindsight a replay creates its
+    # `atlas-replay-<id>` bank on (never the shared server; without it replays are refused),
+    # the fixed question sets, how many Source Versions one replay retains at most (the
+    # latest eligible ones; each is a Codex-spending retain), and how long it waits for
+    # consolidation in one attempt (keep it below job_lease_seconds). Its retains wait like
+    # retain polls (retain_poll_timeout_seconds, at most retain_poll_attempts times).
+    replay_hindsight_url: str | None = None
+    replay_hindsight_api_key: str | None = None
+    replay_question_sets_config: Path = Path("configs/replay/question-sets.yaml")
+    replay_max_source_versions: int = Field(default=3, ge=1, le=25)
+    replay_consolidation_timeout_seconds: float = Field(default=240.0, gt=0)
     # Recorded on every run: the image's commit SHA (a build arg), else the package version.
     code_version: str | None = None
     # The release version (the git tag without the v), stamped into the image by the release

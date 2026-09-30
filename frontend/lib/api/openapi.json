@@ -4916,6 +4916,231 @@
           }
         }
       }
+    },
+    "/api/v1/replay-jobs": {
+      "post": {
+        "tags": [
+          "replay"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_replay_jobs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayJob"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "replay"
+        ],
+        "summary": "Listing",
+        "operationId": "listing_api_v1_replay_jobs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ReplayJobSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/replay-jobs/{replay_id}": {
+      "get": {
+        "tags": [
+          "replay"
+        ],
+        "summary": "Replay",
+        "operationId": "replay_api_v1_replay_jobs__replay_id__get",
+        "parameters": [
+          {
+            "name": "replay_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Replay Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/replay-jobs/{replay_id}/cancel": {
+      "post": {
+        "tags": [
+          "replay"
+        ],
+        "summary": "Cancel",
+        "operationId": "cancel_api_v1_replay_jobs__replay_id__cancel_post",
+        "parameters": [
+          {
+            "name": "replay_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Replay Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4970,6 +5195,33 @@
           "source"
         ],
         "title": "Alias"
+      },
+      "AnswerLeakage": {
+        "properties": {
+          "recall_memories": {
+            "type": "integer",
+            "title": "Recall Memories"
+          },
+          "citations": {
+            "type": "integer",
+            "title": "Citations"
+          },
+          "source_version_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Source Version Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recall_memories",
+          "citations",
+          "source_version_ids"
+        ],
+        "title": "AnswerLeakage"
       },
       "AnswerStatus": {
         "type": "string",
@@ -8702,6 +8954,14 @@
         ],
         "title": "FetchObservation",
         "description": "One fetch of the document that produced or matched this version."
+      },
+      "FinalStatus": {
+        "type": "string",
+        "enum": [
+          "completed",
+          "failed",
+          "cancelled"
+        ]
       },
       "FinancialFigure": {
         "properties": {
@@ -12664,6 +12924,37 @@
         ],
         "title": "Page[Relationship]"
       },
+      "Page_ReplayJobSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayJobSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ReplayJobSummary]"
+      },
       "Page_ResearchSnapshotRecord_": {
         "properties": {
           "items": {
@@ -14053,6 +14344,889 @@
         "title": "RelationshipRecorded",
         "description": "A mutation's result: the Relationship as it now is, and the audit event recording it."
       },
+      "ReplayAnswer": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "question_key": {
+            "type": "string",
+            "title": "Question Key"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "recall": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayRecalledMemory"
+            },
+            "type": "array",
+            "title": "Recall"
+          },
+          "answer_text": {
+            "type": "string",
+            "title": "Answer Text"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/atlas__research__provenance__Citation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/CitationState"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "leakage": {
+            "$ref": "#/components/schemas/AnswerLeakage"
+          },
+          "answered_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Answered At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position",
+          "question_key",
+          "question",
+          "recall",
+          "answer_text",
+          "citations",
+          "counts",
+          "evidence",
+          "leakage",
+          "answered_at"
+        ],
+        "title": "ReplayAnswer",
+        "description": "One question of the set: its scoped recall, and its reflect with resolved citations."
+      },
+      "ReplayConsolidation": {
+        "properties": {
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "polls": {
+            "type": "integer",
+            "title": "Polls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operation_id",
+          "status",
+          "polls"
+        ],
+        "title": "ReplayConsolidation"
+      },
+      "ReplayJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "cutoff": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff"
+          },
+          "availability_convention": {
+            "type": "string",
+            "const": "available_at",
+            "title": "Availability Convention"
+          },
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Company Ids"
+          },
+          "question_set": {
+            "type": "string",
+            "title": "Question Set"
+          },
+          "question_set_version": {
+            "type": "string",
+            "title": "Question Set Version"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReplayStatus"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/ReplayStage"
+          },
+          "final_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FinalStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eligible_source_versions": {
+            "type": "integer",
+            "title": "Eligible Source Versions"
+          },
+          "max_source_versions": {
+            "type": "integer",
+            "title": "Max Source Versions"
+          },
+          "selected_source_versions": {
+            "type": "integer",
+            "title": "Selected Source Versions"
+          },
+          "leakage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayLeakage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "requested_by": {
+            "type": "string",
+            "title": "Requested By"
+          },
+          "cancel_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Requested At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "bank_deleted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank Deleted At"
+          },
+          "bank_delete_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank Delete Error"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AppliedScope"
+          },
+          "question_set_sha256": {
+            "type": "string",
+            "title": "Question Set Sha256"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayQuestion"
+            },
+            "type": "array",
+            "title": "Questions"
+          },
+          "template_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Version"
+          },
+          "template_manifest_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Manifest Sha256"
+          },
+          "consolidation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayConsolidation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_versions": {
+            "items": {
+              "$ref": "#/components/schemas/ReplaySourceVersion"
+            },
+            "type": "array",
+            "title": "Source Versions"
+          },
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayAnswer"
+            },
+            "type": "array",
+            "title": "Answers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bank_id",
+          "cutoff",
+          "availability_convention",
+          "company_ids",
+          "question_set",
+          "question_set_version",
+          "status",
+          "stage",
+          "final_status",
+          "eligible_source_versions",
+          "max_source_versions",
+          "selected_source_versions",
+          "leakage",
+          "error",
+          "job_id",
+          "requested_by",
+          "cancel_requested_at",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "bank_deleted_at",
+          "bank_delete_error",
+          "scope",
+          "question_set_sha256",
+          "questions",
+          "template_version",
+          "template_manifest_sha256",
+          "consolidation",
+          "source_versions",
+          "answers"
+        ],
+        "title": "ReplayJob"
+      },
+      "ReplayJobSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "cutoff": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff"
+          },
+          "availability_convention": {
+            "type": "string",
+            "const": "available_at",
+            "title": "Availability Convention"
+          },
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Company Ids"
+          },
+          "question_set": {
+            "type": "string",
+            "title": "Question Set"
+          },
+          "question_set_version": {
+            "type": "string",
+            "title": "Question Set Version"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReplayStatus"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/ReplayStage"
+          },
+          "final_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FinalStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eligible_source_versions": {
+            "type": "integer",
+            "title": "Eligible Source Versions"
+          },
+          "max_source_versions": {
+            "type": "integer",
+            "title": "Max Source Versions"
+          },
+          "selected_source_versions": {
+            "type": "integer",
+            "title": "Selected Source Versions"
+          },
+          "leakage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayLeakage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "requested_by": {
+            "type": "string",
+            "title": "Requested By"
+          },
+          "cancel_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Requested At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "bank_deleted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank Deleted At"
+          },
+          "bank_delete_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank Delete Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bank_id",
+          "cutoff",
+          "availability_convention",
+          "company_ids",
+          "question_set",
+          "question_set_version",
+          "status",
+          "stage",
+          "final_status",
+          "eligible_source_versions",
+          "max_source_versions",
+          "selected_source_versions",
+          "leakage",
+          "error",
+          "job_id",
+          "requested_by",
+          "cancel_requested_at",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "bank_deleted_at",
+          "bank_delete_error"
+        ],
+        "title": "ReplayJobSummary"
+      },
+      "ReplayLeakage": {
+        "properties": {
+          "retained": {
+            "type": "integer",
+            "title": "Retained"
+          },
+          "recall_memories": {
+            "type": "integer",
+            "title": "Recall Memories"
+          },
+          "citations": {
+            "type": "integer",
+            "title": "Citations"
+          },
+          "source_version_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Source Version Ids"
+          },
+          "future_accepted": {
+            "type": "integer",
+            "title": "Future Accepted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "retained",
+          "recall_memories",
+          "citations",
+          "source_version_ids",
+          "future_accepted"
+        ],
+        "title": "ReplayLeakage",
+        "description": "What the replay accepted from after its cutoff: every count must be 0 (§9.2).\n\nCounted independently of the replay's own section ledger: from the Source Version each\nretained version, recalled memory (its document ID and metadata) and resolved citation\nnames, checked against the versions the replay may see."
+      },
+      "ReplayQuestion": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "title": "Key"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Question"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "question"
+        ],
+        "title": "ReplayQuestion"
+      },
+      "ReplayRecalledMemory": {
+        "properties": {
+          "memory_id": {
+            "type": "string",
+            "title": "Memory Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "occurred_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred Start"
+          },
+          "occurred_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred End"
+          },
+          "mentioned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mentioned At"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/atlas__research__provenance__Citation"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "memory_id",
+          "type",
+          "text",
+          "context",
+          "tags",
+          "occurred_start",
+          "occurred_end",
+          "mentioned_at",
+          "provenance",
+          "document_id",
+          "source_version_id"
+        ],
+        "title": "ReplayRecalledMemory",
+        "description": "A recalled memory, with the document and Source Version it names."
+      },
+      "ReplayRequest": {
+        "properties": {
+          "cutoff": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff",
+            "description": "only Source Versions available by then are retained; not in the future"
+          },
+          "company_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 25,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Ids",
+            "description": "the companies whose Source Versions are replayed and whose tags scope the questions; default: every company, the questions scoped by every theme"
+          },
+          "question_set": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question Set",
+            "description": "a configured set",
+            "default": "default"
+          },
+          "max_source_versions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 25.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Source Versions",
+            "description": "retain at most this many (the latest eligible); default and ceiling: ATLAS_REPLAY_MAX_SOURCE_VERSIONS"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cutoff"
+        ],
+        "title": "ReplayRequest"
+      },
+      "ReplaySourceVersion": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "available_at_basis": {
+            "type": "string",
+            "title": "Available At Basis"
+          },
+          "retain_status": {
+            "$ref": "#/components/schemas/RetainStatus"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
+          },
+          "polls": {
+            "type": "integer",
+            "title": "Polls"
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sections"
+          },
+          "facts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facts"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position",
+          "source_version_id",
+          "available_at",
+          "available_at_basis",
+          "retain_status",
+          "operation_id",
+          "polls",
+          "sections",
+          "facts",
+          "error"
+        ],
+        "title": "ReplaySourceVersion",
+        "description": "A Source Version the replay may see, in retain order, with its retain's outcome."
+      },
+      "ReplayStage": {
+        "type": "string",
+        "enum": [
+          "create_bank",
+          "retain",
+          "consolidate",
+          "questions",
+          "delete_bank",
+          "done"
+        ]
+      },
+      "ReplayStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "failed",
+          "cancelled"
+        ]
+      },
       "ResearchAnswer": {
         "properties": {
           "id": {
@@ -14781,6 +15955,15 @@
         ],
         "title": "RetainRequested",
         "description": "The on-demand decision recorded and the retain job that carries it out."
+      },
+      "RetainStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "submitted",
+          "completed",
+          "failed"
+        ]
       },
       "ReviewState": {
         "type": "string",

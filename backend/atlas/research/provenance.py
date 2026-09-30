@@ -25,13 +25,13 @@ citations are presented as `Evidence`.
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive
 from atlas.hindsight import CitedMemory, HindsightGateway, HindsightNotFound, Memory
@@ -156,13 +156,53 @@ class _Section:
     parsed_object_uri: str | None
 
 
+# A document's section: a row with the columns `ledger_sections` selects, or None.
+type SectionLookup = Callable[[Connection, str], RowMapping | None]
+
+
+def ledger_sections(bank_id: str) -> SectionLookup:
+    """The ledger's sections of `bank_id`: its `memory_document` rows."""
+
+    def lookup(connection: Connection, document_id: str) -> RowMapping | None:
+        return (
+            connection.execute(
+                text(
+                    "SELECT m.hindsight_document_id, m.source_version_id,"
+                    " m.section_anchor, m.section_heading, m.char_start, m.char_end,"
+                    " v.source_document_id, a.available_at, a.available_at_basis,"
+                    " v.parsed_object_uri, d.company_id, d.form_type"
+                    " FROM memory_document m"
+                    " JOIN source_version v ON v.id = m.source_version_id"
+                    " JOIN source_version_availability a ON a.source_version_id = v.id"
+                    " JOIN source_document d ON d.id = v.source_document_id"
+                    " WHERE m.hindsight_document_id = :document AND m.bank_id = :bank"
+                ),
+                {"document": document_id, "bank": bank_id},
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    return lookup
+
+
 class ProvenanceResolver:
     """Resolves one recall's or answer's memories; caches memories and texts for its life."""
 
-    def __init__(self, engine: Engine, archive: Archive, gateway: HindsightGateway) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        archive: Archive,
+        gateway: HindsightGateway,
+        *,
+        sections: SectionLookup | None = None,
+    ) -> None:
+        """`sections` finds a document's section (default: the ledger's `memory_document`
+        rows of the gateway's bank; a replay passes its own, `atlas.replay`)."""
         self._engine = engine
         self._archive = archive
         self._gateway = gateway
+        self._sections = sections or ledger_sections(gateway.bank_id)
         self._memories: dict[str, Memory | None] = {}
         self._parsed: dict[uuid.UUID, str | None] = {}
         self._uris: dict[uuid.UUID, str | None] = {}
@@ -273,24 +313,7 @@ class ProvenanceResolver:
 
     def _section(self, document_id: str, memory_id: str) -> _Section | None:
         with self._engine.connect() as connection:
-            row = (
-                connection.execute(
-                    text(
-                        "SELECT m.hindsight_document_id, m.source_version_id,"
-                        " m.section_anchor, m.section_heading, m.char_start, m.char_end,"
-                        " v.source_document_id, a.available_at, a.available_at_basis,"
-                        " v.parsed_object_uri, d.company_id, d.form_type"
-                        " FROM memory_document m"
-                        " JOIN source_version v ON v.id = m.source_version_id"
-                        " JOIN source_version_availability a ON a.source_version_id = v.id"
-                        " JOIN source_document d ON d.id = v.source_document_id"
-                        " WHERE m.hindsight_document_id = :document AND m.bank_id = :bank"
-                    ),
-                    {"document": document_id, "bank": self._gateway.bank_id},
-                )
-                .mappings()
-                .one_or_none()
-            )
+            row = self._sections(connection, document_id)
         if row is None:
             return None
         self._uris[row["source_version_id"]] = row["parsed_object_uri"]

@@ -28,7 +28,7 @@ from tests.fakes.serve import Served, serve
 from tests.harness import QUOTA_ERROR, Atlas, Clock, Metrics, at, scrape_metrics
 
 FIVE_HOURS = timedelta(hours=5)
-CODEX_KINDS = ["reflect", "refresh_mental_model", "reprocess", "retain"]
+CODEX_KINDS = ["reflect", "refresh_mental_model", "replay", "reprocess", "retain"]
 MINIMAX_KINDS = [
     "discover",
     "extract_claims",

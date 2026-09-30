@@ -28,6 +28,7 @@ from atlas.hindsight.errors import (
 )
 from atlas.hindsight.models import (
     BankConfig,
+    BankDeleted,
     Budget,
     KnowledgeNode,
     LlmRequestStats,
@@ -59,6 +60,9 @@ from atlas.settings import Settings
 DEFAULT_REQUEST_TIMEOUT = 300.0
 # Health and version reads are cheap; a readiness probe must not hang for minutes.
 SERVER_CHECK_TIMEOUT = 5.0
+
+# Banks Atlas creates for a replay and deletes afterwards (§9.2; the only banks it deletes).
+REPLAY_BANK_PREFIX = "atlas-replay-"
 
 _KNOWLEDGE_TREE = TypeAdapter(list[KnowledgeNode])
 _HISTORY = TypeAdapter(list[MentalModelRevision])
@@ -222,6 +226,23 @@ class HindsightGateway:
 
     def bank_config(self) -> BankConfig:
         return self._parse(BankConfig, self._get("/config"))
+
+    def consolidate(self) -> OperationSubmitted:
+        """Ask for consolidation now (`POST .../consolidate`); poll the operation it returns."""
+        return self._parse(OperationSubmitted, self._post("/consolidate", {}))
+
+    def delete_bank(self) -> BankDeleted:
+        """Delete the whole bank (`DELETE /banks/{id}`): only a replay bank, never another.
+
+        Raises `HindsightRuleViolation` before any call for a bank whose ID doesn't start with
+        `REPLAY_BANK_PREFIX`, and `HindsightNotFound` if the bank doesn't exist.
+        """
+        if not self.bank_id.startswith(REPLAY_BANK_PREFIX):
+            raise HindsightRuleViolation(
+                f"only a replay bank ({REPLAY_BANK_PREFIX}*) may be deleted, not {self.bank_id!r}"
+            )
+        data = self._request("DELETE", "", params=None)
+        return self._parse(BankDeleted, data)
 
     # --- mental models -------------------------------------------------------------------------
 

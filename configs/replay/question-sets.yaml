@@ -1,0 +1,22 @@
+# The fixed question sets a replay (POST /api/v1/replay-jobs, atlas.replay) asks its
+# atlas-replay-<id> bank once it holds only the Source Versions available at the cutoff.
+# Each question is asked twice, both scoped like production research (the replay's
+# companies, else every theme; tags matched any_strict): a recall, and a reflect whose
+# citations are resolved to the replay's Source Version sections.
+#
+# A set is fixed per experiment: bump its `version` on any change, so replays with different
+# questions are never compared as equal (each replay records the set's version and hash).
+# Keep sets small: every reflect is an LLM call on the local Hindsight.
+question_sets:
+  default:
+    version: "1.0.0"
+    description: Supply constraints and customer dependence, the photonics theme's core questions.
+    questions:
+      - key: supply-constraints
+        question: >-
+          What supply, capacity or manufacturing constraints do these companies report, and
+          what do they say is causing them?
+      - key: customer-dependence
+        question: >-
+          Which customers, suppliers or partners do these companies depend on, and how
+          concentrated is that dependence?

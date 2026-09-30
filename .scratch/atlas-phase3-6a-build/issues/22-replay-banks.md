@@ -6,9 +6,9 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 20 (Publish gate and Research Snapshot)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `replay-jobs` API and job
-- [ ] Runs against the recorded fake in CI; live run on the local Compose Hindsight is opt-in
-- [ ] Gate test: a synthetic future-dated fixture is accepted 0 times (absent from recall and resolved citations)
-- [ ] Replay banks are always deleted, also on failure
+- [x] `replay-jobs` API and job
+- [x] Runs against the recorded fake in CI; live run on the local Compose Hindsight is opt-in (documented procedure, `docs/runbooks.md` "Replay banks"; not run live)
+- [x] Gate test: a synthetic future-dated fixture is accepted 0 times (absent from recall and resolved citations)
+- [x] Replay banks are always deleted, also on failure

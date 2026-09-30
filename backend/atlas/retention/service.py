@@ -304,6 +304,53 @@ def version_sections(version: SourceVersionInfo, parsed_text: str) -> list[Secti
     )
 
 
+def version_tags(version: SourceVersionInfo, universe: Universe) -> list[str]:
+    """The tags every memory document of the version is retained with (the research scope's
+    `company:`/`theme:` tags, plus the source, document type and form)."""
+    tags: list[str] = []
+    if version.company_id is not None:
+        tags.append(f"company:{version.company_id}")
+        tags += [
+            f"theme:{slug}"
+            for slug, theme in sorted(universe.themes.items())
+            if version.company_slug in theme.companies
+        ]
+    tags.append(f"source:{version.provider}")
+    tags.append(f"doctype:{version.source_type}")
+    if version.form_type:
+        tags.append(f"form:{version.form_type}")
+    return tags
+
+
+def retain_item(
+    version: SourceVersionInfo,
+    parsed: str,
+    *,
+    document_id: str,
+    anchor: str,
+    heading: str | None,
+    start: int,
+    end: int,
+    tags: list[str],
+) -> RetainItem:
+    """One section of the version as a retain item: its parsed text, timestamped with the
+    version's availability, with the metadata the provenance resolver checks."""
+    return RetainItem(
+        content=parsed[start:end],
+        document_id=document_id,
+        timestamp=version.available_at,
+        context=f"{version.title}: {heading or anchor}",
+        metadata={
+            "source_version_id": str(version.id),
+            "section_anchor": anchor,
+            "char_start": str(start),
+            "char_end": str(end),
+            "available_at": version.available_at.isoformat(),
+        },
+        tags=tags,
+    )
+
+
 def is_retainable(version: SourceVersionInfo) -> bool:
     """A parse in a retainable language (English in the pilot)."""
     return (
@@ -591,39 +638,20 @@ class Retention:
 
     def _items(self, version: SourceVersionInfo, rows: Sequence[RowMapping]) -> list[RetainItem]:
         parsed = self._parsed_text(version)
-        tags = self._tags(version)
+        tags = version_tags(version, self._universe)
         return [
-            RetainItem(
-                content=parsed[row["char_start"] : row["char_end"]],
+            retain_item(
+                version,
+                parsed,
                 document_id=row["hindsight_document_id"],
-                timestamp=version.available_at,
-                context=f"{version.title}: {row['section_heading'] or row['section_anchor']}",
-                metadata={
-                    "source_version_id": str(version.id),
-                    "section_anchor": row["section_anchor"],
-                    "char_start": str(row["char_start"]),
-                    "char_end": str(row["char_end"]),
-                    "available_at": version.available_at.isoformat(),
-                },
+                anchor=row["section_anchor"],
+                heading=row["section_heading"],
+                start=row["char_start"],
+                end=row["char_end"],
                 tags=tags,
             )
             for row in rows
         ]
-
-    def _tags(self, version: SourceVersionInfo) -> list[str]:
-        tags: list[str] = []
-        if version.company_id is not None:
-            tags.append(f"company:{version.company_id}")
-            tags += [
-                f"theme:{slug}"
-                for slug, theme in sorted(self._universe.themes.items())
-                if version.company_slug in theme.companies
-            ]
-        tags.append(f"source:{version.provider}")
-        tags.append(f"doctype:{version.source_type}")
-        if version.form_type:
-            tags.append(f"form:{version.form_type}")
-        return tags
 
     def _submit(
         self,
