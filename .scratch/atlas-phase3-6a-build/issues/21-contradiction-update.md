@@ -6,8 +6,8 @@ Spec: `.scratch/atlas-phase3-6a/spec.md`.
 
 **Blocked by:** 20 (Publish gate and Research Snapshot)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Contradiction detection on new Assertions against published versions' dependencies
-- [ ] Proposed-update flag visible in the API
-- [ ] Gate test: a later contradictory source leaves the snapshot untouched
+- [x] Contradiction detection on new Assertions against published versions' dependencies
+- [x] Proposed-update flag visible in the API
+- [x] Gate test: a later contradictory source leaves the snapshot untouched

@@ -43,6 +43,7 @@ from atlas.hypotheses.model import (
 from atlas.investigations.skeptic import counterevidence_by_claim
 from atlas.investigations.tasks import accepted_claims
 from atlas.jobs.queue import JobQueue
+from atlas.proposed_updates.triggers import record_dependencies
 
 
 class HypothesisError(Exception):
@@ -462,6 +463,8 @@ class Hypotheses:
                 entity_id=str(latest.id),
                 new_hash=latest.content_sha256,
             )
+            # What it depends on: later Evidence against it proposes an update (ticket 21).
+            record_dependencies(connection, latest)
             for hook in self._hooks:
                 hook(connection, hypothesis, version_from_row(published), actor)
 

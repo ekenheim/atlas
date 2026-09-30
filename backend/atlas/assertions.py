@@ -36,6 +36,7 @@ from sqlalchemy import Connection, Engine, text
 
 from atlas.archive import Archive
 from atlas.audit import Actor, content_hash, record
+from atlas.proposed_updates.triggers import on_assertion_reviewed
 
 EpistemicType = Literal[
     "direct_source_statement",
@@ -336,6 +337,8 @@ class Assertions:
                 old_hash=_hash(before),
                 new_hash=_hash(after),
             )
+            # A published Hypothesis version citing it gets a proposed update (ticket 21).
+            on_assertion_reviewed(connection, assertion_id, state)
         return AssertionRecorded(assertion=after, audit_event_id=event.id)
 
     def _check_references(self, connection: Connection, request: AssertionCreate) -> _Cited:
