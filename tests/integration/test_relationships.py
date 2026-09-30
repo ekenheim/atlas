@@ -972,7 +972,7 @@ def test_a_company_s_own_bottleneck_facts_become_assertions_and_edges_to_product
         assert assertion["object_company_id"] is None
         assert assertion["value_json"]["object_text"] == product
         assert assertion["value_json"]["layer"] == layer
-        assert assertion["extractor_version"] == "investigator.v4"
+        assert assertion["extractor_version"] == "investigator.v5"
 
     llm.script_chat(ChatReply.answer(reviewing(expect=len(BOTTLENECK_FACTS))))
     reviewed = review(atlas, "sweep")
@@ -988,3 +988,62 @@ def test_a_company_s_own_bottleneck_facts_become_assertions_and_edges_to_product
         assert edge["review_state"] == "machine_reviewed"
     reviewer_request = asked(llm.chat_requests()[-1])["request"]
     assert {item["predicate"] for item in reviewer_request["items"]} == set(predicates)
+
+
+# --- a cue from another clause (pilot-fixes ticket 09) -------------------------------------------
+
+# The recorded Coherent 10-K's sentence: "expand" is in the InP clause, not the VCSEL one.
+VCSEL = (
+    "We continue to expand our global 6-inch InP manufacturing capacity in the United States and"
+    " Europe to support increasing customer demand, while also operating multiple 6-inch GaAs"
+    " VCSEL manufacturing facilities."
+)
+
+
+def product_assertion(atlas: Atlas, quote: str, predicate: str, object_text: str) -> str:
+    version_id = ten_k(atlas)
+    start = atlas.parsed(version_id).index(quote)
+    response = atlas.api.post(
+        "/api/v1/assertions",
+        json={
+            "subject_company_id": company_id(atlas, "coherent"),
+            "predicate": predicate,
+            "object_company_id": None,
+            "value_json": {"layer": "chip-laser", "product": None, "object_text": object_text},
+            "source_version_id": version_id,
+            "quote": quote,
+            "span_start": start,
+            "span_end": start + len(quote),
+            "epistemic_type": "company_claim",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["assertion"]["id"]
+
+
+def test_a_cue_in_another_clause_than_the_object_forms_no_edge(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    vcsel = product_assertion(
+        atlas, VCSEL, "expands_capacity_for", "6-inch GaAs VCSEL manufacturing facilities"
+    )
+    inp = product_assertion(
+        atlas, VCSEL, "expands_capacity_for", "6-inch InP manufacturing capacity"
+    )
+    llm.script_chat(ChatReply.answer(reviewing(expect=1)))
+
+    job = review(atlas, "clauses")
+
+    assert job["status"] == "succeeded", job["failures"]
+    artifacts = job["artifacts"]
+    assert (artifacts["machine_reviewed"], artifacts["not_eligible"]) == (1, 1)
+    assert artifacts["not_eligible_assertions"] == [
+        {"assertion_id": vcsel, "reason": "cue_in_other_clause"}
+    ]
+    (edge,) = relationships(atlas)
+    assert (edge["predicate"], edge["object_text"]) == (
+        "expands_capacity_for",
+        "6-inch InP manufacturing capacity",
+    )
+    (evidence,) = atlas.get(f"/api/v1/relationships/{edge['id']}")["evidence"]
+    assert evidence["assertion"]["id"] == inp

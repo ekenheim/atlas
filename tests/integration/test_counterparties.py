@@ -375,7 +375,7 @@ def test_gate_a_named_company_outside_the_universe_becomes_a_counterparty_and_th
         "supplies",
     )
     assert assertion["object_company_id"] == nvidia["id"]
-    assert assertion["extractor_version"] == "investigator.v4"
+    assert assertion["extractor_version"] == "investigator.v5"
     parsed = atlas.parsed(atlas.ten_k())
     assert parsed[assertion["span_start"] : assertion["span_end"]] == SUPPLY_QUOTE
     # Audited, in the Claim's transaction, by the Investigator.

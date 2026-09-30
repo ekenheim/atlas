@@ -15,16 +15,22 @@ from atlas.claims.extraction import (
 )
 from atlas.claims.handlers import register_claim_handlers
 from atlas.claims.predicates import (
+    BOTTLENECK_PREDICATES,
+    CLAUSE_BOUNDARY,
     LAYER_NAMES,
     LAYERS,
     PREDICATES,
     Layer,
     LayerDefinition,
     Predicate,
+    clauses,
     company_names,
     directional_cue,
+    is_generic_object,
     mentions,
+    names_object,
     names_party,
+    object_clause_cue,
     predicate_refusal,
 )
 from atlas.claims.reads import (
@@ -38,6 +44,8 @@ from atlas.claims.reads import (
 )
 
 __all__ = [
+    "BOTTLENECK_PREDICATES",
+    "CLAUSE_BOUNDARY",
     "EXTRACTOR_VERSION",
     "EXTRACT_CLAIMS_KIND",
     "INVESTIGATOR_ACTOR",
@@ -53,14 +61,18 @@ __all__ = [
     "LayerDefinition",
     "Passage",
     "Predicate",
+    "clauses",
     "company_names",
     "directional_cue",
     "extract_claims_payload",
     "get_claim",
     "get_extraction",
+    "is_generic_object",
     "list_claims",
     "mentions",
+    "names_object",
     "names_party",
+    "object_clause_cue",
     "predicate_refusal",
     "register_claim_handlers",
 ]

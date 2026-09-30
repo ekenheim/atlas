@@ -30,6 +30,18 @@ in one sentence ("the peer group includes ...") is co-mention, not a relation, a
 no pattern. This is a necessary condition only: whether the direction is right is for the
 reviewer (ticket 12), which extends this list with the reviewer model's classification.
 
+**Cue proximity** (pilot-fixes ticket 09). For a product object, the cue must be in a clause
+of the quote that names the object (`object_clause_cue`): clauses are cut only at a short
+list of boundaries (`CLAUSE_BOUNDARY`: "; ", ", while", ", whereas", ", but", ", although",
+", and also", " while also"), never at a bare comma. "We continue to expand our 6-inch InP
+manufacturing capacity ..., while also operating multiple 6-inch GaAs VCSEL manufacturing
+facilities" expands capacity for InP, not for the VCSEL facilities. A quote that doesn't name
+the object can't be judged this way and falls back to its first cue.
+
+**Named, specific objects** (pilot-fixes ticket 09). A bottleneck predicate's object must be
+named in its quote (`names_object`) and be a particular input or product, not generic words
+("certain materials, equipment and components": `is_generic_object`).
+
 **Parties.** A quote must name both parties (`names_party`): a company by one of its names
 (case-sensitive, whole words, so "coherent optics" never names Coherent), or, for the
 company whose document it is, a first-person reference ("we", "our", "the Company").
@@ -300,6 +312,106 @@ def directional_cue(predicate: str, quote: str) -> str | None:
         return None
     found = [match for cue in rule.cues if (match := cue.search(quote)) is not None]
     return min(found, key=lambda match: match.start())[0] if found else None
+
+
+# --- cue proximity (pilot-fixes ticket 09) ----------------------------------------------
+
+# Where one clause of a sentence ends and another, with its own verb, begins. Deliberately
+# short: a comma alone is never a boundary (lists, places and appositives use commas inside one
+# clause: "in Sherman, Texas, to address ..."), nor is a plain ", and".
+CLAUSE_BOUNDARY = re.compile(
+    r"(?:\s*;"
+    r"|,\s+(?:while|whilst|whereas|but|although|though)(?:\s+also)?\b"
+    r"|,\s+and also\b"
+    r"|\s+(?:whereas|while also)\b)\s*",
+    re.IGNORECASE,
+)
+_WORD = re.compile(r"[A-Za-z0-9][\w.-]*[A-Za-z0-9]|[A-Za-z0-9]")
+# Words that name no particular input or product, alone or together.
+_GENERIC_WORDS = frozenset(
+    {
+        "a", "all", "an", "and", "any", "certain", "critical", "equipment", "goods", "important",
+        "input", "inputs", "item", "items", "its", "key", "many", "material", "materials", "most",
+        "of", "or", "other", "our", "package", "packages", "packaging", "part", "parts", "product",
+        "products", "raw", "several", "significant", "some", "source", "sources", "strategic",
+        "supplies", "supply", "the", "their", "these", "those", "used", "various", "component",
+        "components", "supplier", "suppliers", "vendor", "vendors", "amount", "in", "for", "such",
+    }
+)  # fmt: skip
+
+
+def clauses(quote: str) -> list[tuple[int, int]]:
+    """`quote` cut at its clause boundaries (`CLAUSE_BOUNDARY`), as [start, end) spans."""
+    spans: list[tuple[int, int]] = []
+    start = 0
+    for boundary in CLAUSE_BOUNDARY.finditer(quote):
+        spans.append((start, boundary.start()))
+        start = boundary.end()
+    spans.append((start, len(quote)))
+    return spans
+
+
+def _object_clauses(quote: str, object_text: str, spans: list[tuple[int, int]]) -> set[int]:
+    """The clauses of `quote` that name `object_text`: those holding an occurrence of the
+    whole text (case and spacing aside), else those holding the most of its words. Empty when
+    the quote names none of it."""
+
+    def clause_of(position: int) -> int:
+        return next(i for i, (_, end) in enumerate(spans) if position <= end)
+
+    words = object_text.split()
+    if not words:
+        return set()
+    whole = re.compile(r"\s+".join(re.escape(word) for word in words), re.IGNORECASE)
+    found: set[int] = set()
+    for match in whole.finditer(quote):
+        found.update(range(clause_of(match.start()), clause_of(match.end()) + 1))
+    if found:
+        return found
+    counts = [0] * len(spans)
+    for word in {w.lower() for w in _WORD.findall(object_text)} - _GENERIC_WORDS:
+        stem = word[:-1] if len(word) > 3 and word.endswith("s") else word
+        pattern = re.compile(rf"(?<!\w){re.escape(stem)}\w*", re.IGNORECASE)
+        for index in {clause_of(m.start()) for m in pattern.finditer(quote)}:
+            counts[index] += 1
+    best = max(counts)
+    return {index for index, count in enumerate(counts) if count == best} if best else set()
+
+
+def object_clause_cue(predicate: str, quote: str, object_text: str) -> str | None:
+    """The first words expressing `predicate` in a clause of `quote` that names `object_text`,
+    or None when every cue is in another clause ("We continue to expand our 6-inch InP
+    capacity ..., while also operating multiple 6-inch GaAs VCSEL manufacturing facilities"
+    has no cue for the VCSEL facilities). When the quote doesn't name the object, the clause
+    can't be told, and this is the quote's first cue (`directional_cue`)."""
+    rule = PREDICATES.get(predicate)
+    if rule is None:
+        return None
+    spans = clauses(quote)
+    named = _object_clauses(quote, object_text, spans)
+    if not named:
+        return directional_cue(predicate, quote)
+    inside = [
+        match
+        for cue in rule.cues
+        for match in cue.finditer(quote)
+        if any(spans[i][0] <= match.start() and match.end() <= spans[i][1] for i in named)
+    ]
+    return min(inside, key=lambda match: match.start())[0] if inside else None
+
+
+def names_object(quote: str, object_text: str) -> bool:
+    """Whether `quote` contains `object_text` (case and spacing aside)."""
+    words = object_text.split()
+    pattern = r"\s+".join(re.escape(word) for word in words)
+    return bool(words) and re.search(pattern, quote, re.IGNORECASE) is not None
+
+
+def is_generic_object(object_text: str) -> bool:
+    """Whether `object_text` names no particular input or product: only words such as
+    "materials", "components", "equipment", "suppliers" ("certain materials, equipment and
+    components")."""
+    return {w.lower() for w in _WORD.findall(object_text)} <= _GENERIC_WORDS
 
 
 _CORPORATE_SUFFIX = re.compile(

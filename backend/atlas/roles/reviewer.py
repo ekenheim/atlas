@@ -19,7 +19,9 @@ from pydantic import BaseModel, ConfigDict
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 from atlas.roles.investigator import LayerOption
 
-REVIEWER_PROMPT_VERSION = 2  # v2: product objects and the company-level bottleneck predicates
+# v2: product objects and the company-level bottleneck predicates; v3: generic risk-factor
+# language and a cue in another clause (pilot-fixes ticket 09)
+REVIEWER_PROMPT_VERSION = 3
 
 Verdict = Literal["confirmed", "rejected", "uncertain"]
 Direction = Literal["as_proposed", "reversed", "undirected", "not_stated"]

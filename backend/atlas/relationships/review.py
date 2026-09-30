@@ -11,7 +11,10 @@ already reviewed is never reviewed again. One attempt:
    object is present (a company, or `value_json.object_text` for a product predicate:
    `missing_object`) and differs from the subject (`self_relationship`), and its quote has
    directional language for the predicate (`no_directional_language`: co-mention is never a
-   Relationship). Otherwise it is recorded `not_eligible` with that reason and no edge.
+   Relationship), for a product object in a clause that names the object
+   (`cue_in_other_clause`, pilot-fixes ticket 09: "we expand InP capacity, while also
+   operating VCSEL facilities" expands nothing for the VCSEL facilities). Otherwise it is
+   recorded `not_eligible` with that reason and no edge.
 2. **Deterministic checks** (`atlas.relationships.checks`): verbatim span, Tier A, explicit
    (unhedged) language. An Assertion that fails one joins its edge `needs_human_review`
    without asking the Reviewer.
@@ -35,7 +38,13 @@ from sqlalchemy import Engine, text
 
 from atlas.archive import Archive, ArchiveIntegrityError, InvalidArchiveUri, ObjectNotFound
 from atlas.audit import Actor
-from atlas.claims.predicates import LAYER_NAMES, LAYERS, PREDICATES, company_names
+from atlas.claims.predicates import (
+    LAYER_NAMES,
+    LAYERS,
+    PREDICATES,
+    company_names,
+    object_clause_cue,
+)
 from atlas.jobs.queue import Artifacts, Job
 from atlas.relationships.checks import (
     DeterministicChecks,
@@ -412,6 +421,11 @@ def _eligibility(candidate: _Candidate) -> tuple[str | None, Edge | None]:
         object_text = named.strip()
     if directional_language(rule.name, candidate.quote).verdict == "absent":
         return "no_directional_language", None
+    if (
+        object_text is not None
+        and object_clause_cue(rule.name, candidate.quote, object_text) is None
+    ):
+        return "cue_in_other_clause", None
     return None, Edge(
         subject_company_id=candidate.subject_company_id,
         predicate=rule.name,

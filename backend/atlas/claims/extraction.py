@@ -33,7 +33,11 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    occurrence is `quote_mismatch` and more than one `quote_ambiguous`; **the Assertion span
    check** then runs on the final span (`quote_mismatch`); the quote names both parties
    (`party_not_in_quote`); and it uses language expressing the predicate
-   (`no_directional_language`; co-mention is not a relation). See `atlas.claims.predicates`.
+   (`no_directional_language`; co-mention is not a relation). A bottleneck predicate's
+   product object must be named in the quote (`object_not_in_quote`) and be a particular
+   input or product, not generic materials or components (`generic_object`); and for any
+   product object the cue must be in a clause that names the object (`cue_in_other_clause`,
+   pilot-fixes ticket 09). See `atlas.claims.predicates`.
 4. **Outcome.** A Claim that passes becomes an Assertion (`extractor_version`
    `investigator.v<N>`, created by `atlas-investigator`, `value_json` holding the claim ID,
    layer, product and product object), recorded with its `claim` row in one transaction. A
@@ -64,13 +68,17 @@ from atlas.archive import Archive
 from atlas.assertions import AssertionCreate, Assertions, InvalidAssertion, check_quote
 from atlas.audit import Actor, content_hash, record
 from atlas.claims.predicates import (
+    BOTTLENECK_PREDICATES,
     LAYER_NAMES,
     LAYERS,
     PREDICATES,
     company_names,
     directional_cue,
+    is_generic_object,
     mentions,
+    names_object,
     names_party,
+    object_clause_cue,
     predicate_refusal,
 )
 from atlas.claims.reads import ClaimExtraction, Passage, SkippedVersion, get_extraction
@@ -730,6 +738,30 @@ class ClaimExtractor:
                 " naming companies together is not a relation"
             )
             return _reject(judged, "no_directional_language", message)
+        if rule.object_kind == "product":
+            object_text = (proposed.object_text or "").strip()
+            if rule.name in BOTTLENECK_PREDICATES:
+                if not names_object(quote, object_text):
+                    message = (
+                        f"{rule.name} needs the input or product named in the quote, and the"
+                        f" quote doesn't contain {object_text!r} (its `object_text`)"
+                    )
+                    return _reject(judged, "object_not_in_quote", message)
+                if is_generic_object(object_text):
+                    message = (
+                        f"{object_text!r} names no particular input or product, so the quote"
+                        f" shows nothing of layer {proposed.layer!r}: generic materials,"
+                        " components or suppliers are no Claim, and a Claim's layer is the"
+                        " layer of the object its quote names"
+                    )
+                    return _reject(judged, "generic_object", message)
+            cue = object_clause_cue(rule.name, quote, object_text)
+            if cue is None:
+                message = (
+                    f"the words expressing {rule.name} are in another clause than the"
+                    f" object ({object_text}): a verb in a neighbouring clause is no cue"
+                )
+                return _reject(judged, "cue_in_other_clause", message)
         return _Judged(
             source_version_id=version.id,
             subject_company_id=subject.id,

@@ -198,7 +198,25 @@ def test_the_reviewer_role_has_a_strict_schema_and_a_versioned_prompt() -> None:
     schema = REVIEWER.response_schema()
 
     assert REVIEWER.name == "reviewer"
-    assert (REVIEWER.prompt.name, REVIEWER.prompt.version) == ("reviewer", 2)
+    assert (REVIEWER.prompt.name, REVIEWER.prompt.version) == ("reviewer", 3)
     assert schema["additionalProperties"] is False
     review = schema["$defs"]["EdgeReview"]
     assert sorted(review["required"]) == sorted(review["properties"])
+
+
+def test_the_reviewer_prompt_names_both_precision_failure_shapes_with_the_pilot_s_sentences() -> (
+    None
+):
+    # pilot-fixes ticket 09: generic risk-factor language and a cue from another clause.
+    text = " ".join(REVIEWER.prompt.text.split())
+    for phrase in [
+        "Generic risk-factor language for a bottleneck predicate",
+        "some of our suppliers are our sole sources for certain materials, equipment and"
+        " components",
+        "we purchase raw materials, packages and components from a limited number of suppliers",
+        "exotic materials, crystals, and optics",
+        "never the layer the research question is about",
+        "A cue that belongs to another clause",
+        "while also operating multiple 6-inch GaAs VCSEL manufacturing facilities",
+    ]:
+        assert phrase in text, phrase
