@@ -19,8 +19,11 @@ env:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The same self-hosted scale set as ci.yml: on GitHub's hosted runners the suite
+    # outgrew the 30-minute limit (v0.2.2's release was cancelled at 30 minutes with the
+    # tests passed and the e2e still to run).
+    runs-on: gha-runner-scale-set-atlas
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -31,6 +34,16 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      # The runner image has the Docker CLI (dind) but not the compose plugin.
+      - name: Docker compose plugin
+        run: |
+          if ! docker compose version >/dev/null 2>&1; then
+            mkdir -p "$HOME/.docker/cli-plugins"
+            curl -fsSL -o "$HOME/.docker/cli-plugins/docker-compose" \
+              "https://github.com/docker/compose/releases/download/v2.39.4/docker-compose-linux-x86_64"
+            chmod +x "$HOME/.docker/cli-plugins/docker-compose"
+          fi
+          docker compose version
       # The CI entrypoint gates the release; the image is built (once) below.
       - run: scripts/ci.sh --no-image
 

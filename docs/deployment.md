@@ -47,7 +47,7 @@ git tag -a v1.2.3 -m "Atlas 1.2.3"
 git push origin v1.2.3             # triggers the release workflow
 ```
 
-Then watch the run under **Actions → release**. A failed `ci` job publishes nothing. To retry, fix `main`, then tag a new patch version; don't move or re-push an existing tag.
+Then watch the run under **Actions → release**. The `ci` job runs on the owner's self-hosted scale set (since 0.2.3; GitHub's hosted runners took over 30 minutes for the suite), the `publish` job on GitHub's. A failed `ci` job publishes nothing. To retry, fix `main`, then tag a new patch version; don't move or re-push an existing tag.
 
 ### First release: make the package public (once)
 
