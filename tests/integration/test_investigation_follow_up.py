@@ -188,8 +188,28 @@ def asked(body: dict[str, Any]) -> dict[str, Any]:
     return json.loads(body["messages"][1]["content"])
 
 
+# The Skeptic and the Financial Analyst run in parallel, in either order: compared in plan order.
+PARALLEL_ORDER = {"skeptic": 0, "financial_analyst": 1}
+
+
+def requests(llm: FakeLiteLLM) -> list[dict[str, Any]]:
+    """The chat requests, oldest first, with each run of consecutive Skeptic and Analyst
+    requests put in plan order (the Skeptic's first)."""
+    ordered: list[dict[str, Any]] = []
+    run: list[dict[str, Any]] = []
+    for body in [*llm.chat_requests(), None]:
+        if body is not None and body["metadata"]["role"] in PARALLEL_ORDER:
+            run.append(body)
+            continue
+        ordered.extend(sorted(run, key=lambda each: PARALLEL_ORDER[each["metadata"]["role"]]))
+        run = []
+        if body is not None:
+            ordered.append(body)
+    return ordered
+
+
 def roles(llm: FakeLiteLLM) -> list[str]:
-    return [body["metadata"]["role"] for body in llm.chat_requests()]
+    return [body["metadata"]["role"] for body in requests(llm)]
 
 
 def error_code(response: Any) -> str:
@@ -270,12 +290,23 @@ def reviewing(body: dict[str, Any]) -> JsonValue:
     }
 
 
+# The Skeptic's plan when it searches and reads nothing: one call, no passages to read.
 NOTHING_TO_READ = ChatReply.json({"queries": [], "documents": []}, tokens=(500, 50))
+# The Financial Analyst (run each round while an accepted Claim names a seed company)
+# proposes no scenario here; its proposals are ticket 19's tests (test_scenarios.py).
+ANALYSED = ChatReply.json({"scenarios": []}, tokens=(1500, 200))
+
+
+def script_parallel(llm: FakeLiteLLM) -> None:
+    """Script the Skeptic's and the Financial Analyst's answers by role: their jobs are queued
+    together and run in either order."""
+    llm.script_role("skeptic", NOTHING_TO_READ).script_role("financial_analyst", ANALYSED)
 
 
 def first_round(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG, **body: Any) -> str:
     """Run round 1 (Coherent's 10-K supplies the one Claim) to an answered research card."""
     started = start(atlas, "coherent", "lumentum", **body)
+    script_parallel(llm)
     llm.script_chat(
         ChatReply.json(
             {
@@ -290,7 +321,6 @@ def first_round(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG, **body: An
             quoting(claim(atlas, "coherent", COHERENT_QUOTE, "advanced lasers")),
             tokens=(9000, 700),
         ),
-        NOTHING_TO_READ,
         ChatReply.answer(
             editing("Coherent supplies NVIDIA with advanced lasers."), tokens=(3000, 400)
         ),
@@ -358,10 +388,7 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
     assert statuses(launched, 1) == statuses(before, 1)
     round_2 = statuses(launched, 2)
     assert round_2["scout"] == "queued"
-    assert round_2["financial_analyst"] in ("skipped", "pending")  # its slot, however built
-    assert {round_2[key] for key in PLAN if key not in ("scout", "financial_analyst")} == {
-        "pending"
-    }
+    assert {round_2[key] for key in PLAN if key != "scout"} == {"pending"}
     [started_event] = [e for e in events(atlas, investigation_id) if e["round"] == 2][:1]
     assert (started_event["type"], started_event["round"]) == ("follow_up_started", 2)
     assert started_event["detail"]["question"] == OPEN_QUESTION
@@ -374,7 +401,9 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
 
     # The round runs in the same run: the Scout searches for the open question, the
     # Investigators read only what the investigation hasn't (Coherent has nothing new; the
-    # note is Lumentum's) with the open question for recall, then the Skeptic and the Editor.
+    # note is Lumentum's) with the open question for recall, then the Skeptic and the Financial
+    # Analyst (over the investigation's accepted Claims), and the Editor.
+    script_parallel(llm)
     llm.script_chat(
         ChatReply.json(
             {"queries": [{"query": FOLLOW_UP_QUERY, "purpose": "second source"}]},
@@ -383,7 +412,6 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
         ChatReply.answer(
             quoting(claim(atlas, "lumentum", LUMENTUM_QUOTE, "EML lasers")), tokens=(2000, 300)
         ),
-        NOTHING_TO_READ,
         ChatReply.answer(
             editing("Coherent and Lumentum both supply NVIDIA with lasers."), tokens=(3000, 400)
         ),
@@ -394,18 +422,25 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
 
     found = investigation(atlas, investigation_id)
     assert (found["status"], found["stop_reason"]) == ("stopped", "answered")
-    assert statuses(found, 2) | {"financial_analyst": "-"} == {
+    assert statuses(found, 2) == {
         "scout": "succeeded",
         "investigator:coherent": "succeeded",
         "investigator:lumentum": "succeeded",
         "skeptic": "succeeded",
-        "financial_analyst": "-",
+        "financial_analyst": "succeeded",
         "editor": "succeeded",
     }
-    assert roles(llm)[5:] == ["scout", "investigator", "skeptic", "editor", "reviewer"]
-    requests = llm.chat_requests()
-    assert {body["metadata"]["run_id"] for body in requests[5:9]} == {found["run_id"]}
-    assert asked(requests[5])["request"]["research_question"] == OPEN_QUESTION
+    assert roles(llm)[6:] == [
+        "scout",
+        "investigator",
+        "skeptic",
+        "financial_analyst",
+        "editor",
+        "reviewer",
+    ]
+    sent = requests(llm)
+    assert {body["metadata"]["run_id"] for body in sent[6:11]} == {found["run_id"]}
+    assert asked(sent[6])["request"]["research_question"] == OPEN_QUESTION
     round_2 = {t["key"]: t for t in found["tasks"] if t["round"] == 2}
     assert round_2["investigator:coherent"]["artifacts"]["documents"] == 0
     discovery = atlas.get(f"/api/v1/discoveries/{round_2['scout']['artifacts']['discovery_id']}")
@@ -422,7 +457,9 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
     assert [span["quote"] for span in finding["source_spans"]] == [COHERENT_QUOTE, LUMENTUM_QUOTE]
     assert found["follow_ups"][0]["card_before"] == card_before
     assert found["usage"]["rounds"] == 2
-    assert found["usage"]["tokens_in"] == 900 + 9000 + 500 + 3000 + 400 + 2000 + 500 + 3000
+    assert found["usage"]["tokens_in"] == (
+        900 + 9000 + 500 + 1500 + 3000 + 400 + 2000 + 500 + 1500 + 3000
+    )
     # The Evidence tray: each accepted Claim with its source span, by round.
     tray = [
         (e["round"], e["subject_name"], e["object_name"], e["quote"]) for e in found["evidence"]
@@ -456,16 +493,15 @@ def test_a_follow_up_with_nothing_new_to_read_stops_without_new_independent_evid
     response = follow_up(atlas, investigation_id, CARD_QUESTION)
 
     assert response.status_code == 200, response.text
-    llm.script_chat(
-        ChatReply.json({"queries": [{"query": FOLLOW_UP_QUERY, "purpose": None}]}),
-        NOTHING_TO_READ,
-    )
+    script_parallel(llm)
+    llm.script_chat(ChatReply.json({"queries": [{"query": FOLLOW_UP_QUERY, "purpose": None}]}))
     searxng.script(FOLLOW_UP_QUERY, SearchReply.of("no-results"))
     atlas.worker_pass()
     found = investigation(atlas, investigation_id)
     assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
     # No Investigator read anything new, so the Editor made no call; the card is round 1's.
-    assert roles(llm)[5:] == ["scout", "skeptic"]
+    # (The Skeptic and the Analyst still see round 1's accepted Claim.)
+    assert roles(llm)[6:] == ["scout", "skeptic", "financial_analyst"]
     assert found["research_card"] == card_before
 
 
