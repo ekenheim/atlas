@@ -1044,6 +1044,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hypotheses/{hypothesis_id}/publish-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Publish Gate */
+        get: operations["publish_gate_api_v1_hypotheses__hypothesis_id__publish_gate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hypotheses/{hypothesis_id}/diff": {
         parameters: {
             query?: never;
@@ -4496,6 +4513,34 @@ export interface components {
             backfill_resumes_at: string | null;
             /** Kinds */
             kinds: string[];
+        };
+        /**
+         * PublishGateView
+         * @description The publish gate for the latest version, read without publishing.
+         */
+        PublishGateView: {
+            /**
+             * Version
+             * @description the latest version; null before the first draft
+             */
+            version: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence";
+            /**
+             * Blocked
+             * @description why the version can't be published whatever the checks say
+             */
+            blocked: ("no_version" | "already_published" | "status_not_publishable") | null;
+            /**
+             * Publishable
+             * @description not blocked and no check failed
+             */
+            publishable: boolean;
+            /** Failures */
+            failures: components["schemas"]["GateFailureView"][];
         };
         /** PublishRefusal */
         PublishRefusal: {
@@ -8868,6 +8913,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublishRefusalEnvelope"];
+                };
+            };
+        };
+    };
+    publish_gate_api_v1_hypotheses__hypothesis_id__publish_gate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishGateView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

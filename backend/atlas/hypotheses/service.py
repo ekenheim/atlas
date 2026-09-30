@@ -24,6 +24,7 @@ import json
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from sqlalchemy import Connection, Engine, RowMapping, text
 
@@ -464,6 +465,49 @@ class Hypotheses:
             )
             for hook in self._hooks:
                 hook(connection, hypothesis, version_from_row(published), actor)
+
+    def check_gate(self, hypothesis_id: uuid.UUID) -> "GateCheck":
+        """What publishing the latest version would meet now, without publishing: why it
+        can't be published at all (`blocked`), and every failed check of the gate."""
+        with self._engine.connect() as connection:
+            hypothesis = (
+                connection.execute(
+                    text("SELECT * FROM hypothesis WHERE id = :id"), {"id": hypothesis_id}
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if hypothesis is None:
+                raise HypothesisNotFound("hypothesis not found")
+            status: HypothesisStatus = hypothesis["status"]
+            latest = _latest(connection, hypothesis_id)
+            if latest is None:
+                return GateCheck(None, status, "no_version", ())
+            failures = tuple(
+                failure
+                for check in self._gate
+                if (failure := check(connection, hypothesis, latest)) is not None
+            )
+        blocked: GateBlock | None = None
+        if latest.published:
+            blocked = "already_published"
+        elif status not in PUBLISHABLE_FROM:
+            blocked = "status_not_publishable"
+        return GateCheck(latest.version, status, blocked, failures)
+
+
+GateBlock = Literal["no_version", "already_published", "status_not_publishable"]
+
+
+@dataclass(frozen=True)
+class GateCheck:
+    """The publish gate read for the latest version: `version` (None: no version yet),
+    `blocked` (why it can't be published whatever the gate says) and the failed checks."""
+
+    version: int | None
+    status: HypothesisStatus
+    blocked: GateBlock | None
+    failures: tuple[GateFailure, ...]
 
 
 # --- shared helpers -------------------------------------------------------------------------------

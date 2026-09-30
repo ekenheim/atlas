@@ -314,7 +314,11 @@ function SaveHypothesis({
       <h3>Hypothesis</h3>
       {saved ? (
         <p>
-          Saved as Hypothesis <Code>{saved}</Code>.
+          Saved as Hypothesis{" "}
+          <Link href={routes.hypothesis(saved)}>
+            <Code>{saved}</Code>
+          </Link>
+          .
         </p>
       ) : canSaveHypothesis(investigation) ? (
         <ActionForm

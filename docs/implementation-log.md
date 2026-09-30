@@ -2027,3 +2027,52 @@ Migration renumbering at the wave-5 merge (none deployed): 0037 → 0033 (evalua
   - The snapshot's `put` happens inside the DB transaction. If the transaction later rolls back, an orphaned content-addressed object stays in the archive (harmless).
 - **Next:** the replay (map ticket 09's local `atlas-replay-<id>` bank seeded from Source Versions with `available_at ≤ cutoff`) can read the snapshot's `source_versions` and `cutoff`. The Hypothesis dossier page (ticket 24) can link a published version's snapshot.
 Migration renumbering: ticket 20's 0038 → 0036 (after 0035 tradingview).
+
+## 2026-09-30: Phase 3-6a ticket 24, the Hypothesis dossier page (E)
+
+- **Built:**
+  - **`/hypotheses/`**: the Hypotheses list (thesis of the latest version, status, theme, versions, which are published, updated), linked from the site navigation.
+  - **`/hypothesis/?id=&version=`**: the dossier of one version (default the latest), with a version selector that puts the version in the URL. Sections:
+    - the Hypothesis (status, theme, author, first publication, next review, investigation) and JSON/Markdown export links for the chosen version (`/export?format=json|markdown&version=`);
+    - the version's record (origin, note, author, publication, content SHA-256), thesis, mechanism, predictions, catalysts, falsifiers, required evidence, alternative explanations, unresolved questions;
+    - findings from the JSON export, each citation `[n]` opening its span highlighted on the version page (`/version/?id=&assertion=`), a citations table (quote, source, the Assertion's review state now and when written), needs-review, limitations, open questions, counterevidence anchors; the Editor's unsupported statements labeled "Unsupported (not promoted)";
+    - the Skeptic's contradictions, each with its quote and span link;
+    - the diff between two versions (from/to selectors; default the chosen version and the one before), claims grouped new / contradicted / unchanged / removed with counts, and the other fields changed;
+    - the version's scenarios: inputs (low/base/high; sourced from an XBRL observation with a link to its Source Version, or from an Assertion with its quote and span link; estimated with its basis; missing), outputs per case (blocked lines say which inputs they need), and the ±20% sensitivity table; the hashes and whether recomputation is byte-identical;
+    - lifecycle and publication: buttons for the allowed transitions, the publish gate for the latest version with each failed check explained, `relationship_not_approved` listing each edge by name and linking to `/relationship/?id=`, `relationship_review_pending` linking each Assertion's span; "Publish version N". A refusal re-reads the gate;
+    - Research Snapshots: per snapshot, the integrity check (`GET /snapshots/{id}` verifies on read; a 500 `snapshot_integrity_failed` is shown as a failed check), SHA-256, archive URI and size, cutoff, who froze it, and a contents summary (Source Versions, Assertions, Relationships, scenarios, XBRL observations, runs, role calls, whether Memory reached the run, the question);
+    - history: the status changes.
+  - **`GET /api/v1/hypotheses/{id}/publish-gate`** (new read endpoint): the default gate checks run against the latest version without publishing (`Hypotheses.check_gate`), plus `blocked` (`no_version`, `already_published`, `status_not_publishable`) and `publishable`. The page shows what publishing needs before the owner clicks.
+  - `ApiError` in the frontend client carries a publish refusal's typed `failures`.
+  - **e2e seeding** (`scripts/e2e_hypothesis.py`): a second database seeded through the real services, as the integration tests do. The recorded Hindsight fake, the scripted SearXNG fake and the scripted LiteLLM fake (every role's answer written in the script) are served on localhost. Coherent is ingested from the EDGAR fixtures and an investigation runs (the Investigator quotes the supply agreement and NVIDIA's investment; the Skeptic quotes the 10-Q's share count). The Hypothesis is saved and drafted with the supply finding. A researcher scenario is attached (FY2026 revenue from XBRL, Coherent's share sourced from the supply Assertion, the rest estimated). Then the Hypothesis is moved to evidence-ready, the supply edge is approved, version 1 is published, and a correction (version 2) adds the investment finding, whose `owns` edge is left unapproved. `scripts/e2e.py` serves a second API on it (`ATLAS_E2E_HYPOTHESIS_BASE_URL`).
+- **Files:**
+  - backend: `backend/atlas/hypotheses/service.py` (`check_gate`, `GateCheck`), `backend/atlas/hypotheses/__init__.py`, `backend/atlas/api/hypotheses.py` (the endpoint, `PublishGateView`)
+  - frontend: `app/hypotheses/page.tsx`, `app/hypothesis/page.tsx`, `components/hypothesis.tsx`, `lib/hypotheses.ts` (new); `lib/api/client.ts`, `lib/routes.ts`, `app/layout.tsx` (a nav link); `lib/api/{openapi.json,schema.ts}` (regenerated)
+  - tests: `tests/integration/test_hypotheses.py` (one test), `frontend/unit/hypotheses.test.ts`, `frontend/e2e/hypothesis-dossier.spec.ts` (new)
+  - scripts: `scripts/e2e_hypothesis.py` (new), `scripts/e2e.py`
+  - docs: `AGENTS.md`, the ticket
+- **Tests:**
+  - `test_the_publish_gate_reads_what_publishing_would_meet_without_publishing` (HTTP API; real Postgres; fakes as in the module). It covers:
+    - a draft is `status_not_publishable` and still lists its failed checks;
+    - once evidence-ready, it lists exactly what a refused publish lists, and writes no snapshot;
+    - after a correction and the owner's approval it is `publishable`;
+    - once published it is `already_published`;
+    - an unknown Hypothesis is 404.
+  - `test_hypotheses.py`: **12 passed** (the whole module, the new test included).
+  - Frontend unit tests (`npm --prefix frontend run test`): **22 passed** (5 new: the version from the URL, labels, the gate explanations, the diff grouping, the snapshot summary).
+  - Playwright (`PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64 uv run python scripts/e2e.py`): **8 passed**, the 7 existing and the new `hypothesis-dossier.spec.ts`. The new spec:
+    - opens the list, then the Hypothesis (version 2 by default): its two findings with citations `[1]` `[2]`, the falsifier, the dilution contradiction;
+    - the diff "Version 1 → 2: 1 new, 0 contradicted, 1 unchanged, 0 removed. Also changed: Thesis statement.";
+    - the gate's `relationship_not_approved`: it follows the "NVIDIA owns Coherent" link, approves the edge, goes back, publishes version 2;
+    - both snapshots verified, with their contents (1 Relationship + 1 scenario; 2 Relationships + 0 scenarios);
+    - selects version 1 for its scenario: XBRL-sourced revenue, the Assertion-sourced share with its quote, estimates, base-case incremental revenue 500,000,000, sensitivity rows;
+    - fetches the JSON and Markdown export links;
+    - follows citation 1 to the highlighted supply quote on the 10-K.
+  - Local checks: ruff format/check (backend, tests, scripts), strict pyright, `gen_api_client.sh --check`, frontend lint, typecheck and build, `tests/unit` (463 passed). The full suite runs on the owner's runners.
+  - The gate-read test was written with the endpoint, not run red first.
+- **Fixture-only vs live:** everything. No live LLM, Hindsight, SearXNG or SEC call was made. The e2e Hypothesis comes from the recorded EDGAR fixtures and scripted role answers.
+- **Deviations:**
+  - The dossier's e2e data lives in a second database with its own API. It adds Coherent, NVIDIA and two edges, which would change the counts the Theme explorer, edge table and exceptions queue tests assert.
+  - `scripts/e2e_hypothesis.py` imports the test fakes and `tests.harness.Atlas` (adding the repo root to `sys.path`). No test module imports it. Its scripted answers repeat those in `test_hypotheses.py`, because test modules don't import each other.
+  - After a publication or a status change, the whole Hypothesis is re-read, so the page briefly shows its loading state.
+- **Next:** the Company dossier (B) could list the company's Hypotheses; a correction form on the dossier page (the API takes corrections, the page only reads them).
