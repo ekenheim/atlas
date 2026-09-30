@@ -8,13 +8,18 @@ Written by code, never the Editor, so a card with no finding still says, from th
   passages it was sent (across a budget-exhausted extraction and its continuation) and how
   many passages of each (pilot fix 10) and in all, the documents the budget left out, and
   the extraction's outcomes: Claims proposed, accepted, and rejected by reason code; or why
-  it read nothing.
+  it read nothing. Then (pilot fix 06) each round's Skeptic, the same way: the Source
+  Versions it read (each with who chose it: its plan, its search or code's fallback) and the
+  sections of the passages it was sent, whether its plan chose nothing for a seed company,
+  and its counterevidence items proposed, accepted and rejected by reason code; or why it
+  read nothing (skipped with no Claim to challenge, the budget spent, nothing archived, no
+  passage matching the checklist).
 """
 
 import uuid
 from typing import Any
 
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, Row, text
 
 from atlas.investigations.model import (
     CardDocumentRead,
@@ -22,6 +27,7 @@ from atlas.investigations.model import (
     CardReading,
     CardSearch,
 )
+from atlas.investigations.skeptic import used_fallback
 
 
 def coverage(
@@ -79,15 +85,18 @@ def _read(connection: Connection, investigation_id: uuid.UUID) -> list[CardReadi
     tasks = connection.execute(
         text(
             "SELECT t.id, t.round, t.key, t.company_id, t.status, t.detail, t.artifacts,"
-            " c.display_name FROM investigation_task t"
+            " t.role, c.display_name FROM investigation_task t"
             " LEFT JOIN company c ON c.id = t.company_id"
-            " WHERE t.investigation_id = :id AND t.role = 'investigator'"
+            " WHERE t.investigation_id = :id AND t.role IN ('investigator', 'skeptic')"
             " ORDER BY t.round, t.position"
         ),
         {"id": investigation_id},
     ).all()
     read: list[CardReading] = []
     for task in tasks:
+        if task.role == "skeptic":
+            read.append(_skeptic_read(connection, task))
+            continue
         artifacts: dict[str, Any] = task.artifacts
         chain = _extractions(connection, artifacts.get("extraction_id"))
         sections, per_document, sent = _sent(connection, chain)
@@ -137,6 +146,85 @@ def _read(connection: Connection, investigation_id: uuid.UUID) -> list[CardReadi
             )
         )
     return read
+
+
+def _skeptic_read(connection: Connection, task: Row[Any]) -> CardReading:
+    """The Skeptic task's row: from its search (none when it was skipped or hasn't run)."""
+    search = (
+        connection.execute(
+            text("SELECT * FROM skeptic_search WHERE task_id = :task"), {"task": task.id}
+        )
+        .mappings()
+        .one_or_none()
+    )
+    reading = CardReading(
+        round=task.round,
+        task_key=task.key,
+        company_id=None,
+        company_name=None,
+        status=task.status,
+        detail=task.detail,
+        documents=[],
+        documents_dropped=0,
+        passages=0,
+        claims_proposed=0,
+        claims_accepted=0,
+        rejected={},
+        role="skeptic",
+    )
+    if search is None:
+        return reading
+    sent: list[dict[str, Any]] = search["passages"][
+        : search["batches_done"] * search["passages_per_call"]
+    ]
+    sections: dict[str, list[str]] = {}
+    per_document: dict[str, int] = {}
+    for passage in sent:
+        key = str(passage["source_version_id"])
+        per_document[key] = per_document.get(key, 0) + 1
+        anchors = sections.setdefault(key, [])
+        if passage["section_anchor"] not in anchors:
+            anchors.append(passage["section_anchor"])
+    chosen: list[dict[str, Any]] = search["documents"]
+    titles = {
+        row.id: row.title
+        for row in connection.execute(
+            text(
+                "SELECT v.id, d.title FROM source_version v"
+                " JOIN source_document d ON d.id = v.source_document_id WHERE v.id = ANY(:ids)"
+            ),
+            {"ids": [uuid.UUID(str(each["source_version_id"])) for each in chosen]},
+        )
+    }
+    outcomes = connection.execute(
+        text(
+            "SELECT outcome, reason_code, count(*) AS n FROM counterevidence"
+            " WHERE search_id = :search GROUP BY outcome, reason_code ORDER BY outcome, reason_code"
+        ),
+        {"search": search["id"]},
+    ).all()
+    return reading.model_copy(
+        update={
+            "documents": [
+                CardDocumentRead(
+                    source_version_id=uuid.UUID(str(each["source_version_id"])),
+                    title=titles.get(uuid.UUID(str(each["source_version_id"])), ""),
+                    sections=sections.get(str(each["source_version_id"]), []),
+                    passages=per_document.get(str(each["source_version_id"]), 0),
+                    selected_by=each["selected_by"],
+                )
+                for each in chosen
+            ],
+            "documents_dropped": search["documents_dropped"],
+            "passages": len(sent),
+            "claims_proposed": sum(int(row.n) for row in outcomes),
+            "claims_accepted": sum(int(row.n) for row in outcomes if row.outcome == "accepted"),
+            "rejected": {
+                str(row.reason_code): int(row.n) for row in outcomes if row.outcome == "rejected"
+            },
+            "documents_fallback": used_fallback(connection, task.id),
+        }
+    )
 
 
 def _extractions(connection: Connection, last: Any) -> list[uuid.UUID]:

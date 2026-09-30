@@ -4,8 +4,14 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The recorded run's Skeptic plan is explained in the ticket (what it asked for, what the archive had).
-- [ ] With the pilot's seeds and archive, the Skeptic reads at least one archived Source Version per seed company; integration test at the investigation seam with the fakes.
-- [ ] The card states what the Skeptic read (or that it read nothing), like `read` does for the Investigators.
+- [x] The recorded run's Skeptic plan is explained in the ticket (what it asked for, what the archive had).
+- [x] With the pilot's seeds and archive, the Skeptic reads at least one archived Source Version per seed company; integration test at the investigation seam with the fakes.
+- [x] The card states what the Skeptic read (or that it read nothing), like `read` does for the Investigators.
+
+## Resolution
+
+**The recorded plan, explained.** `skeptic-plan.v2` was sent the question, the checklist, the supporting Claims and a `catalog` of up to 60 archived Tier A Source Versions of the seed and theme companies (the pilot's: Coherent's and Lumentum's 10-Ks, 10-Qs, 8-Ks and their EX-99.1 exhibits), with room in `max_documents`. It answered 10 checklist queries and `"documents": []`. It did not name documents found by search (it named none at all): the plan picks from the archive and chose nothing, although the archive had what the checklist needs. Its search couldn't make up for it: search results are leads, never read; only a result whose URL is a catalog document's adds that document, and none was. Nothing in code checked that the Skeptic chose something to read.
+
+**Built.** A deterministic fallback after the Skeptic's search: every seed company that neither the plan nor the search covered gets its latest 10-K and 10-Q read (or its latest two primary documents), plus, when none of those is one the investigation read already, the newest one it did read (free, so the Investigators' spent budget doesn't leave a seed company unread); then the theme's other companies' latest 10-Ks while the budget has room. Recorded as `selected_by: fallback`, a `skeptic_documents_fallback` event and the task's `documents_fallback`. Prompt `skeptic-plan.v3` says why the plan must choose archived documents and what to choose. The research card's `read` has a Skeptic row (documents, who chose each, sections, passages, counterevidence outcomes, or why it read nothing), shown on the workbench page. Decision: `docs/decisions.md`, "The Skeptic reads the archive: a deterministic fallback (pilot fix 06)".

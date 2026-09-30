@@ -291,8 +291,16 @@ def reviewing(body: dict[str, Any]) -> JsonValue:
     }
 
 
-# The Skeptic's plan when it searches and reads nothing: one call, no passages to read.
-NOTHING_TO_READ = ChatReply.json({"queries": [], "documents": []}, tokens=(500, 50))
+def finding_nothing(body: dict[str, Any]) -> JsonValue:
+    """The Skeptic finding nothing: its plan chooses no query and no document, and its reading
+    of what code's fallback then chose (pilot fix 06) proposes nothing."""
+    if "catalog" in asked(body)["request"]:
+        return {"queries": [], "documents": []}
+    return {"counterevidence": []}
+
+
+# Enough answers for the plan and every reading call (the unused ones are never asked for).
+NOTHING_TO_READ = (ChatReply.answer(finding_nothing, tokens=(500, 50)),) * 8
 # The Financial Analyst (run each round while an accepted Claim names a seed company)
 # proposes no scenario here; its proposals are ticket 19's tests (test_scenarios.py).
 ANALYSED = ChatReply.json({"scenarios": []}, tokens=(1500, 200))
@@ -301,7 +309,7 @@ ANALYSED = ChatReply.json({"scenarios": []}, tokens=(1500, 200))
 def script_parallel(llm: FakeLiteLLM) -> None:
     """Script the Skeptic's and the Financial Analyst's answers by role: their jobs are queued
     together and run in either order."""
-    llm.script_role("skeptic", NOTHING_TO_READ).script_role("financial_analyst", ANALYSED)
+    llm.script_role("skeptic", *NOTHING_TO_READ).script_role("financial_analyst", ANALYSED)
 
 
 def first_round(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG, **body: Any) -> str:
@@ -431,7 +439,10 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
         "financial_analyst": "succeeded",
         "editor": "succeeded",
     }
-    assert roles(llm)[6:] == [
+    # Each round's Skeptic plans; code's fallback chooses for the seed companies its plan chose
+    # nothing of: round 1 Coherent's filings (read in a second call), round 2 Lumentum's note
+    # (Coherent's were read by round 1's Skeptic), which has no passage for the checklist.
+    assert roles(llm)[7:] == [
         "scout",
         "investigator",
         "skeptic",
@@ -440,8 +451,8 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
         "reviewer",
     ]
     sent = requests(llm)
-    assert {body["metadata"]["run_id"] for body in sent[6:11]} == {found["run_id"]}
-    assert asked(sent[6])["request"]["research_question"] == OPEN_QUESTION
+    assert {body["metadata"]["run_id"] for body in sent[7:12]} == {found["run_id"]}
+    assert asked(sent[7])["request"]["research_question"] == OPEN_QUESTION
     round_2 = {t["key"]: t for t in found["tasks"] if t["round"] == 2}
     assert round_2["investigator:coherent"]["artifacts"]["documents"] == 0
     discovery = atlas.get(f"/api/v1/discoveries/{round_2['scout']['artifacts']['discovery_id']}")
@@ -459,7 +470,15 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
     assert found["follow_ups"][0]["card_before"] == card_before
     assert found["usage"]["rounds"] == 2
     assert found["usage"]["tokens_in"] == (
-        900 + 9000 + 500 + 1500 + 3000 + 400 + 2000 + 500 + 1500 + 3000
+        900 + 9000 + 500 + 500 + 1500 + 3000 + 400 + 2000 + 500 + 1500 + 3000
+    )
+    skeptics = [r for r in found["research_card"]["read"] if r["role"] == "skeptic"]
+    assert [(r["round"], r["documents_fallback"]) for r in skeptics] == [(1, True), (2, True)]
+    assert [d["title"] for d in skeptics[1]["documents"]] == ["lumentum-follow-up.txt"]
+    assert (skeptics[1]["passages"], skeptics[1]["detail"]) == (
+        0,
+        "the Skeptic read no passage: no passage of the 1 document it chose matches a"
+        " bear-checklist item",
     )
     # The Evidence tray: each accepted Claim with its source span, by round.
     tray = [
@@ -502,7 +521,8 @@ def test_a_follow_up_with_nothing_new_to_read_stops_without_new_independent_evid
     assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
     # No Investigator read anything new, so the Editor made no call; the card is round 1's.
     # (The Skeptic and the Analyst still see round 1's accepted Claim.)
-    assert roles(llm)[6:] == ["scout", "skeptic", "financial_analyst"]
+    # (Round 2's Skeptic plans only: nothing is archived that round 1's Skeptic didn't read.)
+    assert roles(llm)[7:] == ["scout", "skeptic", "financial_analyst"]
     assert found["research_card"] == card_before
 
 

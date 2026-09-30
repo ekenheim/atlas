@@ -297,8 +297,8 @@ class CardSearch(BaseModel):
 
 
 class CardDocumentRead(BaseModel):
-    """A Source Version an Investigator task read, and the sections of the passages it was
-    sent."""
+    """A Source Version an Investigator or Skeptic task read, and the sections of the
+    passages it was sent."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -307,26 +307,33 @@ class CardDocumentRead(BaseModel):
     sections: list[str]  # section anchors, in the order sent
     # How many passages of it were sent (0 for a card stored before pilot fix 10).
     passages: int = 0
+    # The Skeptic's documents: chosen by its plan, matched by its search, or by code's
+    # fallback (pilot fix 06). None for an Investigator's.
+    selected_by: Literal["plan", "search", "fallback"] | None = None
 
 
 class CardReading(BaseModel):
-    """What one Investigator task read and what came of it: the extraction's outcomes, so a
-    card with no finding still says why nothing was accepted."""
+    """What one Investigator or Skeptic task read and what came of it, so a card with no
+    finding (or no contradiction) still says why. For an Investigator the counts are its
+    extraction's Claims; for the Skeptic (pilot fix 06) its proposed counterevidence items."""
 
     model_config = ConfigDict(frozen=True)
 
     round: int
     task_key: str
-    company_id: uuid.UUID | None
+    company_id: uuid.UUID | None  # None for the Skeptic
     company_name: str | None
     status: str  # the task's status
     detail: str | None  # why it read nothing (the budget spent, nothing available), if so
     documents: list[CardDocumentRead]
     documents_dropped: int  # available but left out by the document budget
     passages: int
-    claims_proposed: int
-    claims_accepted: int
-    rejected: dict[str, int]  # reason code -> how many proposed Claims it rejected
+    claims_proposed: int  # the Skeptic's: counterevidence items proposed
+    claims_accepted: int  # the Skeptic's: counterevidence items accepted
+    rejected: dict[str, int]  # reason code -> how many proposed items it rejected
+    # Cards drawn before pilot fix 06 have only Investigators' rows.
+    role: Literal["investigator", "skeptic"] = "investigator"
+    documents_fallback: bool = False  # the Skeptic's plan chose nothing for a seed company
 
 
 class ResearchCard(BaseModel):

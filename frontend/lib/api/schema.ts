@@ -1938,8 +1938,8 @@ export interface components {
         };
         /**
          * CardDocumentRead
-         * @description A Source Version an Investigator task read, and the sections of the passages it was
-         *     sent.
+         * @description A Source Version an Investigator or Skeptic task read, and the sections of the
+         *     passages it was sent.
          */
         CardDocumentRead: {
             /**
@@ -1956,6 +1956,8 @@ export interface components {
              * @default 0
              */
             passages: number;
+            /** Selected By */
+            selected_by?: ("plan" | "search" | "fallback") | null;
         };
         /**
          * CardFinding
@@ -2004,8 +2006,9 @@ export interface components {
         };
         /**
          * CardReading
-         * @description What one Investigator task read and what came of it: the extraction's outcomes, so a
-         *     card with no finding still says why nothing was accepted.
+         * @description What one Investigator or Skeptic task read and what came of it, so a card with no
+         *     finding (or no contradiction) still says why. For an Investigator the counts are its
+         *     extraction's Claims; for the Skeptic (pilot fix 06) its proposed counterevidence items.
          */
         CardReading: {
             /** Round */
@@ -2034,6 +2037,17 @@ export interface components {
             rejected: {
                 [key: string]: number;
             };
+            /**
+             * Role
+             * @default investigator
+             * @enum {string}
+             */
+            role: "investigator" | "skeptic";
+            /**
+             * Documents Fallback
+             * @default false
+             */
+            documents_fallback: boolean;
         };
         /**
          * CardSearch

@@ -6,6 +6,7 @@ import {
   followUpBlocked,
   openQuestions,
   outputParts,
+  readerName,
   readingOutcome,
 } from "../lib/workbench";
 
@@ -86,6 +87,53 @@ test("an Investigator's reading says what it read and why nothing was accepted",
     detail: "the document budget is spent",
   } as unknown as CardReading;
   expect(readingOutcome(none)).toBe("the document budget is spent");
+});
+
+test("the Skeptic's reading says what code chose for it, its counterevidence, or why it read nothing", () => {
+  const reading = {
+    round: 1,
+    task_key: "skeptic",
+    role: "skeptic",
+    company_name: null,
+    documents: [
+      { source_version_id: "a", title: "10-K", sections: ["item-1a"], selected_by: "plan" },
+      { source_version_id: "b", title: "10-Q", sections: ["item-2"], selected_by: "fallback" },
+      { source_version_id: "c", title: "10-K", sections: [], selected_by: "fallback" },
+    ],
+    documents_fallback: true,
+    documents_dropped: 0,
+    passages: 6,
+    claims_proposed: 2,
+    claims_accepted: 1,
+    rejected: { quote_mismatch: 1 },
+    detail: null,
+  } as unknown as CardReading;
+  expect(readerName(reading)).toBe("Skeptic");
+  expect(readingOutcome(reading)).toBe(
+    "3 documents read; 2 chosen by code (its plan chose none for a seed company); 6 passages;" +
+      " 2 counterevidence items proposed, 1 accepted; rejected: quote mismatch ×1.",
+  );
+  const noPassage = {
+    ...reading,
+    documents: [reading.documents[0]],
+    passages: 0,
+    claims_proposed: 0,
+    claims_accepted: 0,
+    rejected: {},
+    detail: "the Skeptic read no passage: no passage of the 1 document it chose matches a checklist item",
+  } as unknown as CardReading;
+  expect(readingOutcome(noPassage)).toBe(
+    "1 document read; 0 passages; 0 counterevidence items proposed, 0 accepted;" +
+      " the Skeptic read no passage: no passage of the 1 document it chose matches a checklist item.",
+  );
+  const skipped = {
+    ...reading,
+    documents: [],
+    detail: "nothing to challenge: the Investigators accepted no Claim",
+  } as unknown as CardReading;
+  expect(readingOutcome(skipped)).toBe("nothing to challenge: the Investigators accepted no Claim");
+  const investigator = { ...reading, role: "investigator", company_name: "Coherent" };
+  expect(readerName(investigator as unknown as CardReading)).toBe("Coherent");
 });
 
 test("a task's output is shown from whatever its role recorded", () => {

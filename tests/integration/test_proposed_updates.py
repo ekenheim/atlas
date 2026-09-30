@@ -266,8 +266,16 @@ def hypothesis_editor(body: dict[str, Any]) -> JsonValue:
     }
 
 
-# The Skeptic's plan when it searches and reads nothing: one call, no passages to read.
-NOTHING_TO_READ = (ChatReply.json({"queries": [], "documents": []}, tokens=(500, 50)),)
+def finding_nothing(body: dict[str, Any]) -> JsonValue:
+    """The Skeptic finding nothing: its plan chooses no query and no document, and its reading
+    of what code's fallback then chose (pilot fix 06) proposes nothing."""
+    if "catalog" in asked(body)["request"]:
+        return {"queries": [], "documents": []}
+    return {"counterevidence": []}
+
+
+# Enough answers for the plan and every reading call (the unused ones are never asked for).
+NOTHING_TO_READ = (ChatReply.answer(finding_nothing, tokens=(500, 50)),) * 8
 
 
 def dilution_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
@@ -318,6 +326,8 @@ def investigate(
         {"query": SUBSTRATE, "purpose": "InP substrate capacity"},
         {"query": SECOND_SOURCE, "purpose": "second sources"},
     ]
+    # This investigation's Skeptic answers only: an earlier one's unused answers are dropped.
+    llm.role_replies.pop("skeptic", None)
     llm.script_role("skeptic", *skeptic)
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_chat(

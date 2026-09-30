@@ -206,6 +206,14 @@ def asked(body: dict[str, Any]) -> dict[str, Any]:
     return json.loads(body["messages"][1]["content"])
 
 
+def finding_nothing(body: dict[str, Any]) -> JsonValue:
+    """The Skeptic finding nothing: its plan chooses no query and no document, and its reading
+    of what code's fallback then chose (pilot fix 06) proposes nothing."""
+    if "catalog" in asked(body)["request"]:
+        return {"queries": [], "documents": []}
+    return {"counterevidence": []}
+
+
 def quoting(atlas: Atlas) -> Callable[[dict[str, Any]], JsonValue]:
     """The Investigator proposes the 10-K's supply Claim from the passage holding it."""
 
@@ -385,7 +393,7 @@ def investigate(
     searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
     # The Skeptic (searching and reading nothing) and the Analyst run in parallel, in either
     # order: their answers are scripted by role.
-    llm.script_role("skeptic", ChatReply.json({"queries": [], "documents": []}))
+    llm.script_role("skeptic", *[ChatReply.answer(finding_nothing)] * 8)
     llm.script_role("financial_analyst", analyst or ChatReply.answer(analysing, tokens=(2500, 600)))
     llm.script_chat(
         ChatReply.json({"queries": [{"query": SUBSTRATE, "purpose": None}]}, tokens=(900, 120)),
@@ -501,8 +509,9 @@ def test_the_financial_analyst_proposes_inputs_and_only_sourced_or_estimated_one
     assert found["stop_reason"] == "answered"
     roles = [body["metadata"]["role"] for body in llm.chat_requests()]
     assert roles[:2] == ["scout", "investigator"]
-    assert sorted(roles[2:4]) == ["financial_analyst", "skeptic"]  # in parallel, either order
-    assert roles[4:] == ["editor", "reviewer"]
+    # In parallel, either order; the Skeptic plans, then reads what code's fallback chose.
+    assert sorted(roles[2:5]) == ["financial_analyst", "skeptic", "skeptic"]
+    assert roles[5:] == ["editor", "reviewer"]
     task = analyst_task(found)
     assert task["status"] == "succeeded"
     assert task["depends_on"] == ["investigator:coherent"]

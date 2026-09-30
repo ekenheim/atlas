@@ -76,12 +76,13 @@ test("an investigation shows its plan, events and Evidence, and launches one fol
   await expect(card.getByRole("list", { name: "Open questions" }).getByRole("listitem")).toHaveText(
     [CARD_QUESTION, OPEN_QUESTION],
   );
-  // The card reports what was searched and what each Investigator read.
+  // The card reports what was searched and what each Investigator and the Skeptic read.
   await expect(
     card.getByRole("list", { name: "What was searched" }).getByRole("listitem").first(),
   ).toContainText("Round 1: 1 query");
   const read = card.getByRole("table", { name: "What was read" });
-  await expect(read.getByRole("rowheader")).toHaveText(["Coherent", "Lumentum"]);
+  await expect(read.getByRole("rowheader")).toHaveText(["Coherent", "Lumentum", "Skeptic"]);
+  await expect(read.getByRole("row", { name: /^Skeptic/ })).toContainText("chosen by code");
   await expect(read.getByRole("row", { name: /^Coherent/ })).toContainText("1 Claim proposed, 1 accepted");
   await expect(read.getByRole("row", { name: /^Lumentum/ })).toContainText(
     "no parsed Source Version",

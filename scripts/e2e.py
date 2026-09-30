@@ -496,7 +496,8 @@ def seed_workbench(database_url: str, root: Path, fakes: Fakes) -> Settings:
 
 def investigate(atlas: Atlas, fakes: Fakes, companies: dict[str, str], question: str) -> None:
     """One investigation of Coherent and Lumentum: the Scout's one query, the Investigator's
-    supply Claim (the Coherent 10-K), a Skeptic that reads nothing and a Financial Analyst that
+    supply Claim (the Coherent 10-K), a Skeptic that finds nothing in what code's fallback
+    chose for it (its plan chooses nothing) and a Financial Analyst that
     proposes no scenario (scripted by role: their jobs run in either order), an Editor
     answering with open questions, then the chained Reviewer."""
     started = atlas.api.post(
@@ -564,7 +565,14 @@ def investigate(atlas: Atlas, fakes: Fakes, companies: dict[str, str], question:
             ]
         }
 
-    fakes.llm.script_role("skeptic", ChatReply.json({"queries": [], "documents": []}))
+    def finding_nothing(body: dict[str, Any]) -> JsonValue:
+        # Its plan chooses nothing; code's fallback then chooses the seed companies' filings
+        # (pilot fix 06), and its reading of them finds no counterevidence.
+        if "catalog" in asked(body)["request"]:
+            return {"queries": [], "documents": []}
+        return {"counterevidence": []}
+
+    fakes.llm.script_role("skeptic", *[ChatReply.answer(finding_nothing)] * 8)
     fakes.llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}))
     fakes.llm.script_chat(
         ChatReply.json({"queries": [{"query": SUBSTRATE, "purpose": "InP substrate capacity"}]}),
