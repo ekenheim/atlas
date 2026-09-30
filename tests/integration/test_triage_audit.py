@@ -160,8 +160,8 @@ def test_a_skipped_section_whose_detail_lies_past_the_windows_read_is_found_and_
     audit = atlas.get(f"/api/v1/triage/audits/{created['triage_audit_id']}")
     assert audit["status"] == "completed"
     assert audit["job_status"] == "succeeded"
-    assert audit["judge_rubric_version"] == "triage_judge.v1"
-    assert audit["triage_rubric_version"] == "triage.v2"
+    assert audit["judge_rubric_version"] == "triage_judge.v2"
+    assert audit["triage_rubric_version"] == "triage.v3"
     assert audit["judge_max_chars"] == JUDGE_MAX_CHARS  # the default
     samples = {(s["source_version_id"], s["section_anchor"]): s for s in audit["samples"]}
     assert len(samples) == population == audit["samples_judged"]

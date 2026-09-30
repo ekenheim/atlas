@@ -104,10 +104,12 @@ class Settings(BaseSettings):
     # when LiteLLM is configured. The role reads each section in windows of
     # triage_excerpt_chars characters, at most triage_windows_per_section of them (spread
     # over the section when it has more, the first always included), triage_sections_per_call
-    # windows to a call; a section is retained when any window is.
+    # windows to a call; a section is retained when any window is. Ten windows of 1,500 with
+    # a 200 overlap read a section of up to ~13,300 characters in full (raised from six after
+    # the first live audit missed a footnote in a 10-window chunk).
     retention_triage: Literal["auto", "on", "off"] = "auto"
     triage_excerpt_chars: int = Field(default=1500, ge=200, le=20_000)
-    triage_windows_per_section: int = Field(default=6, ge=1, le=50)
+    triage_windows_per_section: int = Field(default=10, ge=1, le=50)
     triage_sections_per_call: int = Field(default=15, ge=1, le=50)
     # Consecutive windows overlap by this many characters, so a sentence at a window's
     # boundary is read whole in the next one (less than triage_excerpt_chars).
