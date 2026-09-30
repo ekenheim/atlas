@@ -45,6 +45,12 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    `claim.rejected`). Nothing is ever inferred from a Claim: a `supplies` Claim is one
    `supplies` Assertion, never also a `buys_from`.
 
+**The parse read** (pilot-fixes ticket 11). Each Source Version is read in its **current
+parse**: its re-parse under the current parser (`source_parse`) when it has one with text,
+else the parse it was recorded with. Each passage records that parse's `parser_version`, a
+resumed or continued extraction reads the parse its passages name, and each Claim and its
+Assertion record it: a span is checked against the parse it was made on, and only that one.
+
 **Continuing.** An extraction that stopped `budget_exhausted` is finished; a new job whose
 payload names it in `continues` (in the same, still unfinished run) sends only its remaining
 passages, from its next batch on, so a resumed investigation never proposes from a passage
@@ -83,6 +89,7 @@ from atlas.counterparties import (
 from atlas.identity import EntityResolver
 from atlas.identity.normalize import normalize_name
 from atlas.jobs.queue import Artifacts, Job
+from atlas.ledger.reads import current_parse, get_parse
 from atlas.research.provenance import Evidence
 from atlas.retention.sections import split_sections
 from atlas.roles import (
@@ -144,6 +151,9 @@ def extract_claims_payload(
 
 @dataclass(frozen=True)
 class _Version:
+    """A Source Version as read: `parse_status`, `parsed_object_uri` and `parser_version` are
+    those of the parse read (the current one, or the one its passages name)."""
+
     id: uuid.UUID
     parse_status: str
     parsed_object_uri: str | None
@@ -151,6 +161,7 @@ class _Version:
     form_type: str | None
     document_type: str | None
     company_id: uuid.UUID | None
+    parser_version: str | None = None
 
 
 @dataclass(frozen=True)
@@ -208,7 +219,7 @@ class ClaimExtractor:
         self._resolver = resolver
         self._ignored_ciks = ignored_ciks
         self._assertions = Assertions(engine, archive, INVESTIGATOR_ACTOR)
-        self._texts: dict[uuid.UUID, str] = {}
+        self._texts: dict[str, str] = {}  # by parsed object URI
         self._named: dict[str, NamedCompany] = {}  # by normalized name
 
     def extract(self, job: Job, payload: ExtractClaimsPayload | None = None) -> Artifacts:
@@ -219,8 +230,10 @@ class ClaimExtractor:
         owned = payload.run_id is None
         if extraction.status != "running":
             return _artifacts(extraction)
+        # The parse each version's passages were cut from (None: the recorded parse).
+        pins = {p.source_version_id: p.parser_version for p in extraction.passages}
         versions = {
-            version.id: version for version in self._versions(extraction.source_version_ids)
+            version.id: version for version in self._versions(extraction.source_version_ids, pins)
         }
         size = extraction.passages_per_call
         batches = [
@@ -273,6 +286,12 @@ class ClaimExtractor:
                 usable.append(version)
         hits = self._recall_hits(payload.question, usable)
         passages, dropped = self._select(usable, self._companies(), hits)
+        passages = [
+            passage.model_copy(
+                update={"parser_version": found[passage.source_version_id].parser_version}
+            )
+            for passage in passages
+        ]
         run_id = self._run_for(payload)
         extraction_id = uuid.uuid4()
         with self._engine.begin() as connection:
@@ -555,11 +574,11 @@ class ClaimExtractor:
                     " proposed, passage_id, source_version_id, subject_company_id, predicate,"
                     " object_company_id, object_text, product, layer, quote, span_start,"
                     " span_end, epistemic_type, directional_cue, outcome, reason_code, reason,"
-                    " assertion_id, offset_source) VALUES (:id, :extraction, :run, :role_call,"
-                    " :ordinal, CAST(:proposed AS jsonb), :passage, :version, :subject,"
-                    " :predicate, :object, :object_text, :product, :layer, :quote, :span_start,"
-                    " :span_end, :epistemic_type, :cue, :outcome, :reason_code, :reason,"
-                    " :assertion, :offset_source)"
+                    " assertion_id, offset_source, parser_version) VALUES (:id, :extraction,"
+                    " :run, :role_call, :ordinal, CAST(:proposed AS jsonb), :passage, :version,"
+                    " :subject, :predicate, :object, :object_text, :product, :layer, :quote,"
+                    " :span_start, :span_end, :epistemic_type, :cue, :outcome, :reason_code,"
+                    " :reason, :assertion, :offset_source, :parser_version)"
                     " RETURNING *"
                 ),
                 {
@@ -587,6 +606,7 @@ class ClaimExtractor:
                     "reason": judged.reason,
                     "assertion": assertion_id,
                     "offset_source": judged.offset_source,
+                    "parser_version": _parser_version(versions, judged.source_version_id),
                 },
             )
             .mappings()
@@ -709,6 +729,7 @@ class ClaimExtractor:
                 span_end=span[1],
                 page_or_anchor=passage.section_anchor,
                 epistemic_type=proposed.epistemic_type,
+                parser_version=version.parser_version,
             )
             check_quote(self._text(version), assertion)
         except ValidationError as error:
@@ -767,18 +788,40 @@ class ClaimExtractor:
 
     # --- reads ----------------------------------------------------------------------------------
 
-    def _versions(self, ids: Sequence[uuid.UUID]) -> list[_Version]:
+    def _versions(
+        self,
+        ids: Sequence[uuid.UUID],
+        pins: dict[uuid.UUID, str | None] | None = None,
+    ) -> list[_Version]:
+        """The versions, each in its current parse, or for a version in `pins` the parse
+        named there (None: the recorded parse)."""
+        pins = pins or {}
         with self._engine.connect() as connection:
             rows = connection.execute(
                 text(
-                    "SELECT v.id, v.parse_status, v.parsed_object_uri, d.title, d.form_type,"
-                    " d.document_type, d.company_id FROM source_version v"
+                    "SELECT v.id, d.title, d.form_type, d.document_type, d.company_id"
+                    " FROM source_version v"
                     " JOIN source_document d ON d.id = v.source_document_id"
                     " WHERE v.id = ANY(:ids)"
                 ),
                 {"ids": list(ids)},
             ).mappings()
-            return [_Version(**_row(row)) for row in rows]
+            versions: list[_Version] = []
+            for row in rows:
+                version_id: uuid.UUID = row["id"]
+                if version_id in pins:
+                    parse = get_parse(connection, version_id, pins[version_id])
+                else:
+                    parse = current_parse(connection, version_id)
+                versions.append(
+                    _Version(
+                        **_row(row),
+                        parse_status=parse.parse_status if parse else "not_applicable",
+                        parsed_object_uri=parse.parsed_object_uri if parse else None,
+                        parser_version=parse.parser_version if parse else None,
+                    )
+                )
+            return versions
 
     def _companies(self) -> list[_Company]:
         with self._engine.connect() as connection:
@@ -788,10 +831,12 @@ class ClaimExtractor:
         return [_Company(row.id, company_names(row.display_name, row.legal_name)) for row in rows]
 
     def _text(self, version: _Version) -> str:
-        if version.id not in self._texts:
-            assert version.parsed_object_uri is not None
-            self._texts[version.id] = self._archive.get(version.parsed_object_uri).decode("utf-8")
-        return self._texts[version.id]
+        """The text of the parse `version` names (cached by that parse's archived object)."""
+        assert version.parsed_object_uri is not None
+        uri = version.parsed_object_uri
+        if uri not in self._texts:
+            self._texts[uri] = self._archive.get(uri).decode("utf-8")
+        return self._texts[uri]
 
 
 def _windows(parsed: str, start: int, end: int) -> list[tuple[int, int]]:
@@ -878,6 +923,14 @@ def _artifacts(extraction: ClaimExtraction) -> Artifacts:
         "rejected": extraction.rejected,
         "batches_quarantined": extraction.batches_quarantined,
     }
+
+
+def _parser_version(
+    versions: dict[uuid.UUID, _Version], version_id: uuid.UUID | None
+) -> str | None:
+    """The parse a Claim's passage was cut from (None when it names no passage sent)."""
+    version = versions.get(version_id) if version_id is not None else None
+    return version.parser_version if version is not None else None
 
 
 def _row(row: RowMapping) -> dict[str, Any]:

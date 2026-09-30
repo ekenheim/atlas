@@ -11,6 +11,12 @@ anchors (a PDF), it is the page the span lies on, by the page's label: "page 7",
 "page iv (PDF page 2)" when the label isn't the page's number, and "pages 7-8" (with an
 en dash) across pages.
 
+**The parse.** A span is in one parse of the Source Version, recorded on the Assertion as
+`parser_version`: the parse the version was recorded with unless the request names another of
+its parses (a re-parse under a later parser, `source_parse`; pilot-fixes ticket 11). The span
+is checked against that parse only, and an Assertion never moves to another parse: a quote on
+a re-parse is a new Assertion.
+
 Review follows build plan §5.4's `verification_status` (the API calls it `review_state`):
 
 - a new Assertion is `unreviewed`
@@ -77,6 +83,11 @@ class AssertionCreate(BaseModel):
     event_start: datetime | None = None
     event_end: datetime | None = None
     epistemic_type: EpistemicType
+    parser_version: str | None = Field(
+        default=None,
+        description="the parse the offsets are in (one of the version's `parses`); default the"
+        " parse the version was recorded with",
+    )
 
     @field_validator("predicate", "page_or_anchor")
     @classmethod
@@ -120,6 +131,7 @@ class Assertion(BaseModel):
     extracted_at: datetime
     extractor_version: str
     created_by: str
+    parser_version: str  # the parse of the Source Version the span is in
     reviewer_id: str | None
     reviewed_at: datetime | None
     superseded_by: uuid.UUID | None
@@ -159,7 +171,7 @@ _SELECT = """
            source_version_id, quote, span_start, span_end, page_or_anchor, event_start,
            event_end, epistemic_type, verification_status AS review_state,
            independence_family_id, extracted_at, extractor_version, created_by,
-           reviewer_id, reviewed_at, superseded_by
+           parser_version, reviewer_id, reviewed_at, superseded_by
     FROM assertion
 """
 
@@ -176,6 +188,7 @@ _COUNT = "SELECT count(*) FROM assertion" + _FILTER  # noqa: S608 (constant frag
 
 @dataclass(frozen=True)
 class _Cited:
+    parser_version: str | None
     parse_status: str
     parsed_object_uri: str | None
     page_anchors: list[dict[str, Any]] | None
@@ -183,9 +196,10 @@ class _Cited:
 
 @dataclass(frozen=True)
 class _CitedText:
-    """A cited version's parsed text and, for a PDF, its page anchors."""
+    """A cited parse's text, its parser version and, for a PDF, its page anchors."""
 
     text: str
+    parser_version: str
     page_anchors: list[dict[str, Any]] | None
 
 
@@ -218,9 +232,11 @@ class Assertions:
 
     def _parsed_text(self, connection: Connection, request: AssertionCreate) -> _CitedText:
         cited = self._check_references(connection, request)
-        assert cited.parsed_object_uri is not None
+        assert cited.parsed_object_uri is not None and cited.parser_version is not None
         text_ = self._archive.get(cited.parsed_object_uri).decode("utf-8")
-        return _CitedText(text=text_, page_anchors=cited.page_anchors)
+        return _CitedText(
+            text=text_, parser_version=cited.parser_version, page_anchors=cited.page_anchors
+        )
 
     def _insert(
         self,
@@ -237,10 +253,10 @@ class Assertions:
                 "INSERT INTO assertion (id, subject_company_id, predicate,"
                 " object_company_id, value_json, source_version_id, quote, span_start,"
                 " span_end, page_or_anchor, event_start, event_end, epistemic_type,"
-                " extractor_version, created_by)"
+                " extractor_version, created_by, parser_version)"
                 " VALUES (:id, :subject, :predicate, :object, CAST(:value AS jsonb),"
                 " :version, :quote, :start, :end, :anchor, :event_start, :event_end,"
-                " :epistemic_type, :extractor, :actor) RETURNING id"
+                " :epistemic_type, :extractor, :actor, :parser) RETURNING id"
             ),
             {
                 "id": uuid.uuid4(),
@@ -258,6 +274,7 @@ class Assertions:
                 "epistemic_type": request.epistemic_type,
                 "extractor": extractor_version,
                 "actor": self._actor.name,
+                "parser": cited.parser_version,
             },
         ).one()
         assertion = _get(connection, row.id)
@@ -352,8 +369,8 @@ class Assertions:
                 raise InvalidAssertion("unknown_company", f"company {company_id} not found")
         row = connection.execute(
             text(
-                "SELECT parse_status, parsed_object_uri, page_anchors FROM source_version"
-                " WHERE id = :id"
+                "SELECT parser_version, parse_status, parsed_object_uri, page_anchors"
+                " FROM source_version WHERE id = :id"
             ),
             {"id": request.source_version_id},
         ).one_or_none()
@@ -361,7 +378,24 @@ class Assertions:
             raise InvalidAssertion(
                 "unknown_source_version", f"source version {request.source_version_id} not found"
             )
-        cited = _Cited(row.parse_status, row.parsed_object_uri, row.page_anchors)
+        if request.parser_version is not None and request.parser_version != row.parser_version:
+            # One of the version's re-parses (pilot-fixes ticket 11).
+            row = connection.execute(
+                text(
+                    "SELECT parser_version, parse_status, parsed_object_uri, page_anchors"
+                    " FROM source_parse WHERE source_version_id = :id AND parser_version = :parser"
+                ),
+                {"id": request.source_version_id, "parser": request.parser_version},
+            ).one_or_none()
+            if row is None:
+                raise InvalidAssertion(
+                    "no_parsed_text",
+                    f"source version {request.source_version_id} has no parse under"
+                    f" {request.parser_version}",
+                )
+        cited = _Cited(
+            row.parser_version, row.parse_status, row.parsed_object_uri, row.page_anchors
+        )
         if cited.parse_status not in _PARSED or cited.parsed_object_uri is None:
             raise InvalidAssertion(
                 "no_parsed_text",

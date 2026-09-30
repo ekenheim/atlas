@@ -25,6 +25,10 @@ class Passage(BaseModel):
     # Why it was chosen: `entity:<company_id>` (the text names that company) and/or `recall`
     # (a recall hit for the extraction's question resolved to its section).
     selected_by: list[str]
+    # The parse of the Source Version the offsets are in (pilot-fixes ticket 11): the current
+    # parse when the extraction started. None for passages chosen before migration 0046, which
+    # are in the version's recorded parse.
+    parser_version: str | None = None
 
 
 class SkippedVersion(BaseModel):
@@ -65,6 +69,9 @@ class Claim(BaseModel):
     # model's offsets, kept in `proposed`) or `located` (Atlas found its one exact occurrence in
     # the passage). Null when the quote was never placed, or recorded before migration 0024.
     offset_source: OffsetSource | None
+    # The parse of the Source Version its passage was cut from (and its span is in). Null for
+    # Claims recorded before migration 0046 (the recorded parse) and for an unknown passage.
+    parser_version: str | None = None
     proposed: dict[str, JsonValue]
     created_at: datetime
 

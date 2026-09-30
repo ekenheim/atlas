@@ -125,6 +125,7 @@ def on_counterevidence(connection: Connection, counterevidence_id: uuid.UUID) ->
             " JOIN assertion ca ON ca.id = c.assertion_id"
             " JOIN assertion da ON da.source_version_id = ca.source_version_id"
             "  AND da.span_start = ca.span_start AND da.span_end = ca.span_end"
+            "  AND da.parser_version = ca.parser_version"
             " JOIN hypothesis_dependency d ON d.kind = 'assertion' AND d.ref_id = da.id"
             " JOIN hypothesis_version v ON v.id = d.hypothesis_version_id"
             " WHERE ce.id = :id AND ce.outcome = 'accepted' AND ce.independent"

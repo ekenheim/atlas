@@ -198,8 +198,8 @@ def build_snapshot(
         "SELECT a.id, a.subject_company_id, a.predicate, a.object_company_id, a.value_json,"
         " a.source_version_id, a.quote, a.span_start, a.span_end, a.page_or_anchor,"
         " a.event_start, a.event_end, a.epistemic_type, a.verification_status,"
-        " a.independence_family_id, a.extracted_at, a.extractor_version, a.reviewer_id,"
-        " a.reviewed_at, a.superseded_by, ra.relationship_id FROM assertion a"
+        " a.independence_family_id, a.extracted_at, a.extractor_version, a.parser_version,"
+        " a.reviewer_id, a.reviewed_at, a.superseded_by, ra.relationship_id FROM assertion a"
         " LEFT JOIN relationship_assertion ra ON ra.assertion_id = a.id"
         " WHERE a.id = ANY(CAST(:ids AS uuid[])) ORDER BY a.id",
         assertion_ids,

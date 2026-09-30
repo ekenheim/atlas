@@ -9,8 +9,8 @@ Keep the change additive: nothing that reads the recorded parse today may change
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration tests at the CLI and API seams: a `text-v2` version re-parsed to `text-v3` gets a `source_parse` row with a different content hash, the recorded parse is unchanged, running it again inserts nothing, and the audit trail records it.
-- [ ] An extraction on a re-parsed version quotes the new parse and its Assertion records `text-v3`; an older Assertion's span still verifies against `text-v2`.
-- [ ] Decision entry and runbook section; `docs/data-model.md` §2.4 updated.
+- [x] Integration tests at the CLI and API seams: a `text-v2` version re-parsed to `text-v3` gets a `source_parse` row with a different content hash, the recorded parse is unchanged, running it again inserts nothing, and the audit trail records it.
+- [x] An extraction on a re-parsed version quotes the new parse and its Assertion records `text-v3`; an older Assertion's span still verifies against `text-v2`.
+- [x] Decision entry and runbook section; `docs/data-model.md` §2.4 updated.

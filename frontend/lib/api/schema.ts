@@ -1541,6 +1541,8 @@ export interface components {
             extractor_version: string;
             /** Created By */
             created_by: string;
+            /** Parser Version */
+            parser_version: string;
             /** Reviewer Id */
             reviewer_id: string | null;
             /** Reviewed At */
@@ -1594,6 +1596,11 @@ export interface components {
              * @enum {string}
              */
             epistemic_type: "direct_source_statement" | "company_claim" | "third_party_report" | "agent_inference" | "quantitative_derived";
+            /**
+             * Parser Version
+             * @description the parse the offsets are in (one of the version's `parses`); default the parse the version was recorded with
+             */
+            parser_version?: string | null;
         };
         /**
          * AssertionRecorded
@@ -2264,6 +2271,8 @@ export interface components {
             assertion_id: string | null;
             /** Offset Source */
             offset_source: ("model" | "located") | null;
+            /** Parser Version */
+            parser_version?: string | null;
             /** Proposed */
             proposed: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -4910,6 +4919,8 @@ export interface components {
             char_end: number;
             /** Selected By */
             selected_by: string[];
+            /** Parser Version */
+            parser_version?: string | null;
         };
         /** PendingKind */
         PendingKind: {
@@ -6404,6 +6415,40 @@ export interface components {
             /** Latest Version Id */
             latest_version_id: string | null;
         };
+        /**
+         * SourceParse
+         * @description One parse of a Source Version: the one it was recorded with (`recorded`, the version's
+         *     own parse columns), or a re-parse under a later parser version (a `source_parse` row).
+         */
+        SourceParse: {
+            /** Parser Version */
+            parser_version: string;
+            /** Recorded */
+            recorded: boolean;
+            /** Parse Status */
+            parse_status: string;
+            /** Parse Error */
+            parse_error: string | null;
+            /** Content Sha256 */
+            content_sha256: string | null;
+            /** Parsed Object Uri */
+            parsed_object_uri: string | null;
+            /** Language */
+            language: string | null;
+            /** Page Anchors */
+            page_anchors: components["schemas"]["PageAnchor"][] | null;
+            /** Source Parse Id */
+            source_parse_id: string | null;
+            /** Job Id */
+            job_id: string | null;
+            /**
+             * Parsed At
+             * Format: date-time
+             */
+            parsed_at: string;
+            /** Content */
+            content: string | null;
+        };
         /** @enum {string} */
         SourcePath: "sec" | "exchange:hkex" | "exchange:fca-nsm" | "exchange:amf";
         /** SourceSpan */
@@ -6520,6 +6565,10 @@ export interface components {
             /** Fetches */
             fetches: components["schemas"]["FetchObservation"][];
             evidence_family: components["schemas"]["EvidenceFamilyMembership"] | null;
+            /** Parses */
+            parses: components["schemas"]["SourceParse"][];
+            /** Current Parser Version */
+            current_parser_version: string | null;
         };
         /** SourceVersionMemory */
         SourceVersionMemory: {
@@ -7682,6 +7731,8 @@ export interface operations {
             query: {
                 /** @description raw bytes or the parsed text */
                 kind: "raw" | "parsed";
+                /** @description with kind=parsed: the parse under this parser version (the recorded parse or a re-parse, as `parses` lists them); default the recorded parse */
+                parser_version?: string | null;
             };
             header?: never;
             path: {

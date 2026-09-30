@@ -190,6 +190,15 @@ export const api = {
       query: { kind },
     }),
   parsedText: async (id: string) => (await send(api.contentUrl(id, "parsed"))).text(),
+  /** One parse's text, keyed `"<version id> <parser version>"` (a re-parse, for `useApi`). */
+  parseText: async (key: string) => {
+    const [id = "", parserVersion = ""] = key.split(" ");
+    const parsed = url("/api/v1/source-versions/{version_id}/content", {
+      path: { version_id: id },
+      query: { kind: "parsed", parser_version: parserVersion },
+    });
+    return (await send(parsed)).text();
+  },
   /** The Assertions citing one Source Version, oldest first. */
   versionAssertions: (id: string) =>
     get("/api/v1/assertions", { query: { source_version_id: id, ...PAGE } }),

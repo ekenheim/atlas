@@ -382,6 +382,7 @@ def _counterevidence(
                 "SELECT DISTINCT da.id FROM claim c JOIN assertion ca ON ca.id = c.assertion_id"
                 " JOIN assertion da ON da.source_version_id = ca.source_version_id"
                 "  AND da.span_start = ca.span_start AND da.span_end = ca.span_end"
+                "  AND da.parser_version = ca.parser_version"
                 " WHERE c.id = ANY(CAST(:claims AS uuid[])) ORDER BY da.id"
             ),
             {"claims": row["contradicts_claim_ids"]},

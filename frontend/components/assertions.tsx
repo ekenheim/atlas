@@ -46,16 +46,20 @@ function shorten(quote: string, length = 80): string {
 
 /**
  * Creating Assertions from a selection in the parsed text (`textElement`, which renders
- * `text` verbatim), and listing and reviewing this Source Version's Assertions.
+ * `text` verbatim), and listing and reviewing this Source Version's Assertions. `parserVersion`
+ * names the parse `text` is when it is not the recorded one (a re-parse): a new Assertion
+ * quotes that parse.
  */
 export function VersionAssertions({
   version,
   text,
   textElement,
+  parserVersion = null,
 }: {
   version: SourceVersionDetail;
   text: string | null;
   textElement: HTMLElement | null;
+  parserVersion?: string | null;
 }) {
   const loaded = useApi(version.id, api.versionAssertions);
   const companies = useApi("all", loadCompanies);
@@ -103,6 +107,7 @@ export function VersionAssertions({
         ) : (
           <AssertionForm
             version={version}
+            parserVersion={parserVersion}
             span={span}
             subject={subject}
             companies={companyList}
@@ -138,6 +143,7 @@ export function VersionAssertions({
 
 function AssertionForm({
   version,
+  parserVersion,
   span,
   subject,
   companies,
@@ -145,6 +151,7 @@ function AssertionForm({
   onRecorded,
 }: {
   version: SourceVersionDetail;
+  parserVersion: string | null;
   span: Span;
   subject: Company | undefined;
   companies: Company[];
@@ -188,6 +195,7 @@ function AssertionForm({
           span_end: span.span_end,
           page_or_anchor: anchor.trim() || null,
           epistemic_type: epistemicType,
+          parser_version: parserVersion,
         }),
       );
     } catch (error) {
@@ -346,6 +354,10 @@ function AssertionTable({
                 <td>
                   {assertion.span_start}–{assertion.span_end}
                   {assertion.page_or_anchor && <> ({assertion.page_or_anchor})</>}
+                  <br />
+                  <span className="muted-small">
+                    of the <Code>{assertion.parser_version}</Code> parse
+                  </span>
                 </td>
                 <td>
                   <Code>{assertion.predicate}</Code>

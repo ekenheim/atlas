@@ -338,8 +338,18 @@ function HighlightNote({
 
 function Content({ version }: { version: SourceVersionDetail }) {
   const parsed = version.content_sha256 !== null;
-  const text = useApi(parsed ? version.id : null, api.parsedText);
   const highlighted = useHighlightedAssertion();
+  // An Assertion is checked against the parse it was made on: highlighting one made on a
+  // re-parse shows that parse's text; otherwise the text is the recorded parse.
+  const reparse =
+    highlighted?.state === "ready" &&
+    highlighted.data.source_version_id === version.id &&
+    highlighted.data.parser_version !== version.parser_version
+      ? highlighted.data.parser_version
+      : null;
+  const recordedText = useApi(parsed && !reparse ? version.id : null, api.parsedText);
+  const reparseText = useApi(reparse ? `${version.id} ${reparse}` : null, api.parseText);
+  const text = reparse ? reparseText : recordedText;
   // The rendered text, where a selection makes a new Assertion's quote span.
   const [textElement, setTextElement] = useState<HTMLPreElement | null>(null);
   const [mark, setMark] = useState<HTMLElement | null>(null);
@@ -360,6 +370,14 @@ function Content({ version }: { version: SourceVersionDetail }) {
     <>
       <section aria-labelledby="parsed-text">
         <h2 id="parsed-text">Parsed text</h2>
+        <p>
+          Parse <Code>{reparse ?? version.parser_version}</Code>
+          {reparse
+            ? ", a re-parse of the original bytes (the Assertion highlighted quotes it)."
+            : version.parses.length > 1
+              ? ", as recorded; this version also has a re-parse (see its API record)."
+              : "."}
+        </p>
         <p>
           <a href={api.contentUrl(version.id, "raw")} download>
             Download original bytes
@@ -432,6 +450,7 @@ function Content({ version }: { version: SourceVersionDetail }) {
         version={version}
         text={parsed && text.state === "ready" ? text.data : null}
         textElement={textElement}
+        parserVersion={reparse}
       />
     </>
   );

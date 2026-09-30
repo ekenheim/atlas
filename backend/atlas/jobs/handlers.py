@@ -57,7 +57,8 @@ def builtin_registry(
 ) -> HandlerRegistry:
     """Every job kind Atlas knows how to run; `atlas worker` uses this registry.
 
-    Kinds that touch the database, the archive, sources or Hindsight (`ingest`, `retain`,
+    Kinds that touch the database, the archive, sources or Hindsight (`ingest`, `reparse`,
+    `retain`,
     `poll_operation`, `reprocess`, `reflect`, `refresh_mental_model`, `extract_claims`,
     `review_relationships`, `discover`,
     `investigation_task`, `propose_candidates`,
@@ -76,6 +77,7 @@ def builtin_registry(
         from atlas.hypotheses import register_hypothesis_handlers
         from atlas.investigations import register_investigation_handlers
         from atlas.ledger.ingest import INGEST_KIND, make_ingest_handler
+        from atlas.ledger.parses import REPARSE_KIND, make_reparse_handler
         from atlas.mental_models import register_mental_model_handlers
         from atlas.proposed_updates.detection import register_proposed_update_handlers
         from atlas.relationships import register_relationship_handlers
@@ -85,6 +87,8 @@ def builtin_registry(
         from atlas.tradingview.handlers import register_tradingview_handlers
 
         registry.register(INGEST_KIND, make_ingest_handler(settings))
+        # Deterministic (no LLM, no Hindsight): never paused.
+        registry.register(REPARSE_KIND, make_reparse_handler(settings))
         register_retention_handlers(registry, settings)
         register_research_handlers(registry, settings)
         register_mental_model_handlers(registry, settings, clock)
