@@ -328,9 +328,13 @@ def _skeptic(context: ScriptContext, reply: dict[str, Any], sent: dict[str, Any]
         if not holding:
             continue
         start = holding[0]["text"].index(item["quote"])
+        contradicts = item.get("contradicts", True)
         found.append(
             {
                 "passage_id": holding[0]["id"],
+                # A case's item is a contradiction of every supporting Claim (how: `limits`
+                # unless it says), or bear context when it `contradicts` nothing.
+                "kind": "contradiction" if contradicts else "bear_context",
                 "checklist_item": item["checklist_item"],
                 "subject_company_id": context.company(item["subject"]),
                 "statement": item["statement"],
@@ -338,7 +342,10 @@ def _skeptic(context: ScriptContext, reply: dict[str, Any], sent: dict[str, Any]
                 "quote_start": start,
                 "quote_end": start + len(item["quote"]),
                 "epistemic_type": item.get("epistemic_type", "company_claim"),
-                "contradicts_claim_ids": supporting if item.get("contradicts", True) else [],
+                "contradicts_claim_ids": supporting if contradicts else [],
+                "how": item.get("how", "limits") if contradicts else None,
+                "figure_name": item.get("figure_name"),
+                "figure_period": item.get("figure_period"),
                 "disproves_premise": item.get("disproves"),
             }
         )

@@ -1,6 +1,7 @@
 """The Skeptic's task (spec "Research workflow"; build plan §7.1 Skeptical Reviewer): an
-independent search for counterevidence against the investigation's supporting Claims, driven
-by the bear checklist (atlas.roles.skeptic).
+independent search for counterevidence, driven by the bear checklist (atlas.roles.skeptic).
+What it finds is recorded as one of two kinds, never both: a **contradiction** of a named
+supporting Claim, or **bear context** about a company (memory-directed reading, ticket 03).
 
 It runs after every Investigator task, beside the Financial Analyst (in either order), in the
 investigation's run and within its budgets. The task runner skips it, without an LLM call,
@@ -48,15 +49,33 @@ continues where it stopped:
    supporting Claim (`unknown_claim`); a premise it disproves is an open company premise
    (`unknown_premise`); the offsets lie in the passage (`quote_outside_passage`); the quote is
    at the offsets or has exactly one occurrence in the passage (`quote_mismatch`,
-   `quote_ambiguous`); the Assertion span check; and the quote names the subject unless the
-   document is the subject's own (`party_not_in_quote`).
-6. **Accepted** counterevidence is an Assertion (predicate `counterevidence`, extractor
-   `skeptic.v<N>`, created by `atlas-skeptic`), recorded with its `counterevidence` row and
-   audited (`counterevidence.accepted` / `.rejected`). **Independence:** its Evidence Family
-   (a Source Version outside any family is its own) against the supporting Claims' families:
-   the same family is not an independent witness, however many copies say it.
-7. **Premises.** When the task finishes, each open company premise named by accepted,
-   independent counterevidence is disproven by `atlas-skeptic` (the task runner applies it
+   `quote_ambiguous`); the Assertion span check; the quote names the subject unless the
+   document is the subject's own (`party_not_in_quote`); and a quote that is a table row with
+   no words (a label and its figures: "Inventories 2,126,823 1,437,636", `is_table_row`)
+   comes with its figure's name and period (`table_row_without_figure`).
+6. **The kind** of an item that passed, decided by code from what the Skeptic proposed:
+   - a **contradiction** names at least one supporting Claim and says how it contradicts it
+     (`how`: `denies`, `limits` or `dates`), and its quote names that Claim's subject company
+     or its object: the object company by name, or the Claim's object text (as the
+     Investigator's object check reads it, `names_object`; an object text of generic words
+     names nothing). The filer's "we" is not a name here: a risk factor in the subject's own
+     filing would otherwise contradict every Claim about it. It is kept against the Claims its
+     quote names; the others it listed are left out.
+   - everything else is **bear context**: a checklist item, a company and a span, attached to
+     no Claim. An item proposed as a contradiction that names no Claim, doesn't say how, quotes
+     a table row, or whose quote names neither the subject nor the object of any Claim it
+     listed is stored as bear context, with the reason (`kind_reason`). Bear context disproves
+     no premise.
+7. **Accepted** counterevidence of either kind is an Assertion (predicate `counterevidence`,
+   extractor `skeptic.v<N>`, created by `atlas-skeptic`), recorded with its `counterevidence`
+   row and audited (`counterevidence.accepted` / `.rejected`). **Independence** is a property
+   of contradictions: its Evidence Family (a Source Version outside any family is its own)
+   against the supporting Claims' families: the same family is not an independent witness,
+   however many copies say it. Bear context records its family and no independence. Only an
+   independent contradiction marks a finding contradicted (`counterevidence_by_claim`) and
+   may flag a published Hypothesis version (atlas.proposed_updates).
+8. **Premises.** When the task finishes, each open company premise named by an accepted,
+   independent contradiction is disproven by `atlas-skeptic` (the task runner applies it
    under the investigation's lock, cancelling only what depends on it). The question premise
    stays the researcher's to disprove.
 """
@@ -65,7 +84,7 @@ import json
 import re
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Literal
 
@@ -75,12 +94,17 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 from atlas.archive import Archive
 from atlas.assertions import AssertionCreate, Assertions, InvalidAssertion, check_quote
 from atlas.audit import Actor, content_hash, record
-from atlas.claims.predicates import company_names, mentions
+from atlas.claims.predicates import company_names, is_generic_object, mentions, names_object
 from atlas.discovery.edgar_fts import EdgarFullTextSearch
 from atlas.discovery.leads import canonical_url
 from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import add_query, filing_window, run_searches
-from atlas.investigations.model import CardContradiction, SourceSpan
+from atlas.investigations.model import (
+    CardBearContext,
+    CardBearContextItem,
+    CardContradiction,
+    SourceSpan,
+)
 from atlas.investigations.service import event
 from atlas.proposed_updates.triggers import on_counterevidence
 from atlas.retention.sections import split_sections
@@ -93,6 +117,8 @@ from atlas.roles.skeptic import (
     SKEPTIC_PROMPT_VERSION,
     CatalogDocument,
     ChecklistOption,
+    ContradictionHow,
+    CounterevidenceKind,
     KnownCompany,
     PassageInfo,
     PremiseOption,
@@ -176,10 +202,18 @@ class _Company:
 
 @dataclass(frozen=True)
 class _Judged:
+    """A proposed item as code judged it. Rejected by a check (a `reason_code`), it keeps
+    what was proposed; accepted (an `assertion`), its kind, Claims and premise are code's
+    (step 6)."""
+
     source_version_id: uuid.UUID | None
     subject_company_id: uuid.UUID | None
     span: tuple[int, int] | None
     contradicts: list[uuid.UUID]
+    kind: CounterevidenceKind
+    how: ContradictionHow | None
+    disproves_premise: str | None
+    kind_reason: str | None = None  # why an accepted item is bear context, when code made it so
     assertion: AssertionCreate | None = None
     reason_code: str | None = None
     reason: str | None = None
@@ -685,10 +719,10 @@ class Skeptic:
             if done != index:
                 return  # recorded by an earlier attempt
             passages = {p.id: p for p in batch}
-            claim_ids = {str(c["id"]): c["id"] for c in claims}
+            by_id = {str(c["id"]): c for c in claims}
             for ordinal, item in enumerate(proposed):
                 assert role_call_id is not None
-                judged = self._judge(item, passages, versions, companies, claim_ids, premises)
+                judged = self._judge(item, passages, versions, companies, by_id, premises)
                 self._insert(
                     connection,
                     search,
@@ -713,19 +747,20 @@ class Skeptic:
         passages: dict[str, SkepticPassage],
         versions: dict[uuid.UUID, _Version],
         companies: Sequence[_Company],
-        claim_ids: dict[str, uuid.UUID],
+        claims: dict[str, RowMapping],
         premises: dict[str, str],
     ) -> _Judged:
         passage = passages.get(item.passage_id)
         subject = next((c for c in companies if str(c.id) == item.subject_company_id), None)
-        contradicts = [
-            claim_ids[c] for c in dict.fromkeys(item.contradicts_claim_ids) if c in claim_ids
-        ]
+        listed = [claims[c] for c in dict.fromkeys(item.contradicts_claim_ids) if c in claims]
         judged = _Judged(
             source_version_id=passage.source_version_id if passage else None,
             subject_company_id=subject.id if subject else None,
             span=None,
-            contradicts=contradicts,
+            contradicts=[c["id"] for c in listed],
+            kind=item.kind,
+            how=item.how if item.kind == "contradiction" else None,
+            disproves_premise=item.disproves_premise,
         )
         if item.checklist_item not in CHECKLIST_NAMES:
             return _reject(
@@ -745,7 +780,7 @@ class Skeptic:
         if subject is None:
             message = f"subject {item.subject_company_id!r} is not a known company ID"
             return _reject(judged, "unknown_company", message)
-        unknown = [c for c in item.contradicts_claim_ids if c not in claim_ids]
+        unknown = [c for c in item.contradicts_claim_ids if c not in claims]
         if unknown:
             return _reject(
                 judged,
@@ -773,18 +808,13 @@ class Skeptic:
         if isinstance(placed, _Unplaced):
             return _reject(judged, placed.code, placed.reason)
         span = (passage.char_start + placed[0], passage.char_start + placed[1])
-        judged = _Judged(judged.source_version_id, subject.id, span, contradicts)
+        judged = replace(judged, span=span)
         try:
             assertion = AssertionCreate(
                 subject_company_id=subject.id,
                 predicate=COUNTEREVIDENCE_PREDICATE,
                 object_company_id=None,
-                value_json={
-                    "checklist_item": item.checklist_item,
-                    "statement": item.statement,
-                    "contradicts_claim_ids": [str(c) for c in contradicts],
-                    "disproves_premise": item.disproves_premise,
-                },
+                value_json=None,  # written below, once the kind is settled
                 source_version_id=version.id,
                 quote=item.quote,
                 span_start=span[0],
@@ -805,7 +835,43 @@ class Skeptic:
                 "party_not_in_quote",
                 f"the quote doesn't name {subject.names[0]}, and the document isn't its own",
             )
-        return _Judged(judged.source_version_id, subject.id, span, contradicts, assertion)
+        table_row = is_table_row(item.quote)
+        figure_name, figure_period = _stated(item.figure_name), _stated(item.figure_period)
+        if table_row and (figure_name is None or figure_period is None):
+            return _reject(
+                judged,
+                "table_row_without_figure",
+                "the quote is a table row with no words: it is accepted only as bear context,"
+                " and only when the item states the figure's name (`figure_name`) and its"
+                " period (`figure_period`)",
+            )
+        names = {c.id: c.names for c in companies}
+        kind, against, kind_reason = _settle(item, listed, names, table_row=table_row)
+        contradiction = kind == "contradiction"
+        how = item.how if contradiction else None
+        premise = item.disproves_premise if contradiction else None
+        if not contradiction and item.disproves_premise is not None:
+            left_out = "bear context disproves no premise: `disproves_premise` is left out"
+            kind_reason = f"{kind_reason}; {left_out}" if kind_reason else left_out
+        value: dict[str, JsonValue] = {
+            "kind": kind,
+            "checklist_item": item.checklist_item,
+            "statement": item.statement,
+            "contradicts_claim_ids": [str(c) for c in against],
+            "how": how,
+            "disproves_premise": premise,
+        }
+        if figure_name is not None or figure_period is not None:
+            value |= {"figure_name": figure_name, "figure_period": figure_period}
+        return replace(
+            judged,
+            contradicts=against,
+            kind=kind,
+            how=how,
+            disproves_premise=premise,
+            kind_reason=kind_reason,
+            assertion=assertion.model_copy(update={"value_json": value}),
+        )
 
     def _insert(
         self,
@@ -843,6 +909,8 @@ class Skeptic:
         if assertion_id is not None:
             assert judged.source_version_id is not None
             family = _family_of(connection, judged.source_version_id)
+        if family is not None and judged.kind == "contradiction":
+            # Independence is a property of contradictions; bear context has none.
             independent = family not in supporting_families
             detail = (
                 f"its Evidence Family ({family}) is none of the supporting Claims'"
@@ -858,11 +926,13 @@ class Skeptic:
                     " source_version_id, subject_company_id, statement, quote, span_start,"
                     " span_end, epistemic_type, contradicts_claim_ids, disproves_premise,"
                     " outcome, reason_code, reason, assertion_id, evidence_family, independent,"
-                    " independence_detail) VALUES (:id, :search, :investigation, :run,"
+                    " independence_detail, kind, how, kind_reason, figure_name, figure_period)"
+                    " VALUES (:id, :search, :investigation, :run,"
                     " :role_call, :batch, :ordinal, CAST(:proposed AS jsonb), :item, :passage,"
                     " :version, :subject, :statement, :quote, :span_start, :span_end,"
                     " :epistemic_type, :contradicts, :premise, :outcome, :reason_code, :reason,"
-                    " :assertion, :family, :independent, :detail) RETURNING *"
+                    " :assertion, :family, :independent, :detail, :kind, :how, :kind_reason,"
+                    " :figure_name, :figure_period) RETURNING *"
                 ),
                 {
                     "id": counterevidence_id,
@@ -883,7 +953,7 @@ class Skeptic:
                     "span_end": judged.span[1] if judged.span else None,
                     "epistemic_type": item.epistemic_type,
                     "contradicts": judged.contradicts,
-                    "premise": item.disproves_premise,
+                    "premise": judged.disproves_premise,
                     "outcome": "accepted" if assertion_id else "rejected",
                     "reason_code": judged.reason_code,
                     "reason": judged.reason,
@@ -891,6 +961,11 @@ class Skeptic:
                     "family": family,
                     "independent": independent,
                     "detail": detail,
+                    "kind": judged.kind,
+                    "how": judged.how,
+                    "kind_reason": judged.kind_reason if assertion_id else None,
+                    "figure_name": _stated(item.figure_name),
+                    "figure_period": _stated(item.figure_period),
                 },
             )
             .mappings()
@@ -905,7 +980,8 @@ class Skeptic:
             new_hash=content_hash(dict(row)),
         )
         if independent:
-            # Against a statement a published Hypothesis version cites (ticket 21).
+            # An independent contradiction of a statement a published Hypothesis version
+            # cites (ticket 21).
             on_counterevidence(connection, counterevidence_id)
 
     # --- 7. premises, artifacts -----------------------------------------------------------------
@@ -915,8 +991,8 @@ class Skeptic:
             rows = connection.execute(
                 text(
                     "SELECT id, disproves_premise, statement FROM counterevidence"
-                    " WHERE search_id = :id AND outcome = 'accepted' AND independent"
-                    " AND disproves_premise IS NOT NULL ORDER BY batch, ordinal"
+                    " WHERE search_id = :id AND outcome = 'accepted' AND kind = 'contradiction'"
+                    " AND independent AND disproves_premise IS NOT NULL ORDER BY batch, ordinal"
                 ),
                 {"id": search_id},
             ).all()
@@ -940,8 +1016,16 @@ class Skeptic:
                 text(
                     "SELECT count(*) FILTER (WHERE outcome = 'accepted') AS accepted,"
                     " count(*) FILTER (WHERE outcome = 'rejected') AS rejected,"
-                    " count(*) FILTER (WHERE independent) AS independent,"
-                    " count(DISTINCT evidence_family) FILTER (WHERE independent)"
+                    " count(*) FILTER (WHERE outcome = 'accepted' AND kind = 'contradiction')"
+                    " AS contradictions,"
+                    " count(*) FILTER (WHERE outcome = 'accepted' AND kind = 'bear_context')"
+                    " AS bear_context,"
+                    " count(*) FILTER (WHERE outcome = 'accepted' AND kind = 'bear_context'"
+                    "  AND proposed ->> 'kind' = 'contradiction') AS demoted,"
+                    " count(*) FILTER (WHERE kind = 'contradiction' AND independent)"
+                    " AS independent,"
+                    " count(DISTINCT evidence_family)"
+                    "  FILTER (WHERE kind = 'contradiction' AND independent)"
                     " AS independent_families"
                     " FROM counterevidence WHERE search_id = :id"
                 ),
@@ -975,6 +1059,10 @@ class Skeptic:
             "batches_total": search["batches_total"],
             "counterevidence_accepted": int(counts.accepted),
             "counterevidence_rejected": int(counts.rejected),
+            "contradictions_accepted": int(counts.contradictions),
+            "bear_context_accepted": int(counts.bear_context),
+            # Proposed as contradictions, stored as bear context (step 6).
+            "contradictions_demoted": int(counts.demoted),
             "counterevidence_independent": int(counts.independent),
             "independent_evidence_families": int(counts.independent_families),
         }
@@ -1025,22 +1113,39 @@ class Skeptic:
 # --- the read side: counterevidence on the research card and Hypotheses ---------------------
 
 
+_ACCEPTED = (
+    "SELECT c.id, c.checklist_item, c.statement, c.subject_company_id, co.display_name,"
+    " c.contradicts_claim_ids, c.disproves_premise, c.source_version_id, c.quote,"
+    " c.span_start, c.span_end, c.assertion_id, c.evidence_family, c.independent,"
+    " c.independence_detail, c.how, c.kind_reason, c.figure_name, c.figure_period,"
+    " a.verification_status, v.available_at"
+    " FROM counterevidence c JOIN skeptic_search s ON s.id = c.search_id"
+    " JOIN investigation_task t ON t.id = s.task_id"
+    " JOIN assertion a ON a.id = c.assertion_id"
+    " JOIN source_version v ON v.id = c.source_version_id"
+    " JOIN company co ON co.id = c.subject_company_id"
+    " WHERE c.investigation_id = :id AND c.outcome = 'accepted' AND c.kind = :kind"
+    " ORDER BY t.round, c.batch, c.ordinal"
+)
+
+
+def _span(row: RowMapping) -> SourceSpan:
+    """An accepted item's Assertion span (`claim_id` is the item's ID)."""
+    return SourceSpan(
+        claim_id=row["id"],
+        assertion_id=row["assertion_id"],
+        source_version_id=row["source_version_id"],
+        span_start=row["span_start"],
+        span_end=row["span_end"],
+        quote=row["quote"],
+        verification_status=row["verification_status"],
+    )
+
+
 def contradictions(connection: Connection, investigation_id: uuid.UUID) -> list[CardContradiction]:
-    """The investigation's accepted counterevidence, independent or not, in the order found."""
+    """The investigation's accepted contradictions, independent or not, in the order found."""
     rows = connection.execute(
-        text(
-            "SELECT c.id, c.checklist_item, c.statement, c.subject_company_id,"
-            " c.contradicts_claim_ids, c.disproves_premise, c.source_version_id, c.quote,"
-            " c.span_start, c.span_end, c.assertion_id, c.evidence_family, c.independent,"
-            " c.independence_detail, a.verification_status, v.available_at"
-            " FROM counterevidence c JOIN skeptic_search s ON s.id = c.search_id"
-            " JOIN investigation_task t ON t.id = s.task_id"
-            " JOIN assertion a ON a.id = c.assertion_id"
-            " JOIN source_version v ON v.id = c.source_version_id"
-            " WHERE c.investigation_id = :id AND c.outcome = 'accepted'"
-            " ORDER BY t.round, c.batch, c.ordinal"
-        ),
-        {"id": investigation_id},
+        text(_ACCEPTED), {"id": investigation_id, "kind": "contradiction"}
     ).mappings()
     return [
         CardContradiction(
@@ -1049,16 +1154,9 @@ def contradictions(connection: Connection, investigation_id: uuid.UUID) -> list[
             statement=row["statement"],
             subject_company_id=row["subject_company_id"],
             contradicts_claim_ids=row["contradicts_claim_ids"],
+            how=row["how"],
             disproves_premise=row["disproves_premise"],
-            source_span=SourceSpan(
-                claim_id=row["id"],
-                assertion_id=row["assertion_id"],
-                source_version_id=row["source_version_id"],
-                span_start=row["span_start"],
-                span_end=row["span_end"],
-                quote=row["quote"],
-                verification_status=row["verification_status"],
-            ),
+            source_span=_span(row),
             evidence_family=row["evidence_family"],
             independent=row["independent"],
             independence_detail=row["independence_detail"],
@@ -1068,10 +1166,42 @@ def contradictions(connection: Connection, investigation_id: uuid.UUID) -> list[
     ]
 
 
+def bear_context(connection: Connection, investigation_id: uuid.UUID) -> list[CardBearContext]:
+    """The investigation's accepted bear context, grouped by checklist item (in checklist
+    order) and company (in the order found); each group's items in the order found."""
+    rows = connection.execute(
+        text(_ACCEPTED), {"id": investigation_id, "kind": "bear_context"}
+    ).mappings()
+    items: dict[tuple[str, uuid.UUID], list[CardBearContextItem]] = {}
+    companies: dict[uuid.UUID, str] = {}
+    for row in rows:
+        companies[row["subject_company_id"]] = row["display_name"]
+        items.setdefault((row["checklist_item"], row["subject_company_id"]), []).append(
+            CardBearContextItem(
+                counterevidence_id=row["id"],
+                statement=row["statement"],
+                source_span=_span(row),
+                evidence_available_at=row["available_at"],
+                figure_name=row["figure_name"],
+                figure_period=row["figure_period"],
+                reason=row["kind_reason"],
+            )
+        )
+    order = {name: index for index, name in enumerate(CHECKLIST_NAMES)}
+    return [
+        CardBearContext(
+            checklist_item=item, company_id=company, company_name=companies[company], items=found
+        )
+        for (item, company), found in sorted(
+            items.items(), key=lambda group: order.get(group[0][0], len(order))
+        )
+    ]
+
+
 def counterevidence_by_claim(
     found: Sequence[CardContradiction],
 ) -> dict[uuid.UUID, list[uuid.UUID]]:
-    """Claim ID -> the independent counterevidence contradicting it (what a finding lists)."""
+    """Claim ID -> the independent contradictions of it (what a finding lists)."""
     by_claim: dict[uuid.UUID, list[uuid.UUID]] = {}
     for each in found:
         if each.independent:
@@ -1359,15 +1489,101 @@ def _place(window: str, item: ProposedCounterevidence) -> tuple[int, int] | _Unp
 
 
 def _reject(judged: _Judged, code: str, reason: str) -> _Judged:
-    return _Judged(
-        judged.source_version_id,
-        judged.subject_company_id,
-        judged.span,
-        judged.contradicts,
-        None,
-        code,
-        reason[:_ERROR_LIMIT],
+    return replace(judged, assertion=None, reason_code=code, reason=reason[:_ERROR_LIMIT])
+
+
+# A figure cell of a table row: a number (with its sign, currency, percent or parentheses),
+# or a dash standing for none; a lone currency or percent sign between cells is filler.
+_NUMBER = re.compile(r"^[(\[]?[-+]?[$€£¥]?(?:\d[\d,.]*\d|\d)%?[)\]]?$")
+_DASH = re.compile(r"^[\u2014\u2013-]$")  # an em dash, an en dash or a hyphen
+_FILLER = re.compile(r"^[$€£¥%]$")
+
+
+def is_table_row(quote: str) -> bool:
+    """Whether `quote` is a table row with no words: a label (or none) followed only by
+    figures, at least two cells of them ("Inventories 2,126,823 1,437,636", "Diluted 96.2 69.3
+    87.4 68.8", "Short-term investments 825,000 —"). A sentence that ends in a number isn't
+    one, nor is a label with a single figure."""
+    cells: list[str] = []
+    for token in reversed(quote.split()):
+        if _NUMBER.match(token) or _DASH.match(token):
+            cells.append(token)
+        elif not _FILLER.match(token):
+            break
+    return len(cells) >= 2 and any(_NUMBER.match(cell) for cell in cells)
+
+
+def _names_claim(quote: str, claim: RowMapping, names: dict[uuid.UUID, list[str]]) -> bool:
+    """Whether `quote` names the Claim's subject company or its object: the object company by
+    one of its names, or the Claim's object text (a generic one names nothing). The filer's
+    "we" is not a name."""
+    if mentions(quote, names.get(claim["subject_company_id"], [claim["subject_name"]])):
+        return True
+    if claim["object_company_id"] is not None:
+        known = names.get(claim["object_company_id"], [claim["object_name"] or ""])
+        return mentions(quote, [name for name in known if name])
+    object_text: str = (claim["object_text"] or "").strip()
+    return (
+        bool(object_text)
+        and not is_generic_object(object_text)
+        and names_object(quote, object_text)
     )
+
+
+def _settle(
+    item: ProposedCounterevidence,
+    listed: Sequence[RowMapping],
+    names: dict[uuid.UUID, list[str]],
+    *,
+    table_row: bool,
+) -> tuple[CounterevidenceKind, list[uuid.UUID], str | None]:
+    """An accepted item's kind (the module's step 6): the kind, the Claims it contradicts,
+    and why it is bear context when the Skeptic proposed otherwise."""
+    if item.kind == "bear_context":
+        reason = (
+            "bear context is attached to no Claim: the Claim IDs it listed are left out"
+            if listed
+            else None
+        )
+        return "bear_context", [], reason
+    proposed = "proposed as a contradiction, but"
+    if not listed:
+        return "bear_context", [], f"{proposed} it names no Claim"
+    if item.how is None:
+        return (
+            "bear_context",
+            [],
+            f"{proposed} it doesn't say how it contradicts the Claim (denies, limits or dates it)",
+        )
+    if table_row:
+        return (
+            "bear_context",
+            [],
+            f"{proposed} its quote is a table row, which states nothing that could deny,"
+            " limit or date a Claim",
+        )
+    named = [claim for claim in listed if _names_claim(item.quote, claim, names)]
+    if not named:
+        claims = "; ".join(_claim_label(claim) for claim in listed)
+        return (
+            "bear_context",
+            [],
+            f"{proposed} its quote names neither the subject nor the object of the Claim"
+            f" it lists ({claims})"[:_ERROR_LIMIT],
+        )
+    return "contradiction", [claim["id"] for claim in named], None
+
+
+def _claim_label(claim: RowMapping) -> str:
+    return (
+        f"{claim['subject_name']} {claim['predicate']}"
+        f" {claim['object_name'] or claim['object_text'] or ''}"
+    ).strip()
+
+
+def _stated(value: str | None) -> str | None:
+    """A stated name or period, or None when it is absent or blank."""
+    return (value or "").strip() or None
 
 
 def _object(value: Any) -> dict[str, Any]:

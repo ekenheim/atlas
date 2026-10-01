@@ -1,9 +1,18 @@
 import { expect, test } from "@playwright/test";
 
-import type { CardReading, Investigation, ReadingPointer, ResearchCard } from "../lib/api/client";
+import type {
+  CardReading,
+  Counterevidence,
+  Investigation,
+  ReadingPointer,
+  ResearchCard,
+} from "../lib/api/client";
 import {
   type PointerGroup,
   canSaveHypothesis,
+  checklistLabel,
+  counterevidenceSummary,
+  figureLabel,
   followUpBlocked,
   openQuestions,
   outputParts,
@@ -201,6 +210,36 @@ test("reading pointers are grouped by the query asked of Memory, best rank first
   expect(pointerQueryLabel(scouted)).toBe("Query 1");
   expect(pointerQueryLabel(followUp)).toBe("The question (follow-up round 2)");
   expect(pointerGroups([])).toEqual([]);
+});
+
+test("the Skeptic's items are counted by kind: contradictions, bear context, rejected", () => {
+  const item = (outcome: string, kind: string) => ({ outcome, kind }) as unknown as Counterevidence;
+  expect(counterevidenceSummary([])).toBe("No accepted counterevidence.");
+  expect(
+    counterevidenceSummary([
+      item("accepted", "contradiction"),
+      item("accepted", "bear_context"),
+      item("accepted", "bear_context"),
+      item("accepted", "bear_context"),
+      item("rejected", "contradiction"),
+    ]),
+  ).toBe("1 contradiction of a Claim and 3 bear-context items accepted; 1 proposed item rejected.");
+  expect(counterevidenceSummary([item("accepted", "bear_context")])).toBe(
+    "0 contradictions of a Claim and 1 bear-context item accepted.",
+  );
+  expect(
+    counterevidenceSummary([item("rejected", "bear_context"), item("rejected", "contradiction")]),
+  ).toBe("No accepted counterevidence. 2 proposed items rejected.");
+});
+
+test("a bear-checklist item and a table row's figure are shown in words", () => {
+  expect(checklistLabel("customer_concentration")).toBe("Customer concentration");
+  expect(checklistLabel("dilution_financing")).toBe("Dilution and financing");
+  expect(checklistLabel("some_later_item")).toBe("some later item");
+  expect(
+    figureLabel({ figure_name: "Inventories", figure_period: "March 31, 2026 and June 30, 2025" }),
+  ).toBe("Inventories, March 31, 2026 and June 30, 2025");
+  expect(figureLabel({ figure_name: null, figure_period: null })).toBeNull();
 });
 
 test("a task's output is shown from whatever its role recorded", () => {

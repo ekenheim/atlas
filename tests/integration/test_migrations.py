@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError
@@ -35,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0052"
+    assert revision == "0053"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -205,3 +206,73 @@ def test_assertions_recorded_before_0046_quote_their_versions_recorded_parse(
     engine.dispose()
     assert parser_version == "text-v2"
     assert refused
+
+
+def test_counterevidence_recorded_before_0053_is_a_contradiction_only_when_it_names_a_claim(
+    empty_database_url: str,
+) -> None:
+    upgrade(empty_database_url, "0050")
+    engine = create_engine(empty_database_url)
+    insert = text(
+        "INSERT INTO counterevidence (id, search_id, investigation_id, run_id, role_call_id,"
+        " batch, ordinal, proposed, checklist_item, passage_id, statement, quote,"
+        " epistemic_type, contradicts_claim_ids, outcome, reason_code, assertion_id,"
+        " evidence_family, independent, independence_detail) VALUES (gen_random_uuid(),"
+        " :parent, :parent, :parent, :parent, 0, :ordinal, '{}', 'inventory_cycle', 's1',"
+        " :statement, 'a quote', 'company_claim', CAST(:claims AS uuid[]), :outcome, :reason,"
+        " :assertion, :family, :independent, :detail)"
+    )
+    parent = "00000000-0000-0000-0000-000000000001"
+    claim = "00000000-0000-0000-0000-0000000000c1"
+    accepted: dict[str, Any] = {
+        "outcome": "accepted",
+        "reason": None,
+        "family": "version:x",
+        "independent": True,
+        "detail": "its Evidence Family is none of the supporting Claims'",
+    }
+    rows: list[dict[str, Any]] = [
+        accepted | {"statement": "names a Claim", "claims": [claim], "assertion": parent},
+        accepted | {"statement": "names no Claim", "claims": [], "assertion": claim},
+        {
+            "statement": "rejected",
+            "claims": [],
+            "outcome": "rejected",
+            "reason": "quote_mismatch",
+            "assertion": None,
+            "family": None,
+            "independent": None,
+            "detail": None,
+        },
+    ]
+    with engine.begin() as connection:
+        # The rows' parents (a search, an investigation, a run, a role call, Assertions) are
+        # not what is migrated: foreign keys are off for these inserts.
+        connection.execute(text("SET LOCAL session_replication_role = replica"))
+        for ordinal, row in enumerate(rows):
+            connection.execute(insert, row | {"parent": parent, "ordinal": ordinal})
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        migrated = {
+            row.statement: (row.kind, row.how, row.kind_reason, row.independent)
+            for row in connection.execute(
+                text("SELECT statement, kind, how, kind_reason, independent FROM counterevidence")
+            )
+        }
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE counterevidence SET kind = 'contradiction'"))
+    except DBAPIError as error:
+        still_insert_only = "insert-only" in str(error)
+    else:
+        still_insert_only = False
+    engine.dispose()
+    # What was recorded stays as it was; only the kind is new.
+    assert migrated == {
+        "names a Claim": ("contradiction", None, None, True),
+        "names no Claim": ("bear_context", None, None, True),
+        "rejected": ("bear_context", None, None, None),
+    }
+    assert still_insert_only

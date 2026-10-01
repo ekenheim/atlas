@@ -1,8 +1,9 @@
 // The research workbench's pure parts: labels, the research card's open questions, why a
-// follow-up can't be launched, the reading pointers by query, and a task's output as short
-// text.
+// follow-up can't be launched, the reading pointers by query, the Skeptic's items by kind, and
+// a task's output as short text.
 import type {
   CardReading,
+  Counterevidence,
   Investigation,
   InvestigationTask,
   ReadingPointer,
@@ -183,6 +184,50 @@ export function pointerQueryLabel(group: PointerGroup): string {
 export function pointerSummary(group: PointerGroup): string {
   const companies = group.companies.map((each) => `${each.name} ${each.pointers}`).join(", ");
   return `${plural(group.pointers.length, "pointer")}: ${companies}`;
+}
+
+/** The bear checklist's items, in words. */
+const CHECKLIST: Record<string, string> = {
+  substitutes: "Substitutes",
+  second_sources: "Second sources",
+  capacity_additions: "Capacity additions",
+  inventory_cycle: "Inventory cycle",
+  dilution_financing: "Dilution and financing",
+  customer_concentration: "Customer concentration",
+};
+
+/** A bear-checklist item in words (an item added later shows as its name, spaced). */
+export function checklistLabel(item: string): string {
+  return CHECKLIST[item] ?? item.replaceAll("_", " ");
+}
+
+/** The figure a quoted table row states, with its period; null for any other quote. */
+export function figureLabel(item: {
+  figure_name: string | null;
+  figure_period: string | null;
+}): string | null {
+  const parts = [item.figure_name, item.figure_period].filter((part) => part);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+/**
+ * What the Skeptic's items came to, by kind: contradictions of a Claim, bear context (which
+ * contradicts none), and how many proposed items were rejected.
+ */
+export function counterevidenceSummary(items: Counterevidence[]): string {
+  const accepted = items.filter((item) => item.outcome === "accepted");
+  const contradictions = accepted.filter((item) => item.kind === "contradiction").length;
+  const rejected = items.length - accepted.length;
+  const parts = [
+    accepted.length === 0
+      ? "No accepted counterevidence."
+      : `${plural(contradictions, "contradiction")} of a Claim and ${plural(
+          accepted.length - contradictions,
+          "bear-context item",
+        )} accepted${rejected > 0 ? ";" : "."}`,
+    ...(rejected > 0 ? [`${plural(rejected, "proposed item")} rejected.`] : []),
+  ];
+  return parts.join(" ");
 }
 
 /** The investigation's tasks by round, rounds in order. */

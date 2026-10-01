@@ -5,7 +5,8 @@ Seams: a Hypothesis is investigated, drafted, approved and published through `/a
 single worker passes (as in test_hypotheses); later Evidence arrives the way it does in
 production: a re-run ingest of revised recorded EDGAR bytes, a hand-imported document
 (`atlas sources import`) with the owner's Assertion superseding a cited one, the owner's
-rejection of an edge, a later investigation's Skeptic. Everything is observed through
+rejection of an edge, a later investigation's Skeptic (reading a hand-shaped later
+statement, imported by hand). Everything is observed through
 `/api/v1` (proposed updates, the Hypothesis, its snapshot) and, for what must not change, the
 database rows and the archived bytes themselves. Hindsight is the recorded fake, SearXNG and
 LiteLLM the scripted fakes; nothing live is called.
@@ -40,6 +41,17 @@ COHR_10Q = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/ii
 # From the Coherent 10-Q's balance sheet (the recorded fixture's parsed text).
 DILUTION_QUOTE = (
     "issued - 212,340,736 shares at March 31, 2026; 171,849,325 shares at June 30, 2025"
+)
+# Hand-shaped, not a recorded filing: a later statement that limits the 10-K's supply
+# agreement, naming both parties (imported by hand, so its own Evidence Family).
+UPDATE_URL = "https://investors.example.test/coherent/2026-08-28-supply-agreement"
+LIMIT_QUOTE = (
+    "the agreement no longer commits NVIDIA to purchase from Coherent after December 31, 2027"
+)
+SUPPLY_UPDATE = (
+    "Synthetic test fragment: a hand-shaped update, not a Coherent document.\n\n"
+    "On August 28, 2026, Coherent Corp. and NVIDIA amended their multi-year supply agreement."
+    f" NVIDIA may qualify a second source for advanced lasers, and {LIMIT_QUOTE}.\n"
 )
 # From the Coherent FY2026 10-K (the recorded fixture's parsed text).
 SUPPLY_QUOTE = (
@@ -278,36 +290,86 @@ def finding_nothing(body: dict[str, Any]) -> JsonValue:
 NOTHING_TO_READ = (ChatReply.answer(finding_nothing, tokens=(500, 50)),) * 8
 
 
-def dilution_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
-    """The Skeptic reads the 10-Q and quotes its share count against every supporting Claim."""
+def limiting_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
+    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained);
+    the Skeptic reads it and the 10-Q, and proposes two contradictions of every supporting
+    Claim: the later statement, which limits the supply agreement and names both its parties,
+    and the 10-Q's share count."""
+    path = atlas.tmp_path / "coherent-supply-update.txt"
+    path.write_text(SUPPLY_UPDATE, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "coherent",
+        "--file",
+        str(path),
+        "--origin-url",
+        UPDATE_URL,
+        "--published-at",
+        "2026-08-28T12:00:00+00:00",
+        "--title",
+        "Coherent supply agreement update",
+    )
+    assert imported.returncode == 0, imported.stderr
+    atlas.worker_pass()
+    update = json.loads(imported.stdout)["source_version_id"]
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
 
     def reading(body: dict[str, Any]) -> JsonValue:
         sent = asked(body)
-        [passage] = [p for p in sent["retrieved_data"] if DILUTION_QUOTE in p["text"]]
-        start = passage["text"].index(DILUTION_QUOTE)
+        [passage] = [p for p in sent["retrieved_data"] if LIMIT_QUOTE in p["text"]]
+        [dilution] = [p for p in sent["retrieved_data"] if DILUTION_QUOTE in p["text"]]
+        start = passage["text"].index(LIMIT_QUOTE)
         return {
             "counterevidence": [
                 {
                     "passage_id": passage["id"],
-                    "checklist_item": "dilution_financing",
+                    "kind": "contradiction",
+                    "checklist_item": "second_sources",
                     "subject_company_id": company_id(atlas, "coherent"),
-                    "statement": "Coherent's issued share count rose in fiscal 2026.",
-                    "quote": DILUTION_QUOTE,
+                    "statement": "NVIDIA is no longer committed to buy from Coherent after 2027.",
+                    "quote": LIMIT_QUOTE,
                     "quote_start": start,
-                    "quote_end": start + len(DILUTION_QUOTE),
+                    "quote_end": start + len(LIMIT_QUOTE),
                     "epistemic_type": "company_claim",
                     "contradicts_claim_ids": [
                         c["claim_id"] for c in sent["request"]["supporting_claims"]
                     ],
+                    "how": "limits",
+                    "figure_name": None,
+                    "figure_period": None,
                     "disproves_premise": None,
-                }
+                },
+                # The 10-Q's share count, as the pilot's Skeptic proposed such rows: a
+                # contradiction of the same Claims. It names neither party: bear context.
+                {
+                    "passage_id": dilution["id"],
+                    "kind": "contradiction",
+                    "checklist_item": "dilution_financing",
+                    "subject_company_id": company_id(atlas, "coherent"),
+                    "statement": "Coherent's issued share count rose in fiscal 2026.",
+                    "quote": DILUTION_QUOTE,
+                    "quote_start": dilution["text"].index(DILUTION_QUOTE),
+                    "quote_end": dilution["text"].index(DILUTION_QUOTE) + len(DILUTION_QUOTE),
+                    "epistemic_type": "company_claim",
+                    "contradicts_claim_ids": [
+                        c["claim_id"] for c in sent["request"]["supporting_claims"]
+                    ],
+                    "how": "limits",
+                    "figure_name": None,
+                    "figure_period": None,
+                    "disproves_premise": None,
+                },
             ]
         }
 
     plan: dict[str, JsonValue] = {
         "queries": [],
-        "documents": [{"source_version_id": ten_q, "checklist_item": "dilution_financing"}],
+        "documents": [
+            {"source_version_id": update, "checklist_item": "second_sources"},
+            {"source_version_id": ten_q, "checklist_item": "dilution_financing"},
+        ],
     }
     return ChatReply.json(plan), ChatReply.answer(reading)
 
@@ -715,23 +777,30 @@ def test_later_independent_counterevidence_against_a_cited_statement_proposes_an
     [span] = version["content"]["findings"][0]["source_spans"]
     before = frozen(atlas, hypothesis_id)
 
-    # A later investigation reads the same statement, and its Skeptic finds independent
-    # counterevidence against it in the 10-Q.
-    later = investigate(atlas, llm, searxng, skeptic=dilution_skeptic(atlas))
+    # A later investigation reads the same statement, and its Skeptic finds an independent
+    # contradiction of it in a later document (and bear context in the 10-Q).
+    later = investigate(atlas, llm, searxng, skeptic=limiting_skeptic(atlas))
 
     [contradiction] = later["research_card"]["contradictions"]
     assert contradiction["independent"] is True
+    # Only the contradiction proposes an update: the share count, proposed as one too, is
+    # bear context, and bear context contradicts nothing a published version cites.
+    [group] = later["research_card"]["bear_context"]
+    assert [item["source_span"]["quote"] for item in group["items"]] == [DILUTION_QUOTE]
     [update] = updates(atlas, hypothesis_id)
     assert update["trigger"] == "counterevidence"
     [evidence] = update["evidence"]
-    ten_q = atlas.version(COHR_10Q, "coherent")
+    later_statement = atlas.version(UPDATE_URL, "coherent")
     assert (evidence["kind"], evidence["id"]) == (
         "counterevidence",
         contradiction["counterevidence_id"],
     )
-    assert (evidence["source_version_id"], evidence["quote"]) == (ten_q["id"], DILUTION_QUOTE)
+    assert (evidence["source_version_id"], evidence["quote"]) == (
+        later_statement["id"],
+        LIMIT_QUOTE,
+    )
     assert evidence["assertion_id"] == contradiction["source_span"]["assertion_id"]
     # It bears on the published version's own Assertion (the same span), not the later one's.
     assert evidence["contradicts_assertion_ids"] == [span["assertion_id"]]
-    assert "dilution_financing" in update["summary"]
+    assert "second_sources" in update["summary"]
     assert frozen(atlas, hypothesis_id) == before

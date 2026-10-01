@@ -6,8 +6,9 @@ fixtures, an investigation runs through the API and single worker passes, the Hy
 saved, drafted, given a scenario, published and corrected through the API. Only the network
 boundaries are fakes served on localhost: Hindsight (the recorded fake), SearXNG (the scripted
 fake) and LiteLLM, whose **every answer is written here**: the Scout's queries, the
-Investigator quoting the Coherent FY2026 10-K, the Skeptic quoting the 10-Q's share count as
-counterevidence, the Editors citing the Claim IDs they are sent, the Reviewer confirming.
+Investigator quoting the Coherent FY2026 10-K, the Skeptic quoting a hand-shaped later
+statement (imported by hand: it limits the supply agreement) as a contradiction, the Editors
+citing the Claim IDs they are sent, the Reviewer confirming.
 
 It leaves, in its own database (the dossier's Coherent and NVIDIA edges would change what
 the other pages' tests count):
@@ -45,16 +46,23 @@ from tests.harness import THEMES, Atlas  # noqa: E402
 QUESTION = "Who supplies the lasers in AI data-center optics, and to whom?"
 SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
 SECOND_SOURCE = "InP laser second source qualification hyperscaler"
-COHR_10Q = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm"
-# From the recorded Coherent FY2026 10-K and Q3 10-Q (their parsed text).
+# From the recorded Coherent FY2026 10-K (its parsed text).
 SUPPLY_QUOTE = (
     "we announced the expansion of our Sherman, Texas, manufacturing facility, entered into a"
     " strategic multi-year supply agreement with NVIDIA for advanced lasers and optical"
     " networking products"
 )
 INVESTMENT_QUOTE = "NVIDIA made a $2 billion investment in the Company"
-DILUTION_QUOTE = (
-    "issued - 212,340,736 shares at March 31, 2026; 171,849,325 shares at June 30, 2025"
+# Hand-shaped, not a recorded filing: a later statement that limits the 10-K's supply
+# agreement, naming both parties (imported by hand, so its own Evidence Family).
+UPDATE_URL = "https://investors.example.test/coherent/2026-08-28-supply-agreement"
+LIMIT_QUOTE = (
+    "the agreement no longer commits NVIDIA to purchase from Coherent after December 31, 2027"
+)
+SUPPLY_UPDATE = (
+    "Synthetic test fragment: a hand-shaped update, not a Coherent document.\n\n"
+    "On August 28, 2026, Coherent Corp. and NVIDIA amended their multi-year supply agreement."
+    f" NVIDIA may qualify a second source for advanced lasers, and {LIMIT_QUOTE}.\n"
 )
 SUPPLY_FINDING = "Coherent supplies NVIDIA with advanced lasers under a multi-year agreement."
 INVESTMENT_FINDING = "NVIDIA has invested $2 billion in Coherent."
@@ -260,28 +268,54 @@ def hypothesis_editor(body: dict[str, Any]) -> JsonValue:
     }
 
 
-def dilution_skeptic(atlas: Atlas, company: Callable[[str], str]) -> tuple[ChatReply, ...]:
-    """The Skeptic reads the 10-Q and quotes its share count against every supporting Claim."""
-    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+def limiting_skeptic(atlas: Atlas, company: Callable[[str], str]) -> tuple[ChatReply, ...]:
+    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained);
+    the Skeptic reads it and quotes it as a contradiction of every supporting Claim: it limits
+    the supply agreement, and names both companies (so it passes the contradiction check for
+    the supply Claim and for the investment Claim)."""
+    path = atlas.tmp_path / "coherent-supply-update.txt"
+    path.write_text(SUPPLY_UPDATE, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "coherent",
+        "--file",
+        str(path),
+        "--origin-url",
+        UPDATE_URL,
+        "--published-at",
+        "2026-08-28T12:00:00+00:00",
+        "--title",
+        "Coherent supply agreement update",
+    )
+    if imported.returncode != 0:
+        raise SystemExit(f"e2e: the supply update wasn't imported: {imported.stderr}")
+    atlas.worker_pass()
+    update = json.loads(imported.stdout)["source_version_id"]
 
     def reading(body: dict[str, Any]) -> JsonValue:
         sent = asked(body)
-        [passage] = [p for p in sent["retrieved_data"] if DILUTION_QUOTE in p["text"]]
-        start = passage["text"].index(DILUTION_QUOTE)
+        [passage] = [p for p in sent["retrieved_data"] if LIMIT_QUOTE in p["text"]]
+        start = passage["text"].index(LIMIT_QUOTE)
         return {
             "counterevidence": [
                 {
                     "passage_id": passage["id"],
-                    "checklist_item": "dilution_financing",
+                    "kind": "contradiction",
+                    "checklist_item": "second_sources",
                     "subject_company_id": company("coherent"),
-                    "statement": "Coherent's issued share count rose in fiscal 2026.",
-                    "quote": DILUTION_QUOTE,
+                    "statement": "NVIDIA is no longer committed to buy from Coherent after 2027.",
+                    "quote": LIMIT_QUOTE,
                     "quote_start": start,
-                    "quote_end": start + len(DILUTION_QUOTE),
+                    "quote_end": start + len(LIMIT_QUOTE),
                     "epistemic_type": "company_claim",
                     "contradicts_claim_ids": [
                         c["claim_id"] for c in sent["request"]["supporting_claims"]
                     ],
+                    "how": "limits",
+                    "figure_name": None,
+                    "figure_period": None,
                     "disproves_premise": None,
                 }
             ]
@@ -289,7 +323,7 @@ def dilution_skeptic(atlas: Atlas, company: Callable[[str], str]) -> tuple[ChatR
 
     plan: dict[str, JsonValue] = {
         "queries": [],
-        "documents": [{"source_version_id": ten_q, "checklist_item": "dilution_financing"}],
+        "documents": [{"source_version_id": update, "checklist_item": "second_sources"}],
     }
     return ChatReply.json(plan), ChatReply.answer(reading)
 
@@ -337,7 +371,7 @@ def build(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG) -> str:
         {"query": SUBSTRATE, "purpose": "InP substrate capacity"},
         {"query": SECOND_SOURCE, "purpose": "second sources"},
     ]
-    llm.script_role("skeptic", *dilution_skeptic(atlas, company))
+    llm.script_role("skeptic", *limiting_skeptic(atlas, company))
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_chat(
         ChatReply.json({"queries": queries}, tokens=(900, 120)),

@@ -11,8 +11,11 @@ The Skeptic makes two kinds of call, both recorded as `skeptic`:
 - **The reading** (`SKEPTIC`): passages of the Source Versions it chose in (each passage's
   text as quoted, low-trust `retrieved_data`), counterevidence out: each item names its
   passage, the checklist item, the company it is about, the exact quote as offsets into the
-  passage, the supporting Claims it contradicts and (optionally) a company premise it
-  disproves. Code checks every item (atlas.investigations.skeptic).
+  passage and its **kind** (v3): a `contradiction` names the supporting Claims it contradicts
+  and `how` (it denies, limits or dates their statement) and may name a company premise it
+  disproves; `bear_context` is a checklist item about a company, attached to no Claim. A
+  quoted table row also states its figure's name and period. Code checks every item
+  (atlas.investigations.skeptic).
 
 **The bear checklist** (spec user story 31; research note M10 and V10): substitutes, second
 sources, capacity additions, the inventory cycle, dilution and financing (S-3 shelf
@@ -30,7 +33,9 @@ from pydantic import BaseModel, ConfigDict
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 from atlas.roles.scout import filing_phrase_required
 
-SKEPTIC_PROMPT_VERSION = 2  # v2: the bottleneck method
+# v2: the bottleneck method; v3: each item is a contradiction of a named Claim or bear
+# context, never both (memory-directed reading, ticket 03)
+SKEPTIC_PROMPT_VERSION = 3
 # v3: it must choose archived documents from the catalog, and why (pilot fix 06); a filing
 # phrase per query for EDGAR full-text search (pilot fix 12)
 SKEPTIC_PLAN_PROMPT_VERSION = 3
@@ -230,8 +235,17 @@ CounterevidenceEpistemicType = Literal[
 ]
 
 
+# A contradiction speaks against a named supporting Claim's statement; bear context is a
+# checklist item about a company, attached to no Claim.
+CounterevidenceKind = Literal["contradiction", "bear_context"]
+# How a contradiction contradicts: the statement is not so, holds only in part, or held at
+# another time.
+ContradictionHow = Literal["denies", "limits", "dates"]
+
+
 class ProposedCounterevidence(RoleOutput):
     passage_id: str
+    kind: CounterevidenceKind
     checklist_item: str
     subject_company_id: str
     statement: str
@@ -239,7 +253,11 @@ class ProposedCounterevidence(RoleOutput):
     quote_start: int
     quote_end: int
     epistemic_type: CounterevidenceEpistemicType
-    contradicts_claim_ids: list[str]
+    contradicts_claim_ids: list[str]  # a contradiction's Claims; empty for bear context
+    how: ContradictionHow | None  # a contradiction's; None for bear context
+    # The figure a quoted table row states and its period; None for any other quote.
+    figure_name: str | None
+    figure_period: str | None
     disproves_premise: str | None
 
 

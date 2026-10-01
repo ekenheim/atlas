@@ -11,7 +11,8 @@
   queue pause holds its task back), the stop reason and detail, premises, tasks, leads,
   reading pointers (`pointers`: what Memory returned to the question and each Scout query,
   resolved to Source Version sections; Memory as an index, never Evidence), documents, the
-  Skeptic's counterevidence and the Editor's draft research card.
+  Skeptic's counterevidence (each item a contradiction of a named Claim or
+  bear context about a company) and the Editor's draft research card.
 - `GET /investigations` (newest first): each investigation's theme, question, round and
   status, for the research workbench.
 - `GET /investigations/{id}/events`: what happened, in order.

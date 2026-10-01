@@ -1901,8 +1901,53 @@ export interface components {
         /** @enum {string} */
         CandidateState: "lead" | "investigating" | "evidence_ready" | "needs_more_evidence" | "paper_tracking" | "rejected" | "closed";
         /**
+         * CardBearContext
+         * @description The bear context about one company under one bear-checklist item: what the Skeptic
+         *     found on the checklist that contradicts no Claim. It marks no finding.
+         */
+        CardBearContext: {
+            /** Checklist Item */
+            checklist_item: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Items */
+            items: components["schemas"]["CardBearContextItem"][];
+        };
+        /**
+         * CardBearContextItem
+         * @description One accepted bear-context item: what the quote says, and its span.
+         */
+        CardBearContextItem: {
+            /**
+             * Counterevidence Id
+             * Format: uuid
+             */
+            counterevidence_id: string;
+            /** Statement */
+            statement: string;
+            source_span: components["schemas"]["SourceSpan"];
+            /**
+             * Evidence Available At
+             * Format: date-time
+             */
+            evidence_available_at: string;
+            /** Figure Name */
+            figure_name: string | null;
+            /** Figure Period */
+            figure_period: string | null;
+            /** Reason */
+            reason: string | null;
+        };
+        /**
          * CardContradiction
-         * @description Accepted counterevidence, as the research card and a Hypothesis carry it.
+         * @description An accepted contradiction of the Claims it names, as the research card and a Hypothesis
+         *     carry it. (Cards drawn before the kinds list every accepted item here, some naming no
+         *     Claim, and have no `how`.)
          */
         CardContradiction: {
             /**
@@ -1921,6 +1966,8 @@ export interface components {
             subject_company_id: string;
             /** Contradicts Claim Ids */
             contradicts_claim_ids: string[];
+            /** How */
+            how?: ("denies" | "limits" | "dates") | null;
             /** Disproves Premise */
             disproves_premise: string | null;
             source_span: components["schemas"]["SourceSpan"];
@@ -2535,9 +2582,13 @@ export interface components {
         /**
          * Counterevidence
          * @description One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an
-         *     Assertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`
+         *     Assertion (predicate `counterevidence`) on a Source Version the Skeptic chose, of one
+         *     `kind`: a contradiction of the Claims in `contradicts_claim_ids` (and `how`), or bear
+         *     context, attached to no Claim (`kind_reason` when the Skeptic proposed it as a
+         *     contradiction and code stored it as bear context). `independent`, a contradiction's only,
          *     says whether its Evidence Family differs from every supporting Claim's (a Source Version
-         *     outside any family is its own). `proposed` is the item exactly as the model answered.
+         *     outside any family is its own). A rejected item keeps the kind proposed. `proposed` is the
+         *     item exactly as the model answered.
          */
         Counterevidence: {
             /**
@@ -2554,6 +2605,13 @@ export interface components {
              * Format: uuid
              */
             role_call_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "contradiction" | "bear_context";
+            /** Kind Reason */
+            kind_reason: string | null;
             /** Checklist Item */
             checklist_item: string;
             /** Passage Id */
@@ -2574,6 +2632,12 @@ export interface components {
             epistemic_type: string;
             /** Contradicts Claim Ids */
             contradicts_claim_ids: string[];
+            /** How */
+            how: ("denies" | "limits" | "dates") | null;
+            /** Figure Name */
+            figure_name: string | null;
+            /** Figure Period */
+            figure_period: string | null;
             /** Disproves Premise */
             disproves_premise: string | null;
             /**
@@ -5988,6 +6052,8 @@ export interface components {
             editor_role_call_id: string;
             /** Contradictions */
             contradictions?: components["schemas"]["CardContradiction"][];
+            /** Bear Context */
+            bear_context?: components["schemas"]["CardBearContext"][];
             /** Searched */
             searched?: components["schemas"]["CardSearch"][];
             /** Read */

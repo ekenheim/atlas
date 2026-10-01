@@ -13,8 +13,9 @@ detection), which exists only if the event commits:
 - `on_relationship_rejected`: the owner rejects a dependent Relationship;
 - `on_source_revised`: a newer Source Version of a Source Document a dependent version came
   from (the job compares the quotes);
-- `on_counterevidence`: the Skeptic's accepted, independent counterevidence against a Claim
-  whose Assertion states a dependent span (the same Source Version and offsets).
+- `on_counterevidence`: the Skeptic's accepted, independent contradiction of a Claim whose
+  Assertion states a dependent span (the same Source Version and offsets). Bear context
+  contradicts no Claim, so it is never an event.
 """
 
 import uuid
@@ -117,7 +118,7 @@ def on_source_revised(connection: Connection, source_version_id: uuid.UUID) -> N
 
 
 def on_counterevidence(connection: Connection, counterevidence_id: uuid.UUID) -> None:
-    """Accepted, independent counterevidence against a Claim stating a dependent span."""
+    """An accepted, independent contradiction of a Claim stating a dependent span."""
     touches = connection.execute(
         text(
             "SELECT EXISTS (SELECT FROM counterevidence ce"
@@ -128,7 +129,8 @@ def on_counterevidence(connection: Connection, counterevidence_id: uuid.UUID) ->
             "  AND da.parser_version = ca.parser_version"
             " JOIN hypothesis_dependency d ON d.kind = 'assertion' AND d.ref_id = da.id"
             " JOIN hypothesis_version v ON v.id = d.hypothesis_version_id"
-            " WHERE ce.id = :id AND ce.outcome = 'accepted' AND ce.independent"
+            " WHERE ce.id = :id AND ce.outcome = 'accepted' AND ce.kind = 'contradiction'"
+            "  AND ce.independent"
             "  AND v.published_at IS NOT NULL)"
         ),
         {"id": counterevidence_id},

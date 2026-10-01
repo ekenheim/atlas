@@ -9,7 +9,9 @@ Source Versions are the recorded Coherent EDGAR filings (a 10-K and a 10-Q), ing
 retained through the fixture path, Hindsight the recorded fake with `derive_memories`.
 LiteLLM is the scripted chat fake: **the Scout's, Investigator's, Skeptic's, Financial
 Analyst's and Editor's answers are written here** (the Investigator's quote the recorded
-Coherent 10-K; the Skeptic's quote the passages it is sent; the Analyst proposes no scenario;
+Coherent 10-K; the Skeptic's quote the passages it is sent, of the recorded filings and of
+one hand-shaped later statement (`SUPPLY_UPDATE`, imported by hand); the Analyst proposes no
+scenario;
 the Editor's cite the Claim IDs it is sent; the Reviewer, chained after a final stop, confirms
 what it is sent). The Skeptic's and the Analyst's jobs run in parallel, in either order, so
 their answers are scripted by role (`script_role`) and their calls compared in plan order.
@@ -604,7 +606,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert extraction["source_version_ids"] == [ten_k, ten_q]
     # The Editor was sent the accepted Claim (its quote as low-trust data) and the leads.
     editor = asked(requests(llm)[5])
-    assert editor["request"]["counterevidence"] == []
+    assert (editor["request"]["contradictions"], editor["request"]["bear_context"]) == ([], [])
     [sent] = editor["request"]["claims"]
     [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
     assert sent["claim_id"] == accepted["id"]
@@ -646,7 +648,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         atlas.version(COHR_10K, "coherent")["available_at"]
     )
     assert finding["counterevidence_ids"] == []
-    assert card["contradictions"] == []
+    assert (card["contradictions"], card["bear_context"]) == ([], [])
     assert finding["limitations"] == ["A company's own statement; no volumes or prices."]
     assert card["editor_role_call_id"] == calls["role_calls"][-1]["id"]
     # The event log tells the story in order, ending with the stop and its reason.
@@ -1865,6 +1867,29 @@ COHR_10K_FILE = (
     / "000082031826000020/iivi-20260630.htm"
 )
 COPY_URL = "https://filings-mirror.test/coherent/fy2026-annual-report.htm"
+# The same agreement in the 10-K's own words: it limits the supply Claim, and names NVIDIA.
+NON_EXCLUSIVE_QUOTE = (
+    "The non-exclusive agreement includes a multi-billion-dollar purchase commitment with NVIDIA"
+)
+# Hand-shaped, not a recorded filing: a later statement that limits the 10-K's supply
+# agreement, naming both parties (imported by hand, so its own Evidence Family).
+UPDATE_URL = "https://investors.example.test/coherent/2026-08-28-supply-agreement"
+LIMIT_QUOTE = (
+    "the agreement no longer commits NVIDIA to purchase from Coherent after December 31, 2027"
+)
+SUPPLY_UPDATE = (
+    "Synthetic test fragment: a hand-shaped update, not a Coherent document.\n\n"
+    "On August 28, 2026, Coherent Corp. and NVIDIA amended their multi-year supply agreement."
+    f" NVIDIA may qualify a second source for advanced lasers, and {LIMIT_QUOTE}.\n"
+)
+# Rows of the recorded Coherent 10-Q's balance sheet (the parsed text separates cells by tabs).
+INVENTORIES_ROW = "Inventories\t2,126,823\t1,437,636"
+PPE_ROW = "Property, plant & equipment, net\t2,420,081\t1,877,507"
+EQUITY_ROW = "Total Coherent Corp. Shareholders' Equity\t10,676,983\t5,644,514"
+BALANCE_SHEET_DATES = "March 31, 2026 and June 30, 2025"
+# From the recorded Lumentum FY2026 10-K's risk factors: the pilot's example of another
+# company's boilerplate recorded against Coherent's Claims.
+SOLE_SOURCE_QUOTE = "for certain components we have sole or limited source supply arrangements"
 
 
 def skeptic_plan(
@@ -1891,11 +1916,17 @@ def counter(
     passage_id: str | None = None,
     contradicts: bool = True,
     disproves: str | None = None,
+    how: str | None = "limits",
+    figure: tuple[str, str] | None = None,
 ) -> dict[str, Any]:
     """One counterevidence item for `countering`: quoted from the first passage sent that holds
     the quote (of `version`, if given), or cited as `passage_id` (`CLAIM`: the supporting
-    Claim's ID) at offset 0."""
+    Claim's ID) at offset 0. Proposed as a contradiction of every supporting Claim (`how`),
+    or, with `contradicts=False`, as bear context; `figure` is a table row's name and
+    period."""
     return {
+        "how": how,
+        "figure": figure,
         "quote": quote,
         "checklist_item": item,
         "subject_company_id": subject,
@@ -1928,9 +1959,11 @@ def countering(*items: dict[str, Any]) -> Callable[[dict[str, Any]], JsonValue]:
                 ]
                 assert holding, f"no passage sent holds {quote!r}"
                 passage_id, start = holding[0]["id"], holding[0]["text"].index(quote)
+            figure = each["figure"] or (None, None)
             answered.append(
                 {
                     "passage_id": passage_id,
+                    "kind": "contradiction" if each["contradicts"] else "bear_context",
                     "checklist_item": each["checklist_item"],
                     "subject_company_id": each["subject_company_id"],
                     "statement": each["statement"],
@@ -1939,6 +1972,9 @@ def countering(*items: dict[str, Any]) -> Callable[[dict[str, Any]], JsonValue]:
                     "quote_end": start + len(quote),
                     "epistemic_type": "company_claim",
                     "contradicts_claim_ids": supporting if each["contradicts"] else [],
+                    "how": each["how"] if each["contradicts"] else None,
+                    "figure_name": figure[0],
+                    "figure_period": figure[1],
                     "disproves_premise": each["disproves"],
                 }
             )
@@ -1960,6 +1996,30 @@ def family(atlas: Atlas, version_id: str) -> str:
     return f"family:{found['evidence_family_id']}"
 
 
+def import_update(atlas: Atlas) -> str:
+    """Record `SUPPLY_UPDATE` as a Coherent document published after the 10-K (`atlas sources
+    import`) and run its retention; its Source Version's ID."""
+    path = atlas.tmp_path / "coherent-supply-update.txt"
+    path.write_text(SUPPLY_UPDATE, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "coherent",
+        "--file",
+        str(path),
+        "--origin-url",
+        UPDATE_URL,
+        "--published-at",
+        "2026-08-28T12:00:00+00:00",
+        "--title",
+        "Coherent supply agreement update",
+    )
+    assert imported.returncode == 0, imported.stderr
+    atlas.worker_pass()
+    return json.loads(imported.stdout)["source_version_id"]
+
+
 def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reaches_the_card(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
@@ -1977,7 +2037,12 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
         skeptic_plan(queries=((DILUTION, "dilution_financing"),)),
         ChatReply.answer(
             countering(
-                counter(DILUTION_QUOTE, "dilution_financing", coherent),
+                # Proposed, as in the pilot, as a contradiction of the supply Claim (and as
+                # disproving the company premise): a share count names neither Coherent nor
+                # NVIDIA, so it is bear context.
+                counter(
+                    DILUTION_QUOTE, "dilution_financing", coherent, disproves="company:coherent"
+                ),
                 counter(paraphrase, "dilution_financing", coherent, passage_id="s1"),
             ),
             tokens=(6000, 500),
@@ -2068,8 +2133,22 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     )
     assert dilution["source_version_id"] == ten_q
     assert atlas.parsed(ten_q)[dilution["span_start"] : dilution["span_end"]] == DILUTION_QUOTE
-    assert dilution["contradicts_claim_ids"] == [accepted_claim["id"]]
-    assert (dilution["independent"], dilution["evidence_family"]) == (True, family(atlas, ten_q))
+    # Stored as bear context, with the reason: attached to no Claim, no premise, and with no
+    # independence (a contradiction's property).
+    assert (dilution["kind"], dilution["contradicts_claim_ids"], dilution["how"]) == (
+        "bear_context",
+        [],
+        None,
+    )
+    assert dilution["kind_reason"] == (
+        "proposed as a contradiction, but its quote names neither the subject nor the object"
+        " of the Claim it lists (Coherent supplies NVIDIA); bear context disproves no premise:"
+        " `disproves_premise` is left out"
+    )
+    assert dilution["proposed"]["kind"] == "contradiction"
+    assert dilution["proposed"]["contradicts_claim_ids"] == [accepted_claim["id"]]
+    assert dilution["disproves_premise"] is None
+    assert (dilution["independent"], dilution["evidence_family"]) == (None, family(atlas, ten_q))
     rejected = items[paraphrase]
     assert (rejected["outcome"], rejected["reason_code"]) == ("rejected", "quote_mismatch")
     assert (rejected["assertion_id"], rejected["independent"]) == (None, None)
@@ -2078,34 +2157,45 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     assert (assertion["predicate"], assertion["created_by"], assertion["extractor_version"]) == (
         "counterevidence",
         "atlas-skeptic",
-        "skeptic.v2",
+        "skeptic.v3",
     )
     assert assertion["value_json"]["checklist_item"] == "dilution_financing"
     assert assertion["value_json"]["counterevidence_id"] == dilution["id"]
+    assert assertion["value_json"]["kind"] == "bear_context"
     assert (artifacts["counterevidence_accepted"], artifacts["counterevidence_rejected"]) == (1, 1)
-    assert artifacts["independent_evidence_families"] == 1
-    # The Editor was sent it (its quote as low-trust data); the card shows it as a
-    # contradiction of the finding, which needs review, and so does the investigation.
+    assert (artifacts["contradictions_accepted"], artifacts["bear_context_accepted"]) == (0, 1)
+    assert artifacts["contradictions_demoted"] == 1
+    assert artifacts["independent_evidence_families"] == 0
+    # The Editor was sent it as bear context (its quote as low-trust data), not as a
+    # contradiction; the card lists it under its checklist item and company, and the finding
+    # stands uncontradicted: nothing here asks for review.
     editor = asked(requests(llm)[5])
-    [sent] = editor["request"]["counterevidence"]
-    assert (sent["counterevidence_id"], sent["independent"], sent["subject"]) == (
+    assert editor["request"]["contradictions"] == []
+    [sent] = editor["request"]["bear_context"]
+    assert (sent["counterevidence_id"], sent["checklist_item"], sent["company"]) == (
         dilution["id"],
-        True,
+        "dilution_financing",
         "Coherent",
     )
     quoted = {each["id"]: each for each in editor["retrieved_data"]}
     assert quoted[dilution["id"]]["text"] == DILUTION_QUOTE
     card = found["research_card"]
     [finding] = card["findings"]
-    assert finding["counterevidence_ids"] == [dilution["id"]]
-    assert finding["needs_review"] is True
-    [contradiction] = card["contradictions"]
-    assert contradiction["counterevidence_id"] == dilution["id"]
-    assert contradiction["source_span"]["assertion_id"] == dilution["assertion_id"]
-    assert contradiction["independent"] is True
+    assert finding["counterevidence_ids"] == []
+    assert card["contradictions"] == []
+    [group] = card["bear_context"]
+    assert (group["checklist_item"], group["company_id"], group["company_name"]) == (
+        "dilution_financing",
+        coherent,
+        "Coherent",
+    )
+    [context] = group["items"]
+    assert context["counterevidence_id"] == dilution["id"]
+    assert context["source_span"]["assertion_id"] == dilution["assertion_id"]
+    assert context["reason"] == dilution["kind_reason"]
     assert (found["stop_reason"], found["stop_detail"]) == (
-        "needs_review",
-        "1 findings are contradicted by independent counterevidence",
+        "answered",
+        "the Editor judged the question answered by 1 findings",
     )
     # The chained relationship review takes the Investigator's Assertion only.
     [queued] = [e for e in events(atlas, found["id"]) if e["type"] == "relationship_review_queued"]
@@ -2195,7 +2285,8 @@ def test_a_skeptic_plan_that_chooses_no_document_falls_back_to_each_seed_company
         0,
         0,
     )
-    # The Editor is sent the Investigators' reading; the Skeptic's reaches it as counterevidence.
+    # The Editor is sent the Investigators' reading; the Skeptic's reaches it as its
+    # contradictions and bear context.
     editor = asked(next(b for b in requests(llm) if b["metadata"]["role"] == "editor"))
     assert [r["company"] for r in editor["request"]["read"]] == ["Coherent", "Lumentum"]
 
@@ -2222,27 +2313,27 @@ def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_no
     assert imported.returncode == 0, imported.stderr
     copy = json.loads(imported.stdout)["source_version_id"]
     atlas.worker_pass()  # its retain
+    update = import_update(atlas)  # a later statement, in its own Evidence Family
     ten_k = atlas.version(COHR_10K, "coherent")["id"]
-    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
     assert copy != ten_k and family(atlas, copy) == family(atlas, ten_k)
     started = seeded(atlas, "coherent")
     llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        skeptic_plan(documents=((copy, "customer_concentration"), (ten_q, "dilution_financing"))),
+        skeptic_plan(documents=((copy, "capacity_additions"), (update, "second_sources"))),
         ChatReply.answer(
             countering(
                 # From the copy: the same witness as the Investigator's 10-K, however it's
                 # found; its claim to disprove the premise doesn't count.
                 counter(
-                    CONCENTRATION_QUOTE,
-                    "customer_concentration",
+                    NON_EXCLUSIVE_QUOTE,
+                    "capacity_additions",
                     coherent,
                     version=copy,
                     disproves="company:coherent",
                 ),
-                counter(DILUTION_QUOTE, "dilution_financing", coherent),
+                counter(LIMIT_QUOTE, "second_sources", coherent),
             )
         ),
         ChatReply.answer(editing()),
@@ -2256,7 +2347,8 @@ def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_no
     [claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
     assert claim["source_version_id"] == ten_k
     items = by_quote(found)
-    shared, own = items[CONCENTRATION_QUOTE], items[DILUTION_QUOTE]
+    shared, own = items[NON_EXCLUSIVE_QUOTE], items[LIMIT_QUOTE]
+    assert (shared["kind"], own["kind"]) == ("contradiction", "contradiction")
     assert (shared["outcome"], shared["source_version_id"]) == ("accepted", copy)
     assert shared["evidence_family"] == family(atlas, ten_k)
     assert shared["independent"] is False
@@ -2267,7 +2359,7 @@ def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_no
         2,
         1,
     )
-    # Only independent counterevidence counts against a finding or a premise.
+    # Only an independent contradiction counts against a finding or a premise.
     [finding] = found["research_card"]["findings"]
     assert finding["counterevidence_ids"] == [own["id"]]
     contradictions = found["research_card"]["contradictions"]
@@ -2365,23 +2457,18 @@ def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
 ) -> None:
     atlas = services.start()
     coherent = company_id(atlas, "coherent")
-    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    update = import_update(atlas)
     started = seeded(atlas, "coherent")
     llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        skeptic_plan(documents=((ten_q, "dilution_financing"),)),
+        skeptic_plan(documents=((update, "second_sources"),)),
         ChatReply.answer(
             countering(
-                counter(
-                    DILUTION_QUOTE,
-                    "dilution_financing",
-                    coherent,
-                    disproves="company:coherent",
-                ),
+                counter(LIMIT_QUOTE, "second_sources", coherent, disproves="company:coherent"),
                 # The question stays the researcher's to disprove.
-                counter(DILUTION_QUOTE, "dilution_financing", coherent, disproves="question"),
+                counter(LIMIT_QUOTE, "second_sources", coherent, disproves="question"),
             )
         ),
         NOTHING_ACCEPTED,
@@ -2393,7 +2480,11 @@ def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
 
     found = investigation(atlas, started["id"])
     first, second = found["counterevidence"]
-    assert (first["outcome"], first["independent"]) == ("accepted", True)
+    assert (first["outcome"], first["kind"], first["independent"]) == (
+        "accepted",
+        "contradiction",
+        True,
+    )
     assert (second["outcome"], second["reason_code"]) == ("rejected", "unknown_premise")
     premises = {p["key"]: p for p in found["premises"]}
     assert premises["question"]["status"] == "open"
@@ -2418,3 +2509,252 @@ def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
             text("SELECT actor FROM audit_event WHERE action = 'investigation.premise_disproven'")
         ).scalars()
         assert list(actors) == ["atlas-skeptic"]
+
+
+# --- contradiction or bear context (memory-directed reading, ticket 03) --------------------------
+
+
+def test_one_contradiction_marks_one_finding_and_the_rest_is_bear_context_on_the_card(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot investigation 1 (0.2.5): 29 accepted items, none a contradiction, and the stop
+    # "4 findings are contradicted". Here: one real contradiction and three context items.
+    atlas = services.start(investigator_max_passages=500, investigator_passages_per_call=500)
+    atlas.ingest_company("lumentum")
+    coherent, lumentum = company_id(atlas, "coherent"), company_id(atlas, "lumentum")
+    update = import_update(atlas)
+    ten_k = atlas.version(COHR_10K, "coherent")["id"]
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    lite_10k = atlas.version(LITE_10K)["id"]
+    started = seeded(atlas, "coherent")
+    llm.script_role("financial_analyst", ANALYSED)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan(
+            documents=(
+                (update, "second_sources"),
+                (ten_k, "customer_concentration"),
+                (ten_q, "inventory_cycle"),
+                (lite_10k, "second_sources"),
+            )
+        ),
+        ChatReply.answer(
+            countering(
+                # A later statement limiting the supply Claim, naming both its parties.
+                counter(LIMIT_QUOTE, "second_sources", coherent, how="limits"),
+                # Context, proposed as such: customer concentration, and an inventories row
+                # with its figure's name and period.
+                counter(
+                    CONCENTRATION_QUOTE,
+                    "customer_concentration",
+                    coherent,
+                    version=ten_k,
+                    contradicts=False,
+                ),
+                counter(
+                    INVENTORIES_ROW,
+                    "inventory_cycle",
+                    coherent,
+                    contradicts=False,
+                    figure=("Inventories", BALANCE_SHEET_DATES),
+                ),
+                # Another company's risk factor, proposed as a contradiction of Coherent's
+                # Claim (as the pilot's Skeptic did).
+                counter(SOLE_SOURCE_QUOTE, "second_sources", lumentum, how="denies"),
+            )
+        ),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    [claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    items = by_quote(found)
+    assert {quote: (item["outcome"], item["kind"]) for quote, item in items.items()} == {
+        LIMIT_QUOTE: ("accepted", "contradiction"),
+        CONCENTRATION_QUOTE: ("accepted", "bear_context"),
+        INVENTORIES_ROW: ("accepted", "bear_context"),
+        SOLE_SOURCE_QUOTE: ("accepted", "bear_context"),
+    }
+    # The contradiction names its Claim and how; it alone has independence.
+    limit = items[LIMIT_QUOTE]
+    assert (limit["contradicts_claim_ids"], limit["how"], limit["kind_reason"]) == (
+        [claim["id"]],
+        "limits",
+        None,
+    )
+    assert (limit["source_version_id"], limit["independent"]) == (update, True)
+    # Bear context is attached to no Claim. What the Skeptic proposed as a contradiction and
+    # code stored as context says why.
+    concentration, inventories, sole_source = (
+        items[CONCENTRATION_QUOTE],
+        items[INVENTORIES_ROW],
+        items[SOLE_SOURCE_QUOTE],
+    )
+    for context in (concentration, inventories, sole_source):
+        assert (context["contradicts_claim_ids"], context["how"]) == ([], None)
+        assert (context["independent"], context["independence_detail"]) == (None, None)
+        assert context["assertion_id"] is not None
+    assert (concentration["kind_reason"], inventories["kind_reason"]) == (None, None)
+    assert (inventories["figure_name"], inventories["figure_period"]) == (
+        "Inventories",
+        BALANCE_SHEET_DATES,
+    )
+    assert atlas.parsed(ten_q)[inventories["span_start"] : inventories["span_end"]] == (
+        INVENTORIES_ROW
+    )
+    assert sole_source["source_version_id"] == lite_10k
+    assert sole_source["kind_reason"] == (
+        "proposed as a contradiction, but its quote names neither the subject nor the object"
+        " of the Claim it lists (Coherent supplies NVIDIA)"
+    )
+    assert sole_source["proposed"]["contradicts_claim_ids"] == [claim["id"]]
+    artifacts = tasks(found)["skeptic"]["artifacts"]
+    assert (artifacts["contradictions_accepted"], artifacts["bear_context_accepted"]) == (1, 3)
+    assert (artifacts["contradictions_demoted"], artifacts["counterevidence_independent"]) == (1, 1)
+    # The card: one finding, contradicted by the one contradiction; the context in its own
+    # section, by checklist item (in checklist order) and company.
+    card = found["research_card"]
+    [finding] = card["findings"]
+    assert finding["counterevidence_ids"] == [limit["id"]]
+    assert finding["needs_review"] is True
+    [contradiction] = card["contradictions"]
+    assert (contradiction["counterevidence_id"], contradiction["how"]) == (limit["id"], "limits")
+    assert contradiction["contradicts_claim_ids"] == [claim["id"]]
+    assert contradiction["independent"] is True
+    assert [
+        (g["checklist_item"], g["company_id"], g["company_name"], len(g["items"]))
+        for g in card["bear_context"]
+    ] == [
+        ("second_sources", lumentum, "Lumentum", 1),
+        ("inventory_cycle", coherent, "Coherent", 1),
+        ("customer_concentration", coherent, "Coherent", 1),
+    ]
+    by_item = {g["checklist_item"]: g["items"][0] for g in card["bear_context"]}
+    assert by_item["second_sources"]["counterevidence_id"] == sole_source["id"]
+    assert by_item["second_sources"]["reason"] == sole_source["kind_reason"]
+    assert by_item["second_sources"]["source_span"]["quote"] == SOLE_SOURCE_QUOTE
+    row = by_item["inventory_cycle"]
+    assert (row["figure_name"], row["figure_period"], row["reason"]) == (
+        "Inventories",
+        BALANCE_SHEET_DATES,
+        None,
+    )
+    assert row["source_span"]["assertion_id"] == inventories["assertion_id"]
+    assert by_item["customer_concentration"]["source_span"]["quote"] == CONCENTRATION_QUOTE
+    # The stop counts contradictions only: one finding, not four items.
+    assert (found["stop_reason"], found["stop_detail"]) == (
+        "needs_review",
+        "1 findings are contradicted by independent counterevidence",
+    )
+    editor_task = tasks(found)["editor"]["artifacts"]
+    assert (editor_task["contradictions"], editor_task["bear_context"]) == (1, 3)
+    assert editor_task["contradicted_findings"] == 1
+    # The Editor is sent the two kinds separately, each item's quote as low-trust data.
+    editor = asked(next(b for b in requests(llm) if b["metadata"]["role"] == "editor"))
+    [sent] = editor["request"]["contradictions"]
+    assert (sent["counterevidence_id"], sent["how"], sent["contradicts_claim_ids"]) == (
+        limit["id"],
+        "limits",
+        [claim["id"]],
+    )
+    assert [
+        (c["counterevidence_id"], c["checklist_item"], c["company"])
+        for c in editor["request"]["bear_context"]
+    ] == [
+        (sole_source["id"], "second_sources", "Lumentum"),
+        (inventories["id"], "inventory_cycle", "Coherent"),
+        (concentration["id"], "customer_concentration", "Coherent"),
+    ]
+    assert editor["request"]["bear_context"][1]["figure_name"] == "Inventories"
+    quoted = {each["id"]: each["text"] for each in editor["retrieved_data"]}
+    for item in (limit, concentration, inventories, sole_source):
+        assert quoted[item["id"]] == item["quote"]
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    versions = {(c["prompt_name"], c["prompt_version"]) for c in calls}
+    assert {("skeptic", 3), ("editor", 5)} <= versions
+    # Nothing but the contradiction can disprove a premise or needs an owner's eye.
+    assert [p["status"] for p in found["premises"]] == ["open", "open"]
+
+
+def test_a_table_row_is_bear_context_only_with_its_figure_s_name_and_period(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    coherent = company_id(atlas, "coherent")
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    started = seeded(atlas, "coherent")
+    llm.script_role("financial_analyst", ANALYSED)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan(documents=((ten_q, "inventory_cycle"),)),
+        ChatReply.answer(
+            countering(
+                # The pilot's rows: a label and its figures, no words.
+                counter(PPE_ROW, "capacity_additions", coherent, contradicts=False),
+                counter(
+                    INVENTORIES_ROW,
+                    "inventory_cycle",
+                    coherent,
+                    contradicts=False,
+                    figure=("Inventories", "  "),  # a name, but no period
+                ),
+                # A row naming Coherent, proposed as a contradiction with its figure stated: a
+                # row states nothing that could contradict a Claim.
+                counter(
+                    EQUITY_ROW,
+                    "dilution_financing",
+                    coherent,
+                    how="denies",
+                    figure=("Total Coherent Corp. shareholders' equity", BALANCE_SHEET_DATES),
+                ),
+            )
+        ),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    items = by_quote(found)
+    for quote in (PPE_ROW, INVENTORIES_ROW):
+        rejected = items[quote]
+        assert (rejected["outcome"], rejected["reason_code"]) == (
+            "rejected",
+            "table_row_without_figure",
+        )
+        assert "figure's name" in rejected["reason"] and "period" in rejected["reason"]
+        assert (rejected["kind"], rejected["assertion_id"]) == ("bear_context", None)
+    equity = items[EQUITY_ROW]
+    assert (equity["outcome"], equity["kind"], equity["contradicts_claim_ids"]) == (
+        "accepted",
+        "bear_context",
+        [],
+    )
+    assert equity["kind_reason"] == (
+        "proposed as a contradiction, but its quote is a table row, which states nothing that"
+        " could deny, limit or date a Claim"
+    )
+    assert (equity["figure_name"], equity["figure_period"]) == (
+        "Total Coherent Corp. shareholders' equity",
+        BALANCE_SHEET_DATES,
+    )
+    card = found["research_card"]
+    assert card["contradictions"] == []
+    [group] = card["bear_context"]
+    assert (group["checklist_item"], len(group["items"])) == ("dilution_financing", 1)
+    assert card["findings"][0]["counterevidence_ids"] == []
+    assert found["stop_reason"] == "answered"
+    [skeptic] = [r for r in card["read"] if r["role"] == "skeptic"]
+    assert (skeptic["claims_proposed"], skeptic["claims_accepted"], skeptic["rejected"]) == (
+        3,
+        1,
+        {"table_row_without_figure": 2},
+    )

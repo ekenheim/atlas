@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import Connection, RowMapping, text
 
 from atlas.roles import run_usage
+from atlas.roles.skeptic import ContradictionHow, CounterevidenceKind
 
 INVESTIGATION_TASK_KIND = "investigation_task"
 RUN_KIND = "investigation"
@@ -232,9 +233,10 @@ class CardFinding(BaseModel):
     entity_ids: list[uuid.UUID]
     validity_dates: ValidityDates
     limitations: list[str]
-    # The Skeptic's accepted, independent counterevidence against a cited Claim (ticket 15).
+    # The Skeptic's accepted, independent contradictions of a cited Claim (ticket 15); bear
+    # context never marks a finding.
     counterevidence_ids: list[uuid.UUID]
-    # Until every cited Assertion is corroborated, and while counterevidence contradicts it.
+    # Until every cited Assertion is corroborated, and while a contradiction stands against it.
     needs_review: bool
     open_questions: list[str]
 
@@ -244,9 +246,13 @@ CounterevidenceOutcome = Literal["accepted", "rejected"]
 
 class Counterevidence(BaseModel):
     """One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an
-    Assertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`
+    Assertion (predicate `counterevidence`) on a Source Version the Skeptic chose, of one
+    `kind`: a contradiction of the Claims in `contradicts_claim_ids` (and `how`), or bear
+    context, attached to no Claim (`kind_reason` when the Skeptic proposed it as a
+    contradiction and code stored it as bear context). `independent`, a contradiction's only,
     says whether its Evidence Family differs from every supporting Claim's (a Source Version
-    outside any family is its own). `proposed` is the item exactly as the model answered."""
+    outside any family is its own). A rejected item keeps the kind proposed. `proposed` is the
+    item exactly as the model answered."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -254,6 +260,8 @@ class Counterevidence(BaseModel):
     round: int
     task_key: str
     role_call_id: uuid.UUID
+    kind: CounterevidenceKind
+    kind_reason: str | None
     checklist_item: str
     passage_id: str
     statement: str
@@ -264,20 +272,27 @@ class Counterevidence(BaseModel):
     span_end: int | None
     epistemic_type: str
     contradicts_claim_ids: list[uuid.UUID]
+    how: ContradictionHow | None  # None before migration 0053, and for bear context
+    # The figure a quoted table row states, and its period (None for any other quote).
+    figure_name: str | None
+    figure_period: str | None
     disproves_premise: str | None
     outcome: CounterevidenceOutcome
     reason_code: str | None
     reason: str | None
     assertion_id: uuid.UUID | None
     evidence_family: str | None  # a family ID, or a lone Source Version's ID
-    independent: bool | None  # None when rejected
+    # None when rejected, and for bear context (kept for rows recorded before 0053).
+    independent: bool | None
     independence_detail: str | None
     proposed: dict[str, JsonValue]
     created_at: datetime
 
 
 class CardContradiction(BaseModel):
-    """Accepted counterevidence, as the research card and a Hypothesis carry it."""
+    """An accepted contradiction of the Claims it names, as the research card and a Hypothesis
+    carry it. (Cards drawn before the kinds list every accepted item here, some naming no
+    Claim, and have no `how`.)"""
 
     model_config = ConfigDict(frozen=True)
 
@@ -286,12 +301,41 @@ class CardContradiction(BaseModel):
     statement: str
     subject_company_id: uuid.UUID
     contradicts_claim_ids: list[uuid.UUID]
+    how: ContradictionHow | None = None
     disproves_premise: str | None
     source_span: SourceSpan  # its Assertion's quote and span (`claim_id` is the item's ID)
     evidence_family: str
     independent: bool
     independence_detail: str
     evidence_available_at: datetime
+
+
+class CardBearContextItem(BaseModel):
+    """One accepted bear-context item: what the quote says, and its span."""
+
+    model_config = ConfigDict(frozen=True)
+
+    counterevidence_id: uuid.UUID
+    statement: str
+    source_span: SourceSpan  # its Assertion's quote and span (`claim_id` is the item's ID)
+    evidence_available_at: datetime
+    # The figure a quoted table row states, and its period (None for any other quote).
+    figure_name: str | None
+    figure_period: str | None
+    # Why code stored it as bear context, when the Skeptic proposed a contradiction.
+    reason: str | None
+
+
+class CardBearContext(BaseModel):
+    """The bear context about one company under one bear-checklist item: what the Skeptic
+    found on the checklist that contradicts no Claim. It marks no finding."""
+
+    model_config = ConfigDict(frozen=True)
+
+    checklist_item: str
+    company_id: uuid.UUID
+    company_name: str
+    items: list[CardBearContextItem]
 
 
 class UnsupportedFinding(BaseModel):
@@ -382,9 +426,12 @@ class ResearchCard(BaseModel):
     lead_ids: list[uuid.UUID]
     disproven_premises: list[str]
     editor_role_call_id: uuid.UUID
-    # The Skeptic's accepted counterevidence (independent or not); cards drawn before ticket 15
+    # The Skeptic's accepted contradictions (independent or not); cards drawn before ticket 15
     # have none.
     contradictions: list[CardContradiction] = Field(default_factory=list[CardContradiction])
+    # The Skeptic's accepted bear context, by checklist item (in checklist order) and company;
+    # cards drawn before the kinds have none (their `contradictions` hold every accepted item).
+    bear_context: list[CardBearContext] = Field(default_factory=list[CardBearContext])
     # What the investigation searched and read, and why nothing was accepted (pilot fix 01);
     # cards drawn before it have neither.
     searched: list[CardSearch] = Field(default_factory=list[CardSearch])

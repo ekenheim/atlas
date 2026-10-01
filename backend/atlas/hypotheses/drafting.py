@@ -7,8 +7,9 @@ One attempt:
    across retries; the investigation's run is finished by now.
 3. **The Editor** (`HYPOTHESIS_EDITOR`) is sent the research question, the research card's
    findings and open questions, the investigation's accepted Claims (excluding those from a
-   task whose premise was disproven), the Skeptic's counterevidence on the card
-   (`contradictions`) and the disproven premises; each Claim's and counterevidence item's
+   task whose premise was disproven), the Skeptic's contradictions on the card
+   (`contradictions`; the card's bear context is not sent, and not carried by a version) and
+   the disproven premises; each Claim's and counterevidence item's
    quote goes as quoted, low-trust `retrieved_data`. It proposes the thesis statement, mechanism,
    predictions, catalysts, falsifiers, required Evidence, alternatives, unresolved questions
    and findings.

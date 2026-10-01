@@ -7516,6 +7516,105 @@
           "closed"
         ]
       },
+      "CardBearContext": {
+        "properties": {
+          "checklist_item": {
+            "type": "string",
+            "title": "Checklist Item"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CardBearContextItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checklist_item",
+          "company_id",
+          "company_name",
+          "items"
+        ],
+        "title": "CardBearContext",
+        "description": "The bear context about one company under one bear-checklist item: what the Skeptic\nfound on the checklist that contradicts no Claim. It marks no finding."
+      },
+      "CardBearContextItem": {
+        "properties": {
+          "counterevidence_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Counterevidence Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "source_span": {
+            "$ref": "#/components/schemas/SourceSpan"
+          },
+          "evidence_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evidence Available At"
+          },
+          "figure_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Name"
+          },
+          "figure_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Period"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counterevidence_id",
+          "statement",
+          "source_span",
+          "evidence_available_at",
+          "figure_name",
+          "figure_period",
+          "reason"
+        ],
+        "title": "CardBearContextItem",
+        "description": "One accepted bear-context item: what the quote says, and its span."
+      },
       "CardContradiction": {
         "properties": {
           "counterevidence_id": {
@@ -7543,6 +7642,22 @@
             },
             "type": "array",
             "title": "Contradicts Claim Ids"
+          },
+          "how": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "denies",
+                  "limits",
+                  "dates"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "How"
           },
           "disproves_premise": {
             "anyOf": [
@@ -7591,7 +7706,7 @@
           "evidence_available_at"
         ],
         "title": "CardContradiction",
-        "description": "Accepted counterevidence, as the research card and a Hypothesis carry it."
+        "description": "An accepted contradiction of the Claims it names, as the research card and a Hypothesis\ncarry it. (Cards drawn before the kinds list every accepted item here, some naming no\nClaim, and have no `how`.)"
       },
       "CardDocumentRead": {
         "properties": {
@@ -9292,6 +9407,25 @@
             "format": "uuid",
             "title": "Role Call Id"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "contradiction",
+              "bear_context"
+            ],
+            "title": "Kind"
+          },
+          "kind_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Reason"
+          },
           "checklist_item": {
             "type": "string",
             "title": "Checklist Item"
@@ -9365,6 +9499,44 @@
             },
             "type": "array",
             "title": "Contradicts Claim Ids"
+          },
+          "how": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "denies",
+                  "limits",
+                  "dates"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "How"
+          },
+          "figure_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Name"
+          },
+          "figure_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Period"
           },
           "disproves_premise": {
             "anyOf": [
@@ -9471,6 +9643,8 @@
           "round",
           "task_key",
           "role_call_id",
+          "kind",
+          "kind_reason",
           "checklist_item",
           "passage_id",
           "statement",
@@ -9481,6 +9655,9 @@
           "span_end",
           "epistemic_type",
           "contradicts_claim_ids",
+          "how",
+          "figure_name",
+          "figure_period",
           "disproves_premise",
           "outcome",
           "reason_code",
@@ -9493,7 +9670,7 @@
           "created_at"
         ],
         "title": "Counterevidence",
-        "description": "One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an\nAssertion (predicate `counterevidence`) on a Source Version the Skeptic chose; `independent`\nsays whether its Evidence Family differs from every supporting Claim's (a Source Version\noutside any family is its own). `proposed` is the item exactly as the model answered."
+        "description": "One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an\nAssertion (predicate `counterevidence`) on a Source Version the Skeptic chose, of one\n`kind`: a contradiction of the Claims in `contradicts_claim_ids` (and `how`), or bear\ncontext, attached to no Claim (`kind_reason` when the Skeptic proposed it as a\ncontradiction and code stored it as bear context). `independent`, a contradiction's only,\nsays whether its Evidence Family differs from every supporting Claim's (a Source Version\noutside any family is its own). A rejected item keeps the kind proposed. `proposed` is the\nitem exactly as the model answered."
       },
       "CounterpartyOrigin": {
         "properties": {
@@ -19161,6 +19338,13 @@
             },
             "type": "array",
             "title": "Contradictions"
+          },
+          "bear_context": {
+            "items": {
+              "$ref": "#/components/schemas/CardBearContext"
+            },
+            "type": "array",
+            "title": "Bear Context"
           },
           "searched": {
             "items": {

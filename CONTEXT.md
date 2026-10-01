@@ -76,6 +76,14 @@ One of four whitelisted predicates for a bottleneck fact a company states about 
 - `qualified_for`: customers have qualified the company, or chosen it in a design win, as a supplier of the product. A named customer is `supplies` instead.
 _Avoid_: Company attribute, flag, constraint (as a synonym for `capacity_constrained`)
 
+**Counterevidence**:
+What the Skeptic finds in archived Source Versions that weighs against an investigation's result. Each accepted item is an Assertion with an exact quote span and is one of two kinds, never both. A **contradiction** names a Claim and denies, limits or dates its statement, about the same company and object; only a contradiction marks a finding contradicted, and it is independent only when it comes from an Evidence Family none of the supporting Claims use. Everything else is Bear Context. A lead, Memory or another role's output is never counterevidence.
+_Avoid_: Rebuttal, negative evidence, contradiction (for an item that names no Claim)
+
+**Bear Context**:
+Counterevidence that contradicts no Claim: a bear-checklist fact about a company (customer concentration, inventories, dilution and financing, second sources, substitutes, capacity additions) with its quote span. It is shown beside the findings in its own section of the research card, marks no finding contradicted, and never sends an investigation to review.
+_Avoid_: Contradiction, risk factor, bear case (the bear case is contradictions and bear context together)
+
 **Research Snapshot**:
 An immutable, dated record of exactly what was considered and concluded at a decision time, including the Memory text as it was returned. It is the only exact mechanism for reproducing past beliefs.
 _Avoid_: Backup, export, replay

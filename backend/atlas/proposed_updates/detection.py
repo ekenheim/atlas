@@ -11,7 +11,7 @@ contradicting Evidence and the Assertions it bears on:
   states them contradicts nothing; one without parsed text can't be compared, and proposes
   nothing);
 - `counterevidence`: the Assertions stating the span (same Source Version and offsets) of a
-  Claim the accepted, independent counterevidence contradicts.
+  Claim the accepted, independent contradiction names (bear context contradicts no Claim).
 
 Each Hypothesis whose **latest published version** depends on one of those Assertions gets
 one proposed update for the event (unique per version and event, so a retried job adds
@@ -366,15 +366,16 @@ def _counterevidence(
         connection.execute(
             text(
                 "SELECT id, assertion_id, source_version_id, quote, statement, checklist_item,"
-                " independent, outcome, contradicts_claim_ids FROM counterevidence WHERE id = :id"
+                " independent, outcome, kind, contradicts_claim_ids FROM counterevidence"
+                " WHERE id = :id"
             ),
             {"id": counterevidence_id},
         )
         .mappings()
         .one()
     )
-    if row["outcome"] != "accepted" or not row["independent"]:
-        return None, "the counterevidence is not accepted and independent"
+    if row["outcome"] != "accepted" or row["kind"] != "contradiction" or not row["independent"]:
+        return None, "the counterevidence is not an accepted, independent contradiction"
     # The Assertions stating the contradicted Claims' spans (in any investigation).
     stating: Sequence[uuid.UUID] = list(
         connection.execute(

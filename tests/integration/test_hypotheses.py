@@ -7,9 +7,10 @@ observed through `/api/v1` (the Hypothesis, its diff and export, runs' role call
 log through the database's own tables) and the requests the fakes received. The Source
 Versions are the recorded Coherent EDGAR filings; Hindsight is the recorded fake, SearXNG the
 scripted fake. LiteLLM is the scripted chat fake: **every role's answer is written here**
-(the Investigator quotes the recorded Coherent 10-K; the Skeptic reads nothing, or quotes the
-10-Q as counterevidence; the Editors cite the Claim IDs they are sent; the Reviewer, chained
-after the investigation, confirms what it is sent). Nothing live is called.
+(the Investigator quotes the recorded Coherent 10-K; the Skeptic reads nothing, or quotes a
+hand-shaped later statement, imported by hand, as a contradiction; the Editors cite the Claim
+IDs they are sent; the Reviewer, chained after the investigation, confirms what it is sent).
+Nothing live is called.
 """
 
 import hashlib
@@ -39,9 +40,16 @@ SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
 SECOND_SOURCE = "InP laser second source qualification hyperscaler"
 COHR_10K = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm"
 COHR_10Q = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm"
-# From the Coherent 10-Q's balance sheet (the recorded fixture's parsed text).
-DILUTION_QUOTE = (
-    "issued - 212,340,736 shares at March 31, 2026; 171,849,325 shares at June 30, 2025"
+# Hand-shaped, not a recorded filing: a later statement that limits the 10-K's supply
+# agreement, naming both parties (imported by hand, so its own Evidence Family).
+UPDATE_URL = "https://investors.example.test/coherent/2026-08-28-supply-agreement"
+LIMIT_QUOTE = (
+    "the agreement no longer commits NVIDIA to purchase from Coherent after December 31, 2027"
+)
+SUPPLY_UPDATE = (
+    "Synthetic test fragment: a hand-shaped update, not a Coherent document.\n\n"
+    "On August 28, 2026, Coherent Corp. and NVIDIA amended their multi-year supply agreement."
+    f" NVIDIA may qualify a second source for advanced lasers, and {LIMIT_QUOTE}.\n"
 )
 # From the Coherent FY2026 10-K (the recorded fixture's parsed text).
 SUPPLY_QUOTE = (
@@ -320,28 +328,52 @@ def finding_nothing(body: dict[str, Any]) -> JsonValue:
 NOTHING_TO_READ = (ChatReply.answer(finding_nothing, tokens=(500, 50)),) * 8
 
 
-def dilution_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
-    """The Skeptic reads the 10-Q and quotes its share count against every supporting Claim."""
-    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+def limiting_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
+    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained);
+    the Skeptic reads it and quotes it as a contradiction of every supporting Claim: it limits
+    the supply agreement, and names both its parties."""
+    path = atlas.tmp_path / "coherent-supply-update.txt"
+    path.write_text(SUPPLY_UPDATE, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "coherent",
+        "--file",
+        str(path),
+        "--origin-url",
+        UPDATE_URL,
+        "--published-at",
+        "2026-08-28T12:00:00+00:00",
+        "--title",
+        "Coherent supply agreement update",
+    )
+    assert imported.returncode == 0, imported.stderr
+    atlas.worker_pass()
+    update = json.loads(imported.stdout)["source_version_id"]
 
     def reading(body: dict[str, Any]) -> JsonValue:
         sent = asked(body)
-        [passage] = [p for p in sent["retrieved_data"] if DILUTION_QUOTE in p["text"]]
-        start = passage["text"].index(DILUTION_QUOTE)
+        [passage] = [p for p in sent["retrieved_data"] if LIMIT_QUOTE in p["text"]]
+        start = passage["text"].index(LIMIT_QUOTE)
         return {
             "counterevidence": [
                 {
                     "passage_id": passage["id"],
-                    "checklist_item": "dilution_financing",
+                    "kind": "contradiction",
+                    "checklist_item": "second_sources",
                     "subject_company_id": company_id(atlas, "coherent"),
-                    "statement": "Coherent's issued share count rose in fiscal 2026.",
-                    "quote": DILUTION_QUOTE,
+                    "statement": "NVIDIA is no longer committed to buy from Coherent after 2027.",
+                    "quote": LIMIT_QUOTE,
                     "quote_start": start,
-                    "quote_end": start + len(DILUTION_QUOTE),
+                    "quote_end": start + len(LIMIT_QUOTE),
                     "epistemic_type": "company_claim",
                     "contradicts_claim_ids": [
                         c["claim_id"] for c in sent["request"]["supporting_claims"]
                     ],
+                    "how": "limits",
+                    "figure_name": None,
+                    "figure_period": None,
                     "disproves_premise": None,
                 }
             ]
@@ -349,7 +381,7 @@ def dilution_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
 
     plan: dict[str, JsonValue] = {
         "queries": [],
-        "documents": [{"source_version_id": ten_q, "checklist_item": "dilution_financing"}],
+        "documents": [{"source_version_id": update, "checklist_item": "second_sources"}],
     }
     return ChatReply.json(plan), ChatReply.answer(reading)
 
@@ -663,7 +695,7 @@ def test_the_dossier_exports_as_json_and_markdown_with_citations_and_run_metadat
     assert all(run["finished_at"] is not None for run in meta["runs"])
     assert meta["runs"][1]["tokens_in"] == 4000
     assert [(c["role"], c["prompt_name"], c["prompt_version"]) for c in meta["role_calls"]] == [
-        ("editor", "editor", 4),
+        ("editor", "editor", 5),
         ("editor", "editor-hypothesis", 3),
     ]
     assert all(len(c["prompt_sha256"]) == 64 for c in meta["role_calls"])
@@ -1118,10 +1150,10 @@ def test_without_litellm_a_hypothesis_is_not_saved(
 def test_the_skeptic_s_counterevidence_reaches_the_hypothesis_as_contradictions(
     atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
-    found = investigate(atlas, llm, searxng, supply(atlas), skeptic=dilution_skeptic(atlas))
+    found = investigate(atlas, llm, searxng, supply(atlas), skeptic=limiting_skeptic(atlas))
     assert found["stop_reason"] == "needs_review"  # the card's finding is contradicted
     [against] = found["research_card"]["contradictions"]
-    assert against["independent"] is True
+    assert (against["independent"], against["how"]) == (True, "limits")
     saved = save(atlas, found["id"])
     llm.script_chat(ChatReply.answer(hypothesis_editor(), tokens=(4000, 600)))
 
@@ -1141,11 +1173,11 @@ def test_the_skeptic_s_counterevidence_reaches_the_hypothesis_as_contradictions(
     [contradiction] = sent["request"]["contradictions"]
     assert (contradiction["counterevidence_id"], contradiction["checklist_item"]) == (
         against["counterevidence_id"],
-        "dilution_financing",
+        "second_sources",
     )
     assert contradiction["independent"] is True
     quoted = {each["id"]: each["text"] for each in sent["retrieved_data"]}
-    assert quoted[against["counterevidence_id"]] == DILUTION_QUOTE
+    assert quoted[against["counterevidence_id"]] == LIMIT_QUOTE
     assert against["counterevidence_id"] not in [c["claim_id"] for c in sent["request"]["claims"]]
     # A correction keeps them, and re-resolves its findings' counterevidence.
     [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
@@ -1165,7 +1197,7 @@ def test_the_skeptic_s_counterevidence_reaches_the_hypothesis_as_contradictions(
         f"/api/v1/hypotheses/{saved['id']}/export", params={"format": "markdown"}
     ).text
     assert "\n## Contradictions (the Skeptic's counterevidence)\n" in markdown
-    assert f'"{DILUTION_QUOTE}"' in markdown
+    assert f'"{LIMIT_QUOTE}"' in markdown
     assert f"Contradicted by independent counterevidence: `{against['counterevidence_id']}`" in (
         markdown
     )
@@ -1243,7 +1275,7 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
 ) -> None:
     # Hindsight has refreshed the Bottlenecks model: the Scout is sent its content as gaps.
     hindsight[0].apply_refresh("bottlenecks", GAPS, [], refreshed_at=at("2026-09-01T06:30:00Z"))
-    hypothesis = drafted(atlas, llm, searxng, supply(atlas), skeptic=dilution_skeptic(atlas))
+    hypothesis = drafted(atlas, llm, searxng, supply(atlas), skeptic=limiting_skeptic(atlas))
     hypothesis_id = hypothesis["id"]
     [version] = hypothesis["versions"]
     scenario = researcher_scenario(atlas, hypothesis_id)
@@ -1289,16 +1321,17 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
         == at(record["as_of"])
     )
     assert content["cutoff"]["question"] == QUESTION
-    # The Source Versions considered: the 10-K the Investigator read, the 10-Q the Skeptic
-    # read, the companyfacts the scenario's revenue came from; each with its hashes and
-    # availability as the ledger has them.
+    # The Source Versions considered: the 10-K and the 10-Q the Investigator read, the later
+    # statement the Skeptic read (the Investigator too), the companyfacts the scenario's
+    # revenue came from; each with its hashes and availability as the ledger has them.
     ten_k = atlas.version(COHR_10K, "coherent")
     ten_q = atlas.version(COHR_10Q, "coherent")
+    update = atlas.version(UPDATE_URL, "coherent")
     revenue = fy2026_revenue(atlas)
     companyfacts = atlas.get(f"/api/v1/source-versions/{revenue['source_version_id']}")
     considered = {each["id"]: each for each in content["source_versions"]}
-    assert set(considered) == {ten_k["id"], ten_q["id"], companyfacts["id"]}
-    for ledger in (ten_k, ten_q, companyfacts):
+    assert set(considered) == {ten_k["id"], ten_q["id"], update["id"], companyfacts["id"]}
+    for ledger in (ten_k, ten_q, update, companyfacts):
         frozen_source = considered[ledger["id"]]
         for field in ("raw_sha256", "content_sha256", "available_at_basis"):
             assert frozen_source[field] == ledger[field], field
@@ -1320,10 +1353,11 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
     assert recalled
     assert all("recall" in each["selected_by"] for each in recalled)
     # Since pilot fix 10 the passage budget is spread across the documents taken, so the
-    # recall's hits in the 10-Q get a share beside the 10-K's.
+    # recall's hits in the 10-Q and in the later statement get a share beside the 10-K's.
     assert {(each["source_version_id"], each["question"]) for each in recalled} == {
         (ten_k["id"], QUESTION),
         (ten_q["id"], QUESTION),
+        (update["id"], QUESTION),
     }
     # The reading pointers: what Memory returned to the Scout's recalls, the text as returned,
     # with the section each resolved to.
@@ -1346,10 +1380,8 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
     assert atlas.parsed(ten_k["id"])[backing["span_start"] : backing["span_end"]] == SUPPLY_QUOTE
     assert backing["relationship_id"] == edge_id
     against = by_predicate["counterevidence"]
-    assert (against["source_version_id"], against["quote"]) == (ten_q["id"], DILUTION_QUOTE)
-    assert atlas.parsed(ten_q["id"])[against["span_start"] : against["span_end"]] == (
-        DILUTION_QUOTE
-    )
+    assert (against["source_version_id"], against["quote"]) == (update["id"], LIMIT_QUOTE)
+    assert atlas.parsed(update["id"])[against["span_start"] : against["span_end"]] == (LIMIT_QUOTE)
     # The Relationship it depends on, with the owner's approval.
     [edge] = content["relationships"]
     assert (edge["id"], edge["review_state"], edge["reviewed_by"]) == (
