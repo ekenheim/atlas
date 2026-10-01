@@ -17,6 +17,7 @@ import subprocess
 import sys
 import uuid
 from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,7 @@ from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
 from tests.fakes.serve import Served, serve
-from tests.harness import THEMES, Atlas, Clock, at
+from tests.harness import THEMES, Atlas, Clock
 
 COHR_10K = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm"
 COHR_10Q = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm"
@@ -685,7 +686,8 @@ def test_an_llm_outage_pauses_the_queue_and_the_job_resumes_at_its_next_batch_in
         investigator_passages_per_call=1,
         investigator_max_passages=2,
     )
-    clock = Clock(at("2026-10-01T12:00:00+00:00"))
+    # The API reads the pause by the real clock, so the worker's clock starts there too.
+    clock = Clock(datetime.now(UTC).replace(microsecond=0))
     worker = Worker(
         JobQueue(atlas.engine, pacing=Pacing(), clock=clock), builtin_registry(atlas.settings())
     )
