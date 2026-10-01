@@ -1,7 +1,7 @@
 """The investigation state machine: the plan, advancing it on the job queue, stops, premises
 and resume (spec Phase 4, "Research workflow"; §7.3, §7.4).
 
-**The plan** (round 1) is fixed and visible from the start:
+**The plan** (round 1) is visible from the start:
 
     scout -> investigator:<company> (one per seed company) -> skeptic || financial_analyst -> editor
 
@@ -11,6 +11,20 @@ premises: every task on the question itself (`question`), and each Investigator 
 its company belonging in the question (`company:<slug>`). A premise is disproven by the
 researcher, or by the Skeptic's accepted, independent contradiction of a Claim (a company
 premise only; `atlas-skeptic`; bear context disproves nothing).
+
+**The plan grows once, after the Scout** (memory-directed reading ticket 06;
+atlas.investigations.companies). The first advance after a round's Scout task has succeeded
+(so its reading pointers are recorded) and before any Investigator is enqueued ranks the
+companies the pointers name and, while the company budget (`max_companies` Investigators a
+round, the seeds counted) has room, adds an `investigator:<slug>` task for each researched
+company that is not a seed, in rank order: after the seeds' Investigators in the plan,
+depending on the Scout, with its own `company:<slug>` premise (created if the investigation
+has none), and with the pointers it was added for in its artifacts. The Skeptic, the
+Financial Analyst and the Editor then wait for the added Investigators too. What became of
+each ranked company is recorded in the Scout task's artifacts (which is also how a later
+advance, a resume included, knows the round's plan has grown) and as a `companies_ranked`
+event. The seeds are not changed by it: the Financial Analyst still works for the seed
+companies only.
 
 **Advancing.** Every state change happens under a lock on the investigation row, in the
 transaction that records it. Advancing cancels the unstarted tasks whose premise was
@@ -35,7 +49,8 @@ queue pause and the investigation continues when it lifts.
 `no_new_independent_evidence`, not yet saved as a Hypothesis) with rounds and tokens left
 takes one follow-up round on one of its research card's open questions (`follow_up`,
 audited): an `investigation_follow_up` row records the question and the card as it stood,
-the investigation runs again with the next round's plan (the same DAG, the same premises),
+the investigation runs again with the next round's plan (the same DAG, the same premises;
+it grows after its own Scout, by its own question's pointers),
 and the run is reopened, so the round spends what is left of the run's budgets. The round's
 Scout searches for the open question, its Investigators read only Source Versions the
 investigation hasn't read (with the open question for recall), and its Editor redrafts the
@@ -55,6 +70,15 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
 from atlas.companies import Universe
+from atlas.investigations.companies import (
+    ADDED_FOR_POINTERS,
+    COMPANY_BUDGET,
+    POINTED_COMPANIES,
+    RankedCompany,
+    allot,
+    entry,
+    pointed_companies,
+)
 from atlas.investigations.model import (
     DONE,
     INVESTIGATION_TASK_KIND,
@@ -68,6 +92,9 @@ from atlas.roles import run_usage
 
 QUESTION_PREMISE = "question"
 _DETAIL_LIMIT = 1000
+# Where the tasks after the Investigators wait while Investigators are added before them
+# (positions are unique within a round; a plan has far fewer tasks).
+_FAR = 1000
 
 
 class InvestigationError(Exception):
@@ -130,10 +157,16 @@ class _PlannedTask:
     premise_keys: list[str]
     company_id: uuid.UUID | None = None
     skipped: str | None = None  # why a slot is skipped
+    artifacts: dict[str, JsonValue] = field(default_factory=dict[str, JsonValue])
+
+
+def _company_premise(slug: str, name: str) -> tuple[str, str]:
+    """An Investigator's own premise: its key and statement."""
+    return f"company:{slug}", f"{name} is part of the supply chain the question is about"
 
 
 def plan(seeds: Sequence[_Seed]) -> list[_PlannedTask]:
-    """Round 1's DAG (see the module)."""
+    """A round's DAG as created (see the module); it grows after its Scout."""
     investigators = [f"investigator:{seed.slug}" for seed in seeds]
     return [
         _PlannedTask("scout", "scout", [], [QUESTION_PREMISE]),
@@ -162,8 +195,10 @@ def plan(seeds: Sequence[_Seed]) -> list[_PlannedTask]:
 class _Task:
     id: uuid.UUID
     round: int
+    position: int
     key: str
     role: str
+    company_id: uuid.UUID | None
     depends_on: list[str]
     premise_keys: list[str]
     status: str
@@ -203,9 +238,10 @@ class Investigations:
                 connection.execute(
                     text(
                         "INSERT INTO investigation (id, theme, question, seed_company_ids, as_of,"
-                        " bank_id, max_rounds, max_leads, max_documents, token_budget,"
-                        " created_by) VALUES (:id, :theme, :question, :seeds, :as_of, :bank,"
-                        " :rounds, :leads, :documents, :tokens, :actor) RETURNING *"
+                        " bank_id, max_rounds, max_leads, max_documents, max_companies,"
+                        " token_budget, created_by) VALUES (:id, :theme, :question, :seeds,"
+                        " :as_of, :bank, :rounds, :leads, :documents, :companies, :tokens,"
+                        " :actor) RETURNING *"
                     ),
                     {
                         "id": investigation_id,
@@ -217,6 +253,7 @@ class Investigations:
                         "rounds": budgets.max_rounds,
                         "leads": budgets.max_leads,
                         "documents": budgets.max_documents,
+                        "companies": budgets.max_companies,
                         "tokens": budgets.token_budget,
                         "actor": actor.name,
                     },
@@ -225,12 +262,7 @@ class Investigations:
                 .one()
             )
             premises = [(QUESTION_PREMISE, question, None)] + [
-                (
-                    f"company:{seed.slug}",
-                    f"{seed.name} is part of the supply chain the question is about",
-                    seed.id,
-                )
-                for seed in seeds
+                (*_company_premise(seed.slug, seed.name), seed.id) for seed in seeds
             ]
             for key, statement, company_id in premises:
                 connection.execute(
@@ -538,6 +570,8 @@ class Investigations:
             return
         round_ = investigation["round"]
         tasks = _tasks(connection, investigation_id, round_)
+        if self._grow(connection, investigation, tasks):
+            tasks = _tasks(connection, investigation_id, round_)
         disproven = dict(
             connection.execute(
                 text(
@@ -574,6 +608,159 @@ class Investigations:
         if all(task.status in DONE for task in tasks.values()):
             reason, detail = _outcome(tasks["editor"])
             stop(connection, investigation_id, reason, detail)
+
+    def _grow(
+        self, connection: Connection, investigation: RowMapping, tasks: dict[str, _Task]
+    ) -> bool:
+        """Once per round, when its Scout has succeeded and nothing after it has started:
+        rank the companies its reading pointers name and add an Investigator for each one
+        the company budget has room for (see the module). True when the ranking was recorded
+        (the tasks may have changed)."""
+        scout = tasks.get("scout")
+        if scout is None or scout.status != "succeeded" or POINTED_COMPANIES in scout.artifacts:
+            return False
+        others = [task for task in tasks.values() if task.role != "scout"]
+        if any(task.status not in ("pending", "cancelled", "skipped") for task in others):
+            # A round whose Investigators were already under way when this rule arrived (an
+            # investigation running across the upgrade) keeps its plan.
+            return False
+        investigation_id: uuid.UUID = investigation["id"]
+        budget: int = investigation["max_companies"]
+        ranked = pointed_companies(connection, investigation_id, scout.round)
+        investigators = [task for task in others if task.role == "investigator"]
+        task_keys = {
+            task.company_id: task.key for task in investigators if task.company_id is not None
+        }
+        disproven: set[uuid.UUID] = set(
+            connection.execute(
+                text(
+                    "SELECT company_id FROM investigation_premise WHERE investigation_id = :id"
+                    " AND status = 'disproven' AND company_id IS NOT NULL"
+                ),
+                {"id": investigation_id},
+            ).scalars()
+        )
+        outcomes = allot(
+            [company.company_id for company in ranked],
+            reading=set(task_keys),
+            disproven=disproven,
+            max_companies=budget,
+        )
+        added = [company for company in ranked if outcomes[company.company_id] == "added"]
+        if added:
+            task_keys |= self._add_investigators(
+                connection, investigation_id, scout, investigators, others, added
+            )
+        entries = [
+            entry(company, outcomes[company.company_id], task_keys.get(company.company_id))
+            for company in ranked
+        ]
+        not_read = [
+            company.slug
+            for company in ranked
+            if outcomes[company.company_id] in ("no_room", "premise_disproven")
+        ]
+        artifacts: dict[str, JsonValue] = {
+            POINTED_COMPANIES: list[JsonValue](entries),
+            COMPANY_BUDGET: budget,
+            "investigators_added": len(added),
+            "companies_not_read": len(not_read),
+        }
+        connection.execute(
+            text(
+                "UPDATE investigation_task SET artifacts = artifacts || CAST(:new AS jsonb)"
+                " WHERE id = :id"
+            ),
+            {"id": scout.id, "new": json.dumps(artifacts)},
+        )
+        event(
+            connection,
+            investigation_id,
+            "companies_ranked",
+            round=scout.round,
+            max_companies=budget,
+            investigators=len(investigators) + len(added),
+            added=list[JsonValue](task_keys[company.company_id] for company in added),
+            not_read=list[JsonValue](not_read),
+            companies=list[JsonValue](entries),
+        )
+        return True
+
+    def _add_investigators(
+        self,
+        connection: Connection,
+        investigation_id: uuid.UUID,
+        scout: _Task,
+        investigators: list[_Task],
+        others: list[_Task],
+        added: list[RankedCompany],
+    ) -> dict[uuid.UUID, str]:
+        """Insert an Investigator task for each `added` company after the round's other
+        Investigators, in rank order, each with its company premise, and make the tasks that
+        wait for the Investigators wait for these too; the new tasks' keys by company."""
+        where = {"id": investigation_id, "round": scout.round}
+        last = max((task.position for task in investigators), default=scout.position)
+        # Make room in the plan order: the later tasks move down by the number added (in two
+        # steps, since a position is unique within the round at every row).
+        connection.execute(
+            text(
+                "UPDATE investigation_task SET position = position + :far"
+                " WHERE investigation_id = :id AND round = :round AND position > :last"
+            ),
+            where | {"far": _FAR, "last": last},
+        )
+        connection.execute(
+            text(
+                "UPDATE investigation_task SET position = position - :far + :added"
+                " WHERE investigation_id = :id AND round = :round AND position > :far"
+            ),
+            where | {"far": _FAR, "added": len(added)},
+        )
+        planned: list[_PlannedTask] = []
+        for company in added:
+            premise, statement = _company_premise(company.slug, company.name)
+            connection.execute(
+                text(
+                    "INSERT INTO investigation_premise (id, investigation_id, key, statement,"
+                    " company_id) VALUES (:premise, :id, :key, :statement, :company)"
+                    # An earlier round's Investigator for the company left its premise.
+                    " ON CONFLICT (investigation_id, key) DO NOTHING"
+                ),
+                {
+                    "premise": uuid.uuid4(),
+                    "id": investigation_id,
+                    "key": premise,
+                    "statement": statement,
+                    "company": company.company_id,
+                },
+            )
+            planned.append(
+                _PlannedTask(
+                    f"investigator:{company.slug}",
+                    "investigator",
+                    [scout.key],
+                    [QUESTION_PREMISE, premise],
+                    company_id=company.company_id,
+                    artifacts={ADDED_FOR_POINTERS: company.weight.as_json()},
+                )
+            )
+        _insert_tasks(connection, investigation_id, scout.round, planned, first_position=last + 1)
+        reading = [*(task.key for task in investigators), *(task.key for task in planned)]
+        for task in others:
+            if task.role == "investigator" or not set(task.depends_on) & set(reading):
+                continue
+            # The Skeptic, the Financial Analyst and the Editor wait for every Investigator.
+            connection.execute(
+                text("UPDATE investigation_task SET depends_on = :depends_on WHERE id = :task"),
+                {
+                    "task": task.id,
+                    "depends_on": [
+                        *reading,
+                        *(key for key in task.depends_on if key not in reading),
+                    ],
+                },
+            )
+        return {company.company_id: task.key for company, task in zip(added, planned, strict=True)}
 
     def _cancel(
         self, connection: Connection, investigation_id: uuid.UUID, task: _Task, reason: str
@@ -784,15 +971,20 @@ def _outcome(editor: _Task) -> tuple[StopReason, str]:
 
 
 def _insert_tasks(
-    connection: Connection, investigation_id: uuid.UUID, round_: int, planned: list[_PlannedTask]
+    connection: Connection,
+    investigation_id: uuid.UUID,
+    round_: int,
+    planned: list[_PlannedTask],
+    *,
+    first_position: int = 1,
 ) -> None:
-    for position, task in enumerate(planned, start=1):
+    for position, task in enumerate(planned, start=first_position):
         connection.execute(
             text(
                 "INSERT INTO investigation_task (id, investigation_id, round, position,"
-                " key, role, company_id, depends_on, premise_keys, status, detail)"
+                " key, role, company_id, depends_on, premise_keys, status, detail, artifacts)"
                 " VALUES (:id, :investigation, :round, :position, :key, :role, :company,"
-                " :depends_on, :premises, :status, :detail)"
+                " :depends_on, :premises, :status, :detail, CAST(:artifacts AS jsonb))"
             ),
             {
                 "id": uuid.uuid4(),
@@ -806,6 +998,7 @@ def _insert_tasks(
                 "premises": task.premise_keys,
                 "status": "skipped" if task.skipped else "pending",
                 "detail": task.skipped,
+                "artifacts": json.dumps(task.artifacts),
             },
         )
 
@@ -834,9 +1027,9 @@ def round_question(connection: Connection, investigation: RowMapping, round_: in
 def _tasks(connection: Connection, investigation_id: uuid.UUID, round_: int) -> dict[str, _Task]:
     rows = connection.execute(
         text(
-            "SELECT id, round, key, role, depends_on, premise_keys, status, generation, detail,"
-            " artifacts FROM investigation_task WHERE investigation_id = :id AND round = :round"
-            " ORDER BY position FOR UPDATE"
+            "SELECT id, round, position, key, role, company_id, depends_on, premise_keys, status,"
+            " generation, detail, artifacts FROM investigation_task"
+            " WHERE investigation_id = :id AND round = :round ORDER BY position FOR UPDATE"
         ),
         {"id": investigation_id, "round": round_},
     ).mappings()

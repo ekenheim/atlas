@@ -18,6 +18,7 @@ import { routes } from "../../lib/routes";
 import { useIdParam, usePolled } from "../../lib/use-api";
 import {
   ROLES,
+  addedInvestigator,
   byRound,
   canSaveHypothesis,
   checklistLabel,
@@ -27,9 +28,11 @@ import {
   foundBy,
   openQuestions,
   outputParts,
+  pointedOutcome,
   pointerGroups,
   pointerQueryLabel,
   pointerSummary,
+  pointerWeight,
   readerName,
   readingOutcome,
   selectionSummary,
@@ -126,6 +129,10 @@ function Summary({ investigation }: { investigation: Investigation }) {
         </Row>
         <Row name="Documents">
           {usage.documents} of {budgets.max_documents}
+        </Row>
+        <Row name="Investigators">
+          {usage.companies} of {budgets.max_companies}{" "}
+          <span className="muted-small">(this round; the seeds and the companies added)</span>
         </Row>
         <Row name="Tokens">
           {tokenUse(investigation)}{" "}
@@ -358,6 +365,11 @@ function Plan({ investigation }: { investigation: Investigation }) {
   return (
     <section aria-labelledby="plan">
       <h2 id="plan">Plan</h2>
+      <p>
+        Every seed company has an Investigator. After the Scout, the other companies its
+        reading pointers name get one too, best ranked first, while the company budget has
+        room.
+      </p>
       {byRound(investigation.tasks).map(([round, tasks]) => (
         <table key={round}>
           <caption>
@@ -375,7 +387,11 @@ function Plan({ investigation }: { investigation: Investigation }) {
           </thead>
           <tbody>
             {tasks.map((task) => (
-              <TaskRow key={task.id} task={task} />
+              <TaskRow
+                key={task.id}
+                task={task}
+                added={addedInvestigator(task, investigation.pointed_companies)}
+              />
             ))}
           </tbody>
         </table>
@@ -384,7 +400,7 @@ function Plan({ investigation }: { investigation: Investigation }) {
   );
 }
 
-function TaskRow({ task }: { task: InvestigationTask }) {
+function TaskRow({ task, added }: { task: InvestigationTask; added: string | null }) {
   const parts = outputParts(task.artifacts);
   return (
     <tr>
@@ -398,6 +414,7 @@ function TaskRow({ task }: { task: InvestigationTask }) {
         {task.generation > 0 && <span className="muted-small"> (resumed {task.generation}×)</span>}
       </td>
       <td>
+        {added && <p className="muted-small">{added}</p>}
         {task.detail && <p className="muted-small">{task.detail}</p>}
         {parts.length > 0 ? parts.join("; ") : !task.detail && <Missing>none yet</Missing>}
       </td>
@@ -416,6 +433,7 @@ function Pointers({ investigation }: { investigation: Investigation }) {
         answer that resolves to a section of an archived Source Version is a pointer: where
         to read. Its text is Memory, not Evidence: it is never quoted and reaches no role.
       </p>
+      <PointedCompanies investigation={investigation} />
       {groups.length === 0 ? (
         <p>No reading pointer.</p>
       ) : (
@@ -466,6 +484,50 @@ function Pointers({ investigation }: { investigation: Investigation }) {
         ))
       )}
     </section>
+  );
+}
+
+/**
+ * The companies the Scout's pointers name, by weight, and which of them are read: the seeds,
+ * the ones an Investigator was added for, and the ones the company budget had no room for.
+ */
+function PointedCompanies({ investigation }: { investigation: Investigation }) {
+  const companies = investigation.pointed_companies;
+  if (companies.length === 0) return null;
+  return (
+    <table>
+      <caption>
+        Companies the pointers name, best ranked first (a pointer weighs 1 / its rank)
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Company</th>
+          <th scope="col">In round</th>
+          <th scope="col">Pointers</th>
+          <th scope="col">Read?</th>
+        </tr>
+      </thead>
+      <tbody>
+        {companies.map((company) => (
+          <tr key={`${company.round}:${company.company_id}`}>
+            <th scope="row">
+              <Link href={routes.company(company.company_id)}>{company.company_name}</Link>
+            </th>
+            <td>{company.round}</td>
+            <td>{pointerWeight(company)}</td>
+            <td>
+              {pointedOutcome(company, investigation.budgets.max_companies)}
+              {company.task_key && (
+                <>
+                  {" "}
+                  <Code>{company.task_key}</Code>
+                </>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -772,6 +834,7 @@ function Card({ card }: { card: ResearchCard | null }) {
           <BearContext card={card} />
           <Searched card={card} />
           <Read card={card} />
+          <NotRead card={card} />
         </>
       )}
       <h3 id="open-questions">Open questions</h3>
@@ -932,6 +995,30 @@ function Read({ card }: { card: ResearchCard }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+/** The companies Memory pointed to that no Investigator read: the next investigation's seeds. */
+function NotRead({ card }: { card: ResearchCard }) {
+  const companies = card.not_read ?? [];
+  if (companies.length === 0) return null;
+  return (
+    <>
+      <h3 id="not-read">Companies not read</h3>
+      <p>
+        Memory pointed to these companies, and no Investigator read them. Seed the next
+        investigation with one to read it.
+      </p>
+      <ul aria-labelledby="not-read">
+        {companies.map((company) => (
+          <li key={`${company.round}:${company.company_id}`}>
+            <Link href={routes.company(company.company_id)}>{company.company_name}</Link>
+            {company.round > 1 && ` (round ${company.round})`}: {pointerWeight(company)};{" "}
+            {company.reason}.
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

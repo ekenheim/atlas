@@ -982,7 +982,15 @@ def test_part_6_investigation_to_a_hypothesis_scenario_and_publish(verify: Verif
                 "theme": "photonics",
                 "question": INVESTIGATION_QUESTION,
                 "seed_company_ids": seeds,
-                "budgets": {"max_leads": 5, "max_documents": 6, "token_budget": RUN_TOKEN_BUDGET},
+                "budgets": {
+                    "max_leads": 5,
+                    "max_documents": 6,
+                    # The seeds only: an Investigator added for a company the reading pointers
+                    # name (the earlier parts' companies are in the bank) would spend MiniMax
+                    # calls this part's cap doesn't count on.
+                    "max_companies": len(seeds),
+                    "token_budget": RUN_TOKEN_BUDGET,
+                },
             },
             202,
         )

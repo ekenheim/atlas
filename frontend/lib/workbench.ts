@@ -1,11 +1,13 @@
 // The research workbench's pure parts: labels, the research card's open questions, why a
-// follow-up can't be launched, the reading pointers by query, how passages were selected, the
-// Skeptic's items by kind, and a task's output as short text.
+// follow-up can't be launched, the reading pointers by query, the companies they name and
+// which Investigators were added for them, how passages were selected, the Skeptic's items by
+// kind, and a task's output as short text.
 import type {
   CardReading,
   Counterevidence,
   Investigation,
   InvestigationTask,
+  PointedCompany,
   ReadingPointer,
   ResearchCard,
 } from "./api/client";
@@ -217,6 +219,53 @@ export function pointerQueryLabel(group: PointerGroup): string {
 export function pointerSummary(group: PointerGroup): string {
   const companies = group.companies.map((each) => `${each.name} ${each.pointers}`).join(", ");
   return `${plural(group.pointers.length, "pointer")}: ${companies}`;
+}
+
+/**
+ * How strongly a round's reading pointers name a company, in words: how many, the best rank
+ * among them, and their weight (each pointer weighs 1 / its rank in its recall).
+ */
+export function pointerWeight(company: {
+  pointers: number;
+  best_rank: number;
+  score: number;
+}): string {
+  const weight = Number(company.score.toFixed(2));
+  return `${plural(company.pointers, "pointer")}, best rank ${company.best_rank}, weight ${weight}`;
+}
+
+/**
+ * What became of a company the pointers name: a seed is read whatever its rank; another got
+ * an Investigator while the company budget had room; the rest were not read.
+ */
+export function pointedOutcome(company: PointedCompany, maxCompanies: number): string {
+  switch (company.outcome) {
+    case "seed":
+      return "a seed: read whatever its rank";
+    case "added":
+      return "Investigator added";
+    case "no_room":
+      return `not read: the company budget (${maxCompanies} Investigators a round) had no room`;
+    case "premise_disproven":
+      return "not read: its premise was disproven";
+  }
+}
+
+/**
+ * Why an Investigator task is in the plan when its company is no seed: the pointers it was
+ * added for. Null for every other task.
+ */
+export function addedInvestigator(
+  task: Pick<InvestigationTask, "round" | "key">,
+  pointed: PointedCompany[],
+): string | null {
+  const company = pointed.find(
+    (each) => each.outcome === "added" && each.round === task.round && each.task_key === task.key,
+  );
+  if (!company) return null;
+  return `Added after the Scout: Memory points to ${company.company_name} (${pointerWeight(
+    company,
+  )}).`;
 }
 
 /** The bear checklist's items, in words. */

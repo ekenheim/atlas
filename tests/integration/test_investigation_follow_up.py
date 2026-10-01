@@ -534,6 +534,99 @@ def test_a_follow_up_with_nothing_new_to_read_stops_without_new_independent_evid
     assert found["research_card"] == card_before
 
 
+def test_a_follow_up_round_reads_the_companies_its_own_question_s_pointers_name(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Round 1: Memory holds only the seed Coherent's filings, so its plan is the seeds'.
+    investigation_id = first_round(atlas, llm, searxng)
+    before = investigation(atlas, investigation_id)
+    assert [t["key"] for t in before["tasks"]] == PLAN
+    assert [(c["slug"], c["outcome"]) for c in before["pointed_companies"]] == [
+        ("coherent", "seed")
+    ]
+    # Between the rounds a document of AXT, a theme company that is no seed, is archived and
+    # retained (a hand-written note, not an AXT document; plain English, so it is retained).
+    note = atlas.tmp_path / "axt-note.txt"
+    note.write_text(
+        "Synthetic test note: this is a hand-written note for a test, and it is not a"
+        " document of AXT.\n\n"
+        "The note says that AXT is one of the companies in the supply chain of the lasers that"
+        " are used in data centers, and that it has not named any of its customers here.\n",
+        encoding="utf-8",
+    )
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "axt",
+        "--file",
+        str(note),
+        "--origin-url",
+        "https://notes.example.test/axt-note",
+        "--published-at",
+        "2026-08-21T12:00:00+00:00",
+        "--title",
+        "axt-note",
+    )
+    assert imported.returncode == 0, imported.stderr
+    atlas.worker_pass()
+    axt = atlas.company("axt")
+
+    assert follow_up(atlas, investigation_id).status_code == 200
+    script_parallel(llm)
+    llm.script_chat(
+        ChatReply.json({"queries": [{"query": FOLLOW_UP_QUERY, "purpose": "second source"}]}),
+        ChatReply.json({"claims": []}),  # AXT's Investigator: the note states no relation
+    )
+    searxng.script(FOLLOW_UP_QUERY, SearchReply.of("no-results"))
+    atlas.worker_pass()
+
+    found = investigation(atlas, investigation_id)
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+    # Round 2 asked Memory the open question and its query; the answers point to AXT's note
+    # too, so round 2's plan gains AXT's Investigator. Round 1's plan is as it ended.
+    assert [t["key"] for t in found["tasks"] if t["round"] == 1] == PLAN
+    assert [t["key"] for t in found["tasks"] if t["round"] == 2] == [
+        *PLAN[:3],
+        "investigator:axt",
+        *PLAN[3:],
+    ]
+    round_2 = {t["key"]: t for t in found["tasks"] if t["round"] == 2}
+    investigators = [*PLAN[1:3], "investigator:axt"]
+    assert round_2["skeptic"]["depends_on"] == investigators
+    assert round_2["editor"]["depends_on"] == [*investigators, "skeptic", "financial_analyst"]
+    pointers = [p for p in found["pointers"] if p["company_id"] == axt["id"]]
+    assert {(p["round"], p["query"]) for p in pointers} == {
+        (2, OPEN_QUESTION),
+        (2, FOLLOW_UP_QUERY),
+    }
+    assert [
+        (c["round"], c["slug"], c["outcome"], c["task_key"]) for c in found["pointed_companies"]
+    ] == [
+        (1, "coherent", "seed", "investigator:coherent"),
+        (2, "coherent", "seed", "investigator:coherent"),
+        (2, "axt", "added", "investigator:axt"),
+    ]
+    assert round_2["investigator:axt"]["artifacts"]["added_for_pointers"]["pointers"] == 2
+    rankings = [e for e in events(atlas, investigation_id) if e["type"] == "companies_ranked"]
+    assert [(e["round"], e["detail"]["added"]) for e in rankings] == [
+        (1, []),
+        (2, ["investigator:axt"]),
+    ]
+    # It read the note, with the open question; the seeds had nothing new to read.
+    assert [d["title"] for d in found["documents"] if d["task_key"] == "investigator:axt"] == [
+        "axt-note"
+    ]
+    extraction = atlas.get(
+        f"/api/v1/claim-extractions/{round_2['investigator:axt']['artifacts']['extraction_id']}"
+    )
+    assert extraction["question"] == OPEN_QUESTION
+    assert round_2["investigator:coherent"]["artifacts"]["documents"] == 0
+    assert roles(llm)[7:9] == ["scout", "investigator"]
+    assert roles(llm).count("investigator") == 2  # round 1's Coherent, round 2's AXT
+    assert [p["key"] for p in found["premises"]][-1] == "company:axt"
+
+
 def test_a_disproven_company_premise_cancels_only_its_follow_up_investigator(
     atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:

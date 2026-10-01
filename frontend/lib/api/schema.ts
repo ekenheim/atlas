@@ -1761,6 +1761,11 @@ export interface components {
             max_leads?: number | null;
             /** Max Documents */
             max_documents?: number | null;
+            /**
+             * Max Companies
+             * @description Investigators a round, the seeds counted; every seed has one regardless
+             */
+            max_companies?: number | null;
             /** Token Budget */
             token_budget?: number | null;
         };
@@ -1775,6 +1780,8 @@ export interface components {
             max_leads: number;
             /** Max Documents */
             max_documents: number;
+            /** Max Companies */
+            max_companies: number;
             /** Token Budget */
             token_budget: number;
         };
@@ -1964,6 +1971,30 @@ export interface components {
             figure_period: string | null;
             /** Reason */
             reason: string | null;
+        };
+        /**
+         * CardCompanyNotRead
+         * @description A company a round's reading pointers name that got no Investigator, so the next
+         *     investigation can seed it (atlas.investigations.companies).
+         */
+        CardCompanyNotRead: {
+            /** Round */
+            round: number;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Pointers */
+            pointers: number;
+            /** Score */
+            score: number;
+            /** Best Rank */
+            best_rank: number;
+            /** Reason */
+            reason: string;
         };
         /**
          * CardContradiction
@@ -4096,6 +4127,8 @@ export interface components {
             leads: components["schemas"]["InvestigationLead"][];
             /** Pointers */
             pointers: components["schemas"]["ReadingPointer"][];
+            /** Pointed Companies */
+            pointed_companies: components["schemas"]["PointedCompany"][];
             /** Documents */
             documents: components["schemas"]["InvestigationDocument"][];
             /** Counterevidence */
@@ -5163,6 +5196,40 @@ export interface components {
             /** Budget Held */
             budget_held: number;
         };
+        /**
+         * PointedCompany
+         * @description A company a round's reading pointers name, and what the plan did with it
+         *     (atlas.investigations.companies): ranked by `score`, the sum of 1 / rank over the Scout's
+         *     pointers that name it. A `seed` has its Investigator whatever its rank; another company
+         *     got one (`added`, `task_key` its task) while the company budget had room; the rest were
+         *     not read (`no_room`, or `premise_disproven` when its premise already was).
+         */
+        PointedCompany: {
+            /** Round */
+            round: number;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Slug */
+            slug: string;
+            /** Pointers */
+            pointers: number;
+            /** Score */
+            score: number;
+            /** Best Rank */
+            best_rank: number;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "seed" | "added" | "no_room" | "premise_disproven";
+            /** Task Key */
+            task_key: string | null;
+        };
         /** Premise */
         Premise: {
             /** Key */
@@ -6125,6 +6192,8 @@ export interface components {
             searched?: components["schemas"]["CardSearch"][];
             /** Read */
             read?: components["schemas"]["CardReading"][];
+            /** Not Read */
+            not_read?: components["schemas"]["CardCompanyNotRead"][];
         };
         /** ResearchScope */
         ResearchScope: {
@@ -7445,6 +7514,8 @@ export interface components {
             leads: number;
             /** Documents */
             documents: number;
+            /** Companies */
+            companies: number;
             /** Tokens In */
             tokens_in: number;
             /** Tokens Out */

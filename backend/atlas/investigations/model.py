@@ -1,7 +1,7 @@
 """What an investigation is, as the API shows it: its §7.2 request, budgets and usage, the plan
 (premises and role tasks), the leads and documents it took, its reading pointers (where
-Memory pointed), the Skeptic's counterevidence, the Editor's research card, and the event
-log."""
+Memory pointed) and the companies they name (which of them are read), the Skeptic's
+counterevidence, the Editor's research card, and the event log."""
 
 import uuid
 from dataclasses import dataclass
@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import Connection, RowMapping, text
 
 from atlas.claims.reads import PASSAGE_SELECTED_BY
+from atlas.investigations.companies import POINTED_COMPANIES
+from atlas.investigations.companies import Outcome as PointedOutcome
 from atlas.roles import run_usage
 from atlas.roles.skeptic import ContradictionHow, CounterevidenceKind
 
@@ -63,6 +65,8 @@ class Budgets(BaseModel):
     max_rounds: int
     max_leads: int
     max_documents: int
+    # Investigators a round, the seeds counted (atlas.investigations.companies).
+    max_companies: int
     token_budget: int
 
 
@@ -74,6 +78,7 @@ class Usage(BaseModel):
     rounds: int
     leads: int
     documents: int
+    companies: int  # the current round's Investigators: its seeds' and the added ones
     tokens_in: int
     tokens_out: int
 
@@ -195,6 +200,26 @@ class ReadingPointer(BaseModel):
     available_at: datetime  # the Source Version's, at or before the investigation's as-of time
     citation_state: Literal["resolved"]  # only resolved citations make pointers
     created_at: datetime
+
+
+class PointedCompany(BaseModel):
+    """A company a round's reading pointers name, and what the plan did with it
+    (atlas.investigations.companies): ranked by `score`, the sum of 1 / rank over the Scout's
+    pointers that name it. A `seed` has its Investigator whatever its rank; another company
+    got one (`added`, `task_key` its task) while the company budget had room; the rest were
+    not read (`no_room`, or `premise_disproven` when its premise already was)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    round: int
+    company_id: uuid.UUID
+    company_name: str
+    slug: str
+    pointers: int  # how many of the round's Scout pointers name it
+    score: float
+    best_rank: int  # the best rank among them (1: the top of a recall)
+    outcome: PointedOutcome
+    task_key: str | None  # its Investigator task; None when it was not read
 
 
 class SourceSpan(BaseModel):
@@ -418,6 +443,21 @@ class CardReading(BaseModel):
     documents_fallback: bool = False  # the Skeptic's plan chose nothing for a seed company
 
 
+class CardCompanyNotRead(BaseModel):
+    """A company a round's reading pointers name that got no Investigator, so the next
+    investigation can seed it (atlas.investigations.companies)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    round: int
+    company_id: uuid.UUID
+    company_name: str
+    pointers: int  # how many of the round's Scout pointers name it
+    score: float  # the sum of 1 / rank over them
+    best_rank: int
+    reason: str  # the company budget had no room, or its premise was disproven
+
+
 class ResearchCard(BaseModel):
     """The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10)."""
 
@@ -443,6 +483,9 @@ class ResearchCard(BaseModel):
     # cards drawn before it have neither.
     searched: list[CardSearch] = Field(default_factory=list[CardSearch])
     read: list[CardReading] = Field(default_factory=list[CardReading])
+    # The companies the reading pointers name that no Investigator read, every round, best
+    # ranked first (memory-directed reading ticket 06); cards drawn before it have none.
+    not_read: list[CardCompanyNotRead] = Field(default_factory=list[CardCompanyNotRead])
 
 
 class EvidenceItem(BaseModel):
@@ -512,6 +555,10 @@ class Investigation(BaseModel):
     leads: list[InvestigationLead]
     # Where Memory pointed, by round, query and rank (Memory as an index, never Evidence).
     pointers: list[ReadingPointer]
+    # The companies those pointers name, by round and weight, and which of them are read: the
+    # seeds, the ones an Investigator was added for, the ones left out. Empty for a round
+    # until its Scout has succeeded.
+    pointed_companies: list[PointedCompany]
     documents: list[InvestigationDocument]
     counterevidence: list[Counterevidence]
     research_card: ResearchCard | None
@@ -570,7 +617,9 @@ def get_investigation(
             text(
                 "SELECT p.* FROM investigation_premise p"
                 " JOIN investigation i ON i.id = p.investigation_id WHERE i.id = :id"
-                " ORDER BY array_position(i.seed_company_ids, p.company_id) NULLS FIRST, p.key"
+                # The question, the seeds in their order, then the added companies' by key.
+                " ORDER BY p.company_id IS NOT NULL,"
+                " array_position(i.seed_company_ids, p.company_id) NULLS LAST, p.key"
             ),
             params,
         ).mappings()
@@ -727,6 +776,21 @@ def _evidence(
     return [EvidenceItem.model_validate(dict(each)) for each in rows]
 
 
+def _pointed_companies(tasks: list[Task]) -> list[PointedCompany]:
+    """Each round's ranking of the companies its pointers name, as its Scout task recorded
+    it when the plan grew (atlas.investigations.service); rounds in order, best ranked first."""
+    pointed: list[PointedCompany] = []
+    for task in tasks:
+        recorded = task.artifacts.get(POINTED_COMPANIES) if task.role == "scout" else None
+        if isinstance(recorded, list):
+            pointed.extend(
+                PointedCompany.model_validate({"round": task.round} | dict(each))
+                for each in recorded
+                if isinstance(each, dict)
+            )
+    return pointed
+
+
 def _investigation(
     row: RowMapping, parts: _Parts, connection: Connection, queue_paused: bool
 ) -> Investigation:
@@ -735,6 +799,7 @@ def _investigation(
         max_rounds=row["max_rounds"],
         max_leads=row["max_leads"],
         max_documents=row["max_documents"],
+        max_companies=row["max_companies"],
         token_budget=row["token_budget"],
     )
     run_id: uuid.UUID | None = row["run_id"]
@@ -773,6 +838,7 @@ def _investigation(
             rounds=row["round"],
             leads=len(parts.leads),
             documents=len(parts.documents),
+            companies=sum(1 for t in tasks if t.role == "investigator" and t.round == row["round"]),
             tokens_in=tokens_in,
             tokens_out=tokens_out,
         ),
@@ -780,6 +846,7 @@ def _investigation(
         tasks=tasks,
         leads=parts.leads,
         pointers=parts.pointers,
+        pointed_companies=_pointed_companies(tasks),
         documents=parts.documents,
         counterevidence=parts.counterevidence,
         research_card=None if card is None else ResearchCard.model_validate(card),

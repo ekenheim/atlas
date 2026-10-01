@@ -582,6 +582,7 @@ An investigation (`atlas.investigations`) runs a theme question as a fixed plan 
 | `as_of` | timestamptz not null | Only Source Versions available by then are read |
 | `bank_id` | text | The research bank (§7.2 `relevant_hindsight_bank`) |
 | `max_rounds`, `max_leads`, `max_documents`, `token_budget` | | Budgets: 1–2, 1–10, 1–25, > 0 |
+| `max_companies` | smallint | The company budget (migration 0058): Investigators a round, the seeds counted, 1–25; 6 for investigations recorded before it |
 | `round` | smallint | The current round (1 until a follow-up, ticket 17) |
 | `run_id` | uuid FK → `run`, unique | Set by the first task; every role call is in it |
 | `status` | text | `running` or `stopped` |
@@ -589,9 +590,9 @@ An investigation (`atlas.investigations`) runs a theme question as a fixed plan 
 | `research_card` | jsonb | The Editor's draft card (findings in the §7.2 claim shape, open questions, unsupported findings) |
 | `created_by`, `created_at` | | |
 
-`investigation_premise`: what tasks assume (`question`; `company:<slug>` per seed company): `status` `open` or `disproven` with `reason`, `disproven_by`, `disproven_at`.
+`investigation_premise`: what tasks assume (`question`; `company:<slug>` per seed company and per company an Investigator was added for): `status` `open` or `disproven` with `reason`, `disproven_by`, `disproven_at`.
 
-`investigation_task`: one per role task per round (unique by key and by position): `role` (`scout`, `investigator` (with `company_id`), `skeptic`, `financial_analyst`, `editor`), `depends_on` (task keys), `premise_keys`, `status` (`pending`, `queued`, `running`, `succeeded`, `skipped`, `cancelled`, `failed`, `budget_exhausted`), `generation` (resumes), `job_id` (the current `investigation_task` job), `detail` and `artifacts`.
+`investigation_task`: one per role task per round (unique by key and by position): `role` (`scout`, `investigator` (with `company_id`), `skeptic`, `financial_analyst`, `editor`), `depends_on` (task keys), `premise_keys`, `status` (`pending`, `queued`, `running`, `succeeded`, `skipped`, `cancelled`, `failed`, `budget_exhausted`), `generation` (resumes), `job_id` (the current `investigation_task` job), `detail` and `artifacts`. A round's rows are its seeds' plan when it is created; once its Scout has succeeded, an `investigator` row is added for each other researched company its reading pointers name, in rank order, while `max_companies` has room (positions after the seeds' Investigators, the later tasks moved down and their `depends_on` extended; artifacts `added_for_pointers`: `pointers`, `score`, `best_rank`). The Scout row's artifacts then hold the round's ranking: `pointed_companies` (each company's `pointers`, `score` (the sum of 1/rank), `best_rank`, `outcome` (`seed`, `added`, `no_room`, `premise_disproven`) and `task_key`), `company_budget`, `investigators_added`, `companies_not_read`.
 
 `investigation_lead` (the leads taken, ranked, ≤ `max_leads`) and `investigation_document` (the Source Versions an Investigator task read, ≤ `max_documents` in all) count the budgets. `investigation_event` is **insert-only** (triggers `ENABLE ALWAYS`): `seq`, `type`, `round`, `task_key`, `detail`, `at`; `atlas_investigation_stops_total{reason}` counts its `stopped` events.
 
