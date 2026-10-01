@@ -123,4 +123,5 @@ def _retention(settings: Settings) -> Generator[Retention]:
                 poll_attempts=settings.retain_poll_attempts,
             ),
             triage=settings.triage_enabled(),
+            extractor=settings.retain_extractor,
         )

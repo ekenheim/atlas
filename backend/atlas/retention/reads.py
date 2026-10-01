@@ -22,6 +22,9 @@ class MemoryOperation(BaseModel):
     error_class: Literal["quota", "unavailable", "permanent"] | None
     retry_count: int
     document_ids: list[str]
+    # The extractor its items asked Hindsight for (ATLAS_RETAIN_EXTRACTOR when it was
+    # submitted); None: none, so Hindsight's primary LLM extracted them.
+    extractor: str | None
     submitted_at: datetime
     last_polled_at: datetime | None
     completed_at: datetime | None
@@ -42,6 +45,11 @@ class MemoryDocument(BaseModel):
     # completed; None until then, and for a linked or failed section.
     memory_ids: list[str] | None
     reprocess_count: int
+    # The extractor Atlas asked Hindsight for when it last submitted the section (a
+    # reprocess or a resubmission records its own); None: none (the primary), and for a
+    # section never submitted (linked, or still awaiting its first batch). It is what Atlas
+    # asked for, not what Hindsight did: Hindsight stores nothing about the route.
+    extractor: str | None
     template_version: str
     operation_id: str | None
     linked_to_source_version_id: uuid.UUID | None

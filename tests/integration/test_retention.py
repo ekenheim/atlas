@@ -48,6 +48,15 @@ COHR_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json"
 # 8-K's Items 2.02 and 9.01 (the 10-Ks' are `TEN_K_ANCHORS`).
 TEN_Q_ANCHORS = ["cover", "part-i-item-1"]
 EIGHT_K_ANCHORS = ["cover", "item-2-02", "item-9-01"]
+# A retain item as Atlas has always sent it: its fields and its metadata keys, in order.
+RETAIN_ITEM_FIELDS = ["content", "document_id", "timestamp", "context", "metadata", "tags"]
+RETAIN_METADATA_KEYS = [
+    "source_version_id",
+    "section_anchor",
+    "char_start",
+    "char_end",
+    "available_at",
+]
 
 
 @pytest.fixture
@@ -69,6 +78,15 @@ def batch_for(fake: RecordedHindsight, version_id: str) -> list[list[dict[str, A
 
 def by_anchor(memory: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {document["section_anchor"]: document for document in memory["documents"]}
+
+
+def retain_bodies(fake: RecordedHindsight) -> list[bytes]:
+    """The raw body of every batch retain request Hindsight received."""
+    return [
+        request.content
+        for request in fake.calls
+        if request.method == "POST" and request.url.path.endswith("/memories")
+    ]
 
 
 # --- retained section by section ---
@@ -172,10 +190,66 @@ def test_one_batch_per_source_version_with_the_specified_ids_tags_metadata_and_t
                 version["available_at"]
             )
             assert item["content"] == parsed[section["char_start"] : section["char_end"]]
+            # Nothing else is sent: the fields and metadata keys Atlas has always sent, in
+            # their order, and no extractor asked for (ATLAS_RETAIN_EXTRACTOR is unset).
+            assert list(item) == RETAIN_ITEM_FIELDS
+            assert list(item["metadata"]) == RETAIN_METADATA_KEYS
+            assert section["extractor"] is None
+        (operation,) = atlas.memory(version["id"])["operations"]
+        assert operation["extractor"] is None
+    assert len(retain_bodies(fake)) == 4
+    assert all(b'"extractor"' not in body for body in retain_bodies(fake))
     item_2_02 = by_anchor(atlas.memory(atlas.version(LITE_8K)["id"]))["item-2-02"]
     assert item_2_02["section_heading"] == (
         "Item 2.02. Results of Operations and Financial Condition."
     )
+
+
+def test_with_the_retain_extractor_set_every_item_asks_for_it_and_its_section_records_it(
+    database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served]
+) -> None:
+    fake, served = hindsight
+    # One section comes back with no facts, so a reprocess batch is sent too.
+    fake.report_zero_facts(lambda document_id: document_id.endswith(":part-i-item-1b"))
+    atlas = Atlas(database_url, tmp_path, served.url, retain_extractor="minimax")
+    atlas.apply_template()
+
+    job = atlas.ingest("lumentum")
+
+    assert job["status"] == "succeeded", job["failures"]
+    batches = fake.retained()
+    assert len(batches) == 5  # the four versions, and the 10-K's reprocess
+    for item in [item for batch in batches for item in batch]:
+        # Hindsight's metadata routing reads this key; the provenance keys are as before.
+        assert list(item) == RETAIN_ITEM_FIELDS
+        assert list(item["metadata"]) == [*RETAIN_METADATA_KEYS, "extractor"]
+        assert item["metadata"]["extractor"] == "minimax"
+    ten_k = atlas.version(LITE_10K)
+    parsed = atlas.parsed(ten_k["id"])
+    memory = atlas.memory(ten_k["id"])
+    item_1 = by_anchor(memory)["part-i-item-1"]
+    (sent,) = [i for b in batches for i in b if i["document_id"] == item_1["document_id"]]
+    assert sent["metadata"] == {
+        "source_version_id": ten_k["id"],
+        "section_anchor": "part-i-item-1",
+        "char_start": str(item_1["char_start"]),
+        "char_end": str(item_1["char_end"]),
+        "available_at": datetime.fromisoformat(ten_k["available_at"]).isoformat(),
+        "extractor": "minimax",
+    }
+    assert sent["content"] == parsed[item_1["char_start"] : item_1["char_end"]]
+    # What Atlas asked for is recorded on each section and on each operation, since
+    # Hindsight stores nothing about the route.
+    assert memory["counts"]["completed"] == len(TEN_K_ANCHORS) - 1
+    assert {d["extractor"] for d in memory["documents"]} == {"minimax"}
+    retain, reprocess = memory["operations"]
+    assert (retain["kind"], retain["extractor"]) == ("retain", "minimax")
+    assert (reprocess["kind"], reprocess["extractor"]) == ("reprocess", "minimax")
+    for url in (LITE_10Q, LITE_8K, LITE_EX991):
+        assert {d["extractor"] for d in atlas.memory(atlas.version(url)["id"])["documents"]} == {
+            "minimax"
+        }
+    atlas.engine.dispose()
 
 
 def test_an_exhibit_is_retained_in_bounded_chunks_and_companyfacts_not_at_all(
@@ -350,6 +424,7 @@ def test_a_source_version_whose_raw_bytes_are_already_retained_is_linked_not_re_
         assert mine["retain_state"] == "linked"
         assert mine["document_id"] is None
         assert mine["memory_ids"] is None  # the twin's sections hold the memories
+        assert mine["extractor"] is None  # nothing was sent for the copy
         assert mine["linked_to_source_version_id"] == original["id"]
         assert (mine["section_anchor"], mine["char_start"], mine["char_end"]) == (
             theirs["section_anchor"],

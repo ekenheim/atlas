@@ -4606,6 +4606,8 @@ export interface components {
             memory_ids: string[] | null;
             /** Reprocess Count */
             reprocess_count: number;
+            /** Extractor */
+            extractor: string | null;
             /** Template Version */
             template_version: string;
             /** Operation Id */
@@ -4644,6 +4646,8 @@ export interface components {
             retry_count: number;
             /** Document Ids */
             document_ids: string[];
+            /** Extractor */
+            extractor: string | null;
             /**
              * Submitted At
              * Format: date-time
@@ -5299,7 +5303,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "codex" | "minimax" | "tradingview";
+            provider: "codex" | "hindsight_minimax" | "minimax" | "tradingview";
             /**
              * Unit
              * @enum {string}

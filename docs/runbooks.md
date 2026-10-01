@@ -411,7 +411,7 @@ The owner's ChatGPT/Codex subscription (spent by the shared Hindsight's retain, 
  "kinds": ["reflect", "refresh_mental_model", "reprocess", "retain"]}
 ```
 
-- `used`: what the last `window_seconds` spent: Hindsight operations submitted (codex) or recorded LLM tokens (minimax).
+- `used`: what the last `window_seconds` spent: Hindsight operations submitted (codex; `hindsight_minimax` for retains routed to MiniMax, see "Retains on MiniMax" below) or recorded LLM tokens (minimax).
 - `backfill_held`: backfill jobs of `kinds` wait; `backfill_resumes_at` is when enough usage leaves the window for them to run again. `interactive_held` is the same for everything (the owner's own work included) once the whole budget is spent.
 - Each `pending` kind shows `budget_held`, the queued jobs the budget holds now. `pause` is the separate 429/outage backstop: if it shows a `quota` pause while `used` is well under `budget`, the budget is too high for the subscription.
 - Metrics: `atlas_budget_used{provider,unit}`, `atlas_budget_limit{provider,job_class}`, `increase(atlas_budget_usage_total[5h])` and `atlas_queue_jobs_held_by_budget{provider,kind,job_class}`.
@@ -420,7 +420,31 @@ The owner's ChatGPT/Codex subscription (spent by the shared Hindsight's retain, 
 
 Defaults are deliberately low: `ATLAS_CODEX_BUDGET_OPERATIONS=40`, `ATLAS_MINIMAX_BUDGET_TOKENS=400000`, `ATLAS_BUDGET_WINDOW_HOURS=5`, `ATLAS_BUDGET_INTERACTIVE_RESERVE=0.3` (backfill stops at 70%: 28 operations, 280,000 tokens). Raise a budget only after a few windows in which the provider's own usage page shows headroom at the end of a window and no `quota` pause was entered (`atlas_queue_pauses_total{error_class="quota"}` flat). Raise in steps of about 25%, one provider at a time; lower it at once after a quota pause. The reserve is what the owner's own investigations can still use when a backfill has run to its limit. `ATLAS_BACKFILL_WINDOW` is optional: empty (the default) lets backfill run whenever the budget allows; set ranges (for example `01:00-07:00,13:00-15:00`, in `ATLAS_BACKFILL_TIMEZONE`) only to keep backfill out of hours the owner works in.
 
+### Retains on MiniMax (`ATLAS_RETAIN_EXTRACTOR`, memory-directed reading ticket 11)
+
+By default Atlas's retains are extracted by the shared Hindsight's primary LLM (the ChatGPT subscription) and spend the `codex` budget. With `ATLAS_RETAIN_EXTRACTOR=minimax` every retain item asks for the MiniMax extractor (`extractor: minimax` in its metadata; Hindsight's metadata routing; `docs/decisions.md`, "Atlas's retains on MiniMax by metadata routing"). Recall, reflect, consolidation and mental-model refresh stay on the primary.
+
+**Before switching it on:** home-ops PR #7180 must be merged and the shared Hindsight restarted with it (the second chain member and the `metadata` strategy). Without the route the key is ignored: the retains would run on Codex while Atlas counted them against the new budget, so up to 200 operations per window would spend the ChatGPT quota that `ATLAS_CODEX_BUDGET_OPERATIONS` rations.
+
+**Switching it on:** set `ATLAS_RETAIN_EXTRACTOR=minimax` on the API and the worker (both read it: the worker builds the items and applies the budget, the API shows it) and restart them. Then:
+
+1. `GET /api/v1/queue` lists a `hindsight_minimax` budget (`unit: operations`, `kinds: ["reprocess", "retain"]`), and `codex`'s kinds are `reflect`, `refresh_mental_model` and `replay` only. Retains the `codex` budget was holding are released at once, up to the new budget.
+2. After the first retain completes, `GET /api/v1/source-versions/{id}/memory` shows `"extractor": "minimax"` on its sections and its operation. That is what Atlas asked for; to see what Hindsight did, read the bank's LLM request log on the Hindsight server (kept one day): the row whose `metadata.document_id` is the section's document ID names the model, which must be MiniMax-M3.
+3. Sections retained before the switch keep `"extractor": null` and are not re-extracted.
+
+**The budget:** `ATLAS_RETAIN_BUDGET_OPERATIONS` (default 200 retain or reprocess operations per `ATLAS_BUDGET_WINDOW_HOURS`; backfill stops at 70% with the default reserve: 140). It is separate from `ATLAS_MINIMAX_BUDGET_TOKENS`, which counts the research roles' own tokens: both spend the same MiniMax subscription, and Atlas can't see the tokens Hindsight spends. So if a `quota` pause appears (`pause.error_class`, `atlas_queue_pauses_total{error_class="quota"}`) while both budgets show headroom, lower `ATLAS_RETAIN_BUDGET_OPERATIONS` first; raise it as under "Tuning", in steps of about 25%. Metrics carry the provider name: `atlas_budget_used{provider="hindsight_minimax",unit="operations"}`, `atlas_budget_limit{provider="hindsight_minimax",job_class}`, `atlas_budget_usage_total{provider="hindsight_minimax"}`, `atlas_queue_jobs_held_by_budget{provider="hindsight_minimax",kind,job_class}`. Consolidation of the new facts still spends ChatGPT quota that Atlas doesn't count (step 5 of the rollout below).
+
+**When the routed member fails:** a routed item never falls back to Codex; its operation fails. A rate limit or an outage relayed by LiteLLM (`RateLimitError … 429`, `no healthy deployments`, 502/503/504) pauses the queue with backoff (at most 1 h) and the sections stay `pending`; they are resubmitted when the pause lifts. If the pause keeps returning with `no healthy deployments`, the route or the LiteLLM key is wrong (the open question on PR #7180: whether Hindsight's key may call MiniMax-M3): fix it on the cluster, or switch back.
+
+**Switching back:** remove `ATLAS_RETAIN_EXTRACTOR` (or set it empty) and restart the API and the worker. New retains carry no key, run on the primary and spend the `codex` budget again; `hindsight_minimax` leaves the queue view. Nothing is re-counted: each operation recorded the extractor it asked for and stays on that budget. Sections still `pending` (held, paused or awaiting a reprocess) are submitted without the key and record `"extractor": null` for that attempt. Facts MiniMax extracted stay in the bank; `memory_document.extractor` says which sections they came from:
+
+```sql
+SELECT extractor, retain_state, count(*) FROM memory_document GROUP BY 1, 2 ORDER BY 1, 2;
+```
+
 ### Rollout, one company per window
+
+With `ATLAS_RETAIN_EXTRACTOR` set, read `hindsight_minimax` for `codex` in the steps below (its backfill limit is 140 by default, so the cap of 20 is no longer the binding number).
 
 Done: Lumentum, Coherent. Remaining, smallest filer first (a company's own ingest plan shows its real size before the next is started; reorder if a plan surprises):
 

@@ -8,6 +8,14 @@ budget per window, and the queue holds a provider's job kinds while its window i
 - `codex`, counted in **Hindsight operations submitted** (retain and reprocess batches, and a
   replay's retain batches and consolidation, one unit each): Atlas can't see Codex tokens,
   only what it asked Hindsight to do.
+- `hindsight_minimax`, counted in **Hindsight operations submitted** too: the retain and
+  reprocess batches whose items asked the shared Hindsight for its MiniMax extractor
+  (`ATLAS_RETAIN_EXTRACTOR=minimax`; Hindsight's metadata routing, docs/decisions.md,
+  "Atlas's retains on MiniMax by metadata routing"). It exists only while that setting is on:
+  `retain`, `poll_operation` and `reprocess` are then its kinds and leave `codex`, which
+  keeps `reflect`, `refresh_mental_model` and `replay`. Each operation records the extractor
+  it asked for (`hindsight_operation.extractor`) and counts against that extractor's budget
+  whatever the setting is later, so switching the setting never counts an operation twice.
 - `minimax`, counted in **LLM tokens** (in + out) of the role calls' recorded `llm_call`
   rows.
 - `tradingview`, counted in **MCP tool calls** Atlas made to TradingView (recorded
@@ -22,9 +30,10 @@ so backfill never uses the last share of a window. A job may overshoot by what i
 itself (one retain batch; at most one run's token ceiling), since its cost is known only
 afterwards.
 
-`poll_operation` is a `codex` kind but never held: it only watches an operation already
-submitted (and counted) and spends nothing new. The 429/outage pause (`atlas.jobs.pacing`)
-stays the backstop for whatever the budgets don't foresee.
+`poll_operation` is a retain kind (`codex`, or `hindsight_minimax` when routed) but never
+held: it only watches an operation already submitted (and counted) and spends nothing new.
+The 429/outage pause (`atlas.jobs.pacing`) stays the backstop for whatever the budgets don't
+foresee.
 """
 
 import math
@@ -40,17 +49,25 @@ if TYPE_CHECKING:
     from atlas.jobs.pacing import JobClass
     from atlas.settings import Settings
 
-Provider = Literal["codex", "minimax", "tradingview"]
-PROVIDERS: tuple[Provider, ...] = ("codex", "minimax", "tradingview")
+Provider = Literal["codex", "hindsight_minimax", "minimax", "tradingview"]
+PROVIDERS: tuple[Provider, ...] = ("codex", "hindsight_minimax", "minimax", "tradingview")
 BudgetUnit = Literal["operations", "tokens", "requests"]
 UNITS: dict[Provider, BudgetUnit] = {
     "codex": "operations",
+    "hindsight_minimax": "operations",
     "minimax": "tokens",
     "tradingview": "requests",
 }
+# The extractor Atlas's retain items may ask Hindsight for (`ATLAS_RETAIN_EXTRACTOR`), and
+# the provider whose budget the retains routed to it spend.
+RetainExtractor = Literal["minimax"]
+EXTRACTOR_PROVIDERS: dict[RetainExtractor, Provider] = {"minimax": "hindsight_minimax"}
+# The kinds that follow the extractor: they submit, watch or resubmit a retain batch.
+RETAIN_KINDS = frozenset({"retain", "poll_operation", "reprocess"})
 
-# Which provider's quota each LLM-backed job kind spends. Kinds not listed (ingest, noop)
-# spend neither and are never held by a budget.
+# Which provider's quota each LLM-backed job kind spends while no extractor is asked for
+# (`provider_kinds` gives the mapping in force). Kinds not listed (ingest, noop) spend
+# neither and are never held by a budget.
 PROVIDER_KINDS: dict[str, Provider] = {
     "retain": "codex",
     "poll_operation": "codex",
@@ -73,13 +90,19 @@ BUDGET_EXEMPT_KINDS = frozenset({"poll_operation"})
 # Where each provider's usage is recorded: (source rows not yet counted, their units).
 _SWEEPS: dict[Provider, str] = {
     "codex": (
+        # The operations that asked for no extractor: the primary (Codex) extracted them.
         "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"
-        " WHERE NOT EXISTS (SELECT FROM provider_usage u"
+        " WHERE h.extractor IS NULL AND NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'codex' AND u.source_id = h.id)"
         # A replay's retain batches and consolidation (atlas.replay), in its own bank.
         " UNION ALL SELECT r.operation_id, 1 FROM replay_operation r"
         " WHERE NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'codex' AND u.source_id = r.operation_id)"
+    ),
+    "hindsight_minimax": (
+        "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"
+        " WHERE h.extractor = 'minimax' AND NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'hindsight_minimax' AND u.source_id = h.id)"
     ),
     "minimax": (
         "SELECT c.id::text AS source_id, c.tokens_in + c.tokens_out AS units FROM llm_call c"
@@ -94,15 +117,29 @@ _SWEEPS: dict[Provider, str] = {
 }
 
 
-def provider_of(kind: str) -> Provider | None:
-    return PROVIDER_KINDS.get(kind)
+def provider_kinds(retain_extractor: RetainExtractor | None = None) -> dict[str, Provider]:
+    """Which provider's quota each LLM-backed kind spends: `PROVIDER_KINDS`, with the retain
+    kinds moved to the routed extractor's provider when Atlas's retains ask for one."""
+    if retain_extractor is None:
+        return dict(PROVIDER_KINDS)
+    routed = EXTRACTOR_PROVIDERS[retain_extractor]
+    return {
+        kind: routed if kind in RETAIN_KINDS else provider
+        for kind, provider in PROVIDER_KINDS.items()
+    }
 
 
-def budgeted_kinds(provider: Provider) -> list[str]:
+def provider_of(kind: str, retain_extractor: RetainExtractor | None = None) -> Provider | None:
+    return provider_kinds(retain_extractor).get(kind)
+
+
+def budgeted_kinds(
+    provider: Provider, retain_extractor: RetainExtractor | None = None
+) -> list[str]:
     """The kinds a spent `provider` window holds back."""
     return sorted(
         kind
-        for kind, owner in PROVIDER_KINDS.items()
+        for kind, owner in provider_kinds(retain_extractor).items()
         if owner == provider and kind not in BUDGET_EXEMPT_KINDS
     )
 
@@ -116,11 +153,21 @@ class Budgets:
     minimax_tokens: int = 400_000
     tradingview_requests: int = 200
     interactive_reserve: float = 0.3  # the share of each budget backfill may not use
+    # The extractor Atlas's retains ask for (None: the primary, and the retain kinds are
+    # `codex` kinds), and the routed retains' own budget, in force only with an extractor.
+    retain_extractor: RetainExtractor | None = None
+    retain_operations: int = 200
 
     def __post_init__(self) -> None:
         if self.window <= timedelta(0):
             raise ValueError("the budget window must be positive")
-        if min(self.codex_operations, self.minimax_tokens, self.tradingview_requests) < 1:
+        budgets = (
+            self.codex_operations,
+            self.minimax_tokens,
+            self.tradingview_requests,
+            self.retain_operations,
+        )
+        if min(budgets) < 1:
             raise ValueError("each provider's budget must be at least 1")
         if not 0 <= self.interactive_reserve < 1:
             raise ValueError("the interactive reserve must be in [0, 1)")
@@ -133,11 +180,29 @@ class Budgets:
             minimax_tokens=settings.minimax_budget_tokens,
             tradingview_requests=settings.tradingview_budget_requests,
             interactive_reserve=settings.budget_interactive_reserve,
+            retain_extractor=settings.retain_extractor,
+            retain_operations=settings.retain_budget_operations,
         )
+
+    def providers(self) -> tuple[Provider, ...]:
+        """The providers that have a budget now: a routed extractor's only while Atlas's
+        retains ask for it (without it, the view is what it was before the setting)."""
+        asked = EXTRACTOR_PROVIDERS[self.retain_extractor] if self.retain_extractor else None
+        routed = set(EXTRACTOR_PROVIDERS.values())
+        return tuple(p for p in PROVIDERS if p not in routed or p == asked)
+
+    def provider_of(self, kind: str) -> Provider | None:
+        """The provider whose budget holds `kind` now (None: no budget holds it)."""
+        return provider_of(kind, self.retain_extractor)
+
+    def kinds(self, provider: Provider) -> list[str]:
+        """The kinds `provider`'s spent window holds back now."""
+        return budgeted_kinds(provider, self.retain_extractor)
 
     def budget(self, provider: Provider) -> int:
         return {
             "codex": self.codex_operations,
+            "hindsight_minimax": self.retain_operations,
             "minimax": self.minimax_tokens,
             "tradingview": self.tradingview_requests,
         }[provider]
@@ -180,7 +245,8 @@ class Holds:
 
 
 def sweep(connection: Connection, now: datetime) -> None:
-    """Count each provider's usage rows the queue hasn't seen yet, as spent at `now`."""
+    """Count each provider's usage rows the queue hasn't seen yet, as spent at `now` (every
+    provider's, whether or not it has a budget now)."""
     for provider, source in _SWEEPS.items():
         connection.execute(
             text(
@@ -195,9 +261,10 @@ def sweep(connection: Connection, now: datetime) -> None:
 def window_usage(
     connection: Connection, budgets: Budgets, now: datetime
 ) -> dict[Provider, ProviderBudget]:
-    """Each provider's window now; usage not swept yet counts as spent now."""
+    """The window now of each provider that has a budget; usage not swept yet counts as
+    spent now."""
     usage: dict[Provider, ProviderBudget] = {}
-    for provider in PROVIDERS:
+    for provider in budgets.providers():
         rows = connection.execute(
             text(
                 "SELECT recorded_at, units FROM provider_usage"  # noqa: S608 (constant fragments)
@@ -241,7 +308,7 @@ def _provider_budget(
         backfill_held=used >= backfill,
         interactive_resumes_at=_resumes_at(spent, used, budget, budgets.window),
         backfill_resumes_at=_resumes_at(spent, used, backfill, budgets.window),
-        kinds=budgeted_kinds(provider),
+        kinds=budgets.kinds(provider),
     )
 
 

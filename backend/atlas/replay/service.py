@@ -22,10 +22,12 @@ raises `Requeue` after each, so no attempt outlives its lease:
 2. `retain`: one Source Version per step, in chronological order (availability, then ID):
    every section (retention **triage is bypassed**: the replay measures the pipeline on what
    was available, not on decisions recorded later) as one batch through the same code path
-   as production retention (`version_sections`, `version_tags`, `retain_item`), then wait
-   for its operation, so a later version's extraction runs after an earlier one's. Each
-   section is recorded in the replay's own ledger (`replay_document`), never in
-   `memory_document`. Zero-fact sections are not reprocessed.
+   as production retention (`version_sections`, `version_tags`, `retain_item`, the items
+   asking for the same extractor as production's when `ATLAS_RETAIN_EXTRACTOR` is set; the
+   replay's operations stay on the `codex` budget either way), then wait for its operation,
+   so a later version's extraction runs after an earlier one's. Each section is recorded in
+   the replay's own ledger (`replay_document`), never in `memory_document`. Zero-fact
+   sections are not reprocessed.
 3. `consolidate`: ask for consolidation and wait for it, bounded (a timeout after
    `retain_poll_attempts` waits is recorded as `timed_out`, and the questions run anyway).
 4. `questions`: one question of the fixed set per step: a recall and a reflect, scoped like
@@ -62,6 +64,7 @@ from atlas.hindsight import (
     OperationTimeout,
     TagScope,
 )
+from atlas.jobs.budget import RetainExtractor
 from atlas.jobs.pacing import Requeue, TransientFailure, classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue, job_id_for
 from atlas.replay.questions import QuestionSet, ReplayQuestion
@@ -351,6 +354,8 @@ class Replays:
         template: BankTemplate,
         gateway_for: "GatewayFactory",
         timings: ReplayTimings,
+        *,
+        extractor: RetainExtractor | None = None,
     ) -> None:
         self._engine = engine
         self._archive = archive
@@ -359,6 +364,9 @@ class Replays:
         self._template = template
         self._gateway_for = gateway_for
         self._timings = timings
+        # The extractor the replay's retain items ask for, as production's do
+        # (`ATLAS_RETAIN_EXTRACTOR`); a Hindsight without such a route ignores the key.
+        self._extractor: RetainExtractor | None = extractor
 
     def run(self, replay_id: uuid.UUID, job: Job) -> Artifacts:
         """One step. Raises `Requeue` while steps remain; returns once the bank is deleted."""
@@ -506,6 +514,7 @@ class Replays:
                 start=section.start,
                 end=section.end,
                 tags=tags,
+                extractor=self._extractor,
             )
             for document, section in documents
         ]

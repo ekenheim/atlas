@@ -58,6 +58,29 @@ PAUSABLE_KINDS = [
     "triage_audit",
 ]
 UNRELATED_ERROR = "ValueError: document exceeds the extraction schema's maximum length"
+# What a retain operation's error reads like when the chain member its items were routed to
+# (Hindsight's metadata routing; MiniMax through LiteLLM) fails: Hindsight wraps the member's
+# error, and a routed item doesn't fall back to the primary. The "no healthy deployments" text
+# is what the metadata-routing prototype saw on Hindsight 0.10.2 (pilot-review ticket 18);
+# the other two are LiteLLM's relayed rate limit and outage, hand-written in that shape.
+EXTRACTION_FAILED = (
+    "RuntimeError: Fact extraction failed: 1/1 chunks failed. First failures: chunk 0: "
+)
+RELAYED_RATE_LIMIT = EXTRACTION_FAILED + (
+    "RateLimitError: Error code: 429 - {'error': {'message': 'litellm.RateLimitError:"
+    " RateLimitError: MinimaxException - rate limit exceeded', 'type': None, 'param': None,"
+    " 'code': '429'}}"
+)
+RELAYED_NO_DEPLOYMENT = EXTRACTION_FAILED + (
+    "BadRequestError: Error code: 400 - {'error': {'message': \"litellm.BadRequestError: You"
+    " passed in model=MiniMax-M3. There are no healthy deployments for this model. Received"
+    " Model Group=MiniMax-M3\", 'type': None, 'param': None, 'code': '400'}}"
+)
+RELAYED_OUTAGE = EXTRACTION_FAILED + (
+    "InternalServerError: Error code: 503 - {'error': {'message':"
+    " 'litellm.ServiceUnavailableError: MinimaxException - Service Unavailable', 'type': None,"
+    " 'param': None, 'code': '503'}}"
+)
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
 
 
@@ -214,6 +237,66 @@ def test_a_429_failed_operation_pauses_the_queue_then_resumes_and_resubmits(
     ]
     verified = paced.atlas.cli("audit", "verify")
     assert verified.returncode == 0, verified.stdout + verified.stderr
+
+
+@pytest.mark.parametrize(
+    ("error", "error_class"),
+    [
+        (RELAYED_RATE_LIMIT, "quota"),
+        (RELAYED_NO_DEPLOYMENT, "unavailable"),
+        (RELAYED_OUTAGE, "unavailable"),
+    ],
+    ids=["rate-limit", "no-healthy-deployments", "service-unavailable"],
+)
+def test_a_routed_retain_whose_member_fails_pauses_the_queue_and_is_resubmitted(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    clock: Clock,
+    error: str,
+    error_class: str,
+) -> None:
+    fake = hindsight[0]
+    fake.hold_retains("failed", where=is_10k_batch, error_message=error, times=1)
+    atlas = Atlas(
+        database_url, tmp_path, hindsight[1].url, backfill_window="", retain_extractor="minimax"
+    )
+    atlas.apply_template()
+    paced = Paced(atlas, clock)
+    paced.ingest_10k()
+
+    paced.worker_pass()
+
+    # The member's failure says nothing about the sections: the queue pauses, they wait.
+    pause = paced.pause()
+    assert (pause["paused"], pause["level"], pause["error_class"]) == (True, 1, error_class)
+    assert pause["backoff_seconds"] == 60
+    assert error in pause["reason"]
+    assert pause["kinds"] == PAUSABLE_KINDS
+    memory = paced.ten_k_memory()
+    assert memory["counts"]["pending"] == len(TEN_K_ANCHORS)
+    (operation,) = memory["operations"]
+    assert (operation["status"], operation["error_class"]) == ("failed", error_class)
+    assert (operation["error_message"], operation["extractor"]) == (error, "minimax")
+    poll = paced.job(job_id_for("poll_operation", f"poll:{operation['id']}"))
+    assert (poll["status"], poll["attempts"]) == ("queued", 0)
+    assert poll["failures"][-1]["classification"] == error_class
+
+    # After the backoff the same items are resubmitted, still asking for the extractor.
+    clock.advance(seconds=60)
+    assert paced.worker_pass() > 0
+
+    first, again = ten_k_batches(fake)
+    assert again == first
+    assert {item["metadata"]["extractor"] for item in again} == {"minimax"}
+    memory = paced.ten_k_memory()
+    assert memory["counts"]["completed"] == len(TEN_K_ANCHORS)
+    assert [(o["status"], o["extractor"]) for o in memory["operations"]] == [
+        ("failed", "minimax"),
+        ("completed", "minimax"),
+    ]
+    assert paced.pause()["level"] == 0
+    atlas.engine.dispose()
 
 
 def test_outage_pauses_double_their_backoff_up_to_one_hour_and_never_fail_the_job(

@@ -15135,6 +15135,17 @@
             "type": "integer",
             "title": "Reprocess Count"
           },
+          "extractor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extractor"
+          },
           "template_version": {
             "type": "string",
             "title": "Template Version"
@@ -15196,6 +15207,7 @@
           "fact_count",
           "memory_ids",
           "reprocess_count",
+          "extractor",
           "template_version",
           "operation_id",
           "linked_to_source_version_id",
@@ -15258,6 +15270,17 @@
             "type": "array",
             "title": "Document Ids"
           },
+          "extractor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extractor"
+          },
           "submitted_at": {
             "type": "string",
             "format": "date-time",
@@ -15297,6 +15320,7 @@
           "error_class",
           "retry_count",
           "document_ids",
+          "extractor",
           "submitted_at",
           "last_polled_at",
           "completed_at"
@@ -17138,6 +17162,7 @@
             "type": "string",
             "enum": [
               "codex",
+              "hindsight_minimax",
               "minimax",
               "tradingview"
             ],

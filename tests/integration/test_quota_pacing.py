@@ -25,10 +25,13 @@ from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
 from tests.fakes.searxng import FakeSearXNG, SearchReply
 from tests.fakes.serve import Served, serve
-from tests.harness import QUOTA_ERROR, Atlas, Clock, Metrics, at, scrape_metrics
+from tests.harness import LITE_10K, QUOTA_ERROR, Atlas, Clock, Metrics, at, scrape_metrics
 
 FIVE_HOURS = timedelta(hours=5)
 CODEX_KINDS = ["reflect", "refresh_mental_model", "replay", "reprocess", "retain"]
+# With ATLAS_RETAIN_EXTRACTOR set, retains leave the Codex budget for their own.
+CODEX_KINDS_WITHOUT_RETAINS = ["reflect", "refresh_mental_model", "replay"]
+ROUTED_RETAIN_KINDS = ["reprocess", "retain"]
 MINIMAX_KINDS = [
     "discover",
     "extract_claims",
@@ -72,6 +75,9 @@ class Paced:
     def budget(self, provider: str) -> dict[str, Any]:
         (found,) = [b for b in self.get("/api/v1/queue")["budgets"] if b["provider"] == provider]
         return found
+
+    def providers(self) -> list[str]:
+        return [b["provider"] for b in self.get("/api/v1/queue")["budgets"]]
 
     def pending(self, kind: str) -> dict[str, Any]:
         (found,) = [p for p in self.get("/api/v1/queue")["pending"] if p["kind"] == kind]
@@ -217,6 +223,189 @@ def test_a_429_still_pauses_the_queue_under_the_budgets(
 
     assert paced.get("/api/v1/queue")["pause"]["level"] == 0
     assert paced.budget("codex")["used"] == 2  # the resubmission
+
+
+# --- retains routed to MiniMax: their own operations budget -----------------------------------
+
+
+def test_with_the_extractor_set_retains_spend_their_own_budget_and_reflect_stays_on_codex(
+    database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served], clock: Clock
+) -> None:
+    fake = hindsight[0]
+    # Before the switch, a retain spends the window's one Codex operation.
+    atlas = Atlas(database_url, tmp_path, hindsight[1].url, codex_budget_operations=1)
+    atlas.apply_template()
+    before = Paced(atlas, clock)
+    atlas.enqueue("ingest", "--company", "coherent", "--key", "cohr", "--forms", "10-K")
+    before.worker_pass()
+    assert before.providers() == ["codex", "minimax", "tradingview"]  # as before the setting
+    codex = before.budget("codex")
+    assert (codex["used"], codex["interactive_held"], codex["kinds"]) == (1, True, CODEX_KINDS)
+
+    # The owner switches the extractor on: two routed operations per window, backfill one.
+    atlas.overrides |= {
+        "retain_extractor": "minimax",
+        "retain_budget_operations": 2,
+        "budget_interactive_reserve": 0.5,
+    }
+    paced = Paced(atlas, clock)
+    reflect = atlas.enqueue("jobs", "enqueue", "reflect", "--key", "held", "--payload", "{}")
+    ingest = atlas.enqueue("ingest", "--company", "lumentum", "--key", "lite")
+    start = clock.now
+
+    paced.worker_pass()
+
+    # The spent Codex window doesn't hold the retains: two are submitted, and then their own
+    # budget holds the other two. The reflect waits for Codex.
+    retains = paced.job(ingest)["artifacts"]["retain_jobs"]
+    assert paced.statuses(retains) == ["queued", "queued", "succeeded", "succeeded"]
+    assert len(fake.retained()) == 3
+    assert paced.job(reflect)["status"] == "queued"
+    assert paced.providers() == ["codex", "hindsight_minimax", "minimax", "tradingview"]
+    routed = paced.budget("hindsight_minimax")
+    assert routed == {
+        "provider": "hindsight_minimax",
+        "unit": "operations",
+        "window_seconds": 5 * 3600,
+        "used": 2,
+        "budget": 2,
+        "backfill_limit": 1,
+        "interactive_held": True,
+        "backfill_held": True,
+        "interactive_resumes_at": routed["interactive_resumes_at"],
+        "backfill_resumes_at": routed["backfill_resumes_at"],
+        "kinds": ROUTED_RETAIN_KINDS,
+    }
+    assert at(routed["interactive_resumes_at"]) == start + FIVE_HOURS
+    assert at(routed["backfill_resumes_at"]) == start + FIVE_HOURS
+    codex = paced.budget("codex")
+    assert (codex["used"], codex["budget"], codex["interactive_held"]) == (1, 1, True)
+    assert codex["kinds"] == CODEX_KINDS_WITHOUT_RETAINS
+    assert paced.pending("retain")["budget_held"] == 2
+    assert paced.pending("reflect")["budget_held"] == 1
+    metrics = paced.metrics()
+    used = labels(provider="hindsight_minimax", unit="operations")
+    assert metrics[("atlas_budget_used", used)] == 2
+    limit = ("atlas_budget_limit", labels(provider="hindsight_minimax", job_class="interactive"))
+    assert metrics[limit] == 2
+    limit = ("atlas_budget_limit", labels(provider="hindsight_minimax", job_class="backfill"))
+    assert metrics[limit] == 1
+    assert metrics[("atlas_budget_usage_total", labels(provider="hindsight_minimax"))] == 2
+    assert metrics[("atlas_budget_usage_total", labels(provider="codex"))] == 1
+    held = labels(provider="hindsight_minimax", kind="retain", job_class="interactive")
+    assert metrics[("atlas_queue_jobs_held_by_budget", held)] == 2
+    held = labels(provider="codex", kind="reflect", job_class="interactive")
+    assert metrics[("atlas_queue_jobs_held_by_budget", held)] == 1
+
+    # Just before the window rolls nothing more is submitted.
+    clock.now = start + FIVE_HOURS - timedelta(seconds=1)
+    paced.worker_pass()
+    assert len(fake.retained()) == 3
+    assert paced.job(reflect)["status"] == "queued"
+    atlas.engine.dispose()
+
+
+def test_a_routed_backfill_keeps_the_interactive_reserve_of_the_retain_budget(
+    database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served], clock: Clock
+) -> None:
+    fake = hindsight[0]
+    # 4 routed operations per window; backfill stops at 3. Codex has room for one only.
+    paced = codex_paced(
+        database_url,
+        tmp_path,
+        hindsight[1].url,
+        clock,
+        retain_extractor="minimax",
+        retain_budget_operations=4,
+        codex_budget_operations=1,
+        budget_interactive_reserve=0.25,
+    )
+    backfill = paced.atlas.enqueue("ingest", "--company", "lumentum", "--key", "lite", "--backfill")
+    start = clock.now
+
+    paced.worker_pass()
+
+    retains = paced.job(backfill)["artifacts"]["retain_jobs"]
+    assert paced.statuses(retains) == ["queued", "succeeded", "succeeded", "succeeded"]
+    routed = paced.budget("hindsight_minimax")
+    assert (routed["used"], routed["budget"], routed["backfill_limit"]) == (3, 4, 3)
+    assert (routed["interactive_held"], routed["backfill_held"]) == (False, True)
+    assert at(routed["backfill_resumes_at"]) == start + FIVE_HOURS
+    assert paced.budget("codex")["used"] == 0  # routed retains spend no Codex operation
+    assert paced.pending("retain")["budget_held"] == 1
+
+    # The owner's own ingest runs in the reserve while the backfill waits.
+    interactive = paced.atlas.enqueue(
+        "ingest", "--company", "coherent", "--key", "cohr", "--forms", "10-K"
+    )
+    paced.worker_pass()
+
+    (own,) = paced.job(interactive)["artifacts"]["retain_jobs"]
+    assert paced.job(own)["status"] == "succeeded"
+    assert paced.statuses(retains).count("queued") == 1
+    routed = paced.budget("hindsight_minimax")
+    assert (routed["used"], routed["interactive_held"]) == (4, True)
+
+    clock.now = start + FIVE_HOURS
+    paced.worker_pass()
+
+    assert paced.statuses(retains) == ["succeeded"] * 4
+    assert len(fake.retained()) == 5
+    assert paced.budget("hindsight_minimax")["used"] == 1
+    assert paced.budget("codex")["used"] == 0
+
+
+def test_switched_back_a_reprocess_runs_on_codex_and_records_no_extractor(
+    database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served], clock: Clock
+) -> None:
+    fake = hindsight[0]
+    fake.report_zero_facts(lambda document_id: document_id.endswith(":part-i-item-1b"))
+    # One routed operation per window: the 10-K's retain spends it, so its zero-fact
+    # section's reprocess waits.
+    atlas = Atlas(
+        database_url,
+        tmp_path,
+        hindsight[1].url,
+        retain_extractor="minimax",
+        retain_budget_operations=1,
+    )
+    atlas.apply_template()
+    routed = Paced(atlas, clock)
+    atlas.enqueue("ingest", "--company", "lumentum", "--key", "lite", "--forms", "10-K")
+
+    routed.worker_pass()
+
+    assert routed.pending("reprocess")["budget_held"] == 1
+    ten_k = atlas.version(LITE_10K)["id"]
+    memory = atlas.memory(ten_k)
+    assert {d["extractor"] for d in memory["documents"]} == {"minimax"}
+    assert memory["counts"]["pending"] == 1  # the zero-fact section, awaiting its reprocess
+
+    # The owner unsets ATLAS_RETAIN_EXTRACTOR: the reprocess is a Codex kind again.
+    atlas.overrides["retain_extractor"] = None
+    unrouted = Paced(atlas, clock)
+    unrouted.worker_pass()
+
+    memory = atlas.memory(ten_k)
+    sections = {d["section_anchor"]: d for d in memory["documents"]}
+    reprocessed = sections.pop("part-i-item-1b")
+    # The section records the extractor of its last attempt: none, the primary.
+    assert (reprocessed["retain_state"], reprocessed["extractor"]) == ("zero_fact", None)
+    assert {d["extractor"] for d in sections.values()} == {"minimax"}
+    assert [(o["kind"], o["extractor"]) for o in memory["operations"]] == [
+        ("retain", "minimax"),
+        ("reprocess", None),
+    ]
+    first, again = [i for b in fake.retained() for i in b if i["document_id"].endswith("-1b")]
+    assert first["metadata"]["extractor"] == "minimax"
+    assert "extractor" not in again["metadata"]
+    # Each operation counts once, against the budget of the extractor it asked for.
+    assert unrouted.providers() == ["codex", "minimax", "tradingview"]
+    codex = unrouted.budget("codex")
+    assert (codex["used"], codex["kinds"]) == (1, CODEX_KINDS)
+    metrics = unrouted.metrics()
+    assert metrics[("atlas_budget_usage_total", labels(provider="codex"))] == 1
+    atlas.engine.dispose()
 
 
 # --- MiniMax: recorded tokens per window ------------------------------------------------------

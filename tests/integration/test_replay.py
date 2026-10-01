@@ -313,6 +313,38 @@ def codex_used(atlas: Atlas) -> int:
     return next(b["used"] for b in budgets if b["provider"] == "codex")
 
 
+def test_a_replays_retains_ask_for_the_configured_extractor_and_stay_on_the_codex_budget(
+    database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served]
+) -> None:
+    fake, served = hindsight
+    atlas = Atlas(
+        database_url,
+        tmp_path,
+        served.url,
+        replay_hindsight_url=served.url,
+        replay_consolidation_timeout_seconds=0.05,
+        retain_extractor="minimax",
+    )
+    atlas.apply_template()
+    import_documents(atlas, "early", "mid")
+    assert codex_used(atlas) == 0  # the research bank's routed retains spend their own budget
+    fake.script_reflect("An answer.", [BankFacts()])
+    fake.script_reflect("An answer.", [BankFacts()])
+
+    requested = request_replay(atlas)
+    atlas.worker_pass()
+
+    replay = atlas.get(f"/api/v1/replay-jobs/{requested['id']}")
+    assert replay["status"] == "completed"
+    # The replay bank's items carry the key like the research bank's (a Hindsight with no
+    # such route ignores it).
+    batches = fake.retained(requested["bank_id"])
+    assert len(batches) == 2
+    assert {item["metadata"]["extractor"] for batch in batches for item in batch} == {"minimax"}
+    assert codex_used(atlas) == 3  # its two retain batches and the consolidation
+    atlas.engine.dispose()
+
+
 def test_replays_are_listed_newest_first(atlas: Atlas) -> None:
     import_documents(atlas, "early")
     first = request_replay(atlas)
