@@ -9,7 +9,7 @@ Decide and build:
 
 **Blocked by:** None
 
-**Status:** needs-triage
+**Status:** superseded by `.scratch/atlas-memory-directed-reading/issues/`, ticket 04 (Specific filing phrases); this file keeps the evidence
 
 - [ ] The decision in `docs/decisions.md`, with this discovery's phrases and filers as the evidence.
 - [ ] At the discovery seam with the EDGAR fake: a one-word phrase proposes no Candidate on its own; `"InP substrates"` still proposes Aeluma.

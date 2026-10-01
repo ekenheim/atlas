@@ -11,7 +11,7 @@ Decide and build:
 
 **Blocked by:** None
 
-**Status:** needs-triage
+**Status:** superseded by `.scratch/atlas-memory-directed-reading/issues/`, ticket 08 (Layer supported or absent); this file keeps the evidence
 
 - [ ] The decision in `docs/decisions.md` (layer optional or derived; edge identity across layers).
 - [ ] At the review seam: an ownership Claim with a right direction and no layer becomes `machine_reviewed`; "indium phosphide capacity" tagged `substrate` does not.

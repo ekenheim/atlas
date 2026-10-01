@@ -6,7 +6,7 @@ Diagnose from the recorded request and output of that role call (`GET /api/v1/ru
 
 **Blocked by:** None
 
-**Status:** needs-triage
+**Status:** superseded by `.scratch/atlas-memory-directed-reading/issues/`, ticket 07 (The Skeptic reads by pointers); this file keeps the evidence
 
 - [ ] The diagnosis, with the role call's request and output, in this ticket.
 - [ ] A prompt or schema change measured live on the recorded request (the owner's go-ahead; a handful of chat completions), reported with the plans it produced.

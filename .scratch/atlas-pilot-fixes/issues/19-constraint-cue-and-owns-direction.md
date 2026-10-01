@@ -8,7 +8,7 @@ Add both as deterministic cue checks where the directional-language checks live,
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** superseded by `.scratch/atlas-memory-directed-reading/issues/`, ticket 02 (Claim checks); this file keeps the evidence
 
 - [ ] Unit tests of the cues: the Coherent sentence is not `capacity_constrained`; "demand is outpacing our current supply", "industry-wide shortage" and "supply allocation" are; "capital allocation" is not.
 - [ ] At the extraction seam: an `owns` Claim whose subject is the issuer in an "issued and sold … to" sentence is rejected with a reason that names the direction; the buyer as subject is accepted.

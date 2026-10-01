@@ -11,7 +11,7 @@ Decide and build: when the filer is a party and the quote is from the filer's ow
 
 **Blocked by:** None
 
-**Status:** needs-triage
+**Status:** superseded by `.scratch/atlas-memory-directed-reading/issues/`, ticket 02 (Claim checks); this file keeps the evidence
 
 - [ ] The decision, in `docs/decisions.md`, with the co-mention rule restated.
 - [ ] At the extraction seam: the NVIDIA purchase-commitment sentence from the recorded shape of Coherent's 8-K yields an accepted `supplies` Claim (Coherent → NVIDIA); a sentence naming two other companies is still rejected.

@@ -9,7 +9,7 @@ Decide and build how the budget is dealt. Directions to weigh: a document's shar
 
 **Blocked by:** None
 
-**Status:** needs-triage
+**Status:** superseded by `.scratch/atlas-memory-directed-reading/issues/`, ticket 05 (Passage selection); this file keeps the evidence
 
 - [ ] The decision in `docs/decisions.md`, with this run's passage table as the evidence.
 - [ ] At the investigation seam on the recorded Lumentum fixtures: the selection includes the Item 1 window holding the allocation statement and at least one passage of the EX-99.1; an 8-K with only Items 5.02 and 9.01 gets none while other documents have unread selected windows.

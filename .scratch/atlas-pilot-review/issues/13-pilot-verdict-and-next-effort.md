@@ -2,7 +2,7 @@
 
 Type: grilling
 Status: open
-Blocked by: 04, 05, 06, 07, 08, 11, 12
+Blocked by: 05, 06, 07, 08, 11, 12, 15
 
 ## Question
 

@@ -6,7 +6,7 @@ Locate a quote through a character fold that maps typographic variants to one fo
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** superseded by `.scratch/atlas-memory-directed-reading/issues/`, ticket 02 (Claim checks); this file keeps the evidence
 
 - [ ] At the extraction seam: a quote written with ASCII hyphens is placed on parsed text that has U+2011, the Assertion's quote is the parsed text's, and its span check passes.
 - [ ] A quote that differs by a word is still `quote_mismatch`; a quote the fold makes ambiguous is `quote_ambiguous`.

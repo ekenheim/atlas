@@ -15,7 +15,7 @@ Decide and build:
 
 **Blocked by:** None
 
-**Status:** needs-triage
+**Status:** superseded by `.scratch/atlas-memory-directed-reading/issues/`, ticket 03 (Contradiction or bear context); this file keeps the evidence
 
 - [ ] The decision in `docs/decisions.md` and the glossary (`CONTEXT.md`: counterevidence, bear context).
 - [ ] At the investigation seam: a Skeptic answer with one real contradiction and three context items marks one finding contradicted, lists the context on the card, and stops `needs_review` naming one finding.
