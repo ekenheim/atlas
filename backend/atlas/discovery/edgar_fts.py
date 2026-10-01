@@ -33,6 +33,7 @@ from urllib.parse import urlencode
 import httpx2
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from atlas.discovery.ranking import load_ranking_config, term_key, words
 from atlas.settings import Settings
 from atlas.sources.adapter import FetchError
 from atlas.sources.sec_http import SEC_RATE_LIMITER, SecHttpClient, TokenBucket
@@ -134,6 +135,26 @@ def filing_phrases(filing_phrase: str | None) -> list[str]:
     return list(dict.fromkeys(phrase for phrase in phrases if phrase))
 
 
+def filing_phrase_skip_reason(filing_phrase: str | None, terms: Sequence[str]) -> str | None:
+    """Why a filing phrase is not searched in EDGAR, or None when it is (or there is none).
+
+    A phrase is specific enough when it has at least two words (a hyphen divides words:
+    `at-the-market`) or is one of `terms`, the lead-ranking config's product and layer terms
+    (compared as ranking compares terms: case and a plural `s` ignored). Of a filing phrase's
+    several exact phrases one such is enough, since EDGAR must match them all. One word that
+    is no product ("capacity", "shortage", a company's name) matches filings of every
+    industry, so its search is skipped."""
+    phrases = filing_phrases(filing_phrase)
+    known = {term_key(term) for term in terms}
+    if not phrases or any(len(words(p)) >= 2 or term_key(p) in known for p in phrases):
+        return None
+    named = ", ".join(f'"{phrase}"' for phrase in phrases)
+    return (
+        "no phrase of at least two words and no product or layer term of the lead-ranking"
+        f" config: {named}"
+    )
+
+
 def filing_query(phrases: Sequence[str]) -> str:
     """EDGAR's `q` for the phrases: each in double quotes (an exact-phrase match)."""
     if not phrases:
@@ -204,6 +225,7 @@ class EdgarFullTextSearch:
         archives_url: str = "https://www.sec.gov",
         forms: Sequence[str] = FORMS,
         max_hits: int = 10,
+        terms: Sequence[str] = (),
         transport: httpx2.AsyncBaseTransport | None = None,
         limiter: TokenBucket = SEC_RATE_LIMITER,
         max_attempts: int = 3,
@@ -217,6 +239,8 @@ class EdgarFullTextSearch:
         self.user_agent = user_agent
         self.forms = tuple(forms)
         self.max_hits = max_hits
+        # The product and layer terms a one-word filing phrase may be (see `skip_reason`).
+        self.terms = tuple(terms)
         self._base = base_url.rstrip("/")
         self._archives = archives_url
         self._transport = transport
@@ -229,15 +253,22 @@ class EdgarFullTextSearch:
     def from_settings(
         cls, settings: Settings, *, transport: httpx2.AsyncBaseTransport | None = None
     ) -> Self | None:
-        """The client for the configured SEC User-Agent, or None when the channel is off."""
+        """The client for the configured SEC User-Agent, with the lead-ranking config's
+        product and layer terms; None when the channel is off."""
         if not settings.edgar_fts_enabled() or not settings.sec_user_agent:
             return None
         return cls(
             settings.sec_user_agent,
             base_url=settings.sec_efts_url,
             max_hits=settings.discovery_edgar_max_hits,
+            terms=load_ranking_config(settings.lead_ranking_config).terms,
             transport=transport,
         )
+
+    def skip_reason(self, filing_phrase: str | None) -> str | None:
+        """Why this filing phrase is not searched, or None when it is (see
+        `filing_phrase_skip_reason`)."""
+        return filing_phrase_skip_reason(filing_phrase, self.terms)
 
     def url(self, phrases: Sequence[str], *, start: date, end: date) -> str:
         """The search's URL (see the module)."""

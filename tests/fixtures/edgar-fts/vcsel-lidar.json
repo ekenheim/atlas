@@ -1,0 +1,65 @@
+{
+  "took": 61,
+  "timed_out": false,
+  "_shards": {
+    "total": 50,
+    "successful": 50,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 2,
+      "relation": "eq"
+    },
+    "max_score": 9.1,
+    "hits": [
+      {
+        "_index": "edgar_file",
+        "_id": "0009990001-26-000011:hesai-20251231x20f.htm",
+        "_score": 9.1,
+        "_source": {
+          "ciks": [
+            "0009990001"
+          ],
+          "period_ending": "2025-12-31",
+          "display_names": [
+            "Hesai Group  (HSAI)  (CIK 0009990001)"
+          ],
+          "root_forms": [
+            "20-F"
+          ],
+          "file_date": "2026-04-10",
+          "form": "20-F",
+          "adsh": "0009990001-26-000011",
+          "file_type": "20-F",
+          "file_description": "20-F",
+          "items": []
+        }
+      },
+      {
+        "_index": "edgar_file",
+        "_id": "0009990002-26-000007:oust-20251231.htm",
+        "_score": 7.4,
+        "_source": {
+          "ciks": [
+            "0009990002"
+          ],
+          "period_ending": "2025-12-31",
+          "display_names": [
+            "Ouster, Inc.  (OUST)  (CIK 0009990002)"
+          ],
+          "root_forms": [
+            "10-K"
+          ],
+          "file_date": "2026-03-05",
+          "form": "10-K",
+          "adsh": "0009990002-26-000007",
+          "file_type": "10-K",
+          "file_description": "10-K",
+          "items": []
+        }
+      }
+    ]
+  }
+}

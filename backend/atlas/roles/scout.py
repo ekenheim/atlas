@@ -4,7 +4,9 @@ Bottlenecks mental model's open gaps in, web search queries out.
 The Scout only writes queries. How many are searched is decided by code, not the model: the
 discovery keeps the first `max_queries` distinct ones (atlas.discovery). Each query may name
 a `filing_phrase` (v3, pilot fix 12): the exact phrase to search in SEC filings through EDGAR
-full-text search, the discovery's second channel.
+full-text search, the discovery's second channel. v4 asks for a specific phrase (at least two
+words, or a theme product term; a bare term paired with a second phrase): only such a phrase is
+searched, and only a kept hit proposes its filer (memory-directed reading, ticket 04).
 """
 
 from typing import Any
@@ -13,7 +15,8 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-SCOUT_PROMPT_VERSION = 3  # v2: the bottleneck method; v3: a filing phrase per query
+# v2: the bottleneck method; v3: a filing phrase per query; v4: a specific filing phrase
+SCOUT_PROMPT_VERSION = 4
 
 
 def filing_phrase_required(schema: dict[str, Any]) -> None:

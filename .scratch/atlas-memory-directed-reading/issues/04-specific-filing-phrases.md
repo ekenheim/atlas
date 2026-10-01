@@ -10,8 +10,10 @@ Spec: `.scratch/atlas-memory-directed-reading/spec.md` ("Filing phrases").
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] At the discovery seam with the EDGAR fake: a one-word phrase that is not a theme term makes no EDGAR search and no Candidate; `"InP substrates"` still proposes Aeluma; a filer whose only hit scores under the threshold is not proposed.
-- [ ] Unit tests of the phrase rule and of filing-lead scoring.
-- [ ] Decision entry with the pilot discovery's phrases and filers; prompt versions bumped; no migration unless the skipped search needs a column (use the revision the lead names).
+- [x] At the discovery seam with the EDGAR fake: a one-word phrase that is not a theme term makes no EDGAR search and no Candidate; `"InP substrates"` still proposes Aeluma; a filer whose only hit scores under the threshold is not proposed.
+- [x] Unit tests of the phrase rule and of filing-lead scoring.
+- [x] Decision entry with the pilot discovery's phrases and filers; prompt versions bumped; no migration unless the skipped search needs a column (use the revision the lead names).
+
+**Resolution** (`docs/decisions.md`, "Specific filing phrases; a filer needs a kept hit"; `docs/implementation-log.md`): the phrase rule is the EDGAR client's; a skipped search is an `edgar_search` row with status `skipped` and `skip_reason` (migration `0054`: the status check and a column). Lead ranking version 3 scores a filing hit against its query and purpose and demotes a hit of a bare vocabulary term (`bare_term_factor`), which is what puts "CW laser" and "export controls" (two words each) under the threshold. A filer with no kept hit is not resolved, not proposed and listed in the job's `filers_below_threshold`. A counterparty filer is proposed once and its Candidate names it (`counterparty_company_id`). Known limit: a specific phrase on a long query, or in other words than its query, also falls under the threshold (`InP substrates` on an eight-term query that says "indium phosphide": 13.0).

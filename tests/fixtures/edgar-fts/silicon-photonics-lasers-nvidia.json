@@ -1,0 +1,65 @@
+{
+  "took": 58,
+  "timed_out": false,
+  "_shards": {
+    "total": 50,
+    "successful": 50,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 2,
+      "relation": "eq"
+    },
+    "max_score": 5.2,
+    "hits": [
+      {
+        "_index": "edgar_file",
+        "_id": "0001045810-26-000901:nvda-20260125.htm",
+        "_score": 5.2,
+        "_source": {
+          "ciks": [
+            "0001045810"
+          ],
+          "period_ending": "2026-01-25",
+          "display_names": [
+            "NVIDIA CORP  (NVDA)  (CIK 0001045810)"
+          ],
+          "root_forms": [
+            "10-K"
+          ],
+          "file_date": "2026-02-25",
+          "form": "10-K",
+          "adsh": "0001045810-26-000901",
+          "file_type": "10-K",
+          "file_description": "10-K",
+          "items": []
+        }
+      },
+      {
+        "_index": "edgar_file",
+        "_id": "0001045810-26-000902:nvda-20260726.htm",
+        "_score": 4.6,
+        "_source": {
+          "ciks": [
+            "0001045810"
+          ],
+          "period_ending": "2026-07-26",
+          "display_names": [
+            "NVIDIA CORP  (NVDA)  (CIK 0001045810)"
+          ],
+          "root_forms": [
+            "10-Q"
+          ],
+          "file_date": "2026-08-26",
+          "form": "10-Q",
+          "adsh": "0001045810-26-000902",
+          "file_type": "10-Q",
+          "file_description": "10-Q",
+          "items": []
+        }
+      }
+    ]
+  }
+}

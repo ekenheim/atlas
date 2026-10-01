@@ -27,6 +27,7 @@ from pydantic import JsonValue
 from sqlalchemy import text
 
 from atlas.audit import verify_chain
+from tests.fakes.edgar_fts import FakeEdgarFullTextSearch, FilingReply
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.identity import FakeIdentitySources
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
@@ -99,6 +100,7 @@ class CounterpartyAtlas(Atlas):
         litellm_url: str,
         searxng_url: str,
         identity_url: str | None,
+        edgar_url: str,
     ) -> None:
         self.themes = tmp_path / "themes.yaml"
         self.write_universe(UNIVERSE)
@@ -110,6 +112,7 @@ class CounterpartyAtlas(Atlas):
                 "sec_data_url": identity_url,
                 "gleif_url": f"{identity_url}/api/v1",
                 "openfigi_url": identity_url,
+                "sec_efts_url": f"{edgar_url}/LATEST",
             }
         super().__init__(
             database_url,
@@ -192,6 +195,11 @@ def searxng() -> FakeSearXNG:
 
 
 @pytest.fixture
+def edgar() -> FakeEdgarFullTextSearch:
+    return FakeEdgarFullTextSearch()
+
+
+@pytest.fixture
 def start(
     database_url: str,
     tmp_path: Path,
@@ -199,6 +207,7 @@ def start(
     llm: FakeLiteLLM,
     identity: FakeIdentitySources,
     searxng: FakeSearXNG,
+    edgar: FakeEdgarFullTextSearch,
 ) -> Iterator[Callable[..., CounterpartyAtlas]]:
     """Start Atlas with Coherent seeded and ingested; `resolution=False` leaves entity
     resolution unconfigured (no `ATLAS_SEC_USER_AGENT`)."""
@@ -206,6 +215,7 @@ def start(
         serve(llm.handle) as litellm_served,
         serve(searxng.handle) as searxng_served,
         serve(identity.handle) as identity_served,
+        serve(edgar.handle) as edgar_served,
     ):
         started: list[CounterpartyAtlas] = []
 
@@ -217,6 +227,7 @@ def start(
                 litellm_served.url,
                 searxng_served.url,
                 identity_served.url if resolution else None,
+                edgar_served.url,
             )
             started.append(atlas)
             atlas.apply_template()
@@ -228,7 +239,7 @@ def start(
         yield begin
         for atlas in started:
             atlas.engine.dispose()
-        for served in (litellm_served, searxng_served, identity_served):
+        for served in (litellm_served, searxng_served, identity_served, edgar_served):
             served.raise_errors()
 
 
@@ -673,3 +684,65 @@ def test_a_lead_naming_a_counterparty_proposes_a_candidate_and_its_commit_promot
     assert theme["counterparties"] == []
     with atlas.engine.connect() as connection:
         assert verify_chain(connection).ok
+
+
+def test_a_counterparty_that_files_is_proposed_once_as_a_candidate_linked_to_it(
+    atlas: CounterpartyAtlas,
+    llm: FakeLiteLLM,
+    searxng: FakeSearXNG,
+    edgar: FakeEdgarFullTextSearch,
+) -> None:
+    # Memory-directed reading, ticket 04: an EDGAR full-text search finds two filings of
+    # NVIDIA, already a counterparty (hand-written hits: `tests/fixtures/edgar-fts`).
+    nvidia = with_nvidia(atlas, llm)
+    query = "silicon photonics lasers for co-packaged optics switches"
+    llm.script_chat(
+        ChatReply.json(
+            {
+                "queries": [
+                    {
+                        "query": query,
+                        "purpose": "demand: buyers of lasers for co-packaged optics",
+                        "filing_phrase": "silicon photonics lasers",
+                    }
+                ]
+            }
+        )
+    )
+    searxng.script(query, SearchReply.of("no-results"))
+    edgar.script('"silicon photonics lasers"', FilingReply.of("silicon-photonics-lasers-nvidia"))
+    payload = json.dumps({"theme": "photonics", "question": "Who buys lasers for CPO switches?"})
+    discover_id = atlas.enqueue(
+        "jobs", "enqueue", "discover", "--key", "filings", "--payload", payload
+    )
+    atlas.worker_pass()
+    discover = atlas.get(f"/api/v1/jobs/{discover_id}")
+    assert discover["status"] == "succeeded", discover["failures"]
+    propose = atlas.get(f"/api/v1/jobs/{discover['artifacts']['propose_candidates_job_id']}")
+    assert propose["status"] == "succeeded", propose["failures"]
+
+    # A counterparty is outside the universe, and its hits are kept ones: one Candidate for
+    # its two filings, keyed by its CIK and naming the counterparty a commit would promote.
+    artifacts = propose["artifacts"]
+    assert (artifacts["filings"], artifacts["in_universe"], artifacts["new_candidates"]) == (
+        2,
+        0,
+        1,
+    )
+    assert artifacts["filers_below_threshold"] == []
+    (candidate,) = atlas.get("/api/v1/candidates")["items"]
+    assert (candidate["identity_key"], candidate["state"]) == (f"cik:{NVIDIA_CIK}", "lead")
+    assert (candidate["company_id"], candidate["counterparty_company_id"]) == (None, nvidia["id"])
+    assert len(candidate["leads"]) == 2
+    assert atlas.company("nvidia")["role"] == "counterparty"  # proposing changes nothing
+
+    committed = atlas.api.post(
+        f"/api/v1/candidates/{candidate['id']}/commit", json={"layer": "system"}
+    )
+
+    assert committed.status_code == 200, committed.text
+    decided = committed.json()["candidate"]
+    # The same row, promoted: the Candidate's company is it, and no counterparty is left.
+    assert (decided["state"], decided["company_id"]) == ("investigating", nvidia["id"])
+    assert decided["counterparty_company_id"] is None
+    assert atlas.company("nvidia")["role"] == "researched"

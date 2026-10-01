@@ -10,6 +10,18 @@ investigation's Scout) examines the discovery's leads not examined before:
    `in_universe`, `unresolved` or, outside the universe, a Candidate keyed by its CIK, as in
    steps 2-3. With `filers_only` the other leads are left for another job.
 
+   **A filer outside the universe needs a kept hit** (memory-directed reading, ticket 04): at
+   least one of its filing leads must score at or above the lead ranking's keep threshold
+   (atlas.discovery.ranking: the lead scored against the query that found it and that
+   query's purpose in this discovery, as a web lead is; a hit of a bare vocabulary term
+   demoted). Otherwise the filer is not resolved (no registry is asked), nothing is proposed,
+   and its leads stay unexamined, so a later discovery whose query they answer better can
+   still propose it; the job's artifacts list each such filer with its best score and the
+   reasons (`filers_below_threshold`). A filer in the universe is recorded whatever its
+   leads score. A filer that is a counterparty company is outside the universe: with a kept
+   hit it is proposed like any other, once per theme (the Candidate is keyed by its CIK),
+   and the Candidate's `counterparty_company_id` names the counterparty its commit promotes.
+
 1. **Mentions.** The mention extractor role (atlas.roles.mentions) reads the leads' titles
    and snippets, `LEADS_PER_CALL` leads per call, as quoted low-trust data, and lists the
    companies each names (name, ticker?, exchange?). Code, not the model, maps an exchange
@@ -44,9 +56,11 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql.expression import bindparam
 
 from atlas.audit import Actor, content_hash, record
+from atlas.discovery.leads import discovery_sightings
+from atlas.discovery.ranking import RankedLead, RankingConfig, rank_leads
 from atlas.identity import EntityResolver, Mention, Resolution
 from atlas.identity.normalize import MIC_CURRENCY, OPERATING_MIC, US_STATES, normalize_name
-from atlas.identity.service import resolve_mention
+from atlas.identity.service import find_in_universe, resolve_mention
 from atlas.jobs.queue import Artifacts, Job
 from atlas.roles import QuotedText, RoleCaller, run_usage
 from atlas.roles.mentions import MENTION_EXTRACTOR, CompanyMention, MentionRequest
@@ -182,15 +196,23 @@ class CandidateProposer:
         actor: Actor,
         *,
         theme_title: Callable[[str], str],
+        ranking: RankingConfig,
+        companies: Sequence[str] = (),
+        company_sites: Sequence[str] = (),
         ignored_ciks: frozenset[str] = frozenset(),
         leads_per_call: int = LEADS_PER_CALL,
     ) -> None:
+        """`ranking`, with the universe's company names and website hosts, scores a filing
+        lead as an investigation's Scout does (atlas.discovery.ranking)."""
         self._engine = engine
         self._runs = runs
         self._caller = caller
         self._resolver = resolver
         self._actor = actor
         self._theme_title = theme_title
+        self._ranking = ranking
+        self._companies = tuple(companies)
+        self._company_sites = tuple(company_sites)
         self._ignored = ignored_ciks
         self._per_call = leads_per_call
         self._resolved: dict[tuple[str, str | None, str | None], Resolution] = {}
@@ -232,8 +254,9 @@ class CandidateProposer:
         counts = {"leads": 0, "mentions": 0, "in_universe": 0, "unresolved": 0, "filings": 0}
         candidates: set[uuid.UUID] = set()
         created: set[uuid.UUID] = set()
+        below: list[JsonValue] = []
         if filings:
-            self._filings(payload.discovery_id, theme, filings, counts, candidates, created)
+            below = self._filings(payload.discovery_id, theme, filings, counts, candidates, created)
         run_id: uuid.UUID | None = None
         if leads:
             if self._runs is None or self._caller is None:
@@ -256,6 +279,9 @@ class CandidateProposer:
             "discovery_id": str(payload.discovery_id),
             "run_id": str(run_id) if run_id else None,
             **counts,
+            # Filers outside the universe none of whose filing leads ranking keeps: not
+            # resolved, not proposed, their leads left unexamined.
+            "filers_below_threshold": below,
             "candidates": list[JsonValue](sorted(str(each) for each in candidates)),
             "new_candidates": len(created),
         }
@@ -268,36 +294,65 @@ class CandidateProposer:
         counts: dict[str, int],
         candidates: set[uuid.UUID],
         created: set[uuid.UUID],
-    ) -> None:
-        """Examine filing leads by their filer's CIK (step 0), one transaction each."""
+    ) -> list[JsonValue]:
+        """Examine filing leads by their filer's CIK (step 0), one transaction each. Returns
+        the filers outside the universe that have no kept hit (their leads not examined)."""
+        by_filer: dict[str, list[_Lead]] = {}
         for lead in filings:
             assert lead.filer_cik is not None
-            mention, resolution = self._resolve_cik(lead.filer_cik)
-            with self._engine.begin() as connection:
-                connection.execute(
-                    text(
-                        "INSERT INTO lead_examination (lead_id, discovery_id, role_call_id,"
-                        " mentions, method) VALUES (:lead, :discovery, NULL, 1, 'filer_cik')"
-                    ),
-                    {"lead": lead.id, "discovery": discovery_id},
-                )
-                counts["leads"] += 1
-                counts["filings"] += 1
-                counts["mentions"] += 1
-                self._record_mention(
-                    connection,
-                    theme,
-                    lead,
-                    1,
-                    CompanyMention(
-                        name=lead.filer or lead.filer_cik, ticker=lead.ticker, exchange=None
-                    ),
-                    mention,
-                    resolution,
-                    counts,
-                    candidates,
-                    created,
-                )
+            by_filer.setdefault(lead.filer_cik, []).append(lead)
+        wanted = {lead.id for lead in filings}
+        with self._engine.connect() as connection:
+            sightings = discovery_sightings(connection, discovery_id)
+            in_universe = {
+                cik
+                for cik in by_filer
+                if find_in_universe(connection, Mention(cik=cik), researched_only=True) is not None
+            }
+        scores = {
+            ranked.lead_id: ranked
+            for ranked in rank_leads(
+                [each for each in sightings if each.lead_id in wanted],
+                companies=self._companies,
+                config=self._ranking,
+                company_sites=self._company_sites,
+            )
+        }
+        below: list[JsonValue] = []
+        for cik, leads in by_filer.items():
+            best = max(
+                (scores[lead.id] for lead in leads),
+                key=lambda ranked: (ranked.score.kept, ranked.score.score),
+            )
+            if cik not in in_universe and not best.score.kept:
+                below.append(_below_threshold(cik, leads, best, self._ranking))
+                continue
+            mention, resolution = self._resolve_cik(cik)
+            for lead in leads:
+                with self._engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "INSERT INTO lead_examination (lead_id, discovery_id, role_call_id,"
+                            " mentions, method) VALUES (:lead, :discovery, NULL, 1, 'filer_cik')"
+                        ),
+                        {"lead": lead.id, "discovery": discovery_id},
+                    )
+                    counts["leads"] += 1
+                    counts["filings"] += 1
+                    counts["mentions"] += 1
+                    self._record_mention(
+                        connection,
+                        theme,
+                        lead,
+                        1,
+                        CompanyMention(name=lead.filer or cik, ticker=lead.ticker, exchange=None),
+                        mention,
+                        resolution,
+                        counts,
+                        candidates,
+                        created,
+                    )
+        return below
 
     def _resolve_cik(self, cik: str) -> tuple[Mention, Resolution]:
         mention = Mention(cik=cik)
@@ -481,6 +536,21 @@ class CandidateProposer:
             new_hash=content_hash({k: v for k, v in fields.items() if k != "resolution"}),
         )
         return row.id, True
+
+
+def _below_threshold(
+    cik: str, leads: Sequence[_Lead], best: RankedLead, ranking: RankingConfig
+) -> JsonValue:
+    """A filer with no kept hit, for the job's artifacts: its best-scoring filing lead."""
+    return {
+        "cik": cik,
+        "filer": next((lead.filer for lead in leads if lead.filer), None),
+        "leads": len(leads),
+        "score": best.score.score,
+        "min_score": ranking.min_score,
+        "query": best.query,
+        "reasons": list[JsonValue](best.score.reasons),
+    }
 
 
 def _distinct(mentions: list[CompanyMention]) -> list[CompanyMention]:

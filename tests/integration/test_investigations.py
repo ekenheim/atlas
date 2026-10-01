@@ -809,7 +809,7 @@ def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
     ]
     article, race = found["leads"]
     assert article["score"] > race["score"] >= 15
-    assert (article["query"], article["ranking_version"]) == (EML, 2)
+    assert (article["query"], article["ranking_version"]) == (EML, 3)
     assert article["reasons"] == [
         "query terms in the title: eml, laser, capacity, 200g, lane, 800g, transceiver",
         "query terms in the snippet: chip",
@@ -824,7 +824,7 @@ def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
         scout["leads_dropped"],
         scout["leads_rejected"],
         scout["ranking_version"],
-    ) == (17, 2, 0, 15, 2)
+    ) == (17, 2, 0, 15, 3)
     # Rejected leads are still leads (Tier C metadata), just not the investigation's.
     leads = atlas.get("/api/v1/leads", theme="photonics", limit=50)
     assert leads["total"] == 17
@@ -2229,7 +2229,7 @@ def test_a_skeptic_plan_that_chooses_no_document_falls_back_to_each_seed_company
     assert plan["request"]["catalog"]  # it had archived documents to choose from
     calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
     [plan_call] = [c for c in calls if c["prompt_name"] == "skeptic-plan"]
-    assert plan_call["prompt_version"] == 3
+    assert plan_call["prompt_version"] == 4
     # Code chose for it: each seed company's latest 10-K and 10-Q, in seed order; the
     # Investigators had read them, so the document budget isn't charged again.
     expected = [

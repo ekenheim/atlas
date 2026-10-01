@@ -20,8 +20,15 @@
 #   that is one of these page names has its score multiplied by `generic_title_factor`.
 # - `non_english_factor`: a result that doesn't read as English has its score multiplied by
 #   it (searches ask SearXNG for English; an engine may still answer in another language).
-# - `terms`: the product and layer vocabulary of the research themes; each one a result
-#   names adds to its score. Lowercase; a term of several words matches as a phrase.
+# - `terms`: the product and layer vocabulary of the research themes (layers, products,
+#   materials); each one a result names adds to its score. Lowercase; a term of several
+#   words matches as a phrase. A one-word filing phrase is searched in EDGAR only when it is
+#   one of these (atlas.discovery.edgar_fts).
+# - `method_terms`: the bottleneck method's vocabulary ("capacity", "supply"); scored like
+#   `terms`, but no product or layer: a one-word filing phrase that is one is not searched.
+# - `bare_term_factor`: an EDGAR filing hit whose search matched one phrase that is itself a
+#   term of `terms` or `method_terms` ("VCSEL", "CW laser", "export controls") has its score
+#   multiplied by it: lidar and medical-laser makers write those too.
 #
 # Whatever it scores, a result naming none of its query's topic terms (the query less the
 # company names in it, and years) is not kept: a company name alone never keeps a lead.
@@ -29,12 +36,17 @@
 # Bump `version` on any change: an investigation's leads record the version that ranked them.
 # Version 2 (pilot fix 08): company names count less than the query's topic, company sites,
 # profile and social sites and generic titles are demoted (`docs/decisions.md`).
-version: 2
+# Version 3 (memory-directed reading, ticket 04): an EDGAR filing hit is scored against its
+# query and purpose (version 2: against the phrase EDGAR matched, so every hit was kept), a
+# hit of a bare vocabulary term is demoted, and the bottleneck method's vocabulary is its
+# own list. A web result scores as in version 2.
+version: 3
 min_score: 15
 demoted_host_factor: 0.25
 company_site_factor: 0.25
 generic_title_factor: 0.25
 non_english_factor: 0.25
+bare_term_factor: 0.25
 
 denied_hosts:
   - merriam-webster.com
@@ -147,7 +159,9 @@ terms:
   - 800g
   - 1.6t
   - 200g
-  # the bottleneck method's vocabulary
+
+# The bottleneck method's vocabulary: what is asked about a product, not a product.
+method_terms:
   - capacity
   - supply
   - shortage

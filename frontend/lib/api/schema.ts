@@ -1806,6 +1806,11 @@ export interface components {
              * @description the universe company, once committed
              */
             company_id: string | null;
+            /**
+             * Counterparty Company Id
+             * @description the counterparty company with this Candidate's CIK (else its LEI): the company a commit promotes
+             */
+            counterparty_company_id: string | null;
             /** Ingest Job Id */
             ingest_job_id: string | null;
             /**
@@ -2828,7 +2833,9 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "pending" | "searched" | "failed";
+            status: "pending" | "searched" | "failed" | "skipped";
+            /** Skip Reason */
+            skip_reason: string | null;
             /** Total Hits */
             total_hits: number | null;
             /** Result Count */

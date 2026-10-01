@@ -309,5 +309,55 @@
     "answer": {
       "error": "Invalid idValue format."
     }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "NVDA",
+      "exchCode": "US"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "NVDA",
+      "micCode": "XNAS"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "NVDA",
+      "micCode": "XNGS"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "NVDA",
+      "micCode": "XNMS"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
+  },
+  {
+    "job": {
+      "idType": "TICKER",
+      "idValue": "NVDA",
+      "micCode": "XNCM"
+    },
+    "answer": {
+      "warning": "No identifier found."
+    }
   }
 ]

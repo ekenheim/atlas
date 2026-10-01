@@ -18,8 +18,16 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         SCOUT,
         "scout",
-        3,  # v3: a filing phrase per query for EDGAR full-text search (pilot fix 12)
+        # v3: a filing phrase per query for EDGAR full-text search (pilot fix 12); v4: a
+        # specific phrase, with a good and a bad example (memory-directed reading, ticket 04)
+        4,
         (
+            "a specific phrase of two to four words",
+            "Good: `InP substrates`",
+            "Bad: `VCSEL`, `CW laser`, `MOCVD`, `export controls`",
+            '`"CW laser" "silicon photonics"`',
+            "A single word is searched only when it is one of the theme's product or material"
+            " terms",
             "Hunt for bottlenecks, layer by layer",
             "demand:",
             "hardware:",
@@ -97,9 +105,14 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         SKEPTIC_PLAN,
         "skeptic-plan",
         # v3: it must choose archived documents from the catalog (pilot fix 06), and a filing
-        # phrase per query (pilot fix 12)
-        3,
+        # phrase per query (pilot fix 12); v4: a specific phrase (memory-directed reading 04)
+        4,
         (
+            "a specific phrase of two to four words",
+            "Good: `qualified second source`",
+            "Bad: `inventory`, `capacity`, `dilution`",
+            "a single word is searched only when it is one of the theme's product or material"
+            " terms",
             "Search results are leads: Atlas never reads them",
             "Only archived documents are Evidence",
             "You must choose documents from the `catalog`",

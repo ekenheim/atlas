@@ -25,6 +25,7 @@ from typing import Any
 
 import pytest
 import yaml
+from pydantic import JsonValue
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -52,6 +53,15 @@ LUMENTUM_CIK = "0001633978"  # SEC's ticker file: LITE on Nasdaq (tests/fixtures
 SOITEC_LEI = "969500ZR92SQCU9TST26"  # GLEIF full text for "Soitec SA"
 SOITEC = "SOITEC"  # that record's legal name
 SOITEC_ADR_CIK = "0001445214"  # an unsponsored-ADR shell (F-6EF only): never proposed
+# The queries of the EDGAR full-text search tests, each with the filing phrase the Scout gives.
+INP_QUERY = "InP substrate suppliers for EML laser capacity"
+INP_SCOUT_QUERY: JsonValue = {
+    "query": INP_QUERY,
+    "purpose": "feedstock: InP substrate supply",
+    "filing_phrase": "InP substrates",
+}
+VCSEL_QUERY = "VCSEL array suppliers for short-reach AI data center links"
+SHORTAGE_QUERY = "EML laser chip shortage lead times"
 
 # What the mention extractor names in each lead (by the lead's URL; written here).
 MENTIONS: dict[str, list[dict[str, Any]]] = {
@@ -111,12 +121,14 @@ class CandidatesAtlas(Atlas):
         litellm_url: str,
         searxng: FakeSearXNG,
         searxng_url: str,
+        identity: FakeIdentitySources,
         identity_url: str,
         edgar: FakeEdgarFullTextSearch,
         edgar_url: str,
     ) -> None:
         self.litellm = litellm
         self.searxng = searxng
+        self.identity = identity
         self.edgar = edgar
         self.themes = tmp_path / "themes.yaml"
         self.themes.write_text(yaml.safe_dump(THEMES), encoding="utf-8")
@@ -206,6 +218,7 @@ def atlas(
             litellm_served.url,
             searxng,
             searxng_served.url,
+            identity,
             identity_served.url,
             edgar,
             edgar_served.url,
@@ -338,16 +351,10 @@ def test_a_filing_hit_proposes_its_filer_by_cik_without_the_mention_extractor(
 ) -> None:
     # Pilot fix 12: the Scout's filing phrase finds Aeluma's and Coherent's 10-Ks in EDGAR.
     atlas.litellm.script_chat(
-        ChatReply.json(
-            {
-                "queries": [
-                    {"query": QUERY, "purpose": "EML suppliers", "filing_phrase": "InP substrates"}
-                ]
-            }
-        ),
+        ChatReply.json({"queries": [INP_SCOUT_QUERY]}),
         ChatReply.answer(mentions, tokens=(700, 90)),
     )
-    atlas.searxng.script(QUERY, SearchReply.of("unseeded-companies"))
+    atlas.searxng.script(INP_QUERY, SearchReply.of("unseeded-companies"))
     atlas.edgar.script('"InP substrates"', FilingReply.of("inp-substrates-aeluma-coherent"))
     payload = json.dumps({"theme": "photonics", "question": QUESTION})
     job_id = atlas.enqueue("jobs", "enqueue", "discover", "--key", "edgar-1", "--payload", payload)
@@ -376,6 +383,100 @@ def test_a_filing_hit_proposes_its_filer_by_cik_without_the_mention_extractor(
     assert (lead["mentioned_as"], lead["ticker"]) == ("Aeluma, Inc.", "ALMU")
     # Coherent filed the other: a universe company, no Candidate.
     assert "COHERENT CORP." not in {c["name"] for c in atlas.candidates()}
+    assert artifacts["filers_below_threshold"] == []
+
+
+def test_gate_only_a_specific_filing_phrase_is_searched_and_only_a_kept_hit_proposes_its_filer(
+    atlas: CandidatesAtlas,
+) -> None:
+    # Memory-directed reading, ticket 04. Three queries: a specific phrase, a bare product
+    # term (searched, but its hits fall under the ranking's keep threshold) and one word that
+    # is no product or layer term (not searched: the EDGAR fake has no answer for it).
+    atlas.litellm.script_chat(
+        ChatReply.json(
+            {
+                "queries": [
+                    INP_SCOUT_QUERY,
+                    {
+                        "query": VCSEL_QUERY,
+                        "purpose": "components: VCSEL sources",
+                        "filing_phrase": "VCSEL",
+                    },
+                    {
+                        "query": SHORTAGE_QUERY,
+                        "purpose": "components: EML chip shortage",
+                        "filing_phrase": "shortage",
+                    },
+                ]
+            }
+        )
+    )
+    for query in (INP_QUERY, VCSEL_QUERY, SHORTAGE_QUERY):
+        atlas.searxng.script(query, SearchReply.of("no-results"))
+    atlas.edgar.script('"InP substrates"', FilingReply.of("inp-substrates-aeluma-coherent"))
+    atlas.edgar.script('"VCSEL"', FilingReply.of("vcsel-lidar"))
+    payload = json.dumps({"theme": "photonics", "question": QUESTION})
+    job_id = atlas.enqueue("jobs", "enqueue", "discover", "--key", "edgar-2", "--payload", payload)
+    atlas.worker_pass()
+
+    job = atlas.get(f"/api/v1/jobs/{job_id}")
+    assert job["status"] == "succeeded", job["failures"]
+    # Two searches were sent; the one-word phrase's is recorded as skipped, with the reason.
+    assert [search["q"] for search in atlas.edgar.searches()] == ['"InP substrates"', '"VCSEL"']
+    assert (job["artifacts"]["filing_searches"], job["artifacts"]["filing_searches_skipped"]) == (
+        2,
+        1,
+    )
+    discovery = atlas.get(f"/api/v1/discoveries/{job['artifacts']['discovery_id']}")
+    assert [query["edgar"]["status"] for query in discovery["queries"]] == [
+        "searched",
+        "searched",
+        "skipped",
+    ]
+    skipped = discovery["queries"][2]
+    assert (skipped["status"], skipped["filing_phrase"]) == ("searched", "shortage")
+    assert skipped["edgar"]["query"] == '"shortage"'
+    assert skipped["edgar"]["skip_reason"] == (
+        "no phrase of at least two words and no product or layer term of the lead-ranking"
+        ' config: "shortage"'
+    )
+    assert (skipped["edgar"]["total_hits"], skipped["edgar"]["searched_at"]) == (None, None)
+    assert discovery["queries"][0]["edgar"]["skip_reason"] is None
+
+    # All four hits are leads (Tier C); only the filer with a kept hit is a Candidate.
+    leads = atlas.get("/api/v1/leads", limit=50)["items"]
+    assert sorted(lead["filing"]["filer"] for lead in leads) == [
+        "Aeluma, Inc.",
+        "COHERENT CORP.",
+        "Hesai Group",
+        "Ouster, Inc.",
+    ]
+    propose = atlas.get(f"/api/v1/jobs/{job['artifacts']['propose_candidates_job_id']}")
+    assert propose["status"] == "succeeded", propose["failures"]
+    artifacts = propose["artifacts"]
+    assert [c["name"] for c in atlas.candidates()] == ["Aeluma, Inc."]
+    assert (artifacts["filings"], artifacts["in_universe"], artifacts["new_candidates"]) == (
+        2,
+        1,
+        1,
+    )
+    # The lidar makers' only hits are of the bare term: under the threshold, so they are
+    # not proposed, and no registry was asked about them.
+    below = {filer["filer"]: filer for filer in artifacts["filers_below_threshold"]}
+    assert set(below) == {"Hesai Group", "Ouster, Inc."}
+    hesai = below["Hesai Group"]
+    assert (hesai["cik"], hesai["leads"], hesai["query"]) == ("0009990001", 1, VCSEL_QUERY)
+    assert hesai["score"] < hesai["min_score"] == 15
+    assert 'matched only the vocabulary term "vcsel" (x0.25)' in hesai["reasons"]
+    assert not any("999000" in path for path in atlas.identity.paths())
+    with atlas.engine.connect() as connection:
+        examined = connection.execute(
+            text(
+                "SELECT f.filer FROM lead_examination e JOIN edgar_filing f"
+                " ON f.lead_id = e.lead_id ORDER BY f.filer"
+            )
+        ).scalars()
+        assert list(examined) == ["Aeluma, Inc.", "COHERENT CORP."]
 
 
 # --- the owner's decisions ------------------------------------------------------------------------
