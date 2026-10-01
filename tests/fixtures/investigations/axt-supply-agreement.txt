@@ -1,0 +1,19 @@
+Synthetic test fixture: a hand-shaped company update, not an AXT document. Every statement in it is invented for a test.
+
+About this note. It imitates the shape of a quarterly business update from a compound semiconductor wafer maker. The paragraphs before the last one are filler about operations and say nothing about any customer, so that a reader who starts at the top and stops early learns nothing about who buys what.
+
+Operations. The company grows single crystals by the vertical gradient freeze method and slices, laps and polishes them into wafers. Crystal growth runs for several weeks per boule, and yield depends on furnace temperature control, the purity of the raw materials and the skill of the operators. During the quarter the furnaces ran at a steady rate and no unplanned downtime was recorded at either of the two plants described here.
+
+Raw materials. The purified gallium, the arsenic and the germanium used in production come from partly owned raw material companies and from the open market. Prices of these raw materials moved within a narrow range during the quarter. Inventories of raw materials at the end of the quarter covered roughly four months of planned crystal growth, which is in line with the level held a year earlier.
+
+People. Headcount was flat. The company trained forty new furnace operators during the quarter and moved its polishing staff to a two-shift schedule. Safety performance was unchanged: there was one recordable incident, a minor cut, and no lost-time injury. An employee survey was carried out in the period and its results will be discussed with staff representatives in the coming quarter.
+
+Facilities. Routine maintenance of the cleanrooms was completed on schedule. The water recycling unit installed last year reduced fresh water use per wafer by about a tenth. Electricity use per wafer was unchanged. A new roof was fitted to the older of the two warehouse buildings, and the car park was resurfaced.
+
+Quality. The company kept its certification under the quality management standard after the annual surveillance audit, which raised no major finding. Two minor findings, both about document control, were closed within thirty days. Returns as a share of wafers shipped were below one percent, as in the prior quarter.
+
+Finance and administration. The finance team completed the move to a new accounting system. The annual meeting of shareholders will be held online. The independent auditor was reappointed. No legal proceeding that is material to the business was started or settled during the quarter.
+
+Community. The company sponsored a science fair at a local school and hosted two visits by engineering students. Staff volunteers planted trees along the road to the older plant. None of this affects production, and it is recorded here only to make the note long enough that its last paragraph lies beyond the first three thousand characters.
+
+Supply agreement. In July 2026 AXT signed a three-year Master Development and Supply Agreement with Coherent. Under the agreement AXT supplies Coherent with 6-inch indium phosphide substrates for the datacom lasers Coherent makes in Sherman, Texas. The note gives no volumes, no prices and no minimum purchase commitment.

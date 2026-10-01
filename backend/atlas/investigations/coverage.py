@@ -16,6 +16,9 @@ Written by code, never the Editor, so a card with no finding still says, from th
   and its counterevidence items (of either kind) proposed, accepted and rejected by reason
   code; or why it read nothing (skipped with no Claim to challenge, the budget spent,
   nothing archived, no passage matching the checklist).
+- **not_read** (memory-directed reading ticket 06): the companies a round's reading pointers
+  name that got no Investigator, with their pointers and why (the company budget had no
+  room, or the company's premise was disproven), so the next investigation can seed them.
 """
 
 import uuid
@@ -24,7 +27,9 @@ from typing import Any
 from sqlalchemy import Connection, Row, text
 
 from atlas.claims.selection import selections
+from atlas.investigations.companies import COMPANY_BUDGET, POINTED_COMPANIES, not_read_reason
 from atlas.investigations.model import (
+    CardCompanyNotRead,
     CardDocumentRead,
     CardQuery,
     CardReading,
@@ -38,6 +43,40 @@ def coverage(
 ) -> tuple[list[CardSearch], list[CardReading]]:
     """The investigation's `searched` and `read` sections, every round, in plan order."""
     return _searched(connection, investigation_id), _read(connection, investigation_id)
+
+
+def not_read(connection: Connection, investigation_id: uuid.UUID) -> list[CardCompanyNotRead]:
+    """The card's `not_read` section: the companies each round's reading pointers name that
+    got no Investigator (the company budget had no room, or its premise was disproven), as
+    the round's Scout task recorded them when the plan grew; rounds in order, best ranked
+    first."""
+    scouts = connection.execute(
+        text(
+            "SELECT round, artifacts FROM investigation_task WHERE investigation_id = :id"
+            " AND role = 'scout' ORDER BY round, position"
+        ),
+        {"id": investigation_id},
+    ).all()
+    unread: list[CardCompanyNotRead] = []
+    for scout in scouts:
+        artifacts: dict[str, Any] = scout.artifacts
+        budget = int(artifacts.get(COMPANY_BUDGET) or 0)
+        ranked: list[dict[str, Any]] = artifacts.get(POINTED_COMPANIES) or []
+        for each in ranked:
+            reason = not_read_reason(each, budget)
+            if reason is not None:
+                unread.append(
+                    CardCompanyNotRead(
+                        round=scout.round,
+                        company_id=uuid.UUID(str(each["company_id"])),
+                        company_name=each["company_name"],
+                        pointers=each["pointers"],
+                        score=each["score"],
+                        best_rank=each["best_rank"],
+                        reason=reason,
+                    )
+                )
+    return unread
 
 
 def _searched(connection: Connection, investigation_id: uuid.UUID) -> list[CardSearch]:

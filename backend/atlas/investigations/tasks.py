@@ -19,8 +19,14 @@ One attempt:
      Once the discovery has its queries, the round's question and each query are asked of
      Memory across the theme, and what resolves is stored as the round's **reading
      pointers** (atlas.investigations.pointers): Memory as an index of where to read, never
-     sent to a role. The Investigators' passages are chosen by them.
-   - **Investigator** (one per seed company): the company's latest parsed Source Versions
+     sent to a role. The Investigators' passages are chosen by them, and so are the
+     companies read beside the seeds: when the task is recorded, the plan gains an
+     Investigator for each other researched company the pointers name, in rank order, while
+     the company budget has room (atlas.investigations.companies; the plan's advance).
+   - **Investigator** (one per seed company, and one per company added for its pointers):
+     the Source Versions the round's pointers into its company name, best pointer first
+     (one per Source Document: the latest a pointer names), then the latest parsed Source
+     Versions of its other documents
      available at the investigation's as-of time, newest first, up to its share of what is
      left of the document budget (an equal share is held back for each of the round's other
      Investigators that hasn't chosen yet, so unused share passes on in plan order); then an
@@ -52,7 +58,8 @@ One attempt:
      was searched and read too; code keeps only findings citing accepted Claims and fills in
      their spans, the independent contradictions of each cited Claim (`counterevidence_ids`),
      the card's `contradictions`, its `bear_context` (by checklist item and company) and its
-     `searched` and `read` sections (atlas.investigations.coverage). A finding contradicted
+     `searched`, `read` and `not_read` sections (atlas.investigations.coverage; `not_read`:
+     the companies the pointers name that no Investigator read). A finding contradicted
      by an independent contradiction needs review, and so does the investigation
      (atlas.roles.editor); bear context marks no finding and stops nothing. With no accepted
      Claim at all the card has no finding, only what was searched and read and the open
@@ -94,7 +101,7 @@ from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
-from atlas.investigations.coverage import coverage
+from atlas.investigations.coverage import coverage, not_read
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
@@ -579,8 +586,9 @@ class TaskRunner:
     def _documents(
         self, investigation: RowMapping, task: RowMapping
     ) -> tuple[list[uuid.UUID], int]:
-        """The task's Source Versions (chosen once, within the document budget); and how many
-        available ones the budget left out."""
+        """The task's Source Versions (chosen once, within the document budget): the ones the
+        round's reading pointers into its company name, best pointer first, then its latest
+        ones; and how many available ones the budget left out."""
         with self._engine.begin() as connection:
             lock(connection, investigation["id"])
             chosen = list(
@@ -595,7 +603,37 @@ class TaskRunner:
                 text("SELECT count(*) FROM investigation_document WHERE investigation_id = :id"),
                 {"id": investigation["id"]},
             ).scalar_one()
-            available = list(
+            where = {
+                "company": task["company_id"],
+                "as_of": investigation["as_of"],
+                "id": investigation["id"],
+                "round": task["round"],
+            }
+            # Where Memory pointed in this company's documents: one Source Version per Source
+            # Document (the latest one a pointer names), by its best pointer, best first.
+            pointed = list(
+                connection.execute(
+                    text(
+                        "SELECT id FROM (SELECT DISTINCT ON (v.source_document_id) v.id,"
+                        " p.rank, p.query_index, v.available_at FROM reading_pointer p"
+                        " JOIN investigation_task t ON t.id = p.task_id AND t.role = 'scout'"
+                        " JOIN source_version v ON v.id = p.source_version_id"
+                        " JOIN source_document d ON d.id = v.source_document_id"
+                        " WHERE p.investigation_id = :id AND p.round = :round"
+                        " AND d.company_id = :company AND v.available_at <= :as_of"
+                        " AND v.parse_status IN ('parsed', 'incomplete')"
+                        " AND v.parsed_object_uri IS NOT NULL"
+                        " AND NOT EXISTS (SELECT FROM investigation_document r"
+                        "  WHERE r.investigation_id = :id AND r.source_version_id = v.id)"
+                        " ORDER BY v.source_document_id, v.available_at DESC, v.id, p.rank,"
+                        " p.query_index) best"
+                        " ORDER BY rank, query_index, available_at DESC, id"
+                    ),
+                    where,
+                ).scalars()
+            )
+            # Then the latest version of each of its other Source Documents, newest first.
+            latest = list(
                 connection.execute(
                     text(
                         "SELECT id FROM (SELECT DISTINCT ON (v.source_document_id) v.id,"
@@ -604,19 +642,18 @@ class TaskRunner:
                         " WHERE d.company_id = :company AND v.available_at <= :as_of"
                         " AND v.parse_status IN ('parsed', 'incomplete')"
                         " AND v.parsed_object_uri IS NOT NULL"
+                        " AND v.source_document_id NOT IN (SELECT source_document_id"
+                        "  FROM source_version WHERE id = ANY(:pointed))"
                         " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
                         # An earlier round's (or another task's) reading isn't repeated.
                         " WHERE NOT EXISTS (SELECT FROM investigation_document r"
                         "  WHERE r.investigation_id = :id AND r.source_version_id = latest.id)"
                         " ORDER BY available_at DESC, id"
                     ),
-                    {
-                        "company": task["company_id"],
-                        "as_of": investigation["as_of"],
-                        "id": investigation["id"],
-                    },
+                    where | {"pointed": pointed},
                 ).scalars()
             )
+            available = [*pointed, *latest]
             room = _document_share(
                 connection, investigation, task, max(investigation["max_documents"] - int(used), 0)
             )
@@ -634,9 +671,16 @@ class TaskRunner:
                 text(
                     "UPDATE investigation_task SET artifacts = artifacts"
                     " || jsonb_build_object('documents', CAST(:n AS integer),"
+                    " 'documents_pointed', CAST(:pointed AS integer),"
                     " 'documents_dropped', CAST(:dropped AS integer)) WHERE id = :id"
                 ),
-                {"id": task["id"], "n": len(chosen), "dropped": dropped},
+                {
+                    "id": task["id"],
+                    "n": len(chosen),
+                    # How many of them the reading pointers named.
+                    "pointed": len(set(chosen) & set(pointed)),
+                    "dropped": dropped,
+                },
             )
             if dropped:
                 event(
@@ -771,6 +815,7 @@ class TaskRunner:
                 ).scalars()
             )
             searched, read = coverage(connection, investigation["id"])
+            unread = not_read(connection, investigation["id"])
         round_ = task["round"]
         earlier = {_family(c) for c in claims if c["round"] < round_}
         new_families = sorted({_family(c) for c in claims if c["round"] == round_} - earlier)
@@ -915,6 +960,7 @@ class TaskRunner:
             bear_context=context,
             searched=searched,
             read=read,
+            not_read=unread,
         )
         return _Outcome(
             "succeeded",

@@ -234,6 +234,7 @@ def _run_metadata(connection: Connection, version: HypothesisVersion) -> RunMeta
             max_rounds=row["max_rounds"],
             max_leads=row["max_leads"],
             max_documents=row["max_documents"],
+            max_companies=row["max_companies"],
             token_budget=row["token_budget"],
         ),
         run_id=row["run_id"],

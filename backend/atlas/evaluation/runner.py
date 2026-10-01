@@ -407,6 +407,7 @@ def _run_pipeline(
                 max_rounds=2,
                 max_leads=settings.investigation_max_leads,
                 max_documents=settings.investigation_max_documents,
+                max_companies=settings.investigation_max_companies,
                 token_budget=settings.run_token_budget,
             ),
             bank_id=settings.hindsight_bank_id,

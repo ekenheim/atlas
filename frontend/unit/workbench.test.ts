@@ -4,11 +4,14 @@ import type {
   CardReading,
   Counterevidence,
   Investigation,
+  InvestigationTask,
+  PointedCompany,
   ReadingPointer,
   ResearchCard,
 } from "../lib/api/client";
 import {
   type PointerGroup,
+  addedInvestigator,
   canSaveHypothesis,
   checklistLabel,
   counterevidenceSummary,
@@ -17,9 +20,11 @@ import {
   foundBy,
   openQuestions,
   outputParts,
+  pointedOutcome,
   pointerGroups,
   pointerQueryLabel,
   pointerSummary,
+  pointerWeight,
   readerName,
   readingOutcome,
   selectionSummary,
@@ -39,8 +44,14 @@ function investigation(overrides: Partial<Investigation>): Investigation {
     status: "stopped",
     stop_reason: "answered",
     research_card: card,
-    usage: { rounds: 1, leads: 0, documents: 0, tokens_in: 0, tokens_out: 0 },
-    budgets: { max_rounds: 2, max_leads: 10, max_documents: 25, token_budget: 1000 },
+    usage: { rounds: 1, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0 },
+    budgets: {
+      max_rounds: 2,
+      max_leads: 10,
+      max_documents: 25,
+      max_companies: 6,
+      token_budget: 1000,
+    },
     request: { hypothesis_id: null },
     ...overrides,
   } as unknown as Investigation;
@@ -63,7 +74,9 @@ test("a follow-up is offered only when the API would take it", () => {
   expect(followUpBlocked(investigation({ stop_reason: "budget_exhausted" }))).toMatch(/resume/);
   expect(
     followUpBlocked(
-      investigation({ usage: { rounds: 2, leads: 0, documents: 0, tokens_in: 0, tokens_out: 0 } }),
+      investigation({
+        usage: { rounds: 2, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0 },
+      }),
     ),
   ).toMatch(/2 rounds are spent/);
   expect(
@@ -230,6 +243,58 @@ test("reading pointers are grouped by the query asked of Memory, best rank first
   expect(pointerQueryLabel(scouted)).toBe("Query 1");
   expect(pointerQueryLabel(followUp)).toBe("The question (follow-up round 2)");
   expect(pointerGroups([])).toEqual([]);
+});
+
+function pointed(overrides: Partial<PointedCompany>): PointedCompany {
+  return {
+    round: 1,
+    company_id: "c-axt",
+    company_name: "AXT",
+    slug: "axt",
+    pointers: 4,
+    score: 4,
+    best_rank: 1,
+    outcome: "added",
+    task_key: "investigator:axt",
+    ...overrides,
+  };
+}
+
+test("a company the pointers name says what became of it, and an added Investigator why", () => {
+  const axt = pointed({});
+  const coherent = pointed({
+    company_name: "Coherent",
+    slug: "coherent",
+    outcome: "seed",
+    task_key: "investigator:coherent",
+  });
+  const macom = pointed({
+    company_name: "MACOM",
+    slug: "macom",
+    pointers: 1,
+    score: 0.0833,
+    best_rank: 12,
+    outcome: "no_room",
+    task_key: null,
+  });
+  expect(pointerWeight(axt)).toBe("4 pointers, best rank 1, weight 4");
+  expect(pointerWeight(macom)).toBe("1 pointer, best rank 12, weight 0.08");
+  expect(pointedOutcome(coherent, 6)).toBe("a seed: read whatever its rank");
+  expect(pointedOutcome(axt, 6)).toBe("Investigator added");
+  expect(pointedOutcome(macom, 2)).toBe(
+    "not read: the company budget (2 Investigators a round) had no room",
+  );
+  expect(pointedOutcome(pointed({ outcome: "premise_disproven", task_key: null }), 6)).toBe(
+    "not read: its premise was disproven",
+  );
+  // The plan says which Investigators were added, and why; a seed's says nothing.
+  const task = (round: number, key: string) => ({ round, key }) as InvestigationTask;
+  expect(addedInvestigator(task(1, "investigator:axt"), [coherent, axt, macom])).toBe(
+    "Added after the Scout: Memory points to AXT (4 pointers, best rank 1, weight 4).",
+  );
+  expect(addedInvestigator(task(1, "investigator:coherent"), [coherent, axt])).toBeNull();
+  expect(addedInvestigator(task(2, "investigator:axt"), [coherent, axt])).toBeNull(); // round 1's
+  expect(addedInvestigator(task(1, "scout"), [])).toBeNull();
 });
 
 test("the Skeptic's items are counted by kind: contradictions, bear context, rejected", () => {

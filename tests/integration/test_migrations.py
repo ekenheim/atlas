@@ -492,3 +492,45 @@ def _constraint(refusal: str | None) -> str | None:
         "relationship_object_check",
     )
     return next((name for name in names if refusal is not None and name in refusal), None)
+
+
+def test_investigations_recorded_before_0058_take_the_default_company_budget(
+    empty_database_url: str,
+) -> None:
+    # 0058: the company budget (Investigators a round, the seeds counted). An investigation
+    # recorded before it takes the default, 6; a new one states its own, within 1 to 25.
+    upgrade(empty_database_url, "0055")
+    engine = create_engine(empty_database_url)
+
+    def insert(question: str, column: str = "", value: str = "") -> str:
+        return (
+            "INSERT INTO investigation (id, theme, question, seed_company_ids, as_of, bank_id,"
+            f" max_rounds, max_leads, max_documents, token_budget, created_by{column})"
+            f" VALUES (gen_random_uuid(), 'photonics', '{question}', ARRAY[gen_random_uuid()],"
+            f" now(), 'atlas', 2, 10, 25, 200000, 'local-researcher'{value})"
+        )
+
+    with engine.begin() as connection:
+        connection.execute(text(insert("before")))
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        before = connection.execute(text("SELECT max_companies FROM investigation")).scalar_one()
+    refused: list[str] = []
+    for value in ("", ", 0", ", 26"):
+        try:
+            with engine.begin() as connection:
+                column = ", max_companies" if value else ""
+                connection.execute(text(insert(f"after{value}", column, value)))
+        except DBAPIError:
+            refused.append(value)
+    with engine.begin() as connection:
+        connection.execute(text(insert("stated", ", max_companies", ", 3")))
+        stated = connection.execute(
+            text("SELECT max_companies FROM investigation WHERE question = 'stated'")
+        ).scalar_one()
+    engine.dispose()
+    assert before == 6
+    assert refused == ["", ", 0", ", 26"]  # no default; and the bounds
+    assert stated == 3

@@ -23,9 +23,9 @@ export default function WorkbenchPage() {
     <>
       <h1>Research workbench</h1>
       <p>
-        An investigation runs a theme question through a fixed plan: Scout, then one
-        Investigator per seed company, then the Skeptic beside the Financial Analyst, then the
-        Editor, within its budgets. Follow it here, launch one follow-up round on an open
+        An investigation runs a theme question through a plan: Scout, then one Investigator
+        per seed company and per other company Memory points to, then the Skeptic beside the
+        Financial Analyst, then the Editor, within its budgets. Follow it here, launch one follow-up round on an open
         question, and save its research card as a Hypothesis.
       </p>
       <section aria-labelledby="start">
@@ -87,8 +87,10 @@ function StartForm({ themes }: { themes: ThemeSummary[] }) {
   return (
     <form onSubmit={submit} aria-describedby="start-hint">
       <p id="start-hint" className="muted-small">
-        Budgets take the configured defaults (at most 2 rounds, 10 leads, 25 documents and the
-        run&apos;s token budget).
+        Budgets take the configured defaults (at most 2 rounds, 10 leads, 25 documents, 6
+        Investigators a round and the run&apos;s token budget). The seed companies are where
+        the reading starts: the other companies Memory points to are read too, while the
+        company budget has room.
       </p>
       <div className="field">
         <label htmlFor="theme">Theme</label>

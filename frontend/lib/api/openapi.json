@@ -7086,6 +7086,20 @@
             ],
             "title": "Max Documents"
           },
+          "max_companies": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 25.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Companies",
+            "description": "Investigators a round, the seeds counted; every seed has one regardless"
+          },
           "token_budget": {
             "anyOf": [
               {
@@ -7118,6 +7132,10 @@
             "type": "integer",
             "title": "Max Documents"
           },
+          "max_companies": {
+            "type": "integer",
+            "title": "Max Companies"
+          },
           "token_budget": {
             "type": "integer",
             "title": "Token Budget"
@@ -7128,6 +7146,7 @@
           "max_rounds",
           "max_leads",
           "max_documents",
+          "max_companies",
           "token_budget"
         ],
         "title": "Budgets",
@@ -7659,6 +7678,51 @@
         ],
         "title": "CardBearContextItem",
         "description": "One accepted bear-context item: what the quote says, and its span."
+      },
+      "CardCompanyNotRead": {
+        "properties": {
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "pointers": {
+            "type": "integer",
+            "title": "Pointers"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "best_rank": {
+            "type": "integer",
+            "title": "Best Rank"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "round",
+          "company_id",
+          "company_name",
+          "pointers",
+          "score",
+          "best_rank",
+          "reason"
+        ],
+        "title": "CardCompanyNotRead",
+        "description": "A company a round's reading pointers name that got no Investigator, so the next\ninvestigation can seed it (atlas.investigations.companies)."
       },
       "CardContradiction": {
         "properties": {
@@ -13527,6 +13591,13 @@
             "type": "array",
             "title": "Pointers"
           },
+          "pointed_companies": {
+            "items": {
+              "$ref": "#/components/schemas/PointedCompany"
+            },
+            "type": "array",
+            "title": "Pointed Companies"
+          },
           "documents": {
             "items": {
               "$ref": "#/components/schemas/InvestigationDocument"
@@ -13605,6 +13676,7 @@
           "tasks",
           "leads",
           "pointers",
+          "pointed_companies",
           "documents",
           "counterevidence",
           "research_card",
@@ -16839,6 +16911,74 @@
         ],
         "title": "PendingKind"
       },
+      "PointedCompany": {
+        "properties": {
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "pointers": {
+            "type": "integer",
+            "title": "Pointers"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "best_rank": {
+            "type": "integer",
+            "title": "Best Rank"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "seed",
+              "added",
+              "no_room",
+              "premise_disproven"
+            ],
+            "title": "Outcome"
+          },
+          "task_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "round",
+          "company_id",
+          "company_name",
+          "slug",
+          "pointers",
+          "score",
+          "best_rank",
+          "outcome",
+          "task_key"
+        ],
+        "title": "PointedCompany",
+        "description": "A company a round's reading pointers name, and what the plan did with it\n(atlas.investigations.companies): ranked by `score`, the sum of 1 / rank over the Scout's\npointers that name it. A `seed` has its Investigator whatever its rank; another company\ngot one (`added`, `task_key` its task) while the company budget had room; the rest were\nnot read (`no_room`, or `premise_disproven` when its premise already was)."
+      },
       "Premise": {
         "properties": {
           "key": {
@@ -19643,6 +19783,13 @@
             },
             "type": "array",
             "title": "Read"
+          },
+          "not_read": {
+            "items": {
+              "$ref": "#/components/schemas/CardCompanyNotRead"
+            },
+            "type": "array",
+            "title": "Not Read"
           }
         },
         "type": "object",
@@ -23138,6 +23285,10 @@
             "type": "integer",
             "title": "Documents"
           },
+          "companies": {
+            "type": "integer",
+            "title": "Companies"
+          },
           "tokens_in": {
             "type": "integer",
             "title": "Tokens In"
@@ -23152,6 +23303,7 @@
           "rounds",
           "leads",
           "documents",
+          "companies",
           "tokens_in",
           "tokens_out"
         ],

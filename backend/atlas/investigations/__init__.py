@@ -1,11 +1,12 @@
 """Investigations (spec Phase 4, "Research workflow"; §7.2-§7.4): a theme question run as a
-fixed plan of role tasks on the job queue, Scout -> Investigator -> (Skeptic || Financial
+plan of role tasks on the job queue, Scout -> Investigator -> (Skeptic || Financial
 Analyst) -> Editor, within per-run budgets, with every stop's reason recorded.
 
 `model` is what the API shows (the §7.2 request, budgets, plan, research card, events);
 `service` the state machine (plan, advance, stop, premises, resume); `tasks` runs one task's
-role; `pointers` asks Memory the Scout's queries and stores the reading pointers; `handlers`
-registers the `investigation_task` job.
+role; `pointers` asks Memory the Scout's queries and stores the reading pointers; `companies`
+ranks the companies the pointers name and allots the Investigators the plan gains after the
+Scout; `handlers` registers the `investigation_task` job.
 """
 
 from atlas.investigations.handlers import register_investigation_handlers

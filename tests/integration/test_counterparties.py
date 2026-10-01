@@ -586,6 +586,57 @@ def test_a_counterparty_is_never_ingested_and_never_an_investigation_seed(
     assert atlas.get("/api/v1/investigations")["total"] == 0
 
 
+def test_a_counterparty_memory_names_gets_no_investigator(
+    atlas: CounterpartyAtlas,
+    llm: FakeLiteLLM,
+    searxng: FakeSearXNG,
+    hindsight: tuple[RecordedHindsight, Served],
+) -> None:
+    # Memory-directed reading, ticket 06: an investigation reads the companies its reading
+    # pointers name beside its seeds, but only researched ones. NVIDIA is a counterparty, and
+    # Memory names it: the fact of the 10-K's Item 1, in Hindsight's words (written here).
+    nvidia = with_nvidia(atlas, llm)
+    item_1 = atlas.section(COHR_10K, "coherent")
+    memory = "Coherent entered into a multi-year supply agreement with NVIDIA for advanced lasers."
+    hindsight[0].script_fact_text(item_1["document_id"], memory)
+    llm.script_chat(
+        ChatReply.json({"queries": [{"query": SEARCH, "purpose": "EML suppliers"}]}),
+        ChatReply.json({"claims": []}),
+        ChatReply.json(
+            {"findings": [], "open_questions": ["Who else buys?"], "verdict": "needs_review"}
+        ),
+    )
+    searxng.script(SEARCH, SearchReply.of("no-results"))
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": "Who supplies NVIDIA?",
+            "seed_company_ids": [atlas.company("coherent")["id"]],
+        },
+    )
+    assert response.status_code == 202, response.text
+
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{response.json()['id']}")
+    assert found["status"] == "stopped", found
+    # Memory was asked and named NVIDIA; every pointer leads to a document of Coherent's (a
+    # counterparty has no archive).
+    assert memory in {p["memory_text"] for p in found["pointers"]}
+    assert nvidia["id"] not in {p["company_id"] for p in found["pointers"]}
+    # No Investigator was added for the counterparty, and it is not a company left unread.
+    assert [t["key"] for t in found["tasks"] if t["role"] == "investigator"] == [
+        "investigator:coherent"
+    ]
+    assert [(c["slug"], c["outcome"]) for c in found["pointed_companies"]] == [("coherent", "seed")]
+    assert found["research_card"]["not_read"] == []
+    events = atlas.get(f"/api/v1/investigations/{found['id']}/events", limit=500)["items"]
+    [ranking] = [e for e in events if e["type"] == "companies_ranked"]
+    assert (ranking["detail"]["added"], ranking["detail"]["not_read"]) == ([], [])
+    assert atlas.company("nvidia")["role"] == "counterparty"
+
+
 # --- promotion ------------------------------------------------------------------------------------
 
 

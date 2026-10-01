@@ -1,16 +1,22 @@
 """`/api/v1/investigations`: start an investigation from a theme question and follow it.
 
-- `POST /investigations` (202): records the investigation, its premises and its fixed plan
+- `POST /investigations` (202): records the investigation, its premises and its plan
   (Scout -> one Investigator per seed company -> Skeptic || Financial Analyst -> Editor; the
   Skeptic proposes counterevidence, the Financial Analyst scenario inputs) and enqueues the
-  Scout's task. Budgets default to ≤ 2 rounds, `ATLAS_INVESTIGATION_MAX_LEADS` (≤ 10) leads,
-  `ATLAS_INVESTIGATION_MAX_DOCUMENTS` (≤ 25) documents and `ATLAS_RUN_TOKEN_BUDGET` tokens;
-  a request may lower them. Seed companies default to the theme's companies in the database.
-  503 when LiteLLM, Hindsight or SearXNG isn't configured.
+  Scout's task. Once the Scout has asked Memory, the plan gains an Investigator for each
+  other researched company its reading pointers name, in rank order, while the company
+  budget has room. Budgets default to ≤ 2 rounds, `ATLAS_INVESTIGATION_MAX_LEADS` (≤ 10)
+  leads, `ATLAS_INVESTIGATION_MAX_DOCUMENTS` (≤ 25) documents,
+  `ATLAS_INVESTIGATION_MAX_COMPANIES` (6; ≤ 25) Investigators a round, the seeds counted,
+  and `ATLAS_RUN_TOKEN_BUDGET` tokens; a request may lower them. Seed companies default to
+  the theme's companies in the database. 503 when LiteLLM, Hindsight or SearXNG isn't
+  configured.
 - `GET /investigations/{id}`: the §7.2 request, budgets and usage, status (`paused` while the
   queue pause holds its task back), the stop reason and detail, premises, tasks, leads,
   reading pointers (`pointers`: what Memory returned to the question and each Scout query,
-  resolved to Source Version sections; Memory as an index, never Evidence), documents, the
+  resolved to Source Version sections; Memory as an index, never Evidence), the companies
+  they name with what became of each (`pointed_companies`: a seed, an Investigator added,
+  or not read for want of room), documents, the
   Skeptic's counterevidence (each item a contradiction of a named Claim or
   bear context about a company) and the Editor's draft research card.
 - `GET /investigations` (newest first): each investigation's theme, question, round and
@@ -21,7 +27,8 @@
 - `POST /investigations/{id}/premises/{key}/disprove`: the researcher marks a premise
   disproven; only the unstarted tasks that depend on it are cancelled (audited).
 - `POST /investigations/{id}/follow-up` (`{"question"}`): one bounded follow-up round on one
-  of the research card's open questions: the fixed plan again, as round 2, in the same run
+  of the research card's open questions: the plan again, as round 2 (growing after its own
+  Scout, by its own question's pointers), in the same run
   and within what is left of its budgets (≤ `max_rounds` rounds; audited). 409 while it
   runs, after a budget or premise stop, when the rounds or tokens are spent or once it is
   saved as a Hypothesis; 422 for a question that isn't one of the card's open questions.
@@ -76,6 +83,12 @@ class BudgetRequest(BaseModel):
     max_rounds: int = Field(default=2, ge=1, le=2)
     max_leads: int | None = Field(default=None, ge=1, le=10)
     max_documents: int | None = Field(default=None, ge=1, le=25)
+    max_companies: int | None = Field(
+        default=None,
+        ge=1,
+        le=25,
+        description="Investigators a round, the seeds counted; every seed has one regardless",
+    )
     token_budget: int | None = Field(default=None, gt=0)
 
 
@@ -171,6 +184,7 @@ def investigations_router(
             max_rounds=request.budgets.max_rounds,
             max_leads=request.budgets.max_leads or settings.investigation_max_leads,
             max_documents=request.budgets.max_documents or settings.investigation_max_documents,
+            max_companies=request.budgets.max_companies or settings.investigation_max_companies,
             token_budget=request.budgets.token_budget or settings.run_token_budget,
         )
         try:
