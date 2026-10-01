@@ -395,7 +395,7 @@ class RehearsalModel:
                 "reviews": [
                     {
                         "item_id": item["item_id"],
-                        "verdict": "confirmed",
+                        "hedge": "none",
                         "direction": "as_proposed",
                         "layer": "correct",
                         "suggested_layer": None,

@@ -20,9 +20,12 @@ for its own products (`vertically_integrates`), or that customers have qualified
 supplier of a product (`qualified_for`; `supplies` when the customer is a named company).
 They form edges from the company to a product node like `manufactures` does.
 
-**Layers.** Every Claim carries the supply-chain layer of what the link is about (ticket 12
+**Layers.** A Claim may carry the supply-chain layer of what the link is about (ticket 12
 tags Relationships with it): substrate → epi → chip/laser → DSP → module → system, plus
-contract manufacturing, as slugs.
+contract manufacturing, as slugs. The layer is optional and kept only when the quote or the
+object text names it (`layer_term`, memory-directed reading ticket 08): each layer has its
+terms (`LAYER_TERMS`), and a word several layers share ("InP", "indium phosphide", "wafer":
+`SHARED_LAYER_TERMS`) supports none of them.
 
 **Directional language.** A Claim's quote must use language that expresses its predicate
 (`directional_cue`): a small, conservative pattern list per predicate. Two companies named
@@ -82,25 +85,112 @@ ObjectKind = Literal["company", "product"]
 class LayerDefinition:
     name: Layer
     covers: str
+    # The words that name the layer and nothing else (`layer_term`): lower case for a word or
+    # phrase (matched whatever its case), upper case for an acronym (matched as written); the
+    # last word may be plural, and words may be joined by a space or a hyphen.
+    terms: tuple[str, ...]
 
 
 # Upstream to downstream; contract manufacturing is a service layer beside module/system.
 LAYERS: tuple[LayerDefinition, ...] = (
-    LayerDefinition("substrate", "bare wafers and substrates (InP, GaAs, SOI)"),
-    LayerDefinition("epi", "epitaxial wafers grown on substrates"),
     LayerDefinition(
-        "chip-laser", "laser and photonic chips: EML, DML, CW and VCSEL lasers, PICs, photodiodes"
-    ),
-    LayerDefinition("dsp", "DSPs, drivers, TIAs and other electrical ICs for optics"),
-    LayerDefinition("module", "optical transceivers and modules"),
-    LayerDefinition(
-        "contract-manufacturing", "assembly, test and contract manufacturing of optics"
+        "substrate",
+        "bare wafers and substrates (InP, GaAs, SOI)",
+        ("substrate", "bare wafer", "boule", "ingot"),
     ),
     LayerDefinition(
-        "system", "systems built from modules: optical transport, switches, AI clusters"
+        "epi",
+        "epitaxial wafers grown on substrates",
+        ("epitaxy", "epitaxial", "epi", "epiwafer", "MOCVD", "MBE"),
+    ),
+    LayerDefinition(
+        "chip-laser",
+        "laser and photonic chips: EML, DML, CW and VCSEL lasers, PICs, photodiodes",
+        (
+            "laser",
+            "EML",
+            "DML",
+            "VCSEL",
+            "DFB",
+            "photodiode",
+            "photodetector",
+            "PIC",
+            "photonic integrated circuit",
+            "photonic chip",
+            "optical chip",
+        ),
+    ),
+    LayerDefinition(
+        "dsp",
+        "DSPs, drivers, TIAs and other electrical ICs for optics",
+        (
+            "DSP",
+            "digital signal processor",
+            "TIA",
+            "transimpedance amplifier",
+            "laser driver",
+            "driver IC",
+            "retimer",
+            "serdes",
+        ),
+    ),
+    LayerDefinition(
+        "module",
+        "optical transceivers and modules",
+        ("transceiver", "optical module", "module", "pluggable", "transponder", "AOC"),
+    ),
+    LayerDefinition(
+        "contract-manufacturing",
+        "assembly, test and contract manufacturing of optics",
+        (
+            "contract manufacturer",
+            "contract manufacturing",
+            "electronics manufacturing services",
+            "EMS",
+            "outsourced manufacturing",
+            "outsourced assembly",
+            "OSAT",
+        ),
+    ),
+    LayerDefinition(
+        "system",
+        "systems built from modules: optical transport, switches, AI clusters",
+        (
+            "optical transport",
+            "transport system",
+            "line system",
+            "network switch",
+            "ethernet switch",
+            "data center switch",
+            "switching system",
+            "router",
+            "server",
+            "AI cluster",
+            "networking equipment",
+        ),
     ),
 )
 LAYER_NAMES: frozenset[str] = frozenset(layer.name for layer in LAYERS)
+# Each layer's terms (the table in `docs/decisions.md`, "A layer only when the quote supports
+# one"). No term is in two layers.
+LAYER_TERMS: dict[str, tuple[str, ...]] = {layer.name: layer.terms for layer in LAYERS}
+# Words several layers share, so they name none of them: the materials (an InP substrate, an
+# InP epiwafer and an InP laser are three layers; indium, gallium and germanium are feedstock,
+# which the taxonomy has no layer for), and "wafer", "chip" and "optics" on their own.
+SHARED_LAYER_TERMS: tuple[str, ...] = (
+    "InP",
+    "indium phosphide",
+    "GaAs",
+    "gallium arsenide",
+    "SOI",
+    "silicon photonics",
+    "indium",
+    "gallium",
+    "germanium",
+    "wafer",
+    "chip",
+    "optics",
+)
 
 
 def _cues(*patterns: str) -> tuple[re.Pattern[str], ...]:
@@ -537,6 +627,65 @@ def is_generic_object(object_text: str) -> bool:
     "materials", "components", "equipment", "suppliers" ("certain materials, equipment and
     components"), or the capacity vocabulary ("manufacturing capacity")."""
     return {w.lower() for w in _WORD.findall(fold(object_text))} <= _GENERIC_WORDS
+
+
+# --- the layer rule (memory-directed reading ticket 08) ----------------------------------------
+
+
+def _term_pattern(term: str) -> re.Pattern[str]:
+    """A layer term as a pattern: whole words, the words joined by spaces or a hyphen, the
+    last one optionally plural; an acronym (written in upper case) only as written."""
+    words = r"[\s-]+".join(re.escape(word) for word in term.split())
+    acronym = any(word.isupper() for word in term.split())
+    return re.compile(rf"(?<!\w){words}(?:s|es)?(?!\w)", 0 if acronym else re.IGNORECASE)
+
+
+_LAYER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (layer.name, _term_pattern(term)) for layer in LAYERS for term in layer.terms
+)
+
+
+def _layer_terms_in(folded: str) -> list[tuple[int, int, str]]:
+    """Where `folded` names a layer: (start, end, layer) of each term, in text order. A term
+    inside a longer term of another layer is not one ("laser" in "laser driver")."""
+    found = sorted(
+        (match.start(), match.end(), layer)
+        for layer, pattern in _LAYER_PATTERNS
+        for match in pattern.finditer(folded)
+    )
+    return [
+        (start, end, layer)
+        for start, end, layer in found
+        if not any(
+            other != layer and s <= start and end <= e and e - s > end - start
+            for s, e, other in found
+        )
+    ]
+
+
+def layer_term(layer: str, quote: str, object_text: str | None = None) -> str | None:
+    """The words that support `layer` for a Claim, as written, or None when nothing does: a
+    term of that layer (`LAYER_TERMS`) in the object text, else in the quote. For a product
+    object (`object_text`) the quote is read only in the clauses that name the object (as the
+    cue is: `object_clause_cue`), or whole when it names none of it; for a company object the
+    whole quote is read. A word several layers share (`SHARED_LAYER_TERMS`: "InP", "indium
+    phosphide", "wafer") is no term of any, so "indium phosphide capacity" supports no layer
+    and "InP substrates" supports `substrate`. Read through the fold."""
+    if layer not in LAYER_NAMES:
+        return None
+    named = (object_text or "").strip()
+    if named:
+        for start, end, name in _layer_terms_in(fold(named)):
+            if name == layer:
+                return named[start:end]
+    folded = fold(quote)
+    spans = clauses(folded)
+    inside = _object_clauses(folded, fold(named), spans) if named else set[int]()
+    scope = [spans[index] for index in sorted(inside)] or [(0, len(folded))]
+    for start, end, name in _layer_terms_in(folded):
+        if name == layer and any(low <= start and end <= high for low, high in scope):
+            return quote[start:end]
+    return None
 
 
 _CORPORATE_SUFFIX = re.compile(

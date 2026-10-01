@@ -378,7 +378,7 @@ class EvidenceItem(BaseModel):
     object_name: str | None
     object_text: str | None
     product: str | None
-    layer: str
+    layer: str | None  # null: the Claim's quote names no layer (`atlas.claims.layer_term`)
     epistemic_type: str
     quote: str
     source_version_id: uuid.UUID

@@ -35,7 +35,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0052"
+    assert revision == "0055"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -205,3 +205,101 @@ def test_assertions_recorded_before_0046_quote_their_versions_recorded_parse(
     engine.dispose()
     assert parser_version == "text-v2"
     assert refused
+
+
+def test_edges_that_differ_only_by_layer_before_0055_are_kept_and_no_new_one_can_be_made(
+    empty_database_url: str,
+) -> None:
+    # 0055: the layer leaves the edge's identity. Edges recorded before it keep their layer;
+    # of a group that differs only by layer, all but the oldest are marked, never merged.
+    upgrade(empty_database_url, "0052")
+    engine = create_engine(empty_database_url)
+    insert = (
+        "INSERT INTO relationship (id, subject_company_id, predicate, object_text, object_key,"
+        " layer, review_state, created_at) VALUES (gen_random_uuid(), :company,"
+        " 'expands_capacity_for', :object, :key, :layer, 'machine_reviewed',"
+        " now() - make_interval(days => :age))"
+    )
+    with engine.begin() as connection:
+        company = connection.execute(
+            text(
+                "INSERT INTO company (id, slug, legal_name, display_name, country, source_path,"
+                " cik) VALUES (gen_random_uuid(), 'x', 'X Inc.', 'X', 'US', 'sec', '0000000001')"
+                " RETURNING id"
+            )
+        ).scalar_one()
+        # One fact in three layers (pilot investigation 1), and an edge of its own.
+        for age, layer in [(3, "epi"), (2, "substrate"), (1, "chip-laser")]:
+            connection.execute(
+                text(insert),
+                {
+                    "company": company,
+                    "object": "indium phosphide capacity",
+                    "key": "indium phosphide capacity",
+                    "layer": layer,
+                    "age": age,
+                },
+            )
+        connection.execute(
+            text(insert),
+            {
+                "company": company,
+                "object": "EML lasers",
+                "key": "eml lasers",
+                "layer": "chip-laser",
+                "age": 1,
+            },
+        )
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        edges = connection.execute(
+            text(
+                "SELECT object_key, layer, legacy_layer_duplicate FROM relationship"
+                " ORDER BY object_key, created_at"
+            )
+        ).all()
+    assert [tuple(edge) for edge in edges] == [
+        ("eml lasers", "chip-laser", False),
+        ("indium phosphide capacity", "epi", False),
+        ("indium phosphide capacity", "substrate", True),
+        ("indium phosphide capacity", "chip-laser", True),
+    ]
+    new = (
+        "INSERT INTO relationship (id, subject_company_id, predicate, object_text, object_key,"
+        " layer, review_state) VALUES (gen_random_uuid(), :company, 'expands_capacity_for',"
+        " :object, :key, :layer, 'machine_reviewed')"
+    )
+    refused: list[str] = []
+    # No further edge for either identity, with another layer or with none.
+    for key, layer in [("indium phosphide capacity", "module"), ("eml lasers", None)]:
+        try:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(new), {"company": company, "object": key, "key": key, "layer": layer}
+                )
+        except DBAPIError as error:
+            if "uq_relationship_identity" in str(error):
+                refused.append(key)
+    # A new identity may have no layer, and takes one once.
+    with engine.begin() as connection:
+        connection.execute(
+            text(new),
+            {"company": company, "object": "a new fab", "key": "a new fab", "layer": None},
+        )
+        connection.execute(
+            text("UPDATE relationship SET layer = 'chip-laser' WHERE object_key = 'a new fab'")
+        )
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text("UPDATE relationship SET layer = 'module' WHERE object_key = 'a new fab'")
+            )
+    except DBAPIError as error:
+        fixed = "set once" in str(error)
+    else:
+        fixed = False
+    engine.dispose()
+    assert refused == ["indium phosphide capacity", "eml lasers"]
+    assert fixed

@@ -448,7 +448,7 @@ def test_the_skeptic_s_filing_phrase_searches_edgar_and_reads_an_archived_filing
                 "reviews": [
                     {
                         "item_id": item["item_id"],
-                        "verdict": "confirmed",
+                        "hedge": "none",
                         "direction": "as_proposed",
                         "layer": "correct",
                         "suggested_layer": None,

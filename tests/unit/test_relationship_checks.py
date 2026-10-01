@@ -7,11 +7,12 @@ import pytest
 from atlas.relationships import (
     DeterministicChecks,
     ReviewerAnswer,
+    brings_layer,
     deterministic_checks,
     directional_language,
     review_outcome,
 )
-from atlas.roles.reviewer import REVIEWER
+from atlas.roles.reviewer import REVIEWER, LayerVerdict
 
 # From the Coherent FY2026 10-K (the recorded fixture's parsed text).
 SUPPLY_QUOTE = (
@@ -24,7 +25,7 @@ PEER_GROUP_QUOTE = (
     " Wolfspeed Inc., Lumentum Holdings, Inc., Corning, Inc., MKS Instruments, Inc., and"
     " Honeywell International, Inc."
 )
-CONFIRMED = ReviewerAnswer(verdict="confirmed", direction="as_proposed", layer="correct")
+CONFIRMED = ReviewerAnswer(direction="as_proposed", hedge="none", layer="correct")
 
 
 # --- the directional-language checker ------------------------------------------------------------
@@ -164,31 +165,67 @@ def passing() -> DeterministicChecks:
 
 
 def test_all_checks_passing_and_a_confirmed_direction_and_layer_is_machine_reviewed() -> None:
-    assert review_outcome(passing(), CONFIRMED) == ("machine_reviewed", [])
+    assert review_outcome(passing(), CONFIRMED, layered=True) == ("machine_reviewed", [])
 
 
 @pytest.mark.parametrize(
     ("answer", "reasons"),
     [
-        (ReviewerAnswer("rejected", "as_proposed", "correct"), ["reviewer_rejected"]),
-        (ReviewerAnswer("uncertain", "as_proposed", "correct"), ["reviewer_uncertain"]),
-        (ReviewerAnswer("confirmed", "reversed", "correct"), ["direction_not_confirmed"]),
-        (ReviewerAnswer("confirmed", "undirected", "correct"), ["direction_not_confirmed"]),
-        (ReviewerAnswer("confirmed", "as_proposed", "wrong"), ["layer_not_confirmed"]),
+        # Each check is answered, and recorded, on its own (memory-directed reading ticket 08).
+        (ReviewerAnswer("reversed", "none", "correct"), ["direction_not_confirmed"]),
+        (ReviewerAnswer("undirected", "none", "correct"), ["direction_not_confirmed"]),
+        (ReviewerAnswer("not_stated", "none", "correct"), ["direction_not_confirmed"]),
+        (ReviewerAnswer("as_proposed", "hedged", "correct"), ["reviewer_hedged"]),
+        # An unconfirmed layer is a layer reason, never a direction one.
+        (ReviewerAnswer("as_proposed", "none", "wrong"), ["layer_not_confirmed"]),
+        (ReviewerAnswer("as_proposed", "none", "unclear"), ["layer_not_confirmed"]),
+        (ReviewerAnswer("as_proposed", "none", "not_proposed"), ["layer_not_confirmed"]),
         (
-            ReviewerAnswer("rejected", "reversed", "unclear"),
-            ["reviewer_rejected", "direction_not_confirmed", "layer_not_confirmed"],
+            ReviewerAnswer("reversed", "hedged", "unclear"),
+            ["direction_not_confirmed", "reviewer_hedged", "layer_not_confirmed"],
         ),
     ],
 )
 def test_anything_short_of_a_confirmation_goes_to_the_exceptions_queue(
     answer: ReviewerAnswer, reasons: list[str]
 ) -> None:
-    assert review_outcome(passing(), answer) == ("needs_human_review", reasons)
+    assert review_outcome(passing(), answer, layered=True) == ("needs_human_review", reasons)
+
+
+@pytest.mark.parametrize("layer", ["not_proposed", "correct", "wrong", "unclear"])
+def test_an_edge_with_no_layer_is_machine_reviewed_on_its_direction_and_hedge_alone(
+    layer: LayerVerdict,
+) -> None:
+    # No layer was proposed, so whatever the Reviewer says of one is not a reason.
+    answer = ReviewerAnswer("as_proposed", "none", layer)
+    assert review_outcome(passing(), answer, layered=False) == ("machine_reviewed", [])
+    reversed_ = ReviewerAnswer("reversed", "hedged", layer)
+    assert review_outcome(passing(), reversed_, layered=False) == (
+        "needs_human_review",
+        ["direction_not_confirmed", "reviewer_hedged"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("answer", "layered", "brought"),
+    [
+        (CONFIRMED, True, True),
+        (None, True, True),  # the Reviewer wasn't asked, or gave no answer: nothing against it
+        (ReviewerAnswer("as_proposed", "hedged", "correct"), True, True),
+        (ReviewerAnswer("as_proposed", "none", "wrong"), True, False),
+        (ReviewerAnswer("as_proposed", "none", "unclear"), True, False),
+        (ReviewerAnswer("not_stated", "none", "correct"), True, False),
+        (CONFIRMED, False, False),
+    ],
+)
+def test_an_assertion_brings_its_layer_to_the_edge_unless_the_reviewer_refutes_it(
+    answer: ReviewerAnswer | None, layered: bool, brought: bool
+) -> None:
+    assert brings_layer(answer, layered=layered) is brought
 
 
 def test_without_a_reviewer_answer_nothing_is_machine_reviewed() -> None:
-    assert review_outcome(passing(), None, missing="reviewer_quarantined") == (
+    assert review_outcome(passing(), None, layered=True, missing="reviewer_quarantined") == (
         "needs_human_review",
         ["reviewer_quarantined"],
     )
@@ -198,18 +235,33 @@ def test_the_reviewer_role_has_a_strict_schema_and_a_versioned_prompt() -> None:
     schema = REVIEWER.response_schema()
 
     assert REVIEWER.name == "reviewer"
-    assert (REVIEWER.prompt.name, REVIEWER.prompt.version) == ("reviewer", 3)
+    assert (REVIEWER.prompt.name, REVIEWER.prompt.version) == ("reviewer", 4)
     assert schema["additionalProperties"] is False
     review = schema["$defs"]["EdgeReview"]
     assert sorted(review["required"]) == sorted(review["properties"])
+    # One answer per check: no overall verdict that one failed check could drag down.
+    assert sorted(review["properties"]) == [
+        "direction",
+        "hedge",
+        "item_id",
+        "layer",
+        "reasoning",
+        "suggested_layer",
+    ]
 
 
-def test_the_reviewer_prompt_names_both_precision_failure_shapes_with_the_pilot_s_sentences() -> (
-    None
-):
-    # pilot-fixes ticket 09: generic risk-factor language and a cue from another clause.
+def test_the_reviewer_prompt_asks_each_check_separately_and_keeps_the_pilot_s_sentences() -> None:
     text = " ".join(REVIEWER.prompt.text.split())
     for phrase in [
+        # memory-directed reading ticket 08: three checks, each answered on its own.
+        "Answer each of the three checks on its own",
+        "A wrong, unclear or missing layer never changes `direction` or `hedge`",
+        "When the item's `layer` is null, no layer is proposed: answer `not_proposed`",
+        "one of that layer's `terms`, listed in `request.layers`, occurs there",
+        "A word of the layer somewhere in the quote is not enough",
+        "NVIDIA made a $2 billion investment in the Company",
+        "indium phosphide capacity",
+        # pilot-fixes ticket 09: generic risk-factor language and a cue from another clause.
         "Generic risk-factor language for a bottleneck predicate",
         "some of our suppliers are our sole sources for certain materials, equipment and"
         " components",

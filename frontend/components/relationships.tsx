@@ -10,7 +10,7 @@ import {
   type Relationship,
   type RelationshipRecorded,
 } from "../lib/api/client";
-import { LAYERS, STATES } from "../lib/relationships";
+import { STATES, layerLabel } from "../lib/relationships";
 import { routes } from "../lib/routes";
 import { Code, Missing, Timestamp } from "./ui";
 
@@ -32,8 +32,9 @@ export function edgeLabel(relationship: Relationship): string {
   return `${relationship.subject_name} ${relationship.predicate} ${object}`;
 }
 
+/** The edge's layer, or "none" when its Evidence names no layer. */
 export function LayerName({ layer }: { layer: Relationship["layer"] }) {
-  return <>{LAYERS[layer]}</>;
+  return <>{layerLabel(layer) ?? <Missing />}</>;
 }
 
 /** The review state, the reasons its machine reviews didn't pass, and the owner's decision. */

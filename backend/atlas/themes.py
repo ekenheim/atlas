@@ -9,7 +9,9 @@ API, so these reads never call Hindsight.
 
 **Relationships between them:** every edge whose subject is a theme company and whose object
 is a theme company or a product, material or technology (no company). An edge to a
-researched company outside the theme is on the companies' dossiers, not on the map.
+researched company outside the theme is on the companies' dossiers, not on the map. An edge
+may have no layer (its Evidence names none): it is among the map's edges, sorted before the
+layered ones, and the Theme explorer lists it under its companies instead of under a layer.
 
 **Counterparties:** a counterparty company (`atlas.counterparties`) is in no theme, but the
 edges between it and a theme company are on the map, and `counterparties` lists the ones at
@@ -86,7 +88,8 @@ class ThemeMap(BaseModel):
     unlayered: list[ThemeCompany] = Field(description="companies with no layer set")
     relationships: list[Relationship] = Field(
         description="edges between the theme's companies (or to a product, or between one of"
-        " them and a counterparty), by layer"
+        " them and a counterparty): those with no layer first (they belong under their"
+        " companies, not under a layer), then by layer"
     )
     counterparties: list[ThemeCounterparty] = Field(
         description="the counterparty companies those edges name, by name"
@@ -128,9 +131,11 @@ def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMa
             inside = edge.object_company_id is None or edge.object_company_id in ends
             if edge.subject_company_id in ends and inside:
                 edges[edge.id] = edge
-    rank = {layer.name: position for position, layer in enumerate(LAYERS)}
+    # Edges with no layer first (as the edge table sorts them), then upstream to downstream.
+    rank = {layer.name: position for position, layer in enumerate(LAYERS, start=1)}
     relationships = sorted(
-        edges.values(), key=lambda e: (rank[e.layer], e.subject_name, e.predicate, e.created_at)
+        edges.values(),
+        key=lambda e: (rank[e.layer] if e.layer else 0, e.subject_name, e.predicate, e.created_at),
     )
     named: dict[uuid.UUID, int] = {}
     for edge in relationships:

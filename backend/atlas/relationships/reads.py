@@ -8,6 +8,12 @@ Versions (a version in no family counts as its own). A family is one witness, so
 
 **Reasons.** `review_reasons` are the reason codes of the edge's machine reviews that didn't
 pass, first occurrence first: why it is (or was) an exception.
+
+**Layers** (memory-directed reading ticket 08). An edge may have no layer (`layer` null): the
+`layer` filter takes `none` for those, and they sort before the layers. `layer_duplicates`
+is the read-only report of the edges recorded before migration 0055 that share a subject,
+predicate and object and differ only by layer: they are left as they are, and no new one can
+be made.
 """
 
 import uuid
@@ -36,6 +42,8 @@ SortKey = Literal[
     "updated_at",
 ]
 SortOrder = Literal["asc", "desc"]
+# The edge table's layer filter: a layer, or `none` for the edges that have no layer.
+LayerFilter = Layer | Literal["none"]
 
 # Layers sort upstream to downstream (the taxonomy's order), not alphabetically.
 _LAYER_ORDER = ", ".join(f"'{layer.name}'" for layer in LAYERS)
@@ -60,7 +68,7 @@ class Relationship(BaseModel):
     object_company_id: uuid.UUID | None
     object_name: str | None  # the object company's display name
     object_text: str | None  # the object product, material or technology
-    layer: Layer
+    layer: Layer | None  # null: no Evidence of the edge names a layer
     products: list[str]
     review_state: RelationshipState
     review_reasons: list[str]
@@ -96,10 +104,16 @@ class MachineReview(BaseModel):
     directional_cue: str | None
     hedge: str | None
     reviewer_status: ReviewerStatus
+    # The overall verdict of reviews under `reviewer.v3` and earlier; null from `reviewer.v4`
+    # on, where each check is answered on its own (`reviewer_direction`, `reviewer_hedge`,
+    # `reviewer_layer`).
     reviewer_verdict: Literal["confirmed", "rejected", "uncertain"] | None
     reviewer_direction: Literal["as_proposed", "reversed", "undirected", "not_stated"] | None
-    reviewer_layer: Literal["correct", "wrong", "unclear"] | None
+    reviewer_hedge: Literal["none", "hedged"] | None
+    reviewer_layer: Literal["correct", "wrong", "unclear", "not_proposed"] | None
     reviewer_suggested_layer: str | None
+    # The layer the Assertion's quote supports (null: none): what it would bring to the edge.
+    supported_layer: str | None
     reviewer_reasoning: str | None
     outcome: MachineOutcome
     reasons: list[str]
@@ -132,7 +146,7 @@ _BASE = f"""
            coalesce(ev.family_count, 0) AS family_count,
            r.reviewed_by, r.reviewed_at, r.review_note, r.created_at, r.updated_at,
            coalesce(o.display_name, r.object_text) AS object_sort,
-           array_position(ARRAY[{_LAYER_ORDER}], r.layer) AS layer_rank
+           coalesce(array_position(ARRAY[{_LAYER_ORDER}], r.layer), 0) AS layer_rank
     FROM relationship r
     JOIN company s ON s.id = r.subject_company_id
     LEFT JOIN company o ON o.id = r.object_company_id
@@ -152,7 +166,8 @@ _BASE = f"""
 
 # Each filter applies only when its parameter is set.
 _FILTER = """
-    WHERE (CAST(:layer AS text) IS NULL OR layer = :layer)
+    WHERE (CAST(:layer AS text) IS NULL OR layer = :layer
+           OR (:layer = 'none' AND layer IS NULL))
       AND (CAST(:state AS text) IS NULL OR review_state = :state)
       AND (CAST(:predicate AS text) IS NULL OR predicate = :predicate)
       AND (CAST(:company AS uuid) IS NULL
@@ -163,7 +178,7 @@ _FILTER = """
 def list_relationships(
     connection: Connection,
     *,
-    layer: Layer | None = None,
+    layer: LayerFilter | None = None,
     review_state: RelationshipState | None = None,
     predicate: str | None = None,
     company_id: uuid.UUID | None = None,
@@ -173,7 +188,8 @@ def list_relationships(
     offset: int,
 ) -> tuple[list[Relationship], int]:
     """The edge table, sorted by `sort` (`order`), then oldest first. A company's edges are
-    those naming it as subject or object."""
+    those naming it as subject or object. `layer` `none` is the edges with no layer; sorted by
+    layer, those come before the layers (after them when descending)."""
     params: dict[str, Any] = {
         "layer": layer,
         "state": review_state,
@@ -193,6 +209,58 @@ def list_relationships(
     ).scalar_one()
     rows = [dict(row) for row in connection.execute(text(query), params).mappings()]
     return _with_reasons(connection, rows), total
+
+
+class LayerDuplicates(BaseModel):
+    """Edges recorded before migration 0055 that are one edge by today's identity (subject,
+    predicate, object) and differ only by layer. The first is the one new Evidence joins
+    unless it brings another of the group's layers."""
+
+    subject_company_id: uuid.UUID
+    subject_name: str
+    predicate: str
+    object_company_id: uuid.UUID | None
+    object_name: str | None
+    object_text: str | None
+    layers: list[Layer | None]
+    relationships: list[Relationship]  # oldest first
+
+
+def layer_duplicates(connection: Connection) -> list[LayerDuplicates]:
+    """The report of edges that differ only by layer, by subject, predicate and object; each
+    group's edges oldest first. Read-only: they are never merged or deleted."""
+    rows = [
+        dict(row)
+        for row in connection.execute(
+            text(
+                f"SELECT q.*, r.object_key FROM ({_BASE}) q"  # noqa: S608 (constant fragments)
+                " JOIN relationship r ON r.id = q.id"
+                " WHERE (SELECT count(*) FROM relationship d"
+                "   WHERE d.subject_company_id = r.subject_company_id"
+                "   AND d.predicate = r.predicate AND d.object_key = r.object_key) > 1"
+                " ORDER BY q.subject_name, q.predicate, r.object_key, q.created_at, q.id"
+            )
+        ).mappings()
+    ]
+    keys = {
+        row["id"]: (row["subject_company_id"], row["predicate"], row["object_key"]) for row in rows
+    }
+    groups: dict[tuple[uuid.UUID, str, str], list[Relationship]] = {}
+    for edge in _with_reasons(connection, rows):
+        groups.setdefault(keys[edge.id], []).append(edge)
+    return [
+        LayerDuplicates(
+            subject_company_id=edges[0].subject_company_id,
+            subject_name=edges[0].subject_name,
+            predicate=edges[0].predicate,
+            object_company_id=edges[0].object_company_id,
+            object_name=edges[0].object_name,
+            object_text=edges[0].object_text,
+            layers=[edge.layer for edge in edges],
+            relationships=edges,
+        )
+        for edges in groups.values()
+    ]
 
 
 def get_relationship(connection: Connection, relationship_id: uuid.UUID) -> Relationship | None:

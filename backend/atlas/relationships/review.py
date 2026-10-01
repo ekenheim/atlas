@@ -7,14 +7,19 @@ already reviewed is never reviewed again. One attempt:
 
 1. **Eligibility.** An Assertion forms a Relationship only when its predicate is
    whitelisted (`predicate_not_whitelisted`), it is open (`assertion_rejected`,
-   `assertion_superseded`), its `value_json.layer` is a known layer (`unknown_layer`), its
+   `assertion_superseded`), its `value_json.layer`, if it has one, is a known layer
+   (`unknown_layer`), its
    object is present (a company, or `value_json.object_text` for a product predicate:
    `missing_object`) and differs from the subject (`self_relationship`), and its quote has
    directional language for the predicate (`no_directional_language`: co-mention is never a
    Relationship), for a product object in a clause that names the object
    (`cue_in_other_clause`, pilot-fixes ticket 09: "we expand InP capacity, while also
    operating VCSEL facilities" expands nothing for the VCSEL facilities). Otherwise it is
-   recorded `not_eligible` with that reason and no edge.
+   recorded `not_eligible` with that reason and no edge. **The layer is optional**
+   (memory-directed reading ticket 08): the edge is proposed with the Assertion's layer only
+   when the quote or the object text names it (`atlas.claims.layer_term`, the rule the
+   extraction applies, here for any Assertion: a researcher's, or one recorded before the
+   rule); otherwise with none.
 2. **Deterministic checks** (`atlas.relationships.checks`): verbatim span, Tier A, explicit
    (unhedged) language. An Assertion that fails one joins its edge `needs_human_review`
    without asking the Reviewer.
@@ -22,7 +27,10 @@ already reviewed is never reviewed again. One attempt:
    run (its own `relationship_review` run, or the payload's unfinished `run_id`, kept across
    retries). Each Assertion is recorded in its own transaction as soon as its batch is
    answered, so a job requeued by an LLM quota or outage (the kind is pausable) resumes with
-   the Assertions not yet reviewed. A quarantined answer sends its batch's edges to humans
+   the Assertions not yet reviewed. The Reviewer answers each check on its own (direction,
+   hedge, layer); an Assertion with no layer needs no layer answer, and one whose layer or
+   direction the Reviewer doesn't confirm brings no layer to its edge
+   (`atlas.relationships.checks`). A quarantined answer sends its batch's edges to humans
    (`reviewer_quarantined`), as does an item the answer left out (`reviewer_no_answer`).
    When the run's token budget is spent, the job stops `budget_exhausted` and the rest stay
    unreviewed for a later job.
@@ -43,12 +51,14 @@ from atlas.claims.predicates import (
     LAYERS,
     PREDICATES,
     company_names,
+    layer_term,
     object_clause_cue,
 )
 from atlas.jobs.queue import Artifacts, Job
 from atlas.relationships.checks import (
     DeterministicChecks,
     ReviewerAnswer,
+    brings_layer,
     deterministic_checks,
     directional_language,
     review_outcome,
@@ -174,8 +184,9 @@ class RelationshipReviewer:
                 source_tier=candidate.source_tier,
             )
             if not checks.passed:
-                outcome, reasons = review_outcome(checks, None)
-                self._record(job, _record(candidate, checks, outcome, reasons, "skipped"), edge)
+                outcome, reasons = review_outcome(checks, None, layered=edge.layer is not None)
+                skipped = _record(candidate, edge, checks, outcome, reasons, "skipped")
+                self._record(job, skipped, edge)
                 continue
             assert parsed is not None
             start = max(0, candidate.span_start - CONTEXT_CHARS)
@@ -207,7 +218,10 @@ class RelationshipReviewer:
         """Ask the Reviewer about `batch` and record each answer; False if the budget is spent."""
         items = {f"a{index + 1}": pending for index, pending in enumerate(batch)}
         request = ReviewerRequest(
-            layers=[LayerOption(name=layer.name, covers=layer.covers) for layer in LAYERS],
+            layers=[
+                LayerOption(name=layer.name, covers=layer.covers, terms=list(layer.terms))
+                for layer in LAYERS
+            ],
             items=[_item(item_id, p, companies) for item_id, p in items.items()],
         )
         retrieved = [
@@ -235,17 +249,24 @@ class RelationshipReviewer:
             role_call_id, missing = quarantined.role_call_id, "reviewer_quarantined"
         for item_id, p in items.items():
             answer = answers.get(item_id)
+            layered = p.edge.layer is not None
+            edge = p.edge
             if answer is None:
-                outcome, reasons = review_outcome(p.checks, None, missing=missing)
+                outcome, reasons = review_outcome(p.checks, None, layered=layered, missing=missing)
                 status: ReviewerStatus = (
                     "quarantined" if missing == "reviewer_quarantined" else "no_answer"
                 )
-                record = _record(p.candidate, p.checks, outcome, reasons, status)
+                record = _record(p.candidate, p.edge, p.checks, outcome, reasons, status)
             else:
-                verdict = ReviewerAnswer(answer.verdict, answer.direction, answer.layer)
-                outcome, reasons = review_outcome(p.checks, verdict)
-                record = _record(p.candidate, p.checks, outcome, reasons, "answered", answer)
-            self._record(job, replace(record, run_id=run_id, role_call_id=role_call_id), p.edge)
+                answered = ReviewerAnswer(answer.direction, answer.hedge, answer.layer)
+                outcome, reasons = review_outcome(p.checks, answered, layered=layered)
+                record = _record(
+                    p.candidate, p.edge, p.checks, outcome, reasons, "answered", answer
+                )
+                if not brings_layer(answered, layered=layered):
+                    # A layer or direction the Reviewer doesn't confirm is not the edge's.
+                    edge = replace(p.edge, layer=None)
+            self._record(job, replace(record, run_id=run_id, role_call_id=role_call_id), edge)
         return True
 
     # --- runs ---------------------------------------------------------------------------------
@@ -410,7 +431,7 @@ def _eligibility(candidate: _Candidate) -> tuple[str | None, Edge | None]:
         return f"assertion_{candidate.verification_status}", None
     value = _value(candidate.value_json)
     layer = value.get("layer")
-    if not isinstance(layer, str) or layer not in LAYER_NAMES:
+    if layer is not None and (not isinstance(layer, str) or layer not in LAYER_NAMES):
         return "unknown_layer", None
     object_text: str | None = None
     if rule.object_kind == "company":
@@ -430,17 +451,20 @@ def _eligibility(candidate: _Candidate) -> tuple[str | None, Edge | None]:
         and object_clause_cue(rule.name, candidate.quote, object_text) is None
     ):
         return "cue_in_other_clause", None
+    # The layer only when the quote or the object names it (the extraction's rule).
+    supported = layer is not None and layer_term(layer, candidate.quote, object_text) is not None
     return None, Edge(
         subject_company_id=candidate.subject_company_id,
         predicate=rule.name,
         object_company_id=candidate.object_company_id if rule.object_kind == "company" else None,
         object_text=object_text,
-        layer=layer,
+        layer=layer if supported else None,
     )
 
 
 def _record(
     candidate: _Candidate,
+    edge: Edge,
     checks: DeterministicChecks,
     outcome: MachineOutcome,
     reasons: list[str],
@@ -457,11 +481,12 @@ def _record(
         directional_language=checks.language.verdict,
         directional_cue=checks.language.cue,
         hedge=checks.language.hedge,
-        reviewer_verdict=None if answer is None else answer.verdict,
         reviewer_direction=None if answer is None else answer.direction,
+        reviewer_hedge=None if answer is None else answer.hedge,
         reviewer_layer=None if answer is None else answer.layer,
         reviewer_suggested_layer=None if answer is None else answer.suggested_layer,
         reviewer_reasoning=None if answer is None else answer.reasoning,
+        supported_layer=edge.layer,
     )
 
 

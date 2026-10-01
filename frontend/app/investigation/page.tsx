@@ -504,7 +504,7 @@ function EvidenceTray({ items }: { items: EvidenceItem[] }) {
                   {claimLabel(item)}
                   <br />
                   <span className="muted-small">
-                    {item.layer}
+                    {item.layer ?? "no layer"}
                     {item.product && <>, {item.product}</>}; <Code>{item.epistemic_type}</Code>
                     {item.excluded && <>; left out (its premise was disproven)</>}
                   </span>

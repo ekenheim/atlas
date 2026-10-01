@@ -57,7 +57,7 @@ class AnalystClaim(_Request):
     predicate: str
     object: str
     product: str | None
-    layer: str
+    layer: str | None  # null: the Claim's quote names no layer
 
 
 class FinancialAnalystRequest(_Request):

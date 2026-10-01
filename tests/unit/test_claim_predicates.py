@@ -5,14 +5,17 @@ import pytest
 
 from atlas.claims import (
     FOLD_TABLE,
+    LAYER_TERMS,
     LAYERS,
     PREDICATES,
+    SHARED_LAYER_TERMS,
     clauses,
     company_names,
     direction_refusal,
     directional_cue,
     fold,
     is_generic_object,
+    layer_term,
     mentions,
     names_object,
     names_party,
@@ -547,3 +550,143 @@ def test_companies_named_besides_the_parties_are_strays() -> None:
     assert stray_companies(unknown, [NVIDIA], known) == ["Broadcom Inc."]
     assert stray_companies("NVIDIA Corporation buys VCSEL arrays.", [["NVIDIA"]], known) == []
     assert stray_companies(f"6{NBH}inch platform producing EMLs", [], known) == []
+
+
+# --- the layer rule (memory-directed reading ticket 08) ------------------------------------------
+
+# Recorded Coherent FY2026 10-K.
+SHERMAN = (
+    "We are investing in manufacturing capacity for the Datacenter and Communications markets,"
+    " including expanding our indium phosphide capacity in Sherman, Texas, to address our"
+    " increased customer demand and industry-wide shortage."
+)
+ISSUANCE = (
+    "On March 2, 2026, the Company issued and sold 7,788,161 shares of Common Stock to NVIDIA"
+    " for an aggregate purchase price of $2.0 billion."
+)
+
+
+def test_every_layer_has_terms_and_no_term_belongs_to_two_layers() -> None:
+    assert list(LAYER_TERMS) == [layer.name for layer in LAYERS]
+    assert all(LAYER_TERMS.values())
+    seen: dict[str, str] = {}
+    for layer, terms in LAYER_TERMS.items():
+        for term in terms:
+            assert seen.setdefault(term.lower(), layer) == layer, term
+    assert not {term.lower() for term in SHARED_LAYER_TERMS} & set(seen)
+
+
+@pytest.mark.parametrize(
+    ("layer", "quote", "object_text", "term"),
+    [
+        # The object text names the layer: "InP substrates" keeps `substrate`.
+        (
+            "substrate",
+            "We purchase InP substrates from a limited number of suppliers.",
+            "InP substrates",
+            "substrates",
+        ),
+        ("epi", "IQE supplies epitaxial wafers to us.", None, "epitaxial"),
+        ("epi", "We added MOCVD reactors in Taiwan.", "MOCVD reactors", "MOCVD"),
+        (
+            "chip-laser",
+            "Demand for our 200G EML lasers exceeded our supply.",
+            "200G EML lasers",
+            "EML",
+        ),
+        ("chip-laser", "a new record for datacom laser chip orders", None, "laser"),
+        ("dsp", "We buy DSPs from Marvell.", None, "DSPs"),
+        ("module", "We supply 800G transceivers to NVIDIA.", None, "transceivers"),
+        (
+            "contract-manufacturing",
+            "For many products, a particular contract manufacturer may be the sole source of the"
+            " finished good products.",
+            None,
+            "contract manufacturer",
+        ),
+        ("system", "Ciena ships optical transport systems to carriers.", None, "optical transport"),
+        # A company object: the whole quote is read.
+        (
+            "chip-laser",
+            "entered into a strategic multi-year supply agreement with NVIDIA for advanced lasers"
+            " and optical networking products",
+            None,
+            "lasers",
+        ),
+        # A product object the quote names with a term of the layer in its clause.
+        (
+            "chip-laser",
+            "6-inch platform producing EMLs, CW lasers, and photodiodes",
+            "6-inch platform",
+            "EMLs",
+        ),
+    ],
+)
+def test_a_layer_is_supported_by_a_term_of_it_in_the_object_text_or_the_quote(
+    layer: str, quote: str, object_text: str | None, term: str
+) -> None:
+    assert layer_term(layer, quote, object_text) == term
+
+
+@pytest.mark.parametrize(
+    ("layer", "quote", "object_text"),
+    [
+        # The pilot's wrong layers: InP capacity is no substrate fact, an issuer no chip.
+        ("substrate", SHERMAN, "indium phosphide capacity in Sherman, Texas"),
+        ("epi", SHERMAN, "indium phosphide capacity"),
+        ("chip-laser", SHERMAN, "indium phosphide capacity"),
+        ("chip-laser", ISSUANCE, None),
+        ("system", "NVIDIA made a $2 billion investment in the Company", None),
+        (
+            "substrate",
+            "We purchase germanium for our infrared optics from a single supplier.",
+            "germanium",
+        ),
+        (
+            "substrate",
+            "We continue to expand our global 6-inch InP manufacturing capacity.",
+            "6-inch InP manufacturing capacity",
+        ),
+        # Another layer's term is no support.
+        ("epi", "We purchase InP substrates from a limited number of suppliers.", "InP substrates"),
+        ("module", "We manufacture GaAs VCSELs.", "GaAs VCSELs"),
+        # Not a layer at all.
+        ("optics", "We manufacture GaAs VCSELs.", "GaAs VCSELs"),
+    ],
+)
+def test_a_layer_the_quote_and_object_do_not_name_is_unsupported(
+    layer: str, quote: str, object_text: str | None
+) -> None:
+    assert layer_term(layer, quote, object_text) is None
+
+
+@pytest.mark.parametrize("shared", SHARED_LAYER_TERMS)
+def test_a_term_shared_by_several_layers_supports_none_of_them(shared: str) -> None:
+    quote = f"We are expanding our {shared} capacity."
+    for layer in LAYERS:
+        assert layer_term(layer.name, quote, f"{shared} capacity") is None, layer.name
+
+
+def test_a_term_in_another_clause_than_a_product_object_is_no_support() -> None:
+    # "VCSEL" is in the clause about the GaAs facilities, not in the InP capacity's.
+    assert layer_term("chip-laser", VCSEL, "6-inch InP manufacturing capacity") is None
+    assert layer_term("chip-laser", VCSEL, "6-inch GaAs VCSEL manufacturing facilities") == "VCSEL"
+    # A quote that doesn't name the object is read whole.
+    assert layer_term("chip-laser", VCSEL, "wafer fabs") == "VCSEL"
+
+
+def test_a_longer_term_of_another_layer_wins_over_the_term_inside_it() -> None:
+    # A laser driver is an electrical IC: "laser" inside it is no chip-laser term.
+    quote = "We purchase laser drivers from a single supplier."
+    assert layer_term("dsp", quote, "laser drivers") == "laser drivers"
+    assert layer_term("chip-laser", quote, "laser drivers") is None
+
+
+def test_layer_terms_are_whole_words_read_through_the_fold_and_acronyms_keep_their_case() -> None:
+    assert layer_term("substrate", "our substrateless design", None) is None
+    assert layer_term("chip-laser", "a pic of our fab; systems and teams", None) is None
+    assert layer_term("dsp", "we tia up with partners", None) is None
+    assert layer_term("chip-laser", "our PICs and photodiodes", None) == "PICs"
+    assert layer_term("epi", f"our epi{NBH}wafer foundry", None) == "epi"
+    quote = f"third{NBH}party contract{NBH}manufacturers build our modules"
+    assert layer_term("contract-manufacturing", quote, None) == f"contract{NBH}manufacturers"

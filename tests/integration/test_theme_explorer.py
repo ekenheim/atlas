@@ -299,7 +299,10 @@ def test_the_map_holds_the_relationships_between_theme_companies(
     researched: ExplorerAtlas,
 ) -> None:
     edges = researched.map()["relationships"]
-    # Layer order (upstream to downstream), then subject: the NVIDIA edge is outside the theme.
+    # The edges with no layer first, then layer order (upstream to downstream), then subject:
+    # the NVIDIA edge is outside the theme. Only the sole-source sentence names a layer ("a
+    # particular contract manufacturer"); the other two were tagged `module`, which neither
+    # quote names, so they have none and belong under their companies, not under a layer.
     assert [
         (e["subject_name"], e["predicate"], e["object_name"] or e["object_text"]) for e in edges
     ] == [
@@ -307,7 +310,7 @@ def test_the_map_holds_the_relationships_between_theme_companies(
         ("Lumentum", "manufactures", "optical products"),
         ("Lumentum", "depends_on", "Fabrinet"),
     ]
-    assert [e["layer"] for e in edges] == ["module", "module", "contract-manufacturing"]
+    assert [e["layer"] for e in edges] == [None, None, "contract-manufacturing"]
     assert {e["review_state"] for e in edges} == {"needs_human_review"}
     assert all(e["evidence_count"] == 1 and e["family_count"] == 1 for e in edges)
 

@@ -130,9 +130,16 @@ def test_every_gold_case_passes_in_fake_mode_and_the_run_is_stored_and_served(
         for e in results["EV-DIR-001"]["predicted"]["relationships"]
     }
     assert edges[("aurora", "cirrus", "module")]["review_state"] == "machine_reviewed"
-    reversed_edge = edges[("cirrus", "aurora", "module")]
+    # A direction the Reviewer doesn't confirm brings no layer to its edge.
+    reversed_edge = edges[("cirrus", "aurora", None)]
     assert reversed_edge["review_state"] == "needs_human_review"
-    assert "direction_not_confirmed" in reversed_edge["reasons"]
+    assert reversed_edge["reasons"] == ["direction_not_confirmed"]
+    # The layer-conflation case: one edge, carrying the layer the Reviewer confirmed. The
+    # `epi` proposal (its layer refused) is Evidence of the same edge, not an edge of its own.
+    [layered] = results["EV-LAY-001"]["predicted"]["relationships"]
+    assert (layered["layer"], layered["review_state"]) == ("substrate", "machine_reviewed")
+    assert layered["reasons"] == ["layer_not_confirmed"]
+    assert len(layered["evidence"]) == 2
     [hedged] = results["EV-HED-001"]["predicted"]["relationships"]
     assert (hedged["review_state"], hedged["reasons"]) == (
         "needs_human_review",

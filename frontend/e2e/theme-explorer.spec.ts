@@ -58,9 +58,18 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   await expect(chips.getByRole("row", { name: /^Lumentum/ }).getByRole("cell").last()).toHaveText(
     "none",
   );
+  // Only the sole-source sentence names a layer ("a particular contract manufacturer"); the
+  // other two edges' Evidence names none, so they are listed under their companies.
   const edges = page.getByRole("table", { name: "Relationships between the theme's companies" });
-  await expect(edges.locator("tbody").getByRole("row")).toHaveCount(3);
+  await expect(edges.locator("tbody").getByRole("row")).toHaveCount(1);
   await expect(edges.getByRole("row", { name: DEPENDS.name })).toBeVisible();
+  const lumentumEdges = page.getByRole("table", { name: "Relationships with no layer: Lumentum" });
+  await expect(lumentumEdges.locator("tbody").getByRole("row")).toHaveCount(2);
+  await expect(lumentumEdges.getByRole("row", { name: COMPETES })).toBeVisible();
+  await expect(lumentumEdges.getByRole("row", { name: MANUFACTURES })).toBeVisible();
+  const coherentEdges = page.getByRole("table", { name: "Relationships with no layer: Coherent" });
+  await expect(coherentEdges.locator("tbody").getByRole("row")).toHaveCount(1);
+  await expect(coherentEdges.getByRole("row", { name: COMPETES })).toBeVisible();
   await expect(page.getByText("Hindsight is not configured")).toBeVisible();
 
   // The dossier: identity, listings, Relationships, financials, sources.

@@ -12,16 +12,18 @@ import {
   edgeLabel,
 } from "../../components/relationships";
 import { Code, Load } from "../../components/ui";
-import { api, type Layer, type RelationshipState } from "../../lib/api/client";
+import { api, type RelationshipState } from "../../lib/api/client";
 import {
   COLUMNS,
   DEFAULT_STATE,
-  LAYERS,
+  LAYER_FILTERS,
   STATES,
   apiQuery,
+  filterSummary,
   parseTableState,
   tableSearch,
   toggleSort,
+  type LayerFilter,
   type SortKey,
   type TableState,
 } from "../../lib/relationships";
@@ -56,7 +58,8 @@ function EdgeTable() {
       </p>
       <h1>Relationships</h1>
       <p>
-        Every edge the graph holds: who does what to whom, in which supply-chain layer, how it
+        Every edge the graph holds: who does what to whom, in which supply-chain layer (when its
+        Evidence names one), how it
         was reviewed and how much independent Evidence backs it. Open an edge to see each
         supporting Assertion and its source span. Edges waiting for the owner are in the{" "}
         <Link href={routes.exceptions}>exceptions queue</Link>.
@@ -72,11 +75,11 @@ function EdgeTable() {
             id="filter-layer"
             value={state.layer ?? ""}
             onChange={(event) =>
-              show({ ...state, layer: (event.target.value || null) as Layer | null })
+              show({ ...state, layer: (event.target.value || null) as LayerFilter | null })
             }
           >
             <option value="">All layers</option>
-            {Object.entries(LAYERS).map(([value, label]) => (
+            {Object.entries(LAYER_FILTERS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -120,8 +123,7 @@ function EdgeTable() {
             <p role="status" aria-live="polite">
               {page.total === 1 ? "1 relationship" : `${page.total} relationships`}
               {page.total > page.items.length && `, showing the first ${page.items.length}`}
-              {state.layer && ` in layer ${LAYERS[state.layer]}`}
-              {state.reviewState && `, ${STATES[state.reviewState].toLowerCase()}`}.
+              {filterSummary(state)}.
             </p>
             {page.items.length > 0 && (
               <table>

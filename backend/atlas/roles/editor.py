@@ -38,7 +38,7 @@ class EditorClaim(_Request):
     predicate: str
     object: str  # the object company's name, or the product/material/technology named
     product: str | None
-    layer: str
+    layer: str | None  # null: the Claim's quote names no layer
     epistemic_type: str
     source_title: str
     source_version_id: str

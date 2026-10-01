@@ -13,6 +13,17 @@ export const LAYERS: Record<Layer, string> = {
   system: "System",
 };
 
+/** The edge table's layer filter: a layer, or `none` for the edges that have no layer. */
+export type LayerFilter = NonNullable<RelationshipQuery["layer"]>;
+
+/** The layer filter's options: no layer first (as the API sorts it), then the layers. */
+export const LAYER_FILTERS: Record<LayerFilter, string> = { none: "No layer", ...LAYERS };
+
+/** An edge's layer by name, or null when it has none (its Evidence names no layer). */
+export function layerLabel(layer: Layer | null): string | null {
+  return layer === null ? null : LAYERS[layer];
+}
+
 /** A Relationship's review states (spec "Review"). */
 export const STATES: Record<RelationshipState, string> = {
   machine_reviewed: "Machine-reviewed",
@@ -43,7 +54,7 @@ const SORT_KEYS: readonly SortKey[] = [
 
 /** What the edge table shows: its filters and its sort. */
 export type TableState = {
-  layer: Layer | null;
+  layer: LayerFilter | null;
   reviewState: RelationshipState | null;
   sort: SortKey;
   order: SortOrder;
@@ -63,7 +74,7 @@ function oneOf<T extends string>(value: string | null, allowed: readonly T[]): T
 /** The table state a query string names; unknown or missing values take the defaults. */
 export function parseTableState(search: URLSearchParams): TableState {
   return {
-    layer: oneOf(search.get("layer"), Object.keys(LAYERS) as Layer[]),
+    layer: oneOf(search.get("layer"), Object.keys(LAYER_FILTERS) as LayerFilter[]),
     reviewState: oneOf(search.get("review_state"), Object.keys(STATES) as RelationshipState[]),
     sort: oneOf(search.get("sort"), SORT_KEYS) ?? DEFAULT_STATE.sort,
     order: oneOf(search.get("order"), ["asc", "desc"] as const) ?? DEFAULT_STATE.order,
@@ -88,6 +99,17 @@ export function apiQuery(state: TableState): RelationshipQuery {
     sort: state.sort,
     order: state.order,
   };
+}
+
+/** What the table's filters say, for its status line: " in layer Module, approved". */
+export function filterSummary(state: TableState): string {
+  const layer =
+    state.layer === null
+      ? ""
+      : state.layer === "none"
+        ? " with no layer"
+        : ` in layer ${LAYERS[state.layer]}`;
+  return layer + (state.reviewState ? `, ${STATES[state.reviewState].toLowerCase()}` : "");
 }
 
 /**

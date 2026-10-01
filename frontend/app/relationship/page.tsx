@@ -209,6 +209,17 @@ function EvidenceRow({ evidence }: { evidence: RelationshipEvidence }) {
               {review.directional_cue && <> (cue “{review.directional_cue}”)</>}
               {review.hedge && <> (hedge “{review.hedge}”)</>}; Reviewer {review.reviewer_status}
               {review.reviewer_verdict && <>: {review.reviewer_verdict}</>}
+              {review.reviewer_direction && (
+                <>
+                  : direction {review.reviewer_direction}
+                  {review.reviewer_hedge && <>, hedge {review.reviewer_hedge}</>}, layer{" "}
+                  {review.reviewer_layer}
+                  {review.reviewer_suggested_layer && (
+                    <> (suggests {review.reviewer_suggested_layer})</>
+                  )}
+                </>
+              )}
+              ; layer its quote supports: {review.supported_layer ?? "none"}
             </span>
             {review.reviewer_reasoning && (
               <>

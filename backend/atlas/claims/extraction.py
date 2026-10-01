@@ -22,8 +22,9 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    resumes at the next batch in the same run. A quarantined answer counts as a batch with no
    Claims. When the run's token budget is spent, the extraction stops `budget_exhausted`.
 3. **Checks**, per proposed Claim, in this order (the first failure is the rejection):
-   the predicate is whitelisted (`predicate_not_whitelisted`); the layer is known
-   (`unknown_layer`); the passage was sent in that call (`unknown_passage`); the subject and
+   the predicate is whitelisted (`predicate_not_whitelisted`); the layer, when one is
+   proposed, is known (`unknown_layer`); the passage was sent in that call
+   (`unknown_passage`); the subject and
    a company object are known companies (`unknown_company`), a product object is named
    (`missing_object`) and subject and object differ (`self_relationship`). **A company object
    may instead be named** (`object_name`, for a company outside the known ones): the quote
@@ -54,6 +55,13 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    generic materials, components or capacity (`generic_object`); and for any product object
    the cue must be in a clause that names the object (`cue_in_other_clause`, pilot-fixes
    ticket 09). See `atlas.claims.predicates`.
+   **The layer is not a check** (memory-directed reading ticket 08): a Claim may propose
+   none, and a proposed layer is kept only when one of its taxonomy terms occurs in the object
+   text or the quote (`atlas.claims.layer_term`; the Claim records the term, `layer_term`).
+   Otherwise the accepted Claim and its Assertion have no layer and the Claim records why
+   (`layer_reason` `layer_unsupported`; the proposal stays in `proposed`): "expanding our
+   indium phosphide capacity in Sherman, Texas" proposed as `substrate` is accepted with no
+   layer, and so is an ownership stake proposed with the question's layer.
 4. **Outcome.** A Claim that passes becomes an Assertion (`extractor_version`
    `investigator.v<N>`, created by `atlas-investigator`, `value_json` holding the claim ID,
    layer, product and product object), recorded with its `claim` row in one transaction. A
@@ -99,6 +107,7 @@ from atlas.claims.predicates import (
     directional_cue,
     fold,
     is_generic_object,
+    layer_term,
     mentions,
     names_object,
     names_party,
@@ -226,6 +235,12 @@ class _Judged:
     # How the quote identifies the parties, once it does: `named`, or `filer` when the filer
     # is the unnamed party of its own impersonal sentence.
     party_basis: str | None = None
+    # The layer an accepted Claim keeps: the proposed one when a term of it (`layer_term`)
+    # occurs in the object text or the quote; else None, with `layer_reason`
+    # `layer_unsupported` when one was proposed.
+    layer: str | None = None
+    layer_term: str | None = None
+    layer_reason: str | None = None
     # The named object company Atlas doesn't have yet: created when the Claim is accepted.
     counterparty: NewCounterparty | None = None
 
@@ -498,7 +513,10 @@ class ClaimExtractor:
                 PredicateDefinition(name=p.name, object=p.object_kind, reads=p.reads)
                 for p in PREDICATES.values()
             ],
-            layers=[LayerOption(name=layer.name, covers=layer.covers) for layer in LAYERS],
+            layers=[
+                LayerOption(name=layer.name, covers=layer.covers, terms=list(layer.terms))
+                for layer in LAYERS
+            ],
             passages=[
                 PassageInfo(
                     passage_id=passage.id,
@@ -622,6 +640,7 @@ class ClaimExtractor:
                     judged = replace(judged, object_company_id=counterparty_id)
             except InvalidAssertion as refusal:
                 judged = _reject(judged, refusal.code, refusal.message)
+        accepted = assertion_id is not None
         row = (
             connection.execute(
                 text(
@@ -629,13 +648,13 @@ class ClaimExtractor:
                     " proposed, passage_id, source_version_id, subject_company_id, predicate,"
                     " object_company_id, object_text, product, layer, quote, span_start,"
                     " span_end, epistemic_type, directional_cue, outcome, reason_code, reason,"
-                    " assertion_id, offset_source, parser_version, party_basis) VALUES (:id,"
-                    " :extraction,"
+                    " assertion_id, offset_source, parser_version, party_basis, layer_term,"
+                    " layer_reason) VALUES (:id, :extraction,"
                     " :run, :role_call, :ordinal, CAST(:proposed AS jsonb), :passage, :version,"
                     " :subject, :predicate, :object, :object_text, :product, :layer, :quote,"
                     " :span_start, :span_end, :epistemic_type, :cue, :outcome, :reason_code,"
-                    " :reason, :assertion, :offset_source, :parser_version, :party_basis)"
-                    " RETURNING *"
+                    " :reason, :assertion, :offset_source, :parser_version, :party_basis,"
+                    " :layer_term, :layer_reason) RETURNING *"
                 ),
                 {
                     "id": claim_id,
@@ -651,13 +670,17 @@ class ClaimExtractor:
                     "object": judged.object_company_id,
                     "object_text": proposed.object_text,
                     "product": proposed.product,
-                    "layer": proposed.layer,
+                    # An accepted Claim's layer is the supported one; a rejected Claim keeps
+                    # what was proposed.
+                    "layer": judged.layer if accepted else _proposed_layer(proposed),
+                    "layer_term": judged.layer_term if accepted else None,
+                    "layer_reason": judged.layer_reason if accepted else None,
                     "quote": judged.quote if judged.quote is not None else proposed.quote,
                     "span_start": judged.span[0] if judged.span else None,
                     "span_end": judged.span[1] if judged.span else None,
                     "epistemic_type": proposed.epistemic_type,
                     "cue": judged.cue,
-                    "outcome": "accepted" if assertion_id else "rejected",
+                    "outcome": "accepted" if accepted else "rejected",
                     "reason_code": judged.reason_code,
                     "reason": judged.reason,
                     "assertion": assertion_id,
@@ -672,7 +695,7 @@ class ClaimExtractor:
         record(
             connection,
             INVESTIGATOR_ACTOR,
-            "claim.accepted" if assertion_id else "claim.rejected",
+            "claim.accepted" if accepted else "claim.rejected",
             entity_type="claim",
             entity_id=str(claim_id),
             new_hash=content_hash(dict(row)),
@@ -710,7 +733,8 @@ class ClaimExtractor:
         if (refusal := predicate_refusal(proposed.predicate)) is not None:
             return _reject(judged, "predicate_not_whitelisted", refusal)
         rule = PREDICATES[proposed.predicate]
-        if proposed.layer not in LAYER_NAMES:
+        proposed_layer = _proposed_layer(proposed)
+        if proposed_layer is not None and proposed_layer not in LAYER_NAMES:
             layers = ", ".join(layer.name for layer in LAYERS)
             return _reject(
                 judged,
@@ -772,6 +796,15 @@ class ClaimExtractor:
         if placed is not None:
             span, offset_source = placed.span, placed.source
             quote = self._text(version)[span[0] : span[1]]
+        object_text = (proposed.object_text or "").strip()
+        # The layer is kept only when the object text or the quote names it.
+        supporting: str | None = None
+        if proposed_layer is not None:
+            supporting = layer_term(
+                proposed_layer, quote, object_text if rule.object_kind == "product" else None
+            )
+        layer = proposed_layer if supporting is not None else None
+        layer_reason = "layer_unsupported" if layer is None and proposed_layer else None
         try:
             assertion = AssertionCreate(
                 subject_company_id=subject.id,
@@ -780,7 +813,7 @@ class ClaimExtractor:
                 object_company_id=object_id if rule.object_kind == "company" else None,
                 value_json={
                     "claim_id": str(claim_id),
-                    "layer": proposed.layer,
+                    "layer": layer,
                     "product": proposed.product,
                     "object_text": proposed.object_text if rule.object_kind == "product" else None,
                 },
@@ -797,7 +830,6 @@ class ClaimExtractor:
             return _reject(judged, "invalid_claim", _first_error(error))
         except InvalidAssertion as refusal:
             return _reject(judged, refusal.code, refusal.message)
-        object_text = (proposed.object_text or "").strip()
         parties: list[tuple[str, Sequence[str]]] = [("subject", subject.names)]
         if rule.object_kind == "company":
             parties.append(("object", object_names))
@@ -847,9 +879,10 @@ class ClaimExtractor:
                     )
                     return _reject(judged, "object_not_in_quote", message)
                 if is_generic_object(object_text):
+                    tagged = f"layer {proposed_layer!r}" if proposed_layer else "any layer"
                     message = (
                         f"{object_text!r} names no particular input or product, so the quote"
-                        f" shows nothing of layer {proposed.layer!r}: generic materials,"
+                        f" shows nothing of {tagged}: generic materials,"
                         " components or suppliers are no Claim, and a Claim's layer is the"
                         " layer of the object its quote names"
                     )
@@ -871,6 +904,9 @@ class ClaimExtractor:
             offset_source=offset_source,
             quote=quote,
             party_basis=party_basis,
+            layer=layer,
+            layer_term=supporting,
+            layer_reason=layer_reason,
             counterparty=counterparty,
         )
 
@@ -1116,6 +1152,11 @@ def _reject(judged: _Judged, code: str, reason: str) -> _Judged:
         reason_code=code,
         reason=reason,
     )
+
+
+def _proposed_layer(proposed: ProposedClaim) -> str | None:
+    """The layer the model proposed, or None when it left it out (null or blank)."""
+    return (proposed.layer or "").strip() or None
 
 
 def _first_error(error: ValidationError) -> str:

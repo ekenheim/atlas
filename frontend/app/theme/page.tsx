@@ -10,9 +10,11 @@ import {
   type Bottlenecks,
   type Candidate,
   type ThemeCompany,
+  type ThemeMap,
 } from "../../lib/api/client";
 import { LAYERS } from "../../lib/relationships";
 import { routes } from "../../lib/routes";
+import { layeredEdges, layerlessByCompany } from "../../lib/themes";
 import { useApi, useIdParam } from "../../lib/use-api";
 
 export default function ThemePage() {
@@ -73,7 +75,8 @@ function Theme() {
             <h2>Relationships</h2>
             <p>
               Edges between the theme&apos;s companies, to a product, or to a counterparty, by
-              layer. Edges to researched companies outside the theme are on each company&apos;s
+              layer. An edge whose Evidence names no layer is listed under its companies instead.
+              Edges to researched companies outside the theme are on each company&apos;s
               dossier; every edge is in the <Link href={routes.relationships()}>edge table</Link>.
             </p>
             {map.counterparties.length > 0 && (
@@ -87,11 +90,16 @@ function Theme() {
                 ))}
               </p>
             )}
-            {map.relationships.length === 0 ? (
+            {map.relationships.length === 0 && (
               <p>No Relationships between the theme&apos;s companies yet.</p>
-            ) : (
-              <EdgeList edges={map.relationships} caption="Relationships between the theme's companies" />
             )}
+            {layeredEdges(map.relationships).length > 0 && (
+              <EdgeList
+                edges={layeredEdges(map.relationships)}
+                caption="Relationships between the theme's companies"
+              />
+            )}
+            <LayerlessEdges map={map} />
 
             <h2>Candidates</h2>
             {map.candidates.length === 0 ? (
@@ -105,6 +113,32 @@ function Theme() {
           </>
         )}
       </Load>
+    </>
+  );
+}
+
+/**
+ * The edges with no layer, under each theme company they name (in the map's order: by layer,
+ * then the companies with no layer set). They are never placed in a layer of the map.
+ */
+function LayerlessEdges({ map }: { map: ThemeMap }) {
+  const companies = [...map.layers.flatMap((layer) => layer.companies), ...map.unlayered];
+  const groups = layerlessByCompany(map.relationships, companies);
+  if (groups.length === 0) return null;
+  return (
+    <>
+      <p>
+        <strong>No layer.</strong> These edges&apos; Evidence names no supply-chain layer (an
+        ownership stake, a company-level capacity statement), so they are listed under their
+        companies, not under a layer.
+      </p>
+      {groups.map((group) => (
+        <EdgeList
+          key={group.company.id}
+          edges={group.edges}
+          caption={`Relationships with no layer: ${group.company.display_name}`}
+        />
+      ))}
     </>
   );
 }

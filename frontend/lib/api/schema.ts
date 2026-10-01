@@ -787,6 +787,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/relationships/layer-duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Duplicates */
+        get: operations["duplicates_api_v1_relationships_layer_duplicates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/relationships/{relationship_id}": {
         parameters: {
             query?: never;
@@ -2266,7 +2283,11 @@ export interface components {
             /** Product */
             product: string | null;
             /** Layer */
-            layer: string;
+            layer: string | null;
+            /** Layer Term */
+            layer_term?: string | null;
+            /** Layer Reason */
+            layer_reason?: "layer_unsupported" | null;
             /** Quote */
             quote: string;
             /** Span Start */
@@ -3124,7 +3145,7 @@ export interface components {
             /** Product */
             product: string | null;
             /** Layer */
-            layer: string;
+            layer: string | null;
             /** Epistemic Type */
             epistemic_type: string;
             /** Quote */
@@ -4288,6 +4309,33 @@ export interface components {
         };
         /** @enum {string} */
         Layer: "substrate" | "epi" | "chip-laser" | "dsp" | "module" | "contract-manufacturing" | "system";
+        /**
+         * LayerDuplicates
+         * @description Edges recorded before migration 0055 that are one edge by today's identity (subject,
+         *     predicate, object) and differ only by layer. The first is the one new Evidence joins
+         *     unless it brings another of the group's layers.
+         */
+        LayerDuplicates: {
+            /**
+             * Subject Company Id
+             * Format: uuid
+             */
+            subject_company_id: string;
+            /** Subject Name */
+            subject_name: string;
+            /** Predicate */
+            predicate: string;
+            /** Object Company Id */
+            object_company_id: string | null;
+            /** Object Name */
+            object_name: string | null;
+            /** Object Text */
+            object_text: string | null;
+            /** Layers */
+            layers: (components["schemas"]["Layer"] | null)[];
+            /** Relationships */
+            relationships: components["schemas"]["Relationship"][];
+        };
         /** Lead */
         Lead: {
             /**
@@ -4390,10 +4438,14 @@ export interface components {
             reviewer_verdict: ("confirmed" | "rejected" | "uncertain") | null;
             /** Reviewer Direction */
             reviewer_direction: ("as_proposed" | "reversed" | "undirected" | "not_stated") | null;
+            /** Reviewer Hedge */
+            reviewer_hedge: ("none" | "hedged") | null;
             /** Reviewer Layer */
-            reviewer_layer: ("correct" | "wrong" | "unclear") | null;
+            reviewer_layer: ("correct" | "wrong" | "unclear" | "not_proposed") | null;
             /** Reviewer Suggested Layer */
             reviewer_suggested_layer: string | null;
+            /** Supported Layer */
+            supported_layer: string | null;
             /** Reviewer Reasoning */
             reviewer_reasoning: string | null;
             /**
@@ -5421,7 +5473,7 @@ export interface components {
             object_name: string | null;
             /** Object Text */
             object_text: string | null;
-            layer: components["schemas"]["Layer"];
+            layer: components["schemas"]["Layer"] | null;
             /** Products */
             products: string[];
             /**
@@ -5474,7 +5526,7 @@ export interface components {
             object_name: string | null;
             /** Object Text */
             object_text: string | null;
-            layer: components["schemas"]["Layer"];
+            layer: components["schemas"]["Layer"] | null;
             /** Products */
             products: string[];
             /**
@@ -6909,7 +6961,7 @@ export interface components {
             unlayered: components["schemas"]["ThemeCompany"][];
             /**
              * Relationships
-             * @description edges between the theme's companies (or to a product, or between one of them and a counterparty), by layer
+             * @description edges between the theme's companies (or to a product, or between one of them and a counterparty): those with no layer first (they belong under their companies, not under a layer), then by layer
              */
             relationships: components["schemas"]["Relationship"][];
             /**
@@ -9248,7 +9300,8 @@ export interface operations {
     relationships_api_v1_relationships_get: {
         parameters: {
             query?: {
-                layer?: components["schemas"]["Layer"] | null;
+                /** @description a layer, or `none` for the edges that have no layer */
+                layer?: components["schemas"]["Layer"] | "none" | null;
                 review_state?: ("machine_reviewed" | "needs_human_review" | "approved" | "rejected") | null;
                 predicate?: string | null;
                 /** @description the company as subject or object */
@@ -9316,6 +9369,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    duplicates_api_v1_relationships_layer_duplicates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayerDuplicates"][];
                 };
             };
         };
