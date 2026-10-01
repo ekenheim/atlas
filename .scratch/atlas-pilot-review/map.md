@@ -49,6 +49,7 @@ The pilot's verdict, in two artifacts:
 
 - (Unparked on 2026-10-01: TradingView is in the cluster behind the owner's MCP proxy; ticket 17.)
 - Home-ops releases (pilot-build ticket 21), centralising Hindsight's LLM traffic, LLM failover, a dedicated Atlas Hindsight (`.scratch/atlas-pilot/map.md`).
+- (2026-10-01: the owner asked about alternating Hindsight between ChatGPT and MiniMax. Ticket 18 prototypes Hindsight's metadata routing, which sends only Atlas's retains to MiniMax on the shared server and may make the dedicated Hindsight unnecessary for intake.)
 
 ## Out of scope
 
