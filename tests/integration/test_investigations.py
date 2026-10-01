@@ -1584,11 +1584,12 @@ def test_a_company_memory_points_to_gains_an_investigator_that_reads_where_memor
     found = investigation(atlas, started["id"])
     assert (found["status"], found["stop_reason"]) == ("stopped", "answered")
     # The question and the Scout's three queries each recalled the one fact: four pointers,
-    # all at rank 1, all into AXT's document.
-    assert {(p["company_id"], p["source_version_id"], p["rank"]) for p in found["pointers"]} == {
+    # all at rank 1, all into AXT's document. (The Skeptic's pointers are its own.)
+    scouted = [p for p in found["pointers"] if p["task_key"] == "scout"]
+    assert {(p["company_id"], p["source_version_id"], p["rank"]) for p in scouted} == {
         (axt["id"], note, 1)
     }
-    assert len(found["pointers"]) == 4
+    assert len(scouted) == 4
 
     # The plan grew after the Scout: AXT's Investigator, after the seeds' and before the
     # Skeptic, with its own company premise; the Skeptic, the Analyst and the Editor wait

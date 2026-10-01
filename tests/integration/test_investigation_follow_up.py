@@ -611,7 +611,9 @@ def test_a_follow_up_round_reads_the_companies_its_own_question_s_pointers_name(
     investigators = [*PLAN[1:3], "investigator:axt"]
     assert round_2["skeptic"]["depends_on"] == investigators
     assert round_2["editor"]["depends_on"] == [*investigators, "skeptic", "financial_analyst"]
-    pointers = [p for p in found["pointers"] if p["company_id"] == axt["id"]]
+    pointers = [
+        p for p in found["pointers"] if p["company_id"] == axt["id"] and p["task_key"] == "scout"
+    ]
     assert {(p["round"], p["query"]) for p in pointers} == {
         (2, OPEN_QUESTION),
         (2, FOLLOW_UP_QUERY),
