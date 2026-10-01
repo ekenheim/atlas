@@ -462,3 +462,13 @@ A missing token, an expired token without a refresh token, or a refused refresh 
 - **Run:** `atlas jobs enqueue tradingview_catalog --key <K> --payload '{"company": "lumentum"}'`. The catalog job lists the company's documents over `ATLAS_TRADINGVIEW_LOOKBACK_DAYS` (730) and its news headlines. If transcripts aren't yet in the ledger, it enqueues `tradingview_transcripts`, which fetches at most `ATLAS_TRADINGVIEW_MAX_CALLS_PER_JOB` (20) of them, newest first. A rerun (new key) takes the rest. English transcripts are then retained as usual.
 - **Read:** `GET /api/v1/tradingview/catalog?company_id=&category=&has_transcript=` (which filings and calls exist, with the Source Version of each fetched transcript), `GET /api/v1/leads?theme=photonics` (headline leads have `origin: tradingview_news`), `GET /api/v1/queue` (the `tradingview` budget: tool calls per window, `ATLAS_TRADINGVIEW_BUDGET_REQUESTS`, default 200).
 - **Off:** unset `ATLAS_TRADINGVIEW_ENABLED` (or set it `false`) and restart the worker. Queued TradingView jobs then fail without calling TradingView. Delete the token file (and revoke the client in TradingView's account settings, if it lists it) to withdraw access entirely. Stored items stay in the ledger, each marked with the override.
+
+### In the cluster: the MCP proxy (2026-10-01)
+
+Production reaches TradingView through the owner's read-only MCP proxy in the `llm` namespace, not with a token of its own (`docs/decisions.md`, "TradingView through the cluster's MCP proxy"). The deployment sets `ATLAS_TRADINGVIEW_ENABLED=true`, `ATLAS_TRADINGVIEW_MCP_URL=http://mcp-tradingview-mcp-proxy.llm.svc.cluster.local:8080/mcp` and a placeholder `ATLAS_TRADINGVIEW_ACCESS_TOKEN`; the nightly CronJob enqueues `tradingview_catalog` for each universe company.
+
+- **Check:** `GET /api/v1/queue` shows the `tradingview` budget's `used`; `GET /api/v1/tradingview/catalog?company_id=` lists a company's catalog; transcripts appear among its Source Documents with provider `tradingview`.
+- **When jobs fail with an authorization error or "Please authorize":** the proxy needs a new sign-in. That is the owner's step (`reauth.ps1` and the README in home-ops `kubernetes/apps/llm/toolhive/tradingview-mcp/`). Failed jobs retry on the next night's enqueue.
+- **When jobs fail to connect:** the pods can't reach the proxy Service; check the proxy pod and any network policy in `llm`.
+- **Tool names** come from TradingView's beta server and may change; `atlas tradingview check --symbol NASDAQ:LITE` makes one catalog call and prints counts only.
+- **From a PC** (a check, not production): `kubectl -n llm port-forward svc/mcp-tradingview-mcp-proxy 18080:8080`, then run the check with `ATLAS_TRADINGVIEW_MCP_URL=http://127.0.0.1:18080/mcp`.

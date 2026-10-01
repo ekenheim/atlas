@@ -35,6 +35,7 @@ The pilot's verdict, in two artifacts:
 - **What Hindsight adds.** The baseline and the live evaluation both bear on whether recall and reflect improve a card over reading the archive directly; the question can't be phrased sharply until the baseline is defined.
 - **Cost at scale.** Tokens per investigation against the MiniMax and Codex budgets when the universe and the number of questions grow; needs the five runs' numbers.
 - **More of Hindsight, after the pointers can be measured.** Reflect for a prior-knowledge brief (it spends the shared Hindsight's Codex budget); a pointer's fact text as a hint to the Investigator; per-theme mental models and the Theme status model in a role; a theme-wide term index over the archive; how much of each company's archive is retained, which bounds what recall can point to.
+- **TradingView beyond transcripts.** Quotes, fundamentals, analyst consensus and the earnings calendar as `estimated` scenario inputs and for scheduling (the spec's price-provider gate, §9.3); a setting that sends no bearer header, replacing the placeholder token; whether a management statement in a transcript (Tier B) may make a `machine_reviewed` edge.
 - **Candidates for the next effort**, swept from the implementation log's "Next" lines (2026-10-01). The verdict ticket ranks them; none is started before it.
   - Research quality: counterparty aliases (a short form of a legal name stays unresolved); a named subject outside the known companies; widening the `substitutes` cues; the Skeptic's independence by source origin; the follow-up's Skeptic targeting only the round's new Claims; ingesting an `ingestable` EDGAR filing on demand; retaining the re-parse (`reprocess`, designed in fix 11's decision entry).
   - Measurement: `object_name` and `filing_phrase` in the evaluation gold format and the live-verify rehearsal; a live re-audit of triage and the `ATLAS_TRIAGE_WINDOWS_PER_SECTION` decision; a live replay on the Compose Hindsight; a live replay of `investigator.v5` against v4.
@@ -44,7 +45,7 @@ The pilot's verdict, in two artifacts:
 
 ## Parked (owner)
 
-- The TradingView live check (build tickets 26 and 31: paused until it is deployed to the cluster).
+- (Unparked on 2026-10-01: TradingView is in the cluster behind the owner's MCP proxy; ticket 17.)
 - Home-ops releases (pilot-build ticket 21), centralising Hindsight's LLM traffic, LLM failover, a dedicated Atlas Hindsight (`.scratch/atlas-pilot/map.md`).
 
 ## Out of scope
