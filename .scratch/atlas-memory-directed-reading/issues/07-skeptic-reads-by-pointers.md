@@ -11,8 +11,14 @@ Spec: `.scratch/atlas-memory-directed-reading/spec.md` ("The Skeptic").
 
 **Blocked by:** 01 (Reading pointers), 03 (Contradiction or bear context), 05 (Passage selection)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam: with a memory about a seed company's customer concentration derived from its recorded 10-Q, the Skeptic reads the window holding that statement and the card shows it as bear context; a plan that answers no queries still leaves the Skeptic with documents and passages.
-- [ ] A company with no pointer is read through the fallback, recorded as such.
-- [ ] Decision entry (amends "The Skeptic reads the archive: a deterministic fallback"); the plan prompt's next version; `AGENTS.md`.
+- [x] Integration test at the investigation seam: with a memory about a seed company's customer concentration derived from its recorded 10-Q, the Skeptic reads the window holding that statement and the card shows it as bear context; a plan that answers no queries still leaves the Skeptic with documents and passages.
+- [x] A company with no pointer is read through the fallback, recorded as such.
+- [x] Decision entry (amends "The Skeptic reads the archive: a deterministic fallback"); the plan prompt's next version; `AGENTS.md`.
+
+## Resolution
+
+Built in `atlas.investigations.skeptic` over `atlas.investigations.pointers` (`record_pointers`, `skeptic_pointers`) and `atlas.claims.selection.select`. Decision: `docs/decisions.md`, "The Skeptic reads where Memory points"; log: `docs/implementation-log.md`, "memory-directed reading ticket 07".
+
+One reading of the first box: the recorded Coherent and Lumentum 10-Qs hold a cover and financial statements only (6,738 and 11,087 characters), with no customer-concentration statement, so the acceptance test derives the memory from the recorded Coherent **10-K**'s risk factors (Item 1A, its fifth window: "A small number of customers have consistently accounted for a significant portion of our revenues, with two customers each contributing more than 10% of total revenues in fiscal 2026."). The rest of the box is as written: the Skeptic reads the window holding that statement first, the card shows it as bear context, and a plan answering no query (or quarantined) still leaves it with documents and passages.

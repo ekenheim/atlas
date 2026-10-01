@@ -39,12 +39,15 @@ One attempt:
      ceiling per document. It makes no recall of its own. A resumed task continues its
      budget-exhausted extraction.
    - **Skeptic** (atlas.investigations.skeptic): skipped without an LLM call when the
-     Investigators accepted no Claim (nothing to challenge); otherwise its own plan, SearXNG
-     queries and reading of the Source Versions it chose (and, for a seed company its plan
-     chose nothing of, the ones code chooses: the fallback), for counterevidence: each
-     accepted item a contradiction of a named Claim or bear context about a company. An
-     accepted, independent contradiction may disprove a company premise, applied when the
-     task is recorded (by `atlas-skeptic`), which cancels only what depends on it.
+     Investigators accepted no Claim (nothing to challenge); otherwise it asks Memory each
+     bear-checklist item for each company the accepted Claims name, across the theme (its
+     own reading pointers; no Memory is sent to it), plans and runs its own SearXNG queries,
+     and reads the Source Versions its pointers lead to (and, for a company Memory pointed
+     at nothing of, the ones code chooses: the fallback), the passages chosen as the
+     Investigator's, for counterevidence: each accepted item a contradiction of a named
+     Claim or bear context about a company. An accepted, independent contradiction may
+     disprove a company premise, applied when the task is recorded (by `atlas-skeptic`),
+     which cancels only what depends on it.
    - **Financial Analyst:** the seed companies the accepted Claims name, with their as-of
      XBRL figures, and the Claims; with none it is skipped without an LLM call. One call
      proposes scenario inputs; code keeps only the inputs whose source or basis stands
@@ -512,10 +515,12 @@ class TaskRunner:
             },
         )
 
-    def _theme_recall(self, theme_id: str, universe: Universe) -> Recall:
+    def _theme_recall(
+        self, theme_id: str, universe: Universe, actor: Actor = SCOUT_ACTOR
+    ) -> Recall:
         """Recall across the theme: every memory tagged with it, whichever company's."""
         research = Research(
-            self._engine, open_archive(self._settings), self._gateway, SCOUT_ACTOR, lambda: universe
+            self._engine, open_archive(self._settings), self._gateway, actor, lambda: universe
         )
         scope = ResearchScope(theme_ids=[theme_id])
         return lambda query: research.recall(RecallRequest(query=query, scope=scope))
@@ -695,7 +700,8 @@ class TaskRunner:
             return chosen, dropped
 
     def _skeptic(self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID) -> _Outcome:
-        theme = load_universe(self._settings.themes_config).themes.get(investigation["theme"])
+        universe = load_universe(self._settings.themes_config)
+        theme = universe.themes.get(investigation["theme"])
         with self._engine.connect() as connection:
             claims = accepted_claims(connection, investigation["id"], run_id)
             theme_companies = list(
@@ -728,8 +734,11 @@ class TaskRunner:
                 open_archive(self._settings),
                 caller,
                 searxng,
+                # Memory chooses what the Skeptic reads: its recalls, across the theme.
+                self._theme_recall(investigation["theme"], universe, SKEPTIC_ACTOR),
                 max_queries=self._settings.discovery_max_queries,
                 max_passages=self._settings.investigator_max_passages,
+                max_document_share=self._settings.investigator_max_passage_share_per_document,
                 passages_per_call=self._settings.investigator_passages_per_call,
                 edgar=EdgarFullTextSearch.from_settings(self._settings),
             )
@@ -739,7 +748,6 @@ class TaskRunner:
                 run_id,
                 theme_title=theme.title if theme else investigation["theme"],
                 company_ids=company_ids,
-                theme_company_ids=theme_companies,
                 claims=claims,
                 supporting_families={_family(c) for c in claims},
             )

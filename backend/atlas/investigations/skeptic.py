@@ -9,40 +9,63 @@ when the Investigators accepted no Claim (there is nothing to challenge). Otherw
 `skeptic_search` row holds its progress, so a retried, paused or budget-resumed task
 continues where it stopped:
 
-1. **Plan.** One `skeptic` call (`SKEPTIC_PLAN`) is sent the question, the checklist, the
-   supporting Claims as request fields (what to challenge, never quoted data), the companies
-   and a catalog of archived Tier A Source Versions (the latest parsed version of each Source
-   Document of the investigation's and theme's companies available at the as-of time, newest
-   first, at most `CATALOG_LIMIT`). **No Memory is sent or read**: no recall, no mental model.
-   Code keeps the first `max_queries` distinct queries and the catalog documents it named (in
-   order, each once); a document the investigation hasn't read yet is counted against the
-   document budget, the rest dropped (`document_budget_reached`).
-   **The fallback** (pilot fix 06), applied after the search (step 2): when neither the plan
-   nor its search chose a document of a seed company that has one archived, code chooses for
-   it, after the plan's and the search's documents: for each such seed company
-   its latest 10-K and latest 10-Q (its latest two primary documents when it has neither),
-   and, when none of those is one the investigation already read, the newest document of it
-   the investigation read (which costs no budget, so every seed company is read even when
-   the Investigators spent the budget); then the latest 10-K of each of the theme's other
-   companies, while the budget has room. Those documents are `selected_by` `fallback`, and
-   a `skeptic_documents_fallback` event and the task's `documents_fallback` say the model
-   chose nothing for them. A follow-up round's fallback leaves out the documents an earlier
-   round's Skeptic read. (The pilot's plan answered `"documents": []` with a full catalog.)
-2. **Search.** Each query is searched once with SearXNG, and its `filing_phrase`, when it has
+1. **Memory chooses what it reads** (memory-directed reading, ticket 07). Before any LLM
+   call, one scoped recall per bear-checklist item for each company the supporting Claims
+   name: their subjects, and their object companies that are researched universe companies
+   (a counterparty has no archive). The recall is across the investigation's theme
+   (atlas.research; no LLM call, counted against no budget), so another company's filing
+   that names the company can answer. The query is deterministic text
+   (`atlas.roles.skeptic.bear_query`): the company's name, the item's words and the objects
+   of the Claims that name the company. At most `MAX_RECALL_COMPANIES` companies are asked
+   about (the seed companies among them first, in seed order, then the others in the Claims'
+   order): at most 36 recalls. What resolves is stored as the task's **reading pointers**
+   (atlas.investigations.pointers: `query_kind` `bear_checklist`, with the checklist item
+   and the company asked about), with the same failure rules as the Scout's (a Hindsight
+   quota or outage pauses the task before anything is spent).
+   **No Memory is sent to the Skeptic; Memory chooses what it reads.** A pointer's text finds
+   a window and goes no further: no role request carries it, and Memory is never a witness.
+2. **Plan.** One `skeptic` call (`SKEPTIC_PLAN`) is sent the question, the checklist, the
+   supporting Claims as request fields (what to challenge, never quoted data) and the seed
+   companies, and answers its own web queries. Code keeps the first `max_queries` distinct
+   ones. The plan chooses no document, so an empty answer (pilot investigation 1 on 0.2.5),
+   or one quarantined after its repair (`skeptic_plan_quarantined`), only means that nothing
+   is searched: the Skeptic still reads.
+3. **Search.** Each query is searched once with SearXNG, and its `filing_phrase`, when it has
    one and the channel is on, with EDGAR full-text search over the 18 months before the
    as-of time (atlas.discovery.edgar_fts), the results stored as Tier C leads in a discovery
    of the run (atlas.discovery.leads): a lead is never Evidence. A failed search is recorded
-   on its query and the others proceed. A result whose canonical URL is a catalog
-   document's (an EDGAR filing hit on an archived filing, say) adds that Source Version to
-   what the Skeptic reads (`selected_by` `search`), within the budget.
-3. **Passages.** Each chosen Source Version's parsed text is cut into sections and windows as
-   the Investigator's; a window is kept when it matches a checklist item's cues. Windows are
-   taken round-robin over the documents and checklist items, at most
-   `investigator_max_passages`, the rest counted as dropped.
-4. **Reading.** The passages go to `SKEPTIC` `investigator_passages_per_call` at a time, their
+   on its query and the others proceed.
+4. **Documents**, in reading order, each once, with who chose it (`selected_by`):
+   - `pointer`: the Source Versions the task's pointers lead to, best pointer first (its
+     rank in its recall, then the earlier query). Only a parsed Tier A version is followed:
+     the Skeptic's witnesses are Tier A archived documents, as before.
+   - `search`: a search result whose canonical URL is a catalog document's (an EDGAR filing
+     hit on an archived filing, say). The catalog is the latest parsed Tier A version of
+     each Source Document of the investigation's and theme's companies available at the
+     as-of time (newest first, at most `CATALOG_LIMIT`).
+   - `fallback` (pilot fix 06, now per company): for each company the Claims name that no
+     pointer document was chosen of and that has one archived, its latest 10-K and latest
+     10-Q (its latest two primary documents when it has neither), and, when none of those is
+     one the investigation already read, the newest document of it the investigation read
+     (which costs no budget, so the company is read even when the Investigators spent the
+     budget). A `skeptic_documents_fallback` event and the task's `documents_fallback` say
+     Memory pointed at nothing of those companies.
+   A document the investigation hasn't read yet is counted against the document budget, the
+   rest dropped (`document_budget_reached`). A follow-up round's pointer and fallback
+   documents leave out the ones an earlier round's Skeptic read.
+5. **Passages** (atlas.claims.selection, as the Investigator's): each chosen document's
+   parsed text is cut into sections and windows; the windows the pointers lead to (by rank)
+   and the windows a term search ranks highest for the bear-checklist queries (by score) are
+   taken alternately, at most `investigator_max_passages`, with a floor of one passage for
+   each periodic report and results release and a ceiling per document; a document with
+   neither kind of window gives its lead windows last. Each passage records every selection
+   that chose it (`pointer:<checklist item>`, `search`, `lead`) and the checklist items
+   whose cues its text matches (a hint for the reading; possibly none). Pointer and search
+   candidates not taken are counted as dropped.
+6. **Reading.** The passages go to `SKEPTIC` `investigator_passages_per_call` at a time, their
    text as quoted, low-trust data. Progress is stored per batch; a quarantined answer counts
    as a batch with nothing proposed. A spent token budget stops the task `budget_exhausted`.
-5. **Checks** per proposed item, the first failure being the rejection: the checklist item is
+7. **Checks** per proposed item, the first failure being the rejection: the checklist item is
    known (`unknown_checklist_item`); **the passage is one sent in that call**
    (`not_a_witness`: Memory, a lead, another role's Claim or anything else is never a
    witness); the subject is a known company (`unknown_company`); every contradicted Claim is a
@@ -53,7 +76,7 @@ continues where it stopped:
    document is the subject's own (`party_not_in_quote`); and a quote that is a table row with
    no words (a label and its figures: "Inventories 2,126,823 1,437,636", `is_table_row`)
    comes with its figure's name and period (`table_row_without_figure`).
-6. **The kind** of an item that passed, decided by code from what the Skeptic proposed:
+8. **The kind** of an item that passed, decided by code from what the Skeptic proposed:
    - a **contradiction** names at least one supporting Claim and says how it contradicts it
      (`how`: `denies`, `limits` or `dates`), and its quote names that Claim's subject company
      or its object: the object company by name, or the Claim's object text (as the
@@ -66,7 +89,7 @@ continues where it stopped:
      a table row, or whose quote names neither the subject nor the object of any Claim it
      listed is stored as bear context, with the reason (`kind_reason`). Bear context disproves
      no premise.
-7. **Accepted** counterevidence of either kind is an Assertion (predicate `counterevidence`,
+9. **Accepted** counterevidence of either kind is an Assertion (predicate `counterevidence`,
    extractor `skeptic.v<N>`, created by `atlas-skeptic`), recorded with its `counterevidence`
    row and audited (`counterevidence.accepted` / `.rejected`). **Independence** is a property
    of contradictions: its Evidence Family (a Source Version outside any family is its own)
@@ -74,7 +97,7 @@ continues where it stopped:
    however many copies say it. Bear context records its family and no independence. Only an
    independent contradiction marks a finding contradicted (`counterevidence_by_claim`) and
    may flag a published Hypothesis version (atlas.proposed_updates).
-8. **Premises.** When the task finishes, each open company premise named by an accepted,
+10. **Premises.** When the task finishes, each open company premise named by an accepted,
    independent contradiction is disproven by `atlas-skeptic` (the task runner applies it
    under the investigation's lock, cancelling only what depends on it). The question premise
    stays the researcher's to disprove.
@@ -86,15 +109,16 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, JsonValue, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive
 from atlas.assertions import AssertionCreate, Assertions, InvalidAssertion, check_quote
 from atlas.audit import Actor, content_hash, record
 from atlas.claims.predicates import company_names, is_generic_object, mentions, names_object
+from atlas.claims.selection import Document, Pointer, Reading, ceiling, select, selections
 from atlas.discovery.edgar_fts import EdgarFullTextSearch
 from atlas.discovery.leads import canonical_url
 from atlas.discovery.searxng import SearXNGClient
@@ -105,9 +129,16 @@ from atlas.investigations.model import (
     CardContradiction,
     SourceSpan,
 )
+from atlas.investigations.pointers import (
+    BEAR_CHECKLIST_QUERY,
+    PointerQuery,
+    Recall,
+    SkepticPointer,
+    record_pointers,
+    skeptic_pointers,
+)
 from atlas.investigations.service import event
 from atlas.proposed_updates.triggers import on_counterevidence
-from atlas.retention.sections import split_sections
 from atlas.roles import QuotedText, RoleCaller, RoleOutputQuarantined, TokenBudgetExhausted
 from atlas.roles.skeptic import (
     BEAR_CHECKLIST,
@@ -115,7 +146,6 @@ from atlas.roles.skeptic import (
     SKEPTIC,
     SKEPTIC_PLAN,
     SKEPTIC_PROMPT_VERSION,
-    CatalogDocument,
     ChecklistOption,
     ContradictionHow,
     CounterevidenceKind,
@@ -127,6 +157,7 @@ from atlas.roles.skeptic import (
     SkepticPlanRequest,
     SkepticRequest,
     SupportingClaim,
+    bear_query,
     checklist_matches,
 )
 
@@ -134,14 +165,21 @@ SKEPTIC_ACTOR = Actor("atlas-skeptic")
 EXTRACTOR_VERSION = f"skeptic.v{SKEPTIC_PROMPT_VERSION}"
 COUNTEREVIDENCE_PREDICATE = "counterevidence"
 FALLBACK_EVENT = "skeptic_documents_fallback"
+PLAN_QUARANTINED_EVENT = "skeptic_plan_quarantined"
 CATALOG_LIMIT = 60
-PASSAGE_CHARS = 3000  # as the Investigator's
+# The companies the Skeptic asks Memory about, at most: one recall per bear-checklist item
+# each, so at most 6 x 6 = 36 recalls a task (the Scout makes at most 11).
+MAX_RECALL_COMPANIES = 6
+# The Skeptic's witnesses: Tier A archived documents.
+_WITNESS_TIER = "A"
 _PARSED = ("parsed", "incomplete")
 _ERROR_LIMIT = 500
 _SPACE = re.compile(r"\s+")
 
 
-type Selection = Literal["plan", "search", "fallback"]
+# Who chose a document: Memory's pointers, the Skeptic's search, or code's fallback (`plan`:
+# the plan call, before memory-directed reading ticket 07).
+type Selection = Literal["pointer", "plan", "search", "fallback"]
 
 
 class SkepticDocument(BaseModel):
@@ -163,7 +201,10 @@ class SkepticPassage(BaseModel):
     section_anchor: str
     char_start: int
     char_end: int
-    checklist_items: list[str]
+    checklist_items: list[str]  # the checklist items whose cues its text matches
+    # Every selection that chose it (atlas.claims.selection): `pointer:<checklist item>`,
+    # `search`, `lead`. Empty for a passage chosen before memory-directed reading ticket 07.
+    selected_by: list[str] = Field(default_factory=list[str])
 
 
 @dataclass(frozen=True)
@@ -192,6 +233,24 @@ class _Version:
     available_at: datetime
     canonical_url: str
     parsed_object_uri: str
+    source_tier: str
+    provider: str | None
+    items: tuple[str, ...]  # its filing's 8-K Items
+
+
+# A version's columns, as `_version` reads them (aliases `v`, `d` and `c`).
+_VERSION_COLUMNS = (
+    "v.id, d.company_id, c.display_name AS company, d.title, d.form_type, d.document_type,"
+    " v.available_at, d.canonical_url, v.parsed_object_uri, d.source_tier, d.provider,"
+    " v.metadata -> 'items' AS items"
+)
+
+
+def _version(row: RowMapping) -> _Version:
+    fields = dict(row)
+    items: Any = fields.pop("items")
+    recorded = cast(list[Any], items) if isinstance(items, list) else []
+    return _Version(**fields, items=tuple(str(item) for item in recorded))
 
 
 @dataclass(frozen=True)
@@ -201,10 +260,21 @@ class _Company:
 
 
 @dataclass(frozen=True)
+class _Named:
+    """A researched company the supporting Claims name, and what those Claims say it is
+    related to: the other party's name or the object text, and the product, in the Claims'
+    order."""
+
+    id: uuid.UUID
+    name: str
+    objects: list[str]
+
+
+@dataclass(frozen=True)
 class _Judged:
     """A proposed item as code judged it. Rejected by a check (a `reason_code`), it keeps
     what was proposed; accepted (an `assertion`), its kind, Claims and premise are code's
-    (step 6)."""
+    (step 8)."""
 
     source_version_id: uuid.UUID | None
     subject_company_id: uuid.UUID | None
@@ -228,9 +298,11 @@ class Skeptic:
         archive: Archive,
         caller: RoleCaller,
         searxng: SearXNGClient,
+        recall: Recall,
         *,
         max_queries: int,
         max_passages: int,
+        max_document_share: float,
         passages_per_call: int,
         edgar: EdgarFullTextSearch | None = None,
     ) -> None:
@@ -238,9 +310,11 @@ class Skeptic:
         self._archive = archive
         self._caller = caller
         self._searxng = searxng
+        self._recall = recall  # across the investigation's theme
         self._edgar = edgar
         self._max_queries = max_queries
         self._max_passages = max_passages
+        self._max_document_share = max_document_share
         self._passages_per_call = passages_per_call
         self._assertions = Assertions(engine, archive, SKEPTIC_ACTOR)
         self._texts: dict[uuid.UUID, str] = {}
@@ -253,17 +327,25 @@ class Skeptic:
         *,
         theme_title: str,
         company_ids: Sequence[uuid.UUID],
-        theme_company_ids: Sequence[uuid.UUID],
         claims: Sequence[RowMapping],
         supporting_families: set[str],
     ) -> SkepticOutcome:
+        """`company_ids`: the investigation's and the theme's companies, whose archived
+        documents a search result may match (the catalog)."""
         search = self._open(investigation, task, run_id)
-        catalog = self._catalog(investigation, company_ids)
+        named = self._named(investigation, claims)
+        queries = _queries(named)
+        # Before any LLM call: a Hindsight quota or outage pauses the task with nothing spent,
+        # and a later attempt finds the pointers recorded and asks nothing again.
+        record_pointers(
+            self._engine, self._recall, investigation, task, queries, actor=SKEPTIC_ACTOR
+        )
         if search["phase"] == "planning":
-            self._plan(investigation, task, search, catalog, theme_title, claims)
+            self._plan(investigation, task, search, theme_title, claims)
             search = self._load(search["id"])
         if search["phase"] == "searching":
-            self._search(investigation, task, search, catalog, theme_company_ids)
+            catalog = self._catalog(investigation, company_ids)
+            self._search(investigation, task, search, catalog, named, queries)
             search = self._load(search["id"])
         if search["phase"] == "reading":
             stopped = self._read(investigation, search, claims, supporting_families)
@@ -272,7 +354,7 @@ class Skeptic:
                 return SkepticOutcome(
                     "budget_exhausted",
                     detail="the run's token budget ran out during the Skeptic's reading",
-                    artifacts=self._artifacts(search),
+                    artifacts=self._artifacts(search, named),
                 )
             with self._engine.begin() as connection:
                 connection.execute(
@@ -286,7 +368,7 @@ class Skeptic:
         return SkepticOutcome(
             "succeeded",
             detail=_read_nothing(investigation, task, search),
-            artifacts=self._artifacts(search),
+            artifacts=self._artifacts(search, named),
             disproofs=self._disproofs(search["id"]),
         )
 
@@ -330,16 +412,15 @@ class Skeptic:
     def _catalog(
         self, investigation: RowMapping, company_ids: Sequence[uuid.UUID]
     ) -> list[_Version]:
-        """The archived Tier A documents the Skeptic may choose from (see the module)."""
+        """The archived Tier A documents a search result may match (see the module)."""
         with self._engine.connect() as connection:
             rows = connection.execute(
                 text(
-                    "SELECT * FROM (SELECT DISTINCT ON (v.source_document_id) v.id,"
-                    " d.company_id, c.display_name AS company, d.title, d.form_type,"
-                    " d.document_type, v.available_at, d.canonical_url, v.parsed_object_uri"
+                    "SELECT * FROM (SELECT DISTINCT ON (v.source_document_id)"  # noqa: S608 (constant SQL)
+                    f" {_VERSION_COLUMNS}"
                     " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
                     " LEFT JOIN company c ON c.id = d.company_id"
-                    " WHERE d.company_id = ANY(:companies) AND d.source_tier = 'A'"
+                    " WHERE d.company_id = ANY(:companies) AND d.source_tier = :tier"
                     " AND v.available_at <= :as_of AND v.parse_status IN ('parsed', 'incomplete')"
                     " AND v.parsed_object_uri IS NOT NULL"
                     " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
@@ -347,34 +428,55 @@ class Skeptic:
                 ),
                 {
                     "companies": list(company_ids),
+                    "tier": _WITNESS_TIER,
                     "as_of": investigation["as_of"],
                     "limit": CATALOG_LIMIT,
                 },
             ).mappings()
-            return [_Version(**dict(row)) for row in rows]
+            return [_version(row) for row in rows]
 
-    # --- 1. the plan ------------------------------------------------------------------------
+    def _named(self, investigation: RowMapping, claims: Sequence[RowMapping]) -> list[_Named]:
+        """The researched companies the supporting Claims name (their subjects and their
+        object companies; never a counterparty), each with its Claims' objects: the seed
+        companies among them first, in seed order, then the others in the Claims' order."""
+        objects: dict[uuid.UUID, list[str]] = {}
+        for claim in claims:
+            other: str | None = claim["object_name"] or claim["object_text"]
+            product: str | None = claim["product"]
+            objects.setdefault(claim["subject_company_id"], []).extend(
+                each for each in (other, product) if each
+            )
+            if claim["object_company_id"] is not None:
+                objects.setdefault(claim["object_company_id"], []).extend(
+                    each for each in (claim["subject_name"], product) if each
+                )
+        with self._engine.connect() as connection:
+            names = {
+                row.id: row.display_name
+                for row in connection.execute(
+                    text(
+                        "SELECT id, display_name FROM company WHERE id = ANY(:ids)"
+                        " AND role = 'researched'"
+                    ),
+                    {"ids": list(objects)},
+                )
+            }
+        seeds = [each for each in investigation["seed_company_ids"] if each in objects]
+        ordered = dict.fromkeys([*seeds, *objects])
+        return [_Named(each, names[each], objects[each]) for each in ordered if each in names]
+
+    # --- 2. the plan ------------------------------------------------------------------------
 
     def _plan(
         self,
         investigation: RowMapping,
         task: RowMapping,
         search: RowMapping,
-        catalog: Sequence[_Version],
         theme_title: str,
         claims: Sequence[RowMapping],
     ) -> None:
         companies = self._companies()
         seeds = set(investigation["seed_company_ids"])
-        with self._engine.connect() as connection:
-            used = int(
-                connection.execute(
-                    text(
-                        "SELECT count(*) FROM investigation_document WHERE investigation_id = :id"
-                    ),
-                    {"id": investigation["id"]},
-                ).scalar_one()
-            )
         request = SkepticPlanRequest(
             research_question=investigation["question"],
             theme_id=investigation["theme"],
@@ -384,39 +486,27 @@ class Skeptic:
             companies=[
                 SeedCompany(company_id=str(c.id), names=c.names) for c in companies if c.id in seeds
             ],
-            catalog=[
-                CatalogDocument(
-                    source_version_id=str(v.id),
-                    company=v.company,
-                    title=v.title,
-                    form_type=v.form_type,
-                    available_at=v.available_at.isoformat(),
-                )
-                for v in catalog
-            ],
             max_queries=self._max_queries,
-            max_documents=max(investigation["max_documents"] - used, 0),
         )
-        plan, role_call_id = self._caller.call_recorded(
-            SKEPTIC_PLAN, request, run_id=search["run_id"]
-        )
+        quarantined = False
+        try:
+            plan, role_call_id = self._caller.call_recorded(
+                SKEPTIC_PLAN, request, run_id=search["run_id"]
+            )
+            proposed = plan.queries
+        except RoleOutputQuarantined as error:
+            # The plan only adds searches: without one the Skeptic reads where Memory points.
+            proposed, role_call_id, quarantined = [], error.role_call_id, True
         queries: list[tuple[str, str, str | None]] = []
         seen: set[str] = set()
-        for each in plan.queries:
+        for each in proposed:
             query = _SPACE.sub(" ", each.query).strip()
             if query and query.casefold() not in seen:
                 seen.add(query.casefold())
                 queries.append((query, each.checklist_item, each.filing_phrase))
         queries = queries[: self._max_queries]
-        known = {str(v.id): v for v in catalog}
-        wanted: list[tuple[uuid.UUID, str | None, Selection]] = []
-        for each in plan.documents:
-            version = known.get(each.source_version_id.strip())
-            if version is not None and version.id not in {w[0] for w in wanted}:
-                wanted.append((version.id, each.checklist_item, "plan"))
         with self._engine.begin() as connection:
             _lock(connection, investigation["id"])
-            documents, dropped = _take_documents(connection, investigation, task, [], wanted)
             discovery_id: uuid.UUID | None = None
             if queries:
                 discovery_id = uuid.uuid4()
@@ -433,7 +523,7 @@ class Skeptic:
                         "question": investigation["question"],
                         "engines": self._searxng.engines,
                         "max": self._max_queries,
-                        "proposed": len(plan.queries),
+                        "proposed": len(proposed),
                     },
                 )
                 window = filing_window(investigation["as_of"])
@@ -448,26 +538,30 @@ class Skeptic:
                         edgar=self._edgar,
                         window=window,
                     )
-            _budget_event(connection, investigation, task, dropped)
+            if quarantined:
+                event(
+                    connection,
+                    investigation["id"],
+                    PLAN_QUARANTINED_EVENT,
+                    round=task["round"],
+                    task_key=task["key"],
+                    role_call_id=str(role_call_id),
+                )
             connection.execute(
                 text(
                     "UPDATE skeptic_search SET phase = 'searching', plan_role_call_id = :call,"
-                    " discovery_id = :discovery, queries_proposed = :queries,"
-                    " documents_proposed = :documents, documents = CAST(:chosen AS jsonb),"
-                    " documents_dropped = :dropped WHERE id = :id AND phase = 'planning'"
+                    " discovery_id = :discovery, queries_proposed = :queries"
+                    " WHERE id = :id AND phase = 'planning'"
                 ),
                 {
                     "id": search["id"],
                     "call": role_call_id,
                     "discovery": discovery_id,
-                    "queries": len(plan.queries),
-                    "documents": len(plan.documents),
-                    "chosen": _dump(documents),
-                    "dropped": dropped,
+                    "queries": len(proposed),
                 },
             )
 
-    # --- 2. the search, 3. the passages -------------------------------------------------------
+    # --- 3. the search, 4. the documents, 5. the passages ---------------------------------------
 
     def _search(
         self,
@@ -475,7 +569,8 @@ class Skeptic:
         task: RowMapping,
         search: RowMapping,
         catalog: Sequence[_Version],
-        theme_company_ids: Sequence[uuid.UUID],
+        named: Sequence[_Named],
+        queries: Sequence[PointerQuery],
     ) -> None:
         discovery_id: uuid.UUID | None = search["discovery_id"]
         found_urls: list[str] = []
@@ -499,25 +594,43 @@ class Skeptic:
             version = by_url.get(url)
             if version is not None and version.id not in {m[0] for m in matched}:
                 matched.append((version.id, None, "search"))
+        # Where Memory pointed, best pointer first: each Source Version once, for the checklist
+        # item of its best pointer.
+        with self._engine.connect() as connection:
+            pointers = skeptic_pointers(connection, task["id"])
+            read_before = _read_before(connection, investigation["id"], task["id"])
+        best: dict[uuid.UUID, SkepticPointer] = {}
+        for pointer in pointers:
+            best.setdefault(pointer.source_version_id, pointer)
+        witnesses = {
+            version.id: version
+            for version in self._versions(list(best)).values()
+            if version.source_tier == _WITNESS_TIER
+        }
+        pointed: list[tuple[uuid.UUID, str | None, Selection]] = [
+            (version_id, pointer.checklist_item, "pointer")
+            for version_id, pointer in best.items()
+            if version_id in witnesses and version_id not in read_before
+        ]
         with self._engine.begin() as connection:
             _lock(connection, investigation["id"])
             current = [SkepticDocument.model_validate(d) for d in search["documents"]]
-            documents, dropped = _take_documents(connection, investigation, task, current, matched)
-            # The fallback: a seed company neither the plan nor its search chose a document of.
-            companies = {v.id: v.company_id for v in catalog}
-            seeds = list(investigation["seed_company_ids"])
+            documents, dropped = _take_documents(
+                connection, investigation, task, current, [*pointed, *matched]
+            )
+            # The fallback: a company the Claims name that no pointer document was chosen of.
             fallback, uncovered = _fallback(
                 connection,
                 investigation,
-                task["id"],
-                seeds=seeds,
-                others=[c for c in theme_company_ids if c not in seeds],
+                companies=[company.id for company in named],
                 covered={
                     company
                     for d in documents
-                    if (company := companies.get(d.source_version_id)) is not None
+                    if d.selected_by == "pointer"
+                    and (company := witnesses[d.source_version_id].company_id) is not None
                 },
                 chosen={d.source_version_id for d in documents},
+                read_before=read_before,
             )
             if uncovered:
                 documents, more = _take_documents(
@@ -530,8 +643,7 @@ class Skeptic:
                     FALLBACK_EVENT,
                     round=task["round"],
                     task_key=task["key"],
-                    plan_documents=search["documents_proposed"] or 0,
-                    seed_company_ids=[str(each) for each in uncovered],
+                    company_ids=[str(each) for each in uncovered],
                     documents=sum(1 for d in documents if d.selected_by == "fallback"),
                 )
             _budget_event(connection, investigation, task, dropped)
@@ -543,7 +655,7 @@ class Skeptic:
                     ),
                     {"id": discovery_id},
                 )
-        passages, passages_dropped = self._passages(documents)
+        passages, passages_dropped = self._passages(documents, pointers, queries)
         size = search["passages_per_call"]
         with self._engine.begin() as connection:
             connection.execute(
@@ -563,60 +675,69 @@ class Skeptic:
                 },
             )
 
-    def _passages(self, documents: Sequence[SkepticDocument]) -> tuple[list[SkepticPassage], int]:
-        """Checklist-matching windows, round-robin over documents and checklist items."""
+    def _passages(
+        self,
+        documents: Sequence[SkepticDocument],
+        pointers: Sequence[SkepticPointer],
+        queries: Sequence[PointerQuery],
+    ) -> tuple[list[SkepticPassage], int]:
+        """The passages of the chosen documents, in reading order (atlas.claims.selection):
+        the windows the pointers lead to and the windows the term search ranks highest for
+        the bear-checklist queries, alternately, within the passage budget, with the floor
+        and the ceiling per document; and how many pointer and search candidates were not
+        taken. The Memory text of a pointer only finds its window."""
         versions = self._versions([d.source_version_id for d in documents])
-        per_document: list[dict[str, list[tuple[uuid.UUID, str, int, int, list[str]]]]] = []
-        matched: set[tuple[uuid.UUID, int]] = set()
-        for document in documents:
-            version = versions.get(document.source_version_id)
-            if version is None:
-                continue
-            parsed = self._text(version)
-            primary = (
-                version.document_type is not None and version.document_type == version.form_type
-            )
-            by_item: dict[str, list[tuple[uuid.UUID, str, int, int, list[str]]]] = {
-                name: [] for name in CHECKLIST_NAMES
-            }
-            for section in split_sections(parsed, form=version.form_type, primary=primary):
-                for start, end in _windows(parsed, section.start, section.end):
-                    items = checklist_matches(parsed[start:end])
-                    if items:
-                        matched.add((version.id, start))
-                    for item in items:
-                        by_item[item].append((version.id, section.anchor, start, end, items))
-            per_document.append(by_item)
-        chosen: list[tuple[uuid.UUID, str, int, int, list[str]]] = []
-        taken: set[tuple[uuid.UUID, int]] = set()
-        progress = True
-        while progress and len(chosen) < self._max_passages:
-            progress = False
-            for by_item in per_document:
-                for name in CHECKLIST_NAMES:
-                    queue = by_item[name]
-                    while queue and (queue[0][0], queue[0][2]) in taken:
-                        queue.pop(0)
-                    if queue:
-                        window = queue.pop(0)
-                        taken.add((window[0], window[2]))
-                        chosen.append(window)
-                        progress = True
-        chosen = chosen[: self._max_passages]
+        readable = [
+            versions[d.source_version_id] for d in documents if d.source_version_id in versions
+        ]
+        texts = {version.id: self._text(version) for version in readable}
+        chosen = select(
+            [
+                Document(
+                    id=version.id,
+                    text=texts[version.id],
+                    form_type=version.form_type,
+                    document_type=version.document_type,
+                    items=version.items,
+                    company_id=version.company_id,
+                    provider=version.provider,
+                )
+                for version in readable
+            ],
+            reading=Reading(
+                pointers=[
+                    Pointer(
+                        source_version_id=pointer.source_version_id,
+                        section_anchor=pointer.section_anchor,
+                        rank=pointer.rank,
+                        query_index=pointer.query_index,
+                        memory_text=pointer.memory_text,
+                        label=pointer.checklist_item,
+                    )
+                    for pointer in pointers
+                ],
+                queries=[query.text for query in queries],
+            ),
+            budget=self._max_passages,
+            ceiling=ceiling(self._max_passages, self._max_document_share),
+        )
         passages = [
             SkepticPassage(
                 id=f"s{index}",
-                source_version_id=version_id,
-                section_anchor=anchor,
-                char_start=start,
-                char_end=end,
-                checklist_items=items,
+                source_version_id=each.source_version_id,
+                section_anchor=each.section_anchor,
+                char_start=each.char_start,
+                char_end=each.char_end,
+                checklist_items=checklist_matches(
+                    texts[each.source_version_id][each.char_start : each.char_end]
+                ),
+                selected_by=each.selected_by,
             )
-            for index, (version_id, anchor, start, end, items) in enumerate(chosen, start=1)
+            for index, each in enumerate(chosen.passages, start=1)
         ]
-        return passages, len(matched) - len(passages)
+        return passages, chosen.dropped
 
-    # --- 4. reading, 5. checks, 6. outcomes ----------------------------------------------------
+    # --- 6. reading, 7. checks, 8. the kind, 9. outcomes ---------------------------------------
 
     def _read(
         self,
@@ -984,7 +1105,7 @@ class Skeptic:
             # cites (ticket 21).
             on_counterevidence(connection, counterevidence_id)
 
-    # --- 7. premises, artifacts -----------------------------------------------------------------
+    # --- 10. premises, artifacts ----------------------------------------------------------------
 
     def _disproofs(self, search_id: uuid.UUID) -> list[Disproof]:
         with self._engine.connect() as connection:
@@ -1010,7 +1131,7 @@ class Skeptic:
             for key, items in by_premise.items()
         ]
 
-    def _artifacts(self, search: RowMapping) -> dict[str, JsonValue]:
+    def _artifacts(self, search: RowMapping, named: Sequence[_Named]) -> dict[str, JsonValue]:
         with self._engine.connect() as connection:
             counts = connection.execute(
                 text(
@@ -1041,19 +1162,28 @@ class Skeptic:
             ).one()
             fell_back = used_fallback(connection, search["task_id"])
         documents = [SkepticDocument.model_validate(d) for d in search["documents"]]
+        by_selection: dict[str, int] = {}
+        for passage in search["passages"]:
+            for kind in selections(passage.get("selected_by") or []):
+                by_selection[kind] = by_selection.get(kind, 0) + 1
         return {
             "skeptic_search_id": str(search["id"]),
+            # The companies Memory was asked about, and those the cap left out.
+            "recall_companies": min(len(named), MAX_RECALL_COMPANIES),
+            "recall_companies_dropped": max(len(named) - MAX_RECALL_COMPANIES, 0),
             "plan_role_call_id": _str(search["plan_role_call_id"]),
             "discovery_id": _str(search["discovery_id"]),
             "queries_searched": int(queries[0]),
             "queries_failed": int(queries[1]),
             "new_leads": int(queries[2]),
             "documents": len(documents),
+            "documents_from_pointers": sum(1 for d in documents if d.selected_by == "pointer"),
             "documents_from_search": sum(1 for d in documents if d.selected_by == "search"),
             "documents_fallback": fell_back,
             "documents_from_fallback": sum(1 for d in documents if d.selected_by == "fallback"),
             "documents_dropped": search["documents_dropped"],
             "passages": len(search["passages"]),
+            "passages_by_selection": dict[str, JsonValue](by_selection),
             "passages_dropped": search["passages_dropped"],
             "batches_done": search["batches_done"],
             "batches_total": search["batches_total"],
@@ -1061,7 +1191,7 @@ class Skeptic:
             "counterevidence_rejected": int(counts.rejected),
             "contradictions_accepted": int(counts.contradictions),
             "bear_context_accepted": int(counts.bear_context),
-            # Proposed as contradictions, stored as bear context (step 6).
+            # Proposed as contradictions, stored as bear context (step 8).
             "contradictions_demoted": int(counts.demoted),
             "counterevidence_independent": int(counts.independent),
             "independent_evidence_families": int(counts.independent_families),
@@ -1073,8 +1203,7 @@ class Skeptic:
         with self._engine.connect() as connection:
             rows = connection.execute(
                 text(
-                    "SELECT v.id, d.company_id, c.display_name AS company, d.title, d.form_type,"
-                    " d.document_type, v.available_at, d.canonical_url, v.parsed_object_uri"
+                    f"SELECT {_VERSION_COLUMNS}"  # noqa: S608 (constant SQL)
                     " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
                     " LEFT JOIN company c ON c.id = d.company_id WHERE v.id = ANY(:ids)"
                     " AND v.parse_status IN ('parsed', 'incomplete')"
@@ -1082,7 +1211,7 @@ class Skeptic:
                 ),
                 {"ids": list(ids)},
             ).mappings()
-            return {row["id"]: _Version(**dict(row)) for row in rows}
+            return {row["id"]: _version(row) for row in rows}
 
     def _companies(self) -> list[_Company]:
         with self._engine.connect() as connection:
@@ -1213,6 +1342,22 @@ def counterevidence_by_claim(
 # --- helpers ------------------------------------------------------------------------------------
 
 
+def _queries(named: Sequence[_Named]) -> list[PointerQuery]:
+    """What the Skeptic asks Memory: for each of the first `MAX_RECALL_COMPANIES` named
+    companies, one query per bear-checklist item (`bear_query`), numbered from 1."""
+    asked = [(company, item) for company in named[:MAX_RECALL_COMPANIES] for item in BEAR_CHECKLIST]
+    return [
+        PointerQuery(
+            index,
+            bear_query(item, company.name, company.objects),
+            kind=BEAR_CHECKLIST_QUERY,
+            checklist_item=item.name,
+            company_id=company.id,
+        )
+        for index, (company, item) in enumerate(asked, start=1)
+    ]
+
+
 def _checklist() -> list[ChecklistOption]:
     return [ChecklistOption(name=item.name, covers=item.covers) for item in BEAR_CHECKLIST]
 
@@ -1291,34 +1436,50 @@ def _take_documents(
 _FALLBACK_FORMS = ("10-K", "10-Q")
 
 
+def _read_before(
+    connection: Connection, investigation_id: uuid.UUID, task_id: uuid.UUID
+) -> set[uuid.UUID]:
+    """The Source Versions an earlier round's Skeptic of the investigation read: a follow-up
+    round's pointer and fallback documents leave them out."""
+    return set(
+        connection.execute(
+            text(
+                "SELECT CAST(d ->> 'source_version_id' AS uuid) FROM skeptic_search s,"
+                " jsonb_array_elements(s.documents) d"
+                " WHERE s.investigation_id = :id AND s.task_id <> :task"
+            ),
+            {"id": investigation_id, "task": task_id},
+        ).scalars()
+    )
+
+
 def _fallback(
     connection: Connection,
     investigation: RowMapping,
-    task_id: uuid.UUID,
     *,
-    seeds: Sequence[uuid.UUID],
-    others: Sequence[uuid.UUID],
+    companies: Sequence[uuid.UUID],
     covered: set[uuid.UUID],
     chosen: set[uuid.UUID],
+    read_before: set[uuid.UUID],
 ) -> tuple[list[tuple[uuid.UUID, str | None, Selection]], list[uuid.UUID]]:
-    """The documents code chooses when the plan chose none of a seed company's (see the
-    module), in reading order; and those seed companies. Nothing when the plan covered every
-    seed company that has an archived document. The caller holds the investigation's lock."""
-    companies = list(dict.fromkeys([*seeds, *others]))
-    if not companies:
+    """The documents code chooses for the `companies` (the ones the Claims name) that Memory
+    pointed at nothing of (not in `covered`) and that have one archived (see the module), in
+    reading order; and those companies. The caller holds the investigation's lock."""
+    wanted = [each for each in dict.fromkeys(companies) if each not in covered]
+    if not wanted:
         return [], []
     rows = connection.execute(
         text(
             "SELECT * FROM (SELECT DISTINCT ON (v.source_document_id) v.id, d.company_id,"
             " d.form_type, d.document_type, v.available_at"
             " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
-            " WHERE d.company_id = ANY(:companies) AND d.source_tier = 'A'"
+            " WHERE d.company_id = ANY(:companies) AND d.source_tier = :tier"
             " AND d.source_type <> 'xbrl_companyfacts' AND v.available_at <= :as_of"
             " AND v.parse_status IN ('parsed', 'incomplete') AND v.parsed_object_uri IS NOT NULL"
             " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
             " ORDER BY available_at DESC, id"
         ),
-        {"companies": companies, "as_of": investigation["as_of"]},
+        {"companies": wanted, "tier": _WITNESS_TIER, "as_of": investigation["as_of"]},
     ).all()
     held = set(
         connection.execute(
@@ -1328,31 +1489,18 @@ def _fallback(
             {"id": investigation["id"]},
         ).scalars()
     )
-    # A follow-up round's fallback leaves out what an earlier round's Skeptic read.
-    read_before = set(
-        connection.execute(
-            text(
-                "SELECT CAST(d ->> 'source_version_id' AS uuid) FROM skeptic_search s,"
-                " jsonb_array_elements(s.documents) d"
-                " WHERE s.investigation_id = :id AND s.task_id <> :task"
-            ),
-            {"id": investigation["id"], "task": task_id},
-        ).scalars()
-    )
     by_company: dict[uuid.UUID, list[Any]] = {}
     for row in rows:
         if row.id not in read_before:
             by_company.setdefault(row.company_id, []).append(row)
-    uncovered = [s for s in dict.fromkeys(seeds) if s not in covered and by_company.get(s)]
-    if not uncovered:
-        return [], []
+    uncovered = [each for each in wanted if by_company.get(each)]
 
     def primary(row: Any) -> bool:  # a filing's own document, not an exhibit
         return row.document_type is None or row.document_type == row.form_type
 
     picks: list[uuid.UUID] = []
-    for seed in uncovered:
-        documents = by_company[seed]
+    for company in uncovered:
+        documents = by_company[company]
         filings = [row for row in documents if primary(row)] or documents
         mine = [
             first.id
@@ -1360,31 +1508,22 @@ def _fallback(
             if (first := next((row for row in filings if row.form_type == form), None))
         ] or [row.id for row in filings[:2]]
         if not held.intersection(mine):
-            # Read already by the investigation, so free: the seed company is read even when
-            # the Investigators spent the document budget.
+            # Read already by the investigation, so free: the company is read even when the
+            # Investigators spent the document budget.
             read = next((row.id for row in documents if row.id in held), None)
             if read is not None:
                 mine.append(read)
         picks += mine
-    for company in dict.fromkeys(others):
-        ten_k = next(
-            (
-                row.id
-                for row in by_company.get(company, [])
-                if row.form_type == "10-K" and primary(row)
-            ),
-            None,
-        )
-        if ten_k is not None:
-            picks.append(ten_k)
     return [(each, None, "fallback") for each in dict.fromkeys(picks) if each not in chosen], (
         uncovered
     )
 
 
 def used_fallback(connection: Connection, task_id: uuid.UUID) -> bool:
-    """Whether the Skeptic task's documents include ones code chose because its plan chose
-    none of a seed company's (the `skeptic_documents_fallback` event)."""
+    """Whether the Skeptic task's documents include ones code chose because Memory pointed
+    at nothing of a company the Claims name (before memory-directed reading ticket 07:
+    because its plan chose none of a seed company's): the `skeptic_documents_fallback`
+    event."""
     return bool(
         connection.execute(
             text(
@@ -1407,16 +1546,16 @@ def _read_nothing(investigation: RowMapping, task: RowMapping, search: RowMappin
         )
     if documents == 0:
         return (
-            "the Skeptic read nothing: its plan chose no archived document, and no seed"
-            " company has a parsed Tier A Source Version available as of"
-            f" {investigation['as_of'].isoformat()}"
+            "the Skeptic read nothing: Memory pointed at no archived document for the"
+            " bear checklist, its search matched none, and no company the Claims name has a"
+            f" parsed Tier A Source Version available as of {investigation['as_of'].isoformat()}"
             + (" that an earlier round's Skeptic hasn't read" if task["round"] > 1 else "")
         )
     if not search["passages"]:
         return (
-            "the Skeptic read no passage: no passage of the"
-            f" {documents} document{'s' if documents != 1 else ''} it chose matches a"
-            " bear-checklist item"
+            "the Skeptic read no passage: the"
+            f" {documents} document{'s' if documents != 1 else ''} it chose"
+            f" ha{'ve' if documents != 1 else 's'} no text to read"
         )
     return None
 
@@ -1443,22 +1582,6 @@ def _family_of(connection: Connection, version_id: uuid.UUID) -> str:
         {"v": version_id},
     ).scalar_one_or_none()
     return f"family:{family}" if family is not None else f"version:{version_id}"
-
-
-def _windows(parsed: str, start: int, end: int) -> list[tuple[int, int]]:
-    """[start, end) cut into windows of at most PASSAGE_CHARS, each ending at a line break
-    when it has one past its first half (as the Investigator's)."""
-    windows: list[tuple[int, int]] = []
-    position = start
-    while position < end:
-        limit = min(position + PASSAGE_CHARS, end)
-        if limit < end:
-            cut = parsed.rfind("\n", position + PASSAGE_CHARS // 2, limit)
-            if cut >= 0:
-                limit = cut + 1
-        windows.append((position, limit))
-        position = limit
-    return windows
 
 
 @dataclass(frozen=True)
@@ -1537,7 +1660,7 @@ def _settle(
     *,
     table_row: bool,
 ) -> tuple[CounterevidenceKind, list[uuid.UUID], str | None]:
-    """An accepted item's kind (the module's step 6): the kind, the Claims it contradicts,
+    """An accepted item's kind (the module's step 8): the kind, the Claims it contradicts,
     and why it is bear context when the Skeptic proposed otherwise."""
     if item.kind == "bear_context":
         reason = (

@@ -12,14 +12,22 @@ unverified or broken memory.
 
 A pointer is Memory used as an index. It says where to read; it is never Evidence, never
 quoted, never a witness, and never sent to a role as a statement. An Investigator's passages
-are chosen by them (`round_reading`; atlas.claims.selection, ticket 05): the pointer's Memory
-text finds the window of the pointed section to read and goes no further. Companies and
-documents are not chosen by them yet (ticket 06), nor the Skeptic's reading (ticket 07).
+are chosen by the Scout's pointers of its round (`round_reading`; atlas.claims.selection,
+ticket 05): the pointer's Memory text finds the window of the pointed section to read and
+goes no further. The Scout's pointers also choose which companies get an Investigator and which documents each reads first (`atlas.investigations.companies`).
+
+**The Skeptic's pointers** (ticket 07; atlas.investigations.skeptic) are stored the same way,
+by its own task: one recall per bear-checklist item for each company the accepted Claims name
+(`query_kind` `bear_checklist`, with the `checklist_item` and the company asked about,
+`query_company_id`; `query_index` the query's position among the task's, from 1). The
+Scout's are `query_kind` `scout`. `skeptic_pointers` reads a Skeptic task's; an Investigator
+is never given them.
 
 **Stored** insert-only (`reading_pointer`), a task's whole set in one transaction together
 with its events, its counts in the task's artifacts and one audit event
-(`investigation.pointers_recorded`, by `atlas-scout`, its hash over the rows). A later
-attempt of the task finds the counts recorded and asks nothing again.
+(`investigation.pointers_recorded`, by the asking role's actor, `atlas-scout` or
+`atlas-skeptic`, its hash over the rows). A later attempt of the task finds the counts
+recorded and asks nothing again.
 
 **Failures.** A recall that fails for a reason of its own (an HTTP error that is neither a
 quota nor an outage, an answer off the contract) is recorded as a `pointer_recall_failed`
@@ -35,7 +43,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
@@ -50,6 +58,11 @@ from atlas.research.service import RecallResponse
 SCOUT_ACTOR = Actor("atlas-scout")
 # `query_index` of the round's question; the Scout's queries follow, by position (from 1).
 QUESTION_INDEX = 0
+# What a pointer's query was: the Scout's (the question or one of its queries), or a
+# Skeptic's bear-checklist query about a company.
+type QueryKind = Literal["scout", "bear_checklist"]
+SCOUT_QUERY: QueryKind = "scout"
+BEAR_CHECKLIST_QUERY: QueryKind = "bear_checklist"
 # A recall's query is at most this long (atlas.research.service.RecallRequest).
 MAX_QUERY_CHARS = 4000
 # The task artifact that says its pointers are recorded.
@@ -63,9 +76,13 @@ Recall = Callable[[str], RecallResponse]
 
 @dataclass(frozen=True)
 class PointerQuery:
-    index: int  # QUESTION_INDEX, or a Scout query's position
+    index: int  # QUESTION_INDEX, or the query's position among its task's (from 1)
     text: str
-    discovery_query_id: uuid.UUID | None = None  # None: the question
+    discovery_query_id: uuid.UUID | None = None  # a Scout query's; None otherwise
+    kind: QueryKind = SCOUT_QUERY
+    # A bear-checklist query's item and the company it asks about; None for a Scout's.
+    checklist_item: str | None = None
+    company_id: uuid.UUID | None = None
 
 
 def scout_queries(
@@ -91,10 +108,11 @@ def round_reading(
     round_: int,
     source_version_ids: Sequence[uuid.UUID],
 ) -> Reading:
-    """What directs the reading of these Source Versions in a round of the investigation
-    (atlas.claims.selection): the round's reading pointers into them, whichever task recorded
-    them, best rank first; and the queries of the round's Scout, in order, which the search
-    selection uses beside the round's question."""
+    """What directs an Investigator's reading of these Source Versions in a round of the
+    investigation (atlas.claims.selection): the reading pointers the round's Scout recorded
+    into them (the question's and its queries'; never a Skeptic's bear-checklist pointers,
+    which direct the Skeptic's own reading), best rank first; and the queries of the round's
+    Scout, in order, which the search selection uses beside the round's question."""
     pointers = [
         Pointer(
             source_version_id=row.source_version_id,
@@ -107,11 +125,16 @@ def round_reading(
             text(
                 "SELECT source_version_id, section_anchor, rank, query_index, memory_text"
                 " FROM reading_pointer WHERE investigation_id = :id AND round = :round"
-                " AND source_version_id = ANY(:versions)"
+                " AND query_kind = :kind AND source_version_id = ANY(:versions)"
                 " ORDER BY rank, query_index, source_version_id, section_char_start,"
                 " section_anchor, id"
             ),
-            {"id": investigation_id, "round": round_, "versions": list(source_version_ids)},
+            {
+                "id": investigation_id,
+                "round": round_,
+                "kind": SCOUT_QUERY,
+                "versions": list(source_version_ids),
+            },
         )
     ]
     queries = list(
@@ -128,15 +151,51 @@ def round_reading(
     return Reading(pointers=pointers, queries=queries)
 
 
+@dataclass(frozen=True)
+class SkepticPointer:
+    """A reading pointer of a Skeptic task: where Memory pointed for a bear-checklist item
+    asked about a company (`query_company_id`), and whose document that is (`company_id`)."""
+
+    source_version_id: uuid.UUID
+    section_anchor: str
+    rank: int
+    query_index: int
+    memory_text: str  # finds the window; never quoted and never sent to a role
+    checklist_item: str
+    query_company_id: uuid.UUID
+    company_id: uuid.UUID | None
+
+
+def skeptic_pointers(connection: Connection, task_id: uuid.UUID) -> list[SkepticPointer]:
+    """The reading pointers a Skeptic task recorded, best rank first (then the earlier
+    query: the companies in the task's order, each in checklist order)."""
+    return [
+        SkepticPointer(**dict(row))
+        for row in connection.execute(
+            text(
+                "SELECT source_version_id, section_anchor, rank, query_index, memory_text,"
+                " checklist_item, query_company_id, company_id FROM reading_pointer"
+                " WHERE task_id = :task AND query_kind = :kind"
+                " ORDER BY rank, query_index, source_version_id, section_char_start,"
+                " section_anchor, id"
+            ),
+            {"task": task_id, "kind": BEAR_CHECKLIST_QUERY},
+        ).mappings()
+    ]
+
+
 def record_pointers(
     engine: Engine,
     recall: Recall,
     investigation: RowMapping,
     task: RowMapping,
     queries: Sequence[PointerQuery],
+    *,
+    actor: Actor = SCOUT_ACTOR,
 ) -> dict[str, JsonValue]:
     """Ask Memory each query and store the task's reading pointers (see the module); returns
-    the task's pointer artifacts. A task whose pointers are recorded asks nothing."""
+    the task's pointer artifacts. A task whose pointers are recorded asks nothing. `actor`
+    is the asking role's, for the audit event (the Scout's by default)."""
     recorded = _recorded(task["artifacts"])
     if recorded is not None:
         return recorded
@@ -210,7 +269,7 @@ def record_pointers(
         if rows:
             record(
                 connection,
-                SCOUT_ACTOR,
+                actor,
                 "investigation.pointers_recorded",
                 entity_type="investigation_task",
                 entity_id=str(task["id"]),
@@ -222,7 +281,8 @@ def record_pointers(
 _COLUMNS = (
     "id, investigation_id, round, task_id, query_index, query, discovery_query_id, rank,"
     " memory_id, memory_type, memory_text, source_version_id, section_anchor, section_heading,"
-    " section_char_start, section_char_end, company_id, available_at, citation_state"
+    " section_char_start, section_char_end, company_id, available_at, citation_state,"
+    " query_kind, checklist_item, query_company_id"
 )
 _INSERT = (
     f"INSERT INTO reading_pointer ({_COLUMNS}) VALUES ("  # noqa: S608 (constant SQL)
@@ -282,6 +342,9 @@ def _resolved(
                     "company_id": source.company_id,
                     "available_at": source.available_at,
                     "citation_state": citation.state,
+                    "query_kind": query.kind,
+                    "checklist_item": query.checklist_item,
+                    "query_company_id": query.company_id,
                 }
             )
     return found

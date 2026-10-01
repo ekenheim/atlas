@@ -11,9 +11,12 @@
   scripted is an error of the case, except the Financial Analyst's: its scenario proposals
   aren't scored by these cases (no metric reads them), so unless a case scripts its answers
   it proposes no scenario (`UNSCRIPTED_DEFAULTS`), as the SearXNG stub finds no leads; and
-  the Skeptic's reading: a case whose Skeptic plan chooses no document now has code's
-  fallback choose the seed companies' documents (pilot fix 06), and unless the case scripts
-  `skeptic` answers, that reading proposes no counterevidence.
+  the Skeptic's reading: its plan chooses no document (memory-directed reading ticket 07:
+  a case's `skeptic_plan` answer gives its queries; a `documents` list in one, as the first
+  cases were written, is ignored). The Hindsight stub recalls nothing, so code's fallback
+  chooses the documents of the companies the Claims name (their latest 10-K and 10-Q, or
+  latest two primary documents), and unless the case scripts `skeptic` answers, that
+  reading proposes no counterevidence.
 - **Hindsight stub**: `/version` (reported as `evaluation-stub`, so a run's record shows it),
   the bank template import (so runs can start) and an empty recall. Memory isn't evaluated
   here: retention and recall have their own recorded contract tests.
@@ -196,8 +199,8 @@ class ScriptedLiteLLM:
         body = cast(dict[str, Any], json.loads(request.content))
         role = str(body["metadata"]["role"])
         sent = cast(dict[str, Any], json.loads(body["messages"][1]["content"]))
-        if role == "skeptic" and "catalog" in sent["request"]:
-            role = "skeptic_plan"
+        if role == "skeptic" and "passages" not in sent["request"]:
+            role = "skeptic_plan"  # its plan call: the reading call names its passages
         content = json.dumps(self._answer(role, sent))
         completion = {
             "id": f"chatcmpl-evaluation-{sum(self.calls.values())}",
@@ -318,16 +321,8 @@ def _reviewer(
 def _skeptic_plan(
     context: ScriptContext, reply: dict[str, Any], sent: dict[str, Any]
 ) -> dict[str, Any]:
-    return {
-        "queries": reply.get("queries", []),
-        "documents": [
-            {
-                "source_version_id": context.version(d["source"]),
-                "checklist_item": d["checklist_item"],
-            }
-            for d in reply.get("documents", [])
-        ],
-    }
+    # The plan writes queries only; a case's `documents` (written before ticket 07) is ignored.
+    return {"queries": reply.get("queries", [])}
 
 
 def _skeptic(context: ScriptContext, reply: dict[str, Any], sent: dict[str, Any]) -> dict[str, Any]:

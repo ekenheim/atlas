@@ -35,10 +35,11 @@ from pydantic import JsonValue
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from atlas.investigations.pointers import round_reading
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
-from tests.fakes.searxng import FakeSearXNG, SearchReply
+from tests.fakes.searxng import FakeSearXNG, SearchReply, fixture
 from tests.fakes.serve import Served, serve
 from tests.harness import BANK, ITEM_1, REPO, THEMES, Atlas, Clock, at
 
@@ -281,12 +282,12 @@ def scout_reply(tokens: tuple[int, int] = (900, 120)) -> ChatReply:
 
 
 def finding_nothing(body: dict[str, Any]) -> JsonValue:
-    """The Skeptic finding nothing: its plan chooses no query and no document (as pilot
-    investigation 1's did), and its reading of what code's fallback then chose proposes
+    """The Skeptic finding nothing: its plan writes no query (as pilot investigation 1's
+    did), and its reading of what Memory pointed to (or code's fallback chose) proposes
     nothing."""
-    if "catalog" in asked(body)["request"]:
-        return {"queries": [], "documents": []}
-    return {"counterevidence": []}
+    if "passages" in asked(body)["request"]:
+        return {"counterevidence": []}
+    return {"queries": []}
 
 
 # Enough answers for the plan and every reading call (the unused ones are never asked for).
@@ -562,11 +563,12 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         "editor",
         "reviewer",
     ]
-    # The Skeptic's plan chose no search and no document, so code's fallback chose Coherent's
-    # filings (pilot fix 06); it read them and found no counterevidence.
+    # The Skeptic's plan wrote no query; Memory pointed it to Coherent's filings (ticket 07),
+    # so no fallback was needed; it read them and found no counterevidence.
     skeptic = tasks(found)["skeptic"]["artifacts"]
     assert skeptic["supporting_claims"] == 1
-    assert (skeptic["documents_fallback"], skeptic["documents"]) == (True, 2)
+    assert (skeptic["documents_fallback"], skeptic["documents"]) == (False, 2)
+    assert skeptic["documents_from_pointers"] == 2
     assert skeptic["passages"] > 0
     assert skeptic["counterevidence_accepted"] == 0
     assert found["counterevidence"] == []
@@ -1381,12 +1383,15 @@ def test_the_investigator_reads_the_window_memory_points_to_and_the_best_search_
     assert statuses(found)["investigator:lumentum"] == "succeeded"
     assert len(found["documents"]) == 5
     # The question and the Scout's three queries each recalled the one fact: four pointers
-    # into the 10-K's Item 1, all at rank 1.
+    # into the 10-K's Item 1, all at rank 1. (The Skeptic's own recalls, later, find the same
+    # fact: its pointers are recorded apart and the Investigator never reads by them.)
     assert {
         (p["source_version_id"], p["section_anchor"], p["rank"], p["memory_text"])
         for p in found["pointers"]
     } == {(ids["10-K"], ITEM_1, 1, ALLOCATION_MEMORY)}
-    assert sorted(p["query_index"] for p in found["pointers"]) == [0, 1, 2, 3]
+    scouted = [p for p in found["pointers"] if p["task_key"] == "scout"]
+    assert sorted(p["query_index"] for p in scouted) == [0, 1, 2, 3]
+    assert {p["query_kind"] for p in found["pointers"] if p not in scouted} == {"bear_checklist"}
     task = tasks(found)["investigator:lumentum"]["artifacts"]
     extraction = atlas.get(f"/api/v1/claim-extractions/{task['extraction_id']}")
     passages = extraction["passages"]
@@ -2398,6 +2403,7 @@ COHR_10K_FILE = (
     / "000082031826000020/iivi-20260630.htm"
 )
 COPY_URL = "https://filings-mirror.test/coherent/fy2026-annual-report.htm"
+MIRROR = "Coherent NVIDIA supply agreement non-exclusive purchase commitment"
 # The same agreement in the 10-K's own words: it limits the supply Claim, and names NVIDIA.
 NON_EXCLUSIVE_QUOTE = (
     "The non-exclusive agreement includes a multi-billion-dollar purchase commitment with NVIDIA"
@@ -2423,19 +2429,34 @@ BALANCE_SHEET_DATES = "March 31, 2026 and June 30, 2025"
 SOLE_SOURCE_QUOTE = "for certain components we have sole or limited source supply arrangements"
 
 
-def skeptic_plan(
-    *, queries: tuple[tuple[str, str], ...] = (), documents: tuple[tuple[str, str], ...] = ()
-) -> ChatReply:
-    """The Skeptic's plan: its own queries and the catalog documents it reads."""
+def skeptic_plan(*queries: tuple[str, str]) -> ChatReply:
+    """The Skeptic's plan: its own web queries, each for a checklist item. (What it reads is
+    not the plan's to choose: Memory points to it; memory-directed reading ticket 07.)"""
     return ChatReply.json(
-        {
-            "queries": [{"query": q, "checklist_item": item} for q, item in queries],
-            "documents": [
-                {"source_version_id": v, "checklist_item": item} for v, item in documents
-            ],
-        },
+        {"queries": [{"query": q, "checklist_item": item} for q, item in queries]},
         tokens=(800, 90),
     )
+
+
+def memory_documents(atlas: Atlas, *version_ids: str) -> set[str]:
+    """The memory documents (retained sections) of these Source Versions, by ID."""
+    return {
+        document["document_id"]
+        for version_id in version_ids
+        for document in atlas.memory(version_id)["documents"]
+    }
+
+
+def skeptic_pointers(found: dict[str, Any]) -> list[dict[str, Any]]:
+    return [p for p in found["pointers"] if p["task_key"] == "skeptic"]
+
+
+def skeptic_read(found: dict[str, Any], round_: int = 1) -> dict[str, Any]:
+    """The Skeptic's row of the research card's `read`."""
+    [row] = [
+        r for r in found["research_card"]["read"] if r["role"] == "skeptic" and r["round"] == round_
+    ]
+    return row
 
 
 def counter(
@@ -2514,6 +2535,19 @@ def countering(*items: dict[str, Any]) -> Callable[[dict[str, Any]], JsonValue]:
     return respond
 
 
+def mirror_result() -> SearchReply:
+    """A hand-shaped search result: the 10-K's copy at the mirror's URL (the dilution
+    fixture's first result with the URL changed; not a recorded SearXNG response)."""
+    body = fixture("skeptic-dilution")
+    result = body["results"][0] | {
+        "title": "Coherent Corp. annual report, fiscal 2026 (mirror)",
+        "content": "a strategic multi-year supply agreement with NVIDIA ...",
+        "url": COPY_URL,
+        "parsed_url": ["https", "filings-mirror.test", COPY_URL.split(".test")[1], "", "", ""],
+    }
+    return SearchReply(body=body | {"query": MIRROR, "results": [result]})
+
+
 def skeptic_calls(llm: FakeLiteLLM) -> list[dict[str, Any]]:
     return [asked(b) for b in llm.chat_requests() if b["metadata"]["role"] == "skeptic"]
 
@@ -2558,14 +2592,18 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     coherent = company_id(atlas, "coherent")
     ten_k = atlas.version(COHR_10K, "coherent")["id"]
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    # Memory holds the 10-K's sections and nothing of the 10-Q, so no pointer leads to the
+    # 10-Q: the Skeptic's own search does.
+    unretained = memory_documents(atlas, ten_q)
+    services.hindsight[0].report_zero_facts(lambda document_id: document_id in unretained)
     started = seeded(atlas, "coherent")
     paraphrase = "Coherent's share count rose sharply in fiscal 2026."
     llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        # Its own query, and no catalog document: the 10-Q comes from its search results.
-        skeptic_plan(queries=((DILUTION, "dilution_financing"),)),
+        # Its own query: the 10-Q comes from its search results.
+        skeptic_plan((DILUTION, "dilution_financing")),
         ChatReply.answer(
             countering(
                 # Proposed, as in the pilot, as a contradiction of the supply Claim (and as
@@ -2609,8 +2647,8 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
         ("skeptic", "skeptic-plan"),
         ("skeptic", "skeptic"),
     ]
-    # Its plan: the checklist, the supporting Claim to challenge, the archived catalog; no
-    # retrieved data at all (no Memory).
+    # Its plan: the checklist and the supporting Claim to challenge; no retrieved data at all
+    # (no Memory), and no catalog: the plan writes queries, it chooses no document.
     plan, reading = skeptic_calls(llm)
     assert plan["retrieved_data"] == []
     assert [item["name"] for item in plan["request"]["checklist"]] == CHECKLIST
@@ -2621,7 +2659,7 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
         "Coherent",
         "NVIDIA",
     )
-    assert {d["source_version_id"] for d in plan["request"]["catalog"]} == {ten_k, ten_q}
+    assert "catalog" not in plan["request"] and "max_documents" not in plan["request"]
     # Its own search: its query, in its own discovery of the run; the results are Tier C leads.
     artifacts = tasks(found)["skeptic"]["artifacts"]
     discovery = atlas.get(f"/api/v1/discoveries/{artifacts['discovery_id']}")
@@ -2635,19 +2673,25 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     assert [s["q"] for s in searxng.searches()][-1] == DILUTION
     leads = {lead["canonical_url"]: lead for lead in atlas.get("/api/v1/leads")["items"]}
     assert leads[MARKETS_WIRE]["tier"] == "C"
-    # A result that is an archived filing (the 10-Q) is read; the Investigator read it too,
-    # so the document budget isn't charged twice.
-    assert (artifacts["documents"], artifacts["documents_from_search"]) == (1, 1)
-    assert artifacts["documents_dropped"] == 0
+    # Memory pointed to the 10-K; a search result that is an archived filing (the 10-Q) is
+    # read too. The Investigator read both, so the document budget isn't charged twice.
+    assert (artifacts["documents"], artifacts["documents_dropped"]) == (2, 0)
+    assert (artifacts["documents_from_pointers"], artifacts["documents_from_search"]) == (1, 1)
+    assert artifacts["documents_fallback"] is False
+    assert [
+        (d["source_version_id"], d["selected_by"]) for d in skeptic_read(found)["documents"]
+    ] == [(ten_k, "pointer"), (ten_q, "search")]
     assert [(d["source_version_id"], d["task_key"]) for d in found["documents"]] == [
         (ten_k, "investigator:coherent"),
         (ten_q, "investigator:coherent"),
     ]
-    # It read passages of that document only, as low-trust data, picked by the checklist.
-    assert reading["retrieved_data"]
-    assert all(p["source"].startswith(f"{ten_q}#") for p in reading["retrieved_data"])
+    # It read passages of those documents only, as low-trust data; each passage says which
+    # checklist items' cues its text matches (none, for some).
+    sources = {p["source"].split("#")[0] for p in reading["retrieved_data"]}
+    assert sources == {ten_k, ten_q}
     assert all(p["trust"] == "low" for p in reading["retrieved_data"])
-    assert all(p["checklist_items"] for p in reading["request"]["passages"])
+    assert all(set(p["checklist_items"]) <= set(CHECKLIST) for p in reading["request"]["passages"])
+    assert any(p["checklist_items"] for p in reading["request"]["passages"])
     assert reading["request"]["premises"] == [
         {
             "key": "company:coherent",
@@ -2734,19 +2778,254 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     assert [p["status"] for p in found["premises"]] == ["open", "open"]
 
 
-def test_a_skeptic_plan_that_chooses_no_document_falls_back_to_each_seed_company_s_filings(
+# --- the Skeptic reads by pointers (memory-directed reading, ticket 07) --------------------------
+
+ITEM_1A = "part-i-item-1a"
+# From the recorded Coherent FY2026 10-K's risk factors (Item 1A, its fifth window): the
+# customer-concentration statement. (The recorded 10-Qs hold a cover and financial statements
+# only, so the 10-K is the recorded filing that states it.)
+CONCENTRATION_STATEMENT = (
+    "A small number of customers have consistently accounted for a significant portion of our"
+    " revenues, with two customers each contributing more than 10% of total revenues in fiscal"
+    " 2026."
+)
+# What Memory holds of it: the fact in Hindsight's own words (written here, the fake's
+# `script_fact_text`), a paraphrase that quotes nothing.
+CONCENTRATION_MEMORY = (
+    "Coherent relies on a small number of large customers: two customers each contributed more"
+    " than 10% of its total revenues in fiscal 2026, and it expects significant customer"
+    " concentration to continue."
+)
+# What the Skeptic asks Memory for one checklist item about one company: the company, what
+# the item asks, and the objects of the Claims that name the company.
+COHERENT_CONCENTRATION_QUERY = (
+    "Coherent: customer concentration, largest customers, share of revenue from a few"
+    " customers; NVIDIA; advanced lasers"
+)
+NVIDIA_SECOND_SOURCE_QUERY = (
+    "NVIDIA: second source, alternative or additional qualified suppliers, sole or single"
+    " source supply; Coherent; advanced lasers"
+)
+
+
+def allocation_claim(atlas: Atlas) -> dict[str, JsonValue]:
+    """Lumentum's allocation statement (its recorded 10-K's Item 1) as a company-level
+    Claim."""
+    return {
+        "subject_company_id": company_id(atlas, "lumentum"),
+        "predicate": "capacity_constrained",
+        "object_company_id": None,
+        "object_name": None,
+        "object_text": "optical components for AI and cloud data centers",
+        "product": "optical components",
+        "layer": "module",
+        "quote": LITE_ALLOCATION,
+        "epistemic_type": "company_claim",
+    }
+
+
+def test_the_skeptic_reads_the_window_memory_points_to_for_a_bear_checklist_item(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # The Investigator reads every candidate window of Coherent's two filings in one call (so
+    # it reaches the supply agreement by search); the Skeptic has the default 24 passages.
+    atlas = services.start(investigation_max_passages=200, investigator_passages_per_call=200)
+    fake = services.hindsight[0]
+    coherent, nvidia = company_id(atlas, "coherent"), company_id(atlas, "nvidia")
+    ten_k = atlas.version(COHR_10K, "coherent")["id"]
+    # Memory holds one fact: Coherent's customer concentration, in its own words, extracted
+    # from the 10-K's risk factors. (The fake recalls every fact in scope whatever the query,
+    # so one fact keeps this test about where a pointer leads.)
+    item_1a = atlas.section(COHR_10K, "coherent", ITEM_1A)
+    fake.script_fact_text(item_1a["document_id"], CONCENTRATION_MEMORY)
+    fake.report_zero_facts(lambda document_id: document_id != item_1a["document_id"])
+    recalls_before = len(fake.requests("POST", "memories/recall"))
+    started = seeded(atlas, "coherent")
+    llm.script_role("financial_analyst", ANALYSED)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan(),  # the model plans no query at all, as pilot investigation 1's did
+        ChatReply.answer(
+            countering(
+                counter(
+                    CONCENTRATION_STATEMENT,
+                    "customer_concentration",
+                    coherent,
+                    contradicts=False,
+                )
+            )
+        ),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["skeptic"] == "succeeded"
+    [accepted_claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert accepted_claim["quote"] == SUPPLY_QUOTE
+
+    # The Skeptic asked Memory about each bear-checklist item for each company the accepted
+    # Claim names (its subject, and its object: NVIDIA is a universe company here), across
+    # the theme: 2 companies x 6 items, after the Scout's four recalls. No LLM call.
+    asked_by_skeptic = fake.requests("POST", "memories/recall")[recalls_before + 4 :]
+    assert len(asked_by_skeptic) == 12
+    assert {(tuple(r["tags"]), r["tags_match"]) for r in asked_by_skeptic} == {
+        (("theme:photonics",), "any_strict")
+    }
+    queries = [r["query"] for r in asked_by_skeptic]
+    assert queries[5] == COHERENT_CONCENTRATION_QUERY  # Coherent first, in checklist order
+    assert queries[7] == NVIDIA_SECOND_SOURCE_QUERY
+    assert [q.split(":")[0] for q in queries] == ["Coherent"] * 6 + ["NVIDIA"] * 6
+
+    # What resolved is stored as the Skeptic task's reading pointers, apart from the Scout's:
+    # each says which checklist item and company its query was.
+    pointers = skeptic_pointers(found)
+    assert len(pointers) == 12
+    assert {(p["round"], p["query_kind"], p["citation_state"]) for p in pointers} == {
+        (1, "bear_checklist", "resolved")
+    }
+    assert [(p["query_index"], p["checklist_item"], p["query_company_id"]) for p in pointers] == [
+        (index + 1, item, company)
+        for index, (company, item) in enumerate(
+            (company, item) for company in (coherent, nvidia) for item in CHECKLIST
+        )
+    ]
+    assert pointers[5]["query"] == COHERENT_CONCENTRATION_QUERY
+    assert (pointers[5]["query_company_name"], pointers[6]["query_company_name"]) == (
+        "Coherent",
+        "NVIDIA",
+    )
+    assert {
+        (p["source_version_id"], p["section_anchor"], p["rank"], p["memory_text"]) for p in pointers
+    } == {(ten_k, ITEM_1A, 1, CONCENTRATION_MEMORY)}
+    scouts = [p for p in found["pointers"] if p["task_key"] == "scout"]
+    assert sorted(p["query_index"] for p in scouts) == [0, 1, 2, 3]
+    assert {(p["query_kind"], p["checklist_item"], p["query_company_id"]) for p in scouts} == {
+        ("scout", None, None)
+    }
+    artifacts = tasks(found)["skeptic"]["artifacts"]
+    assert (artifacts["pointer_recalls"], artifacts["pointer_recalls_failed"]) == (12, 0)
+    assert (artifacts["pointers"], artifacts["pointers_by_company"]) == (12, {"coherent": 12})
+    recorded = [e for e in events(atlas, started["id"]) if e["type"] == "pointers_recorded"]
+    assert [e["task_key"] for e in recorded] == ["scout", "skeptic"]
+    with atlas.engine.connect() as connection:
+        audited = connection.execute(
+            text(
+                "SELECT actor, entity_id FROM audit_event"
+                " WHERE action = 'investigation.pointers_recorded' ORDER BY id"
+            )
+        ).all()
+    assert [tuple(row) for row in audited] == [
+        ("atlas-scout", tasks(found)["scout"]["id"]),
+        ("atlas-skeptic", tasks(found)["skeptic"]["id"]),
+    ]
+    # An Investigator reads by the Scout's pointers only (the default of `round_reading`).
+    with atlas.engine.connect() as connection:
+        investigators = round_reading(
+            connection, uuid.UUID(started["id"]), 1, [uuid.UUID(ten_k)]
+        ).pointers
+    assert sorted(p.query_index for p in investigators) == [0, 1, 2, 3]
+
+    # Its plan answered no query: nothing was searched. It still has a document and passages:
+    # the 10-K, chosen by the pointers (Coherent has a pointer, so no fallback).
+    plan, reading = skeptic_calls(llm)
+    assert "passages" not in plan["request"]
+    assert (artifacts["discovery_id"], artifacts["queries_searched"]) == (None, 0)
+    assert (artifacts["documents"], artifacts["documents_from_pointers"]) == (1, 1)
+    assert (artifacts["documents_fallback"], artifacts["documents_from_fallback"]) == (False, 0)
+    assert "skeptic_documents_fallback" not in [e["type"] for e in events(atlas, started["id"])]
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    [plan_call] = [c for c in calls if c["prompt_name"] == "skeptic-plan"]
+    assert plan_call["prompt_version"] == 5
+
+    # The first passage it was sent is the window of Item 1A that holds the statement the
+    # Memory paraphrases, not the Item's opening window.
+    parsed = atlas.parsed(ten_k)
+    at_ = parsed.index(CONCENTRATION_STATEMENT)
+    sent = reading["retrieved_data"]
+    assert len(sent) == artifacts["passages"] == 24
+    version_id, _, span = sent[0]["source"].partition("#")
+    start, end = (int(part) for part in span.split("-"))
+    assert version_id == ten_k and start <= at_ < end
+    assert start > item_1a["char_start"]
+    assert reading["request"]["passages"][0]["section"] == ITEM_1A
+    assert "customer_concentration" in reading["request"]["passages"][0]["checklist_items"]
+    assert {p["source"].split("#")[0] for p in sent} == {ten_k}
+    # Memory chose what it read; no Memory was sent to it (or to any role).
+    assert CONCENTRATION_MEMORY not in json.dumps(llm.chat_requests())
+    assert not any(
+        item["id"] == pointers[0]["memory_id"]
+        for body in llm.chat_requests()
+        for item in asked(body).get("retrieved_data", [])
+    )
+    # One pointer window; the rest of its 24 passages are the term search's (the
+    # bear-checklist queries' terms).
+    assert artifacts["passages_by_selection"]["pointer"] == 1
+    assert artifacts["passages_by_selection"]["search"] >= 23
+    row = skeptic_read(found)
+    assert (row["status"], row["detail"], row["documents_fallback"]) == ("succeeded", None, False)
+    [document] = row["documents"]
+    assert (document["source_version_id"], document["selected_by"]) == (ten_k, "pointer")
+    assert (document["passages"], row["passages"]) == (24, 24)
+    assert document["selections"] == artifacts["passages_by_selection"]
+    assert document["sections"][0] == ITEM_1A
+
+    # What it found there is bear context on the card: a checklist item, the company, a span.
+    [item] = found["counterevidence"]
+    assert (item["outcome"], item["kind"], item["checklist_item"]) == (
+        "accepted",
+        "bear_context",
+        "customer_concentration",
+    )
+    assert (item["source_version_id"], item["passage_id"]) == (ten_k, "s1")
+    assert parsed[item["span_start"] : item["span_end"]] == CONCENTRATION_STATEMENT
+    card = found["research_card"]
+    assert card["contradictions"] == []
+    [group] = card["bear_context"]
+    assert (group["checklist_item"], group["company_id"], group["company_name"]) == (
+        "customer_concentration",
+        coherent,
+        "Coherent",
+    )
+    [context] = group["items"]
+    assert context["source_span"]["quote"] == CONCENTRATION_STATEMENT
+    assert card["findings"][0]["counterevidence_ids"] == []
+    assert found["stop_reason"] == "answered"
+
+
+def test_a_company_memory_points_to_nothing_of_is_read_through_the_fallback(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
     # Pilot investigation 1's seeds and archive: Coherent's and Lumentum's recorded filings.
     atlas = services.start()
     atlas.ingest_company("lumentum")
+    fake = services.hindsight[0]
     coherent, lumentum = company_id(atlas, "coherent"), company_id(atlas, "lumentum")
+    cohr_10k = atlas.version(COHR_10K, "coherent")["id"]
+    cohr_10q = atlas.version(COHR_10Q, "coherent")["id"]
+    lite = {
+        name: atlas.version(url)["id"]
+        for name, url in [
+            ("10-K", LITE_10K),
+            ("8-K", LITE_8K),
+            ("EX-99.1", LITE_EX991),
+            ("10-Q", LITE_10Q),
+        ]
+    }
+    # Memory holds Coherent's filings and nothing of Lumentum's (as for a company whose
+    # filings wait in the retention backfill).
+    unretained = memory_documents(atlas, *lite.values())
+    fake.report_zero_facts(lambda document_id: document_id in unretained)
     started = seeded(atlas, "coherent", "lumentum")
-    script_parallel(llm)  # its plan answers `"documents": []`, as the pilot's did
+    script_parallel(llm)  # its plan writes no query; its reading proposes nothing
     llm.script_chat(
         scout_reply(),
-        ChatReply.answer(quoting(supply_claim(atlas))),
-        ChatReply.answer(quoting(supply_claim(atlas))),
+        ChatReply.answer(quoting(supply_claim(atlas), allocation_claim(atlas))),
+        ChatReply.answer(quoting(supply_claim(atlas), allocation_claim(atlas))),
         ChatReply.answer(editing()),
         REVIEWED,
     )
@@ -2756,43 +3035,47 @@ def test_a_skeptic_plan_that_chooses_no_document_falls_back_to_each_seed_company
 
     found = investigation(atlas, started["id"])
     assert tasks(found)["skeptic"]["status"] == "succeeded"
-    plan, *readings = skeptic_calls(llm)
-    assert plan["request"]["catalog"]  # it had archived documents to choose from
-    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
-    [plan_call] = [c for c in calls if c["prompt_name"] == "skeptic-plan"]
-    assert plan_call["prompt_version"] == 4
-    # Code chose for it: each seed company's latest 10-K and 10-Q, in seed order; the
-    # Investigators had read them, so the document budget isn't charged again.
-    expected = [
-        atlas.version(COHR_10K, "coherent")["id"],
-        atlas.version(COHR_10Q, "coherent")["id"],
-        atlas.version(LITE_10K)["id"],
-        atlas.version(LITE_10Q)["id"],
-    ]
+    # Both seed companies have an accepted Claim, so the Skeptic asks Memory about both (and
+    # about NVIDIA, the supply Claim's object).
+    claims = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert {c["subject_company_id"] for c in claims} == {coherent, lumentum}
+    pointers = skeptic_pointers(found)
+    assert {p["query_company_name"] for p in pointers} == {"Coherent", "Lumentum", "NVIDIA"}
+    assert tasks(found)["skeptic"]["artifacts"]["pointer_recalls"] == 18
+    # Every pointer leads into Coherent's filings: Memory holds nothing of Lumentum's.
+    assert {p["company_id"] for p in pointers} == {coherent}
+    assert {p["source_version_id"] for p in pointers} == {cohr_10k, cohr_10q}
+
+    # Coherent is read where Memory points; Lumentum, with no pointer, through the fallback:
+    # its latest 10-K and 10-Q. The Investigators had read all four, so the document budget
+    # isn't charged again. NVIDIA has nothing archived, so nothing to fall back to.
+    expected = [cohr_10k, cohr_10q, lite["10-K"], lite["10-Q"]]
     artifacts = tasks(found)["skeptic"]["artifacts"]
-    assert (artifacts["documents_fallback"], artifacts["documents_from_fallback"]) == (True, 4)
     assert (artifacts["documents"], artifacts["documents_dropped"]) == (4, 0)
+    assert (artifacts["documents_from_pointers"], artifacts["documents_from_fallback"]) == (2, 2)
+    assert artifacts["documents_fallback"] is True
     assert {d["task_key"] for d in found["documents"]} == {
         "investigator:coherent",
         "investigator:lumentum",
     }
-    # A researcher sees that the model chose nothing.
+    # A researcher sees that Memory pointed at nothing of Lumentum's.
     [fell_back] = [
         e for e in events(atlas, found["id"]) if e["type"] == "skeptic_documents_fallback"
     ]
     assert (fell_back["round"], fell_back["task_key"]) == (1, "skeptic")
-    assert fell_back["detail"] == {
-        "plan_documents": 0,
-        "seed_company_ids": [coherent, lumentum],
-        "documents": 4,
-    }
-    # It read passages of at least one archived Source Version of each seed company.
+    assert fell_back["detail"] == {"company_ids": [lumentum], "documents": 2}
+    # It read passages of both companies' filings: each periodic report keeps a passage.
+    plan, *readings = skeptic_calls(llm)
+    assert "passages" not in plan["request"]
     sent = [p for reading in readings for p in reading["retrieved_data"]]
-    read_versions = {p["source"].split("#")[0] for p in sent}
-    assert read_versions & set(expected[:2])
-    assert read_versions & set(expected[2:])
-    assert artifacts["passages"] == len(sent)
-    # The card states what the Skeptic read, like the Investigators' rows.
+    per_document: dict[str, int] = {}
+    for passage in sent:
+        version_id = passage["source"].split("#")[0]
+        per_document[version_id] = per_document.get(version_id, 0) + 1
+    assert set(per_document) == set(expected)
+    assert artifacts["passages"] == len(sent) == 24
+    # The card states what the Skeptic read, like the Investigators' rows: each document, who
+    # chose it, and how its passages were selected.
     card = found["research_card"]
     assert [(r["role"], r["task_key"]) for r in card["read"]] == [
         ("investigator", "investigator:coherent"),
@@ -2805,12 +3088,23 @@ def test_a_skeptic_plan_that_chooses_no_document_falls_back_to_each_seed_company
         None,
         True,
     )
-    assert [d["source_version_id"] for d in skeptic["documents"]] == expected
-    assert {d["selected_by"] for d in skeptic["documents"]} == {"fallback"}
+    assert [(d["source_version_id"], d["selected_by"]) for d in skeptic["documents"]] == [
+        (cohr_10k, "pointer"),
+        (cohr_10q, "pointer"),
+        (lite["10-K"], "fallback"),
+        (lite["10-Q"], "fallback"),
+    ]
     titles = {d["source_version_id"]: d["title"] for d in found["documents"]}
     assert [d["title"] for d in skeptic["documents"]] == [titles[v] for v in expected]
-    for document in skeptic["documents"]:  # sections where it was sent passages
-        assert bool(document["sections"]) == (document["source_version_id"] in read_versions)
+    shown = {d["source_version_id"]: d for d in skeptic["documents"]}
+    assert {key: d["passages"] for key, d in shown.items()} == per_document
+    assert all(d["sections"] for d in skeptic["documents"])
+    assert shown[cohr_10k]["selections"]["pointer"] >= 1
+    # A fallback document has no pointer: its passages are the term search's best windows of
+    # it (the bear-checklist queries' terms), not its opening windows.
+    for name in ("10-K", "10-Q"):
+        assert "pointer" not in shown[lite[name]]["selections"]
+    assert shown[lite["10-K"]]["selections"] == {"search": per_document[lite["10-K"]]}
     assert (skeptic["passages"], skeptic["claims_proposed"], skeptic["claims_accepted"]) == (
         len(sent),
         0,
@@ -2822,12 +3116,55 @@ def test_a_skeptic_plan_that_chooses_no_document_falls_back_to_each_seed_company
     assert [r["company"] for r in editor["request"]["read"]] == ["Coherent", "Lumentum"]
 
 
+def test_a_skeptic_plan_that_is_quarantined_still_leaves_the_skeptic_reading(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    ten_k = atlas.version(COHR_10K, "coherent")["id"]
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    started = seeded(atlas, "coherent")
+    llm.script_role("financial_analyst", ANALYSED)
+    off_schema = ChatReply.json({"documents": []})  # no `queries`: not a plan
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        off_schema,
+        off_schema,  # and its one repair
+        ChatReply.json({"counterevidence": []}),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    skeptic = tasks(found)["skeptic"]
+    assert (skeptic["status"], found["stop_reason"]) == ("succeeded", "answered")
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    [plan_call] = [c for c in calls if c["prompt_name"] == "skeptic-plan"]
+    assert plan_call["status"] == "quarantined"
+    [quarantined] = [
+        e for e in events(atlas, started["id"]) if e["type"] == "skeptic_plan_quarantined"
+    ]
+    assert quarantined["detail"] == {"role_call_id": plan_call["id"]}
+    # No query was searched; Memory's pointers still chose its documents and passages.
+    artifacts = skeptic["artifacts"]
+    assert (artifacts["plan_role_call_id"], artifacts["discovery_id"]) == (plan_call["id"], None)
+    assert (artifacts["documents"], artifacts["documents_from_pointers"]) == (2, 2)
+    assert artifacts["passages"] > 0
+    assert [d["source_version_id"] for d in skeptic_read(found)["documents"]] == [ten_k, ten_q]
+
+
 def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_not_independent(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
     # The Investigator reads four documents here; with 60 passages it reaches the 10-K's
     # supply-agreement window (the search's, after the windows Memory points to: the fake
-    # recalls a fact for every retained section, the copy's among them).
+    # recalls a fact for every retained section). The Skeptic reads the same four, every
+    # candidate window in one call: the 10-K, the 10-Q and the later statement where its
+    # pointers lead, and the copy because its own search finds it (Memory holds no fact of
+    # the copy: its sections are the 10-K's, retained once).
     atlas = services.start(
         investigator_max_passages=500,
         investigator_passages_per_call=500,
@@ -2860,7 +3197,7 @@ def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_no
         scout_reply(),
         # The Investigator quotes the 10-K (it is sent the copy's same passage too).
         ChatReply.answer(quoting(supply_claim(atlas), version=ten_k)),
-        skeptic_plan(documents=((copy, "capacity_additions"), (update, "second_sources"))),
+        skeptic_plan((MIRROR, "capacity_additions")),
         ChatReply.answer(
             countering(
                 # From the copy: the same witness as the Investigator's 10-K, however it's
@@ -2879,12 +3216,15 @@ def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_no
         REVIEWED,
     )
     script_searches(searxng)
+    searxng.script(MIRROR, mirror_result())
 
     atlas.worker_pass()
 
     found = investigation(atlas, started["id"])
     [claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
     assert claim["source_version_id"] == ten_k
+    chosen = {d["source_version_id"]: d["selected_by"] for d in skeptic_read(found)["documents"]}
+    assert (chosen[copy], chosen[ten_k], chosen[update]) == ("search", "pointer", "pointer")
     items = by_quote(found)
     shared, own = items[NON_EXCLUSIVE_QUOTE], items[LIMIT_QUOTE]
     assert (shared["kind"], own["kind"]) == ("contradiction", "contradiction")
@@ -2893,6 +3233,7 @@ def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_no
     assert shared["independent"] is False
     assert "not an independent witness" in shared["independence_detail"]
     assert (own["outcome"], own["independent"]) == ("accepted", True)
+    assert own["source_version_id"] == update
     artifacts = tasks(found)["skeptic"]["artifacts"]
     assert (artifacts["counterevidence_accepted"], artifacts["counterevidence_independent"]) == (
         2,
@@ -2918,6 +3259,7 @@ def test_memory_and_other_roles_output_are_never_witnesses(
     atlas = services.start()
     fake = services.hindsight[0]
     coherent = company_id(atlas, "coherent")
+    ten_k = atlas.version(COHR_10K, "coherent")["id"]
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
     # Real Memory about Coherent: what Hindsight holds, derived from the retained filings.
     [memory, *_] = atlas.recall("Coherent customers and suppliers", company_ids=[coherent])[
@@ -2929,7 +3271,7 @@ def test_memory_and_other_roles_output_are_never_witnesses(
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        skeptic_plan(documents=((ten_q, "dilution_financing"),)),
+        skeptic_plan(),
         ChatReply.answer(
             countering(
                 counter(memory["text"], "second_sources", coherent, passage_id=memory["memory_id"]),
@@ -2950,18 +3292,25 @@ def test_memory_and_other_roles_output_are_never_witnesses(
     atlas.worker_pass()
 
     found = investigation(atlas, started["id"])
-    # Nothing but passages of the Source Versions it chose were sent, and no Memory was read
-    # for the Skeptic: the recalls are the Scout's reading pointers (the question and its
-    # three queries, across the theme), which the Investigator reads by without a recall of
-    # its own (ticket 05); the one mental-model read is the Scout's.
+    # Nothing but passages of archived Source Versions were sent to the Skeptic, and no
+    # Memory: Memory chose what it read and went no further. The recalls are the Scout's
+    # reading pointers (the question and its three queries, across the theme), which the
+    # Investigator reads by without a recall of its own (ticket 05), and the Skeptic's (ticket
+    # 07): one per bear-checklist item for each company the Claim names, Coherent and NVIDIA,
+    # across the theme too. The one mental-model read is the Scout's.
     plan, reading = skeptic_calls(llm)
     assert plan["retrieved_data"] == []
-    assert all(p["source"].startswith(f"{ten_q}#") for p in reading["retrieved_data"])
+    assert reading["retrieved_data"]
+    assert {p["source"].split("#")[0] for p in reading["retrieved_data"]} <= {ten_k, ten_q}
+    assert {p["id"] for p in reading["retrieved_data"]} == {
+        f"s{n}" for n in range(1, len(reading["retrieved_data"]) + 1)
+    }
     asked_of_hindsight = fake.requests("POST", "memories/recall")[recalls:]
-    assert [r["tags"] for r in asked_of_hindsight] == [["theme:photonics"]] * 4
-    # The pointers are an index: no role was sent a memory they name.
+    assert [r["tags"] for r in asked_of_hindsight] == [["theme:photonics"]] * (4 + 2 * 6)
+    # The pointers are an index: no role was sent a memory they name, the Skeptic's included.
     pointed = {p["memory_id"] for p in found["pointers"]}
     assert memory["memory_id"] in pointed
+    assert memory["memory_id"] in {p["memory_id"] for p in skeptic_pointers(found)}
     assert not any(
         item["id"] in pointed
         for body in llm.chat_requests()
@@ -2993,13 +3342,13 @@ def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
 ) -> None:
     atlas = services.start()
     coherent = company_id(atlas, "coherent")
-    update = import_update(atlas)
+    update = import_update(atlas)  # retained, so Memory points the Skeptic to it
     started = seeded(atlas, "coherent")
     llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        skeptic_plan(documents=((update, "second_sources"),)),
+        skeptic_plan(),
         ChatReply.answer(
             countering(
                 counter(LIMIT_QUOTE, "second_sources", coherent, disproves="company:coherent"),
@@ -3021,6 +3370,7 @@ def test_the_skeptic_s_independent_counterevidence_disproves_a_company_premise(
         "contradiction",
         True,
     )
+    assert first["source_version_id"] == update
     assert (second["outcome"], second["reason_code"]) == ("rejected", "unknown_premise")
     premises = {p["key"]: p for p in found["premises"]}
     assert premises["question"]["status"] == "open"
@@ -3069,14 +3419,9 @@ def test_one_contradiction_marks_one_finding_and_the_rest_is_bear_context_on_the
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        skeptic_plan(
-            documents=(
-                (update, "second_sources"),
-                (ten_k, "customer_concentration"),
-                (ten_q, "inventory_cycle"),
-                (lite_10k, "second_sources"),
-            )
-        ),
+        # Where Memory points: Coherent's filings and the later statement, and Lumentum's
+        # (in the theme, so its facts answer the theme-wide recalls too).
+        skeptic_plan(),
         ChatReply.answer(
             countering(
                 # A later statement limiting the supply Claim, naming both its parties.
@@ -3230,7 +3575,7 @@ def test_a_table_row_is_bear_context_only_with_its_figure_s_name_and_period(
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(supply_claim(atlas))),
-        skeptic_plan(documents=((ten_q, "inventory_cycle"),)),
+        skeptic_plan(),
         ChatReply.answer(
             countering(
                 # The pilot's rows: a label and its figures, no words.
@@ -3276,6 +3621,7 @@ def test_a_table_row_is_bear_context_only_with_its_figure_s_name_and_period(
         "bear_context",
         [],
     )
+    assert equity["source_version_id"] == ten_q  # the 10-Q's balance sheet, where Memory points
     assert equity["kind_reason"] == (
         "proposed as a contradiction, but its quote is a table row, which states nothing that"
         " could deny, limit or date a Claim"

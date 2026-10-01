@@ -96,9 +96,9 @@ export function readerName(reading: CardReading): string {
 
 /**
  * What one Investigator's or the Skeptic's reading came to, in words: why it read nothing,
- * or its documents (for the Skeptic, how many code chose because its plan chose none for a
- * seed company), passages and proposals (Claims, or counterevidence items), with the
- * rejected ones by reason.
+ * or its documents (for the Skeptic, how many code chose because Memory pointed at nothing
+ * of a company the Claims name), passages and proposals (Claims, or counterevidence items),
+ * with the rejected ones by reason.
  */
 export function readingOutcome(reading: CardReading): string {
   if (reading.documents.length === 0) return reading.detail ?? "Read nothing.";
@@ -107,7 +107,7 @@ export function readingOutcome(reading: CardReading): string {
   const parts = [
     `${plural(reading.documents.length, "document")} read`,
     ...(chosenByCode > 0
-      ? [`${chosenByCode} chosen by code (its plan chose none for a seed company)`]
+      ? [`${chosenByCode} chosen by code (Memory pointed at nothing of the company's)`]
       : []),
     ...(reading.documents_dropped > 0
       ? [`${reading.documents_dropped} left out by the document budget`]
@@ -138,7 +138,7 @@ const selectionOrder = (kind: string) =>
 /**
  * How a document's passages were selected, in words ("pointer 2, search 5"): its passages
  * per kind of selection, a passage counting under each kind that chose it. Null when the
- * card records none (a document with no passage sent, the Skeptic's, an older card).
+ * card records none (a document with no passage sent, an older card).
  */
 export function selectionSummary(selections: Record<string, number> | undefined): string | null {
   const kinds = Object.entries(selections ?? {}).sort(
@@ -162,9 +162,17 @@ export function foundBy(selectedBy: string[] | undefined): string | null {
 /** One query asked of Memory, and the reading pointers its recall gave. */
 export type PointerGroup = {
   round: number;
-  /** 0: the round's question; n: the Scout's nth query. */
+  /** Who asked: the Scout (its pointers direct the Investigators) or the Skeptic. */
+  kind: ReadingPointer["query_kind"];
+  /**
+   * The Scout's: 0 for the round's question, n for its nth query. The Skeptic's: the
+   * query's position among its own, from 1.
+   */
   queryIndex: number;
   query: string;
+  /** A Skeptic's query: its bear-checklist item and the company it asks about. */
+  checklistItem: string | null;
+  queryCompany: string | null;
   /** Best rank first. */
   pointers: ReadingPointer[];
   /** The companies pointed at, most pointers first. */
@@ -172,18 +180,22 @@ export type PointerGroup = {
 };
 
 /**
- * An investigation's reading pointers by the query that recalled them: rounds in order, the
- * question before the Scout's queries, each group's pointers by rank. A query whose recall
- * gave no pointer has no group.
+ * An investigation's reading pointers by the query that recalled them: rounds in order, in
+ * each the Scout's (the question before its queries) before the Skeptic's (its
+ * bear-checklist queries, in the order asked), each group's pointers by rank. A query whose
+ * recall gave no pointer has no group.
  */
 export function pointerGroups(pointers: ReadingPointer[]): PointerGroup[] {
   const groups = new Map<string, PointerGroup>();
   for (const pointer of pointers) {
-    const key = `${pointer.round}:${pointer.query_index}`;
+    const key = `${pointer.round}:${pointer.query_kind}:${pointer.query_index}`;
     const group = groups.get(key) ?? {
       round: pointer.round,
+      kind: pointer.query_kind,
       queryIndex: pointer.query_index,
       query: pointer.query,
+      checklistItem: pointer.checklist_item,
+      queryCompany: pointer.query_company_name,
       pointers: [],
       companies: [],
     };
@@ -206,12 +218,23 @@ export function pointerGroups(pointers: ReadingPointer[]): PointerGroup[] {
       .map(([name, count]) => ({ name, pointers: count }))
       .sort((a, b) => b.pointers - a.pointers || a.name.localeCompare(b.name));
   }
-  return [...groups.values()].sort((a, b) => a.round - b.round || a.queryIndex - b.queryIndex);
+  const asker = (group: PointerGroup) => (group.kind === "scout" ? 0 : 1);
+  return [...groups.values()].sort(
+    (a, b) => a.round - b.round || asker(a) - asker(b) || a.queryIndex - b.queryIndex,
+  );
 }
 
-/** Which query a group is: the round's question or one of the Scout's, by number. */
+/**
+ * Which query a group is: the round's question or one of the Scout's, by number; or the
+ * Skeptic's, by its bear-checklist item and the company it asks about.
+ */
 export function pointerQueryLabel(group: PointerGroup): string {
-  const which = group.queryIndex === 0 ? "The question" : `Query ${group.queryIndex}`;
+  const which =
+    group.kind === "bear_checklist"
+      ? `${checklistLabel(group.checklistItem ?? "")} of ${group.queryCompany ?? "a company"}`
+      : group.queryIndex === 0
+        ? "The question"
+        : `Query ${group.queryIndex}`;
   return group.round > 1 ? `${which} (follow-up round ${group.round})` : which;
 }
 

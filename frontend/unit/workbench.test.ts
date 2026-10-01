@@ -142,7 +142,7 @@ test("the Skeptic's reading says what code chose for it, its counterevidence, or
     role: "skeptic",
     company_name: null,
     documents: [
-      { source_version_id: "a", title: "10-K", sections: ["item-1a"], selected_by: "plan" },
+      { source_version_id: "a", title: "10-K", sections: ["item-1a"], selected_by: "pointer" },
       { source_version_id: "b", title: "10-Q", sections: ["item-2"], selected_by: "fallback" },
       { source_version_id: "c", title: "10-K", sections: [], selected_by: "fallback" },
     ],
@@ -156,8 +156,8 @@ test("the Skeptic's reading says what code chose for it, its counterevidence, or
   } as unknown as CardReading;
   expect(readerName(reading)).toBe("Skeptic");
   expect(readingOutcome(reading)).toBe(
-    "3 documents read; 2 chosen by code (its plan chose none for a seed company); 6 passages;" +
-      " 2 counterevidence items proposed, 1 accepted; rejected: quote mismatch ×1.",
+    "3 documents read; 2 chosen by code (Memory pointed at nothing of the company's);" +
+      " 6 passages; 2 counterevidence items proposed, 1 accepted; rejected: quote mismatch ×1.",
   );
   const noPassage = {
     ...reading,
@@ -166,11 +166,11 @@ test("the Skeptic's reading says what code chose for it, its counterevidence, or
     claims_proposed: 0,
     claims_accepted: 0,
     rejected: {},
-    detail: "the Skeptic read no passage: no passage of the 1 document it chose matches a checklist item",
+    detail: "the Skeptic read no passage: the 1 document it chose has no text to read",
   } as unknown as CardReading;
   expect(readingOutcome(noPassage)).toBe(
     "1 document read; 0 passages; 0 counterevidence items proposed, 0 accepted;" +
-      " the Skeptic read no passage: no passage of the 1 document it chose matches a checklist item.",
+      " the Skeptic read no passage: the 1 document it chose has no text to read.",
   );
   const skipped = {
     ...reading,
@@ -187,6 +187,10 @@ function pointer(overrides: Partial<ReadingPointer>): ReadingPointer {
     id: `${overrides.round ?? 1}-${overrides.query_index}-${overrides.rank}-${overrides.section_anchor}`,
     round: 1,
     task_key: "scout",
+    query_kind: "scout",
+    checklist_item: null,
+    query_company_id: null,
+    query_company_name: null,
     memory_type: "world",
     memory_text: "AXT signed a supply agreement with Coherent for 6-inch InP substrates.",
     source_version_id: "v-axt-10q",
@@ -295,6 +299,57 @@ test("a company the pointers name says what became of it, and an added Investiga
   expect(addedInvestigator(task(1, "investigator:coherent"), [coherent, axt])).toBeNull();
   expect(addedInvestigator(task(2, "investigator:axt"), [coherent, axt])).toBeNull(); // round 1's
   expect(addedInvestigator(task(1, "scout"), [])).toBeNull();
+});
+
+test("the Skeptic's reading pointers are grouped apart from the Scout's, by checklist item and company", () => {
+  const skeptic = (overrides: Partial<ReadingPointer>) =>
+    pointer({
+      task_key: "skeptic",
+      query_kind: "bear_checklist",
+      query_company_id: "c-coherent",
+      query_company_name: "Coherent",
+      ...overrides,
+    });
+  const concentration = "Coherent: customer concentration, largest customers; NVIDIA";
+  const groups = pointerGroups([
+    // The Skeptic's query 1 and the Scout's query 1 are different queries of one round.
+    skeptic({ query_index: 6, query: concentration, checklist_item: "customer_concentration", rank: 2 }),
+    skeptic({
+      query_index: 1,
+      query: "Coherent: substitute products or technologies; NVIDIA",
+      checklist_item: "substitutes",
+      rank: 1,
+    }),
+    pointer({ query_index: 1, query: "InP wafer substrate capacity", rank: 1 }),
+    skeptic({
+      round: 2,
+      query_index: 1,
+      query: "Lumentum: substitute products or technologies",
+      checklist_item: "substitutes",
+      query_company_name: "Lumentum",
+      rank: 1,
+    }),
+    skeptic({ query_index: 6, query: concentration, checklist_item: "customer_concentration", rank: 1 }),
+  ]);
+
+  // In a round the Scout's come first, then the Skeptic's in the order it asked.
+  expect(groups.map((group) => [group.round, group.kind, group.queryIndex])).toEqual([
+    [1, "scout", 1],
+    [1, "bear_checklist", 1],
+    [1, "bear_checklist", 6],
+    [2, "bear_checklist", 1],
+  ]);
+  expect(groups.map(pointerQueryLabel)).toEqual([
+    "Query 1",
+    "Substitutes of Coherent",
+    "Customer concentration of Coherent",
+    "Substitutes of Lumentum (follow-up round 2)",
+  ]);
+  const asked = groups[2] as PointerGroup;
+  expect([asked.checklistItem, asked.queryCompany]).toEqual(["customer_concentration", "Coherent"]);
+  expect(asked.pointers.map((each) => each.rank)).toEqual([1, 2]);
+  // The company a pointer leads to (AXT's filing) need not be the company asked about.
+  expect(pointerSummary(asked)).toBe("2 pointers: AXT 2");
 });
 
 test("the Skeptic's items are counted by kind: contradictions, bear context, rejected", () => {

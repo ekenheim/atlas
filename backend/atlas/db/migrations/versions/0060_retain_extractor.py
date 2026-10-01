@@ -21,13 +21,13 @@ columns only, and the new column is not one of them). The downgrade counts the r
 operations against `codex` at their submission time and drops the columns.
 
 Revision ID: 0060
-Revises: 0058 (re-chained at merge)
+Revises: 0059 (re-chained at merge)
 """
 
 from alembic import op
 
 revision = "0060"
-down_revision = "0058"
+down_revision = "0059"
 branch_labels = None
 depends_on = None
 

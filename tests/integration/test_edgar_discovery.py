@@ -387,12 +387,16 @@ def test_when_every_search_of_both_channels_fails_the_scout_retries(
 
 
 def test_the_skeptic_s_filing_phrase_searches_edgar_and_reads_an_archived_filing_it_finds(
-    atlas: Atlas, fakes: Fakes
+    atlas: Atlas, fakes: Fakes, hindsight_fake: RecordedHindsight
 ) -> None:
-    started = start(atlas)
     coherent = atlas.company("coherent")["id"]
     nvidia = atlas.company("nvidia")["id"]
     ten_k = atlas.version(COHR_10K, "coherent")["id"]
+    # Memory holds nothing of the 10-K, so no reading pointer leads the Skeptic to it: its
+    # filing search does (memory-directed reading ticket 07).
+    unretained = {d["document_id"] for d in atlas.memory(ten_k)["documents"]}
+    hindsight_fake.report_zero_facts(lambda document_id: document_id in unretained)
+    started = start(atlas)
     claim: dict[str, JsonValue] = {
         "subject_company_id": coherent,
         "predicate": "supplies",
@@ -444,8 +448,7 @@ def test_the_skeptic_s_filing_phrase_searches_edgar_and_reads_an_archived_filing
                     "checklist_item": "second_sources",
                     "filing_phrase": '"InP substrates"',
                 }
-            ],
-            "documents": [],
+            ]
         },
         tokens=(800, 90),
     )
@@ -493,12 +496,16 @@ def test_the_skeptic_s_filing_phrase_searches_edgar_and_reads_an_archived_filing
         '"InP substrates"',
     )
     assert (query["edgar"]["query"], query["edgar"]["status"]) == (INP, "searched")
-    # The Coherent 10-K hit is an archived catalog document: the Skeptic reads it.
+    # The Coherent 10-K hit is an archived catalog document: the Skeptic reads it, beside
+    # what Memory pointed to.
     assert skeptic["artifacts"]["documents_from_search"] == 1
     [reading] = [
         asked(b)
         for b in fakes.llm.chat_requests()
         if b["metadata"]["role"] == "skeptic" and asked(b)["request"].get("passages") is not None
     ]
-    assert reading["retrieved_data"]
-    assert all(p["source"].startswith(f"{ten_k}#") for p in reading["retrieved_data"])
+    assert any(p["source"].startswith(f"{ten_k}#") for p in reading["retrieved_data"])
+    [by_search] = [
+        d for d in found["research_card"]["read"][-1]["documents"] if d["selected_by"] == "search"
+    ]
+    assert (by_search["source_version_id"], by_search["passages"] > 0) == (ten_k, True)

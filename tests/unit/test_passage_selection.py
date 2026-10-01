@@ -169,6 +169,25 @@ def test_a_window_chosen_by_several_selections_is_one_candidate_recording_them_a
     assert chosen.dropped == 0
 
 
+def test_a_labelled_pointer_is_recorded_by_its_label_not_its_query_number() -> None:
+    # The Skeptic's pointers carry their bear-checklist item (memory-directed reading ticket
+    # 07), so its passages' tags never read as a Scout query's number. Order is by rank, then
+    # the query's number, as for any pointer; pointers sharing a label are one tag.
+    document = note(paragraph("We lease our facilities."), paragraph(ALLOCATION))
+    pointers = [
+        Pointer(document.id, "chunk-001", 4, 9, MEMORY, label="customer_concentration"),
+        Pointer(document.id, "chunk-001", 1, 2, MEMORY, label="inventory_cycle"),
+        Pointer(document.id, "chunk-001", 6, 8, MEMORY, label="inventory_cycle"),
+    ]
+
+    [found] = candidates([document], reading=Reading(pointers=pointers))
+
+    assert document.text[found.start : found.end].startswith(ALLOCATION)
+    assert found.selected_by == ("pointer:inventory_cycle", "pointer:customer_concentration")
+    assert found.pointer == (1, 2)
+    assert selections(found.selected_by) == ["pointer"]
+
+
 def test_lead_windows_are_offered_only_by_a_document_with_no_other_candidate() -> None:
     matching = note(paragraph("We lease our facilities."), paragraph("We make lasers."))
     silent = note(paragraph("Officer changes."), paragraph("Exhibits."))

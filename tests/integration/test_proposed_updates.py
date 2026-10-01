@@ -37,7 +37,6 @@ QUESTION = "Who supplies the lasers in AI data-center optics, and to whom?"
 SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
 SECOND_SOURCE = "InP laser second source qualification hyperscaler"
 COHR_10K = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm"
-COHR_10Q = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm"
 # From the Coherent 10-Q's balance sheet (the recorded fixture's parsed text).
 DILUTION_QUOTE = (
     "issued - 212,340,736 shares at March 31, 2026; 171,849,325 shares at June 30, 2025"
@@ -279,11 +278,11 @@ def hypothesis_editor(body: dict[str, Any]) -> JsonValue:
 
 
 def finding_nothing(body: dict[str, Any]) -> JsonValue:
-    """The Skeptic finding nothing: its plan chooses no query and no document, and its reading
-    of what code's fallback then chose (pilot fix 06) proposes nothing."""
-    if "catalog" in asked(body)["request"]:
-        return {"queries": [], "documents": []}
-    return {"counterevidence": []}
+    """The Skeptic finding nothing: its plan writes no query, and its reading of what Memory
+    pointed to (or code's fallback chose) proposes nothing."""
+    if "passages" in asked(body)["request"]:
+        return {"counterevidence": []}
+    return {"queries": []}
 
 
 # Enough answers for the plan and every reading call (the unused ones are never asked for).
@@ -291,7 +290,8 @@ NOTHING_TO_READ = (ChatReply.answer(finding_nothing, tokens=(500, 50)),) * 8
 
 
 def limiting_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
-    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained);
+    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained,
+    so Memory points the Skeptic to it as to the 10-Q);
     the Skeptic reads it and the 10-Q, and proposes two contradictions of every supporting
     Claim: the later statement, which limits the supply agreement and names both its parties,
     and the 10-Q's share count."""
@@ -313,8 +313,6 @@ def limiting_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
     )
     assert imported.returncode == 0, imported.stderr
     atlas.worker_pass()
-    update = json.loads(imported.stdout)["source_version_id"]
-    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
 
     def reading(body: dict[str, Any]) -> JsonValue:
         sent = asked(body)
@@ -364,14 +362,8 @@ def limiting_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
             ]
         }
 
-    plan: dict[str, JsonValue] = {
-        "queries": [],
-        "documents": [
-            {"source_version_id": update, "checklist_item": "second_sources"},
-            {"source_version_id": ten_q, "checklist_item": "dilution_financing"},
-        ],
-    }
-    return ChatReply.json(plan), ChatReply.answer(reading)
+    # Its plan writes no query; what it reads is where Memory points.
+    return ChatReply.json({"queries": []}), ChatReply.answer(reading)
 
 
 def investigate(

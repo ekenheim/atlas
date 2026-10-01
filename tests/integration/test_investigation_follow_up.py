@@ -292,11 +292,11 @@ def reviewing(body: dict[str, Any]) -> JsonValue:
 
 
 def finding_nothing(body: dict[str, Any]) -> JsonValue:
-    """The Skeptic finding nothing: its plan chooses no query and no document, and its reading
-    of what code's fallback then chose (pilot fix 06) proposes nothing."""
-    if "catalog" in asked(body)["request"]:
-        return {"queries": [], "documents": []}
-    return {"counterevidence": []}
+    """The Skeptic finding nothing: its plan writes no query, and its reading of what Memory
+    pointed to (or code's fallback chose) proposes nothing."""
+    if "passages" in asked(body)["request"]:
+        return {"counterevidence": []}
+    return {"queries": []}
 
 
 # Enough answers for the plan and every reading call (the unused ones are never asked for).
@@ -439,19 +439,20 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
         "financial_analyst": "succeeded",
         "editor": "succeeded",
     }
-    # Each round's Skeptic plans; code's fallback chooses for the seed companies its plan chose
-    # nothing of: round 1 Coherent's filings (read in a second call), round 2 Lumentum's note
-    # (Coherent's were read by round 1's Skeptic), which has no passage for the checklist.
+    # Each round's Skeptic asks Memory and plans, then reads where Memory points (a second
+    # call): round 1 Coherent's filings, round 2 Lumentum's note (Coherent's were read by
+    # round 1's Skeptic, so round 2's leaves them out).
     assert roles(llm)[7:] == [
         "scout",
         "investigator",
+        "skeptic",
         "skeptic",
         "financial_analyst",
         "editor",
         "reviewer",
     ]
     sent = requests(llm)
-    assert {body["metadata"]["run_id"] for body in sent[7:12]} == {found["run_id"]}
+    assert {body["metadata"]["run_id"] for body in sent[7:13]} == {found["run_id"]}
     assert asked(sent[7])["request"]["research_question"] == OPEN_QUESTION
     round_2 = {t["key"]: t for t in found["tasks"] if t["round"] == 2}
     assert round_2["investigator:coherent"]["artifacts"]["documents"] == 0
@@ -467,7 +468,7 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
         (2, OPEN_QUESTION),
     }
     assert round_2["scout"]["artifacts"]["pointers"] == sum(
-        1 for p in found["pointers"] if p["round"] == 2
+        1 for p in found["pointers"] if p["round"] == 2 and p["task_key"] == "scout"
     )
     assert [d["title"] for d in found["documents"] if d["task_key"] == "investigator:lumentum"] == [
         "lumentum-follow-up.txt"
@@ -478,16 +479,31 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
     assert found["follow_ups"][0]["card_before"] == card_before
     assert found["usage"]["rounds"] == 2
     assert found["usage"]["tokens_in"] == (
-        900 + 9000 + 500 + 500 + 1500 + 3000 + 400 + 2000 + 500 + 1500 + 3000
+        900 + 9000 + 500 + 500 + 1500 + 3000 + 400 + 2000 + 500 + 500 + 1500 + 3000
     )
+    # Round 1's Skeptic read where Memory pointed (Coherent's filings): no fallback. Round
+    # 2's asked about Lumentum too (its Claim is the round's); Memory holds nothing of
+    # Lumentum's and Coherent's filings were read by round 1's Skeptic, so code's fallback
+    # chose the one document left, Lumentum's note.
     skeptics = [r for r in found["research_card"]["read"] if r["role"] == "skeptic"]
-    assert [(r["round"], r["documents_fallback"]) for r in skeptics] == [(1, True), (2, True)]
-    assert [d["title"] for d in skeptics[1]["documents"]] == ["lumentum-follow-up.txt"]
-    assert (skeptics[1]["passages"], skeptics[1]["detail"]) == (
-        0,
-        "the Skeptic read no passage: no passage of the 1 document it chose matches a"
-        " bear-checklist item",
-    )
+    assert [(r["round"], r["documents_fallback"]) for r in skeptics] == [(1, False), (2, True)]
+    assert {d["selected_by"] for d in skeptics[0]["documents"]} == {"pointer"}
+    assert [(d["title"], d["selected_by"]) for d in skeptics[1]["documents"]] == [
+        ("lumentum-follow-up.txt", "fallback")
+    ]
+    assert (skeptics[1]["passages"], skeptics[1]["detail"]) == (1, None)
+    asked_about = {
+        (p["round"], p["query_company_name"])
+        for p in found["pointers"]
+        if p["task_key"] == "skeptic"
+    }
+    assert asked_about == {
+        (1, "Coherent"),
+        (1, "NVIDIA"),
+        (2, "Coherent"),
+        (2, "Lumentum"),
+        (2, "NVIDIA"),
+    }
     # The Evidence tray: each accepted Claim with its source span, by round.
     tray = [
         (e["round"], e["subject_name"], e["object_name"], e["quote"]) for e in found["evidence"]

@@ -39,7 +39,7 @@ Anything derived and held by Hindsight: extracted facts, observations, mental mo
 _Avoid_: Evidence, knowledge (unqualified)
 
 **Reading pointer**:
-A recalled Memory resolved to a section of a Source Version, recorded with the query that recalled it and its rank in that recall. It is Memory used as an index: it says where an investigation should read. It is never Evidence, never quoted, never a witness, and never sent to a role as a statement.
+A recalled Memory resolved to a section of a Source Version, recorded with the query that recalled it and its rank in that recall. It is Memory used as an index: it says where an investigation should read. The Scout's pointers (the question and its queries) direct the Investigators; the Skeptic's (each bear-checklist item asked about each company the accepted Claims name) direct the Skeptic. It is never Evidence, never quoted, never a witness, and never sent to a role as a statement.
 _Avoid_: Recall hit, citation, lead (a lead is a web or filing-search result)
 
 ### Research objects
