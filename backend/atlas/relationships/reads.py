@@ -14,6 +14,11 @@ pass, first occurrence first: why it is (or was) an exception.
 is the read-only report of the edges recorded before migration 0055 that share a subject,
 predicate and object and differ only by layer: they are left as they are, and no new one can
 be made.
+
+**Company-level edges** (memory-directed reading ticket 09). An edge may have no object:
+a company's own `capacity_constrained` statement that names no product (`company_level`
+true; object company, name and text null; no layer). There is at most one per company; it
+is among the company's edges like any other, and sorted by object it comes first.
 """
 
 import uuid
@@ -68,6 +73,9 @@ class Relationship(BaseModel):
     object_company_id: uuid.UUID | None
     object_name: str | None  # the object company's display name
     object_text: str | None  # the object product, material or technology
+    # True for the subject's company-level edge: it has no object at all (`object_company_id`,
+    # `object_name` and `object_text` are null) and no layer. Only `capacity_constrained`.
+    company_level: bool
     layer: Layer | None  # null: no Evidence of the edge names a layer
     products: list[str]
     review_state: RelationshipState
@@ -140,12 +148,13 @@ class RelationshipDetail(Relationship):
 
 _BASE = f"""
     SELECT r.id, r.subject_company_id, s.display_name AS subject_name, r.predicate,
-           r.object_company_id, o.display_name AS object_name, r.object_text, r.layer,
+           r.object_company_id, o.display_name AS object_name, r.object_text,
+           (r.object_company_id IS NULL AND r.object_text IS NULL) AS company_level, r.layer,
            coalesce(ev.products, '{{}}') AS products, r.review_state,
            coalesce(ev.evidence_count, 0) AS evidence_count,
            coalesce(ev.family_count, 0) AS family_count,
            r.reviewed_by, r.reviewed_at, r.review_note, r.created_at, r.updated_at,
-           coalesce(o.display_name, r.object_text) AS object_sort,
+           coalesce(o.display_name, r.object_text, '') AS object_sort,
            coalesce(array_position(ARRAY[{_LAYER_ORDER}], r.layer), 0) AS layer_rank
     FROM relationship r
     JOIN company s ON s.id = r.subject_company_id

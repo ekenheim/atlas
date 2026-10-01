@@ -2338,6 +2338,8 @@ export interface components {
             object_company_id: string | null;
             /** Object Text */
             object_text: string | null;
+            /** Company Level */
+            company_level: boolean;
             /** Product */
             product: string | null;
             /** Layer */
@@ -2533,7 +2535,7 @@ export interface components {
             source_total: number;
             /**
              * Relationships Out
-             * @description edges with the company as subject
+             * @description edges with the company as subject, its company-level edge (no object) among them
              */
             relationships_out: components["schemas"]["Relationship"][];
             /**
@@ -5618,6 +5620,8 @@ export interface components {
             object_name: string | null;
             /** Object Text */
             object_text: string | null;
+            /** Company Level */
+            company_level: boolean;
             layer: components["schemas"]["Layer"] | null;
             /** Products */
             products: string[];
@@ -5671,6 +5675,8 @@ export interface components {
             object_name: string | null;
             /** Object Text */
             object_text: string | null;
+            /** Company Level */
+            company_level: boolean;
             layer: components["schemas"]["Layer"] | null;
             /** Products */
             products: string[];

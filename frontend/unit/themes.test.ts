@@ -43,6 +43,19 @@ test("an edge with no layer is listed under each theme company it names", () => 
   ]);
 });
 
+test("a company-level edge has no object: it is listed under its own company only", () => {
+  // Lumentum's own constraint names no product: no object company, no object text, no layer.
+  const constrained = {
+    ...edge("e-constrained", LUMENTUM.id, null, null),
+    object_text: null,
+    company_level: true,
+  } as Relationship;
+  expect(layeredEdges([constrained, sole])).toEqual([sole]);
+  expect(layerlessByCompany([constrained, sole], [COHERENT, LUMENTUM, FABRINET])).toEqual([
+    { company: LUMENTUM, edges: [constrained] },
+  ]);
+});
+
 test("a company with no layerless edge is left out, and layered edges never show there", () => {
   expect(layerlessByCompany([sole], [LUMENTUM, FABRINET])).toEqual([]);
   expect(layerlessByCompany(edges, [FABRINET])).toEqual([]);

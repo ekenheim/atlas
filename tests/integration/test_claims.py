@@ -310,7 +310,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
         )
         assert assertion["source_version_id"] == version_id
         assert assertion["review_state"] == "unreviewed"
-        assert assertion["extractor_version"] == "investigator.v7"
+        assert assertion["extractor_version"] == "investigator.v8"
         assert assertion["created_by"] == "atlas-investigator"
         assert assertion["value_json"]["claim_id"] == accepted["id"]
     supplied = atlas.get(f"/api/v1/assertions/{supplies['assertion_id']}")
@@ -1269,13 +1269,22 @@ def test_an_expansion_is_no_constraint_and_owns_runs_from_the_holder_to_the_issu
 
     assert job["status"] == "succeeded", job["failures"]
     expansion, no_product, holder, issuer = claims_of(atlas, job["artifacts"]["extraction_id"])
-    # "capital allocation" and "expand manufacturing capacity" are no language of constraint.
+    # "capital allocation" and "expand manufacturing capacity" are no language of constraint,
+    # with a product or without one.
     assert (expansion["outcome"], expansion["reason_code"]) == (
         "rejected",
         "no_directional_language",
     )
-    # A real constraint, of no particular product.
-    assert (no_product["outcome"], no_product["reason_code"]) == ("rejected", "generic_object")
+    assert expansion["company_level"] is False
+    # A real constraint, of no particular product: the company's own (ticket 09; before it,
+    # `generic_object`). The object that names no product is dropped, and the layer with it.
+    assert (no_product["outcome"], no_product["reason_code"]) == ("accepted", None)
+    assert (no_product["company_level"], no_product["object_text"], no_product["layer"]) == (
+        True,
+        None,
+        None,
+    )
+    assert no_product["proposed"]["object_text"] == "manufacturing capacity"
     assert (holder["outcome"], holder["reason_code"]) == ("accepted", None)
     assert (holder["party_basis"], holder["directional_cue"]) == ("named", "shares")
     owned = atlas.get(f"/api/v1/assertions/{holder['assertion_id']}")
@@ -1398,3 +1407,174 @@ def test_a_claim_keeps_its_layer_only_when_the_quote_or_the_object_names_it(
     (unknown,) = claims_of(atlas, again["artifacts"]["extraction_id"])
     assert (unknown["outcome"], unknown["reason_code"]) == ("rejected", "unknown_layer")
     assert (unknown["layer"], unknown["layer_reason"]) == ("optics", None)
+
+
+# --- a company-level constraint needs no named product (memory-directed reading ticket 09) -------
+
+# Both sentences are in the recorded Lumentum FY2026 10-K: Item 1's allocation statement (read
+# in breadth investigation 5, proposed with object "our products" and rejected) and Item 1A's
+# risk factor, which says "could".
+LITE_10K = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
+ALLOCATION = (
+    "This demand is outpacing our current supply which has required us to make decisions on"
+    " supply allocation."
+)
+RISK_FACTOR = (
+    "Due to increased demand across a range of industries, our business and"
+    " customers\N{RIGHT SINGLE QUOTATION MARK} businesses are experiencing and could, in the"
+    " future, experience supply constraints due to both constrained manufacturing capacity, as"
+    " well as component parts shortages."
+)
+
+
+def constrained(subject: str, quote: str, object_text: str | None) -> dict[str, JsonValue]:
+    """A `capacity_constrained` Claim as the pilot's Investigator proposed them: with the
+    question's layer, and whatever object text it found."""
+    return claim(
+        subject_company_id=subject,
+        predicate="capacity_constrained",
+        object_text=object_text,
+        layer="module",
+        quote=quote,
+    )
+
+
+def test_a_constraint_on_the_filer_s_own_supply_is_a_claim_with_no_object_and_no_layer(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    litellm: Served,
+    llm: FakeLiteLLM,
+    themes: Path,
+) -> None:
+    # Every window of the 10-K is sent in one call: the allocation statement's window names no
+    # other company, so it is read as a recall hit of the question.
+    atlas = start_atlas(
+        database_url,
+        tmp_path,
+        hindsight,
+        litellm,
+        themes,
+        investigator_max_passages=1000,
+        investigator_passages_per_call=1000,
+    )
+    atlas.ingest_company("lumentum")
+    lumentum, coherent = company_id(atlas, "lumentum"), company_id(atlas, "coherent")
+    version_id = atlas.version(LITE_10K, "lumentum")["id"]
+
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                # As investigation 5 proposed it: an object that names no product, and a layer.
+                constrained(lumentum, ALLOCATION, "our products"),
+                # As `investigator.v8` asks: no object, no layer.
+                constrained(lumentum, ALLOCATION, None) | {"layer": None},
+                # The same sentence proposed for another company than the filer.
+                constrained(coherent, ALLOCATION, "our products"),
+                # A risk factor's conditional: a Claim (the hedge is the review's to judge).
+                constrained(lumentum, RISK_FACTOR, "manufacturing capacity"),
+                # A named product the quote doesn't name: the rule is as before.
+                constrained(lumentum, ALLOCATION, "EML laser chips"),
+                # The other bottleneck predicates still need their object.
+                constrained(lumentum, ALLOCATION, None) | {"predicate": "sole_sources"},
+            )
+        )
+    )
+
+    job = extract(
+        atlas, "lite-10k", source_version_ids=[version_id], question="Who is supply constrained?"
+    )
+
+    assert job["status"] == "succeeded", job["failures"]
+    proposed, unnamed, other_company, risk_factor, product, sole = claims_of(
+        atlas, job["artifacts"]["extraction_id"]
+    )
+    parsed = atlas.parsed(version_id)
+    for accepted, quote in [
+        (proposed, ALLOCATION),
+        (unnamed, ALLOCATION),
+        (risk_factor, RISK_FACTOR),
+    ]:
+        assert (accepted["outcome"], accepted["reason_code"]) == ("accepted", None)
+        # Company-level: no object, no layer; the proposal stays in `proposed`.
+        assert accepted["company_level"] is True
+        assert (accepted["object_text"], accepted["object_company_id"]) == (None, None)
+        assert (accepted["layer"], accepted["layer_term"]) == (None, None)
+        assert accepted["party_basis"] == "named"
+        assert parsed[accepted["span_start"] : accepted["span_end"]] == quote
+        assertion = atlas.get(f"/api/v1/assertions/{accepted['assertion_id']}")
+        assert (assertion["subject_company_id"], assertion["predicate"]) == (
+            lumentum,
+            "capacity_constrained",
+        )
+        assert assertion["object_company_id"] is None
+        assert assertion["quote"] == quote
+        value = assertion["value_json"]
+        assert (value["object_text"], value["layer"], value["company_level"]) == (None, None, True)
+    assert (proposed["proposed"]["object_text"], proposed["proposed"]["layer"]) == (
+        "our products",
+        "module",
+    )
+    assert proposed["directional_cue"] == "demand is outpacing"
+    assert risk_factor["proposed"]["object_text"] == "manufacturing capacity"
+    assert risk_factor["directional_cue"] == "constraints"
+    # Only the filer states its own constraint.
+    assert (other_company["outcome"], other_company["reason_code"]) == (
+        "rejected",
+        "company_level_not_filer",
+    )
+    assert "Coherent" in other_company["reason"]
+    assert (product["outcome"], product["reason_code"]) == ("rejected", "object_not_in_quote")
+    assert (sole["outcome"], sole["reason_code"]) == ("rejected", "missing_object")
+    assert [c["company_level"] for c in (other_company, product, sole)] == [False] * 3
+    # The request tells the model that `capacity_constrained`, and only it, may have no object.
+    [body] = llm.chat_requests()
+    reads = {p["name"]: p["reads"] for p in asked(body)["request"]["predicates"]}
+    assert [name for name, said in reads.items() if "with no object" in said] == [
+        "capacity_constrained"
+    ]
+
+
+# A hand-written Lumentum document (not a recorded filing): a slide bullet that names no
+# company, and two sentences in which the constrained party is another company.
+ALLOCATION_BULLET = "Demand outpacing supply; products on allocation through fiscal 2027"
+SUPPLIER_CONSTRAINED = (
+    "Our contract manufacturer Fabrinet is capacity constrained and has placed our orders on"
+    " allocation."
+)
+OTHER_CONSTRAINED = "Fabrinet remains supply constrained through fiscal 2027."
+CONSTRAINT_DOCUMENT = f"""<html><head><title>Lumentum supply update</title></head><body>
+<h1>Lumentum: supply update</h1>
+<ul><li>{ALLOCATION_BULLET}</li></ul>
+<p>{SUPPLIER_CONSTRAINED}</p>
+<p>{OTHER_CONSTRAINED}</p>
+</body></html>
+"""
+
+
+def test_a_company_level_constraint_names_no_other_company(atlas: Atlas, llm: FakeLiteLLM) -> None:
+    lumentum = company_id(atlas, "lumentum")
+    version_id = import_document(atlas, "lumentum", "supply-update", CONSTRAINT_DOCUMENT)
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                # The filer's own slide bullet names nobody: ticket 02's filer rule.
+                constrained(lumentum, ALLOCATION_BULLET, None),
+                # "Our" names the filer, but the constrained party is its supplier.
+                constrained(lumentum, SUPPLIER_CONSTRAINED, None),
+                # The filer unnamed and another company named: co-mention.
+                constrained(lumentum, OTHER_CONSTRAINED, "our supply"),
+            )
+        )
+    )
+
+    job = extract(atlas, "supply-update", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    bullet, supplier, other = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert (bullet["outcome"], bullet["company_level"]) == ("accepted", True)
+    assert (bullet["party_basis"], bullet["directional_cue"]) == ("filer", "Demand outpacing")
+    assert (supplier["outcome"], supplier["reason_code"]) == ("rejected", "other_company_in_quote")
+    assert "Fabrinet" in supplier["reason"]
+    assert (other["outcome"], other["reason_code"]) == ("rejected", "party_not_in_quote")
+    assert "Fabrinet" in other["reason"] and "co-mention" in other["reason"]

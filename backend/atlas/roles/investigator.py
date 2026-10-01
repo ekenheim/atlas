@@ -12,6 +12,8 @@ schema leaves `predicate` and `layer` as strings, so an
 off-whitelist proposal is recorded as a rejected Claim with its reason instead of failing
 the whole call. `layer` may be null: a Claim names a layer only when its quote does, and Atlas
 drops a proposed layer the quote and the object don't name (`atlas.claims.layer_term`).
+`object_text` may be null for one product predicate: a `capacity_constrained` Claim about the
+filer's own supply, whose quote names no product (`atlas.claims.company_level`).
 """
 
 from typing import Literal
@@ -25,8 +27,10 @@ from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 # object, no generic materials/components Claims, one clause (pilot-fixes ticket 09); v6: the
 # filer's impersonal sentences and slide bullets, language of constraint, `owns` from the holder
 # to the issuer (memory-directed reading ticket 02); v7: the layer may be left out, and is kept
-# only when the quote or the object names it (memory-directed reading ticket 08)
-INVESTIGATOR_PROMPT_VERSION = 7
+# only when the quote or the object names it (memory-directed reading ticket 08); v8: a
+# constraint on the company's own supply is proposed with no object and no layer
+# (memory-directed reading ticket 09)
+INVESTIGATOR_PROMPT_VERSION = 8
 
 # An Investigator Claim quotes a source; an agent's own inference is never a Claim.
 ClaimEpistemicType = Literal["direct_source_statement", "company_claim", "third_party_report"]
@@ -77,6 +81,8 @@ class ProposedClaim(RoleOutput):
     predicate: str
     object_company_id: str | None
     object_name: str | None  # a company object outside `request.companies`, as the quote names it
+    # A product object, as the quote names it; null for a company object, and for a
+    # company-level `capacity_constrained` Claim (the quote names no product)
     object_text: str | None
     product: str | None
     layer: str | None  # null: the quote names nothing of a particular layer

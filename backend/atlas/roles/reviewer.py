@@ -2,8 +2,9 @@
 "Review").
 
 A separate LLM call from the Investigator's, with its own prompt and schema. Each item is one
-Assertion as a proposed edge: subject, predicate (with the direction it reads in), object,
-product and layer (null when its quote supports none), plus the source it quotes. The quote
+Assertion as a proposed edge: subject, predicate (with the direction it reads in), object
+(none for a company-level `capacity_constrained` item: `company_level`), product and layer
+(null when its quote supports none), plus the source it quotes. The quote
 and a window of text around it are sent as quoted, low-trust `retrieved_data`
 (`<item_id>:quote` and `<item_id>:context`), never in the request. For each item the Reviewer
 answers three checks, each on its own (memory-directed reading ticket 08): whether the quote
@@ -24,8 +25,10 @@ from atlas.roles.investigator import LayerOption
 
 # v2: product objects and the company-level bottleneck predicates; v3: generic risk-factor
 # language and a cue in another clause (pilot-fixes ticket 09); v4: one answer per check
-# (direction, hedge, layer), and an item may have no layer (memory-directed reading ticket 08)
-REVIEWER_PROMPT_VERSION = 4
+# (direction, hedge, layer), and an item may have no layer (memory-directed reading ticket 08);
+# v5: a company-level `capacity_constrained` item has no object, and what makes it right
+# (memory-directed reading ticket 09)
+REVIEWER_PROMPT_VERSION = 5
 
 # The overall verdict the Reviewer gave up to `reviewer.v3` (kept for the recorded reviews).
 Verdict = Literal["confirmed", "rejected", "uncertain"]
@@ -59,6 +62,9 @@ class EdgeToReview(_Request):
     reads: str  # what "<subject> <predicate> <object>" means, direction included
     object_company: EdgeParty | None
     object_text: str | None
+    # True for a company-level `capacity_constrained` item: it has no object on purpose (the
+    # constraint is the subject's own supply), so `object_company` and `object_text` are null.
+    company_level: bool
     product: str | None
     layer: str | None  # null: the quote supports no layer, so none is proposed
     source: EdgeSource

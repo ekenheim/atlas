@@ -24,6 +24,28 @@ export function layerLabel(layer: Layer | null): string | null {
   return layer === null ? null : LAYERS[layer];
 }
 
+/**
+ * What an edge with no object is called: a company's own `capacity_constrained` statement
+ * that names no product (the API's `company_level`). It has no object company, no object
+ * text and no layer.
+ */
+export const COMPANY_LEVEL = "company-level";
+
+/** The object of an edge or of a Claim, as far as naming it needs. */
+export type EdgeObjectNames = { object_name: string | null; object_text: string | null };
+
+/** An object as text: the company, else the product, else "(company-level)" for none. */
+export function objectLabel(edge: EdgeObjectNames): string {
+  return edge.object_name ?? edge.object_text ?? `(${COMPANY_LEVEL})`;
+}
+
+/** "Subject predicate Object", the edge read in its direction. */
+export function edgeLabel(
+  edge: EdgeObjectNames & { subject_name: string; predicate: string },
+): string {
+  return `${edge.subject_name} ${edge.predicate} ${objectLabel(edge)}`;
+}
+
 /** A Relationship's review states (spec "Review"). */
 export const STATES: Record<RelationshipState, string> = {
   machine_reviewed: "Machine-reviewed",

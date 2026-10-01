@@ -69,6 +69,13 @@ YIELDS = (
     "Changes in demand and customer requirements for our products may reduce manufacturing"
     " yields, which could negatively impact our profitability."
 )
+# Item 1A of the same 10-K: a constraint on Lumentum's own supply that names no product.
+RISK_FACTOR = (
+    "Due to increased demand across a range of industries, our business and"
+    " customers\N{RIGHT SINGLE QUOTATION MARK} businesses are experiencing and could, in the"
+    " future, experience supply constraints due to both constrained manufacturing capacity, as"
+    " well as component parts shortages."
+)
 GAPS = "- EML laser capacity for 1.6T transceivers is unconfirmed by any Tier A source."
 NO_HINDSIGHT = "http://hindsight.invalid"  # the harness's marker for "not configured"
 INNOLIGHT_PDF = "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0828/2026082800123.pdf"
@@ -318,6 +325,45 @@ def test_the_map_holds_the_relationships_between_theme_companies(
     assert companies["lumentum"]["relationship_count"] == 4  # the NVIDIA edge too
     assert companies["fabrinet"]["relationship_count"] == 1
     assert researched.get("/api/v1/themes")[0]["relationship_count"] == 3
+
+
+def test_a_company_level_constraint_is_on_the_map_and_the_dossier_with_no_object(
+    atlas: ExplorerAtlas,
+) -> None:
+    # Memory-directed reading ticket 09: Lumentum's own constraint names no product, so its
+    # edge has no object and no layer (the quote says "could": no Reviewer call).
+    atlas.seed()
+    atlas.ingest_lumentum()
+    atlas.edges(
+        ("capacity_constrained", None, RISK_FACTOR, {"layer": "module", "object_text": None}),
+        ("depends_on", "fabrinet", SOLE_SOURCE, {"layer": "contract-manufacturing"}),
+    )
+
+    theme = atlas.map()
+    # Among the map's edges, with the layerless ones (the Theme explorer lists those under
+    # the theme company they name).
+    assert [
+        (e["subject_name"], e["predicate"], e["object_name"], e["object_text"], e["layer"])
+        for e in theme["relationships"]
+    ] == [
+        ("Lumentum", "capacity_constrained", None, None, None),
+        ("Lumentum", "depends_on", "Fabrinet", None, "contract-manufacturing"),
+    ]
+    assert [e["company_level"] for e in theme["relationships"]] == [True, False]
+    assert theme["counterparties"] == []
+    companies = {c["slug"]: c for layer in theme["layers"] for c in layer["companies"]}
+    assert companies["lumentum"]["relationship_count"] == 2
+    assert theme["theme"]["relationship_count"] == 2
+
+    dossier = atlas.dossier("lumentum", as_of=NOW)
+    out = {(e["predicate"], e["company_level"]): e for e in dossier["relationships_out"]}
+    assert set(out) == {("capacity_constrained", True), ("depends_on", False)}
+    own = out[("capacity_constrained", True)]
+    assert (own["object_company_id"], own["object_name"], own["object_text"]) == (None, None, None)
+    assert (own["review_state"], own["evidence_count"]) == ("needs_human_review", 1)
+    assert dossier["relationships_in"] == []
+    # The edge with no object is no other company's.
+    assert [e["predicate"] for e in atlas.dossier("fabrinet")["relationships_in"]] == ["depends_on"]
 
 
 def test_the_map_holds_the_theme_candidates_only(atlas: ExplorerAtlas) -> None:

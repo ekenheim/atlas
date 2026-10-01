@@ -38,7 +38,10 @@ class CompanyDossier(BaseModel):
     )
     sources: list[SourceDocument] = Field(description="Source Documents, first seen first")
     source_total: int
-    relationships_out: list[Relationship] = Field(description="edges with the company as subject")
+    relationships_out: list[Relationship] = Field(
+        description="edges with the company as subject, its company-level edge (no object)"
+        " among them"
+    )
     relationships_in: list[Relationship] = Field(description="edges with the company as object")
     financials: FinancialFigures = Field(description="canonical metrics as of `as_of`")
     fetch_gate_blocks: list[FetchGateDecision] = Field(

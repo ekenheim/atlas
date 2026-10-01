@@ -63,6 +63,18 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    generic materials, components or capacity (`generic_object`); and for any product object
    the cue must be in a clause that names the object (`cue_in_other_clause`, pilot-fixes
    ticket 09). See `atlas.claims.predicates`.
+   **A company-level constraint** (memory-directed reading ticket 09): a
+   `capacity_constrained` Claim proposed with no object text, or with one that names no
+   product ("our products", "manufacturing capacity", "our current supply":
+   `atlas.claims.company_level`), is the company's own constraint. It needs no object (never
+   `missing_object`, `object_not_in_quote` or `generic_object`): the object text is dropped,
+   and the layer with it, and the Claim records `company_level`. It is accepted only as the
+   filer's own statement: the subject is the company whose document it is
+   (`company_level_not_filer`), named, in the first person or as the unnamed party of its own
+   impersonal sentence; the quote carries a constraint cue (`no_directional_language`); and
+   it names no other company, which could be the constrained party instead
+   (`other_company_in_quote`; `party_not_in_quote` when the filer is unnamed). With a named
+   product the rule is as above, and the other three bottleneck predicates always need one.
    **The layer is not a check** (memory-directed reading ticket 08): a Claim may propose
    none, and a proposed layer is kept only when one of its taxonomy terms occurs in the object
    text or the quote (`atlas.claims.layer_term`; the Claim records the term, `layer_term`).
@@ -72,7 +84,8 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    layer, and so is an ownership stake proposed with the question's layer.
 4. **Outcome.** A Claim that passes becomes an Assertion (`extractor_version`
    `investigator.v<N>`, created by `atlas-investigator`, `value_json` holding the claim ID,
-   layer, product and product object), recorded with its `claim` row in one transaction. A
+   layer, product and product object, and `company_level` true for a company-level Claim),
+   recorded with its `claim` row in one transaction. A
    named company Atlas didn't have becomes a **counterparty company** in that transaction,
    only now that every check has passed (audited `company.counterparty_created`), and is a
    known company from the next batch on. Names are resolved before the transaction (the
@@ -107,9 +120,11 @@ from atlas.assertions import AssertionCreate, Assertions, InvalidAssertion, chec
 from atlas.audit import Actor, content_hash, record
 from atlas.claims.predicates import (
     BOTTLENECK_PREDICATES,
+    COMPANY_LEVEL_PREDICATES,
     LAYER_NAMES,
     LAYERS,
     PREDICATES,
+    company_level,
     company_names,
     direction_refusal,
     directional_cue,
@@ -238,6 +253,9 @@ class _Judged:
     layer: str | None = None
     layer_term: str | None = None
     layer_reason: str | None = None
+    # A `capacity_constrained` Claim with no object and no layer: the filer's own constraint
+    # (`atlas.claims.company_level`). What was proposed as its object stays in `proposed`.
+    company_level: bool = False
     # The named object company Atlas doesn't have yet: created when the Claim is accepted.
     counterparty: NewCounterparty | None = None
 
@@ -633,12 +651,12 @@ class ClaimExtractor:
                     " object_company_id, object_text, product, layer, quote, span_start,"
                     " span_end, epistemic_type, directional_cue, outcome, reason_code, reason,"
                     " assertion_id, offset_source, parser_version, party_basis, layer_term,"
-                    " layer_reason) VALUES (:id, :extraction,"
+                    " layer_reason, company_level) VALUES (:id, :extraction,"
                     " :run, :role_call, :ordinal, CAST(:proposed AS jsonb), :passage, :version,"
                     " :subject, :predicate, :object, :object_text, :product, :layer, :quote,"
                     " :span_start, :span_end, :epistemic_type, :cue, :outcome, :reason_code,"
                     " :reason, :assertion, :offset_source, :parser_version, :party_basis,"
-                    " :layer_term, :layer_reason) RETURNING *"
+                    " :layer_term, :layer_reason, :company_level) RETURNING *"
                 ),
                 {
                     "id": claim_id,
@@ -652,7 +670,12 @@ class ClaimExtractor:
                     "subject": judged.subject_company_id,
                     "predicate": proposed.predicate,
                     "object": judged.object_company_id,
-                    "object_text": proposed.object_text,
+                    # A company-level Claim has no object: what was proposed for it ("our
+                    # products") stays in `proposed`.
+                    "object_text": None
+                    if accepted and judged.company_level
+                    else proposed.object_text,
+                    "company_level": accepted and judged.company_level,
                     "product": proposed.product,
                     # An accepted Claim's layer is the supported one; a rejected Claim keeps
                     # what was proposed.
@@ -757,7 +780,7 @@ class ClaimExtractor:
                 return _reject(judged, "unknown_company", message)
             if object_id == subject.id:
                 return _reject(judged, "self_relationship", "subject and object are one company")
-        elif not (proposed.object_text or "").strip():
+        elif not (proposed.object_text or "").strip() and rule.name not in COMPANY_LEVEL_PREDICATES:
             message = (
                 f"{rule.name} needs object_text: its object is a product, material or technology"
             )
@@ -781,14 +804,20 @@ class ClaimExtractor:
             span, offset_source = placed.span, placed.source
             quote = self._text(version)[span[0] : span[1]]
         object_text = (proposed.object_text or "").strip()
+        # A constraint whose object names no product is the company's own: no object, no layer.
+        own = rule.object_kind == "product" and company_level(rule.name, object_text)
+        if own:
+            object_text = ""
         # The layer is kept only when the object text or the quote names it.
         supporting: str | None = None
-        if proposed_layer is not None:
+        if proposed_layer is not None and not own:
             supporting = layer_term(
                 proposed_layer, quote, object_text if rule.object_kind == "product" else None
             )
         layer = proposed_layer if supporting is not None else None
-        layer_reason = "layer_unsupported" if layer is None and proposed_layer else None
+        # A company-level Claim has no layer because it has no object: `company_level` says so.
+        unsupported = layer is None and proposed_layer is not None and not own
+        layer_reason = "layer_unsupported" if unsupported else None
         try:
             assertion = AssertionCreate(
                 subject_company_id=subject.id,
@@ -799,7 +828,10 @@ class ClaimExtractor:
                     "claim_id": str(claim_id),
                     "layer": layer,
                     "product": proposed.product,
-                    "object_text": proposed.object_text if rule.object_kind == "product" else None,
+                    "object_text": (
+                        proposed.object_text if rule.object_kind == "product" and not own else None
+                    ),
+                    **({"company_level": True} if own else {}),
                 },
                 source_version_id=version.id,
                 quote=quote,
@@ -822,6 +854,14 @@ class ClaimExtractor:
             filer = "subject"
         elif rule.object_kind == "company" and object_id == version.company_id:
             filer = "object"
+        if own and filer != "subject":
+            message = (
+                f"a {rule.name} Claim with no named product is the filer's own statement about"
+                f" its supply, and {subject.names[0]} is not the company whose document this"
+                " is: name the product, or propose it from that company's own document"
+            )
+            return _reject(judged, "company_level_not_filer", message)
+        others = [c.names for c in companies if c.id not in (subject.id, object_id)]
         party_basis = "named"
         for role, names in parties:
             if names_party(quote, names, is_filer=role == filer):
@@ -836,11 +876,23 @@ class ClaimExtractor:
                 names,
                 counterparty=next((other for each, other in parties if each != role), None),
                 object_text=object_text,
-                others=[c.names for c in companies if c.id not in (subject.id, object_id)],
+                others=others,
+                company_level=own,
             )
             if unnamed is not None:
                 return _reject(judged, "party_not_in_quote", unnamed)
             party_basis = "filer"
+        if own and party_basis == "named":
+            # The filer is named, and so is another company: the constraint could be that one's.
+            strays = stray_companies(quote, [subject.names], others)
+            if strays:
+                message = (
+                    f"the quote names {', '.join(strays)}: a {rule.name} Claim with no named"
+                    " product is the filer's own constraint, and a sentence naming another"
+                    " company could be about that company's (propose the relation with that"
+                    " company, or name the product)"
+                )
+                return _reject(judged, "other_company_in_quote", message)
         cue = directional_cue(rule.name, quote)
         if cue is None:
             message = (
@@ -854,7 +906,7 @@ class ClaimExtractor:
             )
             if reversed_ is not None:
                 return _reject(judged, "wrong_direction", reversed_)
-        if rule.object_kind == "product":
+        if rule.object_kind == "product" and not own:
             if rule.name in BOTTLENECK_PREDICATES:
                 if not names_object(quote, object_text):
                     message = (
@@ -891,6 +943,7 @@ class ClaimExtractor:
             layer=layer,
             layer_term=supporting,
             layer_reason=layer_reason,
+            company_level=own,
             counterparty=counterparty,
         )
 
@@ -980,18 +1033,20 @@ def _unnamed_filer_refusal(
     counterparty: Sequence[str] | None,
     object_text: str,
     others: Sequence[Sequence[str]],
+    company_level: bool = False,
 ) -> str | None:
     """Why the filer (`names`) can't be the unnamed `role` of `quote`, a sentence of its own
     document that doesn't name it; None when it can. The quote must name the other party by
     name (`counterparty`: the other company of a company-object predicate) or, for a product
     object, the product (`object_text`), and name no other company that could be the unnamed
     one (`others`: the companies Atlas has besides the Claim's two; and any name written with
-    a legal form). The predicate's cue is checked next, as for every Claim."""
+    a legal form). A `company_level` Claim has no other end to name: only the other companies
+    count. The predicate's cue is checked next, as for every Claim."""
     unnamed = f"the quote doesn't name the {role} ({names[0]}), whose document it is"
     if counterparty is not None:
         if not names_party(quote, counterparty, is_filer=False):
             return f"{unnamed}, nor the other party ({counterparty[0]})"
-    elif not names_object(quote, object_text):
+    elif not company_level and not names_object(quote, object_text):
         return f"{unnamed}, nor its object ({object_text})"
     strays = stray_companies(quote, [counterparty] if counterparty is not None else [], others)
     if strays:
