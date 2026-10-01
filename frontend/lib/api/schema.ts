@@ -2289,7 +2289,9 @@ export interface components {
             /** Assertion Id */
             assertion_id: string | null;
             /** Offset Source */
-            offset_source: ("model" | "located") | null;
+            offset_source: ("model" | "located" | "folded") | null;
+            /** Party Basis */
+            party_basis?: ("named" | "filer") | null;
             /** Parser Version */
             parser_version?: string | null;
             /** Proposed */

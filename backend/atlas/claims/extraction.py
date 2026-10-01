@@ -33,16 +33,27 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    unknown name when entity resolution isn't configured). Then: the offsets lie
    inside the passage (`quote_outside_passage`); **the quote is placed**: if it is not
    exactly the text at the model's offsets it is searched for in the passage as an exact
-   substring (no folding of whitespace, quotes or dashes), and its one occurrence gives the
-   span (`offset_source` `located`, else `model`; the model's offsets stay in `proposed`); no
-   occurrence is `quote_mismatch` and more than one `quote_ambiguous`; **the Assertion span
-   check** then runs on the final span (`quote_mismatch`); the quote names both parties
-   (`party_not_in_quote`); and it uses language expressing the predicate
-   (`no_directional_language`; co-mention is not a relation). A bottleneck predicate's
-   product object must be named in the quote (`object_not_in_quote`) and be a particular
-   input or product, not generic materials or components (`generic_object`); and for any
-   product object the cue must be in a clause that names the object (`cue_in_other_clause`,
-   pilot-fixes ticket 09). See `atlas.claims.predicates`.
+   substring, and its one occurrence gives the span (`offset_source` `located`, else `model`;
+   the model's offsets stay in `proposed`); a quote with no exact occurrence is tried again
+   through the **typographic fold** (`atlas.claims.fold`: hyphens and dashes, curly quotation
+   marks, no-break and narrow spaces, one character to one character; never whitespace runs,
+   case or words), at the model's offsets and then by search (`offset_source` `folded`); no
+   occurrence is `quote_mismatch` and more than one `quote_ambiguous`. From here on **the
+   quote is the archived text at the span**: that is what the Claim and the Assertion store
+   and what every later check reads (the model's spelling stays in `proposed`). **The
+   Assertion span check** then runs on the final span (`quote_mismatch`); the quote names
+   both parties (`party_not_in_quote`), **or leaves the filer unnamed** in a sentence of the
+   filer's own document that names the other party (a company object) or the object product
+   and no other company (`party_basis` `filer`, else `named`; a sentence naming another
+   company besides is co-mention and stays `party_not_in_quote`); it uses language
+   expressing the predicate (`no_directional_language`; co-mention is not a relation); and
+   its wording doesn't give the relation the other way round (`wrong_direction`: `owns` runs
+   from the holder of issued or purchased shares to their issuer, and the company whose
+   purchase commitment it is is the buyer). A bottleneck predicate's product object must be
+   named in the quote (`object_not_in_quote`) and be a particular input or product, not
+   generic materials, components or capacity (`generic_object`); and for any product object
+   the cue must be in a clause that names the object (`cue_in_other_clause`, pilot-fixes
+   ticket 09). See `atlas.claims.predicates`.
 4. **Outcome.** A Claim that passes becomes an Assertion (`extractor_version`
    `investigator.v<N>`, created by `atlas-investigator`, `value_json` holding the claim ID,
    layer, product and product object), recorded with its `claim` row in one transaction. A
@@ -70,7 +81,7 @@ import json
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 from sqlalchemy import Connection, Engine, RowMapping, text
@@ -84,13 +95,16 @@ from atlas.claims.predicates import (
     LAYERS,
     PREDICATES,
     company_names,
+    direction_refusal,
     directional_cue,
+    fold,
     is_generic_object,
     mentions,
     names_object,
     names_party,
     object_clause_cue,
     predicate_refusal,
+    stray_companies,
 )
 from atlas.claims.reads import ClaimExtraction, Passage, SkippedVersion, get_extraction
 from atlas.counterparties import (
@@ -205,7 +219,13 @@ class _Judged:
     assertion: AssertionCreate | None
     reason_code: str | None = None
     reason: str | None = None
-    offset_source: str | None = None  # `model` or `located`, once the quote is placed
+    offset_source: str | None = None  # `model`, `located` or `folded`, once the quote is placed
+    # The archived text at the span, once the quote is placed (the Claim's and the Assertion's
+    # quote; the model's spelling stays in `proposed`).
+    quote: str | None = None
+    # How the quote identifies the parties, once it does: `named`, or `filer` when the filer
+    # is the unnamed party of its own impersonal sentence.
+    party_basis: str | None = None
     # The named object company Atlas doesn't have yet: created when the Claim is accepted.
     counterparty: NewCounterparty | None = None
 
@@ -520,7 +540,7 @@ class ClaimExtractor:
                 or not name
                 or proposed.object_company_id in known
                 or key in self._named
-                or not mentions(proposed.quote, [name])
+                or not mentions(fold(proposed.quote), [fold(name)])
             ):
                 continue
             with self._engine.connect() as connection:
@@ -609,11 +629,12 @@ class ClaimExtractor:
                     " proposed, passage_id, source_version_id, subject_company_id, predicate,"
                     " object_company_id, object_text, product, layer, quote, span_start,"
                     " span_end, epistemic_type, directional_cue, outcome, reason_code, reason,"
-                    " assertion_id, offset_source, parser_version) VALUES (:id, :extraction,"
+                    " assertion_id, offset_source, parser_version, party_basis) VALUES (:id,"
+                    " :extraction,"
                     " :run, :role_call, :ordinal, CAST(:proposed AS jsonb), :passage, :version,"
                     " :subject, :predicate, :object, :object_text, :product, :layer, :quote,"
                     " :span_start, :span_end, :epistemic_type, :cue, :outcome, :reason_code,"
-                    " :reason, :assertion, :offset_source, :parser_version)"
+                    " :reason, :assertion, :offset_source, :parser_version, :party_basis)"
                     " RETURNING *"
                 ),
                 {
@@ -631,7 +652,7 @@ class ClaimExtractor:
                     "object_text": proposed.object_text,
                     "product": proposed.product,
                     "layer": proposed.layer,
-                    "quote": proposed.quote,
+                    "quote": judged.quote if judged.quote is not None else proposed.quote,
                     "span_start": judged.span[0] if judged.span else None,
                     "span_end": judged.span[1] if judged.span else None,
                     "epistemic_type": proposed.epistemic_type,
@@ -642,6 +663,7 @@ class ClaimExtractor:
                     "assertion": assertion_id,
                     "offset_source": judged.offset_source,
                     "parser_version": _parser_version(versions, judged.source_version_id),
+                    "party_basis": judged.party_basis,
                 },
             )
             .mappings()
@@ -709,7 +731,7 @@ class ClaimExtractor:
             name = (proposed.object_name or "").strip()
             if target is None and name:
                 # A company outside the known ones, by the name the quote uses for it.
-                if not mentions(proposed.quote, [name]):
+                if not mentions(fold(proposed.quote), [fold(name)]):
                     message = f"the quote doesn't name the object ({name}, its `object_name`)"
                     return _reject(judged, "party_not_in_quote", message)
                 named = self._named[normalize_name(name)]
@@ -744,8 +766,12 @@ class ClaimExtractor:
         if isinstance(placed, str):
             return _reject(judged, "quote_ambiguous", placed)
         offset_source: str | None = None
+        # The quote every later check reads, and the Claim and its Assertion store: the
+        # archived text at the span, which the fold may spell otherwise than the model did.
+        quote = proposed.quote
         if placed is not None:
             span, offset_source = placed.span, placed.source
+            quote = self._text(version)[span[0] : span[1]]
         try:
             assertion = AssertionCreate(
                 subject_company_id=subject.id,
@@ -759,7 +785,7 @@ class ClaimExtractor:
                     "object_text": proposed.object_text if rule.object_kind == "product" else None,
                 },
                 source_version_id=version.id,
-                quote=proposed.quote,
+                quote=quote,
                 span_start=span[0],
                 span_end=span[1],
                 page_or_anchor=passage.section_anchor,
@@ -771,14 +797,34 @@ class ClaimExtractor:
             return _reject(judged, "invalid_claim", _first_error(error))
         except InvalidAssertion as refusal:
             return _reject(judged, refusal.code, refusal.message)
-        quote = proposed.quote
-        parties = [(subject.names, subject.id == version.company_id, "subject")]
+        object_text = (proposed.object_text or "").strip()
+        parties: list[tuple[str, Sequence[str]]] = [("subject", subject.names)]
         if rule.object_kind == "company":
-            parties.append((object_names, object_id == version.company_id, "object"))
-        for names, is_filer, role in parties:
-            if not names_party(quote, names, is_filer=is_filer):
+            parties.append(("object", object_names))
+        filer: Literal["subject", "object"] | None = None
+        if subject.id == version.company_id:
+            filer = "subject"
+        elif rule.object_kind == "company" and object_id == version.company_id:
+            filer = "object"
+        party_basis = "named"
+        for role, names in parties:
+            if names_party(quote, names, is_filer=role == filer):
+                continue
+            if role != filer:
                 message = f"the quote doesn't name the {role} ({names[0]})"
                 return _reject(judged, "party_not_in_quote", message)
+            # The filer, unnamed in an impersonal sentence or slide bullet of its own document.
+            unnamed = _unnamed_filer_refusal(
+                quote,
+                role,
+                names,
+                counterparty=next((other for each, other in parties if each != role), None),
+                object_text=object_text,
+                others=[c.names for c in companies if c.id not in (subject.id, object_id)],
+            )
+            if unnamed is not None:
+                return _reject(judged, "party_not_in_quote", unnamed)
+            party_basis = "filer"
         cue = directional_cue(rule.name, quote)
         if cue is None:
             message = (
@@ -786,8 +832,13 @@ class ClaimExtractor:
                 " naming companies together is not a relation"
             )
             return _reject(judged, "no_directional_language", message)
+        if rule.object_kind == "company":
+            reversed_ = direction_refusal(
+                rule.name, quote, subject.names, object_names, filer=filer
+            )
+            if reversed_ is not None:
+                return _reject(judged, "wrong_direction", reversed_)
         if rule.object_kind == "product":
-            object_text = (proposed.object_text or "").strip()
             if rule.name in BOTTLENECK_PREDICATES:
                 if not names_object(quote, object_text):
                     message = (
@@ -818,6 +869,8 @@ class ClaimExtractor:
             cue=cue,
             assertion=assertion,
             offset_source=offset_source,
+            quote=quote,
+            party_basis=party_basis,
             counterparty=counterparty,
         )
 
@@ -950,32 +1003,94 @@ def _windows(parsed: str, start: int, end: int) -> list[tuple[int, int]]:
     return windows
 
 
+def _unnamed_filer_refusal(
+    quote: str,
+    role: str,
+    names: Sequence[str],
+    *,
+    counterparty: Sequence[str] | None,
+    object_text: str,
+    others: Sequence[Sequence[str]],
+) -> str | None:
+    """Why the filer (`names`) can't be the unnamed `role` of `quote`, a sentence of its own
+    document that doesn't name it; None when it can. The quote must name the other party by
+    name (`counterparty`: the other company of a company-object predicate) or, for a product
+    object, the product (`object_text`), and name no other company that could be the unnamed
+    one (`others`: the companies Atlas has besides the Claim's two; and any name written with
+    a legal form). The predicate's cue is checked next, as for every Claim."""
+    unnamed = f"the quote doesn't name the {role} ({names[0]}), whose document it is"
+    if counterparty is not None:
+        if not names_party(quote, counterparty, is_filer=False):
+            return f"{unnamed}, nor the other party ({counterparty[0]})"
+    elif not names_object(quote, object_text):
+        return f"{unnamed}, nor its object ({object_text})"
+    strays = stray_companies(quote, [counterparty] if counterparty is not None else [], others)
+    if strays:
+        return (
+            f"{unnamed}, and it names {', '.join(strays)}: a sentence naming other companies"
+            " proves nothing about the filer (co-mention)"
+        )
+    return None
+
+
 @dataclass(frozen=True)
 class Placed:
-    """Where a Claim's quote is in the parsed text, and whether the model's offsets said so."""
+    """Where a Claim's quote is in the parsed text, and how it was found there."""
 
     span: tuple[int, int]
-    source: str  # `model` or `located`
+    source: str  # `model`, `located` or `folded`
 
 
 def _place(parsed: str, passage: Passage, proposed: ProposedClaim) -> Placed | str | None:
     """The quote at the model's offsets (`model`), else its one exact occurrence in the passage
-    (`located`). More than one occurrence returns the `quote_ambiguous` message; none (or an
-    empty quote) is None: the span check then rejects the model's span as `quote_mismatch`."""
+    (`located`); else the same two steps through the typographic fold (`fold`: one character
+    to one character, so the offsets are the passage's own), either of which is `folded`.
+    More than one occurrence returns the `quote_ambiguous` message; none (or an empty quote)
+    is None: the span check then rejects the model's span as `quote_mismatch`."""
     window = parsed[passage.char_start : passage.char_end]
     quote = proposed.quote
     if not quote:
         return None
+    exact = _locate(window, quote, passage, proposed, at_offsets="model", found="located")
+    if exact is not None:
+        return exact
+    folded_window, folded_quote = fold(window), fold(quote)
+    if folded_window == window and folded_quote == quote:
+        return None  # nothing typographic to fold
+    return _locate(
+        folded_window,
+        folded_quote,
+        passage,
+        proposed,
+        at_offsets="folded",
+        found="folded",
+        through=" once typographic hyphens, quotation marks and spaces are folded",
+    )
+
+
+def _locate(
+    window: str,
+    quote: str,
+    passage: Passage,
+    proposed: ProposedClaim,
+    *,
+    at_offsets: str,
+    found: str,
+    through: str = "",
+) -> Placed | str | None:
+    """`quote` in `window` (both as written, or both folded): at the model's offsets
+    (`at_offsets`), else at its one occurrence (`found`); the `quote_ambiguous` message for
+    several occurrences; None for none."""
     if window[proposed.quote_start : proposed.quote_end] == quote:
         start = passage.char_start + proposed.quote_start
-        return Placed((start, start + len(quote)), "model")
+        return Placed((start, start + len(quote)), at_offsets)
     first = window.find(quote)
     if first < 0:
         return None
     second = window.find(quote, first + 1)
     if second < 0:
         start = passage.char_start + first
-        return Placed((start, start + len(quote)), "located")
+        return Placed((start, start + len(quote)), found)
     occurrences: list[int] = []
     at = first
     while at >= 0:
@@ -986,7 +1101,7 @@ def _place(parsed: str, passage: Passage, proposed: ProposedClaim) -> Placed | s
     return (
         f"the quote is not at the offsets [{proposed.quote_start}, {proposed.quote_end}) of"
         f" passage {passage.id}, and it has {len(occurrences)} occurrences in the passage"
-        f" (at {shown}{more}), so it cannot be located"
+        f"{through} (at {shown}{more}), so it cannot be located"
     )
 
 

@@ -45,10 +45,28 @@ named in its quote (`names_object`) and be a particular input or product, not ge
 **Parties.** A quote must name both parties (`names_party`): a company by one of its names
 (case-sensitive, whole words, so "coherent optics" never names Coherent), or, for the
 company whose document it is, a first-person reference ("we", "our", "the Company").
+
+**The filer as the unnamed party** (memory-directed reading ticket 02). An impersonal sentence
+or slide bullet of the filer's own document may leave the filer unnamed ("The non-exclusive
+agreement includes an NVIDIA multi-billion-dollar purchase commitment ..."). The extraction
+accepts the filer as the unnamed party only when the quote names the other party (or the
+object product), carries the predicate's cue, and names no other company that could be the
+unnamed one (`stray_companies`): a sentence naming two other companies still proves nothing
+about the filer.
+
+**The typographic fold** (`fold`). Quotes are located, and cues, names and objects are
+matched, through a one-character-to-one-character fold of typographic hyphens, quotation
+marks and spaces to their ASCII forms (`FOLD_TABLE`), so offsets hold; what is stored and
+returned is always the text as written.
+
+**Direction from the wording** (`direction_refusal`). Two shapes of sentence fix who is who,
+whatever the cue: shares issued or sold *to* a company, or purchased *by* it, make that
+company the holder (`owns` runs from the holder to the issuer); and "an X purchase
+commitment" makes X the buyer (`supplies` runs to X, `buys_from` from X).
 """
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -158,7 +176,9 @@ _PREDICATES: tuple[Predicate, ...] = (
         "owns",
         "company",
         False,
-        "the subject company owns all or part of the object company",
+        "the subject company owns all or part of the object company: the subject is the holder"
+        " of the shares and the object their issuer (a company that issues or sells its shares"
+        " to an investor is the object, the investor the subject)",
         _cues(
             r"\bown(?:s|ed|ership)?\b",
             r"\bacqui(?:re|res|red|ring|sition)\b",
@@ -224,9 +244,23 @@ _PREDICATES: tuple[Predicate, ...] = (
         _cues(
             r"\bconstrain\w*",
             r"\bshortages?\b",
-            r"\ballocat\w*",
-            r"\bdemand (?:exceed|exceeds|exceeded|exceeding|outpac\w*|outstrip\w*|outgrew)\b",
-            r"\b(?:exceed|exceeds|exceeded|exceeding) (?:our )?(?:supply|capacity)\b",
+            # Allocation of supply, never of capital: "capital allocation", "allocate capital
+            # to ..." and "purchase price allocation" are no cue (ticket 02).
+            r"\b(?:supply|capacity|product|customer) allocations?\b",
+            r"\ballocations? of (?:(?!capital\b)[\w-]+ ){0,3}"
+            r"(?:supply|capacity|output|production|products?)\b",
+            r"\ballocat(?:e|es|ed|ing)\b"
+            r"(?= (?:(?!(?:capital|resources|funds|costs?|to|for|in)\b)[\w-]+ ){0,4}"
+            r"(?:supply|capacity|output|production|products?|shipments|inventory)\b)",
+            r"\bon allocation\b",
+            # Demand exceeding or outpacing supply ("This demand is outpacing our current
+            # supply").
+            r"\bdemand (?:(?:is|was|has|have|had|continues to|continued to) )?(?:\w+ly )?"
+            r"(?:exceed(?:s|ed|ing)?|outpac(?:e|es|ed|ing)|outstrip(?:s|ped|ping)?"
+            r"|outgrew|outgrow(?:s|n|ing)?)\b",
+            r"\b(?:exceed(?:s|ed|ing)?|outpac(?:e|es|ed|ing)|outstrip(?:s|ped|ping)?)"
+            r" (?:(?:our|its|the|current|available|existing|industry) ){0,3}"
+            r"(?:supply|capacity)\b",
             r"\b(?:unable|not able) to (?:fully )?(?:meet|satisfy|fulfill)\b",
             r"\bbacklogs?\b",
             r"\blead[- ]times?\b",
@@ -305,13 +339,75 @@ def predicate_refusal(name: str) -> str | None:
     return f"{name!r} is not a whitelisted predicate; the whitelist is {listed}"
 
 
+# --- the typographic fold (memory-directed reading ticket 02) ---------------------------------
+
+# One character to one character, so an offset in the folded text is the same offset in the
+# text as written: typographic hyphens and dashes to "-", curly quotation marks to straight
+# ones, no-break and narrow spaces to a space. Nothing else is folded (not case, not accents,
+# not runs of whitespace).
+FOLD_TABLE: dict[str, str] = {
+    **dict.fromkeys(
+        (
+            "\N{HYPHEN}",  # U+2010
+            "\N{NON-BREAKING HYPHEN}",  # U+2011
+            "\N{FIGURE DASH}",  # U+2012
+            "\N{EN DASH}",  # U+2013
+            "\N{EM DASH}",  # U+2014
+            "\N{HORIZONTAL BAR}",  # U+2015
+            "\N{MINUS SIGN}",  # U+2212
+        ),
+        "-",
+    ),
+    **dict.fromkeys(
+        (
+            "\N{LEFT SINGLE QUOTATION MARK}",  # U+2018
+            "\N{RIGHT SINGLE QUOTATION MARK}",  # U+2019
+            "\N{SINGLE LOW-9 QUOTATION MARK}",  # U+201A
+            "\N{SINGLE HIGH-REVERSED-9 QUOTATION MARK}",  # U+201B
+        ),
+        "'",
+    ),
+    **dict.fromkeys(
+        (
+            "\N{LEFT DOUBLE QUOTATION MARK}",  # U+201C
+            "\N{RIGHT DOUBLE QUOTATION MARK}",  # U+201D
+            "\N{DOUBLE LOW-9 QUOTATION MARK}",  # U+201E
+            "\N{DOUBLE HIGH-REVERSED-9 QUOTATION MARK}",  # U+201F
+        ),
+        '"',
+    ),
+    **dict.fromkeys(
+        (
+            "\N{NO-BREAK SPACE}",  # U+00A0
+            "\N{FIGURE SPACE}",  # U+2007
+            "\N{THIN SPACE}",  # U+2009
+            "\N{HAIR SPACE}",  # U+200A
+            "\N{NARROW NO-BREAK SPACE}",  # U+202F
+        ),
+        " ",
+    ),
+}
+_FOLD = str.maketrans(FOLD_TABLE)
+
+
+def fold(text: str) -> str:
+    """`text` with its typographic hyphens, quotation marks and spaces as ASCII (`FOLD_TABLE`):
+    the same length, every other character unchanged."""
+    return text.translate(_FOLD)
+
+
 def directional_cue(predicate: str, quote: str) -> str | None:
-    """The first words in `quote` expressing `predicate`, or None (e.g. co-mention only)."""
+    """The first words in `quote` expressing `predicate`, or None (e.g. co-mention only). Read
+    through the fold; returned as the quote writes them."""
     rule = PREDICATES.get(predicate)
     if rule is None:
         return None
-    found = [match for cue in rule.cues if (match := cue.search(quote)) is not None]
-    return min(found, key=lambda match: match.start())[0] if found else None
+    folded = fold(quote)
+    found = [match for cue in rule.cues if (match := cue.search(folded)) is not None]
+    if not found:
+        return None
+    first = min(found, key=lambda match: match.start())
+    return quote[first.start() : first.end()]
 
 
 # --- cue proximity (pilot-fixes ticket 09) ----------------------------------------------
@@ -327,7 +423,10 @@ CLAUSE_BOUNDARY = re.compile(
     re.IGNORECASE,
 )
 _WORD = re.compile(r"[A-Za-z0-9][\w.-]*[A-Za-z0-9]|[A-Za-z0-9]")
-# Words that name no particular input or product, alone or together.
+# Words that name no particular input or product, alone or together. The last row (ticket 02)
+# is the capacity vocabulary: "manufacturing capacity" names no product, so it is no object of
+# a bottleneck predicate, and a quote naming only those words doesn't name "EML manufacturing
+# capacity".
 _GENERIC_WORDS = frozenset(
     {
         "a", "all", "an", "and", "any", "certain", "critical", "equipment", "goods", "important",
@@ -336,6 +435,7 @@ _GENERIC_WORDS = frozenset(
         "products", "raw", "several", "significant", "some", "source", "sources", "strategic",
         "supplies", "supply", "the", "their", "these", "those", "used", "various", "component",
         "components", "supplier", "suppliers", "vendor", "vendors", "amount", "in", "for", "such",
+        "capacity", "capacities", "manufacturing", "production", "output", "facility", "facilities",
     }
 )  # fmt: skip
 
@@ -383,21 +483,26 @@ def object_clause_cue(predicate: str, quote: str, object_text: str) -> str | Non
     or None when every cue is in another clause ("We continue to expand our 6-inch InP
     capacity ..., while also operating multiple 6-inch GaAs VCSEL manufacturing facilities"
     has no cue for the VCSEL facilities). When the quote doesn't name the object, the clause
-    can't be told, and this is the quote's first cue (`directional_cue`)."""
+    can't be told, and this is the quote's first cue (`directional_cue`). Read through the
+    fold; returned as the quote writes it."""
     rule = PREDICATES.get(predicate)
     if rule is None:
         return None
-    spans = clauses(quote)
-    named = _object_clauses(quote, object_text, spans)
+    folded = fold(quote)
+    spans = clauses(folded)
+    named = _object_clauses(folded, fold(object_text), spans)
     if not named:
         return directional_cue(predicate, quote)
     inside = [
         match
         for cue in rule.cues
-        for match in cue.finditer(quote)
+        for match in cue.finditer(folded)
         if any(spans[i][0] <= match.start() and match.end() <= spans[i][1] for i in named)
     ]
-    return min(inside, key=lambda match: match.start())[0] if inside else None
+    if not inside:
+        return None
+    first = min(inside, key=lambda match: match.start())
+    return quote[first.start() : first.end()]
 
 
 def names_object(quote: str, object_text: str) -> bool:
@@ -407,7 +512,9 @@ def names_object(quote: str, object_text: str) -> bool:
     ("products for AI and cloud customers' data center expansion" for a quote about "demand
     from AI and cloud customers as they continue to expand their data centers"), so a verbatim
     match alone would reject the statement the pilot needed most; a quote that names none or
-    few of the object's words ("InP substrates" for "indium phosphide substrates") still fails."""
+    few of the object's words ("InP substrates" for "indium phosphide substrates") still fails.
+    Both are read through the fold."""
+    quote, object_text = fold(quote), fold(object_text)
     words = object_text.split()
     if not words:
         return False
@@ -428,8 +535,8 @@ def names_object(quote: str, object_text: str) -> bool:
 def is_generic_object(object_text: str) -> bool:
     """Whether `object_text` names no particular input or product: only words such as
     "materials", "components", "equipment", "suppliers" ("certain materials, equipment and
-    components")."""
-    return {w.lower() for w in _WORD.findall(object_text)} <= _GENERIC_WORDS
+    components"), or the capacity vocabulary ("manufacturing capacity")."""
+    return {w.lower() for w in _WORD.findall(fold(object_text))} <= _GENERIC_WORDS
 
 
 _CORPORATE_SUFFIX = re.compile(
@@ -460,5 +567,137 @@ def mentions(text: str, names: Iterable[str]) -> bool:
 
 def names_party(quote: str, names: Iterable[str], *, is_filer: bool) -> bool:
     """Whether `quote` identifies the party: by name, or in the first person if it is the
-    company whose document is quoted."""
-    return mentions(quote, names) or (is_filer and _FIRST_PERSON.search(quote) is not None)
+    company whose document is quoted. Read through the fold."""
+    folded = fold(quote)
+    return mentions(folded, [fold(name) for name in names]) or (
+        is_filer and _FIRST_PERSON.search(folded) is not None
+    )
+
+
+# --- the filer as the unnamed party (memory-directed reading ticket 02) -----------------------
+
+# A company written with its legal form ("Broadcom Inc.", "Sumitomo Electric Industries, Ltd."):
+# up to four capitalized words, then the form. Only forms that are nothing else in a sentence
+# ("Company", "Group", "Holdings", "Limited" and "SE" are left out).
+_LEGAL_FORM_NAME = re.compile(
+    r"(?<![\w.])(?:[A-Z][\w&'-]*\s+){0,3}[A-Z][\w&'-]*,?\s+"
+    r"(?:Inc\.?|Incorporated|Corp\.?|Corporation|Co\.|Ltd\.?|LLC|plc|PLC|N\.V\.|S\.A\.|AG|GmbH"
+    r"|K\.K\.)(?!\w)"
+)
+
+
+def stray_companies(
+    quote: str, parties: Sequence[Sequence[str]], companies: Iterable[Sequence[str]]
+) -> list[str]:
+    """The companies `quote` names besides its parties, as it writes them: each of `companies`
+    (the names lists of the companies Atlas has) that is none of `parties` and is mentioned,
+    and every name written with a corporate legal form that is not a party's ("Broadcom Inc.").
+    A quote that leaves the filer unnamed and names such a company could be about that
+    company instead: co-mention, which proves nothing about the filer."""
+    folded = fold(quote)
+    party_names = {fold(name) for names in parties for name in names}
+    strays: list[str] = []
+    for names in companies:
+        candidates = [fold(name) for name in names]
+        if party_names.intersection(candidates):
+            continue
+        written = next((name for name in candidates if mentions(folded, [name])), None)
+        if written is not None:
+            strays.append(written)
+    for match in _LEGAL_FORM_NAME.finditer(folded):
+        written = match[0]
+        known = mentions(written, party_names) or any(
+            written in stray or stray in written for stray in strays
+        )
+        if not known:
+            strays.append(written)
+    return strays
+
+
+# --- direction from the wording (memory-directed reading ticket 02) ---------------------------
+
+_SHARES = r"(?i:shares|stock|securities|warrants)"
+_BOUGHT = r"(?i:purchased|acquired|bought|subscribed for)"
+_COMMITMENT = r"(?i:purchase (?:commitment|order)s?)"
+
+
+def _party(names: Sequence[str], first_person: str | None) -> str:
+    """A pattern for a party: one of its names (as written, case-sensitive), or, for the
+    filer, the first-person words `first_person`."""
+    written = [re.escape(fold(name)) for name in names]
+    if first_person is not None:
+        written.append(f"(?i:{first_person})")
+    return f"(?<!\\w)(?:{'|'.join(written)})(?!\\w)"
+
+
+def _holds_shares(folded: str, names: Sequence[str], *, is_filer: bool) -> bool:
+    """Whether the quote makes the party the holder of shares: they were issued or sold *to*
+    it, or it purchased them (or they were purchased *by* it)."""
+    party = _party(names, "we|us|the company" if is_filer else None)
+    patterns = (
+        rf"\b(?i:issu(?:e|es|ed|ing|ance)|sold|sale|sell|sells|selling)\b.{{0,300}}?\b{_SHARES}\b"
+        rf".{{0,300}}?\bto\s+(?:the\s+)?{party}",
+        rf"{party}.{{0,60}}?\b{_BOUGHT}\b.{{0,200}}?\b{_SHARES}\b",
+        rf"\b{_SHARES}\b.{{0,200}}?\b{_BOUGHT} by\s+(?:the\s+)?{party}",
+    )
+    return any(re.search(pattern, folded, re.DOTALL) for pattern in patterns)
+
+
+def _commits_to_purchase(folded: str, names: Sequence[str], *, is_filer: bool) -> bool:
+    """Whether the quote gives a purchase commitment or order as the party's ("an NVIDIA
+    multi-billion-dollar purchase commitment", "purchase orders by NVIDIA"): it is the buyer.
+    "A purchase commitment with X" names no buyer."""
+    party = _party(names, "our|the company's" if is_filer else None)
+    patterns = (
+        rf"{party}(?:'s)?\s+(?:[\w$.,-]+\s+){{0,4}}?{_COMMITMENT}\b",
+        rf"\b{_COMMITMENT} (?i:by|of)\s+(?:the\s+)?{party}",
+    )
+    return any(re.search(pattern, folded, re.DOTALL) for pattern in patterns)
+
+
+def direction_refusal(
+    predicate: str,
+    quote: str,
+    subject: Sequence[str],
+    counterpart: Sequence[str],
+    *,
+    filer: Literal["subject", "object"] | None = None,
+) -> str | None:
+    """Why the wording of `quote` gives `predicate` the other way round between the subject
+    and the object company (`counterpart`), each by its names (`filer`: the one whose document
+    it is, which the first person also names); None when the wording doesn't say.
+
+    - `owns`: in a sentence of issuance or purchase ("issued and sold ... shares ... to X",
+      "X purchased ... shares", "shares ... purchased by X") X is the holder, so X is the
+      subject. The issuer as subject is refused.
+    - `supplies`, `buys_from`: "an X purchase commitment" (or "purchase orders by X") makes X
+      the buyer: the object of `supplies`, the subject of `buys_from`.
+
+    Only a sentence that makes exactly one of the two the holder (or buyer) is judged."""
+    folded = fold(quote)
+    name, other = subject[0], counterpart[0]
+    if predicate == "owns":
+        subject_holds = _holds_shares(folded, subject, is_filer=filer == "subject")
+        object_holds = _holds_shares(folded, counterpart, is_filer=filer == "object")
+        if object_holds and not subject_holds:
+            return (
+                f"the quote says the shares were issued or sold to, or purchased by, {other}:"
+                f" {other} is the holder and {name} the issuer, and `owns` runs from the holder"
+                f" to the issuer ({other} owns {name}, not {name} owns {other})"
+            )
+    elif predicate in ("supplies", "buys_from"):
+        subject_buys = _commits_to_purchase(folded, subject, is_filer=filer == "subject")
+        object_buys = _commits_to_purchase(folded, counterpart, is_filer=filer == "object")
+        if predicate == "buys_from" and object_buys and not subject_buys:
+            return (
+                f"the quote gives the purchase commitment as {other}'s: {other} is the buyer,"
+                f" so the relation runs the other way ({name} supplies {other}, not {name}"
+                f" buys_from {other})"
+            )
+        if predicate == "supplies" and subject_buys and not object_buys:
+            return (
+                f"the quote gives the purchase commitment as {name}'s: {name} is the buyer,"
+                f" so the relation runs the other way ({name} buys_from {other}, not {name}"
+                f" supplies {other})"
+            )
+    return None

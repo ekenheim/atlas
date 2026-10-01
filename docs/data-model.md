@@ -427,9 +427,10 @@ The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and 
 | `source_version_id`, `subject_company_id`, `object_company_id` | uuid null FKs | As resolved; null when the Claim named an unknown passage or company. A company object given by name (`proposed.object_name`) resolves to a company Atlas has, or to the counterparty the accepted Claim created; null when the name didn't resolve or the Claim was rejected before a new counterparty existed |
 | `predicate`, `layer` | text not null | As proposed (a rejected one may be off the whitelist) |
 | `object_text`, `product` | text null | |
-| `quote` | text not null | |
+| `quote` | text not null | An accepted Claim's is the archived text at the span (equal to its Assertion's quote); the model's spelling stays in `proposed`. A rejected Claim's is the quote as proposed |
 | `span_start`, `span_end` | int null | Absolute offsets in the parsed text: passage start + the proposed offsets, or + the located ones (`offset_source`) |
-| `offset_source` | text null | `model` (the quote was at the proposed offsets) or `located` (its one exact occurrence in the passage). Null when the quote was never placed, or recorded before migration 0024 |
+| `offset_source` | text null | `model` (the quote was at the proposed offsets), `located` (its one exact occurrence in the passage) or, from 0052, `folded` (it matched only through the typographic fold of hyphens, quotation marks and spaces). Null when the quote was never placed, or recorded before migration 0024 |
+| `party_basis` | text null | 0052. How an accepted Claim's quote identifies its parties: `named` (each by name, or the filer in the first person) or `filer` (the filer is the unnamed party of an impersonal sentence of its own document). Null for rejected Claims and Claims before 0052 |
 | `parser_version` | text null | 0046. The parse of the Source Version the Claim's passage was cut from (the current parse when the extraction started; the extraction's stored passages name it too). Null for Claims before 0046 (the recorded parse) and for a passage not sent |
 | `epistemic_type` | text not null | |
 | `directional_cue` | text null | The words that expressed the predicate (accepted Claims) |

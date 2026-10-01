@@ -21,8 +21,10 @@ from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
 # v2: the bottleneck method; v3: company-level bottleneck facts; v4: a company object outside
 # the known companies, by name (counterparty companies); v5: the layer from the quote's named
-# object, no generic materials/components Claims, one clause (pilot-fixes ticket 09)
-INVESTIGATOR_PROMPT_VERSION = 5
+# object, no generic materials/components Claims, one clause (pilot-fixes ticket 09); v6: the
+# filer's impersonal sentences and slide bullets, language of constraint, `owns` from the holder
+# to the issuer (memory-directed reading ticket 02)
+INVESTIGATOR_PROMPT_VERSION = 6
 
 # An Investigator Claim quotes a source; an agent's own inference is never a Claim.
 ClaimEpistemicType = Literal["direct_source_statement", "company_claim", "third_party_report"]
