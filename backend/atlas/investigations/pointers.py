@@ -14,7 +14,8 @@ A pointer is Memory used as an index. It says where to read; it is never Evidenc
 quoted, never a witness, and never sent to a role as a statement. An Investigator's passages
 are chosen by the Scout's pointers of its round (`round_reading`; atlas.claims.selection,
 ticket 05): the pointer's Memory text finds the window of the pointed section to read and
-goes no further. The Scout's pointers also choose which companies get an Investigator and which documents each reads first (`atlas.investigations.companies`).
+goes no further. The Scout's pointers also choose which companies get an Investigator and
+which documents each reads first (`atlas.investigations.companies`).
 
 **The Skeptic's pointers** (ticket 07; atlas.investigations.skeptic) are stored the same way,
 by its own task: one recall per bear-checklist item for each company the accepted Claims name
