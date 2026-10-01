@@ -227,6 +227,23 @@ def test_a_failed_recall_is_answered_by_query_for_its_first_times_only() -> None
     assert len(recovered.memories) == len(client.recall("other", scope=scope).memories) == 2
 
 
+def test_a_scripted_fact_text_changes_only_the_fact_s_text() -> None:
+    fake, client = derived_memories()
+    scope = TagScope(["company:x"], "any_strict")
+    fact_id = fake.derived_fact(ITEMS[0].document_id)
+    before = client.get_memory(fact_id)
+
+    fake.script_fact_text(ITEMS[0].document_id, "A paraphrase, in Hindsight's own words.")
+
+    after = client.get_memory(fact_id)
+    assert after.text == "A paraphrase, in Hindsight's own words."
+    assert after.model_dump(exclude={"text"}) == before.model_dump(exclude={"text"})
+    recalled = {memory.id: memory.text for memory in client.recall("q", scope=scope).memories}
+    assert recalled[fact_id] == after.text
+    other = fake.derived_fact(ITEMS[1].document_id)
+    assert recalled[other] == ITEMS[1].content  # the other document's fact is as derived
+
+
 def test_a_scripted_reflect_changes_only_its_answer_and_citations() -> None:
     fake, client = derived_memories()
     fact_id = fake.derived_fact(ITEMS[0].document_id)

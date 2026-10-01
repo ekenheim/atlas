@@ -133,8 +133,9 @@ def lumentum_atlas(
     themes: Path,
 ) -> Iterator[Atlas]:
     """Atlas with Lumentum's filings ingested instead (its companyfacts normalized). No
-    Lumentum passage names another company, so they reach the Investigator as recall hits:
-    every one fits in one call."""
+    Lumentum passage names another company, so they reach the Investigator as pointer and
+    search windows (memory-directed reading ticket 05): the Investigator's budget takes every
+    one of them, and they fit in one call."""
     started = start(
         database_url,
         tmp_path,
@@ -143,6 +144,7 @@ def lumentum_atlas(
         searxng_served.url,
         themes,
         investigator_max_passages=1000,
+        investigation_max_passages=1000,
         investigator_passages_per_call=1000,
     )
     started.ingest_company("lumentum")

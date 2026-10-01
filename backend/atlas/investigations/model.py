@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import Connection, RowMapping, text
 
+from atlas.claims.reads import PASSAGE_SELECTED_BY
 from atlas.roles import run_usage
 from atlas.roles.skeptic import ContradictionHow, CounterevidenceKind
 
@@ -382,6 +383,12 @@ class CardDocumentRead(BaseModel):
     sections: list[str]  # section anchors, in the order sent
     # How many passages of it were sent (0 for a card stored before pilot fix 10).
     passages: int = 0
+    # An Investigator's documents: how its passages sent were selected, as passages per kind
+    # of selection (`pointer`, `search`, `entity`, `lead`; atlas.claims.selection). A passage
+    # several kinds chose counts under each, so the counts can add up to more than `passages`.
+    # Empty for a document none of whose passages was sent, for the Skeptic's documents and
+    # on cards stored before memory-directed reading ticket 05.
+    selections: dict[str, int] = Field(default_factory=dict[str, int])
     # The Skeptic's documents: chosen by its plan, matched by its search, or by code's
     # fallback (pilot fix 06). None for an Investigator's.
     selected_by: Literal["plan", "search", "fallback"] | None = None
@@ -467,6 +474,9 @@ class EvidenceItem(BaseModel):
     evidence_family: str  # a family ID, or a lone Source Version's ID
     verification_status: str  # the Assertion's review state
     excluded: bool
+    # The selections that chose the passage the Claim quotes (its `selected_by`): which of
+    # pointer, search, entity or lead found it (atlas.claims.selection).
+    passage_selected_by: list[str] = Field(default_factory=list[str])
 
 
 class FollowUp(BaseModel):
@@ -688,7 +698,7 @@ def _evidence(
         return []
     rows = connection.execute(
         text(
-            "SELECT c.id AS claim_id, c.assertion_id, t.round, t.key AS task_key,"
+            "SELECT c.id AS claim_id, c.assertion_id, t.round, t.key AS task_key,"  # noqa: S608 (constant fragments)
             " c.subject_company_id, s.display_name AS subject_name, c.predicate,"
             " c.object_company_id, o.display_name AS object_name, c.object_text, c.product,"
             " c.layer, c.epistemic_type, c.quote, c.source_version_id, c.span_start,"
@@ -697,7 +707,8 @@ def _evidence(
             "  'version:' || c.source_version_id::text) AS evidence_family,"
             " a.verification_status,"
             " EXISTS (SELECT FROM investigation_premise p WHERE p.investigation_id = :id"
-            "  AND p.status = 'disproven' AND p.key = ANY(t.premise_keys)) AS excluded"
+            "  AND p.status = 'disproven' AND p.key = ANY(t.premise_keys)) AS excluded,"
+            f" {PASSAGE_SELECTED_BY} AS passage_selected_by"
             " FROM claim c"
             " JOIN investigation_document doc ON doc.investigation_id = :id"
             "  AND doc.source_version_id = c.source_version_id"

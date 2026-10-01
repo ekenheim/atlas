@@ -19,14 +19,19 @@ One attempt:
      Once the discovery has its queries, the round's question and each query are asked of
      Memory across the theme, and what resolves is stored as the round's **reading
      pointers** (atlas.investigations.pointers): Memory as an index of where to read, never
-     sent to a role. Nothing reads them yet.
+     sent to a role. The Investigators' passages are chosen by them.
    - **Investigator** (one per seed company): the company's latest parsed Source Versions
      available at the investigation's as-of time, newest first, up to its share of what is
      left of the document budget (an equal share is held back for each of the round's other
      Investigators that hasn't chosen yet, so unused share passes on in plan order); then an
-     extraction (atlas.claims) of them in the run, with the question for recall, within
-     `investigation_max_passages` passages spread over those documents newest first. A
-     resumed task continues its budget-exhausted extraction.
+     extraction (atlas.claims) of them in the run, within `investigation_max_passages`
+     passages chosen across those documents (atlas.claims.selection) by two channels in
+     turn: the windows the round's reading pointers lead to (by rank), and the windows a term
+     search ranks highest for the round's question and the Scout's queries with the
+     entity-tagged ones (by score), so a document Memory doesn't hold yet is still read;
+     with a floor for periodic reports, results releases and results-call transcripts and a
+     ceiling per document. It makes no recall of its own. A resumed task continues its
+     budget-exhausted extraction.
    - **Skeptic** (atlas.investigations.skeptic): skipped without an LLM call when the
      Investigators accepted no Claim (nothing to challenge); otherwise its own plan, SearXNG
      queries and reading of the Source Versions it chose (and, for a seed company its plan
@@ -100,7 +105,13 @@ from atlas.investigations.model import (
     UnsupportedFinding,
     ValidityDates,
 )
-from atlas.investigations.pointers import SCOUT_ACTOR, Recall, record_pointers, scout_queries
+from atlas.investigations.pointers import (
+    SCOUT_ACTOR,
+    Recall,
+    record_pointers,
+    round_reading,
+    scout_queries,
+)
 from atlas.investigations.service import Investigations, event, lock, round_question, stop
 from atlas.investigations.skeptic import (
     SKEPTIC_ACTOR,
@@ -530,19 +541,22 @@ class TaskRunner:
             run_id=run_id,
             continues=continues,
         )
+        # Where Memory pointed in these documents, and the Scout's queries: they choose the
+        # passages (atlas.claims.selection); neither is sent to the Investigator.
+        with self._engine.connect() as connection:
+            reading = round_reading(connection, investigation["id"], task["round"], documents)
         with (
             self._caller(investigation) as caller,
             # The run is the investigation's, so the extractor never starts or finishes one.
             claim_extractor(
                 self._settings,
                 self._engine,
-                self._gateway,
                 caller,
                 None,
                 max_passages=self._settings.investigation_max_passages,
             ) as extractor,
         ):
-            extracted = extractor.extract(job, payload)
+            extracted = extractor.extract(job, payload, reading)
         result: dict[str, JsonValue] = {
             "documents": len(documents),
             "documents_dropped": dropped,
@@ -550,6 +564,7 @@ class TaskRunner:
             "extraction_status": extracted["status"],
             "passages": extracted["passages"],
             "passages_by_document": extracted["passages_by_document"],
+            "passages_by_selection": extracted["passages_by_selection"],
             "accepted": extracted["accepted"],
             "rejected": extracted["rejected"],
         }

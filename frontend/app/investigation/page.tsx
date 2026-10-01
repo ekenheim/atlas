@@ -24,6 +24,7 @@ import {
   counterevidenceSummary,
   figureLabel,
   followUpBlocked,
+  foundBy,
   openQuestions,
   outputParts,
   pointerGroups,
@@ -31,6 +32,7 @@ import {
   pointerSummary,
   readerName,
   readingOutcome,
+  selectionSummary,
   statusText,
   tokenUse,
 } from "../../lib/workbench";
@@ -592,6 +594,8 @@ function EvidenceTray({ items }: { items: EvidenceItem[] }) {
                   </Link>{" "}
                   <span className="muted-small">
                     characters {item.span_start}–{item.span_end}
+                    {foundBy(item.passage_selected_by) &&
+                      `; passage selected by ${foundBy(item.passage_selected_by)}`}
                   </span>
                 </td>
                 <td>
@@ -910,7 +914,10 @@ function Read({ card }: { card: ResearchCard }) {
                       )}
                       <span className="muted-small">
                         {" "}
-                        ({document.passages} passage{document.passages === 1 ? "" : "s"})
+                        ({document.passages} passage{document.passages === 1 ? "" : "s"}
+                        {selectionSummary(document.selections) &&
+                          `, selected by ${selectionSummary(document.selections)}`}
+                        )
                       </span>
                       {document.selected_by === "fallback" && (
                         <span className="muted-small"> (chosen by code)</span>

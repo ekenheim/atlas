@@ -53,6 +53,11 @@ Derived behaviours (each serves a recorded response with only the named fields c
   scope the way the recorded strict modes did (untagged and non-matching memories excluded).
   Each result is the recorded result of the same type (its first observation, its first world
   fact) with only the fields above changed; the scores stay as recorded.
+- `script_fact_text(document_id, text)` (needs `derive_memories`; Hindsight writes a fact in
+  its own words, and no recorded fact is about an Atlas section): that document's derived
+  world fact has `text`, **written by the test** (a paraphrase of a sentence of the section),
+  instead of the section's first 200 characters, wherever the fact is served (read, listed,
+  recalled, embedded in an observation). Nothing else about the fact changes.
 - `fail_recalls(where, status=..., times=...)` (needs `derive_memories`; a failed recall was
   never recorded): an unrecorded recall whose `query` matches answers HTTP `status` with a
   **hand-written** body `{"detail": "recall failed (scripted by the test)"}` (only the status
@@ -360,6 +365,7 @@ class RecordedHindsight:
     _consolidation_holds: list[_Hold] = field(init=False, default_factory=list[_Hold])
     deleted_banks: list[str] = field(init=False, default_factory=list[str])
     _forgotten: set[str] = field(init=False, default_factory=set[str])
+    _fact_texts: dict[str, str] = field(init=False, default_factory=dict[str, str])
     _recall_failures: list[_RecallFailure] = field(init=False, default_factory=list[_RecallFailure])
     _reflects: deque[_ScriptedReflect] = field(init=False, default_factory=deque[_ScriptedReflect])
     _mental_models: dict[str, _MentalModel] = field(
@@ -469,6 +475,11 @@ class RecordedHindsight:
     def forget(self, memory_id: str) -> None:
         """The memory is gone: reading it answers 404 (derived; see the module docstring)."""
         self._forgotten.add(memory_id)
+
+    def script_fact_text(self, document_id: str, text: str) -> None:
+        """The document's derived world fact reads `text` (the test's paraphrase) instead of
+        the section's first characters (derived; see the module docstring)."""
+        self._fact_texts[document_id] = text
 
     def fail_recalls(
         self, where: Callable[[str], bool], *, status: int, times: int | None = None
@@ -716,7 +727,8 @@ class RecordedHindsight:
                 continue
             facts[fact_id] = {
                 "id": fact_id,
-                "text": _collapsed(item["content"])[:FACT_TEXT_CHARS],
+                "text": self._fact_texts.get(document_id)
+                or _collapsed(item["content"])[:FACT_TEXT_CHARS],
                 "context": item.get("context"),
                 "document_id": document_id,
                 "chunk_id": f"{bank}_{document_id}_0",

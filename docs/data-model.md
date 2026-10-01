@@ -408,9 +408,9 @@ The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and 
 | `job_id` | uuid not null unique FK → `job` | A retried or resumed job finds its extraction here |
 | `run_id` | uuid FK → `run` | The run its role calls belong to: its own (`kind = claim_extraction`) or the caller's |
 | `source_version_ids` | uuid[] not null | As asked for (1–25) |
-| `question` | text | Optional; its recall hits add passages |
-| `passages` | jsonb array | The passages chosen: `{id, source_version_id, section_anchor, char_start, char_end, selected_by}` (`entity:<company_id>`, `recall`) |
-| `passages_dropped` | int ≥ 0 | Chosen past `ATLAS_INVESTIGATOR_MAX_PASSAGES` |
+| `question` | text | Optional; its terms are searched for in the documents (the `search` selection) |
+| `passages` | jsonb array | The passages chosen, in reading order (pointer and search windows alternately, lead windows last): `{id, source_version_id, section_anchor, char_start, char_end, selected_by, parser_version}`. `selected_by` lists every selection that chose the window: `pointer:<query_index>`, `search`, `entity:<company_id>`, or `lead` alone (`docs/decisions.md`, "Passage selection: pointers and search, alternately"); extractions made before that have `recall` instead of `pointer` and `search`. No column changed: the values are JSON |
+| `passages_dropped` | int ≥ 0 | Pointer, search and entity candidates not sent (past the passage budget) |
 | `skipped` | jsonb array | Source Versions not read: `{source_version_id, reason}` |
 | `passages_per_call`, `batches_total`, `batches_done`, `batches_quarantined` | int | Progress: one Investigator call per batch |
 | `status` | text | `running`, `completed`, `budget_exhausted` |

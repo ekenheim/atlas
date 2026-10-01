@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import Connection, text
 
 ClaimOutcome = Literal["accepted", "rejected"]
@@ -24,9 +24,12 @@ class Passage(BaseModel):
     section_anchor: str
     char_start: int
     char_end: int
-    # Why it was chosen: `entity:<company_id>` (the text names that company) and/or `recall`
-    # (a recall hit for the extraction's question resolved to its section), or `lead` alone (a
-    # lead window of a document with neither, sent for its share of the passage budget).
+    # Every selection that chose it (atlas.claims.selection): `pointer:<query_index>` (a
+    # reading pointer's window: the question's, index 0, or a Scout query's), `search` (it
+    # contains a term of the question or the Scout's queries), `entity:<company_id>` (it names
+    # that company), or `lead` alone (a lead window of a document with none of those).
+    # Extractions made before memory-directed reading ticket 05 have `recall` (a recall hit
+    # resolved to its section) instead of `pointer` and `search`.
     selected_by: list[str]
     # The parse of the Source Version the offsets are in (pilot-fixes ticket 11): the current
     # parse when the extraction started. None for passages chosen before migration 0046, which
@@ -52,6 +55,10 @@ class Claim(BaseModel):
     run_id: uuid.UUID
     role_call_id: uuid.UUID
     passage_id: str
+    # The selections that chose that passage (its `selected_by` in the Claim's extraction):
+    # which of pointer, search, entity or lead found what the Claim quotes. Empty when the
+    # Claim names no passage that was sent.
+    passage_selected_by: list[str] = Field(default_factory=list[str])
     source_version_id: uuid.UUID | None
     subject_company_id: uuid.UUID | None
     predicate: str
@@ -128,6 +135,15 @@ _FILTER = """
       AND (CAST(:outcome AS text) IS NULL OR outcome = :outcome)
       AND (CAST(:reason AS text) IS NULL OR reason_code = :reason)
 """
+# The `selected_by` of claim `c`'s passage in its extraction (an SQL expression): `[]` when
+# the Claim names no passage the extraction holds.
+PASSAGE_SELECTED_BY = """
+    coalesce((SELECT p -> 'selected_by' FROM claim_extraction e,
+              jsonb_array_elements(e.passages) p
+              WHERE e.id = c.extraction_id AND p ->> 'id' = c.passage_id LIMIT 1),
+             '[]'::jsonb)
+"""
+_CLAIMS = f"SELECT c.*, {PASSAGE_SELECTED_BY} AS passage_selected_by FROM claim c"  # noqa: S608 (constant fragments)
 
 
 def list_claims(
@@ -154,7 +170,7 @@ def list_claims(
     total = connection.execute(text(f"SELECT count(*) FROM claim {_FILTER}"), params)  # noqa: S608 (constant fragments)
     rows = connection.execute(
         text(
-            f"SELECT * FROM claim {_FILTER}"  # noqa: S608 (constant fragments)
+            f"{_CLAIMS} {_FILTER}"
             " ORDER BY created_at, role_call_id, ordinal LIMIT :limit OFFSET :offset"
         ),
         params,
@@ -164,7 +180,7 @@ def list_claims(
 
 def get_claim(connection: Connection, claim_id: uuid.UUID) -> Claim | None:
     row = (
-        connection.execute(text("SELECT * FROM claim WHERE id = :id"), {"id": claim_id})
+        connection.execute(text(f"{_CLAIMS} WHERE c.id = :id"), {"id": claim_id})
         .mappings()
         .one_or_none()
     )
