@@ -36,7 +36,7 @@ Then the tasks, from `tasks[*].artifacts` and the card's `searched` and `read`:
 
 ## 3. Compare with the baseline
 
-Run `uv run python scripts/pilot_baseline.py` with the investigation's question, seed slugs, `--investigation <id>` and `--as-of <its created_at>` (read-only; no LLM call). Read its top 20 hits in order, mark each on-question or not, and stop at 10 on-question hits. A hit is **covered** when a finding or an accepted Claim states its fact, even from another sentence or filing.
+Run `uv run python scripts/pilot_baseline.py` with the investigation's question, seed slugs, `--investigation <id>` and `--as-of <its created_at>` (read-only; no LLM call). Read its top 20 hits in order, mark each on-question or not, and stop at 10 on-question hits. A hit is **covered** when a finding or an accepted Claim states its fact, even from another sentence or filing. A paragraph that several filings repeat is one hit ("Also in N other documents"): its `also_in` documents count as the same hit, so a Claim quoting any of them covers it.
 
 Completion criterion: every hit up to the tenth on-question one has a mark, and every on-question hit the card doesn't cover is listed under Missed evidence.
 
