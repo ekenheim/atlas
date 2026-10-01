@@ -110,3 +110,43 @@ Assessment: evidence traceability holds, but the research pipeline, as specified
 | Latency | 5 min 29 s | at most 10 min | yes |
 
 **Investigation 1 does not meet the bar** (precision and baseline coverage). Both failures rest on the stricter readings recorded in the criteria ticket's comment on 2026-10-01, after this run's results were known: on the lenient readings both measures sit exactly at their thresholds and the investigation would meet the bar. `machine_reviewed` edges: 2 of 4 right (the two `substrate` edges are wrong by layer). Against the 0.2.3 run: every role now does its work and the card has new, important facts, but precision fell from 10/14 to 6/10, and the two best earlier findings (the allocation statement, the NVIDIA supply edge) were lost: the first to the passage share, the second proposed from other sentences and rejected by the party check. A correction to the 0.2.3 review: its "7 of 8" `machine_reviewed` edges should read 6 of 8, since it also called the `machine_reviewed` "certain components" edge worthless.
+
+## Breadth runs on 0.2.5 (2026-10-01, investigations 2 to 5, unreviewed)
+
+Each investigation of the plan was run once on production 0.2.5 with the raised budgets (72 passages per Investigator, 48 for the Skeptic, 1,000,000 tokens per run), to see which of investigation 1's defects recur on other questions and seeds. **No Claim was checked against its span**, so there is no precision figure and these runs don't count for the verdict; the reviewed runs come on the memory-directed reading release. Everything below is read from the API and from `scripts/pilot_baseline.py`; the saved runs are in `.scratch/live-runs/breadth-0.2.5/` (not in git).
+
+| | 2: InP substrates | 3: module assembly | 4: DSP and drivers | 5: coherent optics |
+|---|---|---|---|---|
+| ID | `7d266ac6-73c1-4035-ba09-ee48726f13e0` | `e5fbe2d8-4df5-43b8-a792-44c821098a3e` | `066e2cde-e7e1-4bd1-ac4e-ab688b49a88d` | `29cad6a8-fbe2-42fc-b3e9-fd68b0878fe2` |
+| Seeds | AXT, Coherent, Lumentum | Fabrinet, Applied Optoelectronics, Coherent | Marvell, MACOM | Ciena, Lumentum, Coherent |
+| Stop | `needs_review` | `needs_review` | `needs_review` | `needs_review` |
+| Tokens in / out | 547,119 / 47,006 | 509,932 / 40,703 | 341,863 / 26,208 | 478,150 / 34,019 |
+| Minutes (role calls) | 12.6 (49) | 12.2 (48) | 10.6 (37; the pod restarted during it) | 9.1 (48) |
+| Claims accepted / proposed | 28 / 62 | 31 / 60 | 10 / 24 | 22 / 50 |
+| Accepted by Investigator | AXT 13, Coherent 13, Lumentum 2 | Fabrinet 6, Applied Optoelectronics 12, Coherent 13 | Marvell 1, MACOM 9 | Ciena 0, Lumentum 1, Coherent 21 |
+| Findings / open questions | 5 / 10 | 4 / 10 | 2 / 8 | 6 / 9 |
+| Unsupported findings the Editor dropped | 2 | 1 | 1 | 1 |
+| Skeptic: documents, passages, by fallback | 4, 48, yes | 4, 48, yes | 3, 48, yes | 5, 48, yes |
+| Skeptic: plan queries, plan documents | 10, 0 | 10, 0 | 10, 0 | 10, 0 |
+| Skeptic: items accepted, "independent" | 35, 0 | 41, 0 | 40, 24 | 48, 16 |
+| Analyst: sourced inputs per seed | 3, 4, 4 | 3, 3, 3 | 3, 3 | 4, 3 (two proposals) |
+| Baseline: hits holding an accepted Claim's quote | 6 of 20 | 3 of 20 | 0 of 20 | 1 of 20 |
+| Baseline: accepted Claims in no hit | 25 of 28 | 26 of 31 | 10 of 10 | 17 of 22 |
+| Baseline: hits in sections recall resolved to | 5 of 20 | 10 of 20 | 1 of 20 | 9 of 20 |
+
+**Rejections by reason** (all four runs, 105 rejected of 196 proposed): `party_not_in_quote` 31, `no_directional_language` 26, `quote_mismatch` 19, `quote_outside_passage` 12, `unresolved_company` 9, `object_not_in_quote` 3, `missing_object` 2, `generic_object` 2, `cue_in_other_clause` 1.
+
+**What recurs from investigation 1** (each already a ticket of `.scratch/atlas-memory-directed-reading/`):
+- The party check is the largest single loss on every question (5 to 11 Claims a run; ticket 02).
+- Quote mismatches cost 1 to 8 Claims a run (ticket 02's fold covers the typographic ones; the rest need looking at on the release).
+- The Skeptic's plan chose no document in any run (it did write 10 queries each time, unlike the empty plan of investigation 1), so all its reading came from the fallback; it accepted 35 to 48 items a run, most of them attached to no Claim (tickets 03 and 07).
+- The layer follows the question: 18 of investigation 2's 28 accepted Claims are tagged `substrate`, 17 of investigation 3's 31 `module`, 9 of investigation 4's 10 `dsp` (ticket 08).
+- The cards cover little of what a term search finds, and on these questions recall with the whole question covers little of it either (1 to 10 of 20 hits lie in a recalled section, against 20 of 20 for investigation 1): the long question recalled with one company's scope is a poor query, which is what the reading pointers replace (tickets 01, 05, 06).
+
+**New in these runs:**
+- **Some Investigators propose almost nothing.** Ciena's Investigator proposed 1 Claim from 72 passages (rejected), Marvell's 5 (1 accepted), Lumentum's 2 or 3, against 46 from Coherent's in investigation 5. The passages are dealt in text order, not by relevance, so 72 passages of a systems or DSP company are mostly not about the question; ticket 05 changes which passages are read, and the reviewed runs will show whether the predicates also fail to fit these companies.
+- **The allocation statement is now read and still lost.** In investigation 5 Lumentum's "This demand is outpacing our current supply which has required us to make decisions on supply allocation." was proposed as `capacity_constrained` with object "our products" and rejected `object_not_in_quote`. The sentence names no product: the constraint is the company's. Fix 09's rule (a bottleneck Claim needs a named, specific object) rejects the pilot's most valuable kind of statement. New ticket 09 of the memory-directed reading spec.
+- **Acquisitions of private companies are lost:** Marvell `owns` Celestial AI and XConn were rejected `unresolved_company` (no exact match in SEC or GLEIF). A candidate for the counterparty work, not this release.
+- **Filing leads crowd the kept leads.** In investigations 3 to 5 the ten kept leads are nearly all EDGAR hits, often one filer many times (eight POET Technologies 6-Ks in investigation 3). Investigation 2's ten are web results and on the point ("China Export Curbs Delay AXT's US-Bound Indium Phosphide Shipments", "AXT Subsidiary Secures Export Permits in China"). Ticket 04's ranking version 3 scores filing leads differently; a cap per filer is not built.
+- **The baseline repeats itself across filings.** For investigation 2 its top five hits are the same export-permit paragraph in five AXT filings, worded slightly differently each time; exact-duplicate dropping doesn't catch that. The baseline needs near-duplicate dropping before the reviewed runs.
+- **Cost:** 368k to 594k tokens and 9 to 13 minutes a run at 72 passages, inside the new bars (1,000,000 tokens, 20 minutes). The four runs spent about 2.0 million tokens of the 4 million window.
