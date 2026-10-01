@@ -31,13 +31,14 @@ import pytest
 import yaml
 from pydantic import JsonValue
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
 from tests.fakes.searxng import FakeSearXNG, SearchReply
 from tests.fakes.serve import Served, serve
-from tests.harness import REPO, THEMES, Atlas, Clock, at
+from tests.harness import BANK, ITEM_1, REPO, THEMES, Atlas, Clock, at
 
 QUESTION = "Who supplies the lasers in AI data-center optics, and to whom?"
 SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
@@ -653,6 +654,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert [(e["type"], e["task_key"]) for e in log if e["task_key"] == "scout"] == [
         ("task_queued", "scout"),
         ("task_started", "scout"),
+        ("pointers_recorded", "scout"),  # what Memory was asked, and what it pointed at
         ("task_succeeded", "scout"),
     ]
     assert log[-1]["type"] == "stopped"
@@ -825,6 +827,270 @@ def test_the_scout_keeps_the_top_ranked_leads_with_their_scores_and_reasons(
     leads = atlas.get("/api/v1/leads", theme="photonics", limit=50)
     assert leads["total"] == 17
     assert LUMENTUM_IR in {lead["canonical_url"] for lead in leads["items"]}
+
+
+# --- reading pointers -----------------------------------------------------------------------------
+
+# Lumentum's recorded filings (`LITE_8K`, `LITE_EX991`, `LITE_10K`, `LITE_10Q`, below): the
+# fourth-quarter results 8-K and its press release (accepted 11 August 2026), the 10-K
+# (17 August 2026) and the third-quarter 10-Q (May 2026).
+TWO_QUERIES: list[JsonValue] = [
+    {"query": SUBSTRATE, "purpose": "InP substrate capacity"},
+    {"query": SECOND_SOURCE, "purpose": "second sources"},
+]
+THEME_SCOPE = (["theme:photonics"], "any_strict")
+
+
+def script_two_queries(llm: FakeLiteLLM, searxng: FakeSearXNG) -> None:
+    """The Scout writes two queries; the Investigator proposes nothing; the Editor's card has
+    no finding."""
+    llm.script_chat(
+        ChatReply.json({"queries": TWO_QUERIES}), ChatReply.json({"claims": []}), NOTHING_ACCEPTED
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+
+
+def retained_sections(atlas: Atlas, url: str, company: str) -> list[dict[str, Any]]:
+    """The Source Version's sections as retained (its memory documents), with the version."""
+    version = atlas.version(url, company)
+    return [d | {"version": version} for d in atlas.memory(version["id"])["documents"]]
+
+
+def asked_of_memory(found: dict[str, Any], query_index: int) -> list[dict[str, Any]]:
+    return [p for p in found["pointers"] if p["query_index"] == query_index]
+
+
+def test_the_question_and_each_scout_query_are_asked_of_memory_and_stored_as_reading_pointers(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()  # Coherent, the seed
+    atlas.ingest_company("lumentum")  # in the theme, not a seed
+    fake = services.hindsight[0]
+    coherent, lumentum = atlas.company("coherent"), atlas.company("lumentum")
+    as_of = "2026-08-15T12:00:00+00:00"
+    available = [
+        *retained_sections(atlas, COHR_10K, "coherent"),
+        *retained_sections(atlas, COHR_10Q, "coherent"),
+        *retained_sections(atlas, LITE_8K, "lumentum"),
+        *retained_sections(atlas, LITE_EX991, "lumentum"),
+        *retained_sections(atlas, LITE_10Q, "lumentum"),
+    ]
+    later = retained_sections(atlas, LITE_10K, "lumentum")
+    assert all(at(s["version"]["available_at"]) <= at(as_of) for s in available)
+    assert later and all(at(s["version"]["available_at"]) > at(as_of) for s in later)
+    cohr_item_1 = atlas.section(COHR_10K, "coherent")
+    release = retained_sections(atlas, LITE_EX991, "lumentum")[0]
+    # What Hindsight holds: a fact per retained section (the fake's derivation) and one
+    # observation consolidated from a fact of each company's filing.
+    observation = fake.derive_observation([cohr_item_1["document_id"], release["document_id"]])
+    facts = fake.bank_facts(BANK)
+    assert len(facts) == len(available) + len(later)
+    started = seeded(atlas, "coherent", as_of=as_of)
+    script_two_queries(llm, searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["scout"] == "succeeded"
+    # One recall for the question and one per Scout query, each across the theme; the fourth
+    # recall is the Investigator's own, scoped to its company.
+    recalls = fake.requests("POST", "memories/recall")
+    assert [(r["query"], (r["tags"], r["tags_match"])) for r in recalls[:3]] == [
+        (QUESTION, THEME_SCOPE),
+        (SUBSTRATE, THEME_SCOPE),
+        (SECOND_SOURCE, THEME_SCOPE),
+    ]
+    assert [r["tags"] for r in recalls[3:]] == [[f"company:{coherent['id']}"]]
+    pointers = found["pointers"]
+    assert {(p["query_index"], p["query"]) for p in pointers} == {
+        (0, QUESTION),
+        (1, SUBSTRATE),
+        (2, SECOND_SOURCE),
+    }
+    assert {(p["round"], p["task_key"], p["citation_state"]) for p in pointers} == {
+        (1, "scout", "resolved")
+    }
+    # Both companies' documents are pointed at, the seed's and the other's; every section
+    # retained from a version available by the as-of time, for every query (the fake recalls
+    # everything in scope), and none of the 10-K that became available after it.
+    assert {p["company_id"] for p in pointers} == {coherent["id"], lumentum["id"]}
+    expected = {(s["version"]["id"], s["section_anchor"]) for s in available}
+    for index in (0, 1, 2):
+        asked_for = asked_of_memory(found, index)
+        assert {(p["source_version_id"], p["section_anchor"]) for p in asked_for} == expected
+        assert len(asked_for) == len(available) + 2  # and the observation's two sections
+    assert later[0]["version"]["id"] not in {p["source_version_id"] for p in pointers}
+    second = asked_of_memory(found, 2)
+    # The observation, recalled first, resolves through its two source facts: one pointer per
+    # section, with the observation's text as Memory.
+    first = [p for p in second if p["rank"] == 1]
+    assert [(p["memory_id"], p["memory_type"]) for p in first] == [(observation, "observation")] * 2
+    assert {(p["company_id"], p["source_version_id"], p["section_anchor"]) for p in first} == {
+        (coherent["id"], cohr_item_1["version"]["id"], ITEM_1),
+        (lumentum["id"], release["version"]["id"], release["section_anchor"]),
+    }
+    # A fact points at the section it was extracted from, at its rank in the recall's results.
+    fact = fake.derived_fact(release["document_id"])
+    [pointer] = [p for p in second if p["memory_id"] == fact]
+    section_text = atlas.parsed(release["version"]["id"])[
+        release["char_start"] : release["char_end"]
+    ]
+    assert pointer["rank"] == facts.index(fact) + 2  # after the observation
+    assert (pointer["memory_type"], pointer["memory_text"]) == (
+        "world",
+        " ".join(section_text.split())[:200],
+    )
+    assert (pointer["source_version_id"], pointer["section_anchor"]) == (
+        release["version"]["id"],
+        release["section_anchor"],
+    )
+    assert (pointer["section_char_start"], pointer["section_char_end"]) == (
+        release["char_start"],
+        release["char_end"],
+    )
+    assert (pointer["company_id"], pointer["company_name"]) == (
+        lumentum["id"],
+        lumentum["display_name"],
+    )
+    assert pointer["source_title"] == release["version"]["source_document"]["title"]
+    assert at(pointer["available_at"]) == at(release["version"]["available_at"])
+    # The Scout task counts what it asked and what came back.
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["pointer_recalls"], scout["pointer_recalls_failed"]) == (3, 0)
+    assert scout["memories_recalled"] == 3 * (len(facts) + 1)
+    assert scout["sections_after_as_of"] == 3 * len(later)
+    assert scout["pointers"] == len(pointers) == 3 * (len(available) + 2)
+    by_slug = {coherent["id"]: "coherent", lumentum["id"]: "lumentum"}
+    assert scout["pointers_by_company"] == {
+        slug: sum(1 for p in pointers if p["company_id"] == each) for each, slug in by_slug.items()
+    }
+    [recorded] = [e for e in events(atlas, started["id"]) if e["type"] == "pointers_recorded"]
+    assert (recorded["task_key"], recorded["detail"]["pointers"]) == ("scout", len(pointers))
+    assert recorded["detail"]["queries_without_pointers"] == []
+    # Nothing reads the pointers yet: only the seed company got an Investigator.
+    assert [t["key"] for t in found["tasks"] if t["role"] == "investigator"] == [
+        "investigator:coherent"
+    ]
+
+
+def test_reading_pointers_are_insert_only_and_audited(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    started = seeded(atlas, "coherent")
+    script_two_queries(llm, searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert found["pointers"]
+    refused = [
+        "UPDATE reading_pointer SET rank = rank + 1",
+        "DELETE FROM reading_pointer",
+        "TRUNCATE reading_pointer",
+    ]
+    for sql in refused:
+        with pytest.raises(DBAPIError), atlas.engine.begin() as connection:
+            connection.execute(text(sql))
+    assert investigation(atlas, started["id"])["pointers"] == found["pointers"]
+    # One audit event for the task's pointers, by the Scout; the chain still verifies.
+    with atlas.engine.connect() as connection:
+        audited = connection.execute(
+            text(
+                "SELECT actor, entity_type, entity_id FROM audit_event"
+                " WHERE action = 'investigation.pointers_recorded'"
+            )
+        ).all()
+    assert [tuple(row) for row in audited] == [
+        ("atlas-scout", "investigation_task", tasks(found)["scout"]["id"])
+    ]
+    verified = atlas.cli("audit", "verify")
+    assert verified.returncode == 0, verified.stdout + verified.stderr
+
+
+def test_a_failed_recall_leaves_the_scout_succeeded_with_the_other_queries_pointers(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    services.hindsight[0].fail_recalls(lambda query: query == SUBSTRATE, status=500)
+    started = seeded(atlas, "coherent")
+    script_two_queries(llm, searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["scout"] == "succeeded"
+    assert {p["query_index"] for p in found["pointers"]} == {0, 2}
+    assert len(asked_of_memory(found, 0)) == len(asked_of_memory(found, 2)) > 0
+    [failed] = [e for e in events(atlas, started["id"]) if e["type"] == "pointer_recall_failed"]
+    assert (failed["round"], failed["task_key"]) == (1, "scout")
+    assert (failed["detail"]["query_index"], failed["detail"]["query"]) == (1, SUBSTRATE)
+    assert "HTTP 500" in failed["detail"]["error"]
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["pointer_recalls"], scout["pointer_recalls_failed"]) == (3, 1)
+    assert scout["pointers"] == len(found["pointers"])
+    # The investigation went on to its stop: the Scout's leads, the Investigator, the Editor.
+    assert scout["leads_taken"] == len(found["leads"]) == 3
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+
+
+def test_recalls_that_return_nothing_leave_no_pointer_and_the_event_log_says_so(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(ingest=False)  # nothing retained: Memory holds nothing
+    started = seeded(atlas, "coherent")
+    llm.script_chat(ChatReply.json({"queries": TWO_QUERIES}), NOTHING_ACCEPTED)
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert (statuses(found)["scout"], found["pointers"]) == ("succeeded", [])
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["pointer_recalls"], scout["memories_recalled"], scout["pointers"]) == (3, 0, 0)
+    assert scout["pointers_by_company"] == {}
+    [recorded] = [e for e in events(atlas, started["id"]) if e["type"] == "pointers_recorded"]
+    assert recorded["detail"]["queries_without_pointers"] == [QUESTION, SUBSTRATE, SECOND_SOURCE]
+
+
+def test_a_hindsight_outage_during_the_recalls_pauses_the_scout_and_it_resumes(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    clock = Clock(datetime.now(UTC))
+    worker = paced(atlas, clock)
+    services.hindsight[0].fail_recalls(lambda query: query == SECOND_SOURCE, status=503, times=1)
+    started = seeded(atlas, "coherent")
+    script_two_queries(llm, searxng)
+
+    worker.run_once()
+
+    paused = investigation(atlas, started["id"])
+    assert (paused["status"], paused["paused"]) == ("running", True)
+    assert (statuses(paused)["scout"], paused["pointers"]) == ("queued", [])
+    [paused_event] = [e for e in events(atlas, started["id"]) if e["type"] == "task_paused"]
+    assert (paused_event["task_key"], paused_event["detail"]["error_class"]) == (
+        "scout",
+        "unavailable",
+    )
+
+    clock.advance(hours=2)
+    worker.run_once()
+
+    found = investigation(atlas, started["id"])
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+    # The resumed Scout asked Memory again and stored every query's pointers once; its
+    # queries were not written or searched again, and its leads are as without a pause.
+    assert {p["query_index"] for p in found["pointers"]} == {0, 1, 2}
+    log = events(atlas, started["id"])
+    assert [e["type"] for e in log if e["type"].startswith("pointer")] == ["pointers_recorded"]
+    assert roles(llm).count("scout") == 1
+    assert len(searxng.searches()) == 2
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["pointer_recalls"], scout["pointer_recalls_failed"]) == (3, 0)
+    assert scout["leads_taken"] == len(found["leads"]) == 3
 
 
 # --- budgets and no new evidence ------------------------------------------------------------------
@@ -2054,12 +2320,25 @@ def test_memory_and_other_roles_output_are_never_witnesses(
 
     found = investigation(atlas, started["id"])
     # Nothing but passages of the Source Versions it chose were sent, and no Memory was read
-    # for the Skeptic: the one recall is the Investigator's, the one mental-model read the
-    # Scout's.
+    # for the Skeptic: the recalls are the Scout's reading pointers (the question and its
+    # three queries, across the theme) and the Investigator's one; the one mental-model read
+    # is the Scout's.
     plan, reading = skeptic_calls(llm)
     assert plan["retrieved_data"] == []
     assert all(p["source"].startswith(f"{ten_q}#") for p in reading["retrieved_data"])
-    assert len(fake.requests("POST", "memories/recall")) == recalls + 1
+    asked_of_hindsight = fake.requests("POST", "memories/recall")[recalls:]
+    assert [r["tags"] for r in asked_of_hindsight] == [
+        *(["theme:photonics"],) * 4,
+        [f"company:{coherent}"],
+    ]
+    # The pointers are an index: no role was sent a memory they name.
+    pointed = {p["memory_id"] for p in found["pointers"]}
+    assert memory["memory_id"] in pointed
+    assert not any(
+        item["id"] in pointed
+        for body in llm.chat_requests()
+        for item in asked(body).get("retrieved_data", [])
+    )
     mental_model_reads = [
         c for c in fake.calls if c.method == "GET" and "/mental-models/" in c.url.path
     ]

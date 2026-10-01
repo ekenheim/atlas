@@ -16,6 +16,10 @@ One attempt:
      ranking says not to keep, from a denied host or below the minimum score, counted as
      rejected). With entity resolution configured, its filing leads' filers are then
      proposed as Candidates by CIK (`propose_candidates` with `filers_only`: no LLM call).
+     Once the discovery has its queries, the round's question and each query are asked of
+     Memory across the theme, and what resolves is stored as the round's **reading
+     pointers** (atlas.investigations.pointers): Memory as an index of where to read, never
+     sent to a role. Nothing reads them yet.
    - **Investigator** (one per seed company): the company's latest parsed Source Versions
      available at the investigation's as-of time, newest first, up to its share of what is
      left of the document budget (an equal share is held back for each of the round's other
@@ -93,6 +97,7 @@ from atlas.investigations.model import (
     UnsupportedFinding,
     ValidityDates,
 )
+from atlas.investigations.pointers import SCOUT_ACTOR, Recall, record_pointers, scout_queries
 from atlas.investigations.service import Investigations, event, lock, round_question, stop
 from atlas.investigations.skeptic import (
     SKEPTIC_ACTOR,
@@ -104,6 +109,7 @@ from atlas.investigations.skeptic import (
 from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import run_recorder
+from atlas.research.service import RecallRequest, Research, ResearchScope
 from atlas.roles import QuotedText, RoleCaller, RoleCallFailed, TokenBudgetExhausted
 from atlas.roles.editor import (
     EDITOR,
@@ -404,6 +410,7 @@ class TaskRunner:
             raise InvestigationNotConfigured("the Scout needs SearXNG: set ATLAS_SEARXNG_URL")
         runs = self._runs()
         edgar = EdgarFullTextSearch.from_settings(self._settings)
+        question = self._question(investigation, task)
         with searxng, self._caller(investigation) as caller:
             try:
                 scout = Scout(
@@ -419,13 +426,20 @@ class TaskRunner:
                     job,
                     theme_id,
                     theme,
-                    self._question(investigation, task),
+                    question,
                     run_id=run_id,
                     as_of=investigation["as_of"],
                 )
             finally:
                 runs.close()
         discovery_id = uuid.UUID(str(found["discovery_id"]))
+        # Before the leads are taken: a Hindsight outage here pauses the task, and the
+        # attempt that resumes it takes the leads once.
+        with self._engine.connect() as connection:
+            queries = scout_queries(connection, discovery_id, question)
+        pointers = record_pointers(
+            self._engine, self._theme_recall(theme_id, universe), investigation, task, queries
+        )
         with self._engine.begin() as connection:
             lock(connection, investigation["id"])
             taken, dropped, rejected, total = _take_leads(
@@ -447,7 +461,7 @@ class TaskRunner:
                     max_leads=investigation["max_leads"],
                     dropped=dropped,
                 )
-        artifacts: dict[str, JsonValue] = {}
+        artifacts: dict[str, JsonValue] = dict(pointers)
         if edgar is not None and self._settings.sec_user_agent:
             # The filing leads' filers, by CIK (no mention extractor): Candidates for the
             # ones outside the universe (atlas.candidates).
@@ -472,6 +486,14 @@ class TaskRunner:
                 "ranking_version": ranking.version,
             },
         )
+
+    def _theme_recall(self, theme_id: str, universe: Universe) -> Recall:
+        """Recall across the theme: every memory tagged with it, whichever company's."""
+        research = Research(
+            self._engine, open_archive(self._settings), self._gateway, SCOUT_ACTOR, lambda: universe
+        )
+        scope = ResearchScope(theme_ids=[theme_id])
+        return lambda query: research.recall(RecallRequest(query=query, scope=scope))
 
     def _investigator(
         self, job: Job, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID

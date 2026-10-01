@@ -5,7 +5,13 @@ from typing import Any, cast
 
 import pytest
 
-from atlas.hindsight import HindsightGateway, HindsightNotFound, RetainItem, TagScope
+from atlas.hindsight import (
+    HindsightGateway,
+    HindsightHTTPError,
+    HindsightNotFound,
+    RetainItem,
+    TagScope,
+)
 from tests.fakes.hindsight import (
     DERIVED_CONSOLIDATE,
     DERIVED_CONSOLIDATE_FINAL,
@@ -200,6 +206,25 @@ def test_a_derived_recall_matches_tags_strictly_and_forgotten_memories_are_404()
     assert client.get_memory(observation_id).source_memory_ids == [
         fake.derived_fact(ITEMS[0].document_id)
     ]
+
+
+def test_a_failed_recall_is_answered_by_query_for_its_first_times_only() -> None:
+    fake, client = derived_memories()
+    scope = TagScope(["company:x"], "any_strict")
+    fake.fail_recalls(lambda query: query == "broken", status=500)
+    fake.fail_recalls(lambda query: query == "down", status=503, times=1)
+
+    with pytest.raises(HindsightHTTPError) as broken:
+        client.recall("broken", scope=scope)
+    with pytest.raises(HindsightHTTPError) as down:
+        client.recall("down", scope=scope)
+    assert fake.served[-1] == "memories/recall 503 (derived, hand-written body)"
+    recovered = client.recall("down", scope=scope)
+    with pytest.raises(HindsightHTTPError):
+        client.recall("broken", scope=scope)  # every time
+
+    assert (broken.value.status_code, down.value.status_code) == (500, 503)
+    assert len(recovered.memories) == len(client.recall("other", scope=scope).memories) == 2
 
 
 def test_a_scripted_reflect_changes_only_its_answer_and_citations() -> None:

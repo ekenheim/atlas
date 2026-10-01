@@ -3992,6 +3992,8 @@ export interface components {
             tasks: components["schemas"]["Task"][];
             /** Leads */
             leads: components["schemas"]["InvestigationLead"][];
+            /** Pointers */
+            pointers: components["schemas"]["ReadingPointer"][];
             /** Documents */
             documents: components["schemas"]["InvestigationDocument"][];
             /** Counterevidence */
@@ -5318,6 +5320,70 @@ export interface components {
              * @constant
              */
             trust: "low";
+        };
+        /**
+         * ReadingPointer
+         * @description A recalled Memory resolved to a Source Version section, with the query that recalled
+         *     it (CONTEXT.md, "Reading pointer"; atlas.investigations.pointers): where Memory says to
+         *     read. `memory_text` is Memory as Hindsight returned it: an index entry, never Evidence,
+         *     never quoted.
+         */
+        ReadingPointer: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Round */
+            round: number;
+            /** Task Key */
+            task_key: string;
+            /** Query Index */
+            query_index: number;
+            /** Query */
+            query: string;
+            /** Rank */
+            rank: number;
+            /** Memory Id */
+            memory_id: string;
+            /** Memory Type */
+            memory_type: string;
+            /** Memory Text */
+            memory_text: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Source Title */
+            source_title: string;
+            /** Section Anchor */
+            section_anchor: string;
+            /** Section Heading */
+            section_heading: string | null;
+            /** Section Char Start */
+            section_char_start: number;
+            /** Section Char End */
+            section_char_end: number;
+            /** Company Id */
+            company_id: string | null;
+            /** Company Name */
+            company_name: string | null;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /**
+             * Citation State
+             * @constant
+             */
+            citation_state: "resolved";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** RecallRequest */
         RecallRequest: {

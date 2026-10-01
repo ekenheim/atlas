@@ -11,10 +11,12 @@ version was built from, frozen in the transaction that publishes it.
   hashes, archive URIs and `available_at`.
 - `memory`: Hindsight Memory **exactly as it was returned to the run**: every retrieved item
   a role was sent whose source is a mental model or memory (e.g. the Scout's open gaps).
-  Recall results themselves are not stored by Atlas: a recall only chose which sections of
-  Source Versions the Investigator read, so those choices are listed
-  (`recall_selections`) and the text the model saw is in the Source Versions. `used` says
-  whether any Memory reached the run at all.
+  An Investigator's own recall only chose which sections of Source Versions it read, so
+  those choices are listed (`recall_selections`) and the text the model saw is in the
+  Source Versions. The investigation's **reading pointers** (`reading_pointers`; snapshots
+  written before memory-directed reading have none) are what Memory returned to the Scout's
+  recalls, each memory's text as returned with the section it resolved to: an index of where
+  to read, sent to no role. `used` says whether any Memory reached the run at all.
 - `assertions`: the Assertions the findings, the counterevidence and the scenarios cite, with
   their exact quote spans and review state; `relationships`: those the version depends on,
   with the owner's approval.
@@ -289,6 +291,18 @@ def build_snapshot(
         for passage in extraction["passages"]
         if "recall" in passage.get("selected_by", [])
     ]
+    reading_pointers = _rows(
+        connection,
+        "SELECT p.id, p.round, p.task_id, p.query_index, p.query, p.discovery_query_id, p.rank,"
+        " p.memory_id, p.memory_type, p.memory_text, p.source_version_id, p.section_anchor,"
+        " p.section_heading, p.section_char_start, p.section_char_end, p.company_id,"
+        " p.available_at, p.citation_state, p.created_at FROM reading_pointer p"
+        " JOIN investigation_task t ON t.id = p.task_id"
+        " WHERE p.investigation_id = ANY(CAST(:ids AS uuid[]))"
+        " ORDER BY p.round, t.position, p.query_index, p.rank, p.source_version_id,"
+        " p.section_char_start, p.section_anchor",
+        [investigation["id"]],
+    )
 
     considered = _ids(
         [
@@ -348,9 +362,10 @@ def build_snapshot(
         },
         "source_versions": source_versions,
         "memory": {
-            "used": bool(memory_items or recall_selections),
+            "used": bool(memory_items or recall_selections or reading_pointers),
             "items": memory_items,
             "recall_selections": recall_selections,
+            "reading_pointers": reading_pointers,
         },
         "assertions": assertions,
         "relationships": relationships,

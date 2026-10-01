@@ -14,10 +14,12 @@ Nothing reads the pointers yet in this ticket; tickets 05 to 07 do.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam: with memories derived from two companies' recorded filings (one a seed, one not), the Scout's two scripted queries produce pointers for both companies, each with its query, rank, section and memory text; the investigation read returns them; a version available after `as_of` gives none.
-- [ ] A recall error on one query leaves the Scout succeeded with the other query's pointers and an event naming the failed query.
-- [ ] The pointer table refuses UPDATE and DELETE; `atlas audit verify` passes.
-- [ ] The investigation page shows the pointers (frontend unit test of the pure part; the API client regenerated).
-- [ ] Glossary and decision entry; `AGENTS.md` line; migration with the revision the lead names.
+- [x] Integration test at the investigation seam: with memories derived from two companies' recorded filings (one a seed, one not), the Scout's two scripted queries produce pointers for both companies, each with its query, rank, section and memory text; the investigation read returns them; a version available after `as_of` gives none.
+- [x] A recall error on one query leaves the Scout succeeded with the other query's pointers and an event naming the failed query.
+- [x] The pointer table refuses UPDATE and DELETE; `atlas audit verify` passes.
+- [x] The investigation page shows the pointers (frontend unit test of the pure part; the API client regenerated).
+- [x] Glossary and decision entry; `AGENTS.md` line; migration with the revision the lead names.
+
+Built on `worktree-agent-a94e9ef780218513a` (2026-10-01): `atlas.investigations.pointers`, migration `0051`, `Investigation.pointers`, the page's "Reading pointers" section, and the pointers in the Research Snapshot (`memory.reading_pointers`, the spec's "Pointers are stored"). Results and deviations: `docs/implementation-log.md`, "memory-directed reading ticket 01".

@@ -1,9 +1,11 @@
 // The research workbench's pure parts: labels, the research card's open questions, why a
-// follow-up can't be launched, and a task's output as short text.
+// follow-up can't be launched, the reading pointers by query, and a task's output as short
+// text.
 import type {
   CardReading,
   Investigation,
   InvestigationTask,
+  ReadingPointer,
   ResearchCard,
 } from "./api/client";
 
@@ -119,6 +121,68 @@ export function readingOutcome(reading: CardReading): string {
   if (rejected.length > 0) parts.push(`rejected: ${rejected.join(", ")}`);
   if (reading.passages === 0 && reading.detail) parts.push(reading.detail);
   return `${parts.join("; ")}.`;
+}
+
+/** One query asked of Memory, and the reading pointers its recall gave. */
+export type PointerGroup = {
+  round: number;
+  /** 0: the round's question; n: the Scout's nth query. */
+  queryIndex: number;
+  query: string;
+  /** Best rank first. */
+  pointers: ReadingPointer[];
+  /** The companies pointed at, most pointers first. */
+  companies: { name: string; pointers: number }[];
+};
+
+/**
+ * An investigation's reading pointers by the query that recalled them: rounds in order, the
+ * question before the Scout's queries, each group's pointers by rank. A query whose recall
+ * gave no pointer has no group.
+ */
+export function pointerGroups(pointers: ReadingPointer[]): PointerGroup[] {
+  const groups = new Map<string, PointerGroup>();
+  for (const pointer of pointers) {
+    const key = `${pointer.round}:${pointer.query_index}`;
+    const group = groups.get(key) ?? {
+      round: pointer.round,
+      queryIndex: pointer.query_index,
+      query: pointer.query,
+      pointers: [],
+      companies: [],
+    };
+    group.pointers.push(pointer);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    group.pointers.sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        a.source_version_id.localeCompare(b.source_version_id) ||
+        a.section_char_start - b.section_char_start,
+    );
+    const counts = new Map<string, number>();
+    for (const pointer of group.pointers) {
+      const name = pointer.company_name ?? "no company";
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    group.companies = [...counts.entries()]
+      .map(([name, count]) => ({ name, pointers: count }))
+      .sort((a, b) => b.pointers - a.pointers || a.name.localeCompare(b.name));
+  }
+  return [...groups.values()].sort((a, b) => a.round - b.round || a.queryIndex - b.queryIndex);
+}
+
+/** Which query a group is: the round's question or one of the Scout's, by number. */
+export function pointerQueryLabel(group: PointerGroup): string {
+  const which = group.queryIndex === 0 ? "The question" : `Query ${group.queryIndex}`;
+  return group.round > 1 ? `${which} (follow-up round ${group.round})` : which;
+}
+
+/** A group's pointers in words: how many, and how many name each company. */
+export function pointerSummary(group: PointerGroup): string {
+  const companies = group.companies.map((each) => `${each.name} ${each.pointers}`).join(", ");
+  return `${plural(group.pointers.length, "pointer")}: ${companies}`;
 }
 
 /** The investigation's tasks by round, rounds in order. */

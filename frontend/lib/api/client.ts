@@ -39,6 +39,7 @@ export type InvestigationSummary = Schemas["InvestigationSummary"];
 export type InvestigationEvent = Schemas["InvestigationEvent"];
 export type InvestigationCreate = Schemas["InvestigationCreate"];
 export type InvestigationTask = Schemas["Task"];
+export type ReadingPointer = Schemas["ReadingPointer"];
 export type EvidenceItem = Schemas["EvidenceItem"];
 export type ResearchCard = Schemas["ResearchCard"];
 export type CardSearch = Schemas["CardSearch"];

@@ -32,7 +32,7 @@ from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
 from tests.fakes.searxng import FakeSearXNG, SearchReply
 from tests.fakes.serve import Served, serve
-from tests.harness import THEMES, Atlas, at
+from tests.harness import ITEM_1, THEMES, Atlas, at
 
 QUESTION = "Who supplies the lasers in AI data-center optics, and to whom?"
 SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
@@ -1325,6 +1325,14 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
         (ten_k["id"], QUESTION),
         (ten_q["id"], QUESTION),
     }
+    # The reading pointers: what Memory returned to the Scout's recalls, the text as returned,
+    # with the section each resolved to.
+    pointers = investigation["pointers"]
+    frozen_pointers = content["memory"]["reading_pointers"]
+    assert pointers and [each["id"] for each in frozen_pointers] == [p["id"] for p in pointers]
+    for field in ("query", "rank", "memory_id", "memory_text", "source_version_id"):
+        assert [each[field] for each in frozen_pointers] == [p[field] for p in pointers], field
+    assert {each["section_anchor"] for each in frozen_pointers} >= {ITEM_1}
     # The Assertions with their spans: the finding's and the counterevidence's.
     by_predicate = {each["predicate"]: each for each in content["assertions"]}
     assert set(by_predicate) == {"supplies", "counterevidence"}
