@@ -11,7 +11,7 @@ The pilot's verdict, in two artifacts:
 ## Notes
 
 - **Domain:** glossary `CONTEXT.md`; the product spec is authoritative; deviations go in `docs/decisions.md`. The questions and seeds are in `.scratch/pilot/pilot-plan.md`, the reviews in `.scratch/pilot/results.md`, the defects in `.scratch/atlas-pilot-fixes/issues/`.
-- **Starting point (2026-10-01):** Phases 0–6a are built. Production runs 0.2.3. Pilot fixes 06–12 are on main; their release is 0.2.5 (`v0.2.4` failed and published nothing). Investigation 1 has run twice (0.2.1: no output; 0.2.3: a card with 8 findings, precision 10/14). Investigations 2–5 have not run. All their seed companies are ingested with as-of financials.
+- **Starting point (2026-10-01):** Phases 0–6a are built. Production runs 0.2.5 (pilot fixes 06–12). Investigation 1 has run three times (0.2.1: no output; 0.2.3: a card with 8 findings, precision 10/14; 0.2.5: 5 findings, precision 6/10, below the bar). Investigations 2–5 have not run. All their seed companies are ingested with as-of financials.
 - **This map carries execution.** Its tickets are mostly tasks (run and review an investigation), because the verdict waits on their results.
 - **Skills:** investigation tickets use `pilot-review`; the release ticket uses `release-atlas`; grilling tickets use `grilling` + `domain-modeling`.
 - **Who decides:** the owner delegated planning and decisions to the lead (2026-10-01). The lead resolves grilling tickets and records the reasoning in the answer. The owner's own acts stay the owner's: merging the home-ops PR, approving or rejecting an edge, adjudicating a gold case.
@@ -25,6 +25,8 @@ The pilot's verdict, in two artifacts:
 
 - [The pilot's verdict criteria](issues/02-pilot-verdict-criteria.md): per investigation a trust gate and a six-part bar (Claim precision at least 80%, at least 3 saved-work findings, at least 50% baseline coverage, the roles ran, at most 200k tokens and 10 minutes); pass at 4 of 5 with pooled machine-reviewed precision at least 90%, partial at 2–3 (one fix round), fail at 0–1 (the workflow's design reopened).
 - [The archive-search baseline](issues/03-archive-search-baseline.md): BM25 of the question's words over the seed companies' parsed filings of the last 18 months, untuned, plus recall alone beside it; run read-only by `scripts/pilot_baseline.py`; the reviewer judges at most 10 on-question hits and the card must cover half.
+- [Release and deploy 0.2.5](issues/01-release-and-deploy-0-2-5.md): `v0.2.5` released and deployed on 2026-10-01 (home-ops PR #7152); the re-parse ran; the deploy also changed the SearXNG engines, and web leads are on topic since.
+- [Investigation 1 on 0.2.5](issues/04-investigation-1-on-0-2-5.md): does not meet the bar on the stricter readings (precision 6 of 10, baseline coverage 2 of 10; 8 and 5 of 10 on the lenient ones, which would meet it; trust, saved work, roles, cost and latency met). The Skeptic and the Analyst now work and 8-Ks are read, but the allocation statement was lost to the equal passage share; eight new defects, none a blocker.
 
 ## Not yet specified
 
@@ -34,6 +36,7 @@ The pilot's verdict, in two artifacts:
 - **Candidates for the next effort**, swept from the implementation log's "Next" lines (2026-10-01). The verdict ticket ranks them; none is started before it.
   - Research quality: counterparty aliases (a short form of a legal name stays unresolved); a named subject outside the known companies; widening the `substitutes` cues; the Skeptic's independence by source origin; the follow-up's Skeptic targeting only the round's new Claims; ingesting an `ingestable` EDGAR filing on demand; retaining the re-parse (`reprocess`, designed in fix 11's decision entry).
   - Measurement: `object_name` and `filing_phrase` in the evaluation gold format and the live-verify rehearsal; a live re-audit of triage and the `ATLAS_TRIAGE_WINDOWS_PER_SECTION` decision; a live replay on the Compose Hindsight; a live replay of `investigator.v5` against v4.
+  - Financials: the Analyst's `total_debt` for Coherent cited an observation that is only the current portion (`LongTermDebtCurrent`), so the input was refused; the canonical debt metric needs both parts.
   - Discovery: the SearXNG instance's engines (the owner's; `docs/runbooks.md`, "Discovery channels"); tuning `min_score` and the host lists from real leads.
   - Pages: the decisions-first landing page; lead scores and the scenario summary on the investigation page; a company's Hypotheses, proposed updates and a correction form on the dossiers; a proposed-updates metric.
 
