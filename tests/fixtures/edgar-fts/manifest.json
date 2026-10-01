@@ -10,5 +10,11 @@
   },
   "inp-substrates-aeluma-coherent.json": {
     "provenance": "DERIVED by hand from inp-substrates-10k.json (not recorded): its second and fourth hits (Aeluma's 10-K filed 2026-09-16, Coherent's 10-K) exactly as recorded, with hits.total.value set to 2; for a test universe without AXT."
+  },
+  "vcsel-lidar.json": {
+    "provenance": "HAND-WRITTEN, not recorded (memory-directed reading, ticket 04): the answer's envelope with two hits for the bare phrase \"VCSEL\", named after two lidar makers that pilot discovery ca235cf4-e60c-408e-a8a8-83fc6f43dd43 proposed as Candidates (Hesai Group, Ouster; .scratch/pilot/results.md, 'Investigation 1, third run'). Only the filer names and tickers are theirs: the CIKs (0009990001, 0009990002), accession numbers, file names, dates and scores are made up, and no identity fixture answers for those CIKs (a test that resolved them would fail loudly). The pilot's actual hits were not recorded, nor which phrase found which filer."
+  },
+  "silicon-photonics-lasers-nvidia.json": {
+    "provenance": "HAND-WRITTEN, not recorded (memory-directed reading, ticket 04): the answer's envelope with two hits for \"silicon photonics lasers\" filed by NVIDIA CORP under its well-known CIK 0001045810 (the CIK of tests/fixtures/identity's hand-written NVIDIA rows), for a test where NVIDIA is a counterparty company. The accession numbers, file names, dates and scores are made up; whether NVIDIA's filings contain the phrase was not checked."
   }
 }

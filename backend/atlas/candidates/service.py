@@ -83,6 +83,12 @@ class Candidate(BaseModel):
     )
     resolution: Resolution
     company_id: uuid.UUID | None = Field(description="the universe company, once committed")
+    counterparty_company_id: uuid.UUID | None = Field(
+        description=(
+            "the counterparty company with this Candidate's CIK (else its LEI): the company a"
+            " commit promotes"
+        )
+    )
     ingest_job_id: uuid.UUID | None
     ingest_note: str | None = Field(description="why no ingest was enqueued at commit")
     reject_reason: str | None
@@ -153,9 +159,21 @@ def _candidate(row: Any, leads: list[CandidateLead]) -> Candidate:
     return Candidate.model_validate(dict(row) | {"leads": leads})
 
 
+# A Candidate with the counterparty company it names, if any: the one `commit` promotes (the
+# same CIK, or the same LEI for a Candidate without a CIK).
+_CANDIDATES = """
+    SELECT candidate.*, (
+        SELECT k.id FROM company k WHERE k.role = 'counterparty' AND CASE
+            WHEN candidate.cik IS NOT NULL THEN k.cik = candidate.cik
+            ELSE k.lei = candidate.lei END
+        ORDER BY k.created_at, k.id LIMIT 1) AS counterparty_company_id
+    FROM candidate
+"""
+
+
 def get_candidate(connection: Connection, candidate_id: uuid.UUID) -> Candidate | None:
     row = (
-        connection.execute(text("SELECT * FROM candidate WHERE id = :id"), {"id": candidate_id})
+        connection.execute(text(f"{_CANDIDATES} WHERE id = :id"), {"id": candidate_id})
         .mappings()
         .one_or_none()
     )
@@ -182,10 +200,7 @@ def list_candidates(
     ).scalar_one()
     rows = (
         connection.execute(
-            text(
-                f"SELECT * FROM candidate{where}"  # noqa: S608 (constant SQL)
-                " ORDER BY created_at DESC, id LIMIT :limit OFFSET :offset"
-            ),
+            text(f"{_CANDIDATES}{where} ORDER BY created_at DESC, id LIMIT :limit OFFSET :offset"),
             params | {"limit": limit, "offset": offset},
         )
         .mappings()

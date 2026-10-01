@@ -34,7 +34,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from pydantic import BaseModel
 from sqlalchemy import Connection, RowMapping, text
 
-from atlas.discovery.edgar_fts import FilingHit
+from atlas.discovery.edgar_fts import FilingHit, filing_phrases
+from atlas.discovery.ranking import Sighting
 from atlas.discovery.searxng import SearchResult
 
 _TRACKING = frozenset({"gclid", "fbclid", "msclkid", "mc_cid", "mc_eid", "igshid"})
@@ -322,6 +323,37 @@ def store_headline(
         },
     )
     return bool(row.created)
+
+
+def discovery_sightings(connection: Connection, discovery_id: uuid.UUID) -> list[Sighting]:
+    """Every lead sighting of a discovery as ranking scores it (atlas.discovery.ranking), in
+    the order found: each with the query that returned it and that query's purpose. An EDGAR
+    filing hit is scored against its query like a web result, and carries the phrases its
+    search matched (`matched`)."""
+    rows = connection.execute(
+        text(
+            "SELECT s.lead_id, s.url, s.title, s.snippet, q.query, q.purpose,"
+            " CASE WHEN s.channel = 'edgar_fts' THEN e.query END AS matched"
+            " FROM lead_sighting s"
+            " JOIN discovery_query q ON q.id = s.discovery_query_id"
+            " LEFT JOIN edgar_search e ON e.discovery_query_id = q.id"
+            " WHERE q.discovery_id = :discovery"
+            " ORDER BY q.position, s.channel DESC, s.position, s.lead_id"
+        ),
+        {"discovery": discovery_id},
+    )
+    return [
+        Sighting(
+            lead_id=row.lead_id,
+            url=row.url,
+            title=row.title,
+            snippet=row.snippet,
+            query=row.query,
+            purpose=row.purpose,
+            matched=tuple(filing_phrases(row.matched)),
+        )
+        for row in rows
+    ]
 
 
 _LEADS = """

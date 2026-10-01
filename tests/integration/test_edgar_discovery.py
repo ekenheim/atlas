@@ -297,13 +297,23 @@ def test_the_scout_s_filing_phrase_finds_filings_that_become_leads_and_candidate
         False,
     )
 
-    # Ranked with the web leads, against the phrase EDGAR matched; a filing isn't demoted as
-    # a company's own page. All four kept, their scores and reasons recorded.
+    # Ranked with the web leads, against the query and its purpose (ranking version 3): the
+    # phrase EDGAR matched is what is known of the filing. A filing isn't demoted as a
+    # company's own page. All four kept, their scores and reasons recorded.
     kept = {lead["canonical_url"]: lead for lead in found["leads"]}
     assert set(kept) == set(found_leads)
-    assert kept[canonical(AXT_10K)]["query"] == INP
-    assert kept[canonical(AXT_10K)]["reasons"][0] == "query terms in the snippet: inp, substrate"
+    axt_kept, aeluma_kept = kept[canonical(AXT_10K)], kept[canonical(AELUMA_10K)]
+    assert (axt_kept["query"], axt_kept["ranking_version"]) == (SUBSTRATE, 3)
+    assert aeluma_kept["reasons"] == [
+        "query terms in the snippet: substrate",
+        "purpose terms: inp",
+        "product and layer terms: substrate, inp",
+    ]
+    # 60 x 0.6 / 5 query terms + 10 / 3 purpose terms + 2 x 3: over the keep threshold (15).
+    assert aeluma_kept["score"] == 16.5
+    assert "names AXT" in axt_kept["reasons"]
     assert not any("own site" in r for lead in kept.values() for r in lead["reasons"])
+    assert scout["artifacts"]["filing_searches_skipped"] == 0
 
     # The filers outside the universe are proposed by CIK, with no mention extractor call.
     propose = atlas.get(f"/api/v1/jobs/{scout['artifacts']['propose_candidates_job_id']}")
@@ -319,6 +329,8 @@ def test_the_scout_s_filing_phrase_finds_filings_that_become_leads_and_candidate
         1,
     )
     assert artifacts["run_id"] is None
+    # Aeluma's hits are kept ones, so it is proposed (ticket 04: a filer needs a kept hit).
+    assert artifacts["filers_below_threshold"] == []
     [candidate] = atlas.get("/api/v1/candidates")["items"]
     assert candidate["identity_key"] == f"cik:{AELUMA_CIK}"
     assert (candidate["name"], candidate["cik"], candidate["source_path"]) == (

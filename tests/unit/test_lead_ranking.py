@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 
 from atlas.companies import load_universe
-from atlas.discovery.edgar_fts import FilingHit
+from atlas.discovery.edgar_fts import FilingHit, filing_query
 from atlas.discovery.leads import filing_snippet
 from atlas.discovery.ranking import (
     LeadScore,
@@ -391,41 +391,230 @@ def test_a_demoted_entry_with_a_path_demotes_only_the_pages_under_it(
     assert not demoted("https://www.bloomberg.com/profiles-of-the-week")
 
 
-def test_an_edgar_filing_hit_is_ranked_against_its_phrase_and_not_demoted(
-    config: RankingConfig, universe: tuple[list[str], list[str]]
-) -> None:
-    # Pilot fix 12: an EDGAR full-text search hit (as the recorded AXT hit), whose snippet
-    # says which phrase EDGAR matched; its query is that phrase.
-    companies, sites = universe
-    hit = FilingHit(
+# --- ranking version 3: EDGAR filing hits (pilot fix 12; memory-directed reading, ticket 04) ----
+
+# The recorded Aeluma hit (`tests/fixtures/edgar-fts/inp-substrates-10k.json`): a filer outside
+# the universe.
+AELUMA = FilingHit(
+    position=2,
+    cik="0001828805",
+    filer="Aeluma, Inc.",
+    ticker="ALMU",
+    form="10-K",
+    file_type="10-K",
+    file_date=date(2026, 9, 16),
+    period_ending=date(2026, 6, 30),
+    accession="0001213900-26-100584",
+    document="ea0305364-10k_aeluma.htm",
+    url="https://www.sec.gov/Archives/edgar/data/1828805/000121390026100584/ea0305364-10k_aeluma.htm",
+)
+SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
+PURPOSE_INP = "feedstock: InP substrate supply"
+CW = "CW laser silicon photonics external laser source supplier Lumentum Coherent 2026"
+CW_PURPOSE = "components: qualified second sources for CW/DFB lasers"
+
+
+def noise_filer(filer: str, form: str = "10-K") -> FilingHit:
+    """A filing of one of the off-theme filers pilot discovery ca235cf4 proposed. HAND-WRITTEN:
+    the pilot's hits were not recorded, so only the filer's name is the pilot's; the CIK,
+    accession and dates are made up."""
+    return FilingHit(
         position=1,
-        cik="0001051627",
-        filer="AXT INC",
-        ticker="AXTI",
-        form="10-K",
-        file_type="10-K",
-        file_date=date(2026, 3, 17),
+        cik="0009990001",
+        filer=filer,
+        ticker=None,
+        form=form,
+        file_type=form,
+        file_date=date(2026, 3, 2),
         period_ending=date(2025, 12, 31),
-        accession="0001437749-26-008612",
-        document="axti20251231_10k.htm",
-        url="https://www.sec.gov/Archives/edgar/data/1051627/000143774926008612/axti20251231_10k.htm",
+        accession="0009990001-26-000001",
+        document="annual-report.htm",
+        url="https://www.sec.gov/Archives/edgar/data/9990001/000999000126000001/annual-report.htm",
     )
 
-    scored = score_lead(
+
+def score_filing(
+    hit: FilingHit,
+    phrases: list[str],
+    query: str,
+    purpose: str,
+    config: RankingConfig,
+    universe: tuple[list[str], list[str]],
+) -> LeadScore:
+    """A filing hit of the query's EDGAR search for `phrases`, scored as the lead it becomes."""
+    companies, sites = universe
+    return score_lead(
         url=hit.url,
         title=hit.title,
-        snippet=filing_snippet('"InP substrates"', hit),
-        query='"InP substrates"',
-        purpose="feedstock: InP substrate supply",
+        snippet=filing_snippet(filing_query(phrases), hit),
+        query=query,
+        purpose=purpose,
         companies=companies,
         config=config,
         company_sites=sites,
+        matched=phrases,
+    )
+
+
+def test_a_filing_hit_is_scored_against_its_query_and_purpose_as_a_web_lead_is(
+    config: RankingConfig, universe: tuple[list[str], list[str]]
+) -> None:
+    scored = score_filing(AELUMA, ["InP substrates"], SUBSTRATE, PURPOSE_INP, config, universe)
+
+    # One of the query's five topic terms in the snippet (60 x 0.6 / 5 = 7.2), one of the
+    # purpose's three other terms (10 / 3 = 3.3), two product and layer terms (6).
+    assert (scored.kept, scored.score) == (True, 16.5)
+    assert scored.reasons == [
+        "query terms in the snippet: substrate",
+        "purpose terms: inp",
+        "product and layer terms: substrate, inp",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("phrase", "query", "purpose"),
+    [
+        ("200G EML", RERUN_EML, RERUN_EML_PURPOSE),
+        ("EML chip", RERUN_EML, RERUN_EML_PURPOSE),
+        # Hand-written, as the Scout writes a feedstock query.
+        ("GaAs substrates", "GaAs substrate supply for VCSEL wafers", "feedstock: GaAs substrates"),
+    ],
+)
+def test_the_pilot_s_specific_phrases_keep_their_hits(
+    phrase: str,
+    query: str,
+    purpose: str,
+    config: RankingConfig,
+    universe: tuple[list[str], list[str]],
+) -> None:
+    scored = score_filing(AELUMA, [phrase], query, purpose, config, universe)
+
+    assert scored.kept
+    assert not any("(x0.25)" in reason for reason in scored.reasons)
+
+
+# The pilot's record names the off-theme phrases and filers, not which phrase found which
+# filer; they are paired here by what the filers make. The VCSEL and MOCVD queries are
+# hand-written, the other two are the queries of the tests above.
+VCSEL = "VCSEL array suppliers for short-reach AI data center links"
+EXPORT = "indium phosphide substrate export control China gallium germanium 2026"
+
+
+@pytest.mark.parametrize(
+    ("filer", "phrase", "query", "purpose", "term"),
+    [
+        ("Hesai Group", "VCSEL", VCSEL, "components: VCSEL sources", "vcsel"),  # lidar
+        ("Ouster, Inc.", "VCSEL", VCSEL, "components: VCSEL sources", "vcsel"),  # lidar
+        ("IRIDEX CORP", "CW laser", CW, CW_PURPOSE, "cw laser"),  # medical lasers
+        ("Applied Energetics, Inc.", "CW laser", CW, CW_PURPOSE, "cw laser"),
+        (
+            "Mesa Laboratories, Inc.",
+            "MOCVD",
+            "MOCVD reactor supply for InP laser epitaxy",
+            "equipment: MOCVD tool supply",
+            "mocvd",
+        ),
+        (
+            "NOVONIX Ltd",
+            "export controls",
+            EXPORT,
+            "feedstock: export or licensing risks on InP substrates",
+            "export controls",
+        ),
+    ],
+)
+def test_a_hit_of_a_bare_vocabulary_term_falls_under_the_threshold(
+    filer: str,
+    phrase: str,
+    query: str,
+    purpose: str,
+    term: str,
+    config: RankingConfig,
+    universe: tuple[list[str], list[str]],
+) -> None:
+    scored = score_filing(noise_filer(filer), [phrase], query, purpose, config, universe)
+
+    assert not scored.kept
+    assert scored.score < config.min_score
+    assert f'matched only the vocabulary term "{term}" (x0.25)' in scored.reasons
+    assert scored.reasons[-1] == "below the minimum score 15"
+
+
+def test_a_bare_term_with_a_second_phrase_is_specific(
+    config: RankingConfig, universe: tuple[list[str], list[str]]
+) -> None:
+    # Both phrases must match in the filing: "CW laser" beside "silicon photonics" is no
+    # medical laser.
+    scored = score_filing(
+        AELUMA, ["CW laser", "silicon photonics"], CW, CW_PURPOSE, config, universe
     )
 
     assert scored.kept
-    assert scored.reasons[0] == "query terms in the snippet: inp, substrate"
+    assert scored.reasons[0] == "query terms in the snippet: cw, laser, silicon, photonic"
+    assert not any("vocabulary term" in reason for reason in scored.reasons)
+
+
+def test_a_filing_hit_off_its_query_s_topic_is_not_kept(
+    config: RankingConfig, universe: tuple[list[str], list[str]]
+) -> None:
+    scored = score_filing(
+        AELUMA,
+        ["InP substrates"],
+        "EML laser suppliers AI transceivers capacity",
+        "EML suppliers",
+        config,
+        universe,
+    )
+
+    assert not scored.kept
+    assert scored.reasons[-1] == "not kept without a query term"
+
+
+def test_a_filing_is_not_demoted_as_a_company_s_own_page(
+    config: RankingConfig, universe: tuple[list[str], list[str]]
+) -> None:
+    scored = score_filing(AELUMA, ["InP substrates"], SUBSTRATE, PURPOSE_INP, config, universe)
+
     assert not any("own site" in reason or "demoted" in reason for reason in scored.reasons)
 
 
-def test_the_config_is_version_2(config: RankingConfig) -> None:
-    assert config.version == 2
+def test_ranking_passes_a_filing_sighting_s_phrases(config: RankingConfig) -> None:
+    specific, bare = uuid.uuid4(), uuid.uuid4()
+    hit = noise_filer("IRIDEX CORP")
+    sightings = [
+        Sighting(
+            bare,
+            hit.url,
+            hit.title,
+            filing_snippet('"CW laser"', hit),
+            query=CW,
+            purpose=CW_PURPOSE,
+            matched=("CW laser",),
+        ),
+        Sighting(
+            specific,
+            AELUMA.url,
+            AELUMA.title,
+            filing_snippet('"InP substrates"', AELUMA),
+            query=SUBSTRATE,
+            purpose=PURPOSE_INP,
+            matched=("InP substrates",),
+        ),
+    ]
+
+    ranked = rank_leads(sightings, companies=COMPANIES, config=config)
+
+    assert [(lead.lead_id, lead.score.kept) for lead in ranked] == [(specific, True), (bare, False)]
+
+
+def test_the_bottleneck_vocabulary_scores_a_lead_but_is_no_product_or_layer_term(
+    config: RankingConfig,
+) -> None:
+    assert {"capacity", "supply", "export controls"} <= set(config.method_terms)
+    assert not set(config.method_terms) & set(config.terms)
+    # A web lead naming them scores as before.
+    assert score(ARTICLE, config).reasons[-1].endswith("800g, 1.6t, 200g, capacity, supply")
+
+
+def test_the_config_is_version_3(config: RankingConfig) -> None:
+    assert config.version == 3

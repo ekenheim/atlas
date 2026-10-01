@@ -13,7 +13,9 @@ caller names (an investigation's: that run's owner finishes it):
    With EDGAR full-text search on (atlas.discovery.edgar_fts; pilot fix 12), a query with a
    `filing_phrase` also gets an EDGAR search of that exact phrase in the filings of the
    window: the 18 months before the discovery's as-of time (an investigation's `as_of`, else
-   now).
+   now). Only a specific phrase is searched: at least two words, or a product or layer term
+   of the lead-ranking config; any other is recorded as a `skipped` search with the reason
+   and never sent (memory-directed reading, ticket 04).
 3. **Search.** Each query is searched once with the named engines. A failed search is
    recorded on its query (with the error) and the others proceed; the engines SearXNG
    reports unresponsive are recorded on each query. Each query's results are stored in its
@@ -80,11 +82,13 @@ class DiscoveryFailed(Exception):
 class EdgarSearch(BaseModel):
     """A query's EDGAR full-text search (atlas.discovery.edgar_fts)."""
 
-    query: str  # the `q` sent: each phrase in double quotes
+    query: str  # the `q` sent (or, skipped, not sent): each phrase in double quotes
     forms: list[str]
     start_date: date
     end_date: date
-    status: Literal["pending", "searched", "failed"]
+    # `skipped`: the filing phrase isn't specific enough to search (no request was made).
+    status: Literal["pending", "searched", "failed", "skipped"]
+    skip_reason: str | None  # why a skipped search was not made
     total_hits: int | None  # the documents EDGAR matched
     result_count: int | None  # of them, the ones kept (at most ATLAS_DISCOVERY_EDGAR_MAX_HITS)
     new_leads: int | None  # of those, canonical URLs never seen before
@@ -190,6 +194,7 @@ class Scout:
             "failed": counts.failed,
             "filing_searches": counts.filing_searched + counts.filing_failed,
             "filing_searches_failed": counts.filing_failed,
+            "filing_searches_skipped": counts.filing_skipped,
             "new_leads": new_leads,
         }
 
@@ -356,7 +361,9 @@ def add_query(
     window: tuple[date, date],
 ) -> None:
     """Add a query to a discovery, with its EDGAR search when the channel is on and the query
-    has a filing phrase."""
+    has a filing phrase. A phrase that isn't specific enough (`edgar.skip_reason`: one word
+    that is no product or layer term) is recorded as a `skipped` search with the reason, and
+    never sent."""
     query_id = uuid.uuid4()
     connection.execute(
         text(
@@ -375,10 +382,11 @@ def add_query(
     phrases = filing_phrases(filing_phrase)
     if edgar is None or not phrases:
         return
+    skip_reason = edgar.skip_reason(filing_phrase)
     connection.execute(
         text(
-            "INSERT INTO edgar_search (discovery_query_id, query, forms, start_date, end_date)"
-            " VALUES (:id, :query, :forms, :start, :end)"
+            "INSERT INTO edgar_search (discovery_query_id, query, forms, start_date, end_date,"
+            " status, skip_reason) VALUES (:id, :query, :forms, :start, :end, :status, :reason)"
         ),
         {
             "id": query_id,
@@ -386,6 +394,8 @@ def add_query(
             "forms": list(edgar.forms),
             "start": window[0],
             "end": window[1],
+            "status": "pending" if skip_reason is None else "skipped",
+            "reason": skip_reason,
         },
     )
 
@@ -397,6 +407,7 @@ class SearchCounts(BaseModel):
     failed: int
     filing_searched: int  # EDGAR full-text search
     filing_failed: int
+    filing_skipped: int = 0  # filing phrases not specific enough to search (never sent)
 
     @property
     def failed_all(self) -> bool:
@@ -471,6 +482,7 @@ def run_searches(
         failed=counts.get(("searxng", "failed"), 0),
         filing_searched=counts.get(("edgar", "searched"), 0),
         filing_failed=counts.get(("edgar", "failed"), 0),
+        filing_skipped=counts.get(("edgar", "skipped"), 0),
     )
 
 
@@ -480,7 +492,7 @@ def _search_filings(engine: Engine, discovery_id: uuid.UUID, edgar: EdgarFullTex
             text(
                 "SELECT e.discovery_query_id, e.query, e.start_date, e.end_date"
                 " FROM edgar_search e JOIN discovery_query q ON q.id = e.discovery_query_id"
-                " WHERE q.discovery_id = :discovery AND e.status <> 'searched'"
+                " WHERE q.discovery_id = :discovery AND e.status IN ('pending', 'failed')"
                 " ORDER BY q.position"
             ),
             {"discovery": discovery_id},
@@ -554,7 +566,8 @@ def _queries(
         text(
             "SELECT q.*, e.query AS edgar_query, e.forms AS edgar_forms,"
             " e.start_date AS edgar_start_date, e.end_date AS edgar_end_date,"
-            " e.status AS edgar_status, e.total_hits AS edgar_total_hits,"
+            " e.status AS edgar_status, e.skip_reason AS edgar_skip_reason,"
+            " e.total_hits AS edgar_total_hits,"
             " e.result_count AS edgar_result_count, e.new_leads AS edgar_new_leads,"
             " e.error AS edgar_error, e.searched_at AS edgar_searched_at"
             " FROM discovery_query q LEFT JOIN edgar_search e ON e.discovery_query_id = q.id"

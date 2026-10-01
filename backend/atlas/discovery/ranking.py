@@ -3,7 +3,7 @@
 A pure function of the result (URL, title, snippet), the query, the query's purpose, the
 universe's company names and sites, and the ranking config
 (`configs/discovery/lead-ranking.yaml`). Nothing is fetched. The score (0 to about 100) adds
-up (version 2; `docs/decisions.md`, "Lead ranking"):
+up (`docs/decisions.md`, "Lead ranking"):
 
 - **Query terms** (up to 60): the share of the query's topic terms the result names: a term
   in the title counts 1, in the snippet only 0.6. The topic terms are the query's words
@@ -16,7 +16,18 @@ up (version 2; `docs/decisions.md`, "Lead ranking"):
 - **Companies** (4 each, up to 8): the universe companies the result names, by display or
   legal name, matched case-sensitively as written (a proper noun: "Coherent" the company,
   not "coherent" the adjective of a dictionary entry).
-- **Product and layer terms** (3 each, up to 15): the config's `terms` the result names.
+- **Product and layer terms** (3 each, up to 15): the config's `terms` (products, materials
+  and layers) and `method_terms` (the bottleneck method's vocabulary) the result names.
+
+**An EDGAR filing hit** (version 3; "Specific filing phrases") is scored the same way, against
+the query whose filing phrase found it and that query's purpose. EDGAR returns no text, so
+its title is `<filer> <form> filed <date>` and its snippet Atlas's own sentence naming the
+phrases EDGAR matched: what is scored is how much of the query's topic the filing is known
+to contain. A hit whose search matched one phrase that is itself a vocabulary term
+(`matched`: "VCSEL", "CW laser", "export controls") is multiplied by `bare_term_factor`: every
+industry that uses the thing writes the bare term, so the filer may be a lidar or a
+medical-laser maker. A phrase that says more than a term ("InP substrates") and a search of
+several phrases (all had to match) are not.
 
 Then the penalties multiply: a demoted host (encyclopedias, quote pages, profile and social
 sites; an entry may name a path, `bloomberg.com/profile`) by `demoted_host_factor`, a
@@ -99,7 +110,16 @@ class RankingConfig(BaseModel):
     demoted_hosts: tuple[str, ...] = ()
     company_domains: tuple[str, ...] = ()
     generic_titles: tuple[str, ...] = ()
-    terms: tuple[str, ...] = ()
+    # A filing hit whose EDGAR search matched one phrase that is itself a vocabulary term.
+    bare_term_factor: float = Field(default=1.0, ge=0, le=1)
+    terms: tuple[str, ...] = ()  # the product and layer terms
+    method_terms: tuple[str, ...] = ()  # the bottleneck method's vocabulary
+
+    @property
+    def vocabulary(self) -> tuple[str, ...]:
+        """Every term a result is scored for naming: the product and layer terms, then the
+        bottleneck method's."""
+        return tuple(dict.fromkeys((*self.terms, *self.method_terms)))
 
 
 def load_ranking_config(path: Path) -> RankingConfig:
@@ -128,7 +148,7 @@ def _stem(word: str) -> str:
     return word
 
 
-def _words(text: str) -> list[str]:
+def words(text: str) -> list[str]:
     """Lowercased words (a hyphenated word split in two), each with a plural `s` dropped."""
     return [_stem(part) for token in _WORD.findall(text.lower()) for part in token.split("-")]
 
@@ -136,14 +156,19 @@ def _words(text: str) -> list[str]:
 def _terms(text: str) -> list[str]:
     """The distinct content words of `text`, in order."""
     seen: dict[str, None] = {}
-    for word in _words(text):
+    for word in words(text):
         if word not in _FUNCTION_WORDS:
             seen.setdefault(word, None)
     return list(seen)
 
 
-def _phrase_in(phrase: str, words: str) -> bool:
-    return f" {' '.join(_words(phrase))} " in words
+def term_key(term: str) -> str:
+    """A term as ranking compares it: its words, lowercased, a plural `s` dropped."""
+    return " ".join(words(term))
+
+
+def _phrase_in(phrase: str, text: str) -> bool:
+    return f" {term_key(phrase)} " in text
 
 
 def _host_in(host: str, hosts: Iterable[str], path: str = "/") -> str | None:
@@ -179,6 +204,16 @@ def _generic_title(title: str, generic: Iterable[str]) -> str | None:
     return None
 
 
+def _bare_term(matched: Sequence[str], config: RankingConfig) -> str | None:
+    """The vocabulary term a filing hit's one matched phrase is ("VCSEL", "CW laser"), as the
+    config writes it; None for a web result, a phrase that is more than a term ("InP
+    substrates") and a search of several phrases (all of them had to match)."""
+    if len(matched) != 1:
+        return None
+    key = term_key(matched[0])
+    return next((term for term in config.vocabulary if term_key(term) == key), None)
+
+
 def reads_as_english(text: str) -> bool:
     letters = [c for c in text if c.isalpha()]
     non_ascii = sum(1 for c in letters if not c.isascii()) / len(letters) if letters else 0.0
@@ -199,19 +234,21 @@ def score_lead(
     companies: Sequence[str],
     config: RankingConfig,
     company_sites: Sequence[str] = (),
+    matched: Sequence[str] = (),
 ) -> LeadScore:
-    """The relevance of one search result to its query and purpose (see the module)."""
+    """The relevance of one search result to its query and purpose (see the module).
+    `matched`: for an EDGAR filing hit, the exact phrases the search matched in the filing."""
     host = site_host(url)
     path = urlsplit(url).path or "/"
-    title_words = set(_words(title))
-    snippet_words = set(_words(snippet))
-    both = f" {' '.join(_words(title))} | {' '.join(_words(snippet))} "
+    title_words = set(words(title))
+    snippet_words = set(words(snippet))
+    both = f" {' '.join(words(title))} | {' '.join(words(snippet))} "
     reasons: list[str] = []
 
     # The topic of the query and the purpose: their terms less the company names they
     # contain, and years.
     asked = f"{query}\n{purpose or ''}"
-    named_words = {word for name in companies if _names(name, asked) for word in _words(name)}
+    named_words = {word for name in companies if _names(name, asked) for word in words(name)}
 
     def topic(text: str) -> list[str]:
         return [t for t in _terms(text) if t not in named_words and _YEAR.fullmatch(t) is None]
@@ -242,11 +279,15 @@ def score_lead(
         score += min(COMPANY_POINTS * len(named), COMPANY_CAP)
         reasons.append(f"names {', '.join(named)}")
 
-    terms = [t for t in dict.fromkeys(config.terms) if _phrase_in(t, both)]
+    terms = [t for t in config.vocabulary if _phrase_in(t, both)]
     if terms:
         score += min(TERM_POINTS * len(terms), TERM_CAP)
         reasons.append(f"product and layer terms: {', '.join(terms)}")
 
+    bare = _bare_term(matched, config)
+    if bare is not None:
+        score *= config.bare_term_factor
+        reasons.append(f'matched only the vocabulary term "{bare}" (x{config.bare_term_factor:g})')
     demoted = _host_in(host, config.demoted_hosts, path)
     if demoted is not None:
         score *= config.demoted_host_factor
@@ -290,6 +331,9 @@ class Sighting:
     snippet: str
     query: str
     purpose: str | None
+    # An EDGAR filing hit: the exact phrases the query's search matched in it. Empty: a web
+    # result.
+    matched: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -320,6 +364,7 @@ def rank_leads(
             companies=companies,
             config=config,
             company_sites=company_sites,
+            matched=each.matched,
         )
         held = best.get(each.lead_id)
         if held is None or (scored.kept, scored.score) > (held.score.kept, held.score.score):

@@ -7199,6 +7199,19 @@
             "title": "Company Id",
             "description": "the universe company, once committed"
           },
+          "counterparty_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Company Id",
+            "description": "the counterparty company with this Candidate's CIK (else its LEI): the company a commit promotes"
+          },
           "ingest_job_id": {
             "anyOf": [
               {
@@ -7300,6 +7313,7 @@
           "source_path",
           "resolution",
           "company_id",
+          "counterparty_company_id",
           "ingest_job_id",
           "ingest_note",
           "reject_reason",
@@ -9917,9 +9931,21 @@
             "enum": [
               "pending",
               "searched",
-              "failed"
+              "failed",
+              "skipped"
             ],
             "title": "Status"
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip Reason"
           },
           "total_hits": {
             "anyOf": [
@@ -9985,6 +10011,7 @@
           "start_date",
           "end_date",
           "status",
+          "skip_reason",
           "total_hits",
           "result_count",
           "new_leads",

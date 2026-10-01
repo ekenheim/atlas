@@ -2,11 +2,12 @@
 per `q`.
 
 The answers are the fixtures in `tests/fixtures/edgar-fts/` (see its manifest: one recorded
-on 2026-09-30 and trimmed, one hand-written empty answer). A `q` answers only as scripted
-(`script`), in order: a fixture (`FilingReply.of`), an HTTP status (`FilingReply.error`) or a
-failed connection (`FilingReply.unreachable`). An unscripted `q`, or any other path, fails
-loudly, so the code under test can't search unplanned. The fake serves the real host through
-an `httpx2.MockTransport` and a localhost URL through `tests/fakes/serve.py`.
+on 2026-09-30 and trimmed; the others hand-written or derived by hand, and labelled so). A
+`q` answers only as scripted (`script`), in order: a fixture (`FilingReply.of`), an HTTP
+status (`FilingReply.error`) or a failed connection (`FilingReply.unreachable`). An
+unscripted `q`, or any other path, fails loudly, so the code under test can't search
+unplanned. The fake serves the real host through an `httpx2.MockTransport` and a localhost
+URL through `tests/fakes/serve.py`.
 """
 
 import json

@@ -1,6 +1,7 @@
 """The EDGAR full-text search client (pilot fix 12): the request it sends (the phrase quoted,
 the forms, the date range, SEC's User-Agent) and how it reads the answer, at the transport
-seam with the fake over the recorded fixture (`tests/fixtures/edgar-fts/`). Nothing live."""
+seam with the fake over the recorded fixture (`tests/fixtures/edgar-fts/`); and which filing
+phrases are specific enough to search (memory-directed reading, ticket 04). Nothing live."""
 
 from datetime import date
 from pathlib import Path
@@ -12,18 +13,22 @@ from atlas.discovery.edgar_fts import (
     FORMS,
     EdgarFullTextSearch,
     FilingSearchFailed,
+    filing_phrase_skip_reason,
     filing_phrases,
     filing_query,
 )
+from atlas.discovery.ranking import load_ranking_config
 from atlas.roles.scout import SCOUT
 from atlas.roles.skeptic import SKEPTIC_PLAN
 from atlas.sources.sec_http import TokenBucket
 from tests.fakes.edgar_fts import FakeEdgarFullTextSearch, FilingReply
-from tests.harness import make_settings
+from tests.harness import REPO, make_settings
 
 UA = "Atlas Research ops@example.com"
 INP = '"InP substrates"'
 START, END = date(2025, 6, 1), date(2026, 9, 30)
+# The product and layer terms of the repo's lead-ranking config.
+TERMS = load_ranking_config(REPO / "configs" / "discovery" / "lead-ranking.yaml").terms
 
 
 def client(fake: FakeEdgarFullTextSearch, **options: object) -> EdgarFullTextSearch:
@@ -71,6 +76,59 @@ def test_several_phrases_are_each_quoted() -> None:
     assert filing_phrases(None) == []
     with pytest.raises(ValueError, match="at least one phrase"):
         filing_query([])
+
+
+# --- which filing phrases are searched (memory-directed reading, ticket 04) -----------------------
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        # The filing phrases of pilot discovery ca235cf4 (`.scratch/pilot/results.md`) with two
+        # words or more.
+        "InP substrates",
+        "200G EML",
+        "EML chip",
+        "GaAs substrates",
+        "CW laser",
+        "export controls",
+        # A hyphen divides words, as in ranking.
+        "at-the-market",
+        # One word, a product or layer term of the config (a plural `s` ignored).
+        "VCSEL",
+        "VCSELs",
+        "MOCVD",
+        "InP",
+        # Several exact phrases: one specific phrase is enough.
+        '"sole source" "InP"',
+        '"capacity" "VCSEL"',
+    ],
+)
+def test_a_phrase_of_two_words_or_a_product_or_layer_term_is_searched(phrase: str) -> None:
+    assert filing_phrase_skip_reason(phrase, TERMS) is None
+
+
+@pytest.mark.parametrize(
+    ("phrase", "named"),
+    [
+        ("epiwafer", '"epiwafer"'),  # the pilot discovery's one-word phrase that is no term
+        ("shortage", '"shortage"'),  # the bottleneck method's vocabulary is not a product
+        ("capacity", '"capacity"'),
+        ("customer", '"customer"'),
+        ("Lumentum", '"Lumentum"'),
+        ('"capacity" "shortage"', '"capacity", "shortage"'),
+    ],
+)
+def test_one_word_that_is_no_product_or_layer_term_is_not_searched(phrase: str, named: str) -> None:
+    assert filing_phrase_skip_reason(phrase, TERMS) == (
+        "no phrase of at least two words and no product or layer term of the lead-ranking"
+        f" config: {named}"
+    )
+
+
+def test_without_a_phrase_there_is_nothing_to_skip() -> None:
+    assert filing_phrase_skip_reason(None, TERMS) is None
+    assert filing_phrase_skip_reason(' " ', TERMS) is None
 
 
 def test_the_recorded_answer_becomes_filing_hits_with_archive_urls() -> None:
@@ -139,6 +197,10 @@ def test_the_channel_is_on_with_sec_s_user_agent_unless_turned_off(tmp_path: Pat
     on = EdgarFullTextSearch.from_settings(make_settings(tmp_path, sec_user_agent=UA))
     assert on is not None
     assert (on.user_agent, on.forms, on.max_hits) == (UA, FORMS, 10)
+    # It knows the lead-ranking config's product and layer terms: which phrases it searches.
+    assert on.skip_reason("VCSEL") is None
+    assert on.skip_reason("InP substrates") is None
+    assert "no product or layer term" in (on.skip_reason("capacity") or "")
     assert (
         EdgarFullTextSearch.from_settings(
             make_settings(tmp_path, sec_user_agent=UA, discovery_edgar_max_hits=3)

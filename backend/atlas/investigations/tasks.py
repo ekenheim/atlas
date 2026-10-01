@@ -11,8 +11,8 @@ One attempt:
    - **Scout:** a discovery (atlas.discovery) in the run, its EDGAR full-text searches (when
      on) over the 18 months before the investigation's `as_of`; the leads its queries
      returned are ranked for relevance to their query and its purpose (an EDGAR filing hit
-     to its filing phrase) (atlas.discovery.ranking), and the top-ranked ones kept up to the
-     lead budget, each with its score and reasons (the rest counted as dropped; those
+     too, by the phrase it matched) (atlas.discovery.ranking), and the top-ranked ones kept
+     up to the lead budget, each with its score and reasons (the rest counted as dropped; those
      ranking says not to keep, from a denied host or below the minimum score, counted as
      rejected). With entity resolution configured, its filing leads' filers are then
      proposed as Candidates by CIK (`propose_candidates` with `filers_only`: no LLM call).
@@ -72,9 +72,9 @@ from atlas.claims.extraction import ExtractClaimsPayload
 from atlas.claims.handlers import claim_extractor
 from atlas.companies import Universe, load_universe
 from atlas.discovery.edgar_fts import EdgarFullTextSearch
+from atlas.discovery.leads import discovery_sightings
 from atlas.discovery.ranking import (
     RankingConfig,
-    Sighting,
     load_ranking_config,
     rank_leads,
     site_host,
@@ -465,6 +465,7 @@ class TaskRunner:
                 "discovery_id": str(discovery_id),
                 "queries": found["queries"],
                 "filing_searches": found["filing_searches"],
+                "filing_searches_skipped": found["filing_searches_skipped"],
                 "leads_found": total,
                 "leads_taken": taken,
                 "leads_dropped": dropped,
@@ -957,29 +958,7 @@ def _take_leads(
 ) -> tuple[int, int, int, int]:
     """Keep the discovery's top-ranked leads up to the budget, each with its score and
     reasons; (taken, dropped over the budget, rejected by ranking, found)."""
-    sightings = [
-        Sighting(
-            lead_id=row.lead_id,
-            url=row.url,
-            title=row.title,
-            snippet=row.snippet,
-            query=row.query,
-            purpose=row.purpose,
-        )
-        for row in connection.execute(
-            # An EDGAR filing hit is ranked against the phrase EDGAR matched, not the web query.
-            text(
-                "SELECT s.lead_id, s.url, s.title, s.snippet,"
-                " CASE WHEN s.channel = 'edgar_fts' THEN e.query ELSE q.query END AS query,"
-                " q.purpose FROM lead_sighting s"
-                " JOIN discovery_query q ON q.id = s.discovery_query_id"
-                " LEFT JOIN edgar_search e ON e.discovery_query_id = q.id"
-                " WHERE q.discovery_id = :discovery"
-                " ORDER BY q.position, s.channel DESC, s.position, s.lead_id"
-            ),
-            {"discovery": discovery_id},
-        )
-    ]
+    sightings = discovery_sightings(connection, discovery_id)
     ranked = rank_leads(sightings, companies=companies, config=ranking, company_sites=company_sites)
     held = set(
         connection.execute(

@@ -4,6 +4,7 @@
 from atlas.audit import Actor
 from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND, CandidateProposer, ProposePayload
 from atlas.companies import load_universe
+from atlas.discovery.ranking import load_ranking_config, site_host
 from atlas.identity import EntityResolver
 from atlas.jobs.handlers import HandlerRegistry
 from atlas.jobs.queue import Artifacts, Job
@@ -22,6 +23,14 @@ def register_candidate_handlers(registry: HandlerRegistry, settings: Settings) -
             raise CandidatesNotConfigured("entity resolution calls SEC: set ATLAS_SEC_USER_AGENT")
         universe = load_universe(settings.themes_config)
         ignored = frozenset(i.cik for c in universe.companies.values() for i in c.ignored_ciks)
+        # What lead ranking knows of the universe, as an investigation's Scout gives it: the
+        # companies' names and the hosts of their websites.
+        names = sorted(
+            {n for c in universe.companies.values() for n in (c.display_name, c.legal_name)}
+        )
+        sites = sorted(
+            {site_host(c.website) for c in universe.companies.values() if c.website} - {""}
+        )
 
         def theme_title(theme: str) -> str:
             config = universe.themes.get(theme)
@@ -46,6 +55,9 @@ def register_candidate_handlers(registry: HandlerRegistry, settings: Settings) -
                 resolver,
                 Actor.from_settings(settings),
                 theme_title=theme_title,
+                ranking=load_ranking_config(settings.lead_ranking_config),
+                companies=names,
+                company_sites=sites,
                 ignored_ciks=ignored,
             )
             if caller is None:

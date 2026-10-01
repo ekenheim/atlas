@@ -4,7 +4,6 @@ its leads (atlas.candidates), and EDGAR full-text search is its second channel u
 `ATLAS_DISCOVERY_EDGAR_FTS` is `off` (atlas.discovery.edgar_fts)."""
 
 from atlas.audit import Actor
-from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND
 from atlas.companies import load_universe
 from atlas.discovery.edgar_fts import EdgarFullTextSearch
 from atlas.discovery.searxng import SearXNGClient
@@ -25,6 +24,10 @@ class DiscoveryNotConfigured(RuntimeError):
 
 
 def register_discovery_handlers(registry: HandlerRegistry, settings: Settings) -> None:
+    # Candidates are built on leads (atlas.candidates imports atlas.discovery), so the job
+    # kind this handler enqueues is imported here, not at module import.
+    from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND
+
     def discover(job: Job) -> Artifacts:
         payload = DiscoverPayload.model_validate(job.payload)
         universe = load_universe(settings.themes_config)

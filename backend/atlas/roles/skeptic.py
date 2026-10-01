@@ -6,8 +6,8 @@ The Skeptic makes two kinds of call, both recorded as `skeptic`:
 - **The plan** (`SKEPTIC_PLAN`): the research question, the checklist, the Claims the
   investigation accepted (what to challenge, as request fields, never as quoted data), the
   seed companies and a catalog of archived Tier A Source Versions in, its own web search
-  queries (each with an optional `filing_phrase` for EDGAR full-text search, v3) and the
-  Source Versions it wants to read out.
+  queries (each with an optional `filing_phrase` for EDGAR full-text search, v3; a specific
+  one, v4) and the Source Versions it wants to read out.
 - **The reading** (`SKEPTIC`): passages of the Source Versions it chose in (each passage's
   text as quoted, low-trust `retrieved_data`), counterevidence out: each item names its
   passage, the checklist item, the company it is about, the exact quote as offsets into the
@@ -33,7 +33,8 @@ from atlas.roles.scout import filing_phrase_required
 SKEPTIC_PROMPT_VERSION = 2  # v2: the bottleneck method
 # v3: it must choose archived documents from the catalog, and why (pilot fix 06); a filing
 # phrase per query for EDGAR full-text search (pilot fix 12)
-SKEPTIC_PLAN_PROMPT_VERSION = 3
+# v4: the filing phrase is specific (memory-directed reading, ticket 04)
+SKEPTIC_PLAN_PROMPT_VERSION = 4
 
 
 @dataclass(frozen=True)
