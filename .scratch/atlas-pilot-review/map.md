@@ -19,6 +19,8 @@ The pilot's verdict, in two artifacts:
 - **Quota:** the MiniMax subscription is dedicated to Atlas (owner, 2026-10-01); production's budgets are 4,000,000 tokens per 5 h and 1,000,000 per investigation once home-ops PR #7174 is merged. Read `/queue` before a run; a `quota` pause means the budget is above what the subscription allows. The Codex budget of the shared Hindsight (40 operations per 5 h) is unchanged and is not the lead's to raise. Live suites that are not pilot runs still need the owner's go-ahead.
 - **New work found on the way** goes under "Not yet specified", in the candidate list for the next effort, never into a log entry's "Next" line alone.
 
+**Resume point (2026-10-02):** the handoff at the end of [Build and release memory-directed reading](issues/14-build-and-release-memory-directed-reading.md): 0.3.0 is tagged, its release run and the deploy are open.
+
 ## Decisions so far
 
 <!-- one line per closed ticket -->

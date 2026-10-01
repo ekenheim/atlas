@@ -19,3 +19,18 @@ Each ticket goes to one implementer agent in its own worktree (`docs/agents/impl
 ## Comments
 
 **2026-10-02, the lead: built, integrated and tagged.** All eleven tickets are merged on main at `419d8a1` (runners: 1,402 tests, the frontend gates, the e2e) and tagged `v0.3.0`; details in `docs/implementation-log.md`, "memory-directed reading integrated; release 0.3.0". Open for this ticket: the release run's image, the home-ops PR (image, `ATLAS_RUN_TOKEN_BUDGET` 2,000,000, `ATLAS_RETAIN_EXTRACTOR=minimax`), the owner's merge, and production reporting 0.3.0.
+
+**Handoff, 2026-10-02 (the owner stopped the session for the night; resume here on "continue").**
+
+State when stopped:
+- `main` holds the release commit `419d8a1`, tagged `v0.3.0`. The release run 36939346940 was in progress (its `ci` job on the runners, then `publish`). Production still runs 0.2.5.
+- The home-ops change for 0.3.0 is committed locally, **not pushed**: checkout `C:\Users\ekenh\home-ops-atlas-pr`, branch `atlas-0.3.0` (image `0.3.0`; `ATLAS_MINIMAX_BUDGET_TOKENS` 8,000,000; `ATLAS_RUN_TOKEN_BUDGET` 2,000,000; `ATLAS_RETAIN_EXTRACTOR=minimax`). Its PR body is drafted in `.scratch/atlas-pilot-review/drafts/home-ops-0.3.0-pr.md`, with the release run's result still to fill in.
+- All implementer branches (`worktree-agent-*`) are merged. The remote branches `integrate/mdr-a` to `-d` can be deleted once 0.3.0 is released.
+- The lead's helper scripts are in `.scratch/tools/`: `wsl_lead.sh` (run the checks under WSL on this Windows machine: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash <path> client|static|test ...|frontend`; it has the lead's worktree path in it), `wordmerge.py`, `rechain.py`, `res_mig.py` (integration conflicts), and the breadth-run scripts.
+
+Next steps, in order:
+1. Read the release run's result (`gh run view 36939346940`). Success: the image is `ghcr.io/ekenheim/atlas:0.3.0`. Failure: read the job log, fix on `main`, tag `v0.3.1` (a tag is never moved), and change the version in the home-ops branch and the PR draft.
+2. In the home-ops checkout: `git fetch`, rebase `atlas-0.3.0` on `origin/main` if it moved, push, open the PR with the drafted body (fill in the release run's result), wait for its checks. The "AI PR Review" check fails on every home-ops PR for a missing input. **The owner merges.**
+3. After the merge: production reports `atlas_build_info{version="0.3.0"}` and every readiness check `ok`; `GET /api/v1/queue` lists the `hindsight_minimax` budget; after the first retain, `GET /api/v1/source-versions/{id}/memory` shows `extractor: minimax`. Then resolve this ticket and pilot-review ticket 18.
+4. Ticket 15: run investigation 1 on 0.3.0 and review every accepted Claim with the `pilot-review` skill (the baseline script now drops near-duplicates). Then tickets 05 to 08, investigations 2 to 5.
+5. The owner's queue is unchanged: 15 edges to decide (ticket 09), 12 gold cases to adjudicate (ticket 10).

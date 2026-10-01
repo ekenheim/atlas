@@ -15,6 +15,8 @@ The path from finished branches to a live version. Each step's completion criter
 4. Expect **semantic conflicts** between fixes that each passed alone: a test one fix added that the other fix's behaviour changes (a new Editor call, a parse length). Run only the modules the merge touched locally; the runners run the suite.
 5. Run `ruff format --check`, `ruff check` and `pyright` locally, then push the branch as `integrate/<name>` from the main checkout with Windows `git.exe -c safe.directory='*' push origin <sha>:refs/heads/integrate/<name>` (WSL git has no credentials; `git.exe` reads stdin, so give it `</dev/null` inside scripts). Poll the run through the GitHub API with the token from `git.exe credential fill` (never print it). A failure: read the job log, fix on the integration branch, push again.
 
+On the owner's Windows PC the integration can be done in a Windows worktree: run the checks under WSL with `.scratch/tools/wsl_lead.sh` (native pytest fails in the harness's CLI subprocess), merge two edits to one long `AGENTS.md` line with `.scratch/tools/wordmerge.py`, and re-chain with `.scratch/tools/rechain.py` and `res_mig.py`. Windows `git` and `gh` push with the owner's credentials. Two tests that compare a prompt file byte for byte fail only in a CRLF checkout.
+
 Completion: the integration branch's `ci` run is `success`.
 
 ## 2. Release
