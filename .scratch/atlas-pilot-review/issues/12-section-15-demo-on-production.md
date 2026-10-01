@@ -6,7 +6,7 @@ Blocked by: 01
 
 ## Question
 
-START_HERE's required demonstration lists what the pilot must show running in the cluster. For each, find it on production (0.2.4) or produce it there, and record the IDs; say plainly which ones exist only in fixture tests:
+START_HERE's required demonstration lists what the pilot must show running in the cluster. For each, find it on production (0.2.5) or produce it there, and record the IDs; say plainly which ones exist only in fixture tests:
 - provenance-resolved Hindsight recall;
 - a discovered company that wasn't seeded at startup (a Candidate, e.g. from an `edgar_fts` lead);
 - a directed, reviewed, source-clickable company or product edge;

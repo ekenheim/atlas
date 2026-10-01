@@ -6,7 +6,7 @@ Blocked by: none
 
 ## Question
 
-Decide, before any review on 0.2.4 is written, what the five investigations must show for the pilot to pass, so the verdict isn't fitted to the results:
+Decide, before any review on 0.2.5 is written, what the five investigations must show for the pilot to pass, so the verdict isn't fitted to the results:
 - the measures per investigation (the `pilot-review` skill's labels: saved work, precision as accepted-and-right over accepted, machine-reviewed edges that are right, coverage as read over taken, missed evidence, cost and latency) and the threshold for each;
 - how the comparison with the archive-search baseline counts (ticket 03 defines the baseline);
 - how many of the five investigations must meet the thresholds, and what "useful to a researcher" means when they are met on numbers but the card is thin;
@@ -17,13 +17,13 @@ Resolved by the lead (the owner delegated the decision); the answer gives the re
 
 ## Answer
 
-Decided by the lead on 2026-10-01, before any 0.2.4 run was read. The only results known when these were set are investigation 1's two earlier runs (0.2.1: nothing; 0.2.3: precision 10/14, machine-reviewed edges 7/8 right).
+Decided by the lead on 2026-10-01, before any 0.2.5 run was read. The only results known when these were set are investigation 1's two earlier runs (0.2.1: nothing; 0.2.3: precision 10/14, machine-reviewed edges 7/8 right).
 
 **Who judges.** The lead reviews each accepted Claim with the `pilot-review` skill and writes the verdict with the quoted span and the reason, so the owner can audit any of them. The owner's own edge decisions (ticket 09) are the independent check: the report states where they disagree with the lead's verdicts.
 
 **The trust gate (per investigation, no threshold).** Every accepted Claim's quote occurs verbatim in its cited span, and every finding on the card cites Claims that say what the finding says. A failure is a blocker under the map's focus rule: fixed at once and that investigation re-run. The verdict cannot be "pass" with one open.
 
-**The bar (per investigation; the latest run of each question on 0.2.4).** An investigation meets the bar when all six hold:
+**The bar (per investigation; the latest run of each question on 0.2.5).** An investigation meets the bar when all six hold:
 
 | Measure | Threshold | Why this number |
 |---|---|---|
