@@ -2008,6 +2008,10 @@ export interface components {
              * @default 0
              */
             passages: number;
+            /** Selections */
+            selections?: {
+                [key: string]: number;
+            };
             /** Selected By */
             selected_by?: ("plan" | "search" | "fallback") | null;
         };
@@ -2305,6 +2309,8 @@ export interface components {
             role_call_id: string;
             /** Passage Id */
             passage_id: string;
+            /** Passage Selected By */
+            passage_selected_by?: string[];
             /** Source Version Id */
             source_version_id: string | null;
             /** Subject Company Id */
@@ -3222,6 +3228,8 @@ export interface components {
             verification_status: string;
             /** Excluded */
             excluded: boolean;
+            /** Passage Selected By */
+            passage_selected_by?: string[];
         };
         /** ExportCompany */
         ExportCompany: {

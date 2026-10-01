@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     # many to a call.
     investigator_max_passages: int = Field(default=24, gt=0)
     investigator_passages_per_call: int = Field(default=6, gt=0)
+    # The largest share of an extraction's passage budget one document may take while other
+    # documents still have candidates (atlas.claims.selection; memory-directed reading ticket
+    # 05): a third by default, never less than one passage. It applies to every extraction,
+    # an investigation's Investigators and the standalone `extract_claims` job alike; 1 turns
+    # the ceiling off.
+    investigator_max_passage_share_per_document: float = Field(default=1 / 3, gt=0, le=1)
     # The Reviewer (atlas.relationships): Assertions reviewed per call.
     reviewer_assertions_per_call: int = Field(default=5, gt=0, le=25)
 
@@ -104,9 +110,9 @@ class Settings(BaseSettings):
     # The token ceiling is run_token_budget.
     investigation_max_leads: int = Field(default=10, ge=1, le=10)
     investigation_max_documents: int = Field(default=25, ge=1, le=25)
-    # Each Investigator task's passage budget (pilot fix 10), spread over the documents it
-    # took (atlas.claims.extraction); the standalone `extract_claims` job and the Skeptic use
-    # investigator_max_passages.
+    # Each Investigator task's passage budget (pilot fix 10), dealt best first over the
+    # documents it took (atlas.claims.selection); the standalone `extract_claims` job and the
+    # Skeptic use investigator_max_passages.
     investigation_max_passages: int = Field(default=24, gt=0)
     # Retention: how long one poll job waits for a retain operation to reach a terminal
     # status (keep it below job_lease_seconds), and how often it asks. A poll that times out

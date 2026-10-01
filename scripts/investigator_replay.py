@@ -4,12 +4,15 @@ Pilot investigation 1 sent the Investigator 24 passages of Coherent's FY2026 10-
 business and risk-factor Items, chosen by recall) and got no Claim back. This script
 reproduces that extraction offline and measures prompt variants on the same passages:
 
-- **The same passages.** A throwaway database on the test Postgres, the repo's company
-  universe seeded, Coherent ingested from the recorded EDGAR fixtures, and the production
-  `ClaimExtractor` run over the FY2026 10-K with the pilot's question, 24 passages, 6 per
-  call. Recall is stubbed to name the 10-K's Item 1 and Item 1A (what the pilot's recall
-  resolved to), so the production selection picks the passages: entity-tagged windows first,
-  then the recalled ones in document order.
+- **The same passages for every variant.** A throwaway database on the test Postgres, the
+  repo's company universe seeded, Coherent ingested from the recorded EDGAR fixtures, and
+  the production `ClaimExtractor` run over the FY2026 10-K with the pilot's question, 24
+  passages, 6 per call. The production selection picks the passages
+  (`atlas.claims.selection`): with no investigation there are no reading pointers, so they
+  are the windows a term search ranks highest for the pilot's question and the entity-tagged
+  ones. (Until memory-directed reading ticket 05 the extractor recalled, and this script
+  stubbed the recall to the 10-K's Items 1 and 1A, so the results in
+  `docs/research/investigator-yield.md` were measured on other passages of the same Items.)
 - **The same request and checks.** Each variant is one `extract_claims` job in its own run:
   the request the production code builds (every universe company, the predicate whitelist,
   the layers), the role caller's strict JSON schema, one repair, and every proposed Claim
@@ -39,7 +42,7 @@ import sys
 import tempfile
 import uuid
 from collections import Counter
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -68,8 +71,6 @@ from atlas.db.migrate import upgrade  # noqa: E402
 from atlas.jobs import HandlerRegistry, Job, JobQueue, Worker  # noqa: E402
 from atlas.jobs.queue import Artifacts  # noqa: E402
 from atlas.jobs.resources import run_recorder  # noqa: E402
-from atlas.research.provenance import Evidence  # noqa: E402
-from atlas.retention.sections import split_sections  # noqa: E402
 from atlas.roles import MAX_ATTEMPTS, RoleCaller  # noqa: E402
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role  # noqa: E402
 from atlas.roles.investigator import (  # noqa: E402
@@ -79,7 +80,6 @@ from atlas.roles.investigator import (  # noqa: E402
 )
 
 COHR_10K = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm"
-RECALLED = ("part-i-item-1", "part-i-item-1a")  # the 10-K's business and risk factors
 QUESTION = (
     "For 800G/1.6T AI data-center transceivers, who supplies the laser chips (EML, CW/DFB,"
     " VCSEL), which suppliers are capacity- or allocation-constrained, and what feedstock or"
@@ -327,7 +327,6 @@ def replay(
             assert seeded.returncode == 0, seeded.stderr
             atlas.ingest_company("coherent")
             version = atlas.version(COHR_10K, "coherent")
-            parsed = atlas.parsed(version["id"])
             settings = atlas.settings()
             queue = JobQueue(atlas.engine)
             for index, found in enumerate(variants):
@@ -336,7 +335,7 @@ def replay(
                         *[ChatReply.answer(rehearsal_answer, tokens=(7000, 300))]
                         * (CALLS_PER_VARIANT // MAX_ATTEMPTS)
                     )
-                registry = _registry(settings, atlas, _recall(version, parsed), found)
+                registry = _registry(settings, atlas, found)
                 payload = extract_claims_payload([uuid.UUID(version["id"])], QUESTION)
                 enqueued = queue.enqueue(
                     EXTRACT_CLAIMS_KIND,
@@ -388,14 +387,9 @@ def replay(
     return report
 
 
-def _registry(
-    settings: Any,
-    atlas: Atlas,
-    recall: Callable[[str, list[uuid.UUID]], list[Evidence]],
-    found: Variant,
-) -> HandlerRegistry:
-    """`extract_claims` as the job handler runs it, with the pilot's passage budget, the
-    stubbed recall and the variant's prompt."""
+def _registry(settings: Any, atlas: Atlas, found: Variant) -> HandlerRegistry:
+    """`extract_claims` as the job handler runs it, with the pilot's passage budget and the
+    variant's prompt."""
 
     def extract_claims(job: Job) -> Artifacts:
         with run_recorder(settings, atlas.engine) as runs:
@@ -407,7 +401,6 @@ def _registry(
                     open_archive(settings),
                     caller,
                     runs,
-                    recall=recall,
                     max_passages=MAX_PASSAGES,
                     passages_per_call=PASSAGES_PER_CALL,
                     investigator=found.role,
@@ -416,37 +409,6 @@ def _registry(
     registry = HandlerRegistry()
     registry.register(EXTRACT_CLAIMS_KIND, extract_claims, pausable=True)
     return registry
-
-
-def _recall(
-    version: dict[str, Any], parsed: str
-) -> Callable[[str, list[uuid.UUID]], list[Evidence]]:
-    """A recall that resolves to the 10-K's Items 1 and 1A, whatever the question."""
-    document = version["source_document"]
-    hits = [
-        Evidence(
-            source_version_id=uuid.UUID(version["id"]),
-            source_document_id=uuid.UUID(document["id"]),
-            company_id=uuid.UUID(document["company_id"]),
-            form_type=document["form_type"],
-            section_anchor=section.anchor,
-            section_heading=None,
-            section_char_start=section.start,
-            section_char_end=section.end,
-            available_at=version["available_at"],
-            available_at_basis=version["available_at_basis"],
-            memory_ids=[],
-            quotes=[],
-        )
-        for section in split_sections(parsed, form=document["form_type"], primary=True)
-        if section.anchor in RECALLED
-    ]
-    assert {hit.section_anchor for hit in hits} == set(RECALLED), "the 10-K's Items changed"
-
-    def recall(question: str, company_ids: list[uuid.UUID]) -> list[Evidence]:
-        return [hit for hit in hits if hit.company_id in company_ids]
-
-    return recall
 
 
 # --- the rehearsal's scripted model ------------------------------------------------------------

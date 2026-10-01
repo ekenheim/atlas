@@ -7745,6 +7745,13 @@
             "title": "Passages",
             "default": 0
           },
+          "selections": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Selections"
+          },
           "selected_by": {
             "anyOf": [
               {
@@ -8505,6 +8512,13 @@
           "passage_id": {
             "type": "string",
             "title": "Passage Id"
+          },
+          "passage_selected_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Passage Selected By"
           },
           "source_version_id": {
             "anyOf": [
@@ -11114,6 +11128,13 @@
           "excluded": {
             "type": "boolean",
             "title": "Excluded"
+          },
+          "passage_selected_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Passage Selected By"
           }
         },
         "type": "object",

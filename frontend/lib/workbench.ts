@@ -1,6 +1,6 @@
 // The research workbench's pure parts: labels, the research card's open questions, why a
-// follow-up can't be launched, the reading pointers by query, the Skeptic's items by kind, and
-// a task's output as short text.
+// follow-up can't be launched, the reading pointers by query, how passages were selected, the
+// Skeptic's items by kind, and a task's output as short text.
 import type {
   CardReading,
   Counterevidence,
@@ -122,6 +122,39 @@ export function readingOutcome(reading: CardReading): string {
   if (rejected.length > 0) parts.push(`rejected: ${rejected.join(", ")}`);
   if (reading.passages === 0 && reading.detail) parts.push(reading.detail);
   return `${parts.join("; ")}.`;
+}
+
+/**
+ * The kinds of passage selection, best first: a reading pointer's window (Memory as an
+ * index), the term search, an entity tag, a lead window.
+ */
+const SELECTIONS = ["pointer", "search", "entity", "lead"];
+
+const selectionOrder = (kind: string) =>
+  SELECTIONS.includes(kind) ? SELECTIONS.indexOf(kind) : SELECTIONS.length;
+
+/**
+ * How a document's passages were selected, in words ("pointer 2, search 5"): its passages
+ * per kind of selection, a passage counting under each kind that chose it. Null when the
+ * card records none (a document with no passage sent, the Skeptic's, an older card).
+ */
+export function selectionSummary(selections: Record<string, number> | undefined): string | null {
+  const kinds = Object.entries(selections ?? {}).sort(
+    ([a], [b]) => selectionOrder(a) - selectionOrder(b) || a.localeCompare(b),
+  );
+  if (kinds.length === 0) return null;
+  return kinds.map(([kind, count]) => `${kind} ${count}`).join(", ");
+}
+
+/**
+ * Which selections chose the passage a Claim quotes, in words ("pointer, search"): the kinds
+ * of its `selected_by` tags, each once. Null when none is recorded.
+ */
+export function foundBy(selectedBy: string[] | undefined): string | null {
+  const kinds = [...new Set((selectedBy ?? []).map((tag) => tag.split(":")[0] ?? tag))].sort(
+    (a, b) => selectionOrder(a) - selectionOrder(b) || a.localeCompare(b),
+  );
+  return kinds.length > 0 ? kinds.join(", ") : null;
 }
 
 /** One query asked of Memory, and the reading pointers its recall gave. */

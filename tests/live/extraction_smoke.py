@@ -273,7 +273,7 @@ class ExtractionReport:
             lines.append("- rehearsal: the scripted LiteLLM fake; **nothing was live**")
         lines.append(
             "- Hindsight: the recorded fake on localhost (ingest and the run record only; no"
-            " recall: the Lumentum passages are chosen by a stubbed recall)"
+            " recall: the Lumentum passages are the search selection's for the question)"
         )
         if self.refused:
             lines.append(f"- **refused**: {self.refused}")

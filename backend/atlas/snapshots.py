@@ -11,12 +11,15 @@ version was built from, frozen in the transaction that publishes it.
   hashes, archive URIs and `available_at`.
 - `memory`: Hindsight Memory **exactly as it was returned to the run**: every retrieved item
   a role was sent whose source is a mental model or memory (e.g. the Scout's open gaps).
-  An Investigator's own recall only chose which sections of Source Versions it read, so
-  those choices are listed (`recall_selections`) and the text the model saw is in the
-  Source Versions. The investigation's **reading pointers** (`reading_pointers`; snapshots
-  written before memory-directed reading have none) are what Memory returned to the Scout's
-  recalls, each memory's text as returned with the section it resolved to: an index of where
-  to read, sent to no role. `used` says whether any Memory reached the run at all.
+  The investigation's **reading pointers** (`reading_pointers`; snapshots written before
+  memory-directed reading have none) are what Memory returned to the Scout's recalls, each
+  memory's text as returned with the section it resolved to: an index of where to read,
+  sent to no role. Memory only chose which windows of Source Versions the Investigators
+  read, so those choices are listed and the text the model saw is in the Source Versions:
+  `pointer_selections`, the passages a reading pointer chose (their `selected_by` names the
+  queries; memory-directed reading ticket 05), and `recall_selections`, the passages of
+  extractions made before that ticket, whose own recall chose sections. `used` says whether
+  any Memory reached the run at all.
 - `assertions`: the Assertions the findings, the counterevidence and the scenarios cite, with
   their exact quote spans and review state; `relationships`: those the version depends on,
   with the owner's approval.
@@ -285,11 +288,16 @@ def build_snapshot(
         for item in call["retrieved"]
         if str(item.get("source", "")).startswith(_MEMORY_SOURCES)
     ]
-    recall_selections = [
+    selected = [
         {"claim_extraction_id": extraction["id"], "question": extraction["question"]} | passage
         for extraction in extractions
         for passage in extraction["passages"]
-        if "recall" in passage.get("selected_by", [])
+    ]
+    recall_selections = [each for each in selected if "recall" in each.get("selected_by", [])]
+    pointer_selections = [
+        each
+        for each in selected
+        if any(str(tag).startswith("pointer:") for tag in each.get("selected_by", []))
     ]
     reading_pointers = _rows(
         connection,
@@ -362,9 +370,12 @@ def build_snapshot(
         },
         "source_versions": source_versions,
         "memory": {
-            "used": bool(memory_items or recall_selections or reading_pointers),
+            "used": bool(
+                memory_items or recall_selections or pointer_selections or reading_pointers
+            ),
             "items": memory_items,
             "recall_selections": recall_selections,
+            "pointer_selections": pointer_selections,
             "reading_pointers": reading_pointers,
         },
         "assertions": assertions,

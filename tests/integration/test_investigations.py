@@ -313,12 +313,19 @@ def supply_claim(atlas: Atlas) -> dict[str, JsonValue]:
     }
 
 
-def quoting(*claims: dict[str, JsonValue]) -> Callable[[dict[str, Any]], JsonValue]:
+def quoting(
+    *claims: dict[str, JsonValue], version: str | None = None
+) -> Callable[[dict[str, Any]], JsonValue]:
     """An Investigator answer proposing each claim whose quote a passage it was sent holds
-    (with that passage's ID and the quote's offsets there), and nothing else."""
+    (with that passage's ID and the quote's offsets there), and nothing else. With `version`,
+    only that Source Version's passages are quoted."""
 
     def respond(body: dict[str, Any]) -> JsonValue:
-        passages = asked(body)["retrieved_data"]
+        passages = [
+            p
+            for p in asked(body)["retrieved_data"]
+            if version is None or p["source"].startswith(f"{version}#")
+        ]
         answered: list[JsonValue] = []
         for each in claims:
             quote = str(each["quote"])
@@ -621,6 +628,12 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     quoted = {each["id"]: each for each in editor["retrieved_data"]}
     assert quoted[accepted["id"]]["text"] == SUPPLY_QUOTE
     assert all(each["trust"] == "low" for each in editor["retrieved_data"])
+    # The Claim and the Evidence tray say which selections chose its passage: the window
+    # matches the question's terms and names NVIDIA.
+    [evidence] = found["evidence"]
+    assert evidence["passage_selected_by"] == accepted["passage_selected_by"]
+    assert "search" in accepted["passage_selected_by"]
+    assert f"entity:{company_id(atlas, 'nvidia')}" in accepted["passage_selected_by"]
     # The draft research card: the finding's spans are the accepted Claim's, filled by code.
     card = found["research_card"]
     assert (card["status"], card["editor_verdict"], card["question"]) == (
@@ -895,15 +908,15 @@ def test_the_question_and_each_scout_query_are_asked_of_memory_and_stored_as_rea
 
     found = investigation(atlas, started["id"])
     assert statuses(found)["scout"] == "succeeded"
-    # One recall for the question and one per Scout query, each across the theme; the fourth
-    # recall is the Investigator's own, scoped to its company.
+    # One recall for the question and one per Scout query, each across the theme, and no
+    # other: the Investigator reads by these pointers and asks Memory nothing itself
+    # (memory-directed reading ticket 05).
     recalls = fake.requests("POST", "memories/recall")
-    assert [(r["query"], (r["tags"], r["tags_match"])) for r in recalls[:3]] == [
+    assert [(r["query"], (r["tags"], r["tags_match"])) for r in recalls] == [
         (QUESTION, THEME_SCOPE),
         (SUBSTRATE, THEME_SCOPE),
         (SECOND_SOURCE, THEME_SCOPE),
     ]
-    assert [r["tags"] for r in recalls[3:]] == [[f"company:{coherent['id']}"]]
     pointers = found["pointers"]
     assert {(p["query_index"], p["query"]) for p in pointers} == {
         (0, QUESTION),
@@ -970,7 +983,7 @@ def test_the_question_and_each_scout_query_are_asked_of_memory_and_stored_as_rea
     [recorded] = [e for e in events(atlas, started["id"]) if e["type"] == "pointers_recorded"]
     assert (recorded["task_key"], recorded["detail"]["pointers"]) == ("scout", len(pointers))
     assert recorded["detail"]["queries_without_pointers"] == []
-    # Nothing reads the pointers yet: only the seed company got an Investigator.
+    # The pointers choose passages, not companies yet: only the seed got an Investigator.
     assert [t["key"] for t in found["tasks"] if t["role"] == "investigator"] == [
         "investigator:coherent"
     ]
@@ -1245,24 +1258,67 @@ LITE_EX991 = f"{LITE}/000162828026055726/lite_ex991xq4fy26.htm"
 LITE_10Q = f"{LITE}/000162828026030777/lite-20260328.htm"
 
 
-def test_the_passage_budget_is_spread_across_the_documents_the_investigator_took(
+# Lumentum's allocation statement, from the recorded FY2026 10-K's Item 1: pilot investigation
+# 1's best finding, which the equal passage share stopped 2,000 characters short of on 0.2.5.
+ALLOCATION_STATEMENT = "This demand is outpacing our current supply"
+LITE_ALLOCATION = (
+    "we have seen increasing demand from AI and cloud customers as they continue to expand"
+    " their data centers, driven in part by the continued advances in cloud and AI"
+    " infrastructure. This demand is outpacing our current supply which has required us to"
+    " make decisions on supply allocation."
+)
+# What Memory holds of it: the fact in Hindsight's own words (written here, the fake's
+# `script_fact_text`), a paraphrase that quotes nothing.
+ALLOCATION_MEMORY = (
+    "Lumentum said demand from AI and cloud customers is outpacing its current supply, which"
+    " forced it to make supply allocation decisions."
+)
+# A hand-shaped stand-in for an administrative 8-K (Items 5.02 and 9.01 only), not a Lumentum
+# filing: it names none of the question's or the queries' terms and no other company.
+ADMINISTRATIVE_8K = (
+    "Synthetic test document: a hand-shaped current report, not a Lumentum filing.\n\n"
+    "Item 5.02 Departure of Directors or Certain Officers; Election of Directors;"
+    " Appointment of Certain Officers.\n\n"
+    "The board appointed a new chief accounting officer, who succeeds the retiring"
+    " controller.\n\n"
+    "Item 9.01 Financial Statements and Exhibits.\n\n"
+    "Exhibit 104: the cover page as an interactive file.\n"
+)
+
+
+def import_administrative_8k(atlas: Atlas) -> str:
+    """Record `ADMINISTRATIVE_8K` as a Lumentum document published after its 10-K (`atlas
+    sources import`) and run its retention; its Source Version's ID."""
+    path = atlas.tmp_path / "lumentum-administrative-8k.txt"
+    path.write_text(ADMINISTRATIVE_8K, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "lumentum",
+        "--file",
+        str(path),
+        "--origin-url",
+        "https://filings.example.test/lumentum-8k-items-5-02-and-9-01",
+        "--published-at",
+        "2026-08-20T20:05:00+00:00",
+        "--title",
+        "Lumentum 8-K (Items 5.02 and 9.01), hand-shaped",
+    )
+    assert imported.returncode == 0, imported.stderr
+    atlas.worker_pass()
+    return json.loads(imported.stdout)["source_version_id"]
+
+
+def test_the_investigator_reads_the_window_memory_points_to_and_the_best_search_windows(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
-    # Pilot fix 10: in the re-run each Investigator's 24 passages all came from its 10-K. The
-    # recorded Lumentum filings: the FY2026 10-K (August 17), the Q4 results 8-K with its press
-    # release, EX-99.1 (August 11), and the Q3 10-Q (May); the 10-K alone has far more than 24
-    # windows its recall hits select.
-    atlas = services.start(ingest=False)
+    # The recorded Lumentum filings: the FY2026 10-K (August 17), the Q4 results 8-K with its
+    # press release, EX-99.1 (August 11), and the Q3 10-Q (May); and an administrative 8-K.
+    atlas = services.start(ingest=False, investigation_max_passages=30)
+    fake = services.hindsight[0]
     atlas.ingest_company("lumentum")
-    started = seeded(atlas, "lumentum")
-    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
-    script_searches(searxng)
-
-    atlas.worker_pass()
-
-    found = investigation(atlas, started["id"])
-    task = tasks(found)["investigator:lumentum"]["artifacts"]
-    extraction = atlas.get(f"/api/v1/claim-extractions/{task['extraction_id']}")
+    administrative = import_administrative_8k(atlas)
     ids = {
         name: atlas.version(url, "lumentum")["id"]
         for name, url in [
@@ -1272,34 +1328,109 @@ def test_the_passage_budget_is_spread_across_the_documents_the_investigator_took
             ("10-Q", LITE_10Q),
         ]
     }
+    # Memory holds one fact of these filings: the allocation statement in its own words,
+    # extracted from the 10-K's Item 1. (The fake recalls every fact in scope whatever the
+    # query, so one fact keeps this test about where a pointer leads.)
+    item_1 = atlas.section(LITE_10K, "lumentum")
+    fake.script_fact_text(item_1["document_id"], ALLOCATION_MEMORY)
+    fake.report_zero_facts(lambda document_id: document_id != item_1["document_id"])
+    lumentum = company_id(atlas, "lumentum")
+    allocation: dict[str, JsonValue] = {
+        "subject_company_id": lumentum,
+        "predicate": "capacity_constrained",
+        "object_company_id": None,
+        "object_name": None,
+        "object_text": "optical components for AI and cloud data centers",
+        "product": "optical components",
+        "layer": "module",
+        "quote": LITE_ALLOCATION,
+        "epistemic_type": "company_claim",
+    }
+    started = seeded(atlas, "lumentum")
+    script_parallel(llm)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(allocation)),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["investigator:lumentum"] == "succeeded"
+    assert len(found["documents"]) == 5
+    # The question and the Scout's three queries each recalled the one fact: four pointers
+    # into the 10-K's Item 1, all at rank 1.
+    assert {
+        (p["source_version_id"], p["section_anchor"], p["rank"], p["memory_text"])
+        for p in found["pointers"]
+    } == {(ids["10-K"], ITEM_1, 1, ALLOCATION_MEMORY)}
+    assert sorted(p["query_index"] for p in found["pointers"]) == [0, 1, 2, 3]
+    task = tasks(found)["investigator:lumentum"]["artifacts"]
+    extraction = atlas.get(f"/api/v1/claim-extractions/{task['extraction_id']}")
+    passages = extraction["passages"]
+    parsed = atlas.parsed(ids["10-K"])
+    at_ = parsed.index(ALLOCATION_STATEMENT)
+
+    # The pointer's window is read first: the window of Item 1 that holds the statement the
+    # Memory paraphrases, not the Item's opening one.
+    first = passages[0]
+    assert (first["source_version_id"], first["section_anchor"]) == (ids["10-K"], ITEM_1)
+    assert first["char_start"] <= at_ < first["char_end"]
+    assert first["char_start"] > item_1["char_start"]
+    assert first["selected_by"][:4] == ["pointer:0", "pointer:1", "pointer:2", "pointer:3"]
+    pointed = [p for p in passages if any(tag.startswith("pointer:") for tag in p["selected_by"])]
+    assert pointed == [first]
+    # The Memory text chose the window and went nowhere else: no role was sent it.
+    assert ALLOCATION_MEMORY not in json.dumps(llm.chat_requests())
+
     per_document: dict[str, int] = {}
-    for passage in extraction["passages"]:
+    for passage in passages:
         per_document[passage["source_version_id"]] = (
             per_document.get(passage["source_version_id"], 0) + 1
         )
-    # The default budget, 24 passages, spread over the four documents (6 each): the recorded
-    # 8-K and 10-Q have only 3 and 5 windows with text (all recall hits here), and the share
-    # they can't use passes on to the 10-K and the press release. (Before the fix: 24 of the
-    # 10-K.)
-    assert len(found["documents"]) == 4
-    assert {name: per_document.get(id_) for name, id_ in ids.items()} == {
-        "10-K": 8,
-        "8-K": 3,
-        "EX-99.1": 8,
-        "10-Q": 5,
-    }
-    # The first round deals one passage to each document, newest first.
-    newest_first = [d["source_version_id"] for d in found["documents"]]
-    first_round = [p["source_version_id"] for p in extraction["passages"][: len(per_document)]]
-    assert first_round == [each for each in newest_first if each in per_document]
-    # The task's and the extraction's artifacts count the passages per document.
+    # The budget, 30 passages, is spent on the search's best windows: every other passage is
+    # a search window (the question's and the queries' terms).
+    assert len(passages) == 30
+    assert all("search" in p["selected_by"] for p in passages[1:])
+    # The results release (the 8-K with Item 2.02 and its EX-99.1) and the 10-Q each keep at
+    # least one passage.
+    assert all(per_document.get(ids[name], 0) >= 1 for name in ("8-K", "EX-99.1", "10-Q"))
+    # One document may take a third of the budget (10) while others have candidates; the
+    # share the short filings can't use passes on to the 10-K's next-best windows.
+    assert per_document[ids["10-K"]] > 10
+    assert per_document[ids["EX-99.1"]] <= 10
+    # The administrative 8-K has no pointer, no search and no entity window, only lead
+    # windows, and gets no passage while other documents have unread candidates.
+    assert administrative not in per_document
+    assert extraction["passages_dropped"] > 0
+    # The task's and the extraction's artifacts count the passages per document and selection.
     assert task["passages_by_document"] == per_document
-    # The card's `read` shows the passages sent of each document.
-    # (Since pilot fix 06 the Skeptic has a row of its own.)
+    assert task["passages_by_selection"]["pointer"] == 1
+    assert task["passages_by_selection"]["search"] >= 29
+    assert "lead" not in task["passages_by_selection"]
+
+    # The accepted Claim says which selections found its passage: on the Claim read and in the
+    # investigation's Evidence tray.
+    [claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert claim["passage_id"] == first["id"]
+    assert claim["passage_selected_by"] == first["selected_by"]
+    [evidence] = found["evidence"]
+    assert (evidence["claim_id"], evidence["passage_selected_by"]) == (
+        claim["id"],
+        first["selected_by"],
+    )
+    # The card's `read` shows each document's passages and how they were selected.
     [read] = [r for r in found["research_card"]["read"] if r["role"] == "investigator"]
-    shown = {d["source_version_id"]: d["passages"] for d in read["documents"]}
-    assert {key: n for key, n in shown.items() if n} == per_document
-    assert read["passages"] == sum(shown.values()) == 24
+    shown = {d["source_version_id"]: d for d in read["documents"]}
+    assert {key: d["passages"] for key, d in shown.items() if d["passages"]} == per_document
+    assert read["passages"] == 30
+    assert shown[ids["10-K"]]["selections"]["pointer"] == 1
+    assert shown[ids["10-K"]]["selections"]["search"] >= per_document[ids["10-K"]] - 1
+    assert shown[ids["EX-99.1"]]["selections"] == {"search": per_document[ids["EX-99.1"]]}
+    assert (shown[administrative]["passages"], shown[administrative]["selections"]) == (0, {})
 
 
 def test_with_no_accepted_claim_the_editor_writes_a_card_of_what_was_searched_and_read(
@@ -2294,7 +2425,14 @@ def test_a_skeptic_plan_that_chooses_no_document_falls_back_to_each_seed_company
 def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_not_independent(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
-    atlas = services.start(investigator_max_passages=500, investigator_passages_per_call=500)
+    # The Investigator reads four documents here; with 60 passages it reaches the 10-K's
+    # supply-agreement window (the search's, after the windows Memory points to: the fake
+    # recalls a fact for every retained section, the copy's among them).
+    atlas = services.start(
+        investigator_max_passages=500,
+        investigator_passages_per_call=500,
+        investigation_max_passages=60,
+    )
     coherent = company_id(atlas, "coherent")
     # A byte-for-byte copy of the Coherent 10-K at another URL: a separate Source Version in
     # the 10-K's Evidence Family.
@@ -2320,7 +2458,8 @@ def test_counterevidence_sharing_an_evidence_family_with_the_investigators_is_no
     llm.script_role("financial_analyst", ANALYSED)
     llm.script_chat(
         scout_reply(),
-        ChatReply.answer(quoting(supply_claim(atlas))),
+        # The Investigator quotes the 10-K (it is sent the copy's same passage too).
+        ChatReply.answer(quoting(supply_claim(atlas), version=ten_k)),
         skeptic_plan(documents=((copy, "capacity_additions"), (update, "second_sources"))),
         ChatReply.answer(
             countering(
@@ -2413,16 +2552,13 @@ def test_memory_and_other_roles_output_are_never_witnesses(
     found = investigation(atlas, started["id"])
     # Nothing but passages of the Source Versions it chose were sent, and no Memory was read
     # for the Skeptic: the recalls are the Scout's reading pointers (the question and its
-    # three queries, across the theme) and the Investigator's one; the one mental-model read
-    # is the Scout's.
+    # three queries, across the theme), which the Investigator reads by without a recall of
+    # its own (ticket 05); the one mental-model read is the Scout's.
     plan, reading = skeptic_calls(llm)
     assert plan["retrieved_data"] == []
     assert all(p["source"].startswith(f"{ten_q}#") for p in reading["retrieved_data"])
     asked_of_hindsight = fake.requests("POST", "memories/recall")[recalls:]
-    assert [r["tags"] for r in asked_of_hindsight] == [
-        *(["theme:photonics"],) * 4,
-        [f"company:{coherent}"],
-    ]
+    assert [r["tags"] for r in asked_of_hindsight] == [["theme:photonics"]] * 4
     # The pointers are an index: no role was sent a memory they name.
     pointed = {p["memory_id"] for p in found["pointers"]}
     assert memory["memory_id"] in pointed

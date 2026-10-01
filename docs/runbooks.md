@@ -204,11 +204,11 @@ It also says plainly which paths ran live. A rehearsal is not a live run.
 **When:** by hand, with the owner's go-ahead. **A live run spends a little MiniMax quota:** at most 6 chat completions (3 calls, each with at most one repair; the cap is 10), each extraction's run capped at 40,000 tokens, and one attempt per job.
 
 **What it runs.** It creates a throwaway app database (`atlas_live_extract_*`), ingests the Lumentum and Coherent fixtures, and seeds the universe plus NVIDIA. Then it runs three `extract_claims` jobs, each with at most 4 passages in one call:
-- the Lumentum FY2026 10-K's Item 1
-- the Lumentum Q4 FY2026 release (8-K EX-99.1)
+- the Lumentum FY2026 10-K (the four windows a term search ranks highest for the smoke run's question)
+- the Lumentum Q4 FY2026 release (8-K EX-99.1; the same)
 - the Coherent FY2026 10-K's entity-tagged passages (NVIDIA, Lumentum)
 
-The Lumentum documents name no other known company, so a stubbed recall picks their sections. No Hindsight is needed: the recorded Hindsight fake serves on localhost for the ingest and the run record, and the run's Hindsight version is the fake's. Only the Investigator's calls go to LiteLLM (`--model`, default `MiniMax-M3`, thinking off).
+The Lumentum documents name no other known company, so their passages are the search selection's (`atlas.claims.selection`; until memory-directed reading ticket 05 a stubbed recall picked their sections, so runs before it read other passages). No recall is made and no Hindsight is needed: the recorded Hindsight fake serves on localhost for the ingest and the run record, and the run's Hindsight version is the fake's. Only the Investigator's calls go to LiteLLM (`--model`, default `MiniMax-M3`, thinking off).
 
 **Opt-in:** the `live` marker and `ATLAS_LIVE_TESTS` (`1` live, `rehearse` the scripted LiteLLM fake). LiteLLM settings come from `ATLAS_LITELLM_URL`/`ATLAS_LITELLM_API_KEY` or the repo `.env` (read CRLF-safe, never printed). The preflight refuses (exit status 4) under `CI`, without LiteLLM settings, or when the model isn't routed in LiteLLM (`/model/info`, no model call).
 

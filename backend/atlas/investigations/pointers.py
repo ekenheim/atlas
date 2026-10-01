@@ -11,8 +11,10 @@ that became available after the investigation's as-of time makes none, and neith
 unverified or broken memory.
 
 A pointer is Memory used as an index. It says where to read; it is never Evidence, never
-quoted, never a witness, and never sent to a role as a statement. Nothing reads the pointers
-yet (tickets 05 to 07 choose companies, documents and passages by them).
+quoted, never a witness, and never sent to a role as a statement. An Investigator's passages
+are chosen by them (`round_reading`; atlas.claims.selection, ticket 05): the pointer's Memory
+text finds the window of the pointed section to read and goes no further. Companies and
+documents are not chosen by them yet (ticket 06), nor the Skeptic's reading (ticket 07).
 
 **Stored** insert-only (`reading_pointer`), a task's whole set in one transaction together
 with its events, its counts in the task's artifacts and one audit event
@@ -39,6 +41,7 @@ from pydantic import JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
+from atlas.claims.selection import Pointer, Reading
 from atlas.hindsight import HindsightError
 from atlas.investigations.service import event, lock
 from atlas.jobs.pacing import classify_failure
@@ -80,6 +83,49 @@ def scout_queries(
         PointerQuery(QUESTION_INDEX, question),
         *(PointerQuery(row.position, row.query, row.id) for row in rows),
     ]
+
+
+def round_reading(
+    connection: Connection,
+    investigation_id: uuid.UUID,
+    round_: int,
+    source_version_ids: Sequence[uuid.UUID],
+) -> Reading:
+    """What directs the reading of these Source Versions in a round of the investigation
+    (atlas.claims.selection): the round's reading pointers into them, whichever task recorded
+    them, best rank first; and the queries of the round's Scout, in order, which the search
+    selection uses beside the round's question."""
+    pointers = [
+        Pointer(
+            source_version_id=row.source_version_id,
+            section_anchor=row.section_anchor,
+            rank=row.rank,
+            query_index=row.query_index,
+            memory_text=row.memory_text,
+        )
+        for row in connection.execute(
+            text(
+                "SELECT source_version_id, section_anchor, rank, query_index, memory_text"
+                " FROM reading_pointer WHERE investigation_id = :id AND round = :round"
+                " AND source_version_id = ANY(:versions)"
+                " ORDER BY rank, query_index, source_version_id, section_char_start,"
+                " section_anchor, id"
+            ),
+            {"id": investigation_id, "round": round_, "versions": list(source_version_ids)},
+        )
+    ]
+    queries = list(
+        connection.execute(
+            text(
+                "SELECT q.query FROM investigation_task t JOIN discovery_query q"
+                " ON q.discovery_id = CAST(t.artifacts ->> 'discovery_id' AS uuid)"
+                " WHERE t.investigation_id = :id AND t.round = :round AND t.role = 'scout'"
+                " ORDER BY t.position, q.position"
+            ),
+            {"id": investigation_id, "round": round_},
+        ).scalars()
+    )
+    return Reading(pointers=pointers, queries=queries)
 
 
 def record_pointers(

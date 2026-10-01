@@ -98,6 +98,10 @@ def seed_hypothesis(database_url: str, workdir: Path) -> SeededHypothesis:
             themes_config=themes,
             searxng_url=urls["searxng"],
             investigator_passages_per_call=50,
+            # One Investigator call that reaches both quoted windows: the Hindsight fake
+            # recalls a fact for every retained section, so the first passages are those
+            # sections' pointer windows and the search's windows follow (ticket 05).
+            investigation_max_passages=48,
         )
         try:
             atlas.apply_template()

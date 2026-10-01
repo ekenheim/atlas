@@ -14,6 +14,7 @@ import {
   counterevidenceSummary,
   figureLabel,
   followUpBlocked,
+  foundBy,
   openQuestions,
   outputParts,
   pointerGroups,
@@ -21,6 +22,7 @@ import {
   pointerSummary,
   readerName,
   readingOutcome,
+  selectionSummary,
 } from "../lib/workbench";
 
 const card = {
@@ -100,6 +102,24 @@ test("an Investigator's reading says what it read and why nothing was accepted",
     detail: "the document budget is spent",
   } as unknown as CardReading;
   expect(readingOutcome(none)).toBe("the document budget is spent");
+});
+
+test("a document's passages and a Claim's passage say which selections chose them", () => {
+  // Memory's pointers first, then the search, the entity tags and the lead windows.
+  expect(selectionSummary({ search: 5, entity: 1, pointer: 2 })).toBe(
+    "pointer 2, search 5, entity 1",
+  );
+  expect(selectionSummary({ lead: 3 })).toBe("lead 3");
+  // A card drawn before the pointers: its recall selection is shown as it was recorded.
+  expect(selectionSummary({ recall: 4, entity: 2 })).toBe("entity 2, recall 4");
+  expect(selectionSummary({})).toBeNull();
+  expect(selectionSummary(undefined)).toBeNull();
+  expect(
+    foundBy(["pointer:0", "pointer:3", "search", "entity:6aed559f-3bc4-5b32-8640-69835afa9d40"]),
+  ).toBe("pointer, search, entity");
+  expect(foundBy(["lead"])).toBe("lead");
+  expect(foundBy([])).toBeNull();
+  expect(foundBy(undefined)).toBeNull();
 });
 
 test("the Skeptic's reading says what code chose for it, its counterevidence, or why it read nothing", () => {

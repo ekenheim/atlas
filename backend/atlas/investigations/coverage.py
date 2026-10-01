@@ -5,8 +5,10 @@ Written by code, never the Editor, so a card with no finding still says, from th
 - **searched:** each round's Scout, its queries (in order), how many leads they found, and
   the leads the investigation took (Tier C, never Evidence);
 - **read:** each Investigator task, the Source Versions it read with the sections of the
-  passages it was sent (across a budget-exhausted extraction and its continuation) and how
-  many passages of each (pilot fix 10) and in all, the documents the budget left out, and
+  passages it was sent (across a budget-exhausted extraction and its continuation), how
+  many passages of each (pilot fix 10) and in all, how each document's passages were
+  selected (pointer, search, entity, lead; memory-directed reading ticket 05), the documents
+  the budget left out, and
   the extraction's outcomes: Claims proposed, accepted, and rejected by reason code; or why
   it read nothing. Then (pilot fix 06) each round's Skeptic, the same way: the Source
   Versions it read (each with who chose it: its plan, its search or code's fallback) and the
@@ -21,6 +23,7 @@ from typing import Any
 
 from sqlalchemy import Connection, Row, text
 
+from atlas.claims.selection import selections
 from atlas.investigations.model import (
     CardDocumentRead,
     CardQuery,
@@ -99,13 +102,14 @@ def _read(connection: Connection, investigation_id: uuid.UUID) -> list[CardReadi
             continue
         artifacts: dict[str, Any] = task.artifacts
         chain = _extractions(connection, artifacts.get("extraction_id"))
-        sections, per_document, sent = _sent(connection, chain)
+        sections, per_document, selected, sent = _sent(connection, chain)
         documents = [
             CardDocumentRead(
                 source_version_id=row.source_version_id,
                 title=row.title,
                 sections=sections.get(row.source_version_id, []),
                 passages=per_document.get(row.source_version_id, 0),
+                selections=selected.get(row.source_version_id, {}),
             )
             for row in connection.execute(
                 text(
@@ -247,12 +251,15 @@ def _extractions(connection: Connection, last: Any) -> list[uuid.UUID]:
 
 def _sent(
     connection: Connection, chain: list[uuid.UUID]
-) -> tuple[dict[uuid.UUID, list[str]], dict[uuid.UUID, int], int]:
+) -> tuple[dict[uuid.UUID, list[str]], dict[uuid.UUID, int], dict[uuid.UUID, dict[str, int]], int]:
     """The passages the extractions sent the Investigator (the batches done): each Source
-    Version's section anchors, in order, each once, and its passage count; and how many
-    passages in all. (A continuation holds the passages its predecessor hadn't sent.)"""
+    Version's section anchors, in order, each once, its passage count, and its passages per
+    kind of selection (pointer, search, entity, lead: a passage counts under each kind that
+    chose it); and how many passages in all. (A continuation holds the passages its
+    predecessor hadn't sent.)"""
     sections: dict[uuid.UUID, list[str]] = {}
     per_document: dict[uuid.UUID, int] = {}
+    selected: dict[uuid.UUID, dict[str, int]] = {}
     count = 0
     for extraction_id in chain:
         row = connection.execute(
@@ -270,4 +277,7 @@ def _sent(
             if passage["section_anchor"] not in anchors:
                 anchors.append(passage["section_anchor"])
             per_document[version_id] = per_document.get(version_id, 0) + 1
-    return sections, per_document, count
+            kinds = selected.setdefault(version_id, {})
+            for kind in selections(passage.get("selected_by") or []):
+                kinds[kind] = kinds.get(kind, 0) + 1
+    return sections, per_document, selected, count

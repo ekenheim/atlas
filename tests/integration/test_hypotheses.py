@@ -138,6 +138,10 @@ def atlas(
         themes_config=themes,
         searxng_url=searxng_served.url,
         investigator_passages_per_call=50,
+        # One Investigator call that reaches both quoted windows of the 10-K: the Hindsight
+        # fake recalls a fact for every retained section, so the first passages are those
+        # sections' pointer windows and the search's windows follow (ticket 05).
+        investigation_max_passages=48,
     )
     started.apply_template()
     seeded = subprocess.run(
@@ -1336,8 +1340,8 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
         for field in ("raw_sha256", "content_sha256", "available_at_basis"):
             assert frozen_source[field] == ledger[field], field
         assert at(frozen_source["available_at"]) == at(ledger["available_at"])
-    # Memory exactly as returned to the run: the Scout's gaps; and the sections a recall chose
-    # for the Investigator (Atlas keeps the choice, not the recall's text).
+    # Memory exactly as returned to the run: the Scout's gaps; and the passages the reading
+    # pointers chose for the Investigator (Atlas keeps the choice; the pointers hold the text).
     [scout_call] = [c for c in content["role_calls"] if c["role"] == "scout"]
     assert content["memory"]["used"] is True
     assert content["memory"]["items"] == [
@@ -1349,16 +1353,28 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
             "text": GAPS,
         }
     ]
-    recalled = content["memory"]["recall_selections"]
-    assert recalled
-    assert all("recall" in each["selected_by"] for each in recalled)
-    # Since pilot fix 10 the passage budget is spread across the documents taken, so the
-    # recall's hits in the 10-Q and in the later statement get a share beside the 10-K's.
-    assert {(each["source_version_id"], each["question"]) for each in recalled} == {
+    # The Investigator makes no recall of its own any more (memory-directed reading ticket
+    # 05): the passages Memory chose are the reading pointers' windows.
+    assert content["memory"]["recall_selections"] == []
+    pointed = content["memory"]["pointer_selections"]
+    assert pointed
+    assert all(any(tag.startswith("pointer:") for tag in each["selected_by"]) for each in pointed)
+    # The fake recalls a fact for every retained section, so each document the Investigator
+    # took has a pointer window: the 10-K, the 10-Q and the later statement.
+    assert {(each["source_version_id"], each["question"]) for each in pointed} == {
         (ten_k["id"], QUESTION),
         (ten_q["id"], QUESTION),
         (update["id"], QUESTION),
     }
+    extraction_id = next(
+        task["artifacts"]["extraction_id"]
+        for task in investigation["tasks"]
+        if task["key"] == "investigator:coherent"
+    )
+    passages = atlas.get(f"/api/v1/claim-extractions/{extraction_id}")["passages"]
+    assert [each["id"] for each in pointed] == [
+        p["id"] for p in passages if any(tag.startswith("pointer:") for tag in p["selected_by"])
+    ]
     # The reading pointers: what Memory returned to the Scout's recalls, the text as returned,
     # with the section each resolved to.
     pointers = investigation["pointers"]

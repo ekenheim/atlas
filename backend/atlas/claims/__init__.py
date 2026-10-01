@@ -1,8 +1,10 @@
 """Claims: the Investigator's span-backed proposals, checked and turned into Assertions.
 
 `predicates` holds the §5.5 whitelist with its direction rules, the layer taxonomy and the
-directional-language and party checks; `extraction` runs the `extract_claims` job (passages,
-Investigator calls, checks, outcomes); `reads` lists Claims and extractions.
+directional-language and party checks; `selection` chooses the passages read (reading
+pointers, search, entity tags and lead windows, dealt best first); `extraction` runs the
+`extract_claims` job (passages, Investigator calls, checks, outcomes); `reads` lists Claims
+and extractions.
 """
 
 from atlas.claims.extraction import (

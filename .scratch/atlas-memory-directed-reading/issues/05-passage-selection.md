@@ -16,10 +16,19 @@ Spec: `.scratch/atlas-memory-directed-reading/spec.md` ("Passage selection", "Th
 
 **Blocked by:** 01 (Reading pointers)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam on the recorded Lumentum filings: with a pointer whose memory paraphrases the allocation statement, the window holding "This demand is outpacing our current supply" is read (`pointer`), the EX-99.1 and the 10-Q each keep at least one passage, and an 8-K with only Items 5.02 and 9.01 gets none while other documents have unread candidates.
-- [ ] Without pointers, the search selection reads the window that best matches the question's terms; the ceiling stops one document taking more than its share.
-- [ ] Unit tests of the scoring and the dealing (floor, ceiling, ties, a window chosen twice).
-- [ ] The baseline's unit tests pass unchanged against the moved code.
-- [ ] Decision entry (replaces "The passage budget is spread over the documents"), settings, `AGENTS.md`.
+- [x] Integration test at the investigation seam on the recorded Lumentum filings: with a pointer whose memory paraphrases the allocation statement, the window holding "This demand is outpacing our current supply" is read (`pointer`), the EX-99.1 and the 10-Q each keep at least one passage, and an 8-K with only Items 5.02 and 9.01 gets none while other documents have unread candidates.
+- [x] Without pointers, the search selection reads the window that best matches the question's terms; the ceiling stops one document taking more than its share.
+- [x] Unit tests of the scoring and the dealing (floor, ceiling, ties, a window chosen twice).
+- [x] The baseline's unit tests pass unchanged against the moved code.
+- [x] Decision entry (replaces "The passage budget is spread over the documents"), settings, `AGENTS.md`.
+
+## Resolution
+
+Built as `atlas.claims.selection` (pure) over `atlas.research.search` (the baseline's tokenizer, passages and BM25, moved). Decision: `docs/decisions.md`, "Passage selection: pointers and search, best first"; log: `docs/implementation-log.md`, "memory-directed reading ticket 05".
+
+- The order is the lead's: pointer windows by rank, then search and entity windows by BM25 score, then lead windows. The ceiling (`ATLAS_INVESTIGATOR_MAX_PASSAGE_SHARE_PER_DOCUMENT`, a third) yields when the budget would otherwise go unspent; lead windows of a document with no floor come after every other candidate.
+- The Investigator's own recall is removed, in investigations and in the standalone job.
+- The administrative 8-K of the acceptance test is a **hand-shaped stand-in** (a manual import with Items 5.02 and 9.01 in its text): the recorded Lumentum fixtures hold only the results 8-K, and adding a filing to them would change every test that ingests Lumentum. The rule that an 8-K without Item 2.02 has no floor is unit-tested on the form, document type and Items.
+- No migration: `selected_by` is JSON, and the Claim read computes `passage_selected_by` from the extraction.

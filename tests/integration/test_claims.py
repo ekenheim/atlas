@@ -39,6 +39,7 @@ COHR_10Q = "https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/ii
 LITE_EX991 = (
     "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm"
 )
+LITE_10K = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
 # From the Coherent FY2026 10-K (the recorded fixture's parsed text).
 SUPPLY_QUOTE = (
     "we announced the expansion of our Sherman, Texas, manufacturing facility, entered into a"
@@ -287,6 +288,17 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
         0,
     )
     supplies, owns = claims_of(atlas, artifacts["extraction_id"])
+    # Each Claim says which selections chose its passage: here the window names NVIDIA.
+    extraction = atlas.get(f"/api/v1/claim-extractions/{artifacts['extraction_id']}")
+    selected = {p["id"]: p["selected_by"] for p in extraction["passages"]}
+    for accepted in (supplies, owns):
+        assert accepted["passage_selected_by"] == selected[accepted["passage_id"]]
+        assert f"entity:{nvidia}" in accepted["passage_selected_by"]
+    assert (
+        atlas.get(f"/api/v1/claims/{supplies['id']}")["passage_selected_by"]
+        == (supplies["passage_selected_by"])
+    )
+    assert artifacts["passages_by_selection"] == {"entity": len(extraction["passages"])}
     parsed = atlas.parsed(version_id)
     for accepted, quote in [(supplies, SUPPLY_QUOTE), (owns, INVESTMENT_QUOTE)]:
         assert (accepted["outcome"], accepted["reason_code"]) == ("accepted", None)
@@ -464,32 +476,49 @@ def test_the_investigator_is_sent_entity_tagged_passages_the_whitelist_and_the_l
     )
 
 
-def test_recall_hits_for_a_question_add_their_sections_after_the_entity_tagged_ones(
+# The question's terms, as the peer-group sentence of the 10-K's Item 5 spells them.
+PEER_GROUP_QUESTION = (
+    "Which companies are in the peer group: IPG Photonics, Wolfspeed, Corning, MKS Instruments"
+    " or Honeywell?"
+)
+
+
+def test_without_pointers_the_search_selection_reads_the_window_that_best_matches_the_question(
     atlas: Atlas, llm: FakeLiteLLM, fake: RecordedHindsight
 ) -> None:
     version_id = ten_k(atlas)
+    lumentum = company_id(atlas, "lumentum")
     llm.script_chat(ChatReply.json({"claims": []}))
 
     job = extract(
-        atlas, "cohr-question", source_version_ids=[version_id], question="Who buys lasers?"
+        atlas, "cohr-question", source_version_ids=[version_id], question=PEER_GROUP_QUESTION
     )
 
-    (recall,) = fake.requests("POST", "memories/recall")
-    assert recall["tags"] == [f"company:{company_id(atlas, 'coherent')}"]
-    assert recall["tags_match"] == "any_strict"
+    # The standalone job asks Memory nothing (memory-directed reading ticket 05: no pointers
+    # outside an investigation, and the Investigator's own recall is gone).
+    assert fake.requests("POST", "memories/recall") == []
     extraction = atlas.get(f"/api/v1/claim-extractions/{job['artifacts']['extraction_id']}")
-    assert extraction["question"] == "Who buys lasers?"
-    selected = [p["selected_by"] for p in extraction["passages"]]
-    tagged = [s for s in selected if any(tag.startswith("entity:") for tag in s)]
-    recalled_only = [s for s in selected if s == ["recall"]]
-    assert tagged and recalled_only
-    assert selected == tagged + recalled_only
-    # At most the configured number of passages; the rest are counted, not sent.
-    assert len(selected) == 24
+    assert extraction["question"] == PEER_GROUP_QUESTION
+    parsed = atlas.parsed(version_id)
+    best, *rest = extraction["passages"]
+    # Best first: the window holding the sentence the question's rare terms come from, which
+    # also names Lumentum (one passage, both selections).
+    assert PEER_GROUP_QUOTE in parsed[best["char_start"] : best["char_end"]]
+    assert best["selected_by"] == ["search", f"entity:{lumentum}"]
+    # Every passage was chosen by the search or an entity tag; the windows that only name a
+    # company (no term of the question) come after every search window.
+    kinds = [{tag.split(":")[0] for tag in p["selected_by"]} for p in extraction["passages"]]
+    assert all(kind <= {"search", "entity"} for kind in kinds)
+    searched = ["search" in kind for kind in kinds]
+    assert searched == sorted(searched, reverse=True)
+    assert len(rest) == 23  # the budget; the other candidates are counted, not sent
     assert extraction["passages_dropped"] > 0
+    counted = job["artifacts"]["passages_by_selection"]
+    assert counted["search"] == sum(searched)
+    assert counted["entity"] == sum(1 for kind in kinds if "entity" in kind)
 
 
-def test_the_passage_budget_is_dealt_equally_across_the_documents_in_their_order(
+def test_the_ceiling_stops_one_document_taking_more_than_its_share_and_reports_keep_one_passage(
     database_url: str,
     tmp_path: Path,
     hindsight: tuple[RecordedHindsight, Served],
@@ -497,42 +526,47 @@ def test_the_passage_budget_is_dealt_equally_across_the_documents_in_their_order
     llm: FakeLiteLLM,
     themes: Path,
 ) -> None:
-    # Pilot fix 10: every window of Coherent's 10-K and 10-Q is a recall hit here, and the 10-K
-    # alone has far more than the budget; before, it took every passage.
+    # Six passages over four documents: one document may take a third of them, two. Each
+    # 10-K alone has more windows naming lasers than the whole budget.
     atlas = start_atlas(
-        database_url, tmp_path, hindsight, litellm, themes, investigator_max_passages=5
+        database_url, tmp_path, hindsight, litellm, themes, investigator_max_passages=6
     )
+    atlas.ingest_company("lumentum")
     llm.script_chat(ChatReply.json({"claims": []}))
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    lite_ten_k = atlas.version(LITE_10K, "lumentum")["id"]
+    release = atlas.version(LITE_EX991, "lumentum")["id"]
 
     job = extract(
         atlas,
         "shared",
-        source_version_ids=[ten_k(atlas), ten_q],
+        source_version_ids=[ten_k(atlas), ten_q, lite_ten_k, release],
         question="Who buys lasers?",
     )
 
     extraction = atlas.get(f"/api/v1/claim-extractions/{job['artifacts']['extraction_id']}")
-    # One passage per document per round, in the documents' order; the odd one to the first.
-    assert [p["source_version_id"] for p in extraction["passages"]] == [
-        ten_k(atlas),
-        ten_q,
-        ten_k(atlas),
-        ten_q,
-        ten_k(atlas),
-    ]
-    # Within a document the entity-tagged windows still come first.
-    ten_k_passages = [p for p in extraction["passages"] if p["source_version_id"] != ten_q]
-    assert all(any(tag.startswith("entity:") for tag in p["selected_by"]) for p in ten_k_passages)
-    assert job["artifacts"]["passages_by_document"] == {ten_k(atlas): 3, ten_q: 2}
-    assert extraction["passages_dropped"] > 0
+    by_document = job["artifacts"]["passages_by_document"]
+    assert sum(by_document.values()) == len(extraction["passages"]) == 6
+    assert by_document[ten_k(atlas)] == by_document[lite_ten_k] == 2  # the ceiling
+    assert extraction["passages_dropped"] > 0  # their other matching windows
+    # The floor: the 10-Q (a periodic report) and the press release (the EX-99.1 of an 8-K
+    # with Item 2.02) each keep a passage. The recorded 10-Q names no laser and no other
+    # company, so its passage is a lead window.
+    assert (by_document[ten_q], by_document[release]) == (1, 1)
+    [kept] = [p for p in extraction["passages"] if p["source_version_id"] == ten_q]
+    assert kept["selected_by"] == ["lead"]
+    assert all(
+        "search" in p["selected_by"]
+        for p in extraction["passages"]
+        if p["source_version_id"] != ten_q
+    )
 
 
-def test_a_document_with_no_tagged_or_recalled_window_is_read_from_its_lead_windows(
+def test_a_document_with_no_other_candidate_is_read_from_its_lead_windows(
     atlas: Atlas, llm: FakeLiteLLM
 ) -> None:
     # Lumentum's Q4 FY2026 press release (EX-99.1) names no other known company, and without a
-    # question nothing is recalled: before pilot fix 10 it was never read.
+    # question nothing is searched: before pilot fix 10 it was never read.
     atlas.ingest_company("lumentum")
     release = atlas.version(LITE_EX991, "lumentum")["id"]
     llm.script_chat(ChatReply.json({"claims": []}))
@@ -612,6 +646,9 @@ def test_claims_that_fail_a_check_are_rejected_with_the_reason_and_become_no_ass
     ]
     assert all(c["outcome"] == "rejected" and c["assertion_id"] is None for c in rejected)
     assert "maps to no predicate" in rejected[0]["reason"]
+    # A rejected Claim says how its passage was selected too; one naming no passage sent, none.
+    assert all(tag.startswith("entity:") for tag in rejected[0]["passage_selected_by"])
+    assert rejected[0]["passage_selected_by"] and rejected[3]["passage_selected_by"] == []
     assert rejected[1]["proposed"]["predicate"] == "partners with"
     # A quote that isn't in its passage (a paraphrase) is never placed anywhere.
     mismatch = rejected[7]

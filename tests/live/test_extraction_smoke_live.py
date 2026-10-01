@@ -8,15 +8,16 @@ What it measures: whether the Assertion span check rejects true Claims as `quote
 because the model counts characters poorly. Three bounded extractions run over the recorded
 EDGAR fixtures, ingested into a throwaway database:
 
-1. the Lumentum FY2026 10-K's Item 1 (its first passages),
-2. the Lumentum Q4 FY2026 earnings release (8-K EX-99.1; its first passages),
+1. the Lumentum FY2026 10-K (the windows that best match the question),
+2. the Lumentum Q4 FY2026 earnings release (8-K EX-99.1; the same),
 3. the Coherent FY2026 10-K's entity-tagged passages (NVIDIA, Lumentum: supplier-rich).
 
 The Lumentum documents name no other known company, so no passage of theirs is entity-tagged;
-their passages are chosen as recall hits, from a **stubbed recall** that names those sections
-(no Hindsight recall is made). Hindsight is the recorded fake on localhost, used only for the
-ingest and the run record; the Investigator's calls go to the real LiteLLM (`--model`,
-default MiniMax-M3), or in a rehearsal to the scripted fake.
+their passages are the **search selection**'s: the windows a term search ranks highest for the
+question (atlas.claims.selection; before memory-directed reading ticket 05 a stubbed recall
+named their sections). No recall is made. Hindsight is the recorded fake on localhost, used
+only for the ingest and the run record; the Investigator's calls go to the real LiteLLM
+(`--model`, default MiniMax-M3), or in a rehearsal to the scripted fake.
 
 **Call cap.** At most `PASSAGES` passages per extraction, all in one call, and one repair per
 call: at most `WORST_CASE_CALLS` (6) chat completions, under the cap of 10. Each extraction's
@@ -30,7 +31,7 @@ import os
 import subprocess
 import sys
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -46,14 +47,12 @@ from atlas.jobs import HandlerRegistry, Job, JobQueue, Pacing, Worker
 from atlas.jobs.queue import Artifacts
 from atlas.jobs.resources import run_recorder
 from atlas.llm_routes import LiteLLMError, LiteLLMRoutes
-from atlas.research.provenance import Evidence
-from atlas.retention.sections import split_sections
 from atlas.roles import MAX_ATTEMPTS, RoleCaller
 from atlas.settings import Settings
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import API_KEY, ChatReply, FakeLiteLLM
 from tests.fakes.serve import Served, serve
-from tests.harness import ITEM_1, LITE_10K, THEMES, Atlas
+from tests.harness import LITE_10K, THEMES, Atlas
 from tests.live.extraction_smoke import ExtractionReport, fresh_database, parties
 from tests.live.stack import REFUSED, Mode, live_mode
 
@@ -74,20 +73,19 @@ QUESTION = (
 
 @dataclass(frozen=True)
 class Plan:
-    """One extraction: a Source Version and how its passages are chosen."""
+    """One extraction: a Source Version and the question its passages are searched for
+    (None: its entity-tagged windows only)."""
 
     name: str
     company: str
     url: str
-    # Sections the stubbed recall names (None: every section); () : entity tags only.
-    recalled: tuple[str, ...] | None
     question: str | None
 
 
 PLANS = [
-    Plan("lumentum-10k-item-1", "lumentum", LITE_10K, (ITEM_1,), QUESTION),
-    Plan("lumentum-ex-99-1", "lumentum", LITE_EX991, None, QUESTION),
-    Plan("coherent-10k-entity-tagged", "coherent", COHR_10K, (), None),
+    Plan("lumentum-10k-searched", "lumentum", LITE_10K, QUESTION),
+    Plan("lumentum-ex-99-1", "lumentum", LITE_EX991, QUESTION),
+    Plan("coherent-10k-entity-tagged", "coherent", COHR_10K, None),
 ]
 WORST_CASE_CALLS = len(PLANS) * MAX_ATTEMPTS  # one batch per extraction: PASSAGES per call
 assert WORST_CASE_CALLS <= CALL_CAP
@@ -248,9 +246,8 @@ def test_investigator_claims_on_recorded_filings_are_reported(
 ) -> None:
     settings = atlas.settings()
     versions = {plan.name: atlas.version(plan.url, plan.company) for plan in PLANS}
-    recall = _stubbed_recall(atlas, versions)
     queue = JobQueue(atlas.engine, pacing=Pacing.from_settings(settings))
-    worker = Worker(queue, _registry(settings, atlas, recall))
+    worker = Worker(queue, _registry(settings, atlas))
     if stack.llm is not None:
         reply = ChatReply.answer(_rehearsal_answer, tokens=(9000, 700))
         stack.llm.script_chat(*[reply] * len(PLANS))
@@ -316,10 +313,8 @@ def _seed(atlas: Atlas) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _registry(
-    settings: Settings, atlas: Atlas, recall: Callable[[str, list[uuid.UUID]], list[Evidence]]
-) -> HandlerRegistry:
-    """`extract_claims` as the job handler runs it, but with the stubbed recall."""
+def _registry(settings: Settings, atlas: Atlas) -> HandlerRegistry:
+    """`extract_claims` as the job handler runs it, with the smoke run's passage budget."""
 
     def extract_claims(job: Job) -> Artifacts:
         with run_recorder(settings, atlas.engine) as runs:
@@ -331,7 +326,6 @@ def _registry(
                     open_archive(settings),
                     caller,
                     runs,
-                    recall=recall,
                     max_passages=PASSAGES,
                     passages_per_call=PASSAGES,
                 ).extract(job)
@@ -339,48 +333,6 @@ def _registry(
     registry = HandlerRegistry()
     registry.register(EXTRACT_CLAIMS_KIND, extract_claims, pausable=True)
     return registry
-
-
-def _stubbed_recall(
-    atlas: Atlas, versions: dict[str, dict[str, Any]]
-) -> Callable[[str, list[uuid.UUID]], list[Evidence]]:
-    """A recall that resolves to the sections the plans name, whatever the question."""
-    hits: list[Evidence] = []
-    for plan in PLANS:
-        if plan.recalled == ():
-            continue
-        version = versions[plan.name]
-        document = version["source_document"]
-        sections = split_sections(
-            atlas.parsed(version["id"]),
-            form=document["form_type"],
-            primary=document["document_type"] is not None
-            and document["document_type"] == document["form_type"],
-        )
-        for section in sections:
-            if plan.recalled is not None and section.anchor not in plan.recalled:
-                continue
-            hits.append(
-                Evidence(
-                    source_version_id=uuid.UUID(version["id"]),
-                    source_document_id=uuid.UUID(document["id"]),
-                    company_id=uuid.UUID(document["company_id"]),
-                    form_type=document["form_type"],
-                    section_anchor=section.anchor,
-                    section_heading=None,
-                    section_char_start=section.start,
-                    section_char_end=section.end,
-                    available_at=version["available_at"],
-                    available_at_basis=version["available_at_basis"],
-                    memory_ids=[],
-                    quotes=[],
-                )
-            )
-
-    def recall(question: str, company_ids: list[uuid.UUID]) -> list[Evidence]:
-        return [hit for hit in hits if hit.company_id in company_ids]
-
-    return recall
 
 
 def _json(payload: dict[str, Any]) -> dict[str, JsonValue]:
