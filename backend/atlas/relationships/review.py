@@ -15,7 +15,12 @@ already reviewed is never reviewed again. One attempt:
    Relationship), for a product object in a clause that names the object
    (`cue_in_other_clause`, pilot-fixes ticket 09: "we expand InP capacity, while also
    operating VCSEL facilities" expands nothing for the VCSEL facilities). Otherwise it is
-   recorded `not_eligible` with that reason and no edge. **The layer is optional**
+   recorded `not_eligible` with that reason and no edge. **A company-level constraint**
+   (memory-directed reading ticket 09) is the one product predicate that needs no object: a
+   `capacity_constrained` Assertion with no object text, or one that names no product
+   (`atlas.claims.company_level`, the extraction's rule, here for any Assertion), proposes the
+   subject's company-level edge, with no object and no layer, when the subject is the company
+   whose document is quoted (`company_level_not_filer` otherwise). **The layer is optional**
    (memory-directed reading ticket 08): the edge is proposed with the Assertion's layer only
    when the quote or the object text names it (`atlas.claims.layer_term`, the rule the
    extraction applies, here for any Assertion: a researcher's, or one recorded before the
@@ -50,6 +55,7 @@ from atlas.claims.predicates import (
     LAYER_NAMES,
     LAYERS,
     PREDICATES,
+    company_level,
     company_names,
     layer_term,
     object_clause_cue,
@@ -434,6 +440,7 @@ def _eligibility(candidate: _Candidate) -> tuple[str | None, Edge | None]:
     if layer is not None and (not isinstance(layer, str) or layer not in LAYER_NAMES):
         return "unknown_layer", None
     object_text: str | None = None
+    own = False
     if rule.object_kind == "company":
         if candidate.object_company_id is None:
             return "missing_object", None
@@ -441,9 +448,17 @@ def _eligibility(candidate: _Candidate) -> tuple[str | None, Edge | None]:
             return "self_relationship", None
     else:
         named = value.get("object_text")
-        if not isinstance(named, str) or not named.strip():
+        named = named.strip() if isinstance(named, str) else ""
+        if company_level(rule.name, named):
+            # The company's own constraint (the extraction's rule): no object, and only the
+            # company whose document it is states it.
+            if candidate.filer_company_id != candidate.subject_company_id:
+                return "company_level_not_filer", None
+            own = True
+        elif not named:
             return "missing_object", None
-        object_text = named.strip()
+        else:
+            object_text = named
     if directional_language(rule.name, candidate.quote).verdict == "absent":
         return "no_directional_language", None
     if (
@@ -451,8 +466,13 @@ def _eligibility(candidate: _Candidate) -> tuple[str | None, Edge | None]:
         and object_clause_cue(rule.name, candidate.quote, object_text) is None
     ):
         return "cue_in_other_clause", None
-    # The layer only when the quote or the object names it (the extraction's rule).
-    supported = layer is not None and layer_term(layer, candidate.quote, object_text) is not None
+    # The layer only when the quote or the object names it (the extraction's rule); a
+    # company-level edge has none.
+    supported = (
+        not own
+        and layer is not None
+        and layer_term(layer, candidate.quote, object_text) is not None
+    )
     return None, Edge(
         subject_company_id=candidate.subject_company_id,
         predicate=rule.name,
@@ -514,6 +534,7 @@ def _item(item_id: str, pending: _Pending, companies: dict[uuid.UUID, list[str]]
             names=companies.get(edge.object_company_id, []),
         ),
         object_text=edge.object_text,
+        company_level=edge.company_level,
         product=product if isinstance(product, str) else None,
         layer=edge.layer,
         source=EdgeSource(

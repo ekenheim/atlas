@@ -26,6 +26,12 @@ layer` is the layer the Assertion brings (`atlas.relationships.checks.brings_lay
   as they are (`legacy_layer_duplicate`). New Evidence joins the one with its layer, else
   the oldest (with `layer_conflict` when it brings another layer).
 
+**A company-level edge** (memory-directed reading ticket 09) has no object: a company's own
+`capacity_constrained` statement that names no product. Its object key is the reserved empty
+string (`COMPANY_LEVEL_KEY`), so the same identity rule gives **one such edge per company**:
+every further company-level Assertion of that company joins it as Evidence, whatever its
+review. It never has a layer (its Assertions bring none).
+
 **Owner review** (`Relationships.review`): the owner may approve or reject any Relationship,
 whatever its state (`relationship.approved`, `relationship.rejected`), with an optional note.
 Repeating the current decision is not a transition (409 `invalid_transition`).
@@ -137,12 +143,18 @@ class Relationships:
 
 
 LAYER_CONFLICT = "layer_conflict"
+# The object key of a company-level edge (no object company, no object text). A product's key
+# is its text, never blank, and a company's its ID, so the empty key is no other edge's: the
+# identity index holds one company-level edge per company and predicate.
+COMPANY_LEVEL_KEY = ""
 
 
 @dataclass(frozen=True)
 class Edge:
     """What an eligible Assertion claims: the edge's identity (subject, predicate, object),
-    and the layer the Assertion brings to it (None: none)."""
+    and the layer the Assertion brings to it (None: none). With neither an object company nor
+    an object text it is the subject's **company-level** edge (`capacity_constrained` only:
+    the company's own supply is constrained), which never has a layer."""
 
     subject_company_id: uuid.UUID
     predicate: str
@@ -151,10 +163,15 @@ class Edge:
     layer: str | None
 
     @property
+    def company_level(self) -> bool:
+        return self.object_company_id is None and self.object_text is None
+
+    @property
     def object_key(self) -> str:
         if self.object_company_id is not None:
             return str(self.object_company_id)
-        assert self.object_text is not None
+        if self.object_text is None:
+            return COMPANY_LEVEL_KEY
         return " ".join(self.object_text.split()).casefold()
 
 

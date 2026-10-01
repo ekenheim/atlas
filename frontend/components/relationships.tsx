@@ -10,7 +10,7 @@ import {
   type Relationship,
   type RelationshipRecorded,
 } from "../lib/api/client";
-import { STATES, layerLabel } from "../lib/relationships";
+import { COMPANY_LEVEL, STATES, edgeLabel, layerLabel } from "../lib/relationships";
 import { routes } from "../lib/routes";
 import { Code, Missing, Timestamp } from "./ui";
 
@@ -19,18 +19,25 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** The edge's object: its company, or the product, material or technology it names. */
+/**
+ * The edge's object: its company, or the product, material or technology it names. A
+ * company-level edge has none (the company's own constraint, with no product named), and
+ * says so.
+ */
 export function EdgeObject({ relationship }: { relationship: Relationship }) {
   if (relationship.object_name) return <>{relationship.object_name}</>;
   if (relationship.object_text) return <em>{relationship.object_text}</em>;
+  if (relationship.company_level) {
+    return (
+      <span className="muted-small" title="The company's own supply: the Evidence names no product">
+        {COMPANY_LEVEL}
+      </span>
+    );
+  }
   return <Missing />;
 }
 
-/** "Subject predicate Object", the edge read in its direction. */
-export function edgeLabel(relationship: Relationship): string {
-  const object = relationship.object_name ?? relationship.object_text ?? "?";
-  return `${relationship.subject_name} ${relationship.predicate} ${object}`;
-}
+export { edgeLabel };
 
 /** The edge's layer, or "none" when its Evidence names no layer. */
 export function LayerName({ layer }: { layer: Relationship["layer"] }) {

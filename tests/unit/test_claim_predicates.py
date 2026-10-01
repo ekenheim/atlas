@@ -4,12 +4,14 @@ language and party checks a Claim's quote must pass (`atlas.claims`)."""
 import pytest
 
 from atlas.claims import (
+    COMPANY_LEVEL_PREDICATES,
     FOLD_TABLE,
     LAYER_TERMS,
     LAYERS,
     PREDICATES,
     SHARED_LAYER_TERMS,
     clauses,
+    company_level,
     company_names,
     direction_refusal,
     directional_cue,
@@ -690,3 +692,73 @@ def test_layer_terms_are_whole_words_read_through_the_fold_and_acronyms_keep_the
     assert layer_term("epi", f"our epi{NBH}wafer foundry", None) == "epi"
     quote = f"third{NBH}party contract{NBH}manufacturers build our modules"
     assert layer_term("contract-manufacturing", quote, None) == f"contract{NBH}manufacturers"
+
+
+# --- a company-level constraint (memory-directed reading ticket 09) ----------------------------
+
+# Lumentum's FY2026 10-K, Item 1 (the recorded fixture): the pilot's best statement, read in
+# investigation 5 and rejected for its object, "our products".
+ALLOCATION = (
+    "This demand is outpacing our current supply which has required us to make decisions on"
+    " supply allocation."
+)
+
+
+def test_only_capacity_constrained_may_be_company_level() -> None:
+    assert COMPANY_LEVEL_PREDICATES == {"capacity_constrained"}
+    # The predicate's `reads` says so, for the Investigator and the Reviewer.
+    assert "with no object" in PREDICATES["capacity_constrained"].reads
+
+
+@pytest.mark.parametrize(
+    "object_text",
+    [
+        None,
+        "",
+        "  ",
+        "our products",
+        "manufacturing capacity",
+        "our supply",
+        "our current supply",
+        "supply allocation",
+        "customer demand",
+        "component parts shortages",
+        "lead times",
+        "supply constraints",
+    ],
+)
+def test_a_constraint_with_no_object_or_one_naming_no_product_is_company_level(
+    object_text: str | None,
+) -> None:
+    assert company_level("capacity_constrained", object_text)
+
+
+@pytest.mark.parametrize(
+    "object_text",
+    [
+        "200G EML lasers",
+        "indium phosphide capacity",
+        "6-inch InP manufacturing capacity",
+        "InP substrates",
+        "products for AI and cloud customers' data center expansion",
+    ],
+)
+def test_a_constraint_of_a_named_product_is_not_company_level(object_text: str) -> None:
+    assert not company_level("capacity_constrained", object_text)
+
+
+@pytest.mark.parametrize(
+    "predicate",
+    ["sole_sources", "vertically_integrates", "qualified_for", "manufactures", "supplies", "x"],
+)
+def test_the_other_predicates_are_never_company_level(predicate: str) -> None:
+    # A company-level `sole_sources` is the boilerplate pilot fix 09 was built to refuse.
+    for object_text in [None, "", "our products", "certain materials, equipment and components"]:
+        assert not company_level(predicate, object_text), object_text
+
+
+def test_the_allocation_statement_carries_a_constraint_cue_and_names_no_product() -> None:
+    assert directional_cue("capacity_constrained", ALLOCATION) == "demand is outpacing"
+    # What investigation 5 proposed for it: not in the quote, and no product either.
+    assert not names_object(ALLOCATION, "our products")
+    assert is_generic_object("our products")

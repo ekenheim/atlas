@@ -1238,7 +1238,7 @@ def test_a_company_s_own_bottleneck_facts_become_assertions_and_edges_to_product
         assert assertion["object_company_id"] is None
         assert assertion["value_json"]["object_text"] == product
         assert assertion["value_json"]["layer"] == layer
-        assert assertion["extractor_version"] == "investigator.v7"
+        assert assertion["extractor_version"] == "investigator.v8"
 
     llm.script_chat(ChatReply.answer(reviewing(expect=len(BOTTLENECK_FACTS))))
     reviewed = review(atlas, "sweep")
@@ -1335,3 +1335,294 @@ def test_a_cue_in_another_clause_than_the_object_forms_no_edge(
     )
     (evidence,) = atlas.get(f"/api/v1/relationships/{edge['id']}")["evidence"]
     assert evidence["assertion"]["id"] == inp
+
+
+# --- a company-level constraint needs no named product (memory-directed reading ticket 09) -------
+
+# Both sentences are in the recorded Lumentum FY2026 10-K: Item 1's allocation statement and
+# Item 1A's risk factor, which says "could". ALLOCATION_10Q is hand-shaped: the recorded
+# fixtures hold no second Lumentum filing with the statement, so "another filing" is a short
+# document imported by hand (a Tier A `manual_import`).
+LITE_10K = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
+ALLOCATION = (
+    "This demand is outpacing our current supply which has required us to make decisions on"
+    " supply allocation."
+)
+RISK_FACTOR = (
+    "Due to increased demand across a range of industries, our business and"
+    " customers\N{RIGHT SINGLE QUOTATION MARK} businesses are experiencing and could, in the"
+    " future, experience supply constraints due to both constrained manufacturing capacity, as"
+    " well as component parts shortages."
+)
+ALLOCATION_10Q = (
+    "This demand continues to outpace our supply, which has required us to make decisions on"
+    " supply allocation."
+)
+QUARTERLY_REPORT = f"""<html><head><title>Lumentum quarterly report</title></head><body>
+<h1>Lumentum: quarterly report (fragment)</h1>
+<p>We have seen increasing demand from AI and cloud customers. {ALLOCATION_10Q}</p>
+</body></html>
+"""
+# The Coherent FY2026 10-K's sentence (the recorded fixture): a shortage, with no hedge.
+SHERMAN = (
+    "We are investing in manufacturing capacity for the Datacenter and Communications markets,"
+    " including expanding our indium phosphide capacity in Sherman, Texas, to address our"
+    " increased customer demand and industry-wide shortage."
+)
+
+
+def constrained(atlas: Atlas, quote: str, object_text: str | None) -> dict[str, JsonValue]:
+    """Lumentum `capacity_constrained`, as the pilot's Investigator proposed it: with the
+    question's layer and whatever object text it found."""
+    return claim(
+        subject_company_id=company_id(atlas, "lumentum"),
+        predicate="capacity_constrained",
+        object_text=object_text,
+        layer="module",
+        quote=quote,
+    )
+
+
+def extract_from(
+    atlas: Atlas,
+    llm: FakeLiteLLM,
+    key: str,
+    version_id: str,
+    proposed: dict[str, JsonValue],
+    *,
+    question: str | None = None,
+) -> None:
+    """One Claim extracted from `version_id` (with a question, its recalled sections are read
+    too), and accepted."""
+    llm.script_chat(ChatReply.answer(quoting(proposed)))
+    payload: dict[str, JsonValue] = {"source_version_ids": [version_id]}
+    if question is not None:
+        payload["question"] = question
+    job_id = atlas.enqueue(
+        "jobs", "enqueue", "extract_claims", "--key", key, "--payload", json.dumps(payload)
+    )
+    atlas.worker_pass()
+    job = atlas.get(f"/api/v1/jobs/{job_id}")
+    assert job["status"] == "succeeded", job["failures"]
+    assert job["artifacts"]["accepted"] == 1, atlas.get("/api/v1/claims")
+
+
+def test_a_company_s_own_constraint_is_one_edge_with_no_object_and_new_evidence_joins_it(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    litellm: Served,
+    llm: FakeLiteLLM,
+    themes: Path,
+) -> None:
+    # Every window of the Lumentum 10-K is sent in one call (the allocation statement's names
+    # no other company: it is read as a recall hit of the question).
+    atlas = start_atlas(
+        database_url,
+        tmp_path,
+        hindsight,
+        litellm,
+        themes,
+        investigator_max_passages=1000,
+        investigator_passages_per_call=1000,
+    )
+    atlas.ingest_company("lumentum")
+    lumentum = company_id(atlas, "lumentum")
+    ten_k_id = atlas.version(LITE_10K, "lumentum")["id"]
+    question = "Who is supply constrained?"
+
+    # 1. A risk factor's conditional is a Claim, and its edge is for a human: the hedge check
+    # sends it to the exceptions queue without asking the Reviewer.
+    extract_from(
+        atlas,
+        llm,
+        "risk-factor",
+        ten_k_id,
+        constrained(atlas, RISK_FACTOR, "manufacturing capacity"),
+        question=question,
+    )
+    calls = len(llm.chat_requests())
+    job = review(atlas, "sweep-1")
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert (job["artifacts"]["machine_reviewed"], job["artifacts"]["needs_human_review"]) == (0, 1)
+    assert len(llm.chat_requests()) == calls
+    (edge,) = relationships(atlas)
+    assert (edge["subject_name"], edge["predicate"]) == ("Lumentum", "capacity_constrained")
+    # The company's own edge: no object and no layer.
+    assert edge["company_level"] is True
+    assert (edge["object_company_id"], edge["object_name"], edge["object_text"]) == (
+        None,
+        None,
+        None,
+    )
+    assert (edge["layer"], edge["review_state"], edge["review_reasons"]) == (
+        None,
+        "needs_human_review",
+        ["hedged_language"],
+    )
+    assert [e["id"] for e in atlas.get("/api/v1/relationships/exceptions")["items"]] == [edge["id"]]
+
+    # 2. The allocation statement, Tier A and unhedged, proposed with "our products": the
+    # Reviewer confirms it, and the same edge is machine-reviewed.
+    extract_from(
+        atlas,
+        llm,
+        "allocation",
+        ten_k_id,
+        constrained(atlas, ALLOCATION, "our products"),
+        question=question,
+    )
+    llm.script_chat(ChatReply.answer(reviewing(expect=1)))
+    job = review(atlas, "sweep-2")
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert (job["artifacts"]["machine_reviewed"], job["artifacts"]["needs_human_review"]) == (1, 0)
+    assert job["artifacts"]["relationship_ids"] == [edge["id"]]
+    (item,) = asked(llm.chat_requests()[-1])["request"]["items"]
+    assert (item["predicate"], item["company_level"]) == ("capacity_constrained", True)
+    assert (item["object_company"], item["object_text"], item["layer"]) == (None, None, None)
+    assert "with no object" in item["reads"]
+    (lifted,) = relationships(atlas)
+    assert lifted["id"] == edge["id"]
+    assert (lifted["review_state"], lifted["evidence_count"], lifted["family_count"]) == (
+        "machine_reviewed",
+        2,
+        1,
+    )
+    assert atlas.get("/api/v1/relationships/exceptions")["total"] == 0
+
+    # 3. The statement in another filing adds Evidence to the same edge: one company-level
+    # edge per company.
+    path = atlas.tmp_path / "lumentum-quarterly-report.html"
+    path.write_text(QUARTERLY_REPORT, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "lumentum",
+        "--file",
+        str(path),
+        "--origin-url",
+        "https://investor.lumentum.com/quarterly-report",
+        "--published-at",
+        "2026-11-05T08:00-05:00",
+    )
+    assert imported.returncode == 0, imported.stderr
+    ten_q_id = json.loads(imported.stdout)["source_version_id"]
+    extract_from(
+        atlas,
+        llm,
+        "quarterly",
+        ten_q_id,
+        constrained(atlas, ALLOCATION_10Q, None) | {"layer": None},
+    )
+    llm.script_chat(ChatReply.answer(reviewing(expect=1)))
+    job = review(atlas, "sweep-3")
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert job["artifacts"]["relationship_ids"] == [edge["id"]]
+    (joined,) = relationships(atlas)
+    assert joined["id"] == edge["id"]
+    assert (joined["review_state"], joined["evidence_count"], joined["family_count"]) == (
+        "machine_reviewed",
+        3,
+        2,
+    )
+    detail = atlas.get(f"/api/v1/relationships/{edge['id']}")
+    assert [e["assertion"]["quote"] for e in detail["evidence"]] == [
+        RISK_FACTOR,
+        ALLOCATION,
+        ALLOCATION_10Q,
+    ]
+    assert [(e["review"]["outcome"], e["review"]["reasons"]) for e in detail["evidence"]] == [
+        ("needs_human_review", ["hedged_language"]),
+        ("machine_reviewed", []),
+        ("machine_reviewed", []),
+    ]
+    assert [e["review"]["supported_layer"] for e in detail["evidence"]] == [None, None, None]
+    assert [a for _, a in audit_trail(atlas, "relationship")] == [
+        "relationship.created",
+        "relationship.evidence_added",
+        "relationship.machine_reviewed",
+        "relationship.evidence_added",
+    ]
+
+    # It shows in the edge table, on the company's dossier and on the theme map.
+    assert [e["id"] for e in relationships(atlas, company_id=lumentum)] == [edge["id"]]
+    assert [e["id"] for e in relationships(atlas, layer="none")] == [edge["id"]]
+    assert [e["id"] for e in relationships(atlas, predicate="capacity_constrained")] == [edge["id"]]
+    dossier = atlas.get(f"/api/v1/companies/{lumentum}/dossier")
+    assert [(e["id"], e["company_level"]) for e in dossier["relationships_out"]] == [
+        (edge["id"], True)
+    ]
+    assert dossier["relationships_in"] == []
+    on_map = atlas.get("/api/v1/themes/photonics/map")["relationships"]
+    assert [(e["id"], e["subject_name"], e["object_text"], e["layer"]) for e in on_map] == [
+        (edge["id"], "Lumentum", None, None)
+    ]
+    verified = atlas.cli("audit", "verify")
+    assert verified.returncode == 0, verified.stdout + verified.stderr
+
+
+def fact(atlas: Atlas, subject: str, predicate: str, quote: str, object_text: str | None) -> str:
+    """A researcher's Assertion about `subject` and a product (or none), on Coherent's 10-K."""
+    version_id = ten_k(atlas)
+    start = atlas.parsed(version_id).index(quote)
+    response = atlas.api.post(
+        "/api/v1/assertions",
+        json={
+            "subject_company_id": company_id(atlas, subject),
+            "predicate": predicate,
+            "object_company_id": None,
+            "value_json": {"layer": "substrate", "product": None, "object_text": object_text},
+            "source_version_id": version_id,
+            "quote": quote,
+            "span_start": start,
+            "span_end": start + len(quote),
+            "epistemic_type": "company_claim",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["assertion"]["id"]
+
+
+def test_only_the_filer_s_own_constraint_forms_an_edge_with_no_object(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    # The same rule at review, for a researcher's Assertions on Coherent's own 10-K.
+    unnamed = fact(atlas, "coherent", "capacity_constrained", SHERMAN, None)
+    no_product = fact(atlas, "coherent", "capacity_constrained", SHERMAN, "manufacturing capacity")
+    named = fact(atlas, "coherent", "capacity_constrained", SHERMAN, "indium phosphide capacity")
+    not_the_filer = fact(atlas, "nvidia", "capacity_constrained", SHERMAN, None)
+    other_predicate = fact(atlas, "coherent", "sole_sources", SHERMAN, None)
+    llm.script_chat(ChatReply.answer(reviewing(expect=3)))
+
+    job = review(atlas, "sweep")
+
+    assert job["status"] == "succeeded", job["failures"]
+    artifacts = job["artifacts"]
+    assert (artifacts["machine_reviewed"], artifacts["not_eligible"]) == (3, 2)
+    refused = {
+        each["assertion_id"]: each["reason"] for each in artifacts["not_eligible_assertions"]
+    }
+    # Another company's constraint is not read out of the filer's document, and the other
+    # bottleneck predicates keep the named-object rule.
+    assert refused == {not_the_filer: "company_level_not_filer", other_predicate: "missing_object"}
+    items = asked(llm.chat_requests()[-1])["request"]["items"]
+    assert [(i["company_level"], i["object_text"], i["layer"]) for i in items] == [
+        (True, None, None),
+        (True, None, None),
+        (False, "indium phosphide capacity", None),
+    ]
+    # One company-level edge, whatever was proposed as its object; the named product has its own.
+    own, product = relationships(atlas, sort="object")
+    assert (own["company_level"], own["object_text"], own["evidence_count"]) == (True, None, 2)
+    assert (product["company_level"], product["object_text"]) == (
+        False,
+        "indium phosphide capacity",
+    )
+    evidence = atlas.get(f"/api/v1/relationships/{own['id']}")["evidence"]
+    assert {e["assertion"]["id"] for e in evidence} == {unnamed, no_product}
+    (named_evidence,) = atlas.get(f"/api/v1/relationships/{product['id']}")["evidence"]
+    assert named_evidence["assertion"]["id"] == named

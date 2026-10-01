@@ -12,6 +12,8 @@ is a theme company or a product, material or technology (no company). An edge to
 researched company outside the theme is on the companies' dossiers, not on the map. An edge
 may have no layer (its Evidence names none): it is among the map's edges, sorted before the
 layered ones, and the Theme explorer lists it under its companies instead of under a layer.
+A theme company's **company-level** edge (no object at all: its own `capacity_constrained`
+statement, `Relationship.company_level`) is such an edge, listed under that company.
 
 **Counterparties:** a counterparty company (`atlas.counterparties`) is in no theme, but the
 edges between it and a theme company are on the map, and `counterparties` lists the ones at
@@ -127,7 +129,7 @@ def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMa
             connection, company_id=company_id, sort="layer", limit=_MAX_ROWS, offset=0
         )[0]:
             # One end is the theme company asked for; the other a theme company, a
-            # counterparty, or (as the object) a product.
+            # counterparty, (as the object) a product, or nothing (a company-level edge).
             inside = edge.object_company_id is None or edge.object_company_id in ends
             if edge.subject_company_id in ends and inside:
                 edges[edge.id] = edge

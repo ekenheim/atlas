@@ -45,6 +45,14 @@ the object can't be judged this way and falls back to its first cue.
 named in its quote (`names_object`) and be a particular input or product, not generic words
 ("certain materials, equipment and components": `is_generic_object`).
 
+**A company-level constraint** (memory-directed reading ticket 09). `capacity_constrained`,
+and only it (`COMPANY_LEVEL_PREDICATES`), may have no object: "This demand is outpacing our
+current supply which has required us to make decisions on supply allocation" names no product
+because the constraint is the company's own supply. A Claim proposed with no object text, or
+with one that names no product ("our products", "manufacturing capacity", "our current
+supply": `company_level`), is such a Claim, with no object and no layer; the extraction
+accepts it only as the filer's own statement.
+
 **Parties.** A quote must name both parties (`names_party`): a company by one of its names
 (case-sensitive, whole words, so "coherent optics" never names Coherent), or, for the
 company whose document it is, a first-person reference ("we", "our", "the Company").
@@ -330,7 +338,8 @@ _PREDICATES: tuple[Predicate, ...] = (
         False,
         "the subject company cannot fully meet demand for the object product: its capacity,"
         " supply or allocation of it is constrained (demand exceeds its supply, it allocates"
-        " or backlogs it, it is short of it)",
+        " or backlogs it, it is short of it); with no object, the constraint is on the"
+        " company's own supply as a whole and the quote names no product",
         _cues(
             r"\bconstrain\w*",
             r"\bshortages?\b",
@@ -627,6 +636,40 @@ def is_generic_object(object_text: str) -> bool:
     "materials", "components", "equipment", "suppliers" ("certain materials, equipment and
     components"), or the capacity vocabulary ("manufacturing capacity")."""
     return {w.lower() for w in _WORD.findall(fold(object_text))} <= _GENERIC_WORDS
+
+
+# --- a company-level constraint (memory-directed reading ticket 09) ----------------------------
+
+# The predicates that may have no object at all: the company's own statement that it cannot
+# meet demand with its supply as a whole. Only `capacity_constrained`: a company-level
+# `sole_sources` is the boilerplate pilot fix 09 refuses, and the other two say nothing without
+# a product.
+COMPANY_LEVEL_PREDICATES = frozenset({"capacity_constrained"})
+# The words of a constraint itself ("our current supply", "supply allocation", "customer
+# demand", "lead times"): with the generic words, an object made only of these names no
+# product, so it is no object of a company-level Claim either.
+_CONSTRAINT_WORDS = frozenset(
+    {
+        "allocation", "allocations", "available", "backlog", "backlogs", "business", "constraint",
+        "constraints", "current", "customer", "customers", "demand", "existing", "lead",
+        "lead-time", "lead-times", "overall", "own", "shortage", "shortages", "time", "times",
+        "total",
+    }
+)  # fmt: skip
+
+
+def company_level(predicate: str, object_text: str | None) -> bool:
+    """Whether a Claim of `predicate` with this object text is **company-level**: the
+    predicate may be (`COMPANY_LEVEL_PREDICATES`: `capacity_constrained` only) and the object
+    text names no product, because there is none or because it holds only generic words and
+    the words of the constraint itself ("our products", "manufacturing capacity", "our current
+    supply", "supply allocation"). Such a Claim has no object and no layer: the constraint is
+    the company's own supply. A named product ("200G EML lasers", "indium phosphide capacity")
+    keeps the named-object rule."""
+    if predicate not in COMPANY_LEVEL_PREDICATES:
+        return False
+    words = {w.lower() for w in _WORD.findall(fold(object_text or ""))}
+    return words <= _GENERIC_WORDS | _CONSTRAINT_WORDS
 
 
 # --- the layer rule (memory-directed reading ticket 08) ----------------------------------------

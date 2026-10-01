@@ -286,7 +286,7 @@ A statement bound to one Source Version and an exact quote span (build plan §5.
 | `verification_status` | text not null default `unreviewed` | `unreviewed`, `corroborated`, `disputed`, `rejected`, `superseded`. The API calls this `review_state` |
 | `independence_family_id` | uuid null | Evidence Family; null until Phase 3 |
 | `extracted_at` | timestamptz not null | |
-| `extractor_version` | text not null | `manual` for researcher-created Assertions; `investigator.v<N>` (the prompt version) for ones the Investigator's Claims became (ticket 10), created by `atlas-investigator` with `value_json` `{claim_id, layer, product, object_text}` |
+| `extractor_version` | text not null | `manual` for researcher-created Assertions; `investigator.v<N>` (the prompt version) for ones the Investigator's Claims became (ticket 10), created by `atlas-investigator` with `value_json` `{claim_id, layer, product, object_text}`, and `company_level: true` for a company-level Claim (then `object_text` and `layer` are null) |
 | `created_by` | text not null | Actor |
 | `parser_version` | text not null | 0046. The parse of the Source Version the span is in: the recorded parse (the default, and every Assertion before 0046) or one of its `source_parse` re-parses with text (insert trigger). Immutable like the statement columns |
 | `reviewer_id` | text null | Actor of the latest review; set exactly when reviewed |
@@ -429,7 +429,8 @@ The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and 
 | `layer` | text null | Nullable from 0055. An accepted Claim's is the proposed layer, kept only when a taxonomy term of it occurs in the object text or the quote (`atlas.claims.layer_term`); else null. A rejected Claim's is the layer as proposed (null when none was). The proposal is always in `proposed` |
 | `layer_term` | text null | 0055. The words of the object text or the quote that support an accepted Claim's layer; null when it has none, for rejected Claims and for Claims before 0055 |
 | `layer_reason` | text null | 0055. `layer_unsupported`: the accepted Claim proposed a layer that neither its quote nor its object names, so it has none. Null otherwise |
-| `object_text`, `product` | text null | |
+| `object_text`, `product` | text null | As proposed. `object_text` is null for an accepted company-level Claim, whatever was proposed for it (that stays in `proposed`) |
+| `company_level` | bool not null | 0057, default false. True on an accepted `capacity_constrained` Claim with no object and no layer: the filer's own statement that it cannot meet demand, whose quote names no product (proposed with no object text, or with one that names no product, e.g. "our products"). A check keeps it to accepted `capacity_constrained` Claims with `object_company_id`, `object_text` and `layer` null. False on every other Claim, the rejected ones and those before 0057 included |
 | `quote` | text not null | An accepted Claim's is the archived text at the span (equal to its Assertion's quote); the model's spelling stays in `proposed`. A rejected Claim's is the quote as proposed |
 | `span_start`, `span_end` | int null | Absolute offsets in the parsed text: passage start + the proposed offsets, or + the located ones (`offset_source`) |
 | `offset_source` | text null | `model` (the quote was at the proposed offsets), `located` (its one exact occurrence in the passage) or, from 0052, `folded` (it matched only through the typographic fold of hyphens, quotation marks and spaces). Null when the quote was never placed, or recorded before migration 0024 |
@@ -534,8 +535,8 @@ Relationships (`atlas.relationships`; ticket 12): build plan §5.5's typed, dire
 | `subject_company_id` | uuid not null FK → `company` | |
 | `predicate` | text not null | The §5.5 whitelist (check constraint) |
 | `object_company_id` | uuid FK → `company` | A company object (`supplies`, `buys_from`, `owns`, `competes_with`, `depends_on`) |
-| `object_text` | text | A product/material/technology object (the other four); exactly one of the two is set |
-| `object_key` | text not null | The company ID, or `object_text` casefolded with whitespace collapsed |
+| `object_text` | text | A product/material/technology object (the product predicates). At most one of the two is set (`relationship_object_check`, 0057; before it, exactly one). **Neither** is set on a company-level edge: a company's own `capacity_constrained` statement that names no product (`relationship_company_level_check`: only that predicate, and no layer) |
+| `object_key` | text not null | The company ID, or `object_text` casefolded with whitespace collapsed; the empty string for a company-level edge and only for it (`relationship_object_key_check`, 0057), so the identity index holds one company-level edge per company |
 | `layer` | text null | The layer taxonomy (check constraint). Nullable from 0055: an edge has a layer only when Evidence of it names one. Not part of the identity; set at creation or once later, from null (`relationship.layer_set`), never changed after |
 | `legacy_layer_duplicate` | bool not null | 0055. True for an edge recorded before 0055 that shares its subject, predicate and object with an older edge and differs only by layer (the migration marks all but the oldest of each such group). Never set afterwards; such edges are left as they are and listed by `GET /api/v1/relationships/layer-duplicates` |
 | `review_state` | text not null | `machine_reviewed`, `needs_human_review` (the exceptions queue), `approved`, `rejected` |

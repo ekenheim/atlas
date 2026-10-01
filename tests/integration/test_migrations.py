@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.exc import DBAPIError
 
 from atlas.db.migrate import upgrade
@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0055"
+    assert revision == "0057"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -374,3 +374,121 @@ def test_edges_that_differ_only_by_layer_before_0055_are_kept_and_no_new_one_can
     engine.dispose()
     assert refused == ["indium phosphide capacity", "eml lasers"]
     assert fixed
+
+
+def test_from_0057_an_edge_may_have_no_object_one_per_company_and_only_a_constraint(
+    empty_database_url: str,
+) -> None:
+    # 0057: a company-level `capacity_constrained` edge has neither an object company nor an
+    # object text; its key is the reserved empty string. Edges recorded before it are untouched.
+    upgrade(empty_database_url, "0055")
+    engine = create_engine(empty_database_url)
+    insert = (
+        "INSERT INTO relationship (id, subject_company_id, predicate, object_text, object_key,"
+        " layer, review_state) VALUES (gen_random_uuid(), :company, :predicate, :object, :key,"
+        " :layer, 'machine_reviewed')"
+    )
+    with engine.begin() as connection:
+        company = connection.execute(
+            text(
+                "INSERT INTO company (id, slug, legal_name, display_name, country, source_path,"
+                " cik) VALUES (gen_random_uuid(), 'x', 'X Inc.', 'X', 'US', 'sec', '0000000001')"
+                " RETURNING id"
+            )
+        ).scalar_one()
+        connection.execute(
+            text(insert),
+            {
+                "company": company,
+                "predicate": "capacity_constrained",
+                "object": "EML lasers",
+                "key": "eml lasers",
+                "layer": "chip-laser",
+            },
+        )
+    # Before 0057 an edge needs an object.
+    assert _refusal(engine, insert, company, "capacity_constrained", None, "", None) is not None
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        before = connection.execute(
+            text("SELECT object_text, object_key, layer FROM relationship")
+        ).all()
+    assert [tuple(edge) for edge in before] == [("EML lasers", "eml lasers", "chip-laser")]
+    # The company's own edge: no object, the empty key, no layer.
+    assert _refusal(engine, insert, company, "capacity_constrained", None, "", None) is None
+    refusals = {
+        "a second one": _refusal(engine, insert, company, "capacity_constrained", None, "", None),
+        "with a layer": _refusal(
+            engine, insert, company, "capacity_constrained", None, "", "module"
+        ),
+        "another predicate": _refusal(engine, insert, company, "sole_sources", None, "", None),
+        "a text with the empty key": _refusal(
+            engine, insert, company, "capacity_constrained", "EML lasers", "", None
+        ),
+        "no text with a key": _refusal(
+            engine, insert, company, "capacity_constrained", None, "our products", None
+        ),
+    }
+    with engine.connect() as connection:
+        edges = connection.execute(
+            text("SELECT predicate, object_text, object_key FROM relationship ORDER BY object_key")
+        ).all()
+        claim_default = connection.execute(
+            text(
+                "SELECT column_default, is_nullable FROM information_schema.columns"
+                " WHERE table_name = 'claim' AND column_name = 'company_level'"
+            )
+        ).one()
+    engine.dispose()
+    assert {what: _constraint(refusal) for what, refusal in refusals.items()} == {
+        "a second one": "uq_relationship_identity",
+        "with a layer": "relationship_company_level_check",
+        "another predicate": "relationship_company_level_check",
+        "a text with the empty key": "relationship_object_key_check",
+        "no text with a key": "relationship_object_key_check",
+    }
+    assert [tuple(edge) for edge in edges] == [
+        ("capacity_constrained", None, ""),
+        ("capacity_constrained", "EML lasers", "eml lasers"),
+    ]
+    assert tuple(claim_default) == ("false", "NO")
+
+
+def _refusal(
+    engine: Engine,
+    insert: str,
+    company: object,
+    predicate: str,
+    object_text: str | None,
+    key: str,
+    layer: str | None,
+) -> str | None:
+    """Why the database refuses the edge (None: it was inserted)."""
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(insert),
+                {
+                    "company": company,
+                    "predicate": predicate,
+                    "object": object_text,
+                    "key": key,
+                    "layer": layer,
+                },
+            )
+    except DBAPIError as error:
+        return str(error)
+    return None
+
+
+def _constraint(refusal: str | None) -> str | None:
+    """The constraint or index a refusal names, of those 0057 is about."""
+    names = (
+        "uq_relationship_identity",
+        "relationship_company_level_check",
+        "relationship_object_key_check",
+        "relationship_object_check",
+    )
+    return next((name for name in names if refusal is not None and name in refusal), None)

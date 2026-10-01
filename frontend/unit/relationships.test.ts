@@ -1,12 +1,15 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  COMPANY_LEVEL,
   DEFAULT_STATE,
   LAYERS,
   LAYER_FILTERS,
   apiQuery,
+  edgeLabel,
   filterSummary,
   layerLabel,
+  objectLabel,
   parseTableState,
   tableSearch,
   toggleSort,
@@ -57,6 +60,34 @@ test("the layer filter's \"none\" is the edges with no layer", () => {
 test("an edge's layer is named, or said to be none", () => {
   expect(layerLabel("chip-laser")).toBe("Chip / laser");
   expect(layerLabel(null)).toBeNull();
+});
+
+test("an edge's object is its company, its product, or company-level when it has none", () => {
+  expect(objectLabel({ object_name: "NVIDIA", object_text: null })).toBe("NVIDIA");
+  expect(objectLabel({ object_name: null, object_text: "EML lasers" })).toBe("EML lasers");
+  // A company's own constraint names no product: the edge has no object at all.
+  expect(COMPANY_LEVEL).toBe("company-level");
+  expect(objectLabel({ object_name: null, object_text: null })).toBe("(company-level)");
+});
+
+test("an edge is read in its direction, with or without an object", () => {
+  const supplies = {
+    subject_name: "Coherent",
+    predicate: "supplies",
+    object_name: "NVIDIA",
+    object_text: null,
+  };
+  expect(edgeLabel(supplies)).toBe("Coherent supplies NVIDIA");
+  const constrained = {
+    subject_name: "Lumentum",
+    predicate: "capacity_constrained",
+    object_name: null,
+    object_text: null,
+  };
+  expect(edgeLabel(constrained)).toBe("Lumentum capacity_constrained (company-level)");
+  expect(edgeLabel({ ...constrained, object_text: "200G EML lasers" })).toBe(
+    "Lumentum capacity_constrained 200G EML lasers",
+  );
 });
 
 test("a new column sorts ascending; the current one flips its order", () => {

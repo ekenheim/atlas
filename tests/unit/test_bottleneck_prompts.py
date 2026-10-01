@@ -59,9 +59,21 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         # v5: the layer from the quote's named object, no generic Claims, one clause (09);
         # v6: the filer's impersonal sentences and slide bullets, language of constraint,
         # `owns` from the holder to the issuer (memory-directed reading ticket 02);
-        # v7: the layer may be left out, and when (memory-directed reading ticket 08)
-        7,
+        # v7: the layer may be left out, and when (memory-directed reading ticket 08);
+        # v8: a constraint on the company's own supply has no object (ticket 09)
+        8,
         (
+            "**A constraint on the company's own supply.**",
+            "propose it with no object, `object_text` null and `layer` null",
+            'Never fill `object_text` with words that name no product ("our products", "our'
+            ' supply", "manufacturing capacity", "customer demand")',
+            "the passage is the company's own document",
+            "about the company's own supply against demand, as a fact about now",
+            "the quote names no other company",
+            'A risk factor\'s conditional ("we could experience supply constraints"',
+            "Only `capacity_constrained` may have no object",
+            "`sole_sources`, `vertically_integrates` and `qualified_for` always need the input"
+            " or product named in the quote",
             "`layer` is one name from `request.layers`, or null",
             "Give a layer only when the quote names it",
             "Leave `layer` null when the quote names nothing of a particular layer, and still"

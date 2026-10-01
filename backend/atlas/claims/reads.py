@@ -56,7 +56,14 @@ class Claim(BaseModel):
     subject_company_id: uuid.UUID | None
     predicate: str
     object_company_id: uuid.UUID | None
+    # A product predicate's object as proposed. Null for an accepted company-level Claim,
+    # whatever was proposed for it (that stays in `proposed`).
     object_text: str | None
+    # True on an accepted `capacity_constrained` Claim with no object and no layer: the
+    # constraint is the filer's own supply ("This demand is outpacing our current supply"),
+    # and the quote names no product. False on every other Claim, the rejected ones and those
+    # recorded before migration 0057 included.
+    company_level: bool
     product: str | None
     # An accepted Claim's layer: the proposed one, kept only when a taxonomy term of it
     # (`layer_term`) occurs in the object text or the quote; else null. A rejected Claim's is
@@ -66,7 +73,8 @@ class Claim(BaseModel):
     # when it has none, for a rejected Claim, and for Claims recorded before migration 0055.
     layer_term: str | None = None
     # `layer_unsupported`: the accepted Claim proposed a layer that neither its quote nor its
-    # object names, so it has none. Null otherwise.
+    # object names, so it has none. Null otherwise (a company-level Claim has no layer because
+    # it has no object: `company_level` says so).
     layer_reason: LayerReason | None = None
     # The archived text at the span once the quote was placed and the Claim accepted (the
     # model's spelling, which the typographic fold may have bridged, stays in `proposed`);

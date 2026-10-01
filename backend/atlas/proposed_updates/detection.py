@@ -341,7 +341,8 @@ def _rejected_relationship(
     )
     if row["review_state"] != "rejected":
         return None, f"the Relationship is {row['review_state']} again"
-    edge = f"{row['subject']} {row['predicate']} {row['object']}"
+    # A company-level edge has no object (`atlas.relationships`): subject and predicate only.
+    edge = " ".join(part for part in (row["subject"], row["predicate"], row["object"]) if part)
     evidence = ContradictingEvidence(
         kind="relationship",
         id=row["id"],

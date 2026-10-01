@@ -14,6 +14,7 @@ import {
   type InvestigationTask,
   type ResearchCard,
 } from "../../lib/api/client";
+import { edgeLabel } from "../../lib/relationships";
 import { routes } from "../../lib/routes";
 import { useIdParam, usePolled } from "../../lib/use-api";
 import {
@@ -547,8 +548,9 @@ function Premises({
 
 // --- Evidence, counterevidence and the card --------------------------------------------------
 
+/** The Claim read in its direction; an accepted Claim with no object is company-level. */
 function claimLabel(item: EvidenceItem): string {
-  return `${item.subject_name} ${item.predicate} ${item.object_name ?? item.object_text ?? "?"}`;
+  return edgeLabel(item);
 }
 
 function EvidenceTray({ items }: { items: EvidenceItem[] }) {

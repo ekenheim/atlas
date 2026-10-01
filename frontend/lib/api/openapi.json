@@ -8588,6 +8588,10 @@
             ],
             "title": "Object Text"
           },
+          "company_level": {
+            "type": "boolean",
+            "title": "Company Level"
+          },
           "product": {
             "anyOf": [
               {
@@ -8783,6 +8787,7 @@
           "predicate",
           "object_company_id",
           "object_text",
+          "company_level",
           "product",
           "layer",
           "quote",
@@ -9223,7 +9228,7 @@
             },
             "type": "array",
             "title": "Relationships Out",
-            "description": "edges with the company as subject"
+            "description": "edges with the company as subject, its company-level edge (no object) among them"
           },
           "relationships_in": {
             "items": {
@@ -18001,6 +18006,10 @@
             ],
             "title": "Object Text"
           },
+          "company_level": {
+            "type": "boolean",
+            "title": "Company Level"
+          },
           "layer": {
             "anyOf": [
               {
@@ -18097,6 +18106,7 @@
           "object_company_id",
           "object_name",
           "object_text",
+          "company_level",
           "layer",
           "products",
           "review_state",
@@ -18164,6 +18174,10 @@
               }
             ],
             "title": "Object Text"
+          },
+          "company_level": {
+            "type": "boolean",
+            "title": "Company Level"
           },
           "layer": {
             "anyOf": [
@@ -18268,6 +18282,7 @@
           "object_company_id",
           "object_name",
           "object_text",
+          "company_level",
           "layer",
           "products",
           "review_state",

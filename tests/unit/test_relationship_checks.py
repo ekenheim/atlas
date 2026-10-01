@@ -68,6 +68,35 @@ def test_the_month_of_may_is_not_a_hedge() -> None:
     assert (found.verdict, found.cue) == ("explicit", "shipping")
 
 
+# Lumentum's FY2026 10-K (the recorded fixture): Item 1's allocation statement, and Item 1A's
+# risk factor (memory-directed reading ticket 09).
+ALLOCATION = (
+    "This demand is outpacing our current supply which has required us to make decisions on"
+    " supply allocation."
+)
+RISK_FACTOR = (
+    "Due to increased demand across a range of industries, our business and"
+    " customers\N{RIGHT SINGLE QUOTATION MARK} businesses are experiencing and could, in the"
+    " future, experience supply constraints due to both constrained manufacturing capacity, as"
+    " well as component parts shortages."
+)
+
+
+def test_the_allocation_statement_is_explicit_and_a_risk_factor_s_conditional_is_hedged() -> None:
+    stated = directional_language("capacity_constrained", ALLOCATION)
+    assert (stated.verdict, stated.cue, stated.hedge) == ("explicit", "demand is outpacing", None)
+    for quote in ["we could experience supply constraints", RISK_FACTOR]:
+        conditional = directional_language("capacity_constrained", quote)
+        assert (conditional.verdict, conditional.cue, conditional.hedge) == (
+            "hedged",
+            "constraints",
+            "could",
+        )
+    # An expansion is no constraint at all, hedged or not.
+    expansion = "prioritizing investments to expand manufacturing capacity"
+    assert directional_language("capacity_constrained", expansion).verdict == "absent"
+
+
 def test_patterns_find_directional_language_but_leave_its_direction_to_the_reviewer() -> None:
     # Who "we" is decides the direction; the Reviewer's classification judges it.
     found = directional_language("supplies", "We purchase lasers from NVIDIA under a supply deal.")
@@ -235,7 +264,7 @@ def test_the_reviewer_role_has_a_strict_schema_and_a_versioned_prompt() -> None:
     schema = REVIEWER.response_schema()
 
     assert REVIEWER.name == "reviewer"
-    assert (REVIEWER.prompt.name, REVIEWER.prompt.version) == ("reviewer", 4)
+    assert (REVIEWER.prompt.name, REVIEWER.prompt.version) == ("reviewer", 5)
     assert schema["additionalProperties"] is False
     review = schema["$defs"]["EdgeReview"]
     assert sorted(review["required"]) == sorted(review["properties"])
@@ -253,6 +282,16 @@ def test_the_reviewer_role_has_a_strict_schema_and_a_versioned_prompt() -> None:
 def test_the_reviewer_prompt_asks_each_check_separately_and_keeps_the_pilot_s_sentences() -> None:
     text = " ".join(REVIEWER.prompt.text.split())
     for phrase in [
+        # memory-directed reading ticket 09: a company-level constraint and what makes it right.
+        "**A company-level constraint.**",
+        "a `capacity_constrained` item whose `company_level` is true",
+        "about the company's own supply against demand, stated as a fact about now",
+        "This demand is outpacing our current supply which has required us to make decisions on"
+        " supply allocation",
+        "never answer `not_stated` because the quote names no product",
+        "It is `not_stated` when the constraint is someone else's",
+        'a risk factor\'s conditional ("we could experience supply constraints"',
+        "a company-level item never has a layer",
         # memory-directed reading ticket 08: three checks, each answered on its own.
         "Answer each of the three checks on its own",
         "A wrong, unclear or missing layer never changes `direction` or `hedge`",

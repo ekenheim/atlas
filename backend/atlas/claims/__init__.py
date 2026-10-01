@@ -17,6 +17,7 @@ from atlas.claims.handlers import register_claim_handlers
 from atlas.claims.predicates import (
     BOTTLENECK_PREDICATES,
     CLAUSE_BOUNDARY,
+    COMPANY_LEVEL_PREDICATES,
     FOLD_TABLE,
     LAYER_NAMES,
     LAYER_TERMS,
@@ -27,6 +28,7 @@ from atlas.claims.predicates import (
     LayerDefinition,
     Predicate,
     clauses,
+    company_level,
     company_names,
     direction_refusal,
     directional_cue,
@@ -53,6 +55,7 @@ from atlas.claims.reads import (
 __all__ = [
     "BOTTLENECK_PREDICATES",
     "CLAUSE_BOUNDARY",
+    "COMPANY_LEVEL_PREDICATES",
     "EXTRACTOR_VERSION",
     "EXTRACT_CLAIMS_KIND",
     "FOLD_TABLE",
@@ -72,6 +75,7 @@ __all__ = [
     "Passage",
     "Predicate",
     "clauses",
+    "company_level",
     "company_names",
     "direction_refusal",
     "directional_cue",

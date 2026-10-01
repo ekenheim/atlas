@@ -129,8 +129,9 @@ function LayerlessEdges({ map }: { map: ThemeMap }) {
     <>
       <p>
         <strong>No layer.</strong> These edges&apos; Evidence names no supply-chain layer (an
-        ownership stake, a company-level capacity statement), so they are listed under their
-        companies, not under a layer.
+        ownership stake, a company-level capacity statement, a company&apos;s own supply
+        constraint with no product named), so they are listed under their companies, not under
+        a layer.
       </p>
       {groups.map((group) => (
         <EdgeList
