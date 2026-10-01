@@ -16,14 +16,13 @@ import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection, Engine, text
 
 from atlas.audit import SYSTEM_ACTOR, Actor, content_hash, record
 from atlas.jobs.budget import (
-    PROVIDER_KINDS,
     Holds,
     Provider,
     ProviderBudget,
@@ -297,6 +296,9 @@ class JobQueue:
 
     def held_by_budget(self) -> list[HeldJobs]:
         """Queued jobs the budgets hold back now, counted by provider, kind and class."""
+        budgets = self.pacing.budgets
+        if budgets is None:
+            return []
         held = holds(self.budget_usage())
         with self._engine.connect() as connection:
             rows = connection.execute(
@@ -308,8 +310,9 @@ class JobQueue:
                 ),
                 {"held_all": held.all_classes, "held_backfill": held.backfill},
             ).mappings()
+            # A held kind is one of a provider's kinds under the mapping in force.
             return [
-                HeldJobs(provider=PROVIDER_KINDS[row["kind"]], **row)  # pyright: ignore[reportArgumentType]
+                HeldJobs(provider=cast(Provider, budgets.provider_of(row["kind"])), **row)  # pyright: ignore[reportArgumentType]
                 for row in rows
             ]
 

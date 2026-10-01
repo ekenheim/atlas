@@ -741,6 +741,7 @@ One row per asynchronous Hindsight operation Atlas submitted. Migration 0007 (ti
 | `job_id` | uuid null FK → job | The job that submitted it |
 | `submitted_at`, `last_polled_at`, `completed_at`, `updated_at` | timestamptz | `completed_at` is set once the status is terminal |
 | `error_class` | text null | Migration 0008 (ticket 14). A failed operation's class, from its error and its sub-batches' errors: `quota` or `unavailable` pause the queue, and the sections stay `pending` and are resubmitted as a new operation; `permanent` fails them. Null for a completed operation |
+| `extractor` | text null | Migration 0060 (memory-directed reading ticket 11). The extractor the batch's items asked Hindsight for (`ATLAS_RETAIN_EXTRACTOR` at submission: `minimax`); null: none, the primary. It decides the budget the operation counts against (`codex`, or `hindsight_minimax`) |
 
 ### 3.3 `memory_document`
 
@@ -764,6 +765,7 @@ The mapping from the ledger to Memory (build plan §6.3; ADR-0001; spec Part B s
 | `template_version` | text not null | The bank's applied template version when it was recorded |
 | `linked_to_source_version_id` | uuid null FK → source_version | Set when the same raw bytes are already retained |
 | `error` | text null | Why a section `failed` (the operation's error, or a document missing after completion) |
+| `extractor` | text null | Migration 0060. The extractor Atlas asked Hindsight for when the section was last submitted (a reprocess or resubmission records its own); null: none (the primary), and for a `linked` or never-submitted section. What was asked, not what Hindsight did: Hindsight stores nothing about the route |
 | `created_at`, `updated_at` | timestamptz | |
 
 Invariants: `UNIQUE (source_version_id, section_anchor, bank_id)`; `UNIQUE hindsight_document_id`, so an ID is never reused; `linked` exactly when `linked_to_source_version_id` is set and `hindsight_document_id` is null; `completed`/`zero_fact` have a fact count (`zero_fact`: 0); `failed` has an error. A trigger (ENABLE ALWAYS) rejects DELETE and TRUNCATE and any change to a row's identity (Source Version, anchor, offsets, sectioner, document ID, bank, link). A zero-fact section awaiting its reprocess is `pending` with `fact_count` 0. Every insert and state change writes an audit event (`memory_document.*`, `hindsight_operation.*`).
@@ -851,8 +853,8 @@ A check requires the pause fields when `level > 0`. The paused flag is derived (
 
 | Column | Type | Notes |
 |---|---|---|
-| `provider` | text not null | `codex` or `minimax` |
-| `source_id` | text not null | The `hindsight_operation.id` (codex) or `llm_call.id` (minimax) it counts; PK with `provider`, so each is counted once |
+| `provider` | text not null | `codex`, `minimax`, `tradingview` (0035) or `hindsight_minimax` (0060: a retain or reprocess operation whose items asked for the MiniMax extractor) |
+| `source_id` | text not null | The `hindsight_operation.id` (codex, hindsight_minimax) or `llm_call.id` (minimax) it counts; PK with `provider`, so each is counted once |
 | `units` | bigint not null ≥ 0 | 1 per operation; `tokens_in + tokens_out` per LLM call |
 | `recorded_at` | timestamptz not null | The pacing clock when the queue first counted it (at a claim); rows from before 0028 keep their submission/call time |
 

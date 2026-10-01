@@ -38,6 +38,7 @@ def register_replay_handlers(registry: HandlerRegistry, settings: Settings) -> N
                     poll_attempts=settings.retain_poll_attempts,
                     consolidation_timeout=settings.replay_consolidation_timeout_seconds,
                 ),
+                extractor=settings.retain_extractor,
             ).run(payload.replay_job_id, job)
         finally:
             engine.dispose()

@@ -10,9 +10,13 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the retention seam with the recorded Hindsight fake: with the setting, the retain request's items carry `extractor: minimax` in metadata and the section's memory record shows it; without it, the request is byte-for-byte what it is today.
-- [ ] With the setting, a retain is held by the new budget and not by `codex`; `GET /api/v1/queue` shows both providers; a `reflect` job is still held by `codex`.
-- [ ] An operation that failed with a relayed rate-limit error pauses the queue with the `quota` class.
-- [ ] Decision entry, runbook, `.env.example`, `AGENTS.md`, migration with the revision the lead names.
+- [x] Integration test at the retention seam with the recorded Hindsight fake: with the setting, the retain request's items carry `extractor: minimax` in metadata and the section's memory record shows it; without it, the request is byte-for-byte what it is today.
+- [x] With the setting, a retain is held by the new budget and not by `codex`; `GET /api/v1/queue` shows both providers; a `reflect` job is still held by `codex`.
+- [x] An operation that failed with a relayed rate-limit error pauses the queue with the `quota` class.
+- [x] Decision entry, runbook, `.env.example`, `AGENTS.md`, migration with the revision the lead names.
+
+## Comments
+
+**2026-10-01, the implementer: built** (`docs/implementation-log.md`, "memory-directed reading ticket 11"; `docs/decisions.md`, "Atlas's retains on MiniMax by metadata routing"). The provider is `hindsight_minimax`; migration `0060` (down `0055`). Tested against the recorded fake only: nothing here shows that the shared Hindsight routes the key (home-ops PR #7180 is not merged), and the unset request is checked field by field and key by key in order, with no `"extractor"` in the raw body, not against a stored byte copy.

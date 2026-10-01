@@ -80,10 +80,15 @@ _QUOTA = re.compile(
     r"|quota[ _-]?exceeded|exceeded your current quota",
     re.IGNORECASE,
 )
-# Error text that marks an outage of the model provider, LiteLLM or Hindsight.
+# Error text that marks an outage of the model provider, LiteLLM or Hindsight. "No healthy
+# deployments" is LiteLLM having no deployment to serve the model (all cooling down after
+# failures, or the route misconfigured): it reaches Hindsight as a 400 `BadRequestError`, the
+# error a retain routed to a failing chain member ends with (pilot-review ticket 18), and it
+# says nothing about the sections.
 _UNAVAILABLE = re.compile(
     r"\b50[234]\b|service[ _-]?unavailable|bad gateway|gateway[ _-]?time-?out"
-    r"|connection (?:refused|reset|error|aborted)|APIConnectionError|\boverloaded\b",
+    r"|connection (?:refused|reset|error|aborted)|APIConnectionError|\boverloaded\b"
+    r"|no healthy deployments|no deployments available",
     re.IGNORECASE,
 )
 

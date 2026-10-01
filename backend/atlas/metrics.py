@@ -169,7 +169,8 @@ class StateCollector(Collector):
         used = GaugeMetricFamily(
             "atlas_budget_used",
             "Units spent in the provider's current rolling window (codex: Hindsight"
-            " operations submitted; minimax: LLM tokens)",
+            " operations submitted; hindsight_minimax: retain operations routed to Hindsight's"
+            " MiniMax extractor, only with ATLAS_RETAIN_EXTRACTOR; minimax: LLM tokens)",
             labels=["provider", "unit"],
         )
         limit = GaugeMetricFamily(

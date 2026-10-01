@@ -121,6 +121,30 @@ def test_backfill_runs_at_any_time_by_default_under_five_hour_budgets(tmp_path: 
     assert settings.budget_interactive_reserve == 0.3
 
 
+def test_retains_ask_for_no_extractor_by_default(tmp_path: Path) -> None:
+    settings = Settings.model_validate(_base(tmp_path))
+
+    assert settings.retain_extractor is None  # the shared Hindsight's primary extracts
+    assert settings.retain_budget_operations == 200
+
+
+def test_the_retain_extractor_is_minimax_or_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    routed = Settings.model_validate(_base(tmp_path) | {"retain_extractor": "minimax"})
+    assert routed.retain_extractor == "minimax"
+
+    with pytest.raises(ValidationError, match="retain_extractor"):
+        Settings.model_validate(_base(tmp_path) | {"retain_extractor": "codex"})
+
+    # Switched back by emptying the variable, as well as by removing it.
+    required_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("ATLAS_RETAIN_EXTRACTOR", "")
+    assert Settings().retain_extractor is None  # pyright: ignore[reportCallIssue]
+    monkeypatch.setenv("ATLAS_RETAIN_EXTRACTOR", "minimax\r")
+    assert Settings().retain_extractor == "minimax"  # pyright: ignore[reportCallIssue]
+
+
 def test_the_backfill_window_accepts_several_ranges(tmp_path: Path) -> None:
     window = "01:00-07:00, 13:00-15:00,22:30-23:00"
 
@@ -140,6 +164,7 @@ def test_the_backfill_window_accepts_several_ranges(tmp_path: Path) -> None:
         ({"budget_window_hours": 0}, "greater than 0"),
         ({"codex_budget_operations": 0}, "greater than or equal to 1"),
         ({"minimax_budget_tokens": 0}, "greater than or equal to 1"),
+        ({"retain_budget_operations": 0}, "greater than or equal to 1"),
         ({"budget_interactive_reserve": 1}, "less than 1"),
         ({"backfill_timezone": "Mars/Olympus"}, "unknown timezone"),
         ({"queue_pause_max_seconds": 7200}, "less than or equal to 3600"),

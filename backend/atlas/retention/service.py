@@ -55,6 +55,7 @@ from atlas.hindsight import (
     OperationTimeout,
     RetainItem,
 )
+from atlas.jobs.budget import RetainExtractor
 from atlas.jobs.pacing import FailureClass, JobClass, TransientFailure, classify_error_text
 from atlas.jobs.queue import Artifacts, JobQueue
 from atlas.retention.decisions import effective_decisions
@@ -65,6 +66,10 @@ RETAIN_KIND = "retain"
 TRIAGE_KIND = "triage"
 POLL_KIND = "poll_operation"
 REPROCESS_KIND = "reprocess"
+
+# The retain item metadata key Hindsight's metadata routing matches (the shared server's
+# strategy routes `extractor: minimax` to its MiniMax chain member; home-ops PR #7180).
+EXTRACTOR_METADATA_KEY = "extractor"
 
 RETAINABLE_PARSES = ("parsed", "incomplete")
 # Retention and extraction are English-only in the pilot (spec, "PDF parsing").
@@ -103,7 +108,8 @@ def enqueue_retains(
     language; returns job IDs.
 
     A backfill ingest enqueues backfill retains (held by the backfill window, if one is
-    set, and by the Codex budget's interactive reserve).
+    set, and by the interactive reserve of the budget the retains spend: Codex's, or the
+    routed extractor's when `ATLAS_RETAIN_EXTRACTOR` is set).
     Each new job is audited as `actor`'s.
     """
     if not source_version_ids:
@@ -332,21 +338,31 @@ def retain_item(
     start: int,
     end: int,
     tags: list[str],
+    extractor: RetainExtractor | None = None,
 ) -> RetainItem:
     """One section of the version as a retain item: its parsed text, timestamped with the
-    version's availability, with the metadata the provenance resolver checks."""
+    version's availability, with the metadata the provenance resolver checks.
+
+    With an `extractor` (`ATLAS_RETAIN_EXTRACTOR`), the metadata also carries `extractor`,
+    the key Hindsight's metadata routing matches to choose the chain member that extracts
+    the item; a server without such a route ignores it. Without one, the item is exactly
+    what it was before the setting existed, and Hindsight's primary LLM extracts it.
+    """
+    metadata = {
+        "source_version_id": str(version.id),
+        "section_anchor": anchor,
+        "char_start": str(start),
+        "char_end": str(end),
+        "available_at": version.available_at.isoformat(),
+    }
+    if extractor is not None:
+        metadata[EXTRACTOR_METADATA_KEY] = extractor
     return RetainItem(
         content=parsed[start:end],
         document_id=document_id,
         timestamp=version.available_at,
         context=f"{version.title}: {heading or anchor}",
-        metadata={
-            "source_version_id": str(version.id),
-            "section_anchor": anchor,
-            "char_start": str(start),
-            "char_end": str(end),
-            "available_at": version.available_at.isoformat(),
-        },
+        metadata=metadata,
         tags=tags,
     )
 
@@ -371,6 +387,7 @@ class Retention:
         timings: RetainTimings,
         *,
         triage: bool = False,
+        extractor: RetainExtractor | None = None,
     ) -> None:
         self._engine = engine
         self._archive = archive
@@ -379,6 +396,8 @@ class Retention:
         self._universe = universe
         self._timings = timings
         self._triage = triage
+        # The extractor every item submitted now asks Hindsight for (None: its primary).
+        self._extractor: RetainExtractor | None = extractor
         self._queue = JobQueue(engine, actor=actor)
 
     @property
@@ -649,6 +668,7 @@ class Retention:
                 start=row["char_start"],
                 end=row["char_end"],
                 tags=tags,
+                extractor=self._extractor,
             )
             for row in rows
         ]
@@ -666,6 +686,10 @@ class Retention:
 
         `resubmit`: the same sections again after a quota or outage failure of their last
         operation (of `kind`), so a reprocess isn't counted twice.
+
+        The operation and each section record the extractor this submission asked for (null:
+        the primary), since Hindsight stores nothing about the route: a section shows the
+        extractor of its latest attempt, and the operation's decides which budget it spends.
         """
         submitted = self._gateway.retain_batch(self._items(version, rows))
         operation_id = submitted.operation_id
@@ -680,9 +704,9 @@ class Retention:
                 connection.execute(
                     text(
                         "INSERT INTO hindsight_operation (id, bank_id, kind, status,"
-                        " source_version_id, document_ids, job_id) VALUES (:id, :bank, :kind,"
-                        " 'pending', :version, CAST(:documents AS jsonb), :job)"
-                        " ON CONFLICT (id) DO NOTHING RETURNING *"
+                        " source_version_id, document_ids, job_id, extractor) VALUES (:id,"
+                        " :bank, :kind, 'pending', :version, CAST(:documents AS jsonb), :job,"
+                        " :extractor) ON CONFLICT (id) DO NOTHING RETURNING *"
                     ),
                     {
                         "id": operation_id,
@@ -691,6 +715,7 @@ class Retention:
                         "version": version.id,
                         "documents": json.dumps(document_ids),
                         "job": job_id,
+                        "extractor": self._extractor,
                     },
                 )
                 .mappings()
@@ -709,10 +734,11 @@ class Retention:
                     connection,
                     row["id"],
                     "operation_id = :operation, reprocess_count = :reprocess, fact_count = NULL,"
-                    " memory_ids = NULL",
+                    " memory_ids = NULL, extractor = :extractor",
                     {
                         "operation": operation_id,
                         "reprocess": row["reprocess_count"] + bump,
+                        "extractor": self._extractor,
                     },
                     expect="retain_state = 'pending' AND operation_id IS NOT DISTINCT FROM :was",
                     expect_params={"was": row["operation_id"]},

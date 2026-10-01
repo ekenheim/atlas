@@ -38,6 +38,16 @@ class Settings(BaseSettings):
     codex_budget_operations: int = Field(default=40, ge=1)
     minimax_budget_tokens: int = Field(default=400_000, ge=1)
     budget_interactive_reserve: float = Field(default=0.3, ge=0, lt=1)
+    # Which extractor Atlas's retains ask the shared Hindsight for (docs/decisions.md,
+    # "Atlas's retains on MiniMax by metadata routing"). Unset (the default; an empty value
+    # is unset too): none, so Hindsight's primary LLM (the ChatGPT subscription) extracts
+    # and the retain kinds spend the `codex` budget. `minimax`: every retain item carries
+    # `extractor: minimax` in its metadata, which Hindsight's `metadata` routing strategy
+    # sends to its MiniMax chain member, and `retain`, `poll_operation` and `reprocess`
+    # leave the `codex` budget for their own (`hindsight_minimax`):
+    # retain_budget_operations retain/reprocess operations per rolling window.
+    retain_extractor: Literal["minimax"] | None = None
+    retain_budget_operations: int = Field(default=200, ge=1)
 
     # Archive backend: the filesystem (under archive_root, the dev default) or S3.
     # The S3 settings are required only when archive_backend is "s3".
@@ -253,6 +263,12 @@ class Settings(BaseSettings):
         # The repo lives on the Windows filesystem, so env files and exported values can
         # carry CRLF line endings; a stray "\r" must never reach a URL or a path.
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("retain_extractor", mode="before")
+    @classmethod
+    def _empty_extractor_is_unset(cls, value: object) -> object:
+        # ATLAS_RETAIN_EXTRACTOR= (empty) switches the extractor back off, like removing it.
+        return None if isinstance(value, str) and not value.strip() else value
 
     @model_validator(mode="after")
     def _require_backend_settings(self) -> Self:
