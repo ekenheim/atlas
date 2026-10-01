@@ -14,9 +14,9 @@ The Skeptic's reading (which documents and passages) is unchanged here; ticket 0
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam: a Skeptic answer with one real contradiction (a later filing limiting a supply Claim) and three context items (customer concentration, inventories, another company's risk factor) marks one finding contradicted, lists three bear-context items on the card, and stops `needs_review` naming one finding.
-- [ ] A "contradiction" whose quote names neither the Claim's subject nor its object is stored as bear context, with the reason.
-- [ ] The existing contradiction tests (the evaluation case EV-CON-001, proposed updates from independent counterevidence) still pass with the new kind.
-- [ ] Glossary (`CONTEXT.md`: counterevidence, bear context), decision entry, the Skeptic's and the Editor's next prompt versions, migration with the revision the lead names, API client regenerated.
+- [x] Integration test at the investigation seam: a Skeptic answer with one real contradiction (a later filing limiting a supply Claim) and three context items (customer concentration, inventories, another company's risk factor) marks one finding contradicted, lists three bear-context items on the card, and stops `needs_review` naming one finding.
+- [x] A "contradiction" whose quote names neither the Claim's subject nor its object is stored as bear context, with the reason.
+- [x] The existing contradiction tests (the evaluation case EV-CON-001, proposed updates from independent counterevidence) still pass with the new kind.
+- [x] Glossary (`CONTEXT.md`: counterevidence, bear context), decision entry, the Skeptic's and the Editor's next prompt versions, migration with the revision the lead names, API client regenerated.

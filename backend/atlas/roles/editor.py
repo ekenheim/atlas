@@ -4,10 +4,11 @@ research card out; and, when the researcher saves the investigation, a Hypothesi
 
 The request lists the accepted Claims (their resolved subject, predicate and object, and the
 Source Version each quotes), the investigation's Tier C leads, the Skeptic's accepted
-counterevidence, and what the investigation searched and read (the Scout's queries; each
-Investigator's documents, sections and extraction outcomes); each Claim's quote, each lead's
-snippet and each counterevidence quote go as quoted, low-trust `retrieved_data` (`id` = the
-claim, lead or counterevidence ID). The
+counterevidence in its two kinds, separately (`contradictions` of named Claims, and
+`bear_context` about a company, attached to no Claim), and what the investigation searched
+and read (the Scout's queries; each Investigator's documents, sections and extraction
+outcomes); each Claim's quote, each lead's snippet and each counterevidence quote go as
+quoted, low-trust `retrieved_data` (`id` = the claim, lead or counterevidence ID). The
 Editor answers with findings, each citing the Claims it rests on, open questions, and whether
 the Claims answer the question. Code, not the model, decides what a finding may cite: a
 finding citing no accepted Claim of the investigation is dropped as unsupported, and every
@@ -24,8 +25,9 @@ from pydantic import BaseModel, ConfigDict
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
 # v2: counterevidence (ticket 15); v3: the bottleneck method; v4: what was searched and read,
-# and a card with no accepted Claim (pilot fix 01)
-EDITOR_PROMPT_VERSION = 4
+# and a card with no accepted Claim (pilot fix 01); v5: contradictions and bear context,
+# separately (memory-directed reading, ticket 03)
+EDITOR_PROMPT_VERSION = 5
 
 
 class _Request(BaseModel):
@@ -51,7 +53,7 @@ class EditorLead(_Request):
 
 
 class EditorCounterevidence(_Request):
-    """The Skeptic's accepted counterevidence, as the Editors are sent it (its quote goes as
+    """A contradiction the Skeptic found, as the Editors are sent it (its quote goes as
     retrieved data). Never citable as a finding's claim."""
 
     counterevidence_id: str
@@ -60,6 +62,26 @@ class EditorCounterevidence(_Request):
     statement: str
     contradicts_claim_ids: list[str]
     independent: bool  # its Evidence Family is none of the supporting Claims'
+    source_title: str
+
+
+class EditorContradiction(EditorCounterevidence):
+    """A contradiction as the research card's Editor is sent it: also how it contradicts."""
+
+    how: str | None  # denies, limits or dates the Claims' statement
+
+
+class EditorBearContext(_Request):
+    """Bear context the Skeptic found: a bear-checklist item about a company, attached to no
+    Claim (its quote goes as retrieved data). It contradicts no finding; never citable."""
+
+    counterevidence_id: str
+    checklist_item: str
+    company: str
+    statement: str
+    # The figure a quoted table row states, and its period (None for any other quote).
+    figure_name: str | None
+    figure_period: str | None
     source_title: str
 
 
@@ -96,7 +118,8 @@ class EditorRequest(_Request):
     research_question: str
     claims: list[EditorClaim]
     leads: list[EditorLead]
-    counterevidence: list[EditorCounterevidence]
+    contradictions: list[EditorContradiction]  # of the Claims each names
+    bear_context: list[EditorBearContext]  # about a company; contradicts no Claim
     disproven_premises: list[str]  # what the researcher or the Skeptic ruled out
     queries: list[EditorQuery]  # what the Scout searched, every round
     read: list[EditorReading]  # what each Investigator read, every round

@@ -9,7 +9,8 @@
   503 when LiteLLM, Hindsight or SearXNG isn't configured.
 - `GET /investigations/{id}`: the §7.2 request, budgets and usage, status (`paused` while the
   queue pause holds its task back), the stop reason and detail, premises, tasks, leads,
-  documents, the Skeptic's counterevidence and the Editor's draft research card.
+  documents, the Skeptic's counterevidence (each item a contradiction of a named Claim or
+  bear context about a company) and the Editor's draft research card.
 - `GET /investigations` (newest first): each investigation's theme, question, round and
   status, for the research workbench.
 - `GET /investigations/{id}/events`: what happened, in order.

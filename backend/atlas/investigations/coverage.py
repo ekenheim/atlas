@@ -11,9 +11,9 @@ Written by code, never the Editor, so a card with no finding still says, from th
   it read nothing. Then (pilot fix 06) each round's Skeptic, the same way: the Source
   Versions it read (each with who chose it: its plan, its search or code's fallback) and the
   sections of the passages it was sent, whether its plan chose nothing for a seed company,
-  and its counterevidence items proposed, accepted and rejected by reason code; or why it
-  read nothing (skipped with no Claim to challenge, the budget spent, nothing archived, no
-  passage matching the checklist).
+  and its counterevidence items (of either kind) proposed, accepted and rejected by reason
+  code; or why it read nothing (skipped with no Claim to challenge, the budget spent,
+  nothing archived, no passage matching the checklist).
 """
 
 import uuid

@@ -20,6 +20,9 @@ import {
   ROLES,
   byRound,
   canSaveHypothesis,
+  checklistLabel,
+  counterevidenceSummary,
+  figureLabel,
   followUpBlocked,
   openQuestions,
   outputParts,
@@ -545,21 +548,22 @@ function EvidenceTray({ items }: { items: EvidenceItem[] }) {
 
 function Contradictions({ investigation }: { investigation: Investigation }) {
   const accepted = investigation.counterevidence.filter((item) => item.outcome === "accepted");
-  const rejected = investigation.counterevidence.length - accepted.length;
+  const contradictions = accepted.filter((item) => item.kind === "contradiction");
+  const context = accepted.length - contradictions.length;
   const claims = new Map(investigation.evidence.map((item) => [item.claim_id, claimLabel(item)]));
   return (
     <section aria-labelledby="contradictions">
       <h2 id="contradictions">Counterevidence and contradictions</h2>
       <p>
-        The Skeptic&apos;s own search against the accepted Claims. Only counterevidence from an
-        Evidence Family no supporting Claim uses is an independent witness.
-        {rejected > 0 && ` ${rejected} proposed item${rejected === 1 ? " was" : "s were"} rejected.`}
+        The Skeptic&apos;s own search. A contradiction speaks against a named Claim: it denies,
+        limits or dates its statement, and only one from an Evidence Family no supporting Claim
+        uses is an independent witness. Everything else it found on the bear checklist is bear
+        context about a company: it contradicts no Claim.
       </p>
-      {accepted.length === 0 ? (
-        <p>No accepted counterevidence.</p>
-      ) : (
+      <p>{counterevidenceSummary(investigation.counterevidence)}</p>
+      {contradictions.length > 0 && (
         <table>
-          <caption>Accepted counterevidence</caption>
+          <caption>Accepted contradictions</caption>
           <thead>
             <tr>
               <th scope="col">Statement</th>
@@ -569,11 +573,17 @@ function Contradictions({ investigation }: { investigation: Investigation }) {
             </tr>
           </thead>
           <tbody>
-            {accepted.map((item) => (
+            {contradictions.map((item) => (
               <CounterevidenceRow key={item.id} item={item} claims={claims} />
             ))}
           </tbody>
         </table>
+      )}
+      {context > 0 && (
+        <p>
+          The bear context is on the <a href="#bear-context">research card</a>
+          {investigation.research_card ? "." : ", once the Editor has drafted it."}
+        </p>
       )}
     </section>
   );
@@ -612,6 +622,7 @@ function CounterevidenceRow({
         ) : (
           item.contradicts_claim_ids.map((id) => claims.get(id) ?? id).join("; ")
         )}
+        {item.how && <span className="muted-small"> ({item.how} it)</span>}
         {item.disproves_premise && (
           <>
             <br />
@@ -686,6 +697,7 @@ function Card({ card }: { card: ResearchCard | null }) {
           {card.disproven_premises.length > 0 && (
             <p>Disproven premises: {card.disproven_premises.join("; ")}</p>
           )}
+          <BearContext card={card} />
           <Searched card={card} />
           <Read card={card} />
         </>
@@ -701,6 +713,70 @@ function Card({ card }: { card: ResearchCard | null }) {
         </ul>
       )}
     </section>
+  );
+}
+
+function BearContext({ card }: { card: ResearchCard }) {
+  const groups = card.bear_context ?? [];
+  if (groups.length === 0) return null;
+  return (
+    <>
+      <h3 id="bear-context">Bear context</h3>
+      <p>
+        What the Skeptic found on the bear checklist about a company. It is attached to no Claim
+        and contradicts no finding.
+      </p>
+      <table aria-labelledby="bear-context">
+        <thead>
+          <tr>
+            <th scope="col">Checklist item and company</th>
+            <th scope="col">What the documents say</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((group) => (
+            <tr key={`${group.checklist_item}:${group.company_id}`}>
+              <th scope="row">
+                {checklistLabel(group.checklist_item)}
+                <br />
+                <Link href={routes.company(group.company_id)}>{group.company_name}</Link>
+              </th>
+              <td>
+                <ul>
+                  {group.items.map((item) => {
+                    const figure = figureLabel(item);
+                    return (
+                      <li key={item.counterevidence_id}>
+                        {item.statement}
+                        <blockquote id={`context-${item.counterevidence_id}`} className="quote">
+                          {item.source_span.quote}
+                        </blockquote>
+                        {figure && <span className="muted-small">Figure: {figure}. </span>}
+                        <Link
+                          href={routes.span(
+                            item.source_span.source_version_id,
+                            item.source_span.assertion_id,
+                          )}
+                          aria-describedby={`context-${item.counterevidence_id}`}
+                        >
+                          Open source span
+                        </Link>
+                        {item.reason && (
+                          <>
+                            <br />
+                            <span className="muted-small">Bear context because: {item.reason}.</span>
+                          </>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 

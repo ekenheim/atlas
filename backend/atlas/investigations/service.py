@@ -9,8 +9,8 @@ The Skeptic (atlas.investigations.skeptic) searches independently for counterevi
 Financial Analyst proposes scenario inputs (atlas.scenarios.analyst). Each task depends on
 premises: every task on the question itself (`question`), and each Investigator task also on
 its company belonging in the question (`company:<slug>`). A premise is disproven by the
-researcher, or by the Skeptic's accepted, independent counterevidence (a company premise
-only; `atlas-skeptic`).
+researcher, or by the Skeptic's accepted, independent contradiction of a Claim (a company
+premise only; `atlas-skeptic`; bear context disproves nothing).
 
 **Advancing.** Every state change happens under a lock on the investigation row, in the
 transaction that records it. Advancing cancels the unstarted tasks whose premise was

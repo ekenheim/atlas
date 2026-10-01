@@ -26,9 +26,10 @@ One attempt:
    - **Skeptic** (atlas.investigations.skeptic): skipped without an LLM call when the
      Investigators accepted no Claim (nothing to challenge); otherwise its own plan, SearXNG
      queries and reading of the Source Versions it chose (and, for a seed company its plan
-     chose nothing of, the ones code chooses: the fallback), for counterevidence. Its accepted,
-     independent counterevidence may disprove a company premise, applied when the task is
-     recorded (by `atlas-skeptic`), which cancels only what depends on it.
+     chose nothing of, the ones code chooses: the fallback), for counterevidence: each
+     accepted item a contradiction of a named Claim or bear context about a company. An
+     accepted, independent contradiction may disprove a company premise, applied when the
+     task is recorded (by `atlas-skeptic`), which cancels only what depends on it.
    - **Financial Analyst:** the seed companies the accepted Claims name, with their as-of
      XBRL figures, and the Claims; with none it is skipped without an LLM call. One call
      proposes scenario inputs; code keeps only the inputs whose source or basis stands
@@ -38,12 +39,13 @@ One attempt:
      premise was disproven). When there are accepted Claims but no new independent Evidence
      (no Evidence Family that an earlier round's Claims hadn't used) it is skipped without an
      LLM call, and the earlier card stands. Otherwise one Editor call drafts the research
-     card, sent the Skeptic's accepted counterevidence and what was searched and read too;
-     code keeps only findings citing accepted Claims and fills in their spans, the
-     independent counterevidence against each cited Claim (`counterevidence_ids`), the
-     card's `contradictions` and its `searched` and `read` sections
-     (atlas.investigations.coverage). A finding contradicted by independent counterevidence
-     needs review, and so does the investigation (atlas.roles.editor). With no accepted
+     card, sent the Skeptic's accepted contradictions and bear context (separately) and what
+     was searched and read too; code keeps only findings citing accepted Claims and fills in
+     their spans, the independent contradictions of each cited Claim (`counterevidence_ids`),
+     the card's `contradictions`, its `bear_context` (by checklist item and company) and its
+     `searched` and `read` sections (atlas.investigations.coverage). A finding contradicted
+     by an independent contradiction needs review, and so does the investigation
+     (atlas.roles.editor); bear context marks no finding and stops nothing. With no accepted
      Claim at all the card has no finding, only what was searched and read and the open
      questions for the next round, and the investigation stops
      `no_new_independent_evidence` as before.
@@ -86,6 +88,7 @@ from atlas.hindsight import HindsightGateway
 from atlas.investigations.coverage import coverage
 from atlas.investigations.model import (
     RUN_KIND,
+    CardBearContext,
     CardContradiction,
     CardFinding,
     ResearchCard,
@@ -98,6 +101,7 @@ from atlas.investigations.skeptic import (
     SKEPTIC_ACTOR,
     Disproof,
     Skeptic,
+    bear_context,
     contradictions,
     counterevidence_by_claim,
 )
@@ -107,7 +111,9 @@ from atlas.jobs.resources import run_recorder
 from atlas.roles import QuotedText, RoleCaller, RoleCallFailed, TokenBudgetExhausted
 from atlas.roles.editor import (
     EDITOR,
+    EditorBearContext,
     EditorClaim,
+    EditorContradiction,
     EditorCounterevidence,
     EditorDocumentRead,
     EditorLead,
@@ -706,7 +712,9 @@ class TaskRunner:
         with self._engine.connect() as connection:
             claims = accepted_claims(connection, investigation["id"], run_id)
             against = contradictions(connection, investigation["id"])
+            context = bear_context(connection, investigation["id"])
             sent, quoted = counterevidence_for_editors(connection, against)
+            context_sent, context_quoted = bear_context_for_editor(connection, context)
             leads = connection.execute(
                 text(
                     "SELECT l.id, l.url, l.title, l.snippet FROM investigation_lead il"
@@ -758,7 +766,11 @@ class TaskRunner:
             leads=[
                 EditorLead(lead_id=str(lead.id), title=lead.title, url=lead.url) for lead in leads
             ],
-            counterevidence=sent,
+            contradictions=[
+                EditorContradiction(**each.model_dump(), how=found.how)
+                for each, found in zip(sent, against, strict=True)
+            ],
+            bear_context=context_sent,
             disproven_premises=disproven,
             queries=[
                 EditorQuery(query=query.query, purpose=query.purpose)
@@ -780,7 +792,8 @@ class TaskRunner:
                     detail=reading.detail,
                 )
                 for reading in read
-                # The Skeptic's reading reaches the Editor as its counterevidence.
+                # The Skeptic's reading reaches the Editor as its contradictions and bear
+                # context.
                 if reading.role == "investigator"
             ],
         )
@@ -798,6 +811,7 @@ class TaskRunner:
                 for lead in leads
             ]
             + quoted
+            + context_quoted
         )
         by_claim = counterevidence_by_claim(against)
         with self._caller(investigation) as caller:
@@ -860,6 +874,7 @@ class TaskRunner:
             disproven_premises=disproven,
             editor_role_call_id=role_call_id,
             contradictions=against,
+            bear_context=context,
             searched=searched,
             read=read,
         )
@@ -872,6 +887,7 @@ class TaskRunner:
                 "findings": len(findings),
                 "unsupported_findings": len(unsupported),
                 "contradictions": len(against),
+                "bear_context": sum(len(group.items) for group in context),
                 "contradicted_findings": contradicted,
                 "stop_reason": stop_reason,
                 "stop_detail": stop_detail,
@@ -1058,8 +1074,9 @@ def card_finding(
     finding: Any,
     counterevidence: Mapping[uuid.UUID, list[uuid.UUID]] | None = None,
 ) -> CardFinding:
-    """A finding citing `cited` accepted Claims, with the independent `counterevidence`
-    (claim ID -> counterevidence IDs, atlas.investigations.skeptic) against any of them."""
+    """A finding citing `cited` accepted Claims, with the independent contradictions
+    (`counterevidence`: claim ID -> counterevidence IDs, atlas.investigations.skeptic) of any
+    of them."""
     available: list[datetime] = [c["available_at"] for c in cited]
     against = list(
         dict.fromkeys(each for c in cited for each in (counterevidence or {}).get(c["id"], []))
@@ -1102,7 +1119,7 @@ def card_finding(
 def counterevidence_for_editors(
     connection: Connection, found: Sequence[CardContradiction]
 ) -> tuple[list[EditorCounterevidence], list[QuotedText]]:
-    """Accepted counterevidence as the Editors are sent it: the request's items, and each
+    """Accepted contradictions as the Editors are sent them: the request's items, and each
     item's quote as low-trust retrieved data (`id` its counterevidence ID)."""
     names = {
         row.id: row.display_name
@@ -1138,6 +1155,47 @@ def counterevidence_for_editors(
         )
         for each in found
         for span in (each.source_span,)
+    ]
+    return sent, quoted
+
+
+def bear_context_for_editor(
+    connection: Connection, found: Sequence[CardBearContext]
+) -> tuple[list[EditorBearContext], list[QuotedText]]:
+    """Accepted bear context as the research card's Editor is sent it, in the card's order:
+    the request's items, and each item's quote as low-trust retrieved data (`id` its
+    counterevidence ID)."""
+    items = [(group, item) for group in found for item in group.items]
+    titles = {
+        row.id: row.title
+        for row in connection.execute(
+            text(
+                "SELECT v.id, d.title FROM source_version v"
+                " JOIN source_document d ON d.id = v.source_document_id WHERE v.id = ANY(:ids)"
+            ),
+            {"ids": [item.source_span.source_version_id for _, item in items]},
+        )
+    }
+    sent = [
+        EditorBearContext(
+            counterevidence_id=str(item.counterevidence_id),
+            checklist_item=group.checklist_item,
+            company=group.company_name,
+            statement=item.statement,
+            figure_name=item.figure_name,
+            figure_period=item.figure_period,
+            source_title=titles.get(item.source_span.source_version_id, ""),
+        )
+        for group, item in items
+    ]
+    quoted = [
+        QuotedText(
+            id=str(item.counterevidence_id),
+            source=f"{span.source_version_id}#{span.span_start}-{span.span_end}",
+            text=span.quote,
+        )
+        for _, item in items
+        for span in (item.source_span,)
     ]
     return sent, quoted
 

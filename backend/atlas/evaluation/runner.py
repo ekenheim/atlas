@@ -557,6 +557,7 @@ def _observe(
                 "counterevidence": [
                     {
                         "outcome": c.outcome,
+                        "kind": c.kind,
                         "source": source_key(c.source_version_id),
                         "independent": c.independent,
                         "reason_code": c.reason_code,

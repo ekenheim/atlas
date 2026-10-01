@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 
 // The Hypothesis dossier, against the database `scripts/e2e_hypothesis.py` seeds through the
 // real services (the LLM's answers scripted): Coherent's recorded EDGAR filings, an
-// investigation whose Skeptic quoted the 10-Q's share count as counterevidence, version 1
+// investigation whose Skeptic quoted a later statement limiting the supply agreement as a
+// contradiction (a hand-shaped document the seed imports), version 1
 // (the supply finding) published with its snapshot and a researcher's scenario, and version 2,
 // a correction adding NVIDIA's investment, held by the publish gate until the owner approves
 // its edge. Expected values are the seed's and the fixtures'.
@@ -28,8 +29,8 @@ const SUPPLY = {
     " networking products",
 };
 const INVESTMENT = "NVIDIA has invested $2 billion in Coherent.";
-const DILUTION =
-  "issued - 212,340,736 shares at March 31, 2026; 171,849,325 shares at June 30, 2025";
+const LIMIT =
+  "the agreement no longer commits NVIDIA to purchase from Coherent after December 31, 2027";
 const OWNS = "NVIDIA owns Coherent";
 
 test("a Hypothesis's versions, diff, gate, snapshots and scenarios, and a citation's span", async ({
@@ -68,7 +69,7 @@ test("a Hypothesis's versions, diff, gate, snapshots and scenarios, and a citati
   await expect(page.getByRole("list", { name: "Falsifiers" })).toHaveText(
     "Verified laser capacity exceeds plausible demand",
   );
-  await expect(page.getByRole("list", { name: "Contradictions" })).toContainText(DILUTION);
+  await expect(page.getByRole("list", { name: "Contradictions" })).toContainText(LIMIT);
 
   // The diff from version 1: the investment is new, the supply finding unchanged.
   const diff = page.getByRole("region", { name: "Changes between versions" });

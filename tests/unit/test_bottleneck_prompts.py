@@ -111,8 +111,21 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         SKEPTIC,
         "skeptic",
-        2,
+        # v3: each item is a contradiction of a named Claim or bear context, never both
+        # (memory-directed reading, ticket 03)
+        3,
         (
+            "one of two kinds, never both",
+            "`contradiction`",
+            "`bear_context`",
+            "`denies`",
+            "`limits`",
+            "`dates`",
+            "names that Claim's subject company or its object",
+            "When in doubt, it is `bear_context`",
+            "A row of a table",
+            "`figure_name`",
+            "`figure_period`",
             "bear case",
             "technology transitions",
             "VCSEL",
@@ -129,8 +142,16 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         EDITOR,
         "editor",
-        4,  # v4: what was searched and read, and a card with no accepted Claim (pilot fix 01)
+        # v4: what was searched and read, and a card with no accepted Claim (pilot fix 01);
+        # v5: contradictions and bear context, separately (memory-directed reading, ticket 03)
+        5,
         (
+            "in two separate lists",
+            "`contradictions`",
+            "`bear_context`",
+            "it contradicts no finding",
+            "what the contradictions and the bear context suggest checking",
+            "Bear context alone never makes the verdict `needs_review`",
             "the bottleneck layer",
             "the chokepoint",
             "the mechanism",
