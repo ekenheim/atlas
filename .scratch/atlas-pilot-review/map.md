@@ -23,6 +23,8 @@ The pilot's verdict, in two artifacts:
 
 <!-- one line per closed ticket -->
 
+- [The pilot's verdict criteria](issues/02-pilot-verdict-criteria.md): per investigation a trust gate and a six-part bar (Claim precision at least 80%, at least 3 saved-work findings, at least 50% baseline coverage, the roles ran, at most 200k tokens and 10 minutes); pass at 4 of 5 with pooled machine-reviewed precision at least 90%, partial at 2–3 (one fix round), fail at 0–1 (the workflow's design reopened).
+
 ## Not yet specified
 
 - **A third fix round before the verdict.** Whether one is needed depends on what investigations 2–5 show; the focus rule says no unless a blocker appears.
