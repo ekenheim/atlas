@@ -193,10 +193,13 @@ def claim(**fields: JsonValue) -> dict[str, JsonValue]:
     }
 
 
-def quoting(*claims: dict[str, JsonValue]) -> Callable[[dict[str, Any]], JsonValue]:
+def quoting(
+    *claims: dict[str, JsonValue], read: Callable[[str], str] = str
+) -> Callable[[dict[str, Any]], JsonValue]:
     """An Investigator answer quoting the passages it is sent: each claim without a
     `passage_id` gets the passage whose text holds its quote and the quote's offsets there
-    (`shift` moves both offsets, to propose a wrong span)."""
+    (`shift` moves both offsets, to propose a wrong span). `read` is how the model spells the
+    passages' text (a model that writes ASCII hyphens for typographic ones, say)."""
 
     def respond(body: dict[str, Any]) -> JsonValue:
         passages = asked(body)["retrieved_data"]
@@ -206,9 +209,9 @@ def quoting(*claims: dict[str, JsonValue]) -> Callable[[dict[str, Any]], JsonVal
             shift = int(str(proposed.pop("shift", 0)))
             if "passage_id" not in proposed:
                 quote = str(proposed["quote"])
-                holding = [p for p in passages if quote in p["text"]]
+                holding = [p for p in passages if quote in read(p["text"])]
                 assert holding, f"no passage sent holds {quote!r}"
-                start = holding[0]["text"].index(quote) + shift
+                start = read(holding[0]["text"]).index(quote) + shift
                 proposed |= {
                     "passage_id": holding[0]["id"],
                     "quote_start": start,
@@ -295,7 +298,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
         )
         assert assertion["source_version_id"] == version_id
         assert assertion["review_state"] == "unreviewed"
-        assert assertion["extractor_version"] == "investigator.v5"
+        assert assertion["extractor_version"] == "investigator.v6"
         assert assertion["created_by"] == "atlas-investigator"
         assert assertion["value_json"]["claim_id"] == accepted["id"]
     supplied = atlas.get(f"/api/v1/assertions/{supplies['assertion_id']}")
@@ -968,3 +971,273 @@ def test_a_generic_sentence_is_no_substrate_claim_and_a_cue_must_share_the_objec
         "claim.rejected",
         "claim.accepted",
     ]
+
+
+# --- claim checks (memory-directed reading ticket 02) -------------------------------------------
+
+# Hand-shaped fragments of the documents pilot investigation 1 read on 0.2.5 (the recorded
+# fixtures hold only the last): Coherent's 8-K filed 2026-03-02 (the NVIDIA agreement), its
+# 10-Q filed 2026-05-06 (the share issuance), its EX-99.2 slides (bullets with U+2011, a
+# non-breaking hyphen) and its FY2026 10-K (the expansion sentence). TWO_OTHERS, OTHER_MAKER
+# and CONSTRAINED are written for the tests: sentences naming other companies and not the
+# filer, and a constraint that names no product.
+NBH = "\N{NON-BREAKING HYPHEN}"
+NVIDIA_COMMITMENT = (
+    "The non-exclusive agreement includes an NVIDIA multi-billion-dollar purchase commitment and"
+    " future access and capacity rights for advanced laser and optical networking products."
+)
+TWO_OTHERS = (
+    "NVIDIA also entered into a multi-billion-dollar purchase commitment with Lumentum for"
+    " advanced laser components."
+)
+OTHER_MAKER = "Lumentum produces EML chips on 3-inch and 4-inch InP wafers."
+ISSUANCE = (
+    "On March 2, 2026, the Company issued and sold 7,788,161 shares of Common Stock to NVIDIA"
+    " for an aggregate purchase price of $2.0 billion."
+)
+SLIDE_PLATFORM = (
+    f"6{NBH}inch platform producing EMLs, CW lasers, and photodiodes, with higher yields than"
+    f" 3{NBH}inch lines"
+)
+SLIDE_LINE = f"New 6{NBH}inch line begins production in Sherman"
+EXPANSION = (
+    "we remain disciplined in our capital allocation, prioritizing investments to expand"
+    " manufacturing capacity so we can efficiently fulfill the ongoing acceleration in customer"
+    " demand."
+)
+CONSTRAINED = "We are experiencing supply constraints due to constrained manufacturing capacity."
+FILER_DOCUMENT = f"""<html><head><meta charset="utf-8"><title>Coherent agreement and slides</title>
+</head><body>
+<h1>Coherent: the NVIDIA agreement, the share issuance and the slides</h1>
+<p>{NVIDIA_COMMITMENT}</p>
+<p>{TWO_OTHERS}</p>
+<p>{OTHER_MAKER}</p>
+<p>{ISSUANCE}</p>
+<ul><li>{SLIDE_PLATFORM}</li><li>{SLIDE_LINE}</li></ul>
+<p>In fiscal 2026 {EXPANSION}</p>
+<p>{CONSTRAINED}</p>
+</body></html>
+"""
+THIRD_PARTY_DOCUMENT = f"""<html><head><title>Lumentum agreement</title></head><body>
+<h1>Lumentum: the NVIDIA agreement</h1>
+<p>{NVIDIA_COMMITMENT}</p>
+</body></html>
+"""
+
+
+def import_document(atlas: Atlas, company: str, name: str, document: str) -> str:
+    """`document` imported by hand as `company`'s own (so `company` is its filer)."""
+    path = atlas.tmp_path / f"{name}.html"
+    path.write_text(document, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        company,
+        "--file",
+        str(path),
+        "--origin-url",
+        f"https://example.com/{company}/{name}",
+        "--published-at",
+        "2026-08-14T08:00-04:00",
+    )
+    assert imported.returncode == 0, imported.stderr
+    return json.loads(imported.stdout)["source_version_id"]
+
+
+def test_the_filer_s_impersonal_sentence_is_a_claim_about_the_filer_and_co_mention_is_not(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent, nvidia = company_id(atlas, "coherent"), company_id(atlas, "nvidia")
+    lumentum = company_id(atlas, "lumentum")
+    version_id = import_document(atlas, "coherent", "agreement-and-slides", FILER_DOCUMENT)
+    supply = claim(
+        subject_company_id=coherent,
+        predicate="supplies",
+        object_company_id=nvidia,
+        product="advanced laser and optical networking products",
+        quote=NVIDIA_COMMITMENT,
+    )
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                supply,
+                # NVIDIA is the buyer: the commitment is NVIDIA's.
+                supply | {"predicate": "buys_from"},
+                # Two other companies named and not the filer: co-mention, for either object.
+                supply | {"quote": TWO_OTHERS},
+                supply | {"quote": TWO_OTHERS, "object_company_id": lumentum},
+                claim(
+                    subject_company_id=coherent,
+                    predicate="manufactures",
+                    object_text="EML chips",
+                    quote=OTHER_MAKER,
+                ),
+            )
+        )
+    )
+
+    job = extract(atlas, "filer", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    filer, reversed_, *co_mentions = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert (filer["outcome"], filer["reason_code"]) == ("accepted", None)
+    assert (filer["party_basis"], filer["offset_source"]) == ("filer", "model")
+    assert filer["directional_cue"] == "purchase commitment"
+    assertion = atlas.get(f"/api/v1/assertions/{filer['assertion_id']}")
+    assert (assertion["subject_company_id"], assertion["predicate"]) == (coherent, "supplies")
+    assert assertion["object_company_id"] == nvidia
+    assert assertion["quote"] == NVIDIA_COMMITMENT
+    assert (reversed_["outcome"], reversed_["reason_code"]) == ("rejected", "wrong_direction")
+    assert "buyer" in reversed_["reason"]
+    assert [(c["outcome"], c["reason_code"]) for c in co_mentions] == [
+        ("rejected", "party_not_in_quote")
+    ] * 3
+    assert "Lumentum" in co_mentions[0]["reason"]
+    assert "NVIDIA" in co_mentions[1]["reason"]
+    assert "Lumentum" in co_mentions[2]["reason"]
+    assert all("co-mention" in c["reason"] for c in co_mentions)
+    assert [c["party_basis"] for c in (reversed_, *co_mentions)] == [None] * 4
+
+    # The same sentence in another company's document says nothing about Coherent; it is
+    # that company's own impersonal sentence.
+    third_party = import_document(atlas, "lumentum", "agreement", THIRD_PARTY_DOCUMENT)
+    llm.script_chat(ChatReply.answer(quoting(supply, supply | {"subject_company_id": lumentum})))
+
+    job = extract(atlas, "third-party", source_version_ids=[third_party])
+
+    assert job["status"] == "succeeded", job["failures"]
+    not_its_filer, its_filer = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert (not_its_filer["outcome"], not_its_filer["reason_code"]) == (
+        "rejected",
+        "party_not_in_quote",
+    )
+    assert "Coherent" in not_its_filer["reason"]
+    assert (its_filer["outcome"], its_filer["party_basis"]) == ("accepted", "filer")
+    assert its_filer["subject_company_id"] == lumentum
+
+
+def ascii_hyphens(text: str) -> str:
+    """The text as a model that writes "-" for a non-breaking hyphen copies it."""
+    return text.replace(NBH, "-")
+
+
+def test_a_quote_differing_only_by_typographic_characters_is_placed_through_the_fold(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent = company_id(atlas, "coherent")
+    version_id = import_document(atlas, "coherent", "agreement-and-slides", FILER_DOCUMENT)
+    written = "6-inch platform producing EMLs, CW lasers, and photodiodes"
+    archived = f"6{NBH}inch platform producing EMLs, CW lasers, and photodiodes"
+    bullet = claim(
+        subject_company_id=coherent,
+        predicate="manufactures",
+        object_text="EMLs",
+        product="EMLs",
+        quote=written,
+    )
+    another_word = written.replace("EMLs", "DMLs")
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                bullet,
+                bullet | {"shift": 7},
+                bullet
+                | {
+                    "quote": another_word,
+                    "passage_id": "p1",
+                    "quote_start": 0,
+                    "quote_end": len(another_word),
+                },
+                # Two bullets write "6-inch" (with U+2011), and the offsets point at neither.
+                bullet | {"quote": "6-inch", "shift": 2},
+                read=ascii_hyphens,
+            )
+        )
+    )
+
+    job = extract(atlas, "fold", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    at_offsets, searched, mismatch, ambiguous = claims_of(atlas, job["artifacts"]["extraction_id"])
+    parsed = atlas.parsed(version_id)
+    assert archived in parsed
+    assert written not in parsed
+    for folded in (at_offsets, searched):
+        assert (folded["outcome"], folded["reason_code"]) == ("accepted", None)
+        assert (folded["offset_source"], folded["party_basis"]) == ("folded", "filer")
+        # The Claim and its Assertion hold the archived text at the span, never the model's
+        # spelling, which stays in `proposed`.
+        assert folded["quote"] == archived
+        assert folded["proposed"]["quote"] == written
+        assert parsed[folded["span_start"] : folded["span_end"]] == archived
+        assert folded["directional_cue"] == "producing"
+        assertion = atlas.get(f"/api/v1/assertions/{folded['assertion_id']}")
+        assert assertion["quote"] == archived
+        assert (assertion["span_start"], assertion["span_end"]) == (
+            folded["span_start"],
+            folded["span_end"],
+        )
+        assert (assertion["subject_company_id"], assertion["predicate"]) == (
+            coherent,
+            "manufactures",
+        )
+    assert searched["proposed"]["quote_start"] == at_offsets["proposed"]["quote_start"] + 7
+    assert (mismatch["outcome"], mismatch["reason_code"]) == ("rejected", "quote_mismatch")
+    assert (ambiguous["outcome"], ambiguous["reason_code"]) == ("rejected", "quote_ambiguous")
+    assert "2 occurrences" in ambiguous["reason"]
+    assert [c["offset_source"] for c in (mismatch, ambiguous)] == [None, None]
+
+
+def test_an_expansion_is_no_constraint_and_owns_runs_from_the_holder_to_the_issuer(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent, nvidia = company_id(atlas, "coherent"), company_id(atlas, "nvidia")
+    version_id = import_document(atlas, "coherent", "agreement-and-slides", FILER_DOCUMENT)
+
+    def constrained(quote: str) -> dict[str, JsonValue]:
+        return claim(
+            subject_company_id=coherent,
+            predicate="capacity_constrained",
+            object_text="manufacturing capacity",
+            layer="module",
+            quote=quote,
+        )
+
+    owns = claim(
+        subject_company_id=nvidia,
+        predicate="owns",
+        object_company_id=coherent,
+        quote=ISSUANCE,
+        epistemic_type="direct_source_statement",
+    )
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                constrained(EXPANSION),
+                constrained(CONSTRAINED),
+                owns,
+                owns | {"subject_company_id": coherent, "object_company_id": nvidia},
+            )
+        )
+    )
+
+    job = extract(atlas, "cues", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    expansion, no_product, holder, issuer = claims_of(atlas, job["artifacts"]["extraction_id"])
+    # "capital allocation" and "expand manufacturing capacity" are no language of constraint.
+    assert (expansion["outcome"], expansion["reason_code"]) == (
+        "rejected",
+        "no_directional_language",
+    )
+    # A real constraint, of no particular product.
+    assert (no_product["outcome"], no_product["reason_code"]) == ("rejected", "generic_object")
+    assert (holder["outcome"], holder["reason_code"]) == ("accepted", None)
+    assert (holder["party_basis"], holder["directional_cue"]) == ("named", "shares")
+    owned = atlas.get(f"/api/v1/assertions/{holder['assertion_id']}")
+    assert (owned["subject_company_id"], owned["object_company_id"]) == (nvidia, coherent)
+    assert (issuer["outcome"], issuer["reason_code"]) == ("rejected", "wrong_direction")
+    assert "holder" in issuer["reason"]
+    assert "NVIDIA" in issuer["reason"]
+    assert atlas.get("/api/v1/claims", reason_code="wrong_direction")["total"] == 1

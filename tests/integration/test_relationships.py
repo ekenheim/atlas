@@ -974,7 +974,7 @@ def test_a_company_s_own_bottleneck_facts_become_assertions_and_edges_to_product
         assert assertion["object_company_id"] is None
         assert assertion["value_json"]["object_text"] == product
         assert assertion["value_json"]["layer"] == layer
-        assert assertion["extractor_version"] == "investigator.v5"
+        assert assertion["extractor_version"] == "investigator.v6"
 
     llm.script_chat(ChatReply.answer(reviewing(expect=len(BOTTLENECK_FACTS))))
     reviewed = review(atlas, "sweep")

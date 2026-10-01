@@ -4,17 +4,21 @@ language and party checks a Claim's quote must pass (`atlas.claims`)."""
 import pytest
 
 from atlas.claims import (
+    FOLD_TABLE,
     LAYERS,
     PREDICATES,
     clauses,
     company_names,
+    direction_refusal,
     directional_cue,
+    fold,
     is_generic_object,
     mentions,
     names_object,
     names_party,
     object_clause_cue,
     predicate_refusal,
+    stray_companies,
 )
 
 
@@ -98,6 +102,31 @@ def test_the_layers_run_from_substrate_to_system_with_contract_manufacturing() -
         ("capacity_constrained", "Demand for our EMLs exceeds our supply.", "exceeds our supply"),
         ("capacity_constrained", "We are capacity constrained in 200G EMLs.", "constrained"),
         ("capacity_constrained", "We allocate our InP laser output to customers.", "allocate"),
+        # Memory-directed reading ticket 02: the pilot's constraint statements.
+        (
+            "capacity_constrained",
+            "This demand is outpacing our current supply",
+            "demand is outpacing",
+        ),
+        (
+            "capacity_constrained",
+            "to address our increased customer demand and industry-wide shortage",
+            "shortage",
+        ),
+        (
+            "capacity_constrained",
+            "which has required us to make decisions on supply allocation",
+            "supply allocation",
+        ),
+        ("capacity_constrained", "Our 200G EMLs are sold out through 2027.", "sold out"),
+        ("capacity_constrained", "Lead times for our InP lasers have extended.", "Lead times"),
+        ("capacity_constrained", "We were unable to meet demand for EML chips.", "unable to meet"),
+        ("capacity_constrained", "Customers for our EMLs remain on allocation.", "on allocation"),
+        (
+            "capacity_constrained",
+            "the allocation of our limited EML supply among customers",
+            "allocation of our limited EML supply",
+        ),
         (
             "sole_sources",
             "We purchase several key materials from sole-source or limited-source suppliers.",
@@ -365,3 +394,156 @@ def test_an_object_paraphrased_from_most_of_the_quote_s_words_is_named() -> None
         " on supply allocation.",
         "optical components for AI and cloud data centers",
     )
+
+
+# --- constraint cues, ownership direction, the fold, the unnamed filer --------------------------
+# (memory-directed reading ticket 02; the sentences are pilot investigation 1's on 0.2.5)
+
+# Coherent's FY2026 10-K: an expansion, accepted as `capacity_constrained` through "allocation".
+EXPANSION = (
+    "we remain disciplined in our capital allocation, prioritizing investments to expand"
+    " manufacturing capacity so we can efficiently fulfill the ongoing acceleration in customer"
+    " demand."
+)
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        EXPANSION,
+        "prioritizing investments to expand manufacturing capacity",
+        "we remain disciplined in our capital allocation",
+        "We allocate capital to expand capacity for our datacom lasers.",
+        "The purchase price allocation for the acquisition is preliminary.",
+        "Customer demand for AI transceivers continues to grow.",
+    ],
+)
+def test_an_expansion_or_an_allocation_of_capital_is_no_constraint(quote: str) -> None:
+    assert directional_cue("capacity_constrained", quote) is None
+
+
+def test_capacity_words_alone_name_no_product() -> None:
+    # Why fix 09's rule let "manufacturing capacity" through: its generic words were the
+    # materials-and-components vocabulary only.
+    for object_text in ["manufacturing capacity", "production capacity", "our facilities"]:
+        assert is_generic_object(object_text), object_text
+    assert not is_generic_object("6-inch InP manufacturing capacity")
+    assert not is_generic_object("indium phosphide capacity")
+    # And a quote that names only the capacity words doesn't name the product.
+    assert not names_object("constrained manufacturing capacity", "EML manufacturing capacity")
+    assert names_object("constrained EML manufacturing capacity", "EML manufacturing capacity")
+
+
+COHERENT = company_names("Coherent", "Coherent Corp.")
+LUMENTUM = company_names("Lumentum", "Lumentum Holdings Inc.")
+NVIDIA = company_names("NVIDIA", "NVIDIA Corporation")
+# Hand-shaped from Coherent's 10-Q filed 2026-05-06 and Lumentum's 8-K filed 2026-03-02.
+ISSUED_AND_SOLD = "the Company issued and sold 7,788,161 shares of Common Stock to NVIDIA"
+ISSUANCE_AND_SALE = (
+    "Lumentum Holdings Inc. completed the issuance and sale of 2,876,415 shares of the"
+    " Company\N{RIGHT SINGLE QUOTATION MARK}s Series A Convertible Preferred Stock to NVIDIA"
+    " Corporation"
+)
+
+
+@pytest.mark.parametrize(
+    ("quote", "issuer", "filer"),
+    [
+        (ISSUED_AND_SOLD, COHERENT, True),
+        (ISSUANCE_AND_SALE, LUMENTUM, False),
+        ("NVIDIA purchased 7,788,161 shares of our Common Stock", COHERENT, True),
+        ("7,788,161 shares of Common Stock were purchased by NVIDIA Corporation", COHERENT, True),
+    ],
+)
+def test_owns_runs_from_the_holder_of_the_shares_to_their_issuer(
+    quote: str, issuer: list[str], filer: bool
+) -> None:
+    assert directional_cue("owns", quote) is not None
+    held = direction_refusal("owns", quote, NVIDIA, issuer, filer="object" if filer else None)
+    assert held is None
+    reversed_ = direction_refusal("owns", quote, issuer, NVIDIA, filer="subject" if filer else None)
+    assert reversed_ is not None
+    assert "NVIDIA" in reversed_
+    assert "holder" in reversed_
+
+
+def test_a_filer_that_buys_shares_is_their_holder() -> None:
+    quote = "We purchased 1,000,000 shares of AXT common stock"
+    axt = company_names("AXT", "AXT Inc.")
+    assert direction_refusal("owns", quote, COHERENT, axt, filer="subject") is None
+    assert direction_refusal("owns", quote, axt, COHERENT, filer="object") is not None
+
+
+def test_a_sentence_of_no_issuance_or_purchase_says_nothing_of_the_direction() -> None:
+    quote = "NVIDIA made a $2 billion investment in the Company"
+    assert direction_refusal("owns", quote, NVIDIA, COHERENT, filer="object") is None
+    assert direction_refusal("owns", quote, COHERENT, NVIDIA, filer="subject") is None
+    assert direction_refusal("competes_with", ISSUED_AND_SOLD, COHERENT, NVIDIA) is None
+
+
+# Coherent's 8-K filed 2026-03-02 (the same sentence in Lumentum's, "advanced laser components").
+NVIDIA_COMMITMENT = (
+    "The non-exclusive agreement includes an NVIDIA multi-billion-dollar purchase commitment and"
+    " future access and capacity rights for advanced laser and optical networking products."
+)
+
+
+def test_the_company_that_makes_a_purchase_commitment_is_the_buyer() -> None:
+    assert directional_cue("supplies", NVIDIA_COMMITMENT) == "purchase commitment"
+    assert direction_refusal("supplies", NVIDIA_COMMITMENT, COHERENT, NVIDIA) is None
+    reversed_ = direction_refusal("buys_from", NVIDIA_COMMITMENT, COHERENT, NVIDIA)
+    assert reversed_ is not None
+    assert "buyer" in reversed_
+    assert direction_refusal("supplies", NVIDIA_COMMITMENT, NVIDIA, COHERENT) is not None
+    assert direction_refusal("buys_from", NVIDIA_COMMITMENT, NVIDIA, COHERENT) is None
+    # "with" names no buyer (the recorded 10-K's wording): the Reviewer judges the direction.
+    with_ = "The agreement includes a multi-billion-dollar purchase commitment with NVIDIA"
+    assert direction_refusal("buys_from", with_, COHERENT, NVIDIA) is None
+
+
+NBH = "\N{NON-BREAKING HYPHEN}"
+
+
+def characters(*code_points: int) -> str:
+    return "".join(chr(code_point) for code_point in code_points)
+
+
+def test_the_fold_maps_one_character_to_one_character() -> None:
+    # The table of the ticket: hyphens U+2010 to U+2015 and U+2212; curly quotation marks;
+    # no-break and narrow spaces.
+    hyphens = characters(0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2015, 0x2212)
+    assert fold(hyphens) == "-" * 7
+    assert fold(characters(0x2018, 0x2019, 0x201A, 0x201B)) == "'" * 4
+    assert fold(characters(0x201C, 0x201D, 0x201E, 0x201F)) == '"' * 4
+    assert fold(characters(0x00A0, 0x2007, 0x2009, 0x200A, 0x202F)) == " " * 5
+    assert len(FOLD_TABLE) == 20
+    slide = f"6{NBH}inch platform producing EMLs, with higher yields than 3{NBH}inch lines"
+    assert fold(slide) == "6-inch platform producing EMLs, with higher yields than 3-inch lines"
+    assert len(fold(slide)) == len(slide)
+    # Nothing else changes: case, ASCII, accents, other punctuation.
+    plain = "We don't 'fold' Case - or caf" + characters(0xE9, 0x2026, 0x2022, 0xB5) + "."
+    assert fold(plain) == plain
+
+
+def test_cues_and_objects_are_read_through_the_fold_and_returned_as_written() -> None:
+    quote = f"Our platform includes the in{NBH}house design and manufacture of 6{NBH}inch lasers."
+    assert directional_cue("vertically_integrates", quote) == f"in{NBH}house"
+    assert object_clause_cue("vertically_integrates", quote, "6-inch lasers") == f"in{NBH}house"
+    assert names_object(quote, "6-inch lasers")
+    assert names_party(
+        "the Company\N{RIGHT SINGLE QUOTATION MARK}s lasers", COHERENT, is_filer=True
+    )
+    assert names_party("the Company's lasers", COHERENT, is_filer=True)
+
+
+def test_companies_named_besides_the_parties_are_strays() -> None:
+    known = [COHERENT, LUMENTUM, NVIDIA]
+    assert stray_companies(NVIDIA_COMMITMENT, [NVIDIA], known) == []
+    two = "NVIDIA also entered into a purchase commitment with Lumentum for laser components."
+    assert stray_companies(two, [NVIDIA], known) == ["Lumentum"]
+    assert stray_companies(two, [NVIDIA, LUMENTUM], known) == []
+    # A company Atlas doesn't know, written with its legal form, is one too.
+    unknown = "Broadcom Inc. supplies VCSEL arrays to NVIDIA Corporation."
+    assert stray_companies(unknown, [NVIDIA], known) == ["Broadcom Inc."]
+    assert stray_companies("NVIDIA Corporation buys VCSEL arrays.", [["NVIDIA"]], known) == []
+    assert stray_companies(f"6{NBH}inch platform producing EMLs", [], known) == []

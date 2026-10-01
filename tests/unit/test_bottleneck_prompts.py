@@ -48,9 +48,23 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         "investigator",
         # v3: a company's own bottleneck facts, the bottleneck predicates (pilot-fixes 03);
         # v4: a company object outside the known companies, by name (pilot-fixes 05);
-        # v5: the layer from the quote's named object, no generic Claims, one clause (09)
-        5,
+        # v5: the layer from the quote's named object, no generic Claims, one clause (09);
+        # v6: the filer's impersonal sentences and slide bullets, language of constraint,
+        # `owns` from the holder to the issuer (memory-directed reading ticket 02)
+        6,
         (
+            "**Impersonal sentences and slide bullets.**",
+            "The non-exclusive agreement includes an NVIDIA multi-billion-dollar purchase"
+            " commitment",
+            "NVIDIA is the buyer (never `buys_from` with the filer as subject)",
+            "6-inch platform producing EMLs, CW lasers, and photodiodes",
+            "A sentence that names two other companies and not the filer says nothing about the"
+            " filer",
+            "The quote must use language of constraint",
+            '"capital allocation" is not an allocation of supply',
+            "This demand is outpacing our current supply",
+            "`owns` runs from the holder of the shares to their issuer",
+            "the Company issued and sold 7,788,161 shares of Common Stock to NVIDIA",
             "the layer of the object the quote names",
             "never from `request.question`",
             "generic sentences are not Claims",
@@ -72,7 +86,7 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "`vertically_integrates`",
             "`qualified_for`",
             "Growing demand alone is not a constraint",
-            "A list item or a sentence fragment without the company",
+            "A list item or a sentence fragment that states no relation",
             "exactly one name from `request.predicates`",
             "copied exactly, character for character",
             "`object_name` is that company's name exactly as the quote writes it",

@@ -9,7 +9,8 @@ from sqlalchemy import Connection, text
 
 ClaimOutcome = Literal["accepted", "rejected"]
 ExtractionStatus = Literal["running", "completed", "budget_exhausted"]
-OffsetSource = Literal["model", "located"]
+OffsetSource = Literal["model", "located", "folded"]
+PartyBasis = Literal["named", "filer"]
 
 
 class Passage(BaseModel):
@@ -57,6 +58,9 @@ class Claim(BaseModel):
     object_text: str | None
     product: str | None
     layer: str
+    # The archived text at the span once the quote was placed and the Claim accepted (the
+    # model's spelling, which the typographic fold may have bridged, stays in `proposed`);
+    # the quote as proposed otherwise.
     quote: str
     span_start: int | None
     span_end: int | None
@@ -67,9 +71,15 @@ class Claim(BaseModel):
     reason: str | None
     assertion_id: uuid.UUID | None
     # Where the span came from once the quote was placed: `model` (the quote was exactly at the
-    # model's offsets, kept in `proposed`) or `located` (Atlas found its one exact occurrence in
-    # the passage). Null when the quote was never placed, or recorded before migration 0024.
+    # model's offsets, kept in `proposed`), `located` (Atlas found its one exact occurrence in
+    # the passage) or `folded` (it matched only through the typographic fold: hyphens, quotation
+    # marks, spaces). Null when the quote was never placed, or recorded before migration 0024.
     offset_source: OffsetSource | None
+    # How an accepted Claim's quote identifies its parties: `named` (each by name, or the filer
+    # in the first person) or `filer` (the filer is the unnamed party of an impersonal sentence
+    # of its own document). Null for a rejected Claim and for Claims recorded before migration
+    # 0052.
+    party_basis: PartyBasis | None = None
     # The parse of the Source Version its passage was cut from (and its span is in). Null for
     # Claims recorded before migration 0046 (the recorded parse) and for an unknown passage.
     parser_version: str | None = None
