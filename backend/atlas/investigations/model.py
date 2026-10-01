@@ -156,7 +156,8 @@ class InvestigationLead(BaseModel):
 
 
 class InvestigationDocument(BaseModel):
-    """A Source Version an Investigator task read (counted against `max_documents`)."""
+    """A Source Version an Investigator or Skeptic task read first (counted against
+    `max_documents`)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -171,15 +172,25 @@ class ReadingPointer(BaseModel):
     """A recalled Memory resolved to a Source Version section, with the query that recalled
     it (CONTEXT.md, "Reading pointer"; atlas.investigations.pointers): where Memory says to
     read. `memory_text` is Memory as Hindsight returned it: an index entry, never Evidence,
-    never quoted."""
+    never quoted. The Scout's pointers (`query_kind` `scout`) direct the Investigators'
+    reading; the Skeptic's (`bear_checklist`: one query per bear-checklist item for each
+    company the accepted Claims name) direct its own."""
 
     model_config = ConfigDict(frozen=True)
 
     id: uuid.UUID
     round: int
-    task_key: str  # the task that asked (the Scout's)
-    query_index: int  # 0: the round's question; n: the Scout's nth query
+    task_key: str  # the task that asked: `scout` or `skeptic`
+    query_kind: Literal["scout", "bear_checklist"]
+    # A Scout's: 0 for the round's question, n for its nth query. A Skeptic's: the query's
+    # position among its task's queries, from 1 (companies in order, each in checklist order).
+    query_index: int
     query: str
+    # A bear-checklist query's item and the company it asks about (which need not be the
+    # company the pointer leads to, `company_id`); None for a Scout's query.
+    checklist_item: str | None
+    query_company_id: uuid.UUID | None
+    query_company_name: str | None
     rank: int  # the memory's place in the recall's results, from 1
     memory_id: str
     memory_type: str  # world, experience or observation
@@ -383,15 +394,17 @@ class CardDocumentRead(BaseModel):
     sections: list[str]  # section anchors, in the order sent
     # How many passages of it were sent (0 for a card stored before pilot fix 10).
     passages: int = 0
-    # An Investigator's documents: how its passages sent were selected, as passages per kind
-    # of selection (`pointer`, `search`, `entity`, `lead`; atlas.claims.selection). A passage
-    # several kinds chose counts under each, so the counts can add up to more than `passages`.
-    # Empty for a document none of whose passages was sent, for the Skeptic's documents and
-    # on cards stored before memory-directed reading ticket 05.
+    # How its passages sent were selected, as passages per kind of selection (`pointer`,
+    # `search`, `entity`, `lead`; atlas.claims.selection; the Skeptic's have no `entity`). A
+    # passage several kinds chose counts under each, so the counts can add up to more than
+    # `passages`. Empty for a document none of whose passages was sent, and on cards stored
+    # before memory-directed reading ticket 05 (the Skeptic's documents: before ticket 07).
     selections: dict[str, int] = Field(default_factory=dict[str, int])
-    # The Skeptic's documents: chosen by its plan, matched by its search, or by code's
-    # fallback (pilot fix 06). None for an Investigator's.
-    selected_by: Literal["plan", "search", "fallback"] | None = None
+    # The Skeptic's documents: where its reading pointers led (`pointer`), matched by its
+    # search, or chosen by code's fallback for a company Memory pointed at nothing of (pilot
+    # fix 06; ticket 07). `plan`: chosen by its plan call, on cards stored before ticket 07.
+    # None for an Investigator's.
+    selected_by: Literal["pointer", "plan", "search", "fallback"] | None = None
 
 
 class CardReading(BaseModel):
@@ -415,7 +428,9 @@ class CardReading(BaseModel):
     rejected: dict[str, int]  # reason code -> how many proposed items it rejected
     # Cards drawn before pilot fix 06 have only Investigators' rows.
     role: Literal["investigator", "skeptic"] = "investigator"
-    documents_fallback: bool = False  # the Skeptic's plan chose nothing for a seed company
+    # The Skeptic's: code chose documents for a company the Claims name that Memory pointed
+    # at nothing of (before ticket 07: that its plan chose nothing of).
+    documents_fallback: bool = False
 
 
 class ResearchCard(BaseModel):
@@ -510,7 +525,8 @@ class Investigation(BaseModel):
     premises: list[Premise]
     tasks: list[Task]
     leads: list[InvestigationLead]
-    # Where Memory pointed, by round, query and rank (Memory as an index, never Evidence).
+    # Where Memory pointed, by round, asking task (the Scout, then the Skeptic), query and
+    # rank (Memory as an index, never Evidence).
     pointers: list[ReadingPointer]
     documents: list[InvestigationDocument]
     counterevidence: list[Counterevidence]
@@ -601,7 +617,9 @@ def get_investigation(
         ReadingPointer.model_validate(dict(each))
         for each in connection.execute(
             text(
-                "SELECT p.id, p.round, t.key AS task_key, p.query_index, p.query, p.rank,"
+                "SELECT p.id, p.round, t.key AS task_key, p.query_kind, p.query_index,"
+                " p.query, p.checklist_item, p.query_company_id,"
+                " qc.display_name AS query_company_name, p.rank,"
                 " p.memory_id, p.memory_type, p.memory_text, p.source_version_id,"
                 " d.title AS source_title, p.section_anchor, p.section_heading,"
                 " p.section_char_start, p.section_char_end, p.company_id,"
@@ -611,6 +629,7 @@ def get_investigation(
                 " JOIN source_version v ON v.id = p.source_version_id"
                 " JOIN source_document d ON d.id = v.source_document_id"
                 " LEFT JOIN company c ON c.id = p.company_id"
+                " LEFT JOIN company qc ON qc.id = p.query_company_id"
                 " WHERE p.investigation_id = :id"
                 " ORDER BY p.round, t.position, p.query_index, p.rank, p.source_version_id,"
                 " p.section_char_start, p.section_anchor"

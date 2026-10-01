@@ -404,10 +404,10 @@ class RehearsalModel:
                     for item in request["items"]
                 ]
             }
-        if role == "skeptic" and "catalog" in request:
-            # It plans no search and no document; code's fallback then chooses the seed
-            # companies' filings (pilot fix 06).
-            return {"queries": [], "documents": []}
+        if role == "skeptic" and "passages" not in request:
+            # It plans no search; it reads where Memory points (or what code's fallback
+            # chooses for a company with no pointer).
+            return {"queries": []}
         if role == "skeptic":
             return {"counterevidence": []}  # its reading of them finds none
         if role == "financial_analyst":

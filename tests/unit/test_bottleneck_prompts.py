@@ -114,23 +114,20 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
     (
         SKEPTIC_PLAN,
         "skeptic-plan",
-        # v3: it must choose archived documents from the catalog (pilot fix 06), and a filing
-        # phrase per query (pilot fix 12); v4: a specific phrase (memory-directed reading 04)
-        4,
+        # v3: a filing phrase per query (pilot fix 12); v4: a specific phrase (memory-directed
+        # reading 04); v5: queries only, the plan chooses no document (ticket 07: Memory
+        # points to what the Skeptic reads)
+        5,
         (
             "a specific phrase of two to four words",
             "Good: `qualified second source`",
             "Bad: `inventory`, `capacity`, `dilution`",
             "a single word is searched only when it is one of the theme's product or material"
             " terms",
-            "Search results are leads: Atlas never reads them",
-            "Only archived documents are Evidence",
-            "You must choose documents from the `catalog`",
-            "at least one document of each seed company",
-            "risk factors",
-            "8-K",
-            "older filings",
-            "An empty `documents` list reads nothing",
+            "A lead is never Evidence",
+            "You choose no documents here",
+            "at least one query for each checklist item the supporting Claims touch",
+            "An empty list searches nothing",
             "bear case",
             "technology transitions",
             "VCSEL",
@@ -236,3 +233,20 @@ def test_each_research_role_prompt_carries_the_bottleneck_method(
 @pytest.mark.parametrize("role", [SKEPTIC, SKEPTIC_PLAN], ids=["skeptic", "skeptic-plan"])
 def test_the_skeptic_prompts_read_every_bear_checklist_item(role: Role[Any, Any]) -> None:
     assert [n for n in CHECKLIST_NAMES if f"`{n}`" not in role.prompt.text] == []
+
+
+def test_the_skeptic_plan_no_longer_asks_for_documents() -> None:
+    # v5 (memory-directed reading ticket 07): the plan writes queries; what the Skeptic reads
+    # is where Memory points, so the request has no catalog and the answer no documents.
+    assert "`documents`" not in SKEPTIC_PLAN.prompt.text
+    assert "`catalog`" not in SKEPTIC_PLAN.prompt.text
+    assert set(SKEPTIC_PLAN.request.model_fields) == {
+        "research_question",
+        "theme_id",
+        "theme_title",
+        "checklist",
+        "supporting_claims",
+        "companies",
+        "max_queries",
+    }
+    assert set(SKEPTIC_PLAN.response.model_fields) == {"queries"}

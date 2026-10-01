@@ -273,7 +273,8 @@ def hypothesis_editor(body: dict[str, Any]) -> JsonValue:
 
 
 def limiting_skeptic(atlas: Atlas, company: Callable[[str], str]) -> tuple[ChatReply, ...]:
-    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained);
+    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained,
+    so Memory points the Skeptic to it: memory-directed reading ticket 07);
     the Skeptic reads it and quotes it as a contradiction of every supporting Claim: it limits
     the supply agreement, and names both companies (so it passes the contradiction check for
     the supply Claim and for the investment Claim)."""
@@ -296,7 +297,6 @@ def limiting_skeptic(atlas: Atlas, company: Callable[[str], str]) -> tuple[ChatR
     if imported.returncode != 0:
         raise SystemExit(f"e2e: the supply update wasn't imported: {imported.stderr}")
     atlas.worker_pass()
-    update = json.loads(imported.stdout)["source_version_id"]
 
     def reading(body: dict[str, Any]) -> JsonValue:
         sent = asked(body)
@@ -325,11 +325,8 @@ def limiting_skeptic(atlas: Atlas, company: Callable[[str], str]) -> tuple[ChatR
             ]
         }
 
-    plan: dict[str, JsonValue] = {
-        "queries": [],
-        "documents": [{"source_version_id": update, "checklist_item": "second_sources"}],
-    }
-    return ChatReply.json(plan), ChatReply.answer(reading)
+    # Its plan writes no query; what it reads is where Memory points.
+    return ChatReply.json({"queries": []}), ChatReply.answer(reading)
 
 
 # --- the Hypothesis -----------------------------------------------------------------------------

@@ -12,7 +12,10 @@ recording all of them in `selected_by`:
    terms with the pointer's Memory text (`atlas.research.search.overlap`; the earliest window
    on a tie, also when none shares a term). The section is found by its anchor, in the parse
    the extraction reads; a pointer whose anchor that parse doesn't have chooses among all of
-   the document's windows. The Memory text only finds the window: it is never sent on.
+   the document's windows. The Memory text only finds the window: it is never sent on. A
+   pointer with a `label` is recorded as `pointer:<label>` instead: the Skeptic's pointers
+   carry their bear-checklist item (`pointer:customer_concentration`;
+   atlas.investigations.skeptic), so its tags never read as a Scout query's number.
 2. **`search`.** Every window that contains a term of the extraction's question or of the
    round's Scout queries (`Reading.queries`), scored by Okapi BM25 over all windows of the
    extraction's documents (the terms of the question and the queries together, each once).
@@ -72,7 +75,8 @@ from atlas.research.search import bm25, overlap, query_terms, tokens
 from atlas.retention.sections import Section, split_sections
 
 PASSAGE_CHARS = 3000
-# `selected_by` values: `pointer:<query_index>`, `search`, `entity:<company_id>`, `lead`.
+# `selected_by` values: `pointer:<query_index>` (or `pointer:<label>`), `search`,
+# `entity:<company_id>`, `lead`.
 POINTER = "pointer"
 SEARCH = "search"
 ENTITY = "entity"
@@ -102,8 +106,11 @@ class Pointer:
     source_version_id: uuid.UUID
     section_anchor: str
     rank: int  # the memory's rank in its recall's results (1 is best)
-    query_index: int  # 0: the round's question; else the Scout query's position
+    query_index: int  # 0: the round's question; else the asking task's query's position
     memory_text: str  # finds the window; never quoted and never sent to a role
+    # What `selected_by` calls the pointer's query instead of its index (None: the index, a
+    # Scout's; the Skeptic's pointers are labelled with their bear-checklist item).
+    label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -274,8 +281,9 @@ def candidates(
     scores = iter(bm25(terms, [window for each in tokenized for window in each]))
     positions = {document.id: index for index, document in enumerate(documents)}
 
-    # The window each pointer chooses: (document, window) -> its pointers' (rank, query index).
-    pointed: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    # The window each pointer chooses: (document, window) -> its pointers' (rank, query
+    # index, tag).
+    pointed: dict[tuple[int, int], list[tuple[int, int, str]]] = {}
     for pointer in reading.pointers:
         index = positions.get(pointer.source_version_id)
         if index is None or not windows[index]:
@@ -286,7 +294,10 @@ def candidates(
             if anchor == pointer.section_anchor
         ] or list(range(len(windows[index])))
         best = _best_window(query_terms(pointer.memory_text), words[index], within)
-        pointed.setdefault((index, best), []).append((pointer.rank, pointer.query_index))
+        tag = pointer.label if pointer.label is not None else str(pointer.query_index)
+        pointed.setdefault((index, best), []).append(
+            (pointer.rank, pointer.query_index, f"{POINTER}:{tag}")
+        )
 
     found: list[Candidate] = []
     for index, document in enumerate(documents):
@@ -297,7 +308,8 @@ def candidates(
             pointers = pointed.get((index, at), [])
             window = document.text[start:end]
             selected_by = [
-                *(f"{POINTER}:{query}" for query in sorted({query for _, query in pointers})),
+                # Each pointer's tag once, in query order.
+                *dict.fromkeys(tag for _, _, tag in sorted(pointers, key=lambda p: p[1])),
                 *([SEARCH] if score > 0 else []),
                 *(f"{ENTITY}:{each}" for each, names in others if mentions(window, names)),
             ]
@@ -309,7 +321,9 @@ def candidates(
                         start=start,
                         end=end,
                         selected_by=tuple(selected_by),
-                        pointer=min(pointers) if pointers else None,
+                        pointer=min((rank, query) for rank, query, _ in pointers)
+                        if pointers
+                        else None,
                         score=score,
                     )
                 )

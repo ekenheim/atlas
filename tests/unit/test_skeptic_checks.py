@@ -1,12 +1,16 @@
 """The Skeptic's deterministic table-row check (memory-directed reading, ticket 03): a quote
 that is a table row with no words is accepted only as bear context, and only with its figure's
-name and period (atlas.investigations.skeptic, step 5). The rows are pilot investigation 1's
+name and period (atlas.investigations.skeptic, step 7). The rows are pilot investigation 1's
 (`.scratch/atlas-pilot-fixes/issues/16-skeptic-context-recorded-as-contradiction.md`) and the
-recorded Coherent and Lumentum 10-Qs' (whose parsed text separates cells by tabs)."""
+recorded Coherent and Lumentum 10-Qs' (whose parsed text separates cells by tabs).
+
+And what the Skeptic asks Memory about a bear-checklist item for a company (ticket 07):
+deterministic text, phrased from the item and the Claims' objects."""
 
 import pytest
 
 from atlas.investigations.skeptic import is_table_row
+from atlas.roles.skeptic import BEAR_CHECKLIST, CHECKLIST_NAMES, bear_query
 
 
 @pytest.mark.parametrize(
@@ -47,3 +51,33 @@ def test_a_label_followed_only_by_figures_is_a_table_row(quote: str) -> None:
 )
 def test_a_sentence_or_a_single_figure_is_not_a_table_row(quote: str) -> None:
     assert not is_table_row(quote)
+
+
+def test_a_bear_query_names_the_company_the_item_s_words_and_the_claims_objects() -> None:
+    items = {item.name: item for item in BEAR_CHECKLIST}
+
+    assert bear_query(
+        items["customer_concentration"], "Coherent", ["NVIDIA", "advanced lasers"]
+    ) == (
+        "Coherent: customer concentration, largest customers, share of revenue from a few"
+        " customers; NVIDIA; advanced lasers"
+    )
+    assert bear_query(items["dilution_financing"], "Lumentum") == (
+        "Lumentum: share issuance, convertible notes, shelf registration, at-the-market"
+        " offering, dilution"
+    )
+    # Each object once (whatever its case or spacing), in the Claims' order, at most four.
+    assert bear_query(
+        items["inventory_cycle"],
+        "AXT",
+        ["InP substrates", "Coherent", "inp  substrates", "", "Lumentum", "gallium", "germanium"],
+    ) == (
+        "AXT: inventory build-up, excess and obsolete inventory, double ordering, destocking;"
+        " InP substrates; Coherent; Lumentum; gallium"
+    )
+
+
+def test_every_bear_checklist_item_has_words_to_ask_memory() -> None:
+    assert [item.name for item in BEAR_CHECKLIST] == list(CHECKLIST_NAMES)
+    assert all(item.recall.strip() for item in BEAR_CHECKLIST)
+    assert len({item.recall for item in BEAR_CHECKLIST}) == len(BEAR_CHECKLIST)

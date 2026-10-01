@@ -27,6 +27,7 @@ import {
   foundBy,
   openQuestions,
   outputParts,
+  type PointerGroup,
   pointerGroups,
   pointerQueryLabel,
   pointerSummary,
@@ -405,9 +406,15 @@ function TaskRow({ task }: { task: InvestigationTask }) {
   );
 }
 
-/** The Scout's reading pointers: what Memory returned to the question and to each query. */
+/**
+ * The reading pointers: what Memory returned to the Scout (the question and each of its
+ * queries) and, under its own heading, to the Skeptic (each bear-checklist item for each
+ * company the accepted Claims name).
+ */
 function Pointers({ investigation }: { investigation: Investigation }) {
   const groups = pointerGroups(investigation.pointers);
+  const scouts = groups.filter((group) => group.kind === "scout");
+  const skeptics = groups.filter((group) => group.kind === "bear_checklist");
   return (
     <section aria-labelledby="pointers">
       <h2 id="pointers">Reading pointers</h2>
@@ -416,56 +423,70 @@ function Pointers({ investigation }: { investigation: Investigation }) {
         answer that resolves to a section of an archived Source Version is a pointer: where
         to read. Its text is Memory, not Evidence: it is never quoted and reaches no role.
       </p>
-      {groups.length === 0 ? (
-        <p>No reading pointer.</p>
+      {scouts.length === 0 ? <p>No reading pointer.</p> : <PointerGroups groups={scouts} />}
+      <h3 id="skeptic-pointers">The Skeptic&apos;s</h3>
+      <p>
+        The Skeptic asks Memory each bear-checklist item for each company the accepted Claims
+        name, across the theme, and reads where the answers point. No Memory is sent to it.
+      </p>
+      {skeptics.length === 0 ? (
+        <p>No reading pointer of the Skeptic&apos;s.</p>
       ) : (
-        groups.map((group) => (
-          <details key={`${group.round}:${group.queryIndex}`}>
-            <summary>
-              {pointerQueryLabel(group)}: {group.query}{" "}
-              <span className="muted-small">({pointerSummary(group)})</span>
-            </summary>
-            <table>
-              <caption>
-                Where Memory pointed for {pointerQueryLabel(group).toLowerCase()}, best rank
-                first
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Rank</th>
-                  <th scope="col">Memory (not Evidence)</th>
-                  <th scope="col">Company</th>
-                  <th scope="col">Document and section</th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.pointers.map((pointer) => (
-                  <tr key={pointer.id}>
-                    <td>{pointer.rank}</td>
-                    <td>
-                      <strong>Memory</strong>{" "}
-                      <span className="muted-small">({pointer.memory_type})</span>:{" "}
-                      {pointer.memory_text}
-                    </td>
-                    <td>{pointer.company_name ?? <Missing />}</td>
-                    <td>
-                      <Link href={routes.version(pointer.source_version_id)}>
-                        {pointer.source_title}
-                      </Link>
-                      <br />
-                      <span className="muted-small">
-                        {pointer.section_heading ?? pointer.section_anchor}; characters{" "}
-                        {pointer.section_char_start}–{pointer.section_char_end}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </details>
-        ))
+        <PointerGroups groups={skeptics} />
       )}
     </section>
+  );
+}
+
+function PointerGroups({ groups }: { groups: PointerGroup[] }) {
+  return (
+    <>
+      {groups.map((group) => (
+        <details key={`${group.round}:${group.kind}:${group.queryIndex}`}>
+          <summary>
+            {pointerQueryLabel(group)}: {group.query}{" "}
+            <span className="muted-small">({pointerSummary(group)})</span>
+          </summary>
+          <table>
+            <caption>
+              Where Memory pointed for {pointerQueryLabel(group).toLowerCase()}, best rank
+              first
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Memory (not Evidence)</th>
+                <th scope="col">Company</th>
+                <th scope="col">Document and section</th>
+              </tr>
+            </thead>
+            <tbody>
+              {group.pointers.map((pointer) => (
+                <tr key={pointer.id}>
+                  <td>{pointer.rank}</td>
+                  <td>
+                    <strong>Memory</strong>{" "}
+                    <span className="muted-small">({pointer.memory_type})</span>:{" "}
+                    {pointer.memory_text}
+                  </td>
+                  <td>{pointer.company_name ?? <Missing />}</td>
+                  <td>
+                    <Link href={routes.version(pointer.source_version_id)}>
+                      {pointer.source_title}
+                    </Link>
+                    <br />
+                    <span className="muted-small">
+                      {pointer.section_heading ?? pointer.section_anchor}; characters{" "}
+                      {pointer.section_char_start}–{pointer.section_char_end}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      ))}
+    </>
   );
 }
 

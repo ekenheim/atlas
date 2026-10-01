@@ -2030,7 +2030,7 @@ export interface components {
                 [key: string]: number;
             };
             /** Selected By */
-            selected_by?: ("plan" | "search" | "fallback") | null;
+            selected_by?: ("pointer" | "plan" | "search" | "fallback") | null;
         };
         /**
          * CardFinding
@@ -4141,7 +4141,8 @@ export interface components {
         };
         /**
          * InvestigationDocument
-         * @description A Source Version an Investigator task read (counted against `max_documents`).
+         * @description A Source Version an Investigator or Skeptic task read first (counted against
+         *     `max_documents`).
          */
         InvestigationDocument: {
             /**
@@ -5459,7 +5460,9 @@ export interface components {
          * @description A recalled Memory resolved to a Source Version section, with the query that recalled
          *     it (CONTEXT.md, "Reading pointer"; atlas.investigations.pointers): where Memory says to
          *     read. `memory_text` is Memory as Hindsight returned it: an index entry, never Evidence,
-         *     never quoted.
+         *     never quoted. The Scout's pointers (`query_kind` `scout`) direct the Investigators'
+         *     reading; the Skeptic's (`bear_checklist`: one query per bear-checklist item for each
+         *     company the accepted Claims name) direct its own.
          */
         ReadingPointer: {
             /**
@@ -5471,10 +5474,21 @@ export interface components {
             round: number;
             /** Task Key */
             task_key: string;
+            /**
+             * Query Kind
+             * @enum {string}
+             */
+            query_kind: "scout" | "bear_checklist";
             /** Query Index */
             query_index: number;
             /** Query */
             query: string;
+            /** Checklist Item */
+            checklist_item: string | null;
+            /** Query Company Id */
+            query_company_id: string | null;
+            /** Query Company Name */
+            query_company_name: string | null;
             /** Rank */
             rank: number;
             /** Memory Id */

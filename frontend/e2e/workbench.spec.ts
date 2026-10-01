@@ -82,7 +82,9 @@ test("an investigation shows its plan, events and Evidence, and launches one fol
   ).toContainText("Round 1: 1 query");
   const read = card.getByRole("table", { name: "What was read" });
   await expect(read.getByRole("rowheader")).toHaveText(["Coherent", "Lumentum", "Skeptic"]);
-  await expect(read.getByRole("row", { name: /^Skeptic/ })).toContainText("chosen by code");
+  // The Skeptic read where Memory pointed (Coherent's filings), not what code chose for it.
+  await expect(read.getByRole("row", { name: /^Skeptic/ })).toContainText("selected by pointer");
+  await expect(read.getByRole("row", { name: /^Skeptic/ })).not.toContainText("chosen by code");
   await expect(read.getByRole("row", { name: /^Coherent/ })).toContainText("1 Claim proposed, 1 accepted");
   await expect(read.getByRole("row", { name: /^Lumentum/ })).toContainText(
     "no parsed Source Version",

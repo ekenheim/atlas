@@ -9,8 +9,10 @@
   503 when LiteLLM, Hindsight or SearXNG isn't configured.
 - `GET /investigations/{id}`: the §7.2 request, budgets and usage, status (`paused` while the
   queue pause holds its task back), the stop reason and detail, premises, tasks, leads,
-  reading pointers (`pointers`: what Memory returned to the question and each Scout query,
-  resolved to Source Version sections; Memory as an index, never Evidence), documents, the
+  reading pointers (`pointers`: what Memory returned to the question and each Scout query
+  (`query_kind` `scout`) and to the Skeptic's bear-checklist queries (`bear_checklist`, with
+  the checklist item and the company asked about), resolved to Source Version sections;
+  Memory as an index, never Evidence), documents, the
   Skeptic's counterevidence (each item a contradiction of a named Claim or
   bear context about a company) and the Editor's draft research card.
 - `GET /investigations` (newest first): each investigation's theme, question, round and

@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0055"
+    assert revision == "0059"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -374,3 +374,72 @@ def test_edges_that_differ_only_by_layer_before_0055_are_kept_and_no_new_one_can
     engine.dispose()
     assert refused == ["indium phosphide capacity", "eml lasers"]
     assert fixed
+
+
+def test_reading_pointers_recorded_before_0059_are_the_scout_s(empty_database_url: str) -> None:
+    # 0059: a pointer says what its query was. The rows recorded before it are the Scout's;
+    # a Skeptic's bear-checklist pointer names its checklist item and company.
+    upgrade(empty_database_url, "0055")
+    engine = create_engine(empty_database_url)
+    parent = "00000000-0000-0000-0000-000000000001"
+    before = (
+        "INSERT INTO reading_pointer (id, investigation_id, round, task_id, query_index, query,"
+        " rank, memory_id, memory_type, memory_text, source_version_id, section_anchor,"
+        " section_char_start, section_char_end, available_at, citation_state"
+    )
+    values = (
+        " VALUES (gen_random_uuid(), :parent, 1, :parent, :index, 'a query', :rank, 'm1',"
+        " 'world', 'a fact', :parent, 'part-i-item-1', 0, 10, now(), 'resolved'"
+    )
+    with engine.begin() as connection:
+        # The row's parents (an investigation, a task, a Source Version, a company) are not
+        # what is migrated: foreign keys are off for these inserts.
+        connection.execute(text("SET LOCAL session_replication_role = replica"))
+        connection.execute(text(f"{before}){values})"), {"parent": parent, "index": 2, "rank": 1})
+
+    upgrade(empty_database_url)
+
+    new = text(
+        f"{before}, query_kind, checklist_item, query_company_id){values}, :kind, :item, :company)"
+    )
+    refused: list[str] = []
+    with engine.connect() as connection:
+        recorded = connection.execute(
+            text("SELECT query_kind, checklist_item, query_company_id FROM reading_pointer")
+        ).one()
+    attempts: list[dict[str, Any]] = [
+        # A bear-checklist pointer without its item or its company, and a Scout's with one.
+        {"kind": "bear_checklist", "item": None, "company": parent, "index": 1, "rank": 2},
+        {"kind": "bear_checklist", "item": "inventory_cycle", "company": None, "index": 1}
+        | {"rank": 3},
+        {"kind": "scout", "item": "inventory_cycle", "company": parent, "index": 1, "rank": 4},
+        {"kind": "bear_checklist", "item": "inventory_cycle", "company": parent, "index": 3}
+        | {"rank": 5},
+    ]
+    for attempt in attempts:
+        try:
+            with engine.begin() as connection:
+                connection.execute(text("SET LOCAL session_replication_role = replica"))
+                connection.execute(new, attempt | {"parent": parent})
+        except DBAPIError as error:
+            assert "reading_pointer_bear_checklist_query" in str(error)
+            refused.append(str(attempt["rank"]))
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE reading_pointer SET query_kind = 'scout'"))
+    except DBAPIError as error:
+        still_insert_only = "insert-only" in str(error)
+    else:
+        still_insert_only = False
+    with engine.connect() as connection:
+        kinds = [
+            tuple(row)
+            for row in connection.execute(
+                text("SELECT query_kind, checklist_item FROM reading_pointer ORDER BY rank")
+            )
+        ]
+    engine.dispose()
+    assert tuple(recorded) == ("scout", None, None)
+    assert refused == ["2", "3", "4"]
+    assert kinds == [("scout", None), ("bear_checklist", "inventory_cycle")]
+    assert still_insert_only

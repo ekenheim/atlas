@@ -321,11 +321,11 @@ def hypothesis_editor(
 
 
 def finding_nothing(body: dict[str, Any]) -> JsonValue:
-    """The Skeptic finding nothing: its plan chooses no query and no document, and its reading
-    of what code's fallback then chose (pilot fix 06) proposes nothing."""
-    if "catalog" in asked(body)["request"]:
-        return {"queries": [], "documents": []}
-    return {"counterevidence": []}
+    """The Skeptic finding nothing: its plan writes no query, and its reading of what Memory
+    pointed to (or code's fallback chose) proposes nothing."""
+    if "passages" in asked(body)["request"]:
+        return {"counterevidence": []}
+    return {"queries": []}
 
 
 # Enough answers for the plan and every reading call (the unused ones are never asked for).
@@ -333,9 +333,9 @@ NOTHING_TO_READ = (ChatReply.answer(finding_nothing, tokens=(500, 50)),) * 8
 
 
 def limiting_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
-    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained);
-    the Skeptic reads it and quotes it as a contradiction of every supporting Claim: it limits
-    the supply agreement, and names both its parties."""
+    """Records `SUPPLY_UPDATE` as a later Coherent document (`atlas sources import`, retained,
+    so Memory points the Skeptic to it); the Skeptic reads it and quotes it as a contradiction
+    of every supporting Claim: it limits the supply agreement, and names both its parties."""
     path = atlas.tmp_path / "coherent-supply-update.txt"
     path.write_text(SUPPLY_UPDATE, encoding="utf-8")
     imported = atlas.cli(
@@ -354,7 +354,6 @@ def limiting_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
     )
     assert imported.returncode == 0, imported.stderr
     atlas.worker_pass()
-    update = json.loads(imported.stdout)["source_version_id"]
 
     def reading(body: dict[str, Any]) -> JsonValue:
         sent = asked(body)
@@ -383,11 +382,8 @@ def limiting_skeptic(atlas: Atlas) -> tuple[ChatReply, ...]:
             ]
         }
 
-    plan: dict[str, JsonValue] = {
-        "queries": [],
-        "documents": [{"source_version_id": update, "checklist_item": "second_sources"}],
-    }
-    return ChatReply.json(plan), ChatReply.answer(reading)
+    # Its plan writes no query; what it reads is where Memory points.
+    return ChatReply.json({"queries": []}), ChatReply.answer(reading)
 
 
 def investigate(
@@ -1375,13 +1371,23 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
     assert [each["id"] for each in pointed] == [
         p["id"] for p in passages if any(tag.startswith("pointer:") for tag in p["selected_by"])
     ]
-    # The reading pointers: what Memory returned to the Scout's recalls, the text as returned,
-    # with the section each resolved to.
+    # The reading pointers: what Memory returned to the Scout's recalls and to the Skeptic's
+    # bear-checklist recalls, the text as returned, with the section each resolved to.
     pointers = investigation["pointers"]
     frozen_pointers = content["memory"]["reading_pointers"]
     assert pointers and [each["id"] for each in frozen_pointers] == [p["id"] for p in pointers]
     for field in ("query", "rank", "memory_id", "memory_text", "source_version_id"):
         assert [each[field] for each in frozen_pointers] == [p[field] for p in pointers], field
+    for field in ("query_kind", "checklist_item", "query_company_id"):
+        assert [each[field] for each in frozen_pointers] == [p[field] for p in pointers], field
+    assert {each["query_kind"] for each in frozen_pointers} == {"scout", "bear_checklist"}
+    # The Skeptic's passages a pointer chose are listed too, by checklist item (ticket 07).
+    skeptic_pointed = content["memory"]["skeptic_pointer_selections"]
+    assert update["id"] in {each["source_version_id"] for each in skeptic_pointed}
+    assert all(
+        any(tag == "pointer:second_sources" for tag in each["selected_by"])
+        for each in skeptic_pointed
+    )
     assert {each["section_anchor"] for each in frozen_pointers} >= {ITEM_1}
     # The Assertions with their spans: the finding's and the counterevidence's.
     by_predicate = {each["predicate"]: each for each in content["assertions"]}

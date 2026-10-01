@@ -11,11 +11,12 @@ Written by code, never the Editor, so a card with no finding still says, from th
   the budget left out, and
   the extraction's outcomes: Claims proposed, accepted, and rejected by reason code; or why
   it read nothing. Then (pilot fix 06) each round's Skeptic, the same way: the Source
-  Versions it read (each with who chose it: its plan, its search or code's fallback) and the
-  sections of the passages it was sent, whether its plan chose nothing for a seed company,
-  and its counterevidence items (of either kind) proposed, accepted and rejected by reason
-  code; or why it read nothing (skipped with no Claim to challenge, the budget spent,
-  nothing archived, no passage matching the checklist).
+  Versions it read (each with who chose it: its reading pointers, its search or code's
+  fallback; memory-directed reading ticket 07), the sections of the passages it was sent
+  and how each document's passages were selected (pointer, search, lead), whether Memory
+  pointed at nothing of a company the Claims name, and its counterevidence items (of either
+  kind) proposed, accepted and rejected by reason code; or why it read nothing (skipped with
+  no Claim to challenge, the budget spent, nothing archived).
 """
 
 import uuid
@@ -183,12 +184,16 @@ def _skeptic_read(connection: Connection, task: Row[Any]) -> CardReading:
     ]
     sections: dict[str, list[str]] = {}
     per_document: dict[str, int] = {}
+    selected: dict[str, dict[str, int]] = {}
     for passage in sent:
         key = str(passage["source_version_id"])
         per_document[key] = per_document.get(key, 0) + 1
         anchors = sections.setdefault(key, [])
         if passage["section_anchor"] not in anchors:
             anchors.append(passage["section_anchor"])
+        kinds = selected.setdefault(key, {})
+        for kind in selections(passage.get("selected_by") or []):
+            kinds[kind] = kinds.get(kind, 0) + 1
     chosen: list[dict[str, Any]] = search["documents"]
     titles = {
         row.id: row.title
@@ -215,6 +220,7 @@ def _skeptic_read(connection: Connection, task: Row[Any]) -> CardReading:
                     title=titles.get(uuid.UUID(str(each["source_version_id"])), ""),
                     sections=sections.get(str(each["source_version_id"]), []),
                     passages=per_document.get(str(each["source_version_id"]), 0),
+                    selections=selected.get(str(each["source_version_id"]), {}),
                     selected_by=each["selected_by"],
                 )
                 for each in chosen

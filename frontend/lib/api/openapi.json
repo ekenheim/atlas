@@ -7788,6 +7788,7 @@
               {
                 "type": "string",
                 "enum": [
+                  "pointer",
                   "plan",
                   "search",
                   "fallback"
@@ -13712,7 +13713,7 @@
           "available_at"
         ],
         "title": "InvestigationDocument",
-        "description": "A Source Version an Investigator task read (counted against `max_documents`)."
+        "description": "A Source Version an Investigator or Skeptic task read first (counted against\n`max_documents`)."
       },
       "InvestigationEvent": {
         "properties": {
@@ -17611,6 +17612,14 @@
             "type": "string",
             "title": "Task Key"
           },
+          "query_kind": {
+            "type": "string",
+            "enum": [
+              "scout",
+              "bear_checklist"
+            ],
+            "title": "Query Kind"
+          },
           "query_index": {
             "type": "integer",
             "title": "Query Index"
@@ -17618,6 +17627,40 @@
           "query": {
             "type": "string",
             "title": "Query"
+          },
+          "checklist_item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checklist Item"
+          },
+          "query_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Company Id"
+          },
+          "query_company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Company Name"
           },
           "rank": {
             "type": "integer",
@@ -17711,8 +17754,12 @@
           "id",
           "round",
           "task_key",
+          "query_kind",
           "query_index",
           "query",
+          "checklist_item",
+          "query_company_id",
+          "query_company_name",
           "rank",
           "memory_id",
           "memory_type",
@@ -17730,7 +17777,7 @@
           "created_at"
         ],
         "title": "ReadingPointer",
-        "description": "A recalled Memory resolved to a Source Version section, with the query that recalled\nit (CONTEXT.md, \"Reading pointer\"; atlas.investigations.pointers): where Memory says to\nread. `memory_text` is Memory as Hindsight returned it: an index entry, never Evidence,\nnever quoted."
+        "description": "A recalled Memory resolved to a Source Version section, with the query that recalled\nit (CONTEXT.md, \"Reading pointer\"; atlas.investigations.pointers): where Memory says to\nread. `memory_text` is Memory as Hindsight returned it: an index entry, never Evidence,\nnever quoted. The Scout's pointers (`query_kind` `scout`) direct the Investigators'\nreading; the Skeptic's (`bear_checklist`: one query per bear-checklist item for each\ncompany the accepted Claims name) direct its own."
       },
       "RecallRequest": {
         "properties": {

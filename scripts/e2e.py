@@ -568,11 +568,11 @@ def investigate(atlas: Atlas, fakes: Fakes, companies: dict[str, str], question:
         }
 
     def finding_nothing(body: dict[str, Any]) -> JsonValue:
-        # Its plan chooses nothing; code's fallback then chooses the seed companies' filings
-        # (pilot fix 06), and its reading of them finds no counterevidence.
-        if "catalog" in asked(body)["request"]:
-            return {"queries": [], "documents": []}
-        return {"counterevidence": []}
+        # Its plan writes no query; its reading of what Memory pointed to (or code's
+        # fallback chose) finds no counterevidence.
+        if "passages" in asked(body)["request"]:
+            return {"counterevidence": []}
+        return {"queries": []}
 
     fakes.llm.script_role("skeptic", *[ChatReply.answer(finding_nothing)] * 8)
     fakes.llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}))

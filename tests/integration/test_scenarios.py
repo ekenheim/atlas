@@ -209,11 +209,11 @@ def asked(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def finding_nothing(body: dict[str, Any]) -> JsonValue:
-    """The Skeptic finding nothing: its plan chooses no query and no document, and its reading
-    of what code's fallback then chose (pilot fix 06) proposes nothing."""
-    if "catalog" in asked(body)["request"]:
-        return {"queries": [], "documents": []}
-    return {"counterevidence": []}
+    """The Skeptic finding nothing: its plan writes no query, and its reading of what Memory
+    pointed to (or code's fallback chose) proposes nothing."""
+    if "passages" in asked(body)["request"]:
+        return {"counterevidence": []}
+    return {"queries": []}
 
 
 def quoting(atlas: Atlas) -> Callable[[dict[str, Any]], JsonValue]:
