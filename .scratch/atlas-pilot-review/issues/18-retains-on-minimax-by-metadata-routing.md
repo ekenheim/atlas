@@ -1,7 +1,7 @@
 # Atlas's retains extracted on MiniMax, by Hindsight's metadata routing
 
 Type: prototype
-Status: open
+Status: claimed
 Blocked by: none
 
 ## Question
@@ -22,3 +22,19 @@ Prototype it before any cluster change (the feature is in the docs, not in `docs
 4. Write the home-ops change for the shared Hindsight (the member, its credentials, the strategy) for the owner to review; it changes a server other banks use.
 
 The local run spends a little MiniMax quota and needs the owner's LiteLLM credentials on this machine. The answer records what was verified, the measurements and the decisions; the build work becomes tickets.
+
+## Comments
+
+**2026-10-01, the lead: prototyped; the owner agreed to metadata routing.** On a throwaway local Hindsight 0.10.2 (the cluster's version) with two LiteLLM models standing in for the members (primary MiniMax-M2.7, member 1 MiniMax-M3) and the strategy `{"mode":"metadata","routes":[{"key":"extractor","value":"minimax","member":1}]}` on the global chain:
+- An item with `extractor: minimax` was extracted by member 1; items without the key or with `extractor: other` by the primary. The bank's LLM request log names the model and, in `metadata.document_id`, the document.
+- Two items with different routes in one retain batch were each routed correctly.
+- With member 1 set to a model that doesn't exist, the routed item's extraction failed after four attempts and its retain operation ended `failed`; nothing fell back to the primary. The unrouted item of the same batch was extracted, and an unrouted batch completed.
+- The strategy is accepted at startup. About 12 to 21 seconds per small batch; six retain calls in all on MiniMax.
+
+Not verified: `openai-codex` as the primary of the chain (it can't run locally), and MiniMax's extraction against the Codex-extracted bank (the bake-off measured MiniMax alone: 16 of 17 expected facts).
+
+**Decided:** the metadata key is `extractor`, value `minimax`, sent on every Atlas retain item when `ATLAS_RETAIN_EXTRACTOR` is set; routed retains get their own operations budget and leave the `codex` budget to reflect, mental-model refresh and replay; Atlas records the extractor it asked for on the section's memory record. Built as ticket 11 of `.scratch/atlas-memory-directed-reading/`.
+
+**Cluster side:** home-ops PR #7180 (draft): the second chain member and the strategy on the shared Hindsight, reusing its existing LiteLLM key. Inert until Atlas sends the key. Open for the k8s team: whether that key may call MiniMax-M3.
+
+Resolved when PR #7180 is merged, ticket 11 is released, the setting is on in production and a retained section's request shows MiniMax-M3 in Hindsight's log.
