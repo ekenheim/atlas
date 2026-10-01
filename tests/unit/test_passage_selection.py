@@ -216,7 +216,14 @@ def lead(document: int, position: int) -> Candidate:
     return Candidate(document, "s", position * 10, position * 10 + 10, ("lead",), lead=position)
 
 
-def test_pointer_windows_come_first_by_rank_then_search_and_entity_by_score_then_leads() -> None:
+def both(document: int, rank: int, score: float, start: int = 0) -> Candidate:
+    """A window a pointer chose that the search matches too."""
+    return Candidate(
+        document, "s", start, start + 10, ("pointer:0", "search"), pointer=(rank, 0), score=score
+    )
+
+
+def test_pointer_windows_by_rank_and_search_windows_by_score_alternate_then_leads() -> None:
     offered = [
         lead(3, 0),
         searched(0, 2.5),
@@ -231,10 +238,10 @@ def test_pointer_windows_come_first_by_rank_then_search_and_entity_by_score_then
 
     assert dealt == [
         pointed(0, rank=1, query=0, start=30),  # rank 1, the question's
+        searched(1, 9.0, start=20),  # the best search window
         pointed(2, rank=1, query=3),  # rank 1, a later query's
-        pointed(1, rank=4),
-        searched(1, 9.0, start=20),
         searched(0, 2.5),
+        pointed(1, rank=4),
         Candidate(0, "s", 50, 60, ("entity:x",), score=0.0),  # an entity window matching no term
         lead(3, 0),
     ]
@@ -253,10 +260,72 @@ def test_ties_go_to_the_earlier_document_then_the_earlier_window() -> None:
 
     assert dealt == [
         pointed(0, rank=2, start=70),
-        pointed(1, rank=2, start=5),
         searched(0, 3.0, start=10),
+        pointed(1, rank=2, start=5),
         searched(0, 3.0, start=40),
     ]
+
+
+def test_pointer_windows_do_not_crowd_out_the_search_windows_of_a_document_memory_lacks() -> None:
+    # A retained 10-K with more pointer windows than the whole budget, and a transcript not
+    # yet retained: no memory, so no pointer; only the search reaches it.
+    retained = [pointed(0, rank=n + 1, start=n * 10) for n in range(12)]
+    transcript = [searched(1, 9.0 - n, start=n * 10) for n in range(6)]
+
+    dealt = deal([*retained, *transcript], floors=(), budget=8, ceiling=8)
+
+    # Half the budget each, taken in turn: the best four of either channel.
+    assert [each.document for each in dealt] == [0, 1, 0, 1, 0, 1, 0, 1]
+    assert [each for each in dealt if each.document == 0] == retained[:4]
+    assert [each for each in dealt if each.document == 1] == transcript[:4]
+
+
+def test_when_one_channel_runs_out_the_other_takes_the_rest() -> None:
+    retained = [pointed(0, rank=n + 1, start=n * 10) for n in range(12)]
+    transcript = [searched(1, 9.0 - n, start=n * 10) for n in range(2)]
+
+    few_search_windows = deal([*retained, *transcript], floors=(), budget=8, ceiling=8)
+    few_pointers = deal([*retained[:1], *transcript], floors=(), budget=8, ceiling=8)
+
+    assert [each.document for each in few_search_windows] == [0, 1, 0, 1, 0, 0, 0, 0]
+    assert few_pointers == [retained[0], *transcript]
+
+
+def test_a_window_both_channels_chose_is_taken_once() -> None:
+    offered = [
+        both(0, rank=1, score=9.0),  # the best pointer window is the best search window too
+        pointed(0, rank=2, start=10),
+        pointed(0, rank=3, start=20),
+        searched(1, 5.0),
+        searched(1, 4.0, start=10),
+    ]
+
+    dealt = deal(offered, floors=(), budget=4, ceiling=4)
+
+    assert dealt == [
+        both(0, rank=1, score=9.0),
+        searched(1, 5.0),  # the search's turn passes over the window already taken
+        pointed(0, rank=2, start=10),
+        searched(1, 4.0, start=10),
+    ]
+
+
+def test_the_ceiling_counts_a_document_s_pointer_and_search_windows_together() -> None:
+    ten_k = [
+        *(pointed(0, rank=n + 1, start=n * 10) for n in range(5)),
+        *(searched(0, 20.0 - n, start=100 + n * 10) for n in range(5)),
+    ]
+    release = [searched(1, 5.0 - n, start=n * 10) for n in range(3)]
+
+    under_the_ceiling = deal([*ten_k, *release], floors=(), budget=4, ceiling=2)
+    with_budget_left = deal([*ten_k, *release], floors=(), budget=6, ceiling=2)
+
+    # One pointer window and one search window of the 10-K, then it is at its ceiling.
+    assert under_the_ceiling == [ten_k[0], ten_k[5], release[0], release[1]]
+    # What is left goes on, in turn again: the next pointer window, the next search window.
+    assert [each.document for each in with_budget_left].count(0) == 4
+    assert {ten_k[1], ten_k[6]} <= set(with_budget_left)
+    assert release[2] not in with_budget_left
 
 
 def test_the_ceiling_stops_one_document_taking_more_than_its_share() -> None:
@@ -357,6 +426,46 @@ def test_which_documents_keep_a_passage(
     form_type: str | None, document_type: str | None, items: tuple[str, ...], kept: bool
 ) -> None:
     assert keeps_a_passage(form_type, document_type, items) is kept
+
+
+@pytest.mark.parametrize(
+    ("provider", "document_type", "kept"),
+    [
+        ("tradingview", "Call transcript", True),  # a results call
+        ("tradingview", "call transcript", True),
+        ("tradingview", "Event transcript", False),  # a conference
+        ("tradingview", None, False),
+        ("manual_import", "Call transcript", False),  # only the provider's own typing counts
+        (None, "Call transcript", False),
+    ],
+)
+def test_a_results_call_transcript_keeps_a_passage(
+    provider: str | None, document_type: str | None, kept: bool
+) -> None:
+    assert keeps_a_passage(None, document_type, (), provider=provider) is kept
+
+
+def test_a_call_transcript_with_a_candidate_is_read_and_a_conference_transcript_waits() -> None:
+    filing = note(*(paragraph(f"Laser capacity for lasers, part {n}.") for n in range(4)))
+    call = Document(
+        id=uuid.uuid4(),
+        text=paragraph("Our capacity is completely sold out."),
+        document_type="Call transcript",
+        provider="tradingview",
+    )
+    conference = Document(
+        id=uuid.uuid4(),
+        text=paragraph("Capacity came up at the conference."),
+        document_type="Event transcript",
+        provider="tradingview",
+    )
+
+    chosen = select([filing, call, conference], question="laser capacity", budget=2, ceiling=2)
+
+    # The call keeps its one passage beside the filing's better-matching windows; the
+    # conference transcript, with as weak a match, gets none.
+    assert [p.source_version_id for p in chosen.passages] == [filing.id, call.id]
+    assert chosen.dropped == 4
 
 
 def test_the_ceiling_is_a_share_of_the_budget_and_at_least_one_passage() -> None:

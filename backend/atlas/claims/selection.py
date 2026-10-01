@@ -1,5 +1,5 @@
 """Passage selection: which windows of its documents an extraction reads (memory-directed
-reading ticket 05; docs/decisions.md, "Passage selection: pointers and search, best first").
+reading ticket 05; docs/decisions.md, "Passage selection: pointers and search, alternately").
 
 Each document's parsed text is split into sections by the retention sectioner (so a section
 here is a memory document's section there) and each section into **windows** of at most
@@ -22,34 +22,50 @@ recording all of them in `selected_by`:
    in lead order (its results sections first: a 10-Q's or 10-K's MD&A, an 8-K's Items 2.02,
    7.01 and 8.01; then the rest in text order; the cover only when there is nothing else).
 
-**Best first** is one order over all the documents' candidates: pointer windows by their best
-pointer's rank in its recall (then the lower query index, the earlier document, the earlier
-window); then search and entity windows by score (then the earlier document and window); then
-lead windows by their position in their document's lead order (then the earlier document).
+**Two channels, each with its own order.** Recall and the term search are independent ways
+to a window: Memory finds retained facts however they are worded; the search covers every
+archived document, retained or not, by its exact words. So neither is ranked above the other:
+
+- the **pointer** candidates, by their best pointer's rank in its recall (then the lower
+  query index, the earlier document, the earlier window);
+- the **search and entity** candidates, by score (then the earlier document and window). A
+  pointer window that also matches the search or names a company is in both lists, and is
+  still one passage.
+
+Lead windows follow both, by their position in their document's lead order (then the earlier
+document).
 
 **Dealing** `budget` passages (`deal`):
 
 1. **The floor.** Each periodic report (the primary document of a 10-K, 10-Q, 20-F, 6-K or
-   40-F) and each results release (an 8-K listing Item 2.02: its primary document and its
-   EX-99.1 and EX-99.2) that has a candidate gets its best one (`keeps_a_passage`).
-2. **Under the ceiling.** The pointer, search and entity candidates, best first; a document
-   that already has `ceiling` passages is passed over (`ceiling`: a share of the budget, at
-   least one passage).
+   40-F), each results release (an 8-K listing Item 2.02: its primary document and its
+   EX-99.1 and EX-99.2) and each results-call transcript (provider `tradingview`, document
+   type "Call transcript"; not a conference's "Event transcript") that has a candidate gets
+   its best one: a pointer window, else its best search or entity window, else a lead window
+   (`keeps_a_passage`).
+2. **Alternately, under the ceiling.** One pointer candidate, then one search or entity
+   candidate, and so on, each list in its own order; a window already taken, or of a document
+   that already has `ceiling` passages, is passed over (`ceiling`: a share of the budget, at
+   least one passage). When one list runs out, the other goes on. So with more pointer
+   windows than the budget, about half of it still goes to the search's best windows, and a
+   document Memory doesn't hold yet (an unretained transcript) is read.
 3. **The budget is not stranded.** If passages are left (every document is at its ceiling or
-   out of such candidates), the candidates passed over are taken, best first.
-4. **Lead windows** last, the same way: under the ceiling, then the rest. So a document with
-   nothing but lead windows, and no floor, is read only when no other document has a pointer,
-   search or entity candidate unread.
+   out of such candidates), the candidates passed over are taken, alternately again.
+4. **Lead windows** last: under the ceiling, then the rest. So a document with nothing but
+   lead windows, and no floor, is read only when no other document has a pointer, search or
+   entity candidate unread.
 
-The passages are returned best first (the order above), so a run whose token budget ends
-part-way has sent the best ones. Not taken pointer, search and entity candidates are counted
-as dropped.
+The passages are returned in reading order: the pointer windows taken and the other search
+and entity windows taken, alternately, each in its order; then the lead windows. So a run
+whose token budget ends part-way has sent the best of both channels. Not taken pointer,
+search and entity candidates are counted as dropped.
 """
 
 import uuid
 from collections import Counter
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
+from itertools import zip_longest
 
 from atlas.claims.predicates import mentions
 from atlas.research.search import bm25, overlap, query_terms, tokens
@@ -66,6 +82,11 @@ SELECTIONS = (POINTER, SEARCH, ENTITY, LEAD)
 PERIODIC_FORMS = frozenset({"10-K", "10-Q", "20-F", "6-K", "40-F"})
 RESULTS_ITEM = "2.02"  # an 8-K's "Results of Operations and Financial Condition"
 RESULTS_EXHIBITS = frozenset({"EX-99.1", "EX-99.2"})
+# A results call's transcript keeps one passage too: the TradingView source's documents
+# (atlas.tradingview: `source_document.provider`) of this type (`document_type`, the catalog's
+# category title, compared without case). A conference's "Event transcript" has no floor.
+TRANSCRIPT_PROVIDER = "tradingview"
+RESULTS_CALL_TYPES = frozenset({"call transcript"})
 # The sections read first among a document's lead windows, by form: the results sections.
 _LEAD_FIRST: dict[str, tuple[str, ...]] = {
     "10-Q": ("part-i-item-2",),  # Management's Discussion and Analysis
@@ -98,7 +119,8 @@ class Reading:
 class Document:
     """A Source Version as selection reads it: its parsed text and what kind of document it
     is. `items` are its filing's 8-K Items ("2.02", "9.01"); `company_id` is its own company,
-    which never tags a window."""
+    which never tags a window; `provider` is its Source Document's (`tradingview` for a
+    transcript)."""
 
     id: uuid.UUID
     text: str
@@ -106,6 +128,7 @@ class Document:
     document_type: str | None = None
     items: Sequence[str] = ()
     company_id: uuid.UUID | None = None
+    provider: str | None = None
 
     @property
     def primary(self) -> bool:
@@ -126,6 +149,11 @@ class Candidate:
     pointer: tuple[int, int] | None = None
     score: float = 0.0
     lead: int | None = None
+
+    @property
+    def searched(self) -> bool:
+        """Whether the search or an entity tag chose it (a pointer may have too)."""
+        return any(tag == SEARCH or tag.startswith(f"{ENTITY}:") for tag in self.selected_by)
 
 
 @dataclass(frozen=True)
@@ -155,14 +183,16 @@ def select(
     ceiling: int,
 ) -> Selection:
     """The passages to read of `documents` (in the extraction's order; an investigation's are
-    newest first): their candidates dealt best first within `budget`, at most `ceiling` of one
-    document while others have candidates (module docstring). `entities` are the known
-    companies, (ID, names) each."""
+    newest first): their candidates dealt within `budget`, pointer windows and search windows
+    alternately, at most `ceiling` of one document while others have candidates (module
+    docstring). `entities` are the known companies, (ID, names) each."""
     found = candidates(documents, entities=entities, question=question, reading=reading)
     floors = {
         index
         for index, document in enumerate(documents)
-        if keeps_a_passage(document.form_type, document.document_type, document.items)
+        if keeps_a_passage(
+            document.form_type, document.document_type, document.items, provider=document.provider
+        )
     }
     dealt = deal(found, floors=floors, budget=budget, ceiling=ceiling)
     offered = sum(1 for each in found if each.lead is None)
@@ -190,10 +220,17 @@ def ceiling(budget: int, share: float) -> int:
 
 
 def keeps_a_passage(
-    form_type: str | None, document_type: str | None, items: Sequence[str] = ()
+    form_type: str | None,
+    document_type: str | None,
+    items: Sequence[str] = (),
+    *,
+    provider: str | None = None,
 ) -> bool:
     """Whether a document has the floor of one passage: a periodic report's primary document,
-    or a results release (an 8-K listing Item 2.02: the 8-K itself, its EX-99.1 and EX-99.2)."""
+    a results release (an 8-K listing Item 2.02: the 8-K itself, its EX-99.1 and EX-99.2), or
+    a results call's transcript (the `tradingview` provider's "Call transcript")."""
+    if provider == TRANSCRIPT_PROVIDER:
+        return (document_type or "").strip().lower() in RESULTS_CALL_TYPES
     form = (form_type or "").upper().removesuffix("/A")
     kind = (document_type or "").upper()
     primary = bool(kind) and kind.removesuffix("/A") == form
@@ -283,32 +320,60 @@ def candidates(
 def deal(
     candidates: Sequence[Candidate], *, floors: Collection[int], budget: int, ceiling: int
 ) -> list[Candidate]:
-    """At most `budget` of the candidates, best first (module docstring: dealing). `floors`
-    are the documents (by position) that keep one passage when they have a candidate."""
-    ordered = sorted(candidates, key=_order)
+    """At most `budget` of the candidates, in reading order (module docstring: dealing).
+    `floors` are the documents (by position) that keep one passage when they have a
+    candidate."""
+    offered = list(candidates)
+    # The two channels, each in its own order (a window both chose is in both), and the leads.
+    pointers = sorted(
+        (at for at, each in enumerate(offered) if each.pointer is not None),
+        key=lambda at: _pointer_order(offered[at]),
+    )
+    searches = sorted(
+        (at for at, each in enumerate(offered) if each.lead is None and each.searched),
+        key=lambda at: _search_order(offered[at]),
+    )
+    leads = sorted(
+        (at for at, each in enumerate(offered) if each.lead is not None),
+        key=lambda at: _lead_order(offered[at]),
+    )
     chosen: set[int] = set()
     per_document: Counter[int] = Counter()
 
-    def take(index: int) -> None:
-        chosen.add(index)
-        per_document[ordered[index].document] += 1
+    def take(at: int) -> None:
+        chosen.add(at)
+        per_document[offered[at].document] += 1
 
-    for index, each in enumerate(ordered):
+    def free(at: int, limit: int | None) -> bool:
+        """Not taken yet, and its document under `limit` passages (None: no limit)."""
+        return at not in chosen and (limit is None or per_document[offered[at].document] < limit)
+
+    # 1. The floor: a pointer window, else the best search or entity window, else a lead one.
+    for at in (*pointers, *searches, *leads):
         if len(chosen) >= budget:
             break
-        if each.document in floors and per_document[each.document] == 0:
-            take(index)
-    for leads in (False, True):
-        for limit in (ceiling, None):
-            for index, each in enumerate(ordered):
-                if len(chosen) >= budget:
+        if offered[at].document in floors and per_document[offered[at].document] == 0:
+            take(at)
+    # 2 and 3. Pointer and search windows in turn: under the ceiling, then what was passed over.
+    for limit in (ceiling, None):
+        turn = 0
+        while len(chosen) < budget:
+            for channel in (turn, 1 - turn):
+                found = next((at for at in (pointers, searches)[channel] if free(at, limit)), None)
+                if found is not None:
+                    take(found)
+                    turn = 1 - channel
                     break
-                if index in chosen or (each.lead is not None) != leads:
-                    continue
-                if limit is not None and per_document[each.document] >= limit:
-                    continue
-                take(index)
-    return [ordered[index] for index in sorted(chosen)]
+            else:
+                break  # neither channel has a candidate left under this limit
+    # 4. Lead windows last.
+    for limit in (ceiling, None):
+        for at in leads:
+            if len(chosen) >= budget:
+                break
+            if free(at, limit):
+                take(at)
+    return _reading_order([offered[at] for at in chosen])
 
 
 def selections(selected_by: Sequence[str]) -> list[str]:
@@ -344,15 +409,34 @@ def _best_window(
     return max(within, key=lambda at: (overlap(memory, words[at]), -at))
 
 
-def _order(candidate: Candidate) -> tuple[int, float, int, int, int]:
-    """Best first: pointer windows by rank, then search and entity windows by score, then
-    lead windows by their place in their document's lead order."""
-    if candidate.pointer is not None:
-        rank, query = candidate.pointer
-        return (0, rank, query, candidate.document, candidate.start)
-    if candidate.lead is None:
-        return (1, -candidate.score, 0, candidate.document, candidate.start)
-    return (2, candidate.lead, 0, candidate.document, candidate.start)
+def _pointer_order(candidate: Candidate) -> tuple[int, int, int, int]:
+    """Pointer windows: the best rank first, then the lower query index (the question's
+    before a Scout query's), the earlier document, the earlier window."""
+    rank, query = candidate.pointer or (0, 0)
+    return (rank, query, candidate.document, candidate.start)
+
+
+def _search_order(candidate: Candidate) -> tuple[float, int, int]:
+    """Search and entity windows: the highest score first, then the earlier document, the
+    earlier window."""
+    return (-candidate.score, candidate.document, candidate.start)
+
+
+def _lead_order(candidate: Candidate) -> tuple[int, int, int]:
+    """Lead windows: by their place in their document's lead order, the documents in turn."""
+    return (candidate.lead or 0, candidate.document, candidate.start)
+
+
+def _reading_order(taken: Sequence[Candidate]) -> list[Candidate]:
+    """The passages as sent: the pointer windows and the other search and entity windows
+    alternately, each in its own order, then the lead windows."""
+    pointed = sorted((each for each in taken if each.pointer is not None), key=_pointer_order)
+    others = sorted(
+        (each for each in taken if each.pointer is None and each.lead is None), key=_search_order
+    )
+    leads = sorted((each for each in taken if each.lead is not None), key=_lead_order)
+    mixed = [each for pair in zip_longest(pointed, others) for each in pair if each is not None]
+    return [*mixed, *leads]
 
 
 def _lead(index: int, document: Document, sections: Sequence[Section]) -> list[Candidate]:

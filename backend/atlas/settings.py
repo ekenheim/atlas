@@ -110,9 +110,9 @@ class Settings(BaseSettings):
     # The token ceiling is run_token_budget.
     investigation_max_leads: int = Field(default=10, ge=1, le=10)
     investigation_max_documents: int = Field(default=25, ge=1, le=25)
-    # Each Investigator task's passage budget (pilot fix 10), dealt best first over the
-    # documents it took (atlas.claims.selection); the standalone `extract_claims` job and the
-    # Skeptic use investigator_max_passages.
+    # Each Investigator task's passage budget (pilot fix 10), dealt over the documents it
+    # took, pointer and search windows in turn (atlas.claims.selection); the standalone
+    # `extract_claims` job and the Skeptic use investigator_max_passages.
     investigation_max_passages: int = Field(default=24, gt=0)
     # Retention: how long one poll job waits for a retain operation to reach a terminal
     # status (keep it below job_lease_seconds), and how often it asks. A poll that times out

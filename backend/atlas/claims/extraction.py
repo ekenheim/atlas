@@ -15,10 +15,11 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    the document's own); a document with no such window offers its **lead** windows instead
    (`lead`; its results sections first: a 10-Q's or 10-K's MD&A, an 8-K's Item 2.02). A
    window several selections choose is one passage recording them all. The `max_passages`
-   budget is dealt best first across the documents: pointer windows by rank, then search and
-   entity windows by score, then lead windows; each periodic report and results release with
-   a candidate keeps one passage, and one document takes at most `max_document_share` of the
-   budget while others have candidates. The extraction asks Memory nothing itself: no recall
+   budget is dealt across the documents by two channels in turn: one pointer window (by
+   rank), then one search or entity window (by score), and so on, then lead windows; each
+   periodic report, results release and results-call transcript with a candidate keeps one
+   passage, and one document takes at most `max_document_share` of the budget while others
+   have candidates. The extraction asks Memory nothing itself: no recall
    is made here. Pointer, search and entity candidates not sent are counted as dropped. The
    choice is stored with the extraction, so a resumed job sends the same passages; the job's
    artifacts count them per document (`passages_by_document`) and per kind of selection
@@ -194,6 +195,7 @@ class _Version:
     company_id: uuid.UUID | None
     parser_version: str | None = None
     items: tuple[str, ...] = ()  # its filing's 8-K Items ("2.02", "9.01"), when recorded
+    provider: str | None = None  # its Source Document's provider (`tradingview`: a transcript)
 
 
 @dataclass(frozen=True)
@@ -427,10 +429,11 @@ class ClaimExtractor:
         question: str | None,
         reading: Reading | None,
     ) -> tuple[list[Passage], int]:
-        """The passages, best first (atlas.claims.selection: pointer, search, entity and lead
-        windows of the documents, in the documents' order, dealt within the budget with a
-        floor for reports and results releases and a ceiling per document); and how many
-        pointer, search and entity candidates were not sent."""
+        """The passages, in reading order (atlas.claims.selection: pointer, search, entity and
+        lead windows of the documents, in the documents' order, dealt within the budget,
+        pointer and search windows alternately, with a floor for reports, results releases
+        and call transcripts and a ceiling per document); and how many pointer, search and
+        entity candidates were not sent."""
         chosen = select(
             [
                 Document(
@@ -440,6 +443,7 @@ class ClaimExtractor:
                     document_type=version.document_type,
                     items=version.items,
                     company_id=version.company_id,
+                    provider=version.provider,
                 )
                 for version in versions
             ],
@@ -892,7 +896,7 @@ class ClaimExtractor:
             rows = connection.execute(
                 text(
                     "SELECT v.id, d.title, d.form_type, d.document_type, d.company_id,"
-                    " v.metadata -> 'items' AS items"
+                    " d.provider, v.metadata -> 'items' AS items"
                     " FROM source_version v"
                     " JOIN source_document d ON d.id = v.source_document_id"
                     " WHERE v.id = ANY(:ids)"

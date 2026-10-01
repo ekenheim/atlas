@@ -25,11 +25,13 @@ One attempt:
      left of the document budget (an equal share is held back for each of the round's other
      Investigators that hasn't chosen yet, so unused share passes on in plan order); then an
      extraction (atlas.claims) of them in the run, within `investigation_max_passages`
-     passages chosen best first across those documents (atlas.claims.selection): the windows
-     the round's reading pointers lead to, then the windows a term search ranks highest for
-     the round's question and the Scout's queries and the entity-tagged ones, with a floor
-     for periodic reports and results releases and a ceiling per document. It makes no
-     recall of its own. A resumed task continues its budget-exhausted extraction.
+     passages chosen across those documents (atlas.claims.selection) by two channels in
+     turn: the windows the round's reading pointers lead to (by rank), and the windows a term
+     search ranks highest for the round's question and the Scout's queries with the
+     entity-tagged ones (by score), so a document Memory doesn't hold yet is still read;
+     with a floor for periodic reports, results releases and results-call transcripts and a
+     ceiling per document. It makes no recall of its own. A resumed task continues its
+     budget-exhausted extraction.
    - **Skeptic** (atlas.investigations.skeptic): skipped without an LLM call when the
      Investigators accepted no Claim (nothing to challenge); otherwise its own plan, SearXNG
      queries and reading of the Source Versions it chose (and, for a seed company its plan

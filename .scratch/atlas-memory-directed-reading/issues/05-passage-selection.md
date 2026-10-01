@@ -26,9 +26,10 @@ Spec: `.scratch/atlas-memory-directed-reading/spec.md` ("Passage selection", "Th
 
 ## Resolution
 
-Built as `atlas.claims.selection` (pure) over `atlas.research.search` (the baseline's tokenizer, passages and BM25, moved). Decision: `docs/decisions.md`, "Passage selection: pointers and search, best first"; log: `docs/implementation-log.md`, "memory-directed reading ticket 05".
+Built as `atlas.claims.selection` (pure) over `atlas.research.search` (the baseline's tokenizer, passages and BM25, moved). Decision: `docs/decisions.md`, "Passage selection: pointers and search, alternately"; log: `docs/implementation-log.md`, "memory-directed reading ticket 05" (with its amendment).
 
-- The order is the lead's: pointer windows by rank, then search and entity windows by BM25 score, then lead windows. The ceiling (`ATLAS_INVESTIGATOR_MAX_PASSAGE_SHARE_PER_DOCUMENT`, a third) yields when the budget would otherwise go unspent; lead windows of a document with no floor come after every other candidate.
+- The order, as amended by the lead: pointer windows (by rank) and search and entity windows (by BM25 score) are taken alternately, so a document Memory doesn't hold yet (an unretained transcript) is still read; lead windows last. First built with every pointer window before any search window. The ceiling (`ATLAS_INVESTIGATOR_MAX_PASSAGE_SHARE_PER_DOCUMENT`, a third) yields when the budget would otherwise go unspent; lead windows of a document with no floor come after every other candidate.
+- The floor of one passage covers periodic reports, results releases and, by the amendment, results-call transcripts (provider `tradingview`, document type "Call transcript"); conference transcripts have none.
 - The Investigator's own recall is removed, in investigations and in the standalone job.
 - The administrative 8-K of the acceptance test is a **hand-shaped stand-in** (a manual import with Items 5.02 and 9.01 in its text): the recorded Lumentum fixtures hold only the results 8-K, and adding a filing to them would change every test that ingests Lumentum. The rule that an 8-K without Item 2.02 has no floor is unit-tested on the form, document type and Items.
 - No migration: `selected_by` is JSON, and the Claim read computes `passage_selected_by` from the extraction.
