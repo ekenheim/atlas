@@ -34,11 +34,17 @@ Then the tasks, from `tasks[*].artifacts` and the card's `searched` and `read`:
 - **Financial Analyst:** `sourced` vs `missing` inputs; an all-`missing` table with "no XBRL figure" means the observations are absent, which is an ingest problem, not a prompt problem (`GET /companies/{id}/financials?as_of=`).
 - **Editor:** verdict, findings against their `claim_ids`, and whether the open questions name what the next round should read.
 
-## 3. Write it up
+## 3. Compare with the baseline
 
-Append to `.scratch/pilot/results.md` under the investigation's heading, in this order and with these labels, so runs compare: **ID / seeds / stop / usage** (tokens in and out, role calls, wall time); **Saved work** (correct, useful, cited findings, quoting the span); **Unsupported or wrong** (each bad Claim, its review state, why); **Missed evidence** (what the read documents contain that wasn't surfaced; what wasn't read and why); **Corrections needed** (the owner's review decisions, listed edge by edge; the owner makes them, not the agent); **Cost and latency**; **New defects** (one line each, pointing at its ticket); **Assessment** (precision as accepted-and-right over accepted; coverage as what was read over what was taken).
+Run `uv run python scripts/pilot_baseline.py` with the investigation's question, seed slugs, `--investigation <id>` and `--as-of <its created_at>` (read-only; no LLM call). Read its top 20 hits in order, mark each on-question or not, and stop at 10 on-question hits. A hit is **covered** when a finding or an accepted Claim states its fact, even from another sentence or filing.
 
-Then: one ticket per defect with the production IDs (investigation, discovery, extraction, role call) as evidence, `**Status:** ready-for-agent` when the fix is clear and `needs-triage` when it needs a decision; a one-paragraph `docs/implementation-log.md` entry pointing at the results section; commit and push `main`.
+Completion criterion: every hit up to the tenth on-question one has a mark, and every on-question hit the card doesn't cover is listed under Missed evidence.
+
+## 4. Write it up
+
+Append to `.scratch/pilot/results.md` under the investigation's heading, in this order and with these labels, so runs compare: **ID / seeds / stop / usage** (tokens in and out, role calls, wall time); **Saved work** (correct, useful, cited findings, quoting the span); **Unsupported or wrong** (each bad Claim, its review state, why); **Missed evidence** (what the read documents contain that wasn't surfaced; what wasn't read and why); **Baseline** (hits judged, on-question, covered; how many hits lie in a recalled section); **Corrections needed** (the owner's review decisions, listed edge by edge; the owner makes them, not the agent); **Cost and latency**; **New defects** (one line each, pointing at its ticket); **Assessment** (each measure of the verdict criteria, `.scratch/atlas-pilot-review/issues/02-pilot-verdict-criteria.md`, against its threshold, and whether the investigation meets the bar).
+
+Then: one ticket per defect with the production IDs (investigation, discovery, extraction, role call) as evidence, `**Status:** ready-for-agent` when the fix is clear and `needs-triage` when it needs a decision. Defects wait for the pilot's verdict unless one is a blocker (the map's focus rule, `.scratch/atlas-pilot-review/map.md`). Resolve the investigation's ticket on the map, add a one-paragraph `docs/implementation-log.md` entry pointing at the results section, then commit and push `main`.
 
 ## Owner decisions
 
