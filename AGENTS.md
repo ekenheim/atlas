@@ -2,6 +2,8 @@
 
 Evidence-driven investment research platform built around Hindsight. Start with `START_HERE.md`; the authoritative spec is `hindsight_investment_research_build_plan.md` (v1.1).
 
+**Current effort:** the pilot review. Orient at its map, `.scratch/atlas-pilot-review/map.md`, before choosing work: take the first open, unblocked ticket, and put new work in the map, not in a log entry's "Next" line.
+
 ## Commands
 
 - `scripts/ci.sh`: the one CI entrypoint (GitHub Actions runs exactly this). `--no-image` skips the image build.
