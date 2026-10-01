@@ -1414,7 +1414,6 @@ def test_a_claim_keeps_its_layer_only_when_the_quote_or_the_object_names_it(
 # Both sentences are in the recorded Lumentum FY2026 10-K: Item 1's allocation statement (read
 # in breadth investigation 5, proposed with object "our products" and rejected) and Item 1A's
 # risk factor, which says "could".
-LITE_10K = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
 ALLOCATION = (
     "This demand is outpacing our current supply which has required us to make decisions on"
     " supply allocation."
