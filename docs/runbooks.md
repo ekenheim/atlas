@@ -383,6 +383,18 @@ To check a version: `GET /api/v1/source-versions/{id}` lists `parses` (the recor
 
 What changes afterwards: new `extract_claims` runs (and investigations' Investigator tasks) read the re-parse, and their Claims and Assertions record `parser_version: text-v3`. Existing Assertions keep their `text-v2` spans; a better quote on the new parse is a new Assertion, and the owner may supersede the old one through the normal review. **Memory is not re-retained:** recall, reflect, triage and the Skeptic still read the recorded parse (retaining the re-parse is designed, not built). Nothing to undo: the migration's downgrade refuses once a re-parse exists, and the recorded parses were never touched.
 
+## Edges that differ only by layer (after deploying migration `0055`)
+
+From `0055` an edge is its subject, predicate and object, and has a layer only when its Evidence names one (docs/decisions.md, "A layer only when the quote supports one"). Edges recorded before it are not rewritten: each keeps its layer, and edges that are one edge by the new identity but were recorded in several layers (Coherent's InP capacity as `substrate`, `chip-laser` and `epi`, say) all stay. The migration only marks the newer ones of each such group (`legacy_layer_duplicate`), so that no further duplicate can be made.
+
+To see them, read-only:
+
+```
+GET /api/v1/relationships/layer-duplicates
+```
+
+Each group has its subject, predicate, object, the layers and the edges, oldest first, with their review state, reasons and Evidence counts. Nothing needs doing for Atlas to work: new Evidence joins the edge of its layer, else the oldest (and sends it to the exceptions queue with `layer_conflict` when it brings a layer the group doesn't have). To settle a group, reject the edges whose layer the quote doesn't support (`POST /api/v1/relationships/{id}/review` with `{"review_state": "rejected", "note": "..."}`; audited; an edge is never deleted and its layer never changed). `GET /api/v1/relationships?layer=none` lists the edges with no layer. The downgrade of `0055` refuses once a Claim or Relationship without a layer, or a review answered per check, exists.
+
 ## Universe rollout and quota budgets (ticket 27)
 
 The owner's ChatGPT/Codex subscription (spent by the shared Hindsight's retain, consolidation and mental models) and MiniMax subscription (spent by Atlas's roles through LiteLLM) each renew in rolling 5-hour windows. The queue rations both (`atlas.jobs.budget`; rules in `docs/decisions.md`, "Quota-window pacing"), so the ten companies not yet ingested come in **one company per window**, never in one bootstrap like the 2026-09 incident (1,397 operations, ~1.27M Codex tokens in minutes).

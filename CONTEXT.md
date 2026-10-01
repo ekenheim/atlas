@@ -65,11 +65,11 @@ The one-sentence claim at the head of a Hypothesis. It is a field of a Hypothesi
 _Avoid_: Thesis
 
 **Relationship**:
-A reviewed, typed, directed edge between companies (and optionally a product or theme), drawn from a fixed predicate whitelist and backed by Assertions. When the object is a product, material or technology, the edge runs from the company to that product node.
+A reviewed, typed, directed edge between companies (and optionally a product or theme), drawn from a fixed predicate whitelist and backed by Assertions. When the object is a product, material or technology, the edge runs from the company to that product node. It is identified by its subject, predicate and object, and carries a supply-chain layer only when its Evidence names one: an ownership stake or a company-level capacity statement has none.
 _Avoid_: Link, connection, edge (outside the UI)
 
 **Bottleneck Predicate**:
-One of four whitelisted predicates for a bottleneck fact a company states about itself and a product, with no other company named. Each is directed from the company to the product and needs an exact quote like any other, and the quote must name the particular input or product (generic "materials, components, equipment" is no bottleneck fact); its layer is that object's layer:
+One of four whitelisted predicates for a bottleneck fact a company states about itself and a product, with no other company named. Each is directed from the company to the product and needs an exact quote like any other, and the quote must name the particular input or product (generic "materials, components, equipment" is no bottleneck fact); its layer, when the quote names one, is that object's layer:
 - `capacity_constrained`: the company cannot fully meet demand for the product (demand exceeds its supply, it allocates, backlogs or is short of it). Growing demand alone is not a constraint, and neither is an expansion plan or an allocation of capital.
 - `sole_sources`: the company gets an input from one supplier or a limited number of suppliers, named or not. A named supplier is `depends_on` or `buys_from` instead.
 - `vertically_integrates`: the company makes an input for its own products instead of buying it (in-house, captive, "our own"). Making what it sells is `manufactures`.

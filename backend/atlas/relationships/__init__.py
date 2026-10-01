@@ -1,4 +1,5 @@
-"""Relationships: typed, directed, layer-tagged edges backed by Assertions, and their review.
+"""Relationships: typed, directed edges backed by Assertions (layer-tagged when their Evidence
+names a layer), and their review.
 
 `checks` holds the deterministic checks (verbatim span, Tier A, directional language) and
 how they combine with the Reviewer's answer; `review` runs the `review_relationships` job
@@ -11,12 +12,15 @@ from atlas.relationships.checks import (
     DeterministicChecks,
     DirectionalLanguage,
     ReviewerAnswer,
+    brings_layer,
     deterministic_checks,
     directional_language,
     review_outcome,
 )
 from atlas.relationships.handlers import register_relationship_handlers
 from atlas.relationships.reads import (
+    LayerDuplicates,
+    LayerFilter,
     MachineReview,
     Relationship,
     RelationshipDetail,
@@ -26,6 +30,7 @@ from atlas.relationships.reads import (
     SortOrder,
     get_relationship,
     get_relationship_detail,
+    layer_duplicates,
     list_relationships,
 )
 from atlas.relationships.review import (
@@ -49,6 +54,8 @@ __all__ = [
     "DeterministicChecks",
     "DirectionalLanguage",
     "InvalidTransition",
+    "LayerDuplicates",
+    "LayerFilter",
     "MachineReview",
     "OwnerReview",
     "Relationship",
@@ -64,10 +71,12 @@ __all__ = [
     "ReviewerAnswer",
     "SortKey",
     "SortOrder",
+    "brings_layer",
     "deterministic_checks",
     "directional_language",
     "get_relationship",
     "get_relationship_detail",
+    "layer_duplicates",
     "list_relationships",
     "register_relationship_handlers",
     "review_outcome",

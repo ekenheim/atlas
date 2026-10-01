@@ -193,21 +193,24 @@ def quoting(*claims: dict[str, JsonValue]) -> Callable[[dict[str, Any]], JsonVal
 
 
 def verdict(
-    verdict: str = "confirmed",
     direction: str = "as_proposed",
-    layer: str = "correct",
+    hedge: str = "none",
+    layer: str | None = None,
     suggested_layer: str | None = None,
 ) -> dict[str, JsonValue]:
+    """A Reviewer answer: one answer per check. `layer` None answers what the prompt asks for
+    the item: `correct` for an item with a layer, `not_proposed` for one without."""
     return {
-        "verdict": verdict,
         "direction": direction,
+        "hedge": hedge,
         "layer": layer,
         "suggested_layer": suggested_layer,
-        "reasoning": f"{verdict}; direction {direction}; layer {layer}",
+        "reasoning": f"direction {direction}; hedge {hedge}; layer {layer}",
     }
 
 
 CONFIRMED = verdict()
+HEDGED = verdict(hedge="hedged")
 
 
 def reviewing(
@@ -227,7 +230,10 @@ def reviewing(
         reviews: list[JsonValue] = []
         for item in items:
             quote = quotes[f"{item['item_id']}:quote"]
-            reviews.append({"item_id": item["item_id"], **(by_quote or {}).get(quote, CONFIRMED)})
+            answer = dict((by_quote or {}).get(quote, CONFIRMED))
+            if answer["layer"] is None:
+                answer["layer"] = "correct" if item["layer"] else "not_proposed"
+            reviews.append({"item_id": item["item_id"], **answer})
         return {"reviews": reviews}
 
     return respond
@@ -406,8 +412,10 @@ def test_gate_a_reviewer_establishes_a_directed_supplier_edge_and_opens_its_sour
     machine = evidence["review"]
     assert (machine["verbatim_span"], machine["tier_a"]) == (True, True)
     assert (machine["directional_language"], machine["directional_cue"]) == ("explicit", "supply")
-    assert (machine["reviewer_status"], machine["reviewer_verdict"]) == ("answered", "confirmed")
-    assert (machine["reviewer_direction"], machine["reviewer_layer"]) == ("as_proposed", "correct")
+    # One answer per check; no overall verdict from `reviewer.v4` on.
+    assert (machine["reviewer_status"], machine["reviewer_verdict"]) == ("answered", None)
+    assert (machine["reviewer_direction"], machine["reviewer_hedge"]) == ("as_proposed", "none")
+    assert (machine["reviewer_layer"], machine["supported_layer"]) == ("correct", "chip-laser")
     assert (machine["outcome"], machine["reasons"]) == ("machine_reviewed", [])
     assert machine["run_id"] == artifacts["run_id"]
 
@@ -463,7 +471,8 @@ def test_the_reviewer_is_sent_each_edge_with_its_quote_and_context_as_low_trust_
     )
     assert item["source"]["filer_company_id"] == company_id(atlas, "coherent")
     assert item["source"]["source_tier"] == "A"
-    assert "chip-laser" in [layer["name"] for layer in sent["request"]["layers"]]
+    layers = {layer["name"]: layer["terms"] for layer in sent["request"]["layers"]}
+    assert "laser" in layers["chip-laser"]  # the word that named this item's layer
     # The source's words go only in retrieved_data, quoted and low-trust.
     quoted = {q["id"]: q for q in sent["retrieved_data"]}
     assert quoted[f"{item['item_id']}:quote"]["text"] == SUPPLY_QUOTE
@@ -480,7 +489,7 @@ def test_the_reviewer_is_sent_each_edge_with_its_quote_and_context_as_low_trust_
 # --- the exceptions queue -------------------------------------------------------------------------
 
 
-def test_rejected_uncertain_misdirected_or_mislayered_proposals_go_to_the_exceptions_queue(
+def test_hedged_misdirected_or_mislayered_proposals_go_to_the_exceptions_queue(
     atlas: Atlas, llm: FakeLiteLLM
 ) -> None:
     extract(
@@ -489,15 +498,15 @@ def test_rejected_uncertain_misdirected_or_mislayered_proposals_go_to_the_except
         "cohr-10k",
         supply(atlas),
         investment(atlas),
-        supply(atlas, NVLINK_QUOTE, layer="module", product="optical transceivers"),
     )
+    qualified(atlas)
     llm.script_chat(
         ChatReply.answer(
             reviewing(
                 {
                     SUPPLY_QUOTE: verdict(layer="wrong", suggested_layer="module"),
-                    INVESTMENT_QUOTE: verdict("uncertain"),
-                    NVLINK_QUOTE: verdict("rejected", direction="not_stated"),
+                    INVESTMENT_QUOTE: HEDGED,
+                    QUALIFIED: verdict(direction="not_stated"),
                 },
                 expect=3,
             )
@@ -511,16 +520,24 @@ def test_rejected_uncertain_misdirected_or_mislayered_proposals_go_to_the_except
     assert relationships(atlas, review_state="machine_reviewed") == []
     queue = atlas.get("/api/v1/relationships/exceptions")
     assert queue["total"] == 3
+    # Each check is its own reason: a layer the Reviewer doesn't confirm is never recorded as
+    # an unconfirmed direction, and an edge takes no layer the Reviewer refused, nor one from
+    # a quote whose direction it didn't confirm.
     reasons = {(e["predicate"], e["layer"]): e["review_reasons"] for e in queue["items"]}
     assert reasons == {
-        ("supplies", "chip-laser"): ["layer_not_confirmed"],
-        ("owns", "system"): ["reviewer_uncertain"],
-        ("supplies", "module"): ["reviewer_rejected", "direction_not_confirmed"],
+        ("supplies", None): ["layer_not_confirmed"],
+        ("owns", None): ["reviewer_hedged"],
+        ("qualified_for", None): ["direction_not_confirmed"],
     }
     assert {e["review_state"] for e in queue["items"]} == {"needs_human_review"}
-    wrong_layer = next(e for e in queue["items"] if e["layer"] == "chip-laser")
+    wrong_layer = next(e for e in queue["items"] if e["predicate"] == "supplies")
     (evidence,) = atlas.get(f"/api/v1/relationships/{wrong_layer['id']}")["evidence"]
     assert evidence["review"]["reviewer_suggested_layer"] == "module"
+    assert (evidence["review"]["supported_layer"], evidence["review"]["reviewer_layer"]) == (
+        "chip-laser",
+        "wrong",
+    )
+    assert evidence["review"]["reviewer_direction"] == "as_proposed"
 
     # The owner settles exceptions either way; settled ones leave the queue.
     owns = next(e for e in queue["items"] if e["predicate"] == "owns")
@@ -530,7 +547,7 @@ def test_rejected_uncertain_misdirected_or_mislayered_proposals_go_to_the_except
         == 200
     )
     left = atlas.get("/api/v1/relationships/exceptions")["items"]
-    assert [(e["predicate"], e["layer"]) for e in left] == [("supplies", "module")]
+    assert [(e["predicate"], e["layer"]) for e in left] == [("qualified_for", None)]
     assert [a for _, a in audit_trail(atlas, "relationship")] == [
         "relationship.created",
         "relationship.created",
@@ -538,6 +555,243 @@ def test_rejected_uncertain_misdirected_or_mislayered_proposals_go_to_the_except
         "relationship.approved",
         "relationship.rejected",
     ]
+
+
+# --- a layer only when the quote supports one (memory-directed reading ticket 08) ---------------
+
+
+def test_a_right_edge_with_no_layer_is_machine_reviewed_with_a_null_layer(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    # NVIDIA `owns` the issuer, proposed with the question's layer: the quote names no layer.
+    extract(atlas, llm, "cohr-10k", investment(atlas) | {"layer": "chip-laser"})
+    (accepted,) = atlas.get("/api/v1/claims")["items"]
+    assert (accepted["layer"], accepted["layer_reason"]) == (None, "layer_unsupported")
+    assert accepted["proposed"]["layer"] == "chip-laser"
+    # The Reviewer confirms the direction and finds no hedge; of the layer it says "unclear",
+    # the answer that sent the pilot's right edges to the exceptions queue.
+    llm.script_chat(
+        ChatReply.answer(reviewing({INVESTMENT_QUOTE: verdict(layer="unclear")}, expect=1))
+    )
+
+    job = review(atlas, "sweep")
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert (job["artifacts"]["machine_reviewed"], job["artifacts"]["needs_human_review"]) == (1, 0)
+    (item,) = asked(llm.chat_requests()[-1])["request"]["items"]
+    assert (item["predicate"], item["layer"]) == ("owns", None)
+    (edge,) = relationships(atlas)
+    assert (edge["subject_name"], edge["predicate"], edge["object_name"]) == (
+        "NVIDIA",
+        "owns",
+        "Coherent",
+    )
+    assert (edge["layer"], edge["review_state"], edge["review_reasons"]) == (
+        None,
+        "machine_reviewed",
+        [],
+    )
+    (evidence,) = atlas.get(f"/api/v1/relationships/{edge['id']}")["evidence"]
+    machine = evidence["review"]
+    assert (machine["outcome"], machine["reasons"]) == ("machine_reviewed", [])
+    assert (machine["supported_layer"], machine["reviewer_layer"]) == (None, "unclear")
+    # It is in the edge table under "no layer", and on both companies' dossiers.
+    assert [e["id"] for e in relationships(atlas, layer="none")] == [edge["id"]]
+    assert relationships(atlas, layer="chip-laser") == []
+    nvidia = atlas.get(f"/api/v1/companies/{company_id(atlas, 'nvidia')}/dossier")
+    assert [(e["id"], e["layer"]) for e in nvidia["relationships_out"]] == [(edge["id"], None)]
+    coherent = atlas.get(f"/api/v1/companies/{company_id(atlas, 'coherent')}/dossier")
+    assert [e["id"] for e in coherent["relationships_in"]] == [edge["id"]]
+
+
+def test_evidence_with_another_supported_layer_is_a_layer_conflict_not_a_second_edge(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    extract(atlas, llm, "first", supply(atlas))
+    llm.script_chat(ChatReply.answer(reviewing(expect=1)))
+    review(atlas, "sweep-1")
+    (edge,) = relationships(atlas)
+    assert (edge["layer"], edge["review_state"]) == ("chip-laser", "machine_reviewed")
+
+    # A second Claim for the same subject, predicate and object, whose quote names a module.
+    extract(
+        atlas,
+        llm,
+        "second",
+        supply(atlas, NVLINK_QUOTE, layer="module", product="optical transceivers"),
+    )
+    llm.script_chat(ChatReply.answer(reviewing(expect=1)))
+    job = review(atlas, "sweep-2")
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert (job["artifacts"]["machine_reviewed"], job["artifacts"]["needs_human_review"]) == (0, 1)
+    assert job["artifacts"]["relationship_ids"] == [edge["id"]]
+    (conflicted,) = relationships(atlas)  # no second edge
+    assert conflicted["id"] == edge["id"]
+    assert (conflicted["layer"], conflicted["evidence_count"]) == ("chip-laser", 2)
+    assert (conflicted["review_state"], conflicted["review_reasons"]) == (
+        "needs_human_review",
+        ["layer_conflict"],
+    )
+    assert [e["id"] for e in atlas.get("/api/v1/relationships/exceptions")["items"]] == [edge["id"]]
+    first, second = atlas.get(f"/api/v1/relationships/{edge['id']}")["evidence"]
+    assert (first["review"]["outcome"], first["review"]["supported_layer"]) == (
+        "machine_reviewed",
+        "chip-laser",
+    )
+    assert (second["review"]["outcome"], second["review"]["reasons"]) == (
+        "needs_human_review",
+        ["layer_conflict"],
+    )
+    assert (second["review"]["supported_layer"], second["review"]["reviewer_layer"]) == (
+        "module",
+        "correct",
+    )
+
+    # A later passing witness of the edge's own layer doesn't settle the conflict: the owner
+    # does.
+    manual_assertion(
+        atlas,
+        ten_k(atlas),
+        SUPPLY_QUOTE,
+        subject="coherent",
+        predicate="supplies",
+        target="nvidia",
+        layer="chip-laser",
+    )
+    llm.script_chat(ChatReply.answer(reviewing(expect=1)))
+    review(atlas, "sweep-3")
+    (still,) = relationships(atlas)
+    assert (still["review_state"], still["evidence_count"]) == ("needs_human_review", 3)
+    approved = owner_review(atlas, edge["id"], "approved", "lasers; the module is NVLink")
+    assert approved.status_code == 200, approved.text
+    assert atlas.get("/api/v1/relationships/exceptions")["total"] == 0
+    assert [a for _, a in audit_trail(atlas, "relationship")] == [
+        "relationship.created",
+        "relationship.evidence_added",
+        "relationship.layer_conflict",
+        "relationship.evidence_added",
+        "relationship.approved",
+    ]
+    verified = atlas.cli("audit", "verify")
+    assert verified.returncode == 0, verified.stdout + verified.stderr
+
+
+def test_an_edge_with_no_layer_takes_the_layer_a_later_witness_names(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    # The Reviewer refuses the first witness's layer, so its edge starts with none.
+    extract(atlas, llm, "first", supply(atlas))
+    llm.script_chat(ChatReply.answer(reviewing({SUPPLY_QUOTE: verdict(layer="unclear")})))
+    review(atlas, "sweep-1")
+    (edge,) = relationships(atlas)
+    assert (edge["layer"], edge["review_state"], edge["review_reasons"]) == (
+        None,
+        "needs_human_review",
+        ["layer_not_confirmed"],
+    )
+
+    manual_assertion(
+        atlas,
+        ten_k(atlas),
+        SUPPLY_QUOTE,
+        subject="coherent",
+        predicate="supplies",
+        target="nvidia",
+        layer="chip-laser",
+    )
+    llm.script_chat(ChatReply.answer(reviewing(expect=1)))
+    review(atlas, "sweep-2")
+
+    (layered,) = relationships(atlas)
+    assert layered["id"] == edge["id"]
+    assert (layered["layer"], layered["review_state"]) == ("chip-laser", "machine_reviewed")
+    assert [a for _, a in audit_trail(atlas, "relationship")] == [
+        "relationship.created",
+        "relationship.evidence_added",
+        "relationship.layer_set",
+        "relationship.machine_reviewed",
+    ]
+    # Once set, an edge's layer is fixed (the identity trigger).
+    for statement in [
+        "UPDATE relationship SET layer = 'module' WHERE id = :id",
+        "UPDATE relationship SET layer = NULL WHERE id = :id",
+    ]:
+        with pytest.raises(DBAPIError), atlas.engine.begin() as connection:
+            connection.execute(text(statement), {"id": edge["id"]})
+
+
+def test_edges_that_differ_only_by_layer_are_left_as_they_are_and_reported(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    # Two edges recorded before the layer left the identity (migration 0055 marks all but the
+    # oldest of such a group): Coherent supplies NVIDIA at `chip-laser` and at `system`.
+    coherent, nvidia = company_id(atlas, "coherent"), company_id(atlas, "nvidia")
+    assert atlas.get("/api/v1/relationships/layer-duplicates") == []
+    legacy = {"chip-laser": str(uuid.uuid4()), "system": str(uuid.uuid4())}
+    with atlas.engine.begin() as connection:
+        for position, (layer, edge_id) in enumerate(legacy.items()):
+            connection.execute(
+                text(
+                    "INSERT INTO relationship (id, subject_company_id, predicate,"
+                    " object_company_id, object_key, layer, review_state, created_at,"
+                    " legacy_layer_duplicate) VALUES (:id, :subject, 'supplies', :object,"
+                    " :key, :layer, 'machine_reviewed', now() - make_interval(days => :age),"
+                    " :duplicate)"
+                ),
+                {
+                    "id": edge_id,
+                    "subject": coherent,
+                    "object": nvidia,
+                    "key": nvidia,
+                    "layer": layer,
+                    "age": 2 - position,
+                    "duplicate": position > 0,
+                },
+            )
+    # No new duplicate can be made, whatever its layer.
+    with pytest.raises(DBAPIError), atlas.engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO relationship (id, subject_company_id, predicate, object_company_id,"
+                " object_key, layer, review_state) VALUES (gen_random_uuid(), :subject,"
+                " 'supplies', :object, :key, 'module', 'machine_reviewed')"
+            ),
+            {"subject": coherent, "object": nvidia, "key": nvidia},
+        )
+
+    (group,) = atlas.get("/api/v1/relationships/layer-duplicates")
+
+    assert (group["subject_name"], group["predicate"], group["object_name"]) == (
+        "Coherent",
+        "supplies",
+        "NVIDIA",
+    )
+    assert group["layers"] == ["chip-laser", "system"]
+    assert [e["id"] for e in group["relationships"]] == list(legacy.values())
+
+    # New Evidence joins the edge of its layer; with a layer neither has, the oldest, in
+    # conflict. No third edge either way.
+    extract(
+        atlas,
+        llm,
+        "both",
+        supply(atlas),
+        supply(atlas, NVLINK_QUOTE, layer="module", product="optical transceivers"),
+    )
+    llm.script_chat(ChatReply.answer(reviewing(expect=2)))
+    job = review(atlas, "sweep")
+
+    assert job["status"] == "succeeded", job["failures"]
+    edges = {e["id"]: e for e in relationships(atlas)}
+    assert sorted(edges) == sorted(legacy.values())
+    oldest = edges[legacy["chip-laser"]]
+    assert (oldest["evidence_count"], oldest["review_state"], oldest["review_reasons"]) == (
+        2,
+        "needs_human_review",
+        ["layer_conflict"],
+    )
+    assert edges[legacy["system"]]["evidence_count"] == 0
 
 
 def test_tier_b_hedged_and_co_mention_evidence_is_checked_without_the_reviewer(
@@ -581,20 +835,26 @@ def test_tier_b_hedged_and_co_mention_evidence_is_checked_without_the_reviewer(
         target="nvidia",
         layer=None,
     )
-    # Only the Tier A, verbatim, explicit Assertion reaches the Reviewer.
-    llm.script_chat(ChatReply.answer(reviewing(expect=1)))
+    # Only the Tier A, verbatim, explicit Assertions reach the Reviewer: the extracted one
+    # and the researcher's with no layer (a layer is optional).
+    llm.script_chat(ChatReply.answer(reviewing(expect=2)))
 
     job = review(atlas, "sweep")
 
     assert job["status"] == "succeeded", job["failures"]
     artifacts = job["artifacts"]
-    assert (artifacts["considered"], artifacts["machine_reviewed"]) == (5, 1)
-    assert (artifacts["needs_human_review"], artifacts["not_eligible"]) == (2, 2)
+    assert (artifacts["considered"], artifacts["machine_reviewed"]) == (5, 2)
+    assert (artifacts["needs_human_review"], artifacts["not_eligible"]) == (2, 1)
     assert len(llm.chat_requests()) == 2
-    # The Tier B copy is a second piece of Evidence in the same family: one witness.
+    assert [item["layer"] for item in asked(llm.chat_requests()[-1])["request"]["items"]] == [
+        "chip-laser",
+        None,
+    ]
+    # The Tier B copy and the layerless Assertion are further Evidence of the one edge, in the
+    # same family: one witness. Neither brings another layer, so there is no conflict.
     (supplied,) = relationships(atlas, layer="chip-laser")
     assert supplied["review_state"] == "machine_reviewed"
-    assert (supplied["evidence_count"], supplied["family_count"]) == (2, 1)
+    assert (supplied["evidence_count"], supplied["family_count"]) == (3, 1)
     evidence = {
         e["assertion"]["id"]: e
         for e in atlas.get(f"/api/v1/relationships/{supplied['id']}")["evidence"]
@@ -606,17 +866,20 @@ def test_tier_b_hedged_and_co_mention_evidence_is_checked_without_the_reviewer(
     )
     assert evidence[copied]["review"]["reviewer_status"] == "skipped"
     assert len({e["evidence_family_id"] for e in evidence.values()}) == 1
-    # Hedged language is a Relationship for a human; co-mention and a missing layer are none.
+    assert evidence[no_layer]["review"]["outcome"] == "machine_reviewed"
+    assert evidence[no_layer]["review"]["supported_layer"] is None
+    # Hedged language is a Relationship for a human (with no layer: its quote names none);
+    # co-mention is none.
     (hedged_edge,) = relationships(atlas, review_state="needs_human_review")
     assert hedged_edge["object_company_id"] == company_id(atlas, "lumentum")
-    assert hedged_edge["review_reasons"] == ["hedged_language"]
+    assert (hedged_edge["layer"], hedged_edge["review_reasons"]) == (None, ["hedged_language"])
     (hedged_evidence,) = atlas.get(f"/api/v1/relationships/{hedged_edge['id']}")["evidence"]
     assert hedged_evidence["assertion"]["id"] == hedged
     assert hedged_evidence["review"]["hedge"] == "could"
     refused = {
         each["assertion_id"]: each["reason"] for each in artifacts["not_eligible_assertions"]
     }
-    assert refused == {co_mention: "no_directional_language", no_layer: "unknown_layer"}
+    assert refused == {co_mention: "no_directional_language"}
     assert len(relationships(atlas)) == 2
 
 
@@ -626,14 +889,10 @@ def test_tier_b_hedged_and_co_mention_evidence_is_checked_without_the_reviewer(
 def test_relationships_sort_and_filter_by_layer_review_state_and_company(
     atlas: Atlas, llm: FakeLiteLLM
 ) -> None:
-    extract(
-        atlas,
-        llm,
-        "cohr-10k",
-        supply(atlas),
-        investment(atlas),
-        supply(atlas, NVLINK_QUOTE, layer="module", product="optical transceivers"),
-    )
+    # Three edges: a laser supply (chip-laser), an ownership stake (no layer: the quote names
+    # none) and qualified transceivers (module; the Reviewer finds it hedged).
+    extract(atlas, llm, "cohr-10k", supply(atlas), investment(atlas))
+    qualified(atlas)
     copy = tier_b_copy(atlas)
     manual_assertion(
         atlas,
@@ -644,18 +903,19 @@ def test_relationships_sort_and_filter_by_layer_review_state_and_company(
         target="nvidia",
         layer="chip-laser",
     )
-    llm.script_chat(ChatReply.answer(reviewing({NVLINK_QUOTE: verdict("rejected")})))
+    llm.script_chat(ChatReply.answer(reviewing({QUALIFIED: HEDGED})))
     review(atlas, "sweep")
 
+    # Sorted by layer: edges with no layer, then upstream to downstream.
     assert [e["layer"] for e in relationships(atlas, sort="layer")] == [
+        None,
         "chip-laser",
         "module",
-        "system",
     ]
     assert [e["layer"] for e in relationships(atlas, sort="layer", order="desc")] == [
-        "system",
         "module",
         "chip-laser",
+        None,
     ]
     by_evidence = relationships(atlas, sort="evidence_count", order="desc")
     assert [e["evidence_count"] for e in by_evidence] == [2, 1, 1]
@@ -665,19 +925,21 @@ def test_relationships_sort_and_filter_by_layer_review_state_and_company(
         "Coherent",
         "NVIDIA",
     ]
-    assert [e["object_name"] for e in relationships(atlas, sort="object")] == [
+    assert [e["object_name"] or e["object_text"] for e in relationships(atlas, sort="object")] == [
+        "1.6T transceivers",
         "Coherent",
-        "NVIDIA",
         "NVIDIA",
     ]
     assert [e["layer"] for e in relationships(atlas, layer="module")] == ["module"]
+    # The layer filter's "none": the edges with no layer.
+    assert [e["predicate"] for e in relationships(atlas, layer="none")] == ["owns"]
     machine = relationships(atlas, review_state="machine_reviewed", sort="layer")
-    assert [e["layer"] for e in machine] == ["chip-laser", "system"]
+    assert [e["layer"] for e in machine] == [None, "chip-laser"]
     assert relationships(atlas, predicate="owns")[0]["subject_name"] == "NVIDIA"
-    assert len(relationships(atlas, company_id=company_id(atlas, "nvidia"))) == 3
+    assert len(relationships(atlas, company_id=company_id(atlas, "nvidia"))) == 2
     assert relationships(atlas, company_id=company_id(atlas, "lumentum")) == []
     page = atlas.get("/api/v1/relationships", limit=1, offset=1, sort="layer")
-    assert (page["total"], [e["layer"] for e in page["items"]]) == (3, ["module"])
+    assert (page["total"], [e["layer"] for e in page["items"]]) == (3, ["chip-laser"])
     for bad in [{"sort": "quote"}, {"layer": "optics"}, {"review_state": "unreviewed"}]:
         response = atlas.api.get("/api/v1/relationships", params=bad)
         assert response.status_code == 422, bad
@@ -722,7 +984,7 @@ def test_new_evidence_never_overrides_the_owner_but_lifts_an_exception(
     atlas: Atlas, llm: FakeLiteLLM
 ) -> None:
     extract(atlas, llm, "first", investment(atlas))
-    llm.script_chat(ChatReply.answer(reviewing({INVESTMENT_QUOTE: verdict("uncertain")})))
+    llm.script_chat(ChatReply.answer(reviewing({INVESTMENT_QUOTE: HEDGED})))
     review(atlas, "sweep-1")
     (owns,) = relationships(atlas)
     assert owns["review_state"] == "needs_human_review"
@@ -840,7 +1102,7 @@ def test_metrics_count_relationships_by_review_state(atlas: Atlas, llm: FakeLite
     for state in STATES:
         assert before[("atlas_relationships", frozenset({("review_state", state)}))] == 0
     extract(atlas, llm, "cohr-10k", supply(atlas), investment(atlas))
-    llm.script_chat(ChatReply.answer(reviewing({INVESTMENT_QUOTE: verdict("uncertain")})))
+    llm.script_chat(ChatReply.answer(reviewing({INVESTMENT_QUOTE: HEDGED})))
     review(atlas, "sweep")
     (supplied,) = relationships(atlas, predicate="supplies")
     owner_review(atlas, supplied["id"], "approved")
@@ -900,10 +1162,12 @@ SUPPLY_UPDATE = f"""<html><head><title>Coherent supply update</title></head><bod
 <p>We also supply 800G transceivers to NVIDIA.</p>
 </body></html>
 """
+# (predicate, object, the layer the quote supports, quote). Germanium is feedstock, which the
+# taxonomy has no layer for: proposed as `substrate`, it has none.
 BOTTLENECK_FACTS = [
     ("vertically_integrates", "indium phosphide substrates", "substrate", OWN_SUBSTRATES),
     ("capacity_constrained", "200G EML lasers", "chip-laser", DEMAND_EXCEEDED),
-    ("sole_sources", "germanium", "substrate", SINGLE_SUPPLIER),
+    ("sole_sources", "germanium", None, SINGLE_SUPPLIER),
     ("qualified_for", "1.6T transceivers", "module", QUALIFIED),
 ]
 
@@ -938,7 +1202,7 @@ def test_a_company_s_own_bottleneck_facts_become_assertions_and_edges_to_product
             subject_company_id=coherent,
             predicate=predicate,
             object_text=product,
-            layer=layer,
+            layer=layer or "substrate",
             quote=quote,
         )
         for predicate, product, layer, quote in BOTTLENECK_FACTS
@@ -974,7 +1238,7 @@ def test_a_company_s_own_bottleneck_facts_become_assertions_and_edges_to_product
         assert assertion["object_company_id"] is None
         assert assertion["value_json"]["object_text"] == product
         assert assertion["value_json"]["layer"] == layer
-        assert assertion["extractor_version"] == "investigator.v6"
+        assert assertion["extractor_version"] == "investigator.v7"
 
     llm.script_chat(ChatReply.answer(reviewing(expect=len(BOTTLENECK_FACTS))))
     reviewed = review(atlas, "sweep")
@@ -1002,8 +1266,17 @@ VCSEL = (
 )
 
 
-def product_assertion(atlas: Atlas, quote: str, predicate: str, object_text: str) -> str:
-    version_id = ten_k(atlas)
+def product_assertion(
+    atlas: Atlas,
+    quote: str,
+    predicate: str,
+    object_text: str,
+    *,
+    layer: str = "chip-laser",
+    version_id: str | None = None,
+) -> str:
+    """A researcher's Assertion about a product, on the 10-K or on `version_id`."""
+    version_id = version_id or ten_k(atlas)
     start = atlas.parsed(version_id).index(quote)
     response = atlas.api.post(
         "/api/v1/assertions",
@@ -1011,7 +1284,7 @@ def product_assertion(atlas: Atlas, quote: str, predicate: str, object_text: str
             "subject_company_id": company_id(atlas, "coherent"),
             "predicate": predicate,
             "object_company_id": None,
-            "value_json": {"layer": "chip-laser", "product": None, "object_text": object_text},
+            "value_json": {"layer": layer, "product": None, "object_text": object_text},
             "source_version_id": version_id,
             "quote": quote,
             "span_start": start,
@@ -1021,6 +1294,19 @@ def product_assertion(atlas: Atlas, quote: str, predicate: str, object_text: str
     )
     assert response.status_code == 201, response.text
     return response.json()["assertion"]["id"]
+
+
+def qualified(atlas: Atlas) -> str:
+    """A researcher's Assertion that Coherent is `qualified_for` 1.6T transceivers (a module
+    fact: the object names the layer), on the hand-written supply update."""
+    return product_assertion(
+        atlas,
+        QUALIFIED,
+        "qualified_for",
+        "1.6T transceivers",
+        layer="module",
+        version_id=supply_update(atlas),
+    )
 
 
 def test_a_cue_in_another_clause_than_the_object_forms_no_edge(

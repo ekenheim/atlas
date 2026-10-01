@@ -58,9 +58,19 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         # v4: a company object outside the known companies, by name (pilot-fixes 05);
         # v5: the layer from the quote's named object, no generic Claims, one clause (09);
         # v6: the filer's impersonal sentences and slide bullets, language of constraint,
-        # `owns` from the holder to the issuer (memory-directed reading ticket 02)
-        6,
+        # `owns` from the holder to the issuer (memory-directed reading ticket 02);
+        # v7: the layer may be left out, and when (memory-directed reading ticket 08)
+        7,
         (
+            "`layer` is one name from `request.layers`, or null",
+            "Give a layer only when the quote names it",
+            "Leave `layer` null when the quote names nothing of a particular layer, and still"
+            " propose the Claim",
+            "an ownership stake",
+            '"expanding our indium phosphide capacity in Sherman, Texas" is'
+            " `expands_capacity_for` with a null layer",
+            "a material several layers share names none of them",
+            "one of that layer's `terms` (listed in `request.layers`)",
             "**Impersonal sentences and slide bullets.**",
             "The non-exclusive agreement includes an NVIDIA multi-billion-dollar purchase"
             " commitment",

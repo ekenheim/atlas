@@ -3103,11 +3103,17 @@
                   "$ref": "#/components/schemas/Layer"
                 },
                 {
+                  "const": "none",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "a layer, or `none` for the edges that have no layer",
               "title": "Layer"
-            }
+            },
+            "description": "a layer, or `none` for the edges that have no layer"
           },
           {
             "name": "review_state",
@@ -3309,6 +3315,31 @@
               }
             },
             "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/relationships/layer-duplicates": {
+      "get": {
+        "tags": [
+          "relationships"
+        ],
+        "summary": "Duplicates",
+        "operationId": "duplicates_api_v1_relationships_layer_duplicates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LayerDuplicates"
+                  },
+                  "type": "array",
+                  "title": "Response Duplicates Api V1 Relationships Layer Duplicates Get"
+                }
+              }
+            }
           }
         }
       }
@@ -8569,8 +8600,38 @@
             "title": "Product"
           },
           "layer": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Layer"
+          },
+          "layer_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer Term"
+          },
+          "layer_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "layer_unsupported"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer Reason"
           },
           "quote": {
             "type": "string",
@@ -11070,7 +11131,14 @@
             "title": "Product"
           },
           "layer": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Layer"
           },
           "epistemic_type": {
@@ -14253,6 +14321,91 @@
           "system"
         ]
       },
+      "LayerDuplicates": {
+        "properties": {
+          "subject_company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Subject Company Id"
+          },
+          "subject_name": {
+            "type": "string",
+            "title": "Subject Name"
+          },
+          "predicate": {
+            "type": "string",
+            "title": "Predicate"
+          },
+          "object_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Company Id"
+          },
+          "object_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Name"
+          },
+          "object_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Text"
+          },
+          "layers": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Layer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Layers"
+          },
+          "relationships": {
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            },
+            "type": "array",
+            "title": "Relationships"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subject_company_id",
+          "subject_name",
+          "predicate",
+          "object_company_id",
+          "object_name",
+          "object_text",
+          "layers",
+          "relationships"
+        ],
+        "title": "LayerDuplicates",
+        "description": "Edges recorded before migration 0055 that are one edge by today's identity (subject,\npredicate, object) and differ only by layer. The first is the one new Evidence joins\nunless it brings another of the group's layers."
+      },
       "Lead": {
         "properties": {
           "id": {
@@ -14631,6 +14784,21 @@
             ],
             "title": "Reviewer Direction"
           },
+          "reviewer_hedge": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "hedged"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Hedge"
+          },
           "reviewer_layer": {
             "anyOf": [
               {
@@ -14638,7 +14806,8 @@
                 "enum": [
                   "correct",
                   "wrong",
-                  "unclear"
+                  "unclear",
+                  "not_proposed"
                 ]
               },
               {
@@ -14657,6 +14826,17 @@
               }
             ],
             "title": "Reviewer Suggested Layer"
+          },
+          "supported_layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supported Layer"
           },
           "reviewer_reasoning": {
             "anyOf": [
@@ -14738,8 +14918,10 @@
           "reviewer_status",
           "reviewer_verdict",
           "reviewer_direction",
+          "reviewer_hedge",
           "reviewer_layer",
           "reviewer_suggested_layer",
+          "supported_layer",
           "reviewer_reasoning",
           "outcome",
           "reasons",
@@ -17820,7 +18002,14 @@
             "title": "Object Text"
           },
           "layer": {
-            "$ref": "#/components/schemas/Layer"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Layer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "products": {
             "items": {
@@ -17977,7 +18166,14 @@
             "title": "Object Text"
           },
           "layer": {
-            "$ref": "#/components/schemas/Layer"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Layer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "products": {
             "items": {
@@ -22003,7 +22199,7 @@
             },
             "type": "array",
             "title": "Relationships",
-            "description": "edges between the theme's companies (or to a product, or between one of them and a counterparty), by layer"
+            "description": "edges between the theme's companies (or to a product, or between one of them and a counterparty): those with no layer first (they belong under their companies, not under a layer), then by layer"
           },
           "counterparties": {
             "items": {

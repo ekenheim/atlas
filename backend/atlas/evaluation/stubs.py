@@ -262,7 +262,7 @@ def _investigator(
                 "object_name": None,
                 "object_text": claim.get("object_text"),
                 "product": claim.get("product"),
-                "layer": claim["layer"],
+                "layer": claim.get("layer"),  # optional: a Claim may name no layer
                 "quote": claim["quote"],
                 "quote_start": start,
                 "quote_end": start + len(claim["quote"]),
@@ -275,6 +275,12 @@ def _investigator(
 def _reviewer(
     context: ScriptContext, reply: dict[str, Any], sent: dict[str, Any]
 ) -> dict[str, Any]:
+    """The Reviewer's answer for each item sent, from the case's scripted reviews. A scripted
+    review is written in the case's terms: `direction`, `layer_verdict`, and either `hedge`
+    (`none`/`hedged`) or the overall `verdict` the gold cases were written with before the
+    Reviewer answered each check on its own (`reviewer.v4`): `uncertain` is a hedge, and
+    `rejected` with the direction as proposed means the quote doesn't state the relation
+    (`not_stated`). An item with no layer is answered `not_proposed`, as the prompt asks."""
     reviews: list[Any] = []
     for item in sent["request"]["items"]:
         subject = context.entity_key(item["subject"]["company_id"])
@@ -291,13 +297,18 @@ def _reviewer(
         entry = matching[0] if matching else reply.get("otherwise")
         if entry is None:
             continue  # left out: the item gets no answer
+        verdict = entry.get("verdict")
+        direction = entry["direction"]
+        if verdict == "rejected" and direction == "as_proposed":
+            direction = "not_stated"
+        layer = entry["layer_verdict"] if item["layer"] is not None else "not_proposed"
         reviews.append(
             {
                 "item_id": item["item_id"],
-                "verdict": entry["verdict"],
-                "direction": entry["direction"],
-                "layer": entry["layer_verdict"],
-                "suggested_layer": entry.get("suggested_layer"),
+                "direction": direction,
+                "hedge": entry.get("hedge", "hedged" if verdict == "uncertain" else "none"),
+                "layer": layer,
+                "suggested_layer": entry.get("suggested_layer") if layer == "wrong" else None,
                 "reasoning": entry.get("reasoning", "scripted"),
             }
         )

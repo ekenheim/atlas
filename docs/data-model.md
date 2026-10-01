@@ -425,7 +425,10 @@ The Investigator's Claims (`atlas.claims`; ticket 10). `GET /api/v1/claims` and 
 | `proposed` | jsonb not null | The Claim exactly as the model answered |
 | `passage_id` | text not null | |
 | `source_version_id`, `subject_company_id`, `object_company_id` | uuid null FKs | As resolved; null when the Claim named an unknown passage or company. A company object given by name (`proposed.object_name`) resolves to a company Atlas has, or to the counterparty the accepted Claim created; null when the name didn't resolve or the Claim was rejected before a new counterparty existed |
-| `predicate`, `layer` | text not null | As proposed (a rejected one may be off the whitelist) |
+| `predicate` | text not null | As proposed (a rejected one may be off the whitelist) |
+| `layer` | text null | Nullable from 0055. An accepted Claim's is the proposed layer, kept only when a taxonomy term of it occurs in the object text or the quote (`atlas.claims.layer_term`); else null. A rejected Claim's is the layer as proposed (null when none was). The proposal is always in `proposed` |
+| `layer_term` | text null | 0055. The words of the object text or the quote that support an accepted Claim's layer; null when it has none, for rejected Claims and for Claims before 0055 |
+| `layer_reason` | text null | 0055. `layer_unsupported`: the accepted Claim proposed a layer that neither its quote nor its object names, so it has none. Null otherwise |
 | `object_text`, `product` | text null | |
 | `quote` | text not null | An accepted Claim's is the archived text at the span (equal to its Assertion's quote); the model's spelling stays in `proposed`. A rejected Claim's is the quote as proposed |
 | `span_start`, `span_end` | int null | Absolute offsets in the parsed text: passage start + the proposed offsets, or + the located ones (`offset_source`) |
@@ -521,9 +524,9 @@ Candidates (`atlas.candidates`, spec §8.3): companies outside the universe that
 
 ### 3.1e `relationship`, `relationship_assertion`, `relationship_review` and `relationship_review_job` (Phases 3–6a, migration 0021)
 
-Relationships (`atlas.relationships`; ticket 12): build plan §5.5's typed, directed, layer-tagged edges, backed by Assertions and machine-reviewed by the `review_relationships` job. `GET /api/v1/relationships[/{id}]`, `GET /api/v1/relationships/exceptions` and `POST /api/v1/relationships/{id}/review` read and review them.
+Relationships (`atlas.relationships`; ticket 12): build plan §5.5's typed, directed edges (layer-tagged when their Evidence names a layer; migration 0055), backed by Assertions and machine-reviewed by the `review_relationships` job. `GET /api/v1/relationships[/{id}]`, `GET /api/v1/relationships/exceptions`, `GET /api/v1/relationships/layer-duplicates` and `POST /api/v1/relationships/{id}/review` read and review them.
 
-`relationship`: one per edge. Only the review columns ever change (a trigger refuses identity changes, DELETE and TRUNCATE).
+`relationship`: one per edge. Only the review columns ever change, and the layer once, from null to a layer (a trigger refuses identity changes, any other layer change, DELETE and TRUNCATE).
 
 | Column | Type | Notes |
 |---|---|---|
@@ -533,12 +536,13 @@ Relationships (`atlas.relationships`; ticket 12): build plan §5.5's typed, dire
 | `object_company_id` | uuid FK → `company` | A company object (`supplies`, `buys_from`, `owns`, `competes_with`, `depends_on`) |
 | `object_text` | text | A product/material/technology object (the other four); exactly one of the two is set |
 | `object_key` | text not null | The company ID, or `object_text` casefolded with whitespace collapsed |
-| `layer` | text not null | The layer taxonomy (check constraint) |
+| `layer` | text null | The layer taxonomy (check constraint). Nullable from 0055: an edge has a layer only when Evidence of it names one. Not part of the identity; set at creation or once later, from null (`relationship.layer_set`), never changed after |
+| `legacy_layer_duplicate` | bool not null | 0055. True for an edge recorded before 0055 that shares its subject, predicate and object with an older edge and differs only by layer (the migration marks all but the oldest of each such group). Never set afterwards; such edges are left as they are and listed by `GET /api/v1/relationships/layer-duplicates` |
 | `review_state` | text not null | `machine_reviewed`, `needs_human_review` (the exceptions queue), `approved`, `rejected` |
 | `reviewed_by`, `reviewed_at`, `review_note` | | The owner's decision; set exactly when `approved` or `rejected` |
 | `created_at`, `updated_at` | timestamptz | |
 
-Unique `(subject_company_id, predicate, object_key, layer)`: the edge's identity. `competes_with` is stored in the direction proposed. §5.5's `product_id`, `theme_id`, `event_start/end` and `effective_status` aren't modelled yet; the edge's products are read from its Assertions' `value_json.product`.
+Unique `(subject_company_id, predicate, object_key)` among the edges that are not `legacy_layer_duplicate` (index `uq_relationship_identity`, 0055; before it the layer was part of the identity): the edge's identity. Evidence that brings another layer than the edge has joins it with the review reason `layer_conflict` instead of making a second edge. `competes_with` is stored in the direction proposed. §5.5's `product_id`, `theme_id`, `event_start/end` and `effective_status` aren't modelled yet; the edge's products are read from its Assertions' `value_json.product`.
 
 `relationship_assertion` (insert-only): `assertion_id` (PK, FK → `assertion`: an Assertion supports at most one edge), `relationship_id`, `added_at`. §5.5's `supporting_assertion_ids[]`.
 
@@ -553,7 +557,9 @@ Unique `(subject_company_id, predicate, object_key, layer)`: the edge's identity
 | `verbatim_span`, `tier_a` | bool | The deterministic checks (null when not eligible) |
 | `directional_language`, `directional_cue`, `hedge` | text | `explicit`, `hedged` or `absent`, with the cue and the first hedge |
 | `reviewer_status` | text not null | `answered`, `skipped` (not asked), `quarantined`, `no_answer` |
-| `reviewer_verdict`, `reviewer_direction`, `reviewer_layer`, `reviewer_suggested_layer`, `reviewer_reasoning` | text | The Reviewer's answer (set exactly when `answered`) |
+| `reviewer_direction`, `reviewer_hedge`, `reviewer_layer`, `reviewer_suggested_layer`, `reviewer_reasoning` | text | The Reviewer's answer, one per check (a direction and a layer answer are set exactly when `answered`). `reviewer_hedge` (`none`, `hedged`) is from 0055 (`reviewer.v4`); `reviewer_layer` is `correct`, `wrong`, `unclear` or, from 0055, `not_proposed` (the Assertion had no layer) |
+| `reviewer_verdict` | text null | The overall verdict of reviews under `reviewer.v3` and earlier (`confirmed`, `rejected`, `uncertain`); null from `reviewer.v4` on |
+| `supported_layer` | text null | 0055. The layer the Assertion's quote or object text supports (null: none), whether or not it brings it to the edge |
 | `outcome` | text not null | `machine_reviewed` (no reasons), `needs_human_review`, `not_eligible` |
 | `reasons` | text[] not null | Reason codes (`atlas/relationships/checks.py` and `review.py` list them) |
 | `created_at` | timestamptz | |

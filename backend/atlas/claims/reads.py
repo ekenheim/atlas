@@ -11,6 +11,7 @@ ClaimOutcome = Literal["accepted", "rejected"]
 ExtractionStatus = Literal["running", "completed", "budget_exhausted"]
 OffsetSource = Literal["model", "located", "folded"]
 PartyBasis = Literal["named", "filer"]
+LayerReason = Literal["layer_unsupported"]
 
 
 class Passage(BaseModel):
@@ -57,7 +58,16 @@ class Claim(BaseModel):
     object_company_id: uuid.UUID | None
     object_text: str | None
     product: str | None
-    layer: str
+    # An accepted Claim's layer: the proposed one, kept only when a taxonomy term of it
+    # (`layer_term`) occurs in the object text or the quote; else null. A rejected Claim's is
+    # the layer as proposed (null when none was). The proposal is always in `proposed`.
+    layer: str | None
+    # The words of the object text or the quote that support an accepted Claim's layer. Null
+    # when it has none, for a rejected Claim, and for Claims recorded before migration 0055.
+    layer_term: str | None = None
+    # `layer_unsupported`: the accepted Claim proposed a layer that neither its quote nor its
+    # object names, so it has none. Null otherwise.
+    layer_reason: LayerReason | None = None
     # The archived text at the span once the quote was placed and the Claim accepted (the
     # model's spelling, which the typographic fold may have bridged, stays in `proposed`);
     # the quote as proposed otherwise.

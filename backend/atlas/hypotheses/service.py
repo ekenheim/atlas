@@ -183,8 +183,8 @@ def requires_reviewed_assertions(
     connection: Connection, _hypothesis: RowMapping, version: HypothesisVersion
 ) -> GateFailure | None:
     """Every Assertion the version depends on has been machine-reviewed: until then it may
-    still form a Relationship the owner hasn't seen. One reviewed `not_eligible` (no layer,
-    co-mention) supports no edge and holds nothing."""
+    still form a Relationship the owner hasn't seen. One reviewed `not_eligible` (co-mention,
+    a cue in another clause) supports no edge and holds nothing."""
     pending = tuple(
         row["assertion_id"]
         for row in _dependencies(connection, version)

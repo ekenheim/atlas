@@ -2,10 +2,15 @@
 
 - `GET /relationships?layer=&review_state=&predicate=&company_id=&sort=&order=`: the edge
   table (subject, predicate, object, layer, review state, Evidence and family counts),
-  sorted by `sort` (`subject`, `predicate`, `object`, `layer` (upstream to downstream),
-  `review_state`, `evidence_count`, `family_count`, `created_at` (default), `updated_at`)
+  sorted by `sort` (`subject`, `predicate`, `object`, `layer` (edges with no layer, then
+  upstream to downstream), `review_state`, `evidence_count`, `family_count`, `created_at`
+  (default), `updated_at`). `layer` is a layer, or `none` for the edges that have no layer
 - `GET /relationships/exceptions`: the exceptions queue: edges `needs_human_review`, oldest
   first, each with the reasons its machine reviews didn't pass
+- `GET /relationships/layer-duplicates`: a read-only report for the owner: the edges
+  recorded before the layer left an edge's identity (migration 0055) that share a subject,
+  predicate and object and differ only by layer, grouped, oldest first. They are left as they
+  are; no new one can be made
 - `GET /relationships/{id}`: one edge with its Evidence: each supporting Assertion (its
   Source Version and exact span, to open in the source viewer), its source's tier and
   Evidence Family, and its machine review
@@ -33,9 +38,10 @@ from atlas.api.common import (
     pagination,
 )
 from atlas.audit import Actor
-from atlas.companies import Layer
 from atlas.relationships import (
     InvalidTransition,
+    LayerDuplicates,
+    LayerFilter,
     OwnerReview,
     Relationship,
     RelationshipDetail,
@@ -47,6 +53,7 @@ from atlas.relationships import (
     SortKey,
     SortOrder,
     get_relationship_detail,
+    layer_duplicates,
     list_relationships,
 )
 
@@ -60,7 +67,10 @@ def relationships_router(engine: Engine, actor: Actor) -> APIRouter:
     @router.get("", response_model=Page[Relationship], responses=INVALID)
     def relationships(  # pyright: ignore[reportUnusedFunction]
         page: Paged,
-        layer: Layer | None = None,
+        layer: Annotated[
+            LayerFilter | None,
+            Query(description="a layer, or `none` for the edges that have no layer"),
+        ] = None,
         review_state: RelationshipState | None = None,
         predicate: str | None = None,
         company_id: Annotated[
@@ -93,6 +103,11 @@ def relationships_router(engine: Engine, actor: Actor) -> APIRouter:
                 offset=page.offset,
             )
         return Page(items=items, total=total, limit=page.limit, offset=page.offset)
+
+    @router.get("/layer-duplicates", response_model=list[LayerDuplicates])
+    def duplicates() -> list[LayerDuplicates]:  # pyright: ignore[reportUnusedFunction]
+        with engine.connect() as connection:
+            return layer_duplicates(connection)
 
     @router.get(
         "/{relationship_id}",

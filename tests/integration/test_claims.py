@@ -298,7 +298,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
         )
         assert assertion["source_version_id"] == version_id
         assert assertion["review_state"] == "unreviewed"
-        assert assertion["extractor_version"] == "investigator.v6"
+        assert assertion["extractor_version"] == "investigator.v7"
         assert assertion["created_by"] == "atlas-investigator"
         assert assertion["value_json"]["claim_id"] == accepted["id"]
     supplied = atlas.get(f"/api/v1/assertions/{supplies['assertion_id']}")
@@ -308,6 +308,12 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
     assert supplied["value_json"]["layer"] == "chip-laser"
     assert supplied["value_json"]["product"] == "advanced lasers"
     assert supplies["directional_cue"] == "supply"
+    # The layer is kept for the words that name it ("advanced lasers").
+    assert (supplies["layer"], supplies["layer_term"], supplies["layer_reason"]) == (
+        "chip-laser",
+        "lasers",
+        None,
+    )
     owned = atlas.get(f"/api/v1/assertions/{owns['assertion_id']}")
     assert (owned["subject_company_id"], owned["predicate"]) == (nvidia, "owns")
     assert owned["object_company_id"] == coherent
@@ -1241,3 +1247,117 @@ def test_an_expansion_is_no_constraint_and_owns_runs_from_the_holder_to_the_issu
     assert "holder" in issuer["reason"]
     assert "NVIDIA" in issuer["reason"]
     assert atlas.get("/api/v1/claims", reason_code="wrong_direction")["total"] == 1
+
+
+# --- a layer only when the quote supports one (memory-directed reading ticket 08) ---------------
+
+# The Coherent FY2026 10-K's sentence (in the recorded fixture) that pilot investigation 1 on
+# 0.2.5 tagged `substrate`, with ISSUANCE (hand-shaped, above) and SPECIFIC in a hand-written
+# Coherent document; ISSUANCE names NVIDIA, so the Investigator is sent it (an entity tag).
+SHERMAN = (
+    "We are investing in manufacturing capacity for the Datacenter and Communications markets,"
+    " including expanding our indium phosphide capacity in Sherman, Texas, to address our"
+    " increased customer demand and industry-wide shortage."
+)
+LAYER_DOCUMENT = f"""<html><head><title>Coherent capacity and capital</title></head><body>
+<h1>Coherent: capacity and capital</h1>
+<p>{ISSUANCE}</p>
+<p>{SHERMAN}</p>
+<p>{SPECIFIC}</p>
+</body></html>
+"""
+
+
+def test_a_claim_keeps_its_layer_only_when_the_quote_or_the_object_names_it(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent, nvidia = company_id(atlas, "coherent"), company_id(atlas, "nvidia")
+    version_id = import_document(atlas, "coherent", "capacity-and-capital", LAYER_DOCUMENT)
+    assert SHERMAN in atlas.parsed(ten_k(atlas))  # the recorded filing's own sentence
+
+    def expands(object_text: str, layer: str | None) -> dict[str, JsonValue]:
+        return claim(
+            subject_company_id=coherent,
+            predicate="expands_capacity_for",
+            object_text=object_text,
+            layer=layer,
+            quote=SHERMAN,
+        )
+
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                # The question's layer on an ownership stake: the quote names no layer.
+                claim(
+                    subject_company_id=nvidia,
+                    predicate="owns",
+                    object_company_id=coherent,
+                    layer="chip-laser",
+                    quote=ISSUANCE,
+                    epistemic_type="direct_source_statement",
+                ),
+                # InP is a substrate, an epitaxial wafer and a laser chip alike: no layer.
+                expands("indium phosphide capacity in Sherman, Texas", "substrate"),
+                # The object names the layer.
+                claim(
+                    subject_company_id=coherent,
+                    predicate="sole_sources",
+                    object_text="InP substrates",
+                    layer="substrate",
+                    quote=SPECIFIC,
+                ),
+                # No layer proposed at all, and another layer than the object names.
+                expands("indium phosphide capacity", None),
+                claim(
+                    subject_company_id=coherent,
+                    predicate="sole_sources",
+                    object_text="InP substrates",
+                    layer="epi",
+                    quote=SPECIFIC,
+                ),
+            )
+        )
+    )
+
+    job = extract(atlas, "layers", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    owns, sherman, substrates, unproposed, other = claims_of(
+        atlas, job["artifacts"]["extraction_id"]
+    )
+    assert [c["outcome"] for c in (owns, sherman, substrates, unproposed, other)] == [
+        "accepted"
+    ] * 5
+    layers = [
+        (c["layer"], c["layer_term"], c["layer_reason"], c["proposed"]["layer"])
+        for c in (owns, sherman, substrates, unproposed, other)
+    ]
+    assert layers == [
+        (None, None, "layer_unsupported", "chip-laser"),
+        (None, None, "layer_unsupported", "substrate"),
+        ("substrate", "substrates", None, "substrate"),
+        (None, None, None, None),
+        (None, None, "layer_unsupported", "epi"),
+    ]
+    # The Assertion carries the layer the Claim kept, or none.
+    for accepted in (owns, sherman, substrates, unproposed, other):
+        assertion = atlas.get(f"/api/v1/assertions/{accepted['assertion_id']}")
+        assert assertion["value_json"]["layer"] == accepted["layer"]
+    # The layers are sent as before; the response schema lets `layer` be null.
+    [body] = llm.chat_requests()
+    schema = body["response_format"]["json_schema"]["schema"]
+    assert schema["$defs"]["ProposedClaim"]["properties"]["layer"]["anyOf"] == [
+        {"type": "string"},
+        {"type": "null"},
+    ]
+    sent_layers = asked(body)["request"]["layers"]
+    assert [layer["name"] for layer in sent_layers] == LAYERS
+    # ... each with the words Atlas takes as naming it, so the model knows what keeps a layer.
+    assert sent_layers[0]["terms"] == ["substrate", "bare wafer", "boule", "ingot"]
+    assert all(layer["terms"] for layer in sent_layers)
+    # A layer that is no layer at all is still a rejection.
+    llm.script_chat(ChatReply.answer(quoting(expands("indium phosphide capacity", "optics"))))
+    again = extract(atlas, "unknown", source_version_ids=[version_id])
+    (unknown,) = claims_of(atlas, again["artifacts"]["extraction_id"])
+    assert (unknown["outcome"], unknown["reason_code"]) == ("rejected", "unknown_layer")
+    assert (unknown["layer"], unknown["layer_reason"]) == ("optics", None)

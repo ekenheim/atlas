@@ -239,7 +239,9 @@ def seed(database_url: str, archive: Path, workdir: Path) -> None:
 
 # Hedged sentences of Lumentum's FY2026 10-K (the recorded fixture's parsed text): each
 # names a relation with a directional cue and a hedge ("may"), so machine review sends its
-# edge to the exceptions queue (`hedged_language`) without asking the Reviewer (an LLM).
+# edge to the exceptions queue (`hedged_language`) without asking the Reviewer (an LLM). Only
+# the first names a layer ("contract manufacturer"); the other two are tagged `module`, which
+# their quotes don't name, so their edges have no layer (memory-directed reading ticket 08).
 LUMENTUM_10K = (
     "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
 )
@@ -555,7 +557,7 @@ def investigate(atlas: Atlas, fakes: Fakes, companies: dict[str, str], question:
             "reviews": [
                 {
                     "item_id": item["item_id"],
-                    "verdict": "confirmed",
+                    "hedge": "none",
                     "direction": "as_proposed",
                     "layer": "correct",
                     "suggested_layer": None,

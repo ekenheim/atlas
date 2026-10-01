@@ -16,14 +16,25 @@ An Assertion is machine-reviewed into its Relationship only when all of these ho
    direction itself: that is the Reviewer's `direction`, which must be `as_proposed`. For a
    product object the cue must also be in a clause naming the object
    (`atlas.claims.object_clause_cue`); eligibility checks that (`cue_in_other_clause`).
-4. **The Reviewer confirms** (`reviewer_rejected`, `reviewer_uncertain`): its verdict is
-   `confirmed`, its direction `as_proposed` (`direction_not_confirmed`) and its layer
-   `correct` (`layer_not_confirmed`).
+4. **The Reviewer confirms**, each check on its own (memory-directed reading ticket 08; no
+   overall verdict): its direction is `as_proposed` (`direction_not_confirmed`), it finds no
+   hedge (`reviewer_hedged`), and, **only when the Assertion has a layer**, its layer is
+   `correct` (`layer_not_confirmed`). An Assertion whose quote supports no layer
+   (`atlas.claims.layer_term`) proposes none, and what the Reviewer says of a layer is then
+   no reason: a right edge with no layer is machine-reviewed. Reviews recorded under
+   `reviewer.v3` and earlier keep their overall verdict's reasons (`reviewer_rejected`,
+   `reviewer_uncertain`).
 
 Anything short of that sends the Relationship to the exceptions queue (`needs_human_review`)
 with the reasons. When the Reviewer gives no usable answer, the reason says why
 (`reviewer_quarantined`, `reviewer_no_answer`). The Reviewer is asked only about Assertions
 that pass the deterministic checks: the others go to a human whatever it would say.
+
+**The layer an Assertion brings to its edge** (`brings_layer`): its supported layer, unless
+the Reviewer answered and did not confirm the direction or the layer. An Assertion the
+Reviewer wasn't asked about (hedged, not Tier A) or gave no answer for still brings the layer
+its quote names. `atlas.relationships.service` gives it to an edge that has none, and records
+`layer_conflict` when the edge already has another.
 """
 
 import re
@@ -31,7 +42,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from atlas.claims.predicates import directional_cue
-from atlas.roles.reviewer import Direction, LayerVerdict, Verdict
+from atlas.roles.reviewer import Direction, Hedge, LayerVerdict
 
 LanguageVerdict = Literal["explicit", "hedged", "absent"]
 ReviewOutcome = Literal["machine_reviewed", "needs_human_review"]
@@ -123,27 +134,40 @@ def deterministic_checks(
 
 @dataclass(frozen=True)
 class ReviewerAnswer:
-    verdict: Verdict
     direction: Direction
+    hedge: Hedge
     layer: LayerVerdict
 
 
 def review_outcome(
-    checks: DeterministicChecks, answer: ReviewerAnswer | None, *, missing: str | None = None
+    checks: DeterministicChecks,
+    answer: ReviewerAnswer | None,
+    *,
+    layered: bool,
+    missing: str | None = None,
 ) -> tuple[ReviewOutcome, list[str]]:
     """The outcome and its reasons (empty when machine-reviewed). `answer` is None when the
-    Reviewer wasn't asked (the checks failed) or gave no usable answer (`missing` says why)."""
+    Reviewer wasn't asked (the checks failed) or gave no usable answer (`missing` says why).
+    `layered`: the Assertion has a layer, so the Reviewer's layer answer counts."""
     reasons = checks.reasons
     if answer is None:
         if missing is not None:
             reasons.append(missing)
     else:
-        if answer.verdict != "confirmed":
-            reasons.append(f"reviewer_{answer.verdict}")
         if answer.direction != "as_proposed":
             reasons.append("direction_not_confirmed")
-        if answer.layer != "correct":
+        if answer.hedge != "none":
+            reasons.append("reviewer_hedged")
+        if layered and answer.layer != "correct":
             reasons.append("layer_not_confirmed")
     if answer is None and missing is None and not reasons:
         raise ValueError("a passing Assertion needs the Reviewer's answer or why it has none")
     return ("needs_human_review" if reasons else "machine_reviewed"), reasons
+
+
+def brings_layer(answer: ReviewerAnswer | None, *, layered: bool) -> bool:
+    """Whether an Assertion brings its layer to its edge: it has one (`layered`), and the
+    Reviewer, if it answered, confirmed both the direction and the layer."""
+    if not layered:
+        return False
+    return answer is None or (answer.direction == "as_proposed" and answer.layer == "correct")
