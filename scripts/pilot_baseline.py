@@ -11,7 +11,11 @@ The pilot holds each investigation against what a plain search of the archive fi
    the API names one) and cached under `.scratch/live-runs/baseline-cache/`, since a parse
    never changes.
 2. **Archive search.** The question's content words, BM25 over the passages, the `--top` (20)
-   best with at most `--per-document` (3) from one document.
+   best with at most `--per-document` (3) from one document. A paragraph that several filings
+   repeat, word for word or with small edits (a date, a figure, a sentence added), is one hit:
+   the newest filing's wording (the newest with a hit to spare), with the other documents
+   listed in the hit's `also_in` ("also in N other documents" in the summary). A hit's
+   `also_in` documents count as the same hit.
 3. **Recall alone** (unless `--no-recall`). One `POST /memory/recall` with the question, scoped
    to the seed companies and the theme: what memory surfaces without a research role. Each
    archive hit is marked when it lies in a section recall resolved to. Recall makes no LLM call.
@@ -118,10 +122,7 @@ def main() -> int:
         sections = list(recall["evidence"])
 
     by_version = {document.source_version_id: document for document in documents}
-    rows = [
-        _row(rank, hit, by_version[hit.passage.source_version_id], quotes, sections)
-        for rank, hit in enumerate(hits, start=1)
-    ]
+    rows = [_row(rank, hit, by_version, quotes, sections) for rank, hit in enumerate(hits, start=1)]
     covered = {claim_id for row in rows for claim_id in row["covered_by_claims"]}
     results: dict[str, Any] = {
         "base_url": args.base_url,
@@ -223,11 +224,12 @@ def _parsed_text(api: Api, version_id: str, parser_version: str) -> str:
 def _row(
     rank: int,
     hit: Hit,
-    document: Document,
+    documents: dict[str, Document],
     quotes: dict[str, str],
     sections: list[dict[str, Any]],
 ) -> dict[str, Any]:
     passage = hit.passage
+    document = documents[passage.source_version_id]
     recalled = [
         s["section_anchor"]
         for s in sections
@@ -243,6 +245,16 @@ def _row(
         "title": document.title,
         "available_at": document.available_at,
         **asdict(passage),
+        # the other documents that repeat the passage, word for word or nearly: dropped for it
+        "also_in": [
+            {
+                "source_version_id": version,
+                "company": documents[version].company,
+                "title": documents[version].title,
+                "available_at": documents[version].available_at,
+            }
+            for version in hit.also_in
+        ],
         "covered_by_claims": covering_quotes(passage.text, quotes),
         "in_recalled_sections": recalled,
     }
@@ -274,7 +286,14 @@ def _summary(results: dict[str, Any]) -> str:
             f"({results['recall']['counts']}); {recalled} of {len(hits)} hits lie in a section "
             "recall resolved to"
         )
-    lines += ["", "The reviewer marks each hit on-question or not (at most 10 on-question).", ""]
+    repeated = sum(1 for hit in hits if hit["also_in"])
+    lines += [
+        f"- **Repeats:** {repeated} of {len(hits)} hits are also in other documents, word for "
+        "word or with small edits; each is one hit, and its other documents count as that hit",
+        "",
+        "The reviewer marks each hit on-question or not (at most 10 on-question).",
+        "",
+    ]
     for hit in hits:
         marks = [f"score {hit['score']}", f"terms: {', '.join(hit['terms'])}"]
         if hit["covered_by_claims"]:
@@ -288,9 +307,15 @@ def _summary(results: dict[str, Any]) -> str:
             f"`{hit['source_version_id']}` [{hit['char_start']}, {hit['char_end']}); "
             + "; ".join(marks),
             "",
-            *(f"> {line}" for line in hit["text"].splitlines()),
-            "",
         ]
+        if hit["also_in"]:
+            others: list[dict[str, Any]] = hit["also_in"]
+            lines += [
+                f"Also in {len(others)} other document{'' if len(others) == 1 else 's'}: "
+                + "; ".join(str(other["title"]) for other in others),
+                "",
+            ]
+        lines += [*(f"> {line}" for line in hit["text"].splitlines()), ""]
     return "\n".join(lines)
 
 
