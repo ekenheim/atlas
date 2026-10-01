@@ -461,6 +461,14 @@ def test_a_follow_up_round_pursues_an_open_question_within_the_run_s_budgets(
         f"/api/v1/claim-extractions/{round_2['investigator:lumentum']['artifacts']['extraction_id']}"
     )
     assert extraction["question"] == OPEN_QUESTION
+    # Each round asks Memory its own question (query 0) and keeps its own reading pointers.
+    assert {(p["round"], p["query"]) for p in found["pointers"] if p["query_index"] == 0} == {
+        (1, QUESTION),
+        (2, OPEN_QUESTION),
+    }
+    assert round_2["scout"]["artifacts"]["pointers"] == sum(
+        1 for p in found["pointers"] if p["round"] == 2
+    )
     assert [d["title"] for d in found["documents"] if d["task_key"] == "investigator:lumentum"] == [
         "lumentum-follow-up.txt"
     ]

@@ -23,6 +23,9 @@ import {
   followUpBlocked,
   openQuestions,
   outputParts,
+  pointerGroups,
+  pointerQueryLabel,
+  pointerSummary,
   readerName,
   readingOutcome,
   statusText,
@@ -80,6 +83,7 @@ function Workbench() {
             <Summary investigation={investigation} />
             <Actions investigation={investigation} onDone={done} />
             <Plan investigation={investigation} />
+            <Pointers investigation={investigation} />
             <Premises investigation={investigation} onDone={done} />
             <EvidenceTray items={investigation.evidence} />
             <Contradictions investigation={investigation} />
@@ -393,6 +397,70 @@ function TaskRow({ task }: { task: InvestigationTask }) {
         {parts.length > 0 ? parts.join("; ") : !task.detail && <Missing>none yet</Missing>}
       </td>
     </tr>
+  );
+}
+
+/** The Scout's reading pointers: what Memory returned to the question and to each query. */
+function Pointers({ investigation }: { investigation: Investigation }) {
+  const groups = pointerGroups(investigation.pointers);
+  return (
+    <section aria-labelledby="pointers">
+      <h2 id="pointers">Reading pointers</h2>
+      <p>
+        The Scout asks Memory the question and each of its queries, across the theme. An
+        answer that resolves to a section of an archived Source Version is a pointer: where
+        to read. Its text is Memory, not Evidence: it is never quoted and reaches no role.
+      </p>
+      {groups.length === 0 ? (
+        <p>No reading pointer.</p>
+      ) : (
+        groups.map((group) => (
+          <details key={`${group.round}:${group.queryIndex}`}>
+            <summary>
+              {pointerQueryLabel(group)}: {group.query}{" "}
+              <span className="muted-small">({pointerSummary(group)})</span>
+            </summary>
+            <table>
+              <caption>
+                Where Memory pointed for {pointerQueryLabel(group).toLowerCase()}, best rank
+                first
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Rank</th>
+                  <th scope="col">Memory (not Evidence)</th>
+                  <th scope="col">Company</th>
+                  <th scope="col">Document and section</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.pointers.map((pointer) => (
+                  <tr key={pointer.id}>
+                    <td>{pointer.rank}</td>
+                    <td>
+                      <strong>Memory</strong>{" "}
+                      <span className="muted-small">({pointer.memory_type})</span>:{" "}
+                      {pointer.memory_text}
+                    </td>
+                    <td>{pointer.company_name ?? <Missing />}</td>
+                    <td>
+                      <Link href={routes.version(pointer.source_version_id)}>
+                        {pointer.source_title}
+                      </Link>
+                      <br />
+                      <span className="muted-small">
+                        {pointer.section_heading ?? pointer.section_anchor}; characters{" "}
+                        {pointer.section_char_start}–{pointer.section_char_end}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        ))
+      )}
+    </section>
   );
 }
 

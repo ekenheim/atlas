@@ -1,6 +1,7 @@
 """What an investigation is, as the API shows it: its §7.2 request, budgets and usage, the plan
-(premises and role tasks), the leads and documents it took, the Skeptic's counterevidence,
-the Editor's research card, and the event log."""
+(premises and role tasks), the leads and documents it took, its reading pointers (where
+Memory pointed), the Skeptic's counterevidence, the Editor's research card, and the event
+log."""
 
 import uuid
 from dataclasses import dataclass
@@ -162,6 +163,36 @@ class InvestigationDocument(BaseModel):
     company_id: uuid.UUID | None
     title: str
     available_at: datetime
+
+
+class ReadingPointer(BaseModel):
+    """A recalled Memory resolved to a Source Version section, with the query that recalled
+    it (CONTEXT.md, "Reading pointer"; atlas.investigations.pointers): where Memory says to
+    read. `memory_text` is Memory as Hindsight returned it: an index entry, never Evidence,
+    never quoted."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: uuid.UUID
+    round: int
+    task_key: str  # the task that asked (the Scout's)
+    query_index: int  # 0: the round's question; n: the Scout's nth query
+    query: str
+    rank: int  # the memory's place in the recall's results, from 1
+    memory_id: str
+    memory_type: str  # world, experience or observation
+    memory_text: str
+    source_version_id: uuid.UUID
+    source_title: str
+    section_anchor: str
+    section_heading: str | None
+    section_char_start: int  # code-point offsets into the parsed text: [start, end)
+    section_char_end: int
+    company_id: uuid.UUID | None
+    company_name: str | None
+    available_at: datetime  # the Source Version's, at or before the investigation's as-of time
+    citation_state: Literal["resolved"]  # only resolved citations make pointers
+    created_at: datetime
 
 
 class SourceSpan(BaseModel):
@@ -422,6 +453,8 @@ class Investigation(BaseModel):
     premises: list[Premise]
     tasks: list[Task]
     leads: list[InvestigationLead]
+    # Where Memory pointed, by round, query and rank (Memory as an index, never Evidence).
+    pointers: list[ReadingPointer]
     documents: list[InvestigationDocument]
     counterevidence: list[Counterevidence]
     research_card: ResearchCard | None
@@ -507,6 +540,27 @@ def get_investigation(
             params,
         ).mappings()
     ]
+    pointers = [
+        ReadingPointer.model_validate(dict(each))
+        for each in connection.execute(
+            text(
+                "SELECT p.id, p.round, t.key AS task_key, p.query_index, p.query, p.rank,"
+                " p.memory_id, p.memory_type, p.memory_text, p.source_version_id,"
+                " d.title AS source_title, p.section_anchor, p.section_heading,"
+                " p.section_char_start, p.section_char_end, p.company_id,"
+                " c.display_name AS company_name, p.available_at, p.citation_state,"
+                " p.created_at FROM reading_pointer p"
+                " JOIN investigation_task t ON t.id = p.task_id"
+                " JOIN source_version v ON v.id = p.source_version_id"
+                " JOIN source_document d ON d.id = v.source_document_id"
+                " LEFT JOIN company c ON c.id = p.company_id"
+                " WHERE p.investigation_id = :id"
+                " ORDER BY p.round, t.position, p.query_index, p.rank, p.source_version_id,"
+                " p.section_char_start, p.section_anchor"
+            ),
+            params,
+        ).mappings()
+    ]
     documents = [
         InvestigationDocument.model_validate(dict(each))
         for each in connection.execute(
@@ -554,6 +608,7 @@ def get_investigation(
             premises=premises,
             tasks=tasks,
             leads=leads,
+            pointers=pointers,
             documents=documents,
             counterevidence=counterevidence,
             evidence=_evidence(connection, investigation_id, row["run_id"]),
@@ -570,6 +625,7 @@ class _Parts:
     premises: list[Premise]
     tasks: list[Task]
     leads: list[InvestigationLead]
+    pointers: list[ReadingPointer]
     documents: list[InvestigationDocument]
     counterevidence: list[Counterevidence]
     evidence: list[EvidenceItem]
@@ -665,6 +721,7 @@ def _investigation(
         premises=parts.premises,
         tasks=tasks,
         leads=parts.leads,
+        pointers=parts.pointers,
         documents=parts.documents,
         counterevidence=parts.counterevidence,
         research_card=None if card is None else ResearchCard.model_validate(card),

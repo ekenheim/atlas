@@ -53,6 +53,10 @@ Derived behaviours (each serves a recorded response with only the named fields c
   scope the way the recorded strict modes did (untagged and non-matching memories excluded).
   Each result is the recorded result of the same type (its first observation, its first world
   fact) with only the fields above changed; the scores stay as recorded.
+- `fail_recalls(where, status=..., times=...)` (needs `derive_memories`; a failed recall was
+  never recorded): an unrecorded recall whose `query` matches answers HTTP `status` with a
+  **hand-written** body `{"detail": "recall failed (scripted by the test)"}` (only the status
+  is relied on), for the first `times` such recalls (None: every one).
 - `forget(memory_id)` (a deleted memory; never recorded): reading it answers HTTP 404 with a
   **hand-written** body `{"detail": "Memory not found"}` (only the status is relied on). It
   drops out of derived recalls; an observation keeps its ID in `source_memory_ids` but drops
@@ -289,6 +293,13 @@ class _RetainHold:
     times: int | None = None  # None: every matching batch
 
 
+@dataclass
+class _RecallFailure:
+    where: Callable[[str], bool]  # by the recall's query
+    status: int
+    times: int | None = None  # None: every matching recall
+
+
 # The recordings derived responses are built from (see the module docstring).
 DERIVED_RETAIN = "retain/04-batch"
 DERIVED_RETAIN_FINAL = "retain/05-batch-final"
@@ -349,6 +360,7 @@ class RecordedHindsight:
     _consolidation_holds: list[_Hold] = field(init=False, default_factory=list[_Hold])
     deleted_banks: list[str] = field(init=False, default_factory=list[str])
     _forgotten: set[str] = field(init=False, default_factory=set[str])
+    _recall_failures: list[_RecallFailure] = field(init=False, default_factory=list[_RecallFailure])
     _reflects: deque[_ScriptedReflect] = field(init=False, default_factory=deque[_ScriptedReflect])
     _mental_models: dict[str, _MentalModel] = field(
         init=False, default_factory=dict[str, _MentalModel]
@@ -457,6 +469,14 @@ class RecordedHindsight:
     def forget(self, memory_id: str) -> None:
         """The memory is gone: reading it answers 404 (derived; see the module docstring)."""
         self._forgotten.add(memory_id)
+
+    def fail_recalls(
+        self, where: Callable[[str], bool], *, status: int, times: int | None = None
+    ) -> None:
+        """Answer HTTP `status` to each later unrecorded recall whose query matches (only the
+        first `times`, if given), with a hand-written body (derived; see the module
+        docstring)."""
+        self._recall_failures.append(_RecallFailure(where, status, times))
 
     def script_reflect(
         self,
@@ -757,6 +777,14 @@ class RecordedHindsight:
         match, tags = body.get("tags_match"), body.get("tags")
         if match not in ("any_strict", "all_strict") or not isinstance(tags, list) or not tags:
             return None
+        for failure in self._recall_failures:
+            if failure.times != 0 and failure.where(str(body.get("query"))):
+                if failure.times is not None:
+                    failure.times -= 1
+                self.served.append(f"memories/recall {failure.status} (derived, hand-written body)")
+                return httpx2.Response(
+                    failure.status, json={"detail": "recall failed (scripted by the test)"}
+                )
         scope = {str(tag) for tag in tags}
 
         def in_scope(memory_tags: JsonValue) -> bool:

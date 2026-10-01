@@ -38,6 +38,10 @@ _Avoid_: Duplicate group, cluster
 Anything derived and held by Hindsight: extracted facts, observations, mental models, knowledge pages. Memory can lead to Evidence but is never Evidence itself, and never counts as an independent witness.
 _Avoid_: Evidence, knowledge (unqualified)
 
+**Reading pointer**:
+A recalled Memory resolved to a section of a Source Version, recorded with the query that recalled it and its rank in that recall. It is Memory used as an index: it says where an investigation should read. It is never Evidence, never quoted, never a witness, and never sent to a role as a statement.
+_Avoid_: Recall hit, citation, lead (a lead is a web or filing-search result)
+
 ### Research objects
 
 **Bottleneck**:

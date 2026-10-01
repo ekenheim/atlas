@@ -1,11 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-import type { CardReading, Investigation, ResearchCard } from "../lib/api/client";
+import type { CardReading, Investigation, ReadingPointer, ResearchCard } from "../lib/api/client";
 import {
+  type PointerGroup,
   canSaveHypothesis,
   followUpBlocked,
   openQuestions,
   outputParts,
+  pointerGroups,
+  pointerQueryLabel,
+  pointerSummary,
   readerName,
   readingOutcome,
 } from "../lib/workbench";
@@ -134,6 +138,69 @@ test("the Skeptic's reading says what code chose for it, its counterevidence, or
   expect(readingOutcome(skipped)).toBe("nothing to challenge: the Investigators accepted no Claim");
   const investigator = { ...reading, role: "investigator", company_name: "Coherent" };
   expect(readerName(investigator as unknown as CardReading)).toBe("Coherent");
+});
+
+function pointer(overrides: Partial<ReadingPointer>): ReadingPointer {
+  return {
+    id: `${overrides.round ?? 1}-${overrides.query_index}-${overrides.rank}-${overrides.section_anchor}`,
+    round: 1,
+    task_key: "scout",
+    memory_type: "world",
+    memory_text: "AXT signed a supply agreement with Coherent for 6-inch InP substrates.",
+    source_version_id: "v-axt-10q",
+    source_title: "AXT 10-Q",
+    section_anchor: "part-i-item-2",
+    section_char_start: 4000,
+    section_char_end: 9000,
+    company_id: "c-axt",
+    company_name: "AXT",
+    citation_state: "resolved",
+    ...overrides,
+  } as ReadingPointer;
+}
+
+test("reading pointers are grouped by the query asked of Memory, best rank first", () => {
+  const question = "Who supplies the laser chips, and what feedstock limits them?";
+  const substrates = "InP wafer substrate 6-inch capacity expansion";
+  const groups = pointerGroups([
+    // The order the API returns them in is not relied on: the groups sort themselves.
+    pointer({ query_index: 1, query: substrates, rank: 3, company_name: "Coherent" }),
+    pointer({
+      query_index: 1,
+      query: substrates,
+      rank: 1,
+      section_anchor: "part-ii-item-1a",
+      section_char_start: 52000,
+    }),
+    pointer({ query_index: 1, query: substrates, rank: 1 }),
+    pointer({ round: 2, query_index: 0, query: "Is capacity tight?", rank: 1, company_name: null }),
+    pointer({ query_index: 0, query: question, rank: 2, company_name: "Lumentum" }),
+  ]);
+
+  expect(groups.map((group) => [group.round, group.queryIndex, group.query])).toEqual([
+    [1, 0, question],
+    [1, 1, substrates],
+    [2, 0, "Is capacity tight?"],
+  ]);
+  const [asked, scouted, followUp] = groups as [PointerGroup, PointerGroup, PointerGroup];
+  expect(scouted.pointers.map((each) => [each.rank, each.section_anchor])).toEqual([
+    [1, "part-i-item-2"],
+    [1, "part-ii-item-1a"],
+    [3, "part-i-item-2"],
+  ]);
+  // The companies pointed at, most pointers first.
+  expect(scouted.companies).toEqual([
+    { name: "AXT", pointers: 2 },
+    { name: "Coherent", pointers: 1 },
+  ]);
+  expect(pointerSummary(scouted)).toBe("3 pointers: AXT 2, Coherent 1");
+  expect(pointerSummary(asked)).toBe("1 pointer: Lumentum 1");
+  expect(pointerSummary(followUp)).toBe("1 pointer: no company 1");
+  // The question is query 0; a later round says so (never "Round 1", a plan table's name).
+  expect(pointerQueryLabel(asked)).toBe("The question");
+  expect(pointerQueryLabel(scouted)).toBe("Query 1");
+  expect(pointerQueryLabel(followUp)).toBe("The question (follow-up round 2)");
+  expect(pointerGroups([])).toEqual([]);
 });
 
 test("a task's output is shown from whatever its role recorded", () => {

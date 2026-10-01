@@ -13206,6 +13206,13 @@
             "type": "array",
             "title": "Leads"
           },
+          "pointers": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingPointer"
+            },
+            "type": "array",
+            "title": "Pointers"
+          },
           "documents": {
             "items": {
               "$ref": "#/components/schemas/InvestigationDocument"
@@ -13283,6 +13290,7 @@
           "premises",
           "tasks",
           "leads",
+          "pointers",
           "documents",
           "counterevidence",
           "research_card",
@@ -17164,6 +17172,142 @@
         ],
         "title": "QuotedText",
         "description": "Retrieved text passed to a role: always quoted, always low-trust data (spec §7.5)."
+      },
+      "ReadingPointer": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "task_key": {
+            "type": "string",
+            "title": "Task Key"
+          },
+          "query_index": {
+            "type": "integer",
+            "title": "Query Index"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "memory_id": {
+            "type": "string",
+            "title": "Memory Id"
+          },
+          "memory_type": {
+            "type": "string",
+            "title": "Memory Type"
+          },
+          "memory_text": {
+            "type": "string",
+            "title": "Memory Text"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_title": {
+            "type": "string",
+            "title": "Source Title"
+          },
+          "section_anchor": {
+            "type": "string",
+            "title": "Section Anchor"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "section_char_start": {
+            "type": "integer",
+            "title": "Section Char Start"
+          },
+          "section_char_end": {
+            "type": "integer",
+            "title": "Section Char End"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Name"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "citation_state": {
+            "type": "string",
+            "const": "resolved",
+            "title": "Citation State"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "round",
+          "task_key",
+          "query_index",
+          "query",
+          "rank",
+          "memory_id",
+          "memory_type",
+          "memory_text",
+          "source_version_id",
+          "source_title",
+          "section_anchor",
+          "section_heading",
+          "section_char_start",
+          "section_char_end",
+          "company_id",
+          "company_name",
+          "available_at",
+          "citation_state",
+          "created_at"
+        ],
+        "title": "ReadingPointer",
+        "description": "A recalled Memory resolved to a Source Version section, with the query that recalled\nit (CONTEXT.md, \"Reading pointer\"; atlas.investigations.pointers): where Memory says to\nread. `memory_text` is Memory as Hindsight returned it: an index entry, never Evidence,\nnever quoted."
       },
       "RecallRequest": {
         "properties": {
