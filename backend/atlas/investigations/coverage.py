@@ -23,12 +23,20 @@ Written by code, never the Editor, so a card with no finding still says, from th
   room, or the company's premise was disproven), so the next investigation can seed them;
   with the channels that reached each (`recall`, `entity`: the entity hop, memory-quality
   ticket 09). A document's `selections` in `read` count `entity_pointer` passages apart.
+- **skeptic_coverage** (pilot-fixes ticket 25, the disclosure part): for each researched
+  company the accepted Claims name, whether the Skeptic was sent a passage of one of its
+  documents (`checked`, with the documents and passages and the counterevidence items it
+  accepted about the company) or not (`not_checked`, with a reason code and the reason in
+  words: it did not run, the document budget was spent, Memory pointed only at Tier B
+  documents, it has no Tier A document, or none of its documents was chosen). It changes
+  nothing the Skeptic reads.
 """
 
 import uuid
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, Literal
 
-from sqlalchemy import Connection, Row, text
+from sqlalchemy import Connection, Row, RowMapping, text
 
 from atlas.claims.selection import placements, selections
 from atlas.investigations.companies import COMPANY_BUDGET, POINTED_COMPANIES, not_read_reason
@@ -38,8 +46,10 @@ from atlas.investigations.model import (
     CardQuery,
     CardReading,
     CardSearch,
+    CardSkepticCompany,
+    CardSkepticDocument,
 )
-from atlas.investigations.skeptic import used_fallback
+from atlas.investigations.skeptic import WITNESS_TIER, used_fallback
 
 
 def coverage(
@@ -292,6 +302,179 @@ def _skeptic_read(connection: Connection, task: Row[Any]) -> CardReading:
             },
             "documents_fallback": used_fallback(connection, task.id),
         }
+    )
+
+
+_NotChecked = Literal[
+    "skeptic_not_run", "no_budget", "only_tier_b_pointed", "no_document", "not_chosen"
+]
+
+
+def skeptic_coverage(
+    connection: Connection, investigation: RowMapping, claims: Sequence[RowMapping]
+) -> list[CardSkepticCompany]:
+    """The card's `skeptic_coverage`: a row for each researched company the accepted `claims`
+    name (as subject or object; a counterparty is not challenged), in the Claims' order, from
+    the Skeptic's own records of every round. A company is `checked` when the Skeptic was
+    sent a passage of one of its documents."""
+    named: dict[uuid.UUID, int] = {}
+    for claim in claims:
+        for key in ("subject_company_id", "object_company_id"):
+            if claim[key] is not None:
+                named[claim[key]] = named.get(claim[key], 0) + 1
+    if not named:
+        return []
+    names = {
+        row.id: row.display_name
+        for row in connection.execute(
+            text(
+                "SELECT id, display_name FROM company WHERE id = ANY(:ids) AND role = 'researched'"
+            ),
+            {"ids": list(named)},
+        )
+    }
+    searches = (
+        connection.execute(
+            text(
+                "SELECT s.passages, s.batches_done, s.passages_per_call, s.documents_dropped"
+                " FROM skeptic_search s JOIN investigation_task t ON t.id = s.task_id"
+                " WHERE s.investigation_id = :id ORDER BY t.round"
+            ),
+            {"id": investigation["id"]},
+        )
+        .mappings()
+        .all()
+    )
+    per_version: dict[uuid.UUID, int] = {}
+    for search in searches:
+        sent: list[dict[str, Any]] = search["passages"][
+            : search["batches_done"] * search["passages_per_call"]
+        ]
+        for passage in sent:
+            key = uuid.UUID(str(passage["source_version_id"]))
+            per_version[key] = per_version.get(key, 0) + 1
+    read: dict[uuid.UUID, list[CardSkepticDocument]] = {}
+    for row in connection.execute(
+        text(
+            "SELECT v.id, d.company_id, d.title FROM source_version v"
+            " JOIN source_document d ON d.id = v.source_document_id WHERE v.id = ANY(:ids)"
+            " ORDER BY v.available_at DESC, v.id"
+        ),
+        {"ids": list(per_version)},
+    ):
+        if row.company_id is not None:
+            read.setdefault(row.company_id, []).append(
+                CardSkepticDocument(
+                    source_version_id=row.id, title=row.title, passages=per_version[row.id]
+                )
+            )
+    items = {
+        (row.subject_company_id, row.kind): int(row.n)
+        for row in connection.execute(
+            text(
+                "SELECT subject_company_id, kind, count(*) AS n FROM counterevidence"
+                " WHERE investigation_id = :id AND outcome = 'accepted'"
+                " GROUP BY subject_company_id, kind"
+            ),
+            {"id": investigation["id"]},
+        )
+    }
+    tier_a = set(
+        connection.execute(
+            text(
+                "SELECT DISTINCT d.company_id FROM source_version v"
+                " JOIN source_document d ON d.id = v.source_document_id"
+                " WHERE d.company_id = ANY(:ids) AND d.source_tier = :tier"
+                " AND d.source_type <> 'xbrl_companyfacts' AND v.available_at <= :as_of"
+                " AND v.parse_status IN ('parsed', 'incomplete')"
+                " AND v.parsed_object_uri IS NOT NULL"
+            ),
+            {"ids": list(named), "tier": WITNESS_TIER, "as_of": investigation["as_of"]},
+        ).scalars()
+    )
+    tier_b = set(
+        connection.execute(
+            text(
+                "SELECT DISTINCT p.company_id FROM reading_pointer p"
+                " JOIN investigation_task t ON t.id = p.task_id AND t.role = 'skeptic'"
+                " JOIN source_version v ON v.id = p.source_version_id"
+                " JOIN source_document d ON d.id = v.source_document_id"
+                " WHERE p.investigation_id = :id AND p.company_id = ANY(:ids)"
+                " AND d.source_tier <> :tier"
+            ),
+            {"id": investigation["id"], "ids": list(named), "tier": WITNESS_TIER},
+        ).scalars()
+    )
+    skeptic = connection.execute(
+        text(
+            "SELECT status, detail FROM investigation_task WHERE investigation_id = :id"
+            " AND role = 'skeptic' ORDER BY round DESC, position LIMIT 1"
+        ),
+        {"id": investigation["id"]},
+    ).one_or_none()
+    dropped = sum(int(search["documents_dropped"]) for search in searches)
+    covered: list[CardSkepticCompany] = []
+    for company_id in (each for each in named if each in names):
+        documents = read.get(company_id, [])
+        shared: dict[str, Any] = {
+            "company_id": company_id,
+            "company_name": names[company_id],
+            "claims": named[company_id],
+            "documents": documents,
+            "passages": sum(each.passages for each in documents),
+            "contradictions": items.get((company_id, "contradiction"), 0),
+            "bear_context": items.get((company_id, "bear_context"), 0),
+        }
+        if documents:
+            covered.append(CardSkepticCompany(outcome="checked", **shared))
+            continue
+        also_b = (
+            "; Memory also pointed at Tier B documents of it (transcripts), which the Skeptic"
+            " does not read"
+            if company_id in tier_b
+            else ""
+        )
+        code: _NotChecked
+        if not searches:
+            code = "skeptic_not_run"
+            why = ""
+            if skeptic is not None:
+                why = f" ({skeptic.status}{': ' + skeptic.detail if skeptic.detail else ''})"
+            reason = f"the Skeptic did not run{why}"
+        elif company_id in tier_a and dropped:
+            code = "no_budget"
+            reason = (
+                f"the document budget ({investigation['max_documents']}) was spent and {dropped}"
+                f" documents were left out; none of this company's was read{also_b}"
+            )
+        elif company_id in tier_a:
+            code = "not_chosen"
+            reason = f"none of its archived Tier A documents was chosen for the Skeptic{also_b}"
+        elif company_id in tier_b:
+            code = "only_tier_b_pointed"
+            reason = (
+                "Memory pointed only at Tier B documents of it (transcripts), which the Skeptic"
+                " does not read, and it has no archived Tier A document"
+            )
+        else:
+            code = "no_document"
+            as_of = investigation["as_of"].isoformat()
+            reason = f"it has no parsed Tier A document archived as of {as_of}"
+        covered.append(
+            CardSkepticCompany(outcome="not_checked", reason_code=code, reason=reason, **shared)
+        )
+    return covered
+
+
+def unchecked_note(covered: Sequence[CardSkepticCompany]) -> str | None:
+    """The stop detail's clause for the companies the Skeptic did not check, or None when it
+    checked every one. It never says a company was checked."""
+    missed = [each.company_name for each in covered if each.outcome == "not_checked"]
+    if not missed:
+        return None
+    return (
+        f"the Skeptic did not check {', '.join(missed)}, so nothing said of"
+        f" {'it' if len(missed) == 1 else 'them'} was challenged (see the card's skeptic_coverage)"
     )
 
 

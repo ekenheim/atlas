@@ -406,6 +406,12 @@ REVIEWED = ChatReply.answer(reviewing, tokens=(700, 90))
 # The Financial Analyst (between the Investigators and the Editor when a Claim is accepted)
 # proposes no scenario here; its proposals are ticket 19's tests (test_scenarios.py).
 ANALYSED = ChatReply.json({"scenarios": []}, tokens=(1500, 200))
+# The stop detail's clause when the Claims name NVIDIA, which has no archived document, so the
+# Skeptic cannot check it (pilot-fixes ticket 25).
+NVIDIA_UNCHECKED = (
+    "; the Skeptic did not check NVIDIA, so nothing said of it was challenged"
+    " (see the card's skeptic_coverage)"
+)
 
 
 def script_parallel(
@@ -546,7 +552,15 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
 
     found = investigation(atlas, started["id"])
     assert (found["status"], found["stop_reason"]) == ("stopped", "answered")
-    assert found["stop_detail"] == "the Editor judged the question answered by 1 findings"
+    # NVIDIA, which the Claim names, has no archived document: the Skeptic did not check it,
+    # and the detail says so (pilot-fixes ticket 25).
+    assert found["stop_detail"] == (
+        "the Editor judged the question answered by 1 findings;"
+        " the Skeptic did not check NVIDIA, so nothing said of it was challenged"
+        " (see the card's skeptic_coverage)"
+    )
+    unchecked = [c for c in found["research_card"]["skeptic_coverage"] if c["outcome"] != "checked"]
+    assert [(c["company_name"], c["reason_code"]) for c in unchecked] == [("NVIDIA", "no_document")]
     assert found["resumable"] is False
     assert statuses(found) == {
         "scout": "succeeded",
@@ -748,7 +762,7 @@ def test_an_editor_finding_that_cites_no_accepted_claim_is_dropped_and_needs_rev
 
     found = investigation(atlas, started["id"])
     assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
-    assert found["stop_detail"] == "3 unsupported findings were dropped"
+    assert found["stop_detail"] == "3 unsupported findings were dropped" + NVIDIA_UNCHECKED
     card = found["research_card"]
     assert [f["claim_text"][:25] for f in card["findings"]] == ["Coherent supplies NVIDIA "]
     lead_id = found["leads"][0]["lead_id"]
@@ -2898,7 +2912,9 @@ def test_an_editor_that_still_fails_leaves_a_card_without_findings_and_needs_rev
         assert reason.startswith("editor output quarantined after a failed repair")
     # The investigation stops needs_review, with a card that says why it has no finding.
     assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
-    assert found["stop_detail"] == f"the Editor failed, so the card has no finding: {reason}"
+    assert found["stop_detail"] == (
+        f"the Editor failed, so the card has no finding: {reason}" + NVIDIA_UNCHECKED
+    )
     assert tasks(found)["editor"]["status"] == "succeeded"
     card = found["research_card"]
     assert (card["findings"], card["editor_verdict"], card["editor_failure"]) == (
@@ -3406,7 +3422,9 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     assert context["reason"] == dilution["kind_reason"]
     assert (found["stop_reason"], found["stop_detail"]) == (
         "answered",
-        "the Editor judged the question answered by 1 findings",
+        "the Editor judged the question answered by 1 findings;"
+        " the Skeptic did not check NVIDIA, so nothing said of it was challenged"
+        " (see the card's skeptic_coverage)",
     )
     # The chained relationship review takes the Investigator's Assertion only.
     [queued] = [e for e in events(atlas, found["id"]) if e["type"] == "relationship_review_queued"]
@@ -3538,7 +3556,7 @@ def test_a_finding_saying_what_its_claims_do_not_is_asked_again_once_then_kept_o
     ]
     assert (found["stop_reason"], found["stop_detail"]) == (
         "needs_review",
-        "1 unsupported findings were dropped",
+        "1 unsupported findings were dropped" + NVIDIA_UNCHECKED,
     )
     artifacts = tasks(found)["editor"]["artifacts"]
     assert artifacts["unsupported_findings"] == 1
@@ -4456,7 +4474,7 @@ def test_one_contradiction_marks_one_finding_and_the_rest_is_bear_context_on_the
     # The stop counts contradictions only: one finding, not four items.
     assert (found["stop_reason"], found["stop_detail"]) == (
         "needs_review",
-        "1 findings are contradicted by independent counterevidence",
+        "1 findings are contradicted by independent counterevidence" + NVIDIA_UNCHECKED,
     )
     editor_task = tasks(found)["editor"]["artifacts"]
     assert (editor_task["contradictions"], editor_task["bear_context"]) == (1, 3)
@@ -4566,4 +4584,100 @@ def test_a_table_row_is_bear_context_only_with_its_figure_s_name_and_period(
         3,
         1,
         {"table_row_without_figure": 2},
+    )
+
+
+def run_axt_agreement(
+    services: Services,
+    llm: FakeLiteLLM,
+    searxng: FakeSearXNG,
+    seeds: tuple[str, ...] = ("coherent", "lumentum"),
+    **budgets: int,
+) -> dict[str, Any]:
+    """The AXT test's investigation (AXT's supply Claim, naming AXT and Coherent), with the
+    given budgets; the stopped investigation as read."""
+    atlas = services.start()
+    fake = services.hindsight[0]
+    import_axt_note(atlas)
+    coherent, axt = atlas.company("coherent"), atlas.company("axt")
+    [section] = retained_sections(atlas, AXT_NOTE_URL, "axt")
+    fake.script_fact_text(section["document_id"], AXT_MEMORY)
+    fake.report_zero_facts(lambda document_id: document_id != section["document_id"])
+    agreement: dict[str, JsonValue] = {
+        "subject_company_id": axt["id"],
+        "predicate": "supplies",
+        "object_company_id": coherent["id"],
+        "object_name": None,
+        "object_text": None,
+        "product": "6-inch indium phosphide substrates",
+        "layer": "substrate",
+        "quote": AXT_QUOTE,
+        "epistemic_type": "company_claim",
+    }
+    started = seeded(atlas, *seeds, **({"budgets": budgets} if budgets else {}))
+    script_parallel(llm)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(agreement)),
+        ChatReply.answer(quoting(agreement)),
+        ChatReply.answer(editing(statement="AXT supplies Coherent with 6-inch InP substrates.")),
+        REVIEWED,
+    )
+    script_searches(searxng)
+    atlas.worker_pass()
+    return investigation(atlas, started["id"])
+
+
+def test_the_card_says_per_company_what_the_skeptic_read_and_the_limit_of_the_grounding_check(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    found = run_axt_agreement(services, llm, searxng)
+
+    card = found["research_card"]
+    axt, coherent = card["skeptic_coverage"]
+    assert (axt["company_name"], axt["outcome"], axt["claims"]) == ("AXT", "checked", 1)
+    assert [(d["title"], d["passages"]) for d in axt["documents"]] == [
+        ("AXT supply agreement note, hand-shaped", 2)
+    ]
+    assert (axt["reason_code"], axt["reason"]) == (None, None)
+    assert (coherent["company_name"], coherent["outcome"]) == ("Coherent", "checked")
+    assert [d["title"] for d in coherent["documents"]] == [
+        "COHERENT CORP. 10-K filed 2026-08-14",
+        "COHERENT CORP. 10-Q filed 2026-05-06",
+    ]
+    assert coherent["passages"] == 22
+    # Every company was checked: the stop detail says nothing about the Skeptic.
+    assert found["stop_detail"] == "the Editor judged the question answered by 1 findings"
+    # The card states what its grounding check does not hold.
+    limit = card["grounding_limit"]
+    assert "names, figures and quoted phrases" in limit
+    assert all(word in limit for word in ("Direction", "tense", "merging of two facts"))
+
+
+def test_a_company_the_skeptic_was_left_no_document_for_is_listed_as_not_checked(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    found = run_axt_agreement(services, llm, searxng, seeds=("lumentum",), max_documents=1)
+
+    card = found["research_card"]
+    # The Investigators spent the one document, so the Skeptic read none of Coherent's.
+    axt, coherent = card["skeptic_coverage"]
+    assert (axt["company_name"], axt["outcome"]) == ("AXT", "checked")
+    assert (coherent["company_name"], coherent["outcome"], coherent["claims"]) == (
+        "Coherent",
+        "not_checked",
+        1,
+    )
+    assert (coherent["documents"], coherent["passages"]) == ([], 0)
+    assert coherent["reason_code"] == "no_budget"
+    assert coherent["reason"] == (
+        "the document budget (1) was spent and 2 documents were left out;"
+        " none of this company's was read"
+    )
+    # The stop detail names it, and never implies the Skeptic looked.
+    assert found["stop_reason"] == "answered"
+    assert found["stop_detail"] == (
+        "the Editor judged the question answered by 1 findings;"
+        " the Skeptic did not check Coherent, so nothing said of it was challenged"
+        " (see the card's skeptic_coverage)"
     )

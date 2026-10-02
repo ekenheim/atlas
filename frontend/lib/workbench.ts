@@ -4,6 +4,7 @@
 // kind, and a task's output as short text.
 import type {
   CardReading,
+  CardSkepticCompany,
   Counterevidence,
   EntityHop,
   Investigation,
@@ -281,6 +282,34 @@ export function channelsLabel(channels: string[] | undefined): string | null {
   const names: Record<string, string> = { recall: "recall", entity: "the entity hop" };
   const named = (channels ?? []).map((channel) => names[channel] ?? channel);
   return named.length > 0 ? `reached by ${named.join(" and ")}` : null;
+}
+
+/**
+ * What the Skeptic did across the companies the accepted Claims name: how many it checked
+ * and which it did not. "Not checked" is never read as "no contradiction found".
+ */
+export function skepticCoverageSummary(rows: CardSkepticCompany[] | undefined): string | null {
+  if (!rows || rows.length === 0) return null;
+  const missed = rows.filter((row) => row.outcome === "not_checked");
+  const checked = rows.length - missed.length;
+  const head = `The Skeptic checked ${checked} of ${rows.length} companies the accepted Claims name`;
+  return missed.length === 0
+    ? `${head}.`
+    : `${head}. Not checked: ${missed.map((row) => row.company_name).join(", ")}. For these, no contradiction was looked for.`;
+}
+
+/** One company's row of the Skeptic's coverage: what it read and found, or why it did not check. */
+export function skepticCompanyLine(row: CardSkepticCompany): string {
+  if (row.outcome === "not_checked") {
+    return `not checked: ${row.reason ?? "no reason recorded"}`;
+  }
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  return [
+    `checked: ${plural(row.documents.length, "document")}`,
+    plural(row.passages, "passage"),
+    plural(row.contradictions, "contradiction"),
+    `${row.bear_context} bear context`,
+  ].join(", ");
 }
 
 /**

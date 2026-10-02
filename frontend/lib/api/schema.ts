@@ -2249,6 +2249,57 @@ export interface components {
             /** Lead Ids */
             lead_ids: string[];
         };
+        /**
+         * CardSkepticCompany
+         * @description What the Skeptic did for one company the accepted Claims name (pilot-fixes ticket 25,
+         *     the disclosure part): `checked` (it was sent passages of at least one document of the
+         *     company; its outcome is how many items it accepted) or `not_checked` with the reason.
+         *     Written by code from the Skeptic's records, so "no contradiction" on the card never
+         *     stands for a company it did not read.
+         */
+        CardSkepticCompany: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Claims */
+            claims: number;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "checked" | "not_checked";
+            /** Documents */
+            documents: components["schemas"]["CardSkepticDocument"][];
+            /** Passages */
+            passages: number;
+            /** Contradictions */
+            contradictions: number;
+            /** Bear Context */
+            bear_context: number;
+            /** Reason Code */
+            reason_code?: ("skeptic_not_run" | "no_budget" | "only_tier_b_pointed" | "no_document" | "not_chosen") | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * CardSkepticDocument
+         * @description A document the Skeptic read for a company, and how much of it.
+         */
+        CardSkepticDocument: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Title */
+            title: string;
+            /** Passages */
+            passages: number;
+        };
         /** CaseResult */
         CaseResult: {
             /**
@@ -6731,6 +6782,10 @@ export interface components {
             read?: components["schemas"]["CardReading"][];
             /** Not Read */
             not_read?: components["schemas"]["CardCompanyNotRead"][];
+            /** Skeptic Coverage */
+            skeptic_coverage?: components["schemas"]["CardSkepticCompany"][];
+            /** Grounding Limit */
+            grounding_limit?: string | null;
             /** Editor Failure */
             editor_failure?: string | null;
             /** Claims By Company */

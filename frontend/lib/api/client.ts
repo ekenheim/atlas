@@ -46,6 +46,7 @@ export type EvidenceItem = Schemas["EvidenceItem"];
 export type ResearchCard = Schemas["ResearchCard"];
 export type CardSearch = Schemas["CardSearch"];
 export type CardReading = Schemas["CardReading"];
+export type CardSkepticCompany = Schemas["CardSkepticCompany"];
 export type Counterevidence = Schemas["Counterevidence"];
 export type Hypothesis = Schemas["Hypothesis"];
 export type HypothesisVersion = Schemas["HypothesisVersion"];

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import type {
   CardReading,
+  CardSkepticCompany,
   Counterevidence,
   EntityHop,
   Investigation,
@@ -15,6 +16,8 @@ import {
   addedInvestigator,
   canSaveHypothesis,
   channelsLabel,
+  skepticCompanyLine,
+  skepticCoverageSummary,
   checklistLabel,
   counterevidenceSummary,
   entityHopSummary,
@@ -484,4 +487,50 @@ test("a task's output is shown from whatever its role recorded", () => {
     "scenario: 2 entries",
     "error: none",
   ]);
+});
+
+test("the Skeptic's coverage says which companies it checked and which it did not", () => {
+  const base = {
+    claims: 1,
+    documents: [],
+    passages: 0,
+    contradictions: 0,
+    bear_context: 0,
+  };
+  const checked: CardSkepticCompany = {
+    ...base,
+    company_id: "c-coherent",
+    company_name: "Coherent",
+    outcome: "checked",
+    documents: [
+      { source_version_id: "v1", title: "10-K", passages: 19 },
+      { source_version_id: "v2", title: "10-Q", passages: 3 },
+    ],
+    passages: 22,
+    bear_context: 1,
+  };
+  const missed: CardSkepticCompany = {
+    ...base,
+    company_id: "c-lumentum",
+    company_name: "Lumentum",
+    outcome: "not_checked",
+    reason_code: "no_budget",
+    reason: "the document budget (25) was spent and 121 documents were left out",
+  };
+
+  expect(skepticCoverageSummary(undefined)).toBeNull();
+  expect(skepticCoverageSummary([])).toBeNull();
+  expect(skepticCoverageSummary([checked])).toBe(
+    "The Skeptic checked 1 of 1 companies the accepted Claims name.",
+  );
+  expect(skepticCoverageSummary([checked, missed])).toBe(
+    "The Skeptic checked 1 of 2 companies the accepted Claims name. Not checked: Lumentum. For these, no contradiction was looked for.",
+  );
+  expect(skepticCompanyLine(checked)).toBe(
+    "checked: 2 documents, 22 passages, 0 contradictions, 1 bear context",
+  );
+  expect(skepticCompanyLine(missed)).toBe(
+    "not checked: the document budget (25) was spent and 121 documents were left out",
+  );
+  expect(skepticCompanyLine({ ...missed, reason: null })).toBe("not checked: no reason recorded");
 });
