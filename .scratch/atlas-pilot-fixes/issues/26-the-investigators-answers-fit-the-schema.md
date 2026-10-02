@@ -11,9 +11,9 @@ Evidence: production 0.3.1, investigation `452c3b9d-2e2f-4cc6-bc54-5130155b9aac`
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the role-call seam: an answer with an unknown extra field is accepted, the field recorded as ignored, no second request made; an answer missing a required field is repaired as today.
-- [ ] The strict JSON schema sent to the model is unchanged in what it requires (a test compares it), or the change is stated in the decision entry.
-- [ ] `investigator.v9` and its prompt tests; the scripted evaluation cases pass.
-- [ ] Decision entry ("Roles: an unknown field is ignored, a missing one repaired"); `AGENTS.md` line.
+- [x] Integration test at the role-call seam: an answer with an unknown extra field is accepted, the field recorded as ignored, no second request made; an answer missing a required field is repaired as today.
+- [x] The strict JSON schema sent to the model is unchanged in what it requires (a test compares it), or the change is stated in the decision entry.
+- [x] `investigator.v9` and its prompt tests; the scripted evaluation cases pass.
+- [x] Decision entry ("Roles: an unknown field is ignored, a missing one repaired"); `AGENTS.md` line.

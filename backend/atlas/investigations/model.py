@@ -14,7 +14,7 @@ from sqlalchemy import Connection, RowMapping, text
 from atlas.claims.reads import PASSAGE_SELECTED_BY
 from atlas.investigations.companies import POINTED_COMPANIES
 from atlas.investigations.companies import Outcome as PointedOutcome
-from atlas.roles import run_usage
+from atlas.roles import run_repairs, run_usage
 from atlas.roles.skeptic import ContradictionHow, CounterevidenceKind
 
 INVESTIGATION_TASK_KIND = "investigation_task"
@@ -81,6 +81,8 @@ class Usage(BaseModel):
     companies: int  # the current round's Investigators: its seeds' and the added ones
     tokens_in: int
     tokens_out: int
+    # Schema repairs the run's role calls asked for, by role (pilot-fixes ticket 26).
+    repairs: dict[str, int]
 
 
 class InvestigationRequest(BaseModel):
@@ -938,9 +940,11 @@ def _investigation(
     )
     run_id: uuid.UUID | None = row["run_id"]
     tokens_in = tokens_out = 0
+    repairs: dict[str, int] = {}
     if run_id is not None:
         usage = run_usage(connection, run_id)
         tokens_in, tokens_out = usage.tokens_in, usage.tokens_out
+        repairs = run_repairs(connection, run_id)
     running = row["status"] == "running"
     card: Any = row["research_card"]
     return Investigation(
@@ -975,6 +979,7 @@ def _investigation(
             companies=sum(1 for t in tasks if t.role == "investigator" and t.round == row["round"]),
             tokens_in=tokens_in,
             tokens_out=tokens_out,
+            repairs=repairs,
         ),
         premises=parts.premises,
         tasks=tasks,

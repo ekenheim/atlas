@@ -16,9 +16,9 @@ drops a proposed layer the quote and the object don't name (`atlas.claims.layer_
 filer's own supply, whose quote names no product (`atlas.claims.company_level`).
 """
 
-from typing import Literal
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
@@ -29,8 +29,10 @@ from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 # to the issuer (memory-directed reading ticket 02); v7: the layer may be left out, and is kept
 # only when the quote or the object names it (memory-directed reading ticket 08); v8: a
 # constraint on the company's own supply is proposed with no object and no layer
-# (memory-directed reading ticket 09)
-INVESTIGATOR_PROMPT_VERSION = 8
+# (memory-directed reading ticket 09); v9: the answer's twelve fields listed, and no
+# `subject_name` or `claim_id` (the fifth pilot run's extra fields), an analyst's question in a
+# transcript is context, not the company's statement (pilot-fixes tickets 26 and 22)
+INVESTIGATOR_PROMPT_VERSION = 9
 
 # An Investigator Claim quotes a source; an agent's own inference is never a Claim.
 ClaimEpistemicType = Literal["direct_source_statement", "company_claim", "third_party_report"]
@@ -90,6 +92,27 @@ class ProposedClaim(RoleOutput):
     quote_start: int
     quote_end: int
     epistemic_type: ClaimEpistemicType
+
+    @model_validator(mode="before")
+    @classmethod
+    def _object_fields_it_needs_no_value_for(cls, data: Any) -> Any:
+        """A Claim gives its object one way: a known company, a quoted name or product text.
+        The strict schema still asks for all three, but one left out where the Claim gives
+        its object another way, or where it is a `capacity_constrained` Claim (which may have
+        no object: `atlas.claims.company_level`), is null, as the Claim checks read it, not a
+        validation error (pilot-fixes ticket 26). With none of the three given, a Claim of
+        any other predicate still fails validation and is repaired."""
+        if not isinstance(data, dict):
+            return data
+        claim = cast(dict[str, Any], data)
+        absent = [name for name in _OBJECT_FIELDS if name not in claim]
+        given = any(claim.get(name) is not None for name in _OBJECT_FIELDS)
+        if absent and (given or claim.get("predicate") == "capacity_constrained"):
+            return claim | dict.fromkeys(absent)
+        return claim
+
+
+_OBJECT_FIELDS = ("object_company_id", "object_name", "object_text")
 
 
 class InvestigatorClaims(RoleOutput):

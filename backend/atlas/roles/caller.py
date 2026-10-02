@@ -14,8 +14,11 @@ One call of a role is:
    `retrieved_data` is the quoted, low-trust retrieved text. Retrieved text never enters the
    system message.
 3. **Validation.** The answer (a leading `<think>...</think>` block and a code fence are
-   stripped, as the dev probe needed) is validated with the role's Pydantic model. If it
-   fails, one repair is asked for in the same conversation, with the validation errors.
+   stripped, as the dev probe needed) is validated with the role's Pydantic model. A field
+   the model does not name is dropped and recorded on the attempt (`ignored_fields`), never an
+   error (pilot-fixes ticket 26: the strict schema still forbids it, but a model that adds one
+   anyway is not asked for a whole new answer). If validation fails, one repair is asked for
+   in the same conversation, with the validation errors.
    If that fails too, the call is **quarantined**: its outputs stay visible in the record,
    `RoleOutputQuarantined` is raised, and nothing is returned for use. An answer that fails
    validation because the model stopped at the output cap (the completion's finish reason
@@ -36,7 +39,7 @@ import json
 import re
 import uuid
 from collections.abc import Sequence
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import httpx2
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
@@ -49,6 +52,8 @@ from atlas.settings import Settings
 
 MAX_ATTEMPTS = 2  # the call and one repair
 _ERROR_TEXT_LIMIT = 500
+
+type _Path = list[str | int]  # a field's place in an answer: keys and list indices
 
 
 class RoleCallFailed(Exception):
@@ -224,9 +229,9 @@ class RoleCaller:
                 self._close(role_call_id, "failed", error=str(error))
                 raise
             content = completion.choices[0].message.content or ""
-            output, errors = _validate(role.response, content)
+            output, errors, ignored = _validate(role.response, content)
             self._record_attempt(
-                role_call_id, run_id, attempt, completion, model_id, content, errors
+                role_call_id, run_id, attempt, completion, model_id, content, errors, ignored
             )
             if output is not None:
                 self._close(role_call_id, "accepted", output=output.model_dump(mode="json"))
@@ -334,14 +339,16 @@ class RoleCaller:
         model_id: str | None,
         content: str,
         errors: list[dict[str, JsonValue]] | None,
+        ignored: list[_Path],
     ) -> None:
         with self._engine.begin() as connection:
             connection.execute(
                 text(
                     "INSERT INTO llm_call (id, role_call_id, run_id, attempt, response_model,"
-                    " model_id, tokens_in, tokens_out, content, validation_errors)"
-                    " VALUES (:id, :role_call, :run, :attempt, :model, :model_id, :tokens_in,"
-                    " :tokens_out, :content, CAST(:errors AS jsonb))"
+                    " model_id, tokens_in, tokens_out, content, validation_errors,"
+                    " ignored_fields) VALUES (:id, :role_call, :run, :attempt, :model,"
+                    " :model_id, :tokens_in, :tokens_out, :content, CAST(:errors AS jsonb),"
+                    " CAST(:ignored AS jsonb))"
                 ),
                 {
                     "id": uuid.uuid4(),
@@ -354,6 +361,7 @@ class RoleCaller:
                     "tokens_out": completion.usage.completion_tokens,
                     "content": content,
                     "errors": None if errors is None else json.dumps(errors),
+                    "ignored": json.dumps(ignored),
                 },
             )
 
@@ -402,15 +410,62 @@ def _json_text(content: str) -> str:
 
 def _validate[ResponseT: BaseModel](
     model: type[ResponseT], content: str
-) -> tuple[ResponseT | None, list[dict[str, JsonValue]] | None]:
+) -> tuple[ResponseT | None, list[dict[str, JsonValue]] | None, list[_Path]]:
+    """The answer validated, or why not, and the unknown fields dropped from it.
+
+    A field the response model does not name (pydantic's `extra_forbidden`) is no error: it is
+    removed from the answer, recorded, and the rest validated again. The strict schema sent to
+    the model still forbids it; code only stops asking for a whole new answer because of it.
+    A missing or malformed field stays an error."""
+    answer = _json_text(content)
+    ignored: list[_Path] = []
+    while True:
+        try:
+            return model.model_validate_json(answer), None, ignored
+        except ValidationError as error:
+            details = error.errors(include_url=False, include_input=False, include_context=False)
+            extra: list[_Path] = [list(e["loc"]) for e in details if e["type"] == "extra_forbidden"]
+            stripped = _without(answer, extra) if extra else None
+            if stripped is None:
+                errors: list[dict[str, JsonValue]] = [
+                    {"type": each["type"], "loc": list(each["loc"]), "msg": each["msg"]}
+                    for each in details
+                ]
+                return None, errors, ignored
+            ignored.extend(extra)
+            answer = stripped
+
+
+def _without(answer: str, paths: list[_Path]) -> str | None:
+    """`answer` with the fields at `paths` removed, or None if one of them can't be found
+    there (a location pydantic names through a union or a validator, say)."""
     try:
-        return model.model_validate_json(_json_text(content)), None
-    except ValidationError as error:
-        errors: list[dict[str, JsonValue]] = [
-            {"type": each["type"], "loc": list(each["loc"]), "msg": each["msg"]}
-            for each in error.errors(include_url=False, include_input=False, include_context=False)
-        ]
-        return None, errors
+        parsed: Any = json.loads(answer)
+    except ValueError:
+        return None
+    for path in paths:
+        node: Any = parsed
+        for step in path[:-1]:
+            if isinstance(node, dict) and isinstance(step, str):
+                mapping = cast(dict[str, Any], node)
+                if step not in mapping:
+                    return None
+                node = mapping[step]
+            elif isinstance(node, list) and isinstance(step, int):
+                items = cast(list[Any], node)
+                if not 0 <= step < len(items):
+                    return None
+                node = items[step]
+            else:
+                return None
+        last = path[-1] if path else None
+        if not isinstance(node, dict) or not isinstance(last, str):
+            return None
+        holder = cast(dict[str, Any], node)
+        if last not in holder:
+            return None
+        del holder[last]
+    return json.dumps(parsed, ensure_ascii=False)
 
 
 def _error(response: httpx2.Response) -> _ErrorBody:

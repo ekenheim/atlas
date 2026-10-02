@@ -594,6 +594,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         "companies": 2,
         "tokens_in": 15_400,
         "tokens_out": 1_520,
+        "repairs": {},
     }
     tokens = "atlas_llm_tokens_total"
     assert metric(atlas, tokens, kind="investigation", direction="input") == 15_400
@@ -2630,6 +2631,8 @@ def test_a_role_that_keeps_failing_stops_the_investigation_needs_review(
     # The run is finished with its token totals; its quarantined calls stay visible.
     calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")
     assert [c["status"] for c in calls["role_calls"]] == ["quarantined"] * 3
+    # Each quarantined call asked for its one repair (pilot-fixes ticket 26).
+    assert calls["repairs"] == found["usage"]["repairs"] == {"scout": 3}
     tokens = "atlas_llm_tokens_total"
     assert metric(atlas, tokens, kind="investigation", direction="input") == calls["tokens_in"]
 

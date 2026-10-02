@@ -310,7 +310,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
         )
         assert assertion["source_version_id"] == version_id
         assert assertion["review_state"] == "unreviewed"
-        assert assertion["extractor_version"] == "investigator.v8"
+        assert assertion["extractor_version"] == "investigator.v9"
         assert assertion["created_by"] == "atlas-investigator"
         assert assertion["value_json"]["claim_id"] == accepted["id"]
     supplied = atlas.get(f"/api/v1/assertions/{supplies['assertion_id']}")
@@ -1577,3 +1577,122 @@ def test_a_company_level_constraint_names_no_other_company(atlas: Atlas, llm: Fa
     assert "Fabrinet" in supplier["reason"]
     assert (other["outcome"], other["reason_code"]) == ("rejected", "party_not_in_quote")
     assert "Fabrinet" in other["reason"] and "co-mention" in other["reason"]
+
+
+# --- the answer's shape (pilot-fixes ticket 26) ---------------------------------------------------
+
+# A hand-written Lumentum document (synthetic): a product its filer makes, a customer it
+# supplies, and the company-level allocation bullet.
+MAKES_EMLS = "We manufacture EML laser chips in our own wafer fab."
+SUPPLIES_NVIDIA = "We supply optical transceivers to NVIDIA under a multi-year supply agreement."
+SHAPE_DOCUMENT = f"""<html><head><title>Lumentum operations update</title></head><body>
+<h1>Lumentum: operations update</h1>
+<p>{MAKES_EMLS}</p>
+<p>{SUPPLIES_NVIDIA}</p>
+<ul><li>{ALLOCATION_BULLET}</li></ul>
+</body></html>
+"""
+
+
+def test_an_answer_with_extra_fields_and_unneeded_object_fields_left_out_needs_no_repair(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    lumentum, nvidia = company_id(atlas, "lumentum"), company_id(atlas, "nvidia")
+    version_id = import_document(atlas, "lumentum", "operations-update", SHAPE_DOCUMENT)
+    common: dict[str, JsonValue] = {
+        "subject_company_id": lumentum,
+        "product": None,
+        "epistemic_type": "company_claim",
+    }
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                # As the fifth pilot run's answers came: a `subject_name` and a `claim_id` the
+                # schema doesn't have, and the object fields its object doesn't need left out.
+                common
+                | {
+                    "claim_id": "c1",
+                    "subject_name": "Lumentum",
+                    "predicate": "manufactures",
+                    "object_text": "EML laser chips",  # no object_company_id, no object_name
+                    "layer": "chip-laser",
+                    "quote": MAKES_EMLS,
+                },
+                common
+                | {
+                    "claim_id": "c2",
+                    "predicate": "supplies",
+                    "object_company_id": nvidia,  # no object_name, no object_text
+                    "layer": "module",
+                    "quote": SUPPLIES_NVIDIA,
+                },
+                common
+                | {
+                    "claim_id": "c3",
+                    "predicate": "capacity_constrained",  # company-level: no object field
+                    "layer": None,
+                    "quote": ALLOCATION_BULLET,
+                },
+            )
+        )
+    )
+
+    job = extract(atlas, "operations-update", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert len(llm.chat_requests()) == 1  # no repair
+    makes, supplies, constrained_ = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert [c["outcome"] for c in (makes, supplies, constrained_)] == ["accepted"] * 3
+    assert (makes["object_text"], makes["object_company_id"]) == ("EML laser chips", None)
+    assert (supplies["object_company_id"], supplies["object_text"]) == (nvidia, None)
+    assert (constrained_["company_level"], constrained_["object_text"]) == (True, None)
+    extraction = atlas.get(f"/api/v1/claim-extractions/{job['artifacts']['extraction_id']}")
+    calls = atlas.get(f"/api/v1/runs/{extraction['run_id']}/role-calls")
+    [call] = calls["role_calls"]
+    [attempt] = call["attempts"]
+    assert (call["status"], attempt["validation_errors"]) == ("accepted", None)
+    assert sorted(map(str, attempt["ignored_fields"])) == sorted(
+        map(
+            str,
+            [
+                ["claims", 0, "claim_id"],
+                ["claims", 0, "subject_name"],
+                ["claims", 1, "claim_id"],
+                ["claims", 2, "claim_id"],
+            ],
+        )
+    )
+    assert calls["repairs"] == {}
+
+
+def test_a_claim_with_no_object_field_and_a_predicate_that_needs_one_is_still_repaired(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    lumentum = company_id(atlas, "lumentum")
+    version_id = import_document(atlas, "lumentum", "operations-update", SHAPE_DOCUMENT)
+    bare: dict[str, JsonValue] = {
+        "subject_company_id": lumentum,
+        "predicate": "manufactures",  # needs an object; none of the three fields is given
+        "product": None,
+        "layer": None,
+        "epistemic_type": "company_claim",
+        "quote": MAKES_EMLS,
+    }
+    llm.script_chat(
+        ChatReply.answer(quoting(bare)),
+        ChatReply.answer(quoting(claim(**bare, object_text="EML laser chips"))),
+    )
+
+    job = extract(atlas, "operations-update", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert len(llm.chat_requests()) == 2
+    extraction = atlas.get(f"/api/v1/claim-extractions/{job['artifacts']['extraction_id']}")
+    calls = atlas.get(f"/api/v1/runs/{extraction['run_id']}/role-calls")
+    first, _ = calls["role_calls"][0]["attempts"]
+    assert sorted(e["loc"][-1] for e in first["validation_errors"]) == [
+        "object_company_id",
+        "object_name",
+        "object_text",
+    ]
+    assert calls["repairs"] == {"investigator": 1}
