@@ -60,9 +60,17 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         # v6: the filer's impersonal sentences and slide bullets, language of constraint,
         # `owns` from the holder to the issuer (memory-directed reading ticket 02);
         # v7: the layer may be left out, and when (memory-directed reading ticket 08);
-        # v8: a constraint on the company's own supply has no object (ticket 09)
-        8,
+        # v8: a constraint on the company's own supply has no object (ticket 09);
+        # v9: the answer's twelve fields and none other; an analyst's question is context
+        # (pilot-fixes tickets 26 and 22)
+        9,
         (
+            "**The answer.**",
+            "Each Claim is an object with exactly these twelve fields, every one of them present",
+            "Add no other field",
+            "there is no `subject_name`",
+            "there is no `claim_id`",
+            "an analyst's question is context, not a statement by the company",
             "**A constraint on the company's own supply.**",
             "propose it with no object, `object_text` null and `layer` null",
             'Never fill `object_text` with words that name no product ("our products", "our'

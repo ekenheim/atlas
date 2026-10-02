@@ -4570,8 +4570,9 @@ export interface components {
         JsonValue: unknown;
         /**
          * LLMAttempt
-         * @description One chat completion: the routed model, its usage, its raw content and why it failed
-         *     validation (None: it validated).
+         * @description One chat completion: the routed model, its usage, its raw content, why it failed
+         *     validation (None: it validated) and the fields of its answer the role's response model
+         *     doesn't name, which code dropped (each as its path in the answer; pilot-fixes ticket 26).
          */
         LLMAttempt: {
             /** Attempt */
@@ -4590,6 +4591,8 @@ export interface components {
             validation_errors: {
                 [key: string]: components["schemas"]["JsonValue"];
             }[] | null;
+            /** Ignored Fields */
+            ignored_fields: (string | number)[][];
             /**
              * Called At
              * Format: date-time
@@ -6777,6 +6780,10 @@ export interface components {
             tokens_in: number;
             /** Tokens Out */
             tokens_out: number;
+            /** Repairs */
+            repairs: {
+                [key: string]: number;
+            };
             /** Role Calls */
             role_calls: components["schemas"]["RoleCallRecord"][];
         };
@@ -7855,6 +7862,10 @@ export interface components {
             tokens_in: number;
             /** Tokens Out */
             tokens_out: number;
+            /** Repairs */
+            repairs: {
+                [key: string]: number;
+            };
         };
         /** ValidationError */
         ValidationError: {

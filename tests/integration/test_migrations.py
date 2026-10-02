@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0068"
+    assert revision == "0072"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -710,3 +710,32 @@ def test_sections_failed_by_a_cancellation_before_0068_are_cancelled(
     }
     assert operations == {"op-cancelled": "cancelled", "op-failed": "permanent"}
     assert refused == ["cancelled", "cancelled", "failed", "completed"]
+
+
+def test_chat_completions_recorded_before_0072_ignored_no_field(empty_database_url: str) -> None:
+    # 0072: an answer's unknown fields are dropped and recorded on its attempt. An attempt
+    # recorded before ignored none (such a field was a validation error, which it still says).
+    upgrade(empty_database_url, "0068")
+    engine = create_engine(empty_database_url)
+    errors = '[{"type": "extra_forbidden", "loc": ["claims", 0, "claim_id"], "msg": "Extra"}]'
+    with engine.begin() as connection:
+        connection.execute(text("SET LOCAL session_replication_role = replica"))
+        connection.execute(
+            text(
+                "INSERT INTO llm_call (id, role_call_id, run_id, attempt, response_model,"
+                " tokens_in, tokens_out, content, validation_errors) VALUES"
+                " (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 1, 'MiniMax-M3',"
+                " 10, 2, '{}', CAST(:errors AS jsonb))"
+            ),
+            {"errors": errors},
+        )
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        row = connection.execute(
+            text("SELECT ignored_fields, validation_errors FROM llm_call")
+        ).one()
+    engine.dispose()
+    assert row.ignored_fields == []
+    assert row.validation_errors[0]["type"] == "extra_forbidden"

@@ -142,6 +142,11 @@ function Summary({ investigation }: { investigation: Investigation }) {
             ({usage.tokens_in} in, {usage.tokens_out} out)
           </span>
         </Row>
+        <Row name="Schema repairs">
+          {Object.entries(usage.repairs)
+            .map(([role, count]) => `${role} ${count}`)
+            .join(", ") || "none"}
+        </Row>
         <Row name="As of">
           <Timestamp value={investigation.request.as_of_utc} />
         </Row>

@@ -170,7 +170,9 @@ def test_each_call_records_its_routed_model_and_tokens_and_the_run_sums_them(
     assert (attempt["response_model"], attempt["model_id"]) == ("MiniMax-M3", CHAT_MODEL_ID)
     assert (attempt["tokens_in"], attempt["tokens_out"]) == (812, 64)
     assert attempt["validation_errors"] is None
+    assert attempt["ignored_fields"] == []
     assert [a["tokens_in"] for a in second["attempts"]] == [700]
+    assert usage["repairs"] == {}
 
 
 def test_retrieved_text_is_quoted_low_trust_data_never_directives(
@@ -234,6 +236,7 @@ def test_malformed_output_is_repaired_once(engine: Engine, tmp_path: Path) -> No
     assert first_attempt["content"] == malformed
     assert [e["loc"] for e in first_attempt["validation_errors"]] == [["source_ids"]]
     assert second_attempt["validation_errors"] is None
+    assert usage["repairs"] == {"example": 1}
 
 
 def test_output_still_malformed_after_the_repair_is_quarantined_visible_and_never_used(
@@ -256,10 +259,101 @@ def test_output_still_malformed_after_the_repair_is_quarantined_visible_and_neve
     first, second = stored["attempts"]
     assert first["content"] == "I think the supplier is Sumitomo."
     assert first["validation_errors"]
-    assert {tuple(e["loc"]) for e in second["validation_errors"]} == {
-        ("answer",),
-        ("confidence",),
+    # The unknown `confidence` is ignored, not an error; the wrong type of `answer` is one.
+    assert [e["loc"] for e in second["validation_errors"]] == [["answer"]]
+    assert second["ignored_fields"] == [["confidence"]]
+    assert calls_repaired(engine, tmp_path, run.id) == {"example": 1}
+
+
+class ExampleItem(RoleOutput):
+    name: str
+    note: str | None
+
+
+class ExampleList(RoleOutput):
+    items: list[ExampleItem]
+
+
+LISTING = Role(
+    name="example_list",
+    prompt=Prompt.load(PROMPTS, "example", 1),
+    request=ExampleRequest,
+    response=ExampleList,
+    max_output_tokens=2000,
+)
+
+
+def calls_repaired(engine: Engine, tmp_path: Path, run_id: uuid.UUID) -> dict[str, int]:
+    return role_calls(engine, tmp_path, run_id)["repairs"]
+
+
+def test_an_unknown_extra_field_is_ignored_and_recorded_without_a_repair(
+    engine: Engine, tmp_path: Path
+) -> None:
+    run = start_run(engine, tmp_path)
+    # Fields the response model does not name, at the top and inside a list's objects (as
+    # the Investigator's `subject_name` and `claim_id` were): they carry nothing code uses.
+    answered: dict[str, JsonValue] = {
+        "items": [
+            {"claim_id": "c1", "name": "InP substrates", "note": None, "subject_name": "AXT"},
+            {"name": "EMLs", "note": "on allocation"},
+        ],
+        "data_gaps": ["no supplier named"],
     }
+    litellm = FakeLiteLLM().script_chat(ChatReply.json(answered, tokens=(800, 40)))
+
+    output = caller(engine, tmp_path, litellm).call(LISTING, QUESTION, run_id=run.id)
+
+    assert output == ExampleList.model_validate(
+        {
+            "items": [
+                {"name": "InP substrates", "note": None},
+                {"name": "EMLs", "note": "on allocation"},
+            ]
+        }
+    )
+    assert len(litellm.chat_requests()) == 1  # no repair was asked for
+    [body] = litellm.chat_requests()
+    # The strict schema sent is unchanged: every object closed, every property required.
+    schema = body["response_format"]["json_schema"]["schema"]
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == ["items"]
+    item = schema["$defs"]["ExampleItem"]
+    assert (item["additionalProperties"], item["required"]) == (False, ["name", "note"])
+    [stored] = role_calls(engine, tmp_path, run.id)["role_calls"]
+    assert stored["status"] == "accepted"
+    assert stored["output"] == output.model_dump(mode="json")
+    [attempt] = stored["attempts"]
+    assert attempt["content"] == json.dumps(answered)
+    assert attempt["validation_errors"] is None
+    assert sorted(map(str, attempt["ignored_fields"])) == sorted(
+        map(str, [["items", 0, "claim_id"], ["items", 0, "subject_name"], ["data_gaps"]])
+    )
+    assert calls_repaired(engine, tmp_path, run.id) == {}
+
+
+def test_a_missing_required_field_is_still_repaired_and_extra_fields_are_not_named_in_it(
+    engine: Engine, tmp_path: Path
+) -> None:
+    run = start_run(engine, tmp_path)
+    missing: dict[str, JsonValue] = {"items": [{"name": "EMLs", "subject_name": "Lumentum"}]}
+    # (no `note`)
+    litellm = FakeLiteLLM().script_chat(
+        ChatReply.json(missing), ChatReply.json({"items": [{"name": "EMLs", "note": None}]})
+    )
+
+    output = caller(engine, tmp_path, litellm).call(LISTING, QUESTION, run_id=run.id)
+
+    assert output.items[0].name == "EMLs"
+    _, repair = litellm.chat_requests()
+    errors = json.loads(repair["messages"][3]["content"].split("\n\n", 1)[1])
+    assert [e["loc"] for e in errors] == [["items", 0, "note"]]
+    [stored] = role_calls(engine, tmp_path, run.id)["role_calls"]
+    first_attempt, second_attempt = stored["attempts"]
+    assert [e["loc"] for e in first_attempt["validation_errors"]] == [["items", 0, "note"]]
+    assert first_attempt["ignored_fields"] == [["items", 0, "subject_name"]]
+    assert (second_attempt["validation_errors"], second_attempt["ignored_fields"]) == (None, [])
+    assert calls_repaired(engine, tmp_path, run.id) == {"example_list": 1}
 
 
 CUT_OFF = '{"answer": "The filing names Sumitomo Electric as a supplier of InP sub'

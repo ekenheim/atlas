@@ -31,6 +31,7 @@ from atlas.roles.records import (
     RoleCallStatus,
     RunRoleCalls,
     RunUsage,
+    run_repairs,
     run_role_calls,
     run_usage,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "RunRoleCalls",
     "RunUsage",
     "TokenBudgetExhausted",
+    "run_repairs",
     "run_role_calls",
     "run_usage",
 ]

@@ -44,7 +44,7 @@ function investigation(overrides: Partial<Investigation>): Investigation {
     status: "stopped",
     stop_reason: "answered",
     research_card: card,
-    usage: { rounds: 1, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0 },
+    usage: { rounds: 1, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0, repairs: {} },
     budgets: {
       max_rounds: 2,
       max_leads: 10,
@@ -75,7 +75,7 @@ test("a follow-up is offered only when the API would take it", () => {
   expect(
     followUpBlocked(
       investigation({
-        usage: { rounds: 2, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0 },
+        usage: { rounds: 2, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0, repairs: {} },
       }),
     ),
   ).toMatch(/2 rounds are spent/);

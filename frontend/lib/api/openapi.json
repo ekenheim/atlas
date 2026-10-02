@@ -14797,6 +14797,23 @@
             ],
             "title": "Validation Errors"
           },
+          "ignored_fields": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Ignored Fields"
+          },
           "called_at": {
             "type": "string",
             "format": "date-time",
@@ -14812,10 +14829,11 @@
           "tokens_out",
           "content",
           "validation_errors",
+          "ignored_fields",
           "called_at"
         ],
         "title": "LLMAttempt",
-        "description": "One chat completion: the routed model, its usage, its raw content and why it failed\nvalidation (None: it validated)."
+        "description": "One chat completion: the routed model, its usage, its raw content, why it failed\nvalidation (None: it validated) and the fields of its answer the role's response model\ndoesn't name, which code dropped (each as its path in the answer; pilot-fixes ticket 26)."
       },
       "Layer": {
         "type": "string",
@@ -21165,6 +21183,13 @@
             "type": "integer",
             "title": "Tokens Out"
           },
+          "repairs": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Repairs"
+          },
           "role_calls": {
             "items": {
               "$ref": "#/components/schemas/RoleCallRecord"
@@ -21178,6 +21203,7 @@
           "run_id",
           "tokens_in",
           "tokens_out",
+          "repairs",
           "role_calls"
         ],
         "title": "RunRoleCalls"
@@ -24055,6 +24081,13 @@
           "tokens_out": {
             "type": "integer",
             "title": "Tokens Out"
+          },
+          "repairs": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Repairs"
           }
         },
         "type": "object",
@@ -24064,7 +24097,8 @@
           "documents",
           "companies",
           "tokens_in",
-          "tokens_out"
+          "tokens_out",
+          "repairs"
         ],
         "title": "Usage",
         "description": "How much of each budget the investigation has used."
