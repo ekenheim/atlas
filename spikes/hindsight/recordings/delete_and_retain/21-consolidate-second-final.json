@@ -1,0 +1,28 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q12-1790944925/operations/f5f6c3d5-f7be-40d9-9d88-be02d8832238"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "f5f6c3d5-f7be-40d9-9d88-be02d8832238",
+      "status": "completed",
+      "operation_type": "consolidation",
+      "id": "f5f6c3d5-f7be-40d9-9d88-be02d8832238",
+      "task_type": "consolidation",
+      "mental_model_id": null,
+      "created_at": "2026-10-02T12:42:25.868534+00:00",
+      "updated_at": "2026-10-02T12:42:32.634862+00:00",
+      "completed_at": "2026-10-02T12:42:32.634862+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {},
+      "details": null,
+      "child_operations": null,
+      "task_payload": null
+    }
+  }
+}

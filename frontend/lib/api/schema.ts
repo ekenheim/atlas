@@ -7258,6 +7258,18 @@ export interface components {
              * @default 0
              */
             fact_count: number;
+            /**
+             * At Profile
+             * @description completed and zero-fact sections retained under the current retain profile (memory-quality ticket 12)
+             * @default 0
+             */
+            at_profile: number;
+            /**
+             * Below Profile
+             * @description completed and zero-fact sections retained under an older profile: what a `atlas memory backfill` re-extracts (with the failed and cancelled ones)
+             * @default 0
+             */
+            below_profile: number;
         };
         /** Security */
         Security: {
@@ -8092,7 +8104,7 @@ export interface components {
             effective: boolean;
         };
         /** @enum {string} */
-        UnresolvedReason: "mental_model" | "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
+        UnresolvedReason: "mental_model" | "no_memory_id" | "memory_not_found" | "memory_replaced" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
         /** UnresponsiveEngine */
         UnresponsiveEngine: {
             /** Engine */

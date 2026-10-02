@@ -1,0 +1,168 @@
+{
+  "llm_after_retain_1": 1,
+  "llm_after_consolidate_1": 1,
+  "before": {
+    "document_status": 200,
+    "facts": [
+      {
+        "id": "8df48603-78f7-4425-9b38-b2d03aa34545",
+        "type": "observation",
+        "context": "",
+        "tags": [
+          "company:aurora"
+        ],
+        "entities": "",
+        "text": "Halcyon Networks accounted for 38% of Aurora Optics Inc.'s revenue in fiscal 2027 and is A"
+      },
+      {
+        "id": "a348388d-dbdf-4730-80d9-52c098ee7ea9",
+        "type": "world",
+        "context": "Synthetic document (fictional companies). Old context.",
+        "tags": [
+          "company:aurora"
+        ],
+        "entities": "3.2T laser output, Aurora Optics Inc., Halcyon Networks",
+        "text": "Halcyon Networks accounted for 38% of Aurora's revenue and will take most of its 3.2T lase"
+      },
+      {
+        "id": "06b54bda-f9c7-458f-bfaf-55f3a640f904",
+        "type": "observation",
+        "context": "",
+        "tags": [
+          "company:aurora"
+        ],
+        "entities": "",
+        "text": "Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization in fiscal 2026."
+      },
+      {
+        "id": "9fec14a9-be3d-45fb-bcd3-301331f07214",
+        "type": "world",
+        "context": "Synthetic document (fictional companies). Old context.",
+        "tags": [
+          "company:aurora"
+        ],
+        "entities": "Aurora Optics Inc., Tucson, indium phosphide fab",
+        "text": "Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization in fiscal 2026. |"
+      }
+    ],
+    "observations": [],
+    "entity_names": [
+      "Aurora Optics Inc.",
+      "3.2T laser output",
+      "Halcyon Networks",
+      "Tucson",
+      "indium phosphide fab"
+    ]
+  },
+  "delete": {
+    "status": 200,
+    "response": {
+      "success": true,
+      "message": "Document 'doc-delete-retain' and 2 associated memory units deleted successfully",
+      "document_id": "doc-delete-retain",
+      "memory_units_deleted": 2
+    }
+  },
+  "after_delete": {
+    "document_status": 404,
+    "facts": [],
+    "observations": [],
+    "entity_names": []
+  },
+  "llm_after_retain_2": 1,
+  "after_retain": {
+    "document_status": 200,
+    "facts": [
+      {
+        "id": "5fa34836-8c8d-4424-bae4-1d9fb8a924b4",
+        "type": "world",
+        "context": "Aurora Optics Inc. annual report (10-K), fiscal 2026, Item 1. Business. The filer, Aurora Optics Inc., is speaking.",
+        "tags": [
+          "form:10-K",
+          "company:aurora"
+        ],
+        "entities": "Aurora Optics Inc., Halcyon Networks, 3.2T laser",
+        "text": "Halcyon Networks accounted for 38% of Aurora's revenue and will take most of its 3.2T lase"
+      },
+      {
+        "id": "30096e58-0770-4d9a-b1fe-3637c980f847",
+        "type": "world",
+        "context": "Aurora Optics Inc. annual report (10-K), fiscal 2026, Item 1. Business. The filer, Aurora Optics Inc., is speaking.",
+        "tags": [
+          "form:10-K",
+          "company:aurora"
+        ],
+        "entities": "Tucson, Aurora Optics Inc., indium phosphide fab, Halcyon Networks",
+        "text": "Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization in fiscal 2026. |"
+      }
+    ],
+    "observations": [],
+    "entity_names": [
+      "Aurora Optics Inc.",
+      "Halcyon Networks",
+      "3.2T laser",
+      "Tucson",
+      "indium phosphide fab"
+    ]
+  },
+  "llm_after_consolidate_2": 1,
+  "after_consolidate": {
+    "document_status": 200,
+    "facts": [
+      {
+        "id": "4d4ef072-2e8e-4e8a-bdea-e80f5b34d0d6",
+        "type": "observation",
+        "context": "",
+        "tags": [
+          "form:10-K",
+          "company:aurora"
+        ],
+        "entities": "",
+        "text": "Halcyon Networks is Aurora Optics Inc.'s largest customer, accounting for 38% of Aurora's "
+      },
+      {
+        "id": "5fa34836-8c8d-4424-bae4-1d9fb8a924b4",
+        "type": "world",
+        "context": "Aurora Optics Inc. annual report (10-K), fiscal 2026, Item 1. Business. The filer, Aurora Optics Inc., is speaking.",
+        "tags": [
+          "form:10-K",
+          "company:aurora"
+        ],
+        "entities": "Aurora Optics Inc., Halcyon Networks, 3.2T laser",
+        "text": "Halcyon Networks accounted for 38% of Aurora's revenue and will take most of its 3.2T lase"
+      },
+      {
+        "id": "14c42284-57da-47bb-b638-8f4f47c41e0c",
+        "type": "observation",
+        "context": "",
+        "tags": [
+          "form:10-K",
+          "company:aurora"
+        ],
+        "entities": "",
+        "text": "Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization in fiscal 2026."
+      },
+      {
+        "id": "30096e58-0770-4d9a-b1fe-3637c980f847",
+        "type": "world",
+        "context": "Aurora Optics Inc. annual report (10-K), fiscal 2026, Item 1. Business. The filer, Aurora Optics Inc., is speaking.",
+        "tags": [
+          "form:10-K",
+          "company:aurora"
+        ],
+        "entities": "Tucson, Aurora Optics Inc., indium phosphide fab, Halcyon Networks",
+        "text": "Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization in fiscal 2026. |"
+      }
+    ],
+    "observations": [],
+    "entity_names": [
+      "Aurora Optics Inc.",
+      "Halcyon Networks",
+      "3.2T laser",
+      "Tucson",
+      "indium phosphide fab"
+    ]
+  },
+  "llm_total": 4,
+  "note": "GET .../observations is 405 on 0.10.2 (recordings 06, 11, 17, 23), so every `observations` list here is empty by that: the observations are the `facts` rows with `type: observation`."
+}

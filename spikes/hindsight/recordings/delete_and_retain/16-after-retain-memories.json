@@ -1,0 +1,79 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q12-1790944925/memories/list",
+    "query": {
+      "limit": 200
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "items": [
+        {
+          "id": "5fa34836-8c8d-4424-bae4-1d9fb8a924b4",
+          "text": "Halcyon Networks accounted for 38% of Aurora's revenue and will take most of its 3.2T laser output in fiscal 2027, which Aurora called its binding capacity constraint. | When: fiscal 2027 (upcoming); fiscal 2026 (historical revenue share) | Involving: Halcyon Networks (customer), Aurora Optics Inc. | Halcyon Networks is Aurora's largest customer and represents a binding capacity constraint due to 3.2T laser commitments.",
+          "context": "Aurora Optics Inc. annual report (10-K), fiscal 2026, Item 1. Business. The filer, Aurora Optics Inc., is speaking.",
+          "date": "2026-08-01T00:00:00.010000+00:00",
+          "fact_type": "world",
+          "document_id": "doc-delete-retain",
+          "mentioned_at": "2026-08-01T00:00:00.010000+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "Aurora Optics Inc., Halcyon Networks, 3.2T laser",
+          "chunk_id": "atlas-q12-1790944925_doc-delete-retain_0",
+          "proof_count": 1,
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ],
+          "metadata": {
+            "fixture": "delete-and-retain"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T12:42:24.463816+00:00",
+          "source_memory_ids": []
+        },
+        {
+          "id": "30096e58-0770-4d9a-b1fe-3637c980f847",
+          "text": "Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization in fiscal 2026. | When: fiscal 2026 | Involving: Aurora Optics Inc.",
+          "context": "Aurora Optics Inc. annual report (10-K), fiscal 2026, Item 1. Business. The filer, Aurora Optics Inc., is speaking.",
+          "date": "2026-01-01T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "doc-delete-retain",
+          "mentioned_at": "2026-08-01T00:00:00+00:00",
+          "occurred_start": "2026-01-01T00:00:00+00:00",
+          "occurred_end": "2026-12-31T23:59:59+00:00",
+          "entities": "Tucson, Aurora Optics Inc., indium phosphide fab, Halcyon Networks",
+          "chunk_id": "atlas-q12-1790944925_doc-delete-retain_0",
+          "proof_count": 1,
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ],
+          "metadata": {
+            "fixture": "delete-and-retain"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T12:42:24.463816+00:00",
+          "source_memory_ids": []
+        }
+      ],
+      "total": 2,
+      "limit": 200,
+      "offset": 0
+    }
+  }
+}

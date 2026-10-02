@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q12-1790944925/consolidate",
+    "query": null,
+    "body": {}
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.03,
+    "body": {
+      "operation_id": "f5f6c3d5-f7be-40d9-9d88-be02d8832238",
+      "deduplicated": false
+    }
+  }
+}

@@ -18,10 +18,15 @@ Migration revision `0067` (down: main's head), only if a record needs it.
 
 **Blocked by:** 03, 04, 05, 06, 15
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the CLI and worker seams: a company with sections at an old profile, at the current one and failed; the job re-retains the first and the last, leaves the second, and ends with a consolidation operation; a rerun does nothing.
-- [ ] `--max-sections` bounds a run and a second run continues; a quota pause holds it and it resumes.
+- [x] Integration test at the CLI and worker seams: a company with sections at an old profile, at the current one and failed; the job re-retains the first and the last, leaves the second, and ends with a consolidation operation; a rerun does nothing.
+- [x] `--max-sections` bounds a run and a second run continues; a quota pause holds it and it resumes.
 - [ ] A pointer recorded before the backfill still reads, with its memory's state.
-- [ ] The health read shows the profile counts.
-- [ ] Runbook and decision entries; `AGENTS.md` line.
+- [x] The health read shows the profile counts.
+- [x] Runbook and decision entries; `AGENTS.md` line.
+
+## Implementer's note
+
+- The pointer box is left unticked on purpose: `test_a_memory_the_backfill_replaced_reads_replaced_not_broken` shows an observation consolidated from a replaced fact reading `unverified` / `memory_replaced` (not `broken`) through the recall API, and `reading_pointer` is insert-only and the backfill never touches it, but no test creates a pointer row through an investigation and reads it after a backfill. An observation Hindsight deleted with its facts is not known to Atlas by ID, so looked up alone it still reads `broken` (`docs/decisions.md`, "A backfill replaces a section's document").
+- Recorded first: `spikes/hindsight/recordings/delete_and_retain/` (4 LLM requests of the cap of 8). The delete removes the document, its facts and the observations built only from them; the second retain extracts again and the new context, tags and entities reach the new facts, which have new IDs.

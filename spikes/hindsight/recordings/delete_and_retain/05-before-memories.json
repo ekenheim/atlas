@@ -1,0 +1,133 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q12-1790944925/memories/list",
+    "query": {
+      "limit": 200
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.02,
+    "body": {
+      "items": [
+        {
+          "id": "8df48603-78f7-4425-9b38-b2d03aa34545",
+          "text": "Halcyon Networks accounted for 38% of Aurora Optics Inc.'s revenue in fiscal 2027 and is Aurora's binding capacity constraint due to its share of the 3.2T laser output.",
+          "context": "",
+          "date": "2026-08-01T00:00:00.010000+00:00",
+          "fact_type": "observation",
+          "document_id": null,
+          "mentioned_at": "2026-08-01T00:00:00.010000+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "",
+          "chunk_id": null,
+          "proof_count": 1,
+          "tags": [
+            "company:aurora"
+          ],
+          "metadata": {},
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T12:42:16.407450+00:00",
+          "source_memory_ids": [
+            "a348388d-dbdf-4730-80d9-52c098ee7ea9"
+          ]
+        },
+        {
+          "id": "a348388d-dbdf-4730-80d9-52c098ee7ea9",
+          "text": "Halcyon Networks accounted for 38% of Aurora's revenue and will take most of its 3.2T laser output in fiscal 2027, which Aurora called its binding capacity constraint. | When: fiscal 2027 | Involving: Aurora Optics Inc., Halcyon Networks (customer) | Halcyon is Aurora's binding capacity constraint due to its share of laser output.",
+          "context": "Synthetic document (fictional companies). Old context.",
+          "date": "2026-08-01T00:00:00.010000+00:00",
+          "fact_type": "world",
+          "document_id": "doc-delete-retain",
+          "mentioned_at": "2026-08-01T00:00:00.010000+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "3.2T laser output, Aurora Optics Inc., Halcyon Networks",
+          "chunk_id": "atlas-q12-1790944925_doc-delete-retain_0",
+          "proof_count": 1,
+          "tags": [
+            "company:aurora"
+          ],
+          "metadata": {
+            "fixture": "delete-and-retain"
+          },
+          "consolidated_at": "2026-10-02T12:42:16.414122+00:00",
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T12:42:10.724508+00:00",
+          "source_memory_ids": []
+        },
+        {
+          "id": "06b54bda-f9c7-458f-bfaf-55f3a640f904",
+          "text": "Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization in fiscal 2026.",
+          "context": "",
+          "date": "2026-08-01T00:00:00+00:00",
+          "fact_type": "observation",
+          "document_id": null,
+          "mentioned_at": "2026-08-01T00:00:00+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "",
+          "chunk_id": null,
+          "proof_count": 1,
+          "tags": [
+            "company:aurora"
+          ],
+          "metadata": {},
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T12:42:16.407450+00:00",
+          "source_memory_ids": [
+            "9fec14a9-be3d-45fb-bcd3-301331f07214"
+          ]
+        },
+        {
+          "id": "9fec14a9-be3d-45fb-bcd3-301331f07214",
+          "text": "Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization in fiscal 2026. | When: fiscal 2026 | Involving: Aurora Optics Inc.",
+          "context": "Synthetic document (fictional companies). Old context.",
+          "date": "2026-08-01T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "doc-delete-retain",
+          "mentioned_at": "2026-08-01T00:00:00+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "Aurora Optics Inc., Tucson, indium phosphide fab",
+          "chunk_id": "atlas-q12-1790944925_doc-delete-retain_0",
+          "proof_count": 1,
+          "tags": [
+            "company:aurora"
+          ],
+          "metadata": {
+            "fixture": "delete-and-retain"
+          },
+          "consolidated_at": "2026-10-02T12:42:16.414122+00:00",
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T12:42:10.724508+00:00",
+          "source_memory_ids": []
+        }
+      ],
+      "total": 4,
+      "limit": 200,
+      "offset": 0
+    }
+  }
+}

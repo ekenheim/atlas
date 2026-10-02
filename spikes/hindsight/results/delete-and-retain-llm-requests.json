@@ -1,0 +1,22 @@
+[
+  {
+    "operation": "consolidation",
+    "scope": "consolidation",
+    "status": "success"
+  },
+  {
+    "operation": "retain",
+    "scope": "retain_extract_facts",
+    "status": "success"
+  },
+  {
+    "operation": "consolidation",
+    "scope": "consolidation",
+    "status": "success"
+  },
+  {
+    "operation": "retain",
+    "scope": "retain_extract_facts",
+    "status": "success"
+  }
+]

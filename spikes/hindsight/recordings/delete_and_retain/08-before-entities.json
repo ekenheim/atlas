@@ -1,0 +1,61 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q12-1790944925/entities",
+    "query": {
+      "limit": 200
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "items": [
+        {
+          "id": "4087c49a-7b90-4bb0-b12d-ed47e20b7895",
+          "canonical_name": "Aurora Optics Inc.",
+          "mention_count": 2,
+          "first_seen": "2026-08-01T00:00:00+00:00",
+          "last_seen": "2026-08-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "10004fb0-9daf-4b73-ba7b-9e0e7e2fe5fa",
+          "canonical_name": "3.2T laser output",
+          "mention_count": 1,
+          "first_seen": "2026-08-01T00:00:00.010000+00:00",
+          "last_seen": "2026-08-01T00:00:00.010000+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "b90b47a9-b137-4eea-8396-03d7940136e9",
+          "canonical_name": "Halcyon Networks",
+          "mention_count": 1,
+          "first_seen": "2026-08-01T00:00:00.010000+00:00",
+          "last_seen": "2026-08-01T00:00:00.010000+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "bfcbd027-b7f7-49a3-beb5-bec81c1e139a",
+          "canonical_name": "Tucson",
+          "mention_count": 1,
+          "first_seen": "2026-08-01T00:00:00+00:00",
+          "last_seen": "2026-08-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "ff53262d-ad4c-4c94-935e-adcbe6736899",
+          "canonical_name": "indium phosphide fab",
+          "mention_count": 1,
+          "first_seen": "2026-08-01T00:00:00+00:00",
+          "last_seen": "2026-08-01T00:00:00+00:00",
+          "metadata": {}
+        }
+      ],
+      "total": 5,
+      "limit": 200,
+      "offset": 0
+    }
+  }
+}

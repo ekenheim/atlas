@@ -43,6 +43,7 @@ from atlas.companies import CompanyConfig, Universe
 from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightGateway
 from atlas.identity.normalize import normalize_name
 from atlas.retention.consolidation import ConsolidationRecord, consolidation_record
+from atlas.retention.context import RETAIN_PROFILE
 from atlas.retention.reads import RETAIN_STATES
 
 PartStatus = Literal["ok", "unavailable"]
@@ -98,6 +99,16 @@ class SectionCounts(BaseModel):
         description="completed sections whose extraction reported errors after their one retry",
     )
     fact_count: int = Field(default=0, description="memories counted across completed sections")
+    at_profile: int = Field(
+        default=0,
+        description="completed and zero-fact sections retained under the current retain profile"
+        " (memory-quality ticket 12)",
+    )
+    below_profile: int = Field(
+        default=0,
+        description="completed and zero-fact sections retained under an older profile: what a"
+        " `atlas memory backfill` re-extracts (with the failed and cancelled ones)",
+    )
 
 
 class CompanySections(BaseModel):
@@ -282,10 +293,12 @@ def _section_counts(
             "SELECT d.company_id, m.retain_state, count(*) AS sections,"
             f" count(*) FILTER (WHERE {_PARTIAL}) AS partial,"
             " coalesce(sum(m.fact_count) FILTER (WHERE m.retain_state = 'completed'), 0)"
-            " AS facts"
+            " AS facts,"
+            " count(*) FILTER (WHERE m.retain_state IN ('completed', 'zero_fact')"
+            "   AND m.retain_profile = :profile) AS at_profile"
             f"{_FROM} WHERE {where} GROUP BY 1, 2"
         ),
-        params,
+        {**params, "profile": RETAIN_PROFILE},
     ).mappings()
     total = SectionCounts()
     per_company: dict[uuid.UUID | None, SectionCounts] = {}
@@ -298,6 +311,9 @@ def _section_counts(
             counts.total += row["sections"]
             counts.partial += row["partial"]
             counts.fact_count += int(row["facts"])
+            counts.at_profile += row["at_profile"]
+            if state in ("completed", "zero_fact"):
+                counts.below_profile += row["sections"] - row["at_profile"]
     return total, per_company
 
 

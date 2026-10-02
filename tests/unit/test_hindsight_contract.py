@@ -19,6 +19,7 @@ from pydantic import JsonValue
 from atlas.bank_template import BankTemplate
 from atlas.hindsight import (
     HindsightGateway,
+    HindsightNotFound,
     HindsightRuleViolation,
     MentalModelDefinition,
     MentalModelTrigger,
@@ -974,6 +975,8 @@ def test_recall_chunks_are_the_stored_chunks_text() -> None:
 RECORDED_0102_BY_GATEWAY = {
     "chunks/01-retain-chunked",
     "entity_labels/02-retain-labelled",
+    "delete_and_retain/01-retain-first",
+    "delete_and_retain/14-retain-second",
 }
 
 
@@ -1003,6 +1006,10 @@ OPERATION_STATUSES_0102 = [
     "reprocess/05-retain-again-same-id-final",
     "reprocess/08-consolidate-final",
     "tagged_mental_model/02-create-final",
+    "delete_and_retain/02-retain-first-final",
+    "delete_and_retain/04-consolidate-first-final",
+    "delete_and_retain/15-retain-second-final",
+    "delete_and_retain/21-consolidate-second-final",
 ]
 
 
@@ -1023,6 +1030,8 @@ CONSOLIDATIONS_0102 = [
     "observation_scopes/03-consolidate-one-scope",
     "observation_scopes/07-consolidate-two-scopes",
     "reprocess/07-consolidate",
+    "delete_and_retain/03-consolidate-first",
+    "delete_and_retain/20-consolidate-second",
 ]
 
 
@@ -1062,7 +1071,70 @@ def test_the_gateway_reads_the_0_10_2_llm_request_stats(name: str) -> None:
     )
 
 
+DELETE_AND_RETAIN = sorted(n for n in RECORDINGS if n.startswith("delete_and_retain/"))
+
+
+def test_the_delete_and_retain_sequence_replays_in_recorded_order() -> None:
+    # Identical requests (the document read before and after the delete) are served in
+    # recorded order, so the whole sequence is replayed once, as it happened. `GET
+    # .../observations` is 405 on 0.10.2 as on 0.10.1 (observations are the memory list's
+    # `fact_type: observation` rows); the 405 is evidence.
+    fake = RecordedHindsight()
+    with httpx2.Client(base_url="http://hindsight.test", transport=fake.transport) as client:
+        for name in DELETE_AND_RETAIN:
+            recording = fake.recording(name)
+            params: list[tuple[str, str | int | float | bool | None]] = [
+                (k, str(v)) for k, v in (recording.query or {}).items()
+            ]
+            response = client.request(
+                recording.method, recording.path, params=params, json=recording.body
+            )
+            assert response.status_code == recording.status, name
+            assert fake.served[-1] == name
+    assert len(DELETE_AND_RETAIN) == 25
+
+
+def test_the_gateway_deletes_a_document_as_0_10_2_answered() -> None:
+    fake = RecordedHindsight()
+    recording = fake.recording("delete_and_retain/09-delete-document")
+    gateway = gateway_for(fake, recording)
+
+    gateway.get_document("doc-delete-retain")  # the recorded read before the delete
+    deleted = gateway.delete_document("doc-delete-retain")
+
+    expected = recording.response_object()
+    assert fake.served[-1] == "delete_and_retain/09-delete-document"
+    assert deleted.success is True
+    assert deleted.document_id == expected["document_id"] == "doc-delete-retain"
+    assert deleted.memory_units_deleted == expected["memory_units_deleted"] == 2
+    # Then the document reads 404, and no fact is left.
+    with pytest.raises(HindsightNotFound):
+        gateway.get_document("doc-delete-retain")
+    gone = fake.recording("delete_and_retain/10-after-delete-memories").response_object()
+    assert gone["items"] == [] and gone["total"] == 0
+
+
+def test_a_document_retained_again_after_its_delete_holds_new_memories_with_the_new_context() -> (
+    None
+):
+    before = as_list(fake_items("delete_and_retain/05-before-memories"))
+    after = as_list(fake_items("delete_and_retain/16-after-retain-memories"))
+    retained = as_list(RECORDINGS["delete_and_retain/14-retain-second"].request_object()["items"])[
+        0
+    ]
+
+    new_context = str(retained["context"])
+    assert not {str(m["id"]) for m in before} & {str(m["id"]) for m in after}  # new memory IDs
+    assert {str(m["context"]) for m in after} == {new_context}  # the new context
+    assert {str(m["context"]) for m in before if m["fact_type"] == "world"} != {new_context}
+
+
+def fake_items(name: str) -> JsonValue:
+    return RECORDINGS[name].response_object()["items"]
+
+
 REPLAYED_0102 = {
+    *DELETE_AND_RETAIN,
     "observation_scopes/01-retain-one-scope",
     "observation_scopes/05-retain-two-scopes",
     "observation_scopes/09-list-scopes",
@@ -1179,7 +1251,7 @@ EXERCISED_0102 = {
 
 
 def test_every_recording_is_classified() -> None:
-    assert len(RECORDINGS) == 63 + 57  # 0.10.1, then the 0.10.2 memory-quality recordings
+    assert len(RECORDINGS) == 63 + 57 + 25  # 0.10.1, 0.10.2 (ticket 01), delete_and_retain (12)
     assert EXERCISED.isdisjoint(NOT_CALLED_BY_ATLAS)
     assert EXERCISED_0102.isdisjoint(NOT_REPLAYED_0102)
     assert (EXERCISED | EXERCISED_0102).isdisjoint(

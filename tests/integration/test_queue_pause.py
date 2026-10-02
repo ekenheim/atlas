@@ -48,6 +48,7 @@ PAUSABLE_KINDS = [
     "draft_hypothesis",
     "extract_claims",
     "investigation_task",
+    "memory_backfill",
     "poll_operation",
     "propose_candidates",
     "refresh_mental_model",

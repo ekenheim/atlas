@@ -385,6 +385,29 @@ A rehearsal's model answers are scripted (`RehearsalModel`), and so are its Sear
 
 **A long backlog** (the 2026-10-02 one: 6,709 memories at ~10 s each): let the night's run work through it, followed hourly by the day's tries (`ATLAS_CONSOLIDATE_MAX_TRIES`, 6). A retain queued at 04:30 makes the day's try wait an hour, so a backfill that runs all night delays the run; finish or pause the backfill (its retains) first, then ask by hand.
 
+## Memory backfill (memory-quality ticket 12)
+
+**What:** brings the sections already in Memory to the current retain profile (the context, entities, scopes and labels of `atlas.retention.context`, `RETAIN_PROFILE`) and retries the failed and cancelled ones, without fetching or parsing again. Each section's Hindsight document is deleted and retained again under the same ID (recorded on 0.10.2, `docs/hindsight-feature-matrix.md`; rules in `docs/decisions.md`, "A backfill replaces a section's document"), then the bank consolidates. Needs migration `0067` (`atlas migrate`) and the template applied.
+
+**Run it:**
+
+```
+uv run atlas memory backfill --company lumentum --max-sections 300 --key night-1
+uv run atlas memory backfill --theme photonics --max-sections 300
+```
+
+It prints each company's `sections_below` (what a run would take now) and `allotted`, and the `memory_backfill` job enqueued (backfill class: the backfill window, if one is set, and never a budget's interactive reserve; the retains it enqueues are backfill class too). `atlas worker` runs it. `--theme` runs the seeds of the pilot's investigations first, thinnest in Memory first; `--company` in the order named. Without `--max-sections` a run takes everything below the profile.
+
+**Order within a company:** failed and cancelled sections (about 1,900 cancelled early in the rollout, the larger part of the work), then call transcripts, then the rest, newest documents first. A rerun takes the next sections; one that finds none enqueues nothing. An interrupted run resumes: a section is deleted before it is reset, so one whose reset did not commit is simply taken again; a quota or outage pauses the job (pausable) and its retry takes what is left, never more than `--max-sections` for the run key.
+
+**How many a night (an estimate, not measured at scale):** a run spends the retain budget, one operation per Source Version it touches (a 10-K batch is about 11 sections, an 8-K about 3, a transcript one section per chunk), and, after it, one consolidation per company (the `codex` budget, one unit each). The live measurement was 1 extraction request per document and 1 consolidation request per run that touched its scope (4 requests for the whole delete-and-retain sequence of one document). With `ATLAS_RETAIN_EXTRACTOR=minimax` the retains spend `hindsight_minimax` (`ATLAS_RETAIN_BUDGET_OPERATIONS`, 200 operations per 5 h window), so a night inside a 6 h backfill window can use about 240 operations, roughly 700 to 2,500 sections depending on their size: start with `--max-sections 300` and read `GET /api/v1/queue` (budgets) in the morning. Consolidation, not extraction, is the slow part on the shared Codex subscription (about 10 s per memory in the 2026-10-02 backlog, "Consolidation" above): the daily consolidation runs at `ATLAS_CONSOLIDATE_AT` and a backfill's own request follows its retains, so do not run the backfill into the consolidation hour unless you accept the day's try waiting.
+
+**Watch it:** `GET /api/v1/memory/health`: per company and for the bank, `sections.at_profile`, `below_profile`, `failed`, `cancelled` and `pending`, and `consolidation`. Each job's artifacts (`GET /api/v1/jobs/{id}`): the `take` step's `counts_before` and `counts_after`, `sections_taken`, `documents_deleted`, `documents_absent` and `retain_jobs`; the `finish` steps' `outcome` (`waiting`, `consolidation_requested`, `still_retaining` after 20 waits: a rerun asks for the consolidation then). Audit: `memory_document.backfill_reset` for each section.
+
+**Stop it:** cancel the queued `memory_backfill` and `retain` jobs (or close the backfill window); sections already reset stay `pending` until their retain job runs (`atlas retention retry-failed` resubmits a failed one). Nothing is lost: a section whose document was deleted and not yet retained has its source text archived, and the retain job puts it back.
+
+**What changes for old memory IDs:** the facts of a replaced section have new IDs. Old reading pointers, Assertions and snapshots keep their records; a recall or reflect that resolves an old memory ID reads it `unverified` with the reason `memory_replaced` (recorded in `memory_replacement`), not `broken`. Observations are rebuilt by the consolidation that follows.
+
 ## EDGAR availability corrections (after deploying migration `0012`)
 
 Source Versions ingested before the EDGAR dissemination rule (docs/decisions.md, 2026-09-29) are dated at acceptance even when EDGAR held the filing to the next business day. After `atlas migrate` has applied `0012`, run once, with the app's settings:
