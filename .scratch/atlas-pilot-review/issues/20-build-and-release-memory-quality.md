@@ -86,3 +86,9 @@ The answer records the release, the deploy, the before and after numbers, the co
 *What waits for the owner:* edge decisions (ticket 09; the queue holds about 136), the gold cases (ticket 10), the consolidation question (pace the backfill's consolidation on the ChatGPT subscription, or move consolidation to MiniMax server-wide; ticket 01 measured one consolidation request per scope touched), and merges of home-ops PRs.
 
 *The measures to beat* (all in this ticket's comments): the probe set (25 recalls: 1,149 memories, 405 sections, 195 superseded), the known answers (5 of 23 in the top 50 sections), investigation 1 on 0.3.1 (precision 84.6% strict, trust gate and latency failing).
+
+**2026-10-02, the lead: 0.4.1 deployed** (home-ops #7198, then #7197 for Hindsight's extraction-error failure and the rrf fallback; both merged 19:23 UTC). 0.4.0 was published and skipped. 0.4.1 adds `ATLAS_CONSOLIDATION_ENABLED`, which is off in production until the owner chooses how consolidation runs. Checks on production at 19:25 to 19:30 UTC:
+- `atlas_build_info{version="0.4.1"}`; `/api/v1/health/ready` is ready, with database, archive, Hindsight and LiteLLM all ok; the queue has no pause and nothing pending.
+- Memory health: 3,089 sections. 1,102 completed, 1,907 `cancelled` (migration 0068; 0 failed), 22 zero_fact, 58 pending. 0 at profile and 1,124 below profile, so the backfill has not run yet. No consolidation recorded.
+- A live theme recall returns 45 memories. The same query with `scope.layer: substrate` is accepted by Hindsight (`tag_groups`) and returns 0, as expected while no fact carries a layer label; the filter itself is to be checked again after the backfill.
+- The backfill starts with the nightly CronJob at 01:30 UTC (at most 300 sections a night). After-measures follow once the seeds are at profile.
