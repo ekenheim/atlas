@@ -190,6 +190,12 @@ class OperationSubmitted(_Result):
     status: str | None = None
 
 
+class ConsolidationSubmitted(OperationSubmitted):
+    """`POST .../consolidate`: the operation, and whether Hindsight reused a pending one."""
+
+    deduplicated: bool = False
+
+
 class ChildOperation(_Result):
     operation_id: str
     status: str

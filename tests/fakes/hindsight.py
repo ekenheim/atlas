@@ -169,8 +169,9 @@ Derived by default (each is anchored to a request the real server was sent):
   research-template request (`research_template/01-import-dry-run`, `02-import`) only in its
   `mental_models` and its `bank` config (memory-quality ticket 05: the missions and
   `entity_labels`; ticket 10: two reflect fields of the bank, and the models' tags and
-  trigger fields), and which the bank-template schema 0.10.2 served
-  (`rerun-0.10.2/bank_templates/01-schema.json`) takes with every `bank` field one it names,
+  trigger fields; ticket 19: `enable_auto_consolidation`), and which the bank-template
+  schema 0.10.2 served (`rerun-0.10.2/bank_templates/01-schema.json`) takes with every
+  `bank` field one it names,
   is served that recording's response with only `bank_id`,
   `mental_models_created` (the request's mental-model IDs, as `bank_templates/03-import-dry-run`
   and `04-import` list the models they created) and, for the real import, `operation_ids` (one

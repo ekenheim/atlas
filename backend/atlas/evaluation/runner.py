@@ -352,7 +352,9 @@ def _run_pipeline(
     gateway = HindsightGateway.from_settings(settings)
     assert gateway is not None
     with gateway:
-        apply_template(engine, gateway, BankTemplate.load(settings.hindsight_template_path), actor)
+        # An evaluation bank keeps the server's consolidation default, as before ticket 19.
+        template = BankTemplate.load(settings.hindsight_template_path)
+        apply_template(engine, gateway, template.without_auto_consolidation_setting(), actor)
     # Fake: recording sources makes no retain and no triage call (the stub recalls nothing).
     # Live: each source is retained into the case's bank, through triage, and those jobs
     # run to completion before the pipeline's, so recall sees the case's evidence.

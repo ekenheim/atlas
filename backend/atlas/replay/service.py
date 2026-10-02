@@ -417,8 +417,11 @@ class Replays:
     # --- create_bank ---------------------------------------------------------------------------
 
     def _create_bank(self, row: RowMapping, gateway: HindsightGateway) -> None:
-        manifest = {k: v for k, v in self._template.manifest.items() if k != "mental_models"}
-        template = BankTemplate(template_version=self._template.template_version, manifest=manifest)
+        # The research bank's `enable_auto_consolidation: false` is left out: a replay bank
+        # consolidates as before (ticket 19), and the replay asks for it explicitly anyway.
+        research = self._template.without_auto_consolidation_setting()
+        manifest = {k: v for k, v in research.manifest.items() if k != "mental_models"}
+        template = BankTemplate(template_version=research.template_version, manifest=manifest)
         applied = apply_template(self._engine, gateway, template, self._actor)
         self._update(
             row["id"],

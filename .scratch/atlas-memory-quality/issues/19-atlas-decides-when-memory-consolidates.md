@@ -17,14 +17,14 @@ Migration revision `0069` (down: the head in your base), only if the record need
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The template validates against the recorded schema and imports through the fake with `enable_auto_consolidation` false; a template without the field for the research bank is refused by a test.
-- [ ] Integration test at the worker seam: after an ingest's retains complete, no consolidation is requested until the `consolidate` job runs; the job submits one request, records and polls the operation, adds one `codex` unit, and is held by a spent window like the other `codex` kinds.
-- [ ] The daily job is skipped when nothing was retained since the last completed consolidation, and waits when a retain of the bank is queued or running (the clock of the harness moves it).
-- [ ] `atlas memory consolidate` enqueues one (CLI test); a second while one is running does not submit another request.
-- [ ] The health read shows the consolidation record; the metric counts outcomes.
-- [ ] Decision and runbook entries; `AGENTS.md` line; the API client regenerated.
+- [x] The template validates against the recorded schema and imports through the fake with `enable_auto_consolidation` false; a template without the field for the research bank is refused by a test.
+- [x] Integration test at the worker seam: after an ingest's retains complete, no consolidation is requested until the `consolidate` job runs; the job submits one request, records and polls the operation, adds one `codex` unit, and is held by a spent window like the other `codex` kinds.
+- [x] The daily job is skipped when nothing was retained since the last completed consolidation, and waits when a retain of the bank is queued or running (the clock of the harness moves it).
+- [x] `atlas memory consolidate` enqueues one (CLI test); a second while one is running does not submit another request.
+- [x] The health read shows the consolidation record; the metric counts outcomes.
+- [x] Decision and runbook entries; `AGENTS.md` line; the API client regenerated.
 
 ## Comments
 

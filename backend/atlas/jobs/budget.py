@@ -9,7 +9,9 @@ budget per window, and the queue holds a provider's job kinds while its window i
   replay's retain batches and consolidation, one unit each; and since memory-quality ticket
   10 each reflect and each mental-model refresh Atlas submits, one unit each: a research
   answer's reflect, every attempt; a refresh Atlas's `refresh_mental_model` job submitted; a
-  replay's reflect): Atlas can't see Codex tokens, only what it asked Hindsight to do.
+  replay's reflect; and since memory-quality ticket 19 each consolidation of the research
+  bank the `consolidate` job requests, one unit): Atlas can't see Codex tokens, only what it
+  asked Hindsight to do.
 - `hindsight_minimax`, counted in **Hindsight operations submitted** too: the retain and
   reprocess batches whose items asked the shared Hindsight for its MiniMax extractor
   (`ATLAS_RETAIN_EXTRACTOR=minimax`; Hindsight's metadata routing, docs/decisions.md,
@@ -77,6 +79,9 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "refresh_mental_model": "codex",
     "reflect": "codex",
     "replay": "codex",
+    # The research bank's consolidation, asked for by Atlas (memory-quality ticket 19); it
+    # runs on Hindsight's primary LLM whatever extractor the retains ask for.
+    "consolidate": "codex",
     "discover": "minimax",
     "extract_claims": "minimax",
     "review_relationships": "minimax",
@@ -112,6 +117,10 @@ _SWEEPS: dict[Provider, str] = {
         " 1 FROM replay_answer a WHERE NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'codex' AND u.source_id = 'replay_answer:'"
         "     || a.replay_job_id::text || ':' || a.position::text)"
+        # Each consolidation request Atlas submitted to the research bank (ticket 19).
+        " UNION ALL SELECT 'consolidation:' || c.id::text, 1 FROM memory_consolidation c"
+        " WHERE c.operation_id IS NOT NULL AND NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'codex' AND u.source_id = 'consolidation:' || c.id::text)"
     ),
     "hindsight_minimax": (
         "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"

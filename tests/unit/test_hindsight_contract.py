@@ -405,7 +405,8 @@ def test_bank_template_is_applied_by_dry_run_then_import() -> None:
 def test_the_research_bank_template_file_is_what_the_server_was_sent() -> None:
     # spikes/hindsight/record_bank_template.py recorded template 1.0.0 (missions,
     # dispositions, directives). 1.1.0 added the mental models and 1.2.0 changed the bank
-    # config (missions, entity labels), whose import the fake derives from that recording
+    # config (missions, entity labels; 1.3.0 reflect fields, 1.4.0 `enable_auto_consolidation:
+    # false`), whose import the fake derives from that recording
     # when 0.10.2's recorded template schema takes it (tests/fakes/hindsight.py); editing the
     # directives or the manifest version fails here until its dry run is re-recorded.
     fake = RecordedHindsight()
