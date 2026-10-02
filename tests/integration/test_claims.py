@@ -302,6 +302,7 @@ def test_a_claim_whose_span_validates_becomes_an_assertion_at_that_exact_span(
     parsed = atlas.parsed(version_id)
     for accepted, quote in [(supplies, SUPPLY_QUOTE), (owns, INVESTMENT_QUOTE)]:
         assert (accepted["outcome"], accepted["reason_code"]) == ("accepted", None)
+        assert accepted["speaker"] is None  # a filing's words have no speaker (ticket 22)
         assertion = atlas.get(f"/api/v1/assertions/{accepted['assertion_id']}")
         assert parsed[assertion["span_start"] : assertion["span_end"]] == quote
         assert (assertion["span_start"], assertion["span_end"]) == (

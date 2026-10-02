@@ -184,7 +184,7 @@ def test_the_catalog_the_transcripts_and_the_news_leads(
     assert fetch["owner_override"] == OVERRIDE
     parsed = atlas.parsed(version_id)
     assert parsed.startswith("Operator: Good afternoon and welcome to this synthetic call.")
-    assert "\nChief Executive Officer: Thank you." in parsed
+    assert "\nAlex Example (President and CEO, Lumentum Holdings Inc): Thank you." in parsed
     assert len(transcripts["artifacts"]["retain_jobs"]) == 1
     retain = atlas.get(f"/api/v1/jobs/{transcripts['artifacts']['retain_jobs'][0]}")
     assert retain["status"] == "succeeded", retain["failures"]

@@ -12,9 +12,11 @@ Evidence: production 0.3.1, investigation `452c3b9d-2e2f-4cc6-bc54-5130155b9aac`
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the `extract_claims` seam with the synthetic TradingView fixture: a quote in a management paragraph is accepted with its speaker; the same wording in an analyst's paragraph is rejected `analyst_speaking`; a quote spanning both is rejected `speaker_mixed`.
-- [ ] A filing's Claim is untouched (no speaker).
-- [ ] The Evidence tray shows the speaker (API client regenerated; frontend unit test of the pure part if one exists for the tray).
+- [x] Integration test at the `extract_claims` seam with the synthetic TradingView fixture: a quote in a management paragraph is accepted with its speaker; the same wording in an analyst's paragraph is rejected `analyst_speaking`; a quote spanning both is rejected `speaker_mixed`.
+- [x] A filing's Claim is untouched (no speaker).
+- [x] The Evidence tray shows the speaker (API client regenerated; frontend unit test of the pure part if one exists for the tray).
 - [ ] Decision entry; `AGENTS.md` line; the prompt version bumped and its tests updated.
+
+The last box is open: the decision entry and the `AGENTS.md` line are written, but no prompt version is made here. The lead's brief gives the prompt bump to ticket 26 (`investigator.v9`); the sentence for it is in this ticket's entry of `docs/implementation-log.md`.

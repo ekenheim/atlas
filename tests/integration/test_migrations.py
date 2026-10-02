@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0072"
+    assert revision == "0070"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -810,7 +810,7 @@ def test_sections_retained_before_0062_read_as_the_first_retain_profile(
 def test_chat_completions_recorded_before_0072_ignored_no_field(empty_database_url: str) -> None:
     # 0072: an answer's unknown fields are dropped and recorded on its attempt. An attempt
     # recorded before ignored none (such a field was a validation error, which it still says).
-    upgrade(empty_database_url, "0068")
+    upgrade(empty_database_url, "0064")  # the revision before 0072
     engine = create_engine(empty_database_url)
     errors = '[{"type": "extra_forbidden", "loc": ["claims", 0, "claim_id"], "msg": "Extra"}]'
     with engine.begin() as connection:

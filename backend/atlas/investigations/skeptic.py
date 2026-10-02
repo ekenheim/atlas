@@ -72,7 +72,10 @@ continues where it stopped:
    supporting Claim (`unknown_claim`); a premise it disproves is an open company premise
    (`unknown_premise`); the offsets lie in the passage (`quote_outside_passage`); the quote is
    at the offsets or has exactly one occurrence in the passage (`quote_mismatch`,
-   `quote_ambiguous`); the Assertion span check; the quote names the subject unless the
+   `quote_ambiguous`); the Assertion span check; in a call or conference transcript, the quote
+   is one speaker's words and that speaker one of the document's company's own people, as
+   for the Investigator's Claims (`speaker_mixed`, `analyst_speaking`, `speaker_unknown`;
+   `atlas.claims.speakers`, pilot-fixes ticket 22); the quote names the subject unless the
    document is the subject's own (`party_not_in_quote`); and a quote that is a table row with
    no words (a label and its figures: "Inventories 2,126,823 1,437,636", `is_table_row`)
    comes with its figure's name and period (`table_row_without_figure`).
@@ -119,6 +122,7 @@ from atlas.assertions import AssertionCreate, Assertions, InvalidAssertion, chec
 from atlas.audit import Actor, content_hash, record
 from atlas.claims.predicates import company_names, is_generic_object, mentions, names_object
 from atlas.claims.selection import Document, Pointer, Reading, ceiling, select, selections
+from atlas.claims.speakers import TRANSCRIPT_SOURCE_TYPE, SpeakerRefusal, transcript_speaker
 from atlas.discovery.edgar_fts import EdgarFullTextSearch
 from atlas.discovery.leads import canonical_url
 from atlas.discovery.searxng import SearXNGClient
@@ -235,6 +239,7 @@ class _Version:
     parsed_object_uri: str
     source_tier: str
     provider: str | None
+    source_type: str  # its Source Document's (`transcript`: a call or conference transcript)
     items: tuple[str, ...]  # its filing's 8-K Items
 
 
@@ -242,7 +247,7 @@ class _Version:
 _VERSION_COLUMNS = (
     "v.id, d.company_id, c.display_name AS company, d.title, d.form_type, d.document_type,"
     " v.available_at, d.canonical_url, v.parsed_object_uri, d.source_tier, d.provider,"
-    " v.metadata -> 'items' AS items"
+    " d.source_type, v.metadata -> 'items' AS items"
 )
 
 
@@ -954,6 +959,12 @@ class Skeptic:
             return _reject(judged, "invalid_counterevidence", f"{where}: {first['msg']}")
         except InvalidAssertion as refusal:
             return _reject(judged, refusal.code, refusal.message)
+        if version.source_type == TRANSCRIPT_SOURCE_TYPE:
+            # The rule of the Investigator's Claims: only the company's own people speak for it.
+            filer = next((c for c in companies if c.id == version.company_id), None)
+            said = transcript_speaker(parsed, span, filer.names if filer is not None else [])
+            if isinstance(said, SpeakerRefusal):
+                return _reject(judged, said.code, said.message)
         if subject.id != version.company_id and not mentions(item.quote, subject.names):
             return _reject(
                 judged,
