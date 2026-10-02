@@ -23,7 +23,7 @@ from sqlalchemy.exc import DBAPIError
 
 from atlas.api.app import create_app
 from atlas.hindsight import HindsightGateway, RetainItem
-from tests.fakes.hindsight import ChunkContent, RecordedHindsight
+from tests.fakes.hindsight import DERIVED_REFLECT, ChunkContent, RecordedHindsight
 from tests.fakes.litellm import FakeLiteLLM
 from tests.fakes.serve import Served, serve
 from tests.harness import (
@@ -223,6 +223,153 @@ def test_an_observation_whose_source_memory_was_deleted_is_broken(
     assert all(observation_id not in e["memory_ids"] for e in recalled["evidence"])
 
 
+# --- recall as a reading index (memory-quality ticket 07) ----------------------------------
+
+
+def memory_lookups(fake: RecordedHindsight) -> list[str]:
+    """The memory IDs Hindsight was asked for one by one (`GET .../memories/<id>`)."""
+    return [
+        r.url.path.rsplit("/", 1)[1]
+        for r in fake.calls
+        if r.method == "GET"
+        and "/memories/" in r.url.path
+        and r.url.path.rsplit("/", 1)[1] != "list"
+    ]
+
+
+def recall_with(atlas: Atlas, query: str, **fields: Any) -> dict[str, Any]:
+    response = atlas.api.post(
+        "/api/v1/memory/recall",
+        json={"query": query, "scope": {"theme_ids": ["photonics"]}, **fields},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_a_recall_with_no_new_field_sends_what_it_sent_before(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    recalled = atlas.recall("lasers", theme_ids=["photonics"])
+
+    (sent,) = fake.requests("POST", "memories/recall")
+    assert sent == {
+        "query": "lasers",
+        "budget": "mid",
+        "tags": ["theme:photonics"],
+        "tags_match": "any_strict",
+    }
+    assert recalled["memories"]
+    assert recalled["source_facts_truncated"] is None
+
+
+def test_a_recall_sends_the_reading_index_fields_and_returns_scores_and_entities(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    recalled = recall_with(
+        atlas,
+        "lasers",
+        budget="high",
+        max_tokens=8192,
+        types=["world", "observation"],
+        prefer_observations=True,
+        query_timestamp="2026-06-30T00:00:00+00:00",
+        include_source_facts=True,
+    )
+
+    (sent,) = fake.requests("POST", "memories/recall")
+    assert sent == {
+        "query": "lasers",
+        "budget": "high",
+        "tags": ["theme:photonics"],
+        "tags_match": "any_strict",
+        "max_tokens": 8192,
+        "types": ["world", "observation"],
+        "prefer_observations": True,
+        "query_timestamp": "2026-06-30T00:00:00+00:00",
+        "include": {"source_facts": {}},
+    }
+    # The derived recall keeps the recorded world result's scores and entity names; each
+    # entity's ID is the recorded answer's `entities` map's.
+    recorded = cast(dict[str, Any], fake.recording("tags/02-tags-any_strict").response_object())
+    world = next(r for r in recorded["results"] if r["type"] == "world")
+    ids = {name: e["entity_id"] for name, e in recorded["entities"].items()}
+    memories = recalled["memories"]
+    assert memories and {m["type"] for m in memories} == {"world"}
+    for memory in memories:
+        assert memory["scores"] == world["scores"]
+        assert memory["entities"] == [
+            {"name": name, "entity_id": ids.get(name)} for name in world["entities"]
+        ]
+        document_id = memory["provenance"]["sources"][0]["document_id"]
+        assert memory["chunk_id"] == f"{BANK}_{document_id}_0"
+    assert recalled["source_facts_truncated"] is False
+
+
+def test_an_observation_resolves_from_the_source_facts_in_the_answer_without_asking_again(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    atlas.ingest_company("coherent")
+    lite = atlas.section(LITE_10K, "lumentum")
+    cohr = atlas.section(COHR_10K, "coherent")
+    observation_id = fake.derive_observation([lite["document_id"], cohr["document_id"]])
+
+    recalled = recall_with(atlas, "who makes lasers", include_source_facts=True)
+
+    (observation,) = [m for m in recalled["memories"] if m["type"] == "observation"]
+    provenance = observation["provenance"]
+    assert (observation["memory_id"], provenance["state"]) == (observation_id, "resolved")
+    lite_source, cohr_source = provenance["sources"]
+    assert lite_source["memory_id"] == fake.derived_fact(lite["document_id"])
+    assert cohr_source["memory_id"] == fake.derived_fact(cohr["document_id"])
+    assert_source(lite_source, lite, atlas.company("lumentum"))
+    assert_source(cohr_source, cohr, atlas.company("coherent"))
+    # The sources came in the same answer: no memory was asked for.
+    assert memory_lookups(fake) == []
+    assert recalled["source_facts_truncated"] is False
+
+
+def test_an_observation_whose_sources_were_cut_from_the_answer_asks_for_the_missing_one(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    atlas.ingest_company("coherent")
+    lite = atlas.section(LITE_10K, "lumentum")
+    cohr = atlas.section(COHR_10K, "coherent")
+    observation_id = fake.derive_observation([lite["document_id"], cohr["document_id"]])
+    fake.truncate_source_facts(keep=1)
+
+    recalled = recall_with(atlas, "who makes lasers", include_source_facts=True)
+
+    (observation,) = [m for m in recalled["memories"] if m["memory_id"] == observation_id]
+    provenance = observation["provenance"]
+    assert provenance["state"] == "resolved"
+    assert [s["memory_id"] for s in provenance["sources"]] == [
+        fake.derived_fact(lite["document_id"]),
+        fake.derived_fact(cohr["document_id"]),
+    ]
+    # Only the source the answer left out was asked for, once.
+    assert memory_lookups(fake) == [fake.derived_fact(cohr["document_id"])]
+    assert recalled["source_facts_truncated"] is True
+
+
+def test_an_observation_whose_source_was_deleted_is_broken_with_source_facts_too(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    ten_k = atlas.section(LITE_10K, "lumentum")
+    ten_q = atlas.section(LITE_10Q, "lumentum", anchor="cover")
+    observation_id = fake.derive_observation([ten_k["document_id"], ten_q["document_id"]])
+    deleted = fake.derived_fact(ten_q["document_id"])
+    fake.forget(deleted)
+
+    recalled = recall_with(atlas, "capacity", include_source_facts=True)
+
+    (observation,) = [m for m in recalled["memories"] if m["memory_id"] == observation_id]
+    assert observation["provenance"]["state"] == "broken"
+    assert observation["provenance"]["reason"] == "source_memory_not_found"
+    assert observation["provenance"]["missing_memory_ids"] == [deleted]
+    # The answer named the deleted source but had no entry for it: asked once, and gone.
+    assert memory_lookups(fake) == [deleted]
+
+
 # --- reflect ------------------------------------------------------------------------------
 
 
@@ -253,7 +400,12 @@ def test_reflect_runs_as_a_job_and_the_api_returns_the_stored_answer(
         "tags": ["theme:photonics"],
         "tags_match": "any_strict",
         "include": {"facts": {}},
+        # The defaults (memory-quality ticket 10): a real depth, and no mental model read,
+        # so every citation can resolve to a section.
+        "budget": "mid",
+        "exclude_mental_models": True,
     }
+    assert (answer["budget"], answer["exclude_mental_models"]) == ("mid", True)
     assert answer["status"] == "completed"
     assert answer["job_status"] == "succeeded"
     assert answer["question"] == "What are Lumentum's components?"
@@ -296,6 +448,52 @@ def test_reflect_runs_as_a_job_and_the_api_returns_the_stored_answer(
     assert run.kind == "reflect" and run.finished_at is not None
     verified = atlas.cli("audit", "verify")
     assert verified.returncode == 0, verified.stdout + verified.stderr
+
+
+def test_a_reflect_carries_its_depth_and_reports_a_mental_model_it_cites(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    section = atlas.section(LITE_10K, "lumentum")
+    fact = fake.derived_fact(section["document_id"])
+    fake.script_reflect("From the model and a fact.", [fact], mental_models=["theme-status"])
+
+    answer = atlas.reflect("What constrains optics?", budget="high", exclude_mental_models=False)
+
+    (sent,) = fake.requests("POST", "reflect")
+    assert (sent["budget"], sent["exclude_mental_models"]) == ("high", False)
+    assert (answer["budget"], answer["exclude_mental_models"]) == ("high", False)
+    memory, model = answer["citations"]
+    # The cited world fact carries its document and metadata (0.10.2), so it resolves in one
+    # hop: no memory is looked up.
+    assert (memory["kind"], memory["state"], memory["memory_id"]) == ("memory", "resolved", fact)
+    assert_source(memory["sources"][0], section, atlas.company("lumentum"))
+    looked_up = [
+        r for r in fake.calls if r.method == "GET" and r.url.path.endswith(f"/memories/{fact}")
+    ]
+    assert looked_up == []
+    # The model is reported as what it is, never resolved to a section.
+    assert (model["kind"], model["memory_id"], model["state"], model["reason"]) == (
+        "mental_model",
+        "theme-status",
+        "unverified",
+        "mental_model",
+    )
+    assert model["text"].startswith("Theme status: ")
+    assert model["sources"] == []
+    assert answer["counts"] == {"resolved": 1, "unverified": 1, "broken": 0}
+    assert [(e["source_version_id"], e["section_anchor"]) for e in answer["evidence"]] == [
+        (section["version"]["id"], ITEM_1)
+    ]
+
+
+def test_a_reflect_refuses_an_unknown_budget(atlas: Atlas, fake: RecordedHindsight) -> None:
+    response = atlas.api.post(
+        "/api/v1/memory/reflect",
+        json={"question": "q", "scope": {"theme_ids": ["photonics"]}, "budget": "max"},
+    )
+
+    assert response.status_code == 422
+    assert fake.requests("POST", "reflect") == []
 
 
 def test_quotes_are_validated_against_the_archived_text_and_a_paraphrase_is_unverified(
@@ -615,5 +813,5 @@ def test_metrics_report_recall_and_reflect_latency_and_llm_tokens(
     assert after[("atlas_recall_latency_seconds_sum", labels(outcome="ok"))] > 0
     assert after[reflects] == 1
     assert after[("atlas_reflect_latency_seconds_bucket", labels(le="+Inf"))] == 1
-    usage = cast(dict[str, int], fake.recording("reflect/01-provenance").response_object()["usage"])
+    usage = cast(dict[str, int], fake.recording(DERIVED_REFLECT).response_object()["usage"])
     assert (after[tokens_in], after[tokens_out]) == (usage["input_tokens"], usage["output_tokens"])

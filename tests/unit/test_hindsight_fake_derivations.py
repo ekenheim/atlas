@@ -303,6 +303,91 @@ def test_a_template_import_differing_only_in_mental_models_is_derived() -> None:
         client.apply_bank_template({**manifest, "directives": [], "mental_models": []})
 
 
+def test_a_template_import_with_other_bank_fields_is_derived_if_the_0_10_2_schema_takes_them() -> (
+    None
+):
+    fake = RecordedHindsight()
+    client = gateway(fake)
+    manifest = fake.recording(DERIVED_TEMPLATE_IMPORT).request_object()
+    bank = cast(dict[str, Any], manifest["bank"])
+    labels = [{"key": "layer", "type": "multi-values", "tag": True, "values": [{"value": "epi"}]}]
+
+    applied = client.apply_bank_template(
+        {**manifest, "bank": {**bank, "retain_mission": "Other.", "entity_labels": labels}}
+    )
+
+    assert applied.applied.config_applied is True
+    assert fake.served[-1] == f"{DERIVED_TEMPLATE_IMPORT} (derived)"
+    for refused in (
+        {**bank, "retain_mision": "A misspelt field."},  # not a field of the schema
+        {**bank, "entity_labels": [{"type": "value"}]},  # a label group needs its key
+    ):
+        with pytest.raises(UnrecordedRequest):
+            client.apply_bank_template({**manifest, "bank": refused})
+
+
+LAYER_GROUP = {
+    "key": "layer",
+    "type": "multi-values",
+    "optional": True,
+    "tag": True,
+    "values": [{"value": "chip-laser"}, {"value": "module"}],
+}
+
+
+def labelled(labels: list[dict[str, Any]] | None) -> tuple[RecordedHindsight, HindsightGateway]:
+    """Derived memories in a bank whose imported template has these entity labels."""
+    fake, client = derived_memories()
+    manifest = fake.recording(DERIVED_TEMPLATE_IMPORT).request_object()
+    bank = cast(dict[str, Any], manifest["bank"])
+    client.apply_bank_template({**manifest, "bank": {**bank, "entity_labels": labels}})
+    return fake, client
+
+
+def test_scripted_labels_of_a_tag_group_are_tags_on_the_derived_fact() -> None:
+    fake, client = labelled([LAYER_GROUP])
+    laser, module = (fake.derived_fact(item.document_id) for item in ITEMS)
+    before = client.get_memory(module)
+
+    # "layer:foundry" is no value of the group and "grade:a" no group: dropped, as the docs say
+    # of a value outside an enum group's list.
+    fake.script_fact_labels(ITEMS[0].document_id, ["layer:chip-laser", "layer:foundry"])
+    fake.script_fact_labels(ITEMS[1].document_id, ["layer:module", "layer:chip-laser", "grade:a"])
+
+    # As recorded (entity_labels/04): the item's tags, then the fact's label tags.
+    tags = ["company:x", "form:8-K"]  # every item's
+    assert client.get_memory(laser).tags == [*tags, "layer:chip-laser"]
+    after = client.get_memory(module)
+    assert after.tags == [*tags, "layer:module", "layer:chip-laser"]
+    assert after.model_dump(exclude={"tags"}) == before.model_dump(exclude={"tags"})
+    listed = client.document_memories(ITEMS[0].document_id)
+    assert [m.tags for m in listed] == [[*tags, "layer:chip-laser"]]
+
+
+def test_a_recall_filtered_by_a_label_tag_returns_only_the_facts_carrying_it() -> None:
+    fake, client = labelled([LAYER_GROUP])
+    fake.script_fact_labels(ITEMS[0].document_id, ["layer:chip-laser"])
+    fake.script_fact_labels(ITEMS[1].document_id, ["layer:module"])
+
+    chip_laser = client.recall("q", scope=TagScope(["layer:chip-laser"], "any_strict"))
+    with_company = client.recall("q", scope=TagScope(["company:x", "layer:module"], "all_strict"))
+    other_layer = client.recall("q", scope=TagScope(["layer:epi"], "any_strict"))
+
+    assert [m.id for m in chip_laser.memories] == [fake.derived_fact(ITEMS[0].document_id)]
+    assert [m.id for m in with_company.memories] == [fake.derived_fact(ITEMS[1].document_id)]
+    assert other_layer.memories == []
+
+
+def test_labels_become_tags_only_in_a_bank_whose_group_has_tag_true() -> None:
+    untagged, untagged_client = labelled([{**LAYER_GROUP, "tag": False}])
+    unlabelled, unlabelled_client = labelled(None)
+    for fake, client in ((untagged, untagged_client), (unlabelled, unlabelled_client)):
+        fake.script_fact_labels(ITEMS[0].document_id, ["layer:chip-laser"])
+
+        assert client.get_memory(fake.derived_fact(ITEMS[0].document_id)).tags == ITEMS[0].tags
+        assert client.recall("q", scope=TagScope(["layer:chip-laser"], "any_strict")).memories == []
+
+
 def test_an_imported_mental_model_is_derived_until_and_after_its_refreshes() -> None:
     fake, client = derived_memories()
     imported(fake, client)

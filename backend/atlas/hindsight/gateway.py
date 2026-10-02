@@ -12,6 +12,7 @@ It exposes typed operations on one bank and enforces the pinned-version rules fr
 
 import time
 from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any, Literal, Self, cast
 from urllib.parse import quote
 
@@ -30,7 +31,10 @@ from atlas.hindsight.models import (
     BankConfig,
     BankDeleted,
     Budget,
+    Chunk,
+    ChunkPage,
     EntityPage,
+    FactType,
     KnowledgeNode,
     LlmRequestStats,
     Memory,
@@ -65,6 +69,9 @@ SERVER_CHECK_TIMEOUT = 5.0
 
 # Banks Atlas creates for a replay and deletes afterwards (§9.2; the only banks it deletes).
 REPLAY_BANK_PREFIX = "atlas-replay-"
+# The memory conformance check's throwaway banks (memory-quality ticket 14), deleted the same way.
+CONFORMANCE_BANK_PREFIX = "atlas-conformance-"
+_DELETABLE_PREFIXES = (REPLAY_BANK_PREFIX, CONFORMANCE_BANK_PREFIX)
 
 _KNOWLEDGE_TREE = TypeAdapter(list[KnowledgeNode])
 _HISTORY = TypeAdapter(list[MentalModelRevision])
@@ -151,9 +158,46 @@ class HindsightGateway:
 
     # --- recall, reflect and memories ----------------------------------------------------------
 
-    def recall(self, query: str, *, scope: TagScope | None, budget: Budget = "mid") -> RecallResult:
-        """Recall memories for a query, strictly scoped by tags (scope=None: the whole bank)."""
+    def recall(
+        self,
+        query: str,
+        *,
+        scope: TagScope | None,
+        budget: Budget = "mid",
+        max_tokens: int | None = None,
+        types: Sequence[FactType] | None = None,
+        prefer_observations: bool | None = None,
+        query_timestamp: datetime | None = None,
+        include_source_facts: bool = False,
+        include_chunks: bool = False,
+    ) -> RecallResult:
+        """Recall memories for a query, strictly scoped by tags (scope=None: the whole bank).
+
+        The 0.10.2 options (`docs/hindsight-feature-matrix.md`) are sent only when given, so a
+        recall without them is the request it always was: `max_tokens` (the results' text
+        budget; server default 4096), `types`, `prefer_observations` (an observation replaces
+        the facts it was built from), `query_timestamp` (recency is judged from it; it ranks,
+        it does not filter), and the includes: `source_facts` (each observation's sources in
+        the same answer) and `chunks` (the chunks the results came from).
+        """
         body: dict[str, JsonValue] = {"query": query, "budget": budget, **_scope_fields(scope)}
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        if types is not None:
+            body["types"] = list[JsonValue](types)
+        if prefer_observations is not None:
+            body["prefer_observations"] = prefer_observations
+        if query_timestamp is not None:
+            if query_timestamp.tzinfo is None:
+                raise HindsightRuleViolation("a recall's query_timestamp needs a time zone")
+            body["query_timestamp"] = query_timestamp.astimezone(UTC).isoformat()
+        include: dict[str, JsonValue] = {}
+        if include_source_facts:
+            include["source_facts"] = {}
+        if include_chunks:
+            include["chunks"] = {}
+        if include:
+            body["include"] = include
         return self._parse(RecallResult, self._post("/memories/recall", body))
 
     def reflect(
@@ -163,14 +207,25 @@ class HindsightGateway:
         scope: TagScope | None,
         response_schema: Mapping[str, Any] | None = None,
         include_facts: bool = True,
+        budget: Budget | None = None,
+        exclude_mental_models: bool | None = None,
     ) -> ReflectAnswer:
-        """Ask a reflect question; with `include_facts`, the answer lists the memories cited."""
+        """Ask a reflect question; with `include_facts`, the answer lists the memories cited.
+
+        `budget` None sends none (Hindsight's default, `low`); `exclude_mental_models` true
+        keeps every mental model out of the reflect loop (0.10.2, `reflect_options/02`), and
+        None sends none (Hindsight's default, false).
+        """
         body: dict[str, Any] = {"query": query, **_scope_fields(scope)}
         if include_facts:
             body["include"] = {"facts": {}}
         if response_schema is not None:
             check_response_schema(response_schema)
             body["response_schema"] = dict(response_schema)
+        if budget is not None:
+            body["budget"] = budget
+        if exclude_mental_models is not None:
+            body["exclude_mental_models"] = exclude_mental_models
         return self._parse(ReflectAnswer, self._post("/reflect", body))
 
     def get_memory(self, memory_id: str) -> Memory:
@@ -219,6 +274,39 @@ class HindsightGateway:
             params["offset"] = offset
         return self._parse(EntityPage, self._get("/entities", params=params))
 
+    def document_chunks(self, document_id: str) -> list[Chunk]:
+        """A retained document's stored chunks in `chunk_index` order (0.10.2; recording
+        `chunks/03-list-chunks`)."""
+        chunks: list[Chunk] = []
+        while True:
+            params: dict[str, str | int] = {"offset": len(chunks)} if chunks else {}
+            path = f"/documents/{_segment(document_id)}/chunks"
+            page = self._parse(ChunkPage, self._get(path, params=params or None))
+            chunks.extend(page.items)
+            if not page.items or len(chunks) >= page.total:
+                return sorted(chunks, key=lambda chunk: chunk.chunk_index)
+
+    def entity_memories(
+        self, entity_id: str, *, scope: TagScope, page_size: int = 100
+    ) -> list[Memory]:
+        """Every memory carrying an entity, strictly scoped by tags (the memory list filtered
+        by `entity_id`; 0.10.2, recording `entity_memories/01-by-entity-and-tag`)."""
+        check_tag_scope(scope)
+        memories: list[Memory] = []
+        while True:
+            params: dict[str, str | int] = {
+                "entity_id": entity_id,
+                "tags": ",".join(scope.tags),
+                "tags_match": scope.match,
+                "limit": page_size,
+            }
+            if memories:
+                params["offset"] = len(memories)
+            page = self._parse(ObservationPage, self._get("/memories/list", params=params))
+            memories.extend(page.items)
+            if not page.items or len(memories) >= page.total:
+                return memories
+
     def knowledge_page_tree(self) -> list[KnowledgeNode]:
         # 0.10.1: GET /knowledge-base/pages is 405; the tree lists the pages.
         data = self._get("/knowledge-base/tree")
@@ -248,14 +336,17 @@ class HindsightGateway:
         return self._parse(OperationSubmitted, self._post("/consolidate", {}))
 
     def delete_bank(self) -> BankDeleted:
-        """Delete the whole bank (`DELETE /banks/{id}`): only a replay bank, never another.
+        """Delete the whole bank (`DELETE /banks/{id}`): only a replay bank or a conformance
+        check's throwaway bank, never another.
 
         Raises `HindsightRuleViolation` before any call for a bank whose ID doesn't start with
-        `REPLAY_BANK_PREFIX`, and `HindsightNotFound` if the bank doesn't exist.
+        `REPLAY_BANK_PREFIX` or `CONFORMANCE_BANK_PREFIX`, and `HindsightNotFound` if the bank
+        doesn't exist.
         """
-        if not self.bank_id.startswith(REPLAY_BANK_PREFIX):
+        if not self.bank_id.startswith(_DELETABLE_PREFIXES):
             raise HindsightRuleViolation(
-                f"only a replay bank ({REPLAY_BANK_PREFIX}*) may be deleted, not {self.bank_id!r}"
+                f"only a replay bank ({REPLAY_BANK_PREFIX}*) or a conformance bank"
+                f" ({CONFORMANCE_BANK_PREFIX}*) may be deleted, not {self.bank_id!r}"
             )
         data = self._request("DELETE", "", params=None)
         return self._parse(BankDeleted, data)

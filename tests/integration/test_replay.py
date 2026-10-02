@@ -144,6 +144,18 @@ def test_a_future_dated_source_is_accepted_zero_times(
     batches = fake.retained(replay_bank)
     retained = [{item["metadata"]["source_version_id"] for item in b} for b in batches]
     assert retained == [{ids["early"]}, {ids["mid"]}]
+    # Each item says what the research bank's retain of the same section said (memory-quality
+    # ticket 04): the context, the entities taken as written and the display metadata.
+    research = {item["document_id"]: item for b in fake.retained(BANK) for item in b}
+    said = ("context", "entities", "resolve_entities", "metadata")
+    for item in [item for b in batches for item in b]:
+        assert {key: item[key] for key in said} == {
+            key: research[item["document_id"]][key] for key in said
+        }
+        assert item["context"].startswith("This is Lumentum's document ")
+        assert item["entities"][0] == {"text": "Lumentum Holdings Inc.", "type": "ORG"}
+        assert item["resolve_entities"] is False
+        assert item["metadata"]["company_name"] == "Lumentum"
     assert [v["retain_status"] for v in replay["source_versions"]] == ["completed"] * 2
     assert all(v["facts"] and v["sections"] for v in replay["source_versions"])
     assert replay["consolidation"]["status"] == "completed"
@@ -152,6 +164,8 @@ def test_a_future_dated_source_is_accepted_zero_times(
     for recall in fake.requests("POST", "memories/recall"):
         assert recall["tags"] == [f"company:{lumentum}"]
         assert recall["tags_match"] == "any_strict"
+        # Recency is judged from the cutoff (memory-quality ticket 07).
+        assert recall["query_timestamp"] == CUTOFF
     for answer_row in replay["answers"]:
         recalled = answer_row["recall"]
         assert {m["source_version_id"] for m in recalled} == {ids["early"], ids["mid"]}
@@ -305,7 +319,8 @@ def test_replay_operations_count_against_the_codex_budget(
     request_replay(atlas)
     atlas.worker_pass()
 
-    assert codex_used(atlas) == before + 3  # two retain batches and the consolidation
+    # Two retain batches, the consolidation and the two reflects (memory-quality ticket 10).
+    assert codex_used(atlas) == before + 5
 
 
 def codex_used(atlas: Atlas) -> int:
@@ -341,8 +356,27 @@ def test_a_replays_retains_ask_for_the_configured_extractor_and_stay_on_the_code
     batches = fake.retained(requested["bank_id"])
     assert len(batches) == 2
     assert {item["metadata"]["extractor"] for batch in batches for item in batch} == {"minimax"}
-    assert codex_used(atlas) == 3  # its two retain batches and the consolidation
+    assert codex_used(atlas) == 5  # its two retain batches, the consolidation, two reflects
     atlas.engine.dispose()
+
+
+def test_a_replays_retains_send_the_same_observation_scopes_as_the_research_banks(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    import_documents(atlas, "early", "mid")
+    fake.script_reflect("An answer.", [BankFacts()])
+    fake.script_reflect("An answer.", [BankFacts()])
+
+    requested = request_replay(atlas)
+    atlas.worker_pass()
+
+    research = [item for batch in fake.retained(BANK) for item in batch]
+    replayed = [item for batch in fake.retained(requested["bank_id"]) for item in batch]
+    assert research and replayed
+    # Lumentum is in one theme: one scope, the theme's (memory-quality ticket 06).
+    assert {json.dumps(item["observation_scopes"]) for item in research + replayed} == {
+        json.dumps([["theme:photonics"]])
+    }
 
 
 def test_replays_are_listed_newest_first(atlas: Atlas) -> None:

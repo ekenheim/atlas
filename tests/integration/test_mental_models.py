@@ -42,12 +42,20 @@ from tests.harness import (
 )
 
 TEMPLATE_FILE: dict[str, Any] = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+TEMPLATE_VERSION = TEMPLATE_FILE["template_version"]
 MODELS = ["theme-status", "bottlenecks"]
+# Atlas's daily job is the only scheduler (memory-quality ticket 10): no Hindsight cron, never
+# after consolidation, a minimum interval, a real depth, and no model reads another.
 DAILY = {
     "refresh_after_consolidation": False,
-    "refresh_cron": "0 6 * * *",
+    "refresh_cron": None,
     "min_refresh_interval_seconds": 43200,
+    "budget": "mid",
+    "exclude_mental_models": True,
+    "keep_trace": True,
 }
+THEME_TAGS = ["theme:photonics"]
+VERSION = "1.3.0"
 HINDSIGHT_VERSION = (
     RecordedHindsight().recording("monitoring/02-version").response_object()["api_version"]
 )
@@ -135,13 +143,18 @@ def fact_of(models: Models, fake: RecordedHindsight, anchor: str = ITEM_1) -> st
 # --- the template -----------------------------------------------------------------------------
 
 
-def test_the_template_defines_both_models_refreshed_daily_never_after_consolidation(
+def test_the_template_defines_both_models_refreshed_by_atlas_alone_on_the_themes_memories(
     models: Models, fake: RecordedHindsight
 ) -> None:
     manifest = TEMPLATE_FILE["manifest"]
     theme, bottlenecks = manifest["mental_models"]
 
-    assert TEMPLATE_FILE["template_version"] == "1.1.0"
+    assert TEMPLATE_FILE["template_version"] == VERSION
+    # Each model reads its theme's memories only (a tag every retained section carries).
+    assert theme["tags"] == bottlenecks["tags"] == THEME_TAGS
+    # Reflect's own recall returns no raw chunk and shows the facts behind an observation.
+    assert manifest["bank"]["recall_include_chunks"] is False
+    assert manifest["bank"]["reflect_source_facts_max_tokens"] > 0
     assert [(m["id"], m["name"]) for m in (theme, bottlenecks)] == [
         ("theme-status", "Theme status"),
         ("bottlenecks", "Bottlenecks"),
@@ -162,10 +175,11 @@ def test_the_template_defines_both_models_refreshed_daily_never_after_consolidat
     assert [body["mental_models"] for body in imports] == [manifest["mental_models"]] * 2
     # Each model is in the bank with the template's trigger, and nothing has refreshed it.
     listed = models.get("/api/v1/mental-models")
-    assert (listed["bank_id"], listed["template_version"]) == (BANK, "1.1.0")
+    assert (listed["bank_id"], listed["template_version"]) == (BANK, TEMPLATE_VERSION)
     assert [m["id"] for m in listed["mental_models"]] == MODELS
     for model in listed["mental_models"]:
         assert model["trigger"] == DAILY
+        assert model["tags"] == THEME_TAGS
         assert (model["in_bank"], model["content"], model["last_refreshed_at"]) == (
             True,
             PLACEHOLDER,
@@ -179,11 +193,23 @@ def test_the_template_defines_both_models_refreshed_daily_never_after_consolidat
     [
         {**DAILY, "refresh_after_consolidation": True},
         {k: v for k, v in DAILY.items() if k != "refresh_after_consolidation"},
+        {**DAILY, "refresh_cron": "0 6 * * *"},  # Hindsight's own cron: outside Atlas's budget
         {k: v for k, v in DAILY.items() if k != "refresh_cron"},
-        {**DAILY, "refresh_cron": "daily"},
         {**DAILY, "min_refresh_interval_seconds": 0},
+        {k: v for k, v in DAILY.items() if k != "min_refresh_interval_seconds"},
+        {**DAILY, "exclude_mental_models": False},  # one model reading another
+        {k: v for k, v in DAILY.items() if k != "exclude_mental_models"},
     ],
-    ids=["after-consolidation", "consolidation-unset", "no-cron", "bad-cron", "no-interval"],
+    ids=[
+        "after-consolidation",
+        "consolidation-unset",
+        "hindsight-cron",
+        "cron-unset",
+        "no-interval",
+        "interval-unset",
+        "reads-models",
+        "exclusion-unset",
+    ],
 )
 def test_a_template_whose_models_could_run_away_is_refused_before_any_call(
     models: Models, fake: RecordedHindsight, tmp_path: Path, trigger: dict[str, Any]
@@ -228,10 +254,11 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
         ignored = ("id", "job_id", "operation_id", "run_id")
         assert {k: refresh[k] for k in refresh if k not in ignored} == {
             "scheduled_for": "2026-10-01",
-            "template_version": "1.1.0",
+            "template_version": TEMPLATE_VERSION,
             "min_refresh_interval_seconds": 43200,
             "status": "completed",
             "skip_reason": None,
+            "refreshed_by": "atlas",
             "operation_status": "completed",
             "error": None,
             "error_class": None,
@@ -247,7 +274,7 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
         assert models.model(mental_model_id)["content"] == content
         # A submitted refresh is an LLM run: it records its run (stories 15 and 32).
         run = models.run(refresh["run_id"])
-        assert (run["kind"], run["template_version"]) == (REFRESH_KIND, "1.1.0")
+        assert (run["kind"], run["template_version"]) == (REFRESH_KIND, TEMPLATE_VERSION)
         assert run["hindsight_version"] == HINDSIGHT_VERSION
         assert run["routed_models"]["atlas-reflect"] == ROUTED_REFLECT
         assert run["finished_at"] is not None
@@ -275,8 +302,10 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
     )
     assert (skipped["operation_id"], skipped["content_sha256"]) == (None, sha256("Theme, day 1."))
     assert skipped["run_id"] is None  # a skip calls no model
+    assert skipped["refreshed_by"] == "atlas"  # the refresh it found inside the interval
 
-    # Day 2, 06:00: Hindsight's own cron refreshes Theme status after Coherent is retained.
+    # Day 2, 06:00: someone refreshes Theme status in Hindsight itself (its API or UI, which no
+    # interval holds; the template gives Hindsight no cron) after Coherent is retained.
     models.clock.now = at("2026-10-02T06:00:00+00:00")
     models.ingest_company("coherent")
     fake.apply_refresh("theme-status", "Theme, day 2.", [fact], refreshed_at=models.clock.now)
@@ -296,6 +325,7 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
         "2026-10-02T06:00:00Z",
         sha256("Theme, day 2."),
     )
+    assert found["refreshed_by"] == "hindsight"  # not Atlas's job: the record says so
     assert models.refreshes("bottlenecks")[0]["status"] == "completed"
     assert models.scheduled_job("theme-status", date(2026, 10, 2))["artifacts"] == {
         "mental_model_id": "theme-status",

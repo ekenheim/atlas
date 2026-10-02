@@ -17,10 +17,11 @@ Migration revision `0062` (down: main's head).
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Unit tests of the context for a 10-K Item, an 8-K exhibit, a call transcript and a manual import: the expected text, exactly.
-- [ ] Integration test at the worker seam: the retain request for a section that names another universe company carries the filer and that company as entities with `resolve_entities` false, the display metadata, and the context; the memory read shows the profile.
-- [ ] A section retained before this ticket reads as an older profile.
+- [x] Unit tests of the context for a 10-K Item, an 8-K exhibit, a call transcript and a manual import: the expected text, exactly.
+- [x] Integration test at the worker seam: the retain request for a section that names another universe company carries the filer and that company as entities with `resolve_entities` false, the display metadata, and the context; the memory read shows the profile.
+- [x] A section retained before this ticket reads as an older profile.
 - [ ] Replay and evaluation retains carry the same fields (their existing tests extended).
-- [ ] Decision entry; `AGENTS.md` line.
+  - Replay: met (`test_replay.py` extended). Evaluation: not met as worded. Its tests (`test_evaluations.py`) run fake mode, which makes no retain, so there is no retain to check there; an evaluation bank's sources are manual imports retained by the production `Retention`, and `test_manual_import.py` now checks that path (see the implementation log).
+- [x] Decision entry; `AGENTS.md` line.

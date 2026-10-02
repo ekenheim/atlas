@@ -478,7 +478,11 @@ class TaskRunner:
         with self._engine.connect() as connection:
             queries = scout_queries(connection, discovery_id, question)
         pointers = record_pointers(
-            self._engine, self._theme_recall(theme_id, universe), investigation, task, queries
+            self._engine,
+            self._theme_recall(theme_id, universe, investigation["as_of"]),
+            investigation,
+            task,
+            queries,
         )
         with self._engine.begin() as connection:
             lock(connection, investigation["id"])
@@ -529,14 +533,30 @@ class TaskRunner:
         )
 
     def _theme_recall(
-        self, theme_id: str, universe: Universe, actor: Actor = SCOUT_ACTOR
+        self, theme_id: str, universe: Universe, as_of: datetime, actor: Actor = SCOUT_ACTOR
     ) -> Recall:
-        """Recall across the theme: every memory tagged with it, whichever company's."""
+        """Recall across the theme: every memory tagged with it, whichever company's.
+
+        Asked like a reading index (memory-quality ticket 07; docs/decisions.md, "Recall as a
+        reading index"): `pointer_recall_max_tokens` of results, budget high, an observation
+        in place of the facts it was built from, recency judged from the investigation's
+        as-of time, and each observation's sources in the same answer."""
         research = Research(
             self._engine, open_archive(self._settings), self._gateway, actor, lambda: universe
         )
         scope = ResearchScope(theme_ids=[theme_id])
-        return lambda query: research.recall(RecallRequest(query=query, scope=scope))
+        max_tokens = self._settings.pointer_recall_max_tokens
+        return lambda query: research.recall(
+            RecallRequest(
+                query=query,
+                scope=scope,
+                budget="high",
+                max_tokens=max_tokens,
+                prefer_observations=True,
+                query_timestamp=as_of,
+                include_source_facts=True,
+            )
+        )
 
     def _investigator(
         self, job: Job, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
@@ -748,7 +768,9 @@ class TaskRunner:
                 caller,
                 searxng,
                 # Memory chooses what the Skeptic reads: its recalls, across the theme.
-                self._theme_recall(investigation["theme"], universe, SKEPTIC_ACTOR),
+                self._theme_recall(
+                    investigation["theme"], universe, investigation["as_of"], SKEPTIC_ACTOR
+                ),
                 max_queries=self._settings.discovery_max_queries,
                 max_passages=self._settings.investigator_max_passages,
                 max_document_share=self._settings.investigator_max_passage_share_per_document,

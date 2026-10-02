@@ -62,6 +62,9 @@ RETAIN_SUBMITS = [
     "upsert/03-v2-same-document-id",
     "upsert/05-v1-own-id",
     "upsert/07-v2-own-id",
+    # the gateway sends an item's explicit observation scopes (memory-quality ticket 06)
+    "observation_scopes/01-retain-one-scope",
+    "observation_scopes/05-retain-two-scopes",
 ]
 
 
@@ -401,9 +404,10 @@ def test_bank_template_is_applied_by_dry_run_then_import() -> None:
 
 def test_the_research_bank_template_file_is_what_the_server_was_sent() -> None:
     # spikes/hindsight/record_bank_template.py recorded template 1.0.0 (missions,
-    # dispositions, directives). 1.1.0 added only the mental models, whose import the fake
-    # derives from that recording (tests/fakes/hindsight.py); editing anything else in the
-    # template fails here until its dry run is re-recorded.
+    # dispositions, directives). 1.1.0 added the mental models and 1.2.0 changed the bank
+    # config (missions, entity labels), whose import the fake derives from that recording
+    # when 0.10.2's recorded template schema takes it (tests/fakes/hindsight.py); editing the
+    # directives or the manifest version fails here until its dry run is re-recorded.
     fake = RecordedHindsight()
     dry = fake.recording("research_template/01-import-dry-run")
     real = fake.recording("research_template/02-import")

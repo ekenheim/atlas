@@ -1,0 +1,58 @@
+# The rehearsal's known answers (tests/integration/test_memory_conformance.py): sections of the
+# recorded EDGAR fixtures the conformance check's throwaway bank holds (Lumentum's 8-K exhibit
+# and 10-Q, Coherent's 10-K and 10-Q). The real set is configs/memory/known-answers.yaml.
+version: 1
+
+thresholds:
+  recall_at_10: 0.0
+  recall_at_50: 1.0
+
+answers:
+  - id: coh-vertical-integration
+    question: laser-chips
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1
+    sentence: Our vertically integrated technology platform includes the in-house design and manufacture of transceivers and many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.
+    hop: chip
+    test: second_source
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 3
+
+  - id: coh-sherman-inp
+    question: laser-chips
+    company: coherent
+    document:
+      accession: 0000820318-26-000020
+    section: part-ii-item-7
+    sentence: We are investing in manufacturing capacity for the Datacenter and Communications markets, including expanding our indium phosphide capacity in Sherman, Texas, to address our increased customer demand and industry-wide shortage.
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), Saved work 1
+
+  - id: coh-buys-inp-substrates
+    question: inp-substrates
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: null
+    sentence: These include InP substrates, ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials.
+    hop: substrate
+    test: second_source
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 3
+
+  - id: lite-q4-revenue
+    question: inp-substrates
+    company: lumentum
+    document:
+      form: 8-K
+      filed: 2026-08-11
+    section: chunk-001
+    sentence: Net revenue for the fourth quarter of fiscal year 2026 was $1.01 billion, with GAAP net loss of $7.2 billion, or $84.65 per diluted share.
+    hop: demand
+    test: financing_dilution
+    basis: question
+    review: Rehearsal only (the exhibit of the recorded 8-K)

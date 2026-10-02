@@ -30,6 +30,8 @@ class ResearchAnswer(BaseModel):
     question: str
     scope: AppliedScope
     response_schema: dict[str, JsonValue] | None
+    budget: Literal["low", "mid", "high"]  # how deep reflect was asked to search
+    exclude_mental_models: bool  # True: no mental model could be read (or cited)
     answer: str | None
     structured_output: dict[str, JsonValue] | None
     structured_output_error: str | None
@@ -75,6 +77,8 @@ def research_answer(connection: Connection, answer_id: uuid.UUID) -> ResearchAns
         question=row["question"],
         scope=AppliedScope.model_validate(row["scope"]),
         response_schema=row["response_schema"],
+        budget=row["budget"],
+        exclude_mental_models=row["exclude_mental_models"],
         answer=row["answer_text"],
         structured_output=row["structured_output"],
         structured_output_error=row["structured_output_error"],

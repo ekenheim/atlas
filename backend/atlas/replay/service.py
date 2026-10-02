@@ -62,6 +62,7 @@ from atlas.hindsight import (
     HindsightNotFound,
     Memory,
     OperationTimeout,
+    RecallResult,
     TagScope,
 )
 from atlas.jobs.budget import RetainExtractor
@@ -70,7 +71,8 @@ from atlas.jobs.queue import Artifacts, Job, JobQueue, job_id_for
 from atlas.replay.questions import QuestionSet, ReplayQuestion
 from atlas.replay.reads import ReplayRecalledMemory
 from atlas.research.provenance import Citation, ProvenanceResolver, SectionLookup
-from atlas.research.service import SCOPE_MATCH, AppliedScope
+from atlas.research.service import SCOPE_MATCH, AppliedScope, recalled_memory
+from atlas.retention.context import known_companies
 from atlas.retention.service import (
     RETAINABLE_LANGUAGES,
     RETAINABLE_PARSES,
@@ -503,6 +505,9 @@ class Replays:
         parsed = self._archive.get(version.parsed_object_uri).decode("utf-8")
         sections = version_sections(version, parsed)
         tags = version_tags(version, self._universe)
+        # The same context, entities and display metadata as a production retain.
+        with self._engine.connect() as connection:
+            companies = known_companies(connection)
         documents = [(section_document_id(version.id, s), s) for s in sections]
         items = [
             retain_item(
@@ -514,6 +519,7 @@ class Replays:
                 start=section.start,
                 end=section.end,
                 tags=tags,
+                companies=companies,
                 extractor=self._extractor,
             )
             for document, section in documents
@@ -670,10 +676,22 @@ class Replays:
         resolver = ProvenanceResolver(
             self._engine, self._archive, gateway, sections=replay_sections(replay_id)
         )
-        recalled = gateway.recall(question.question, scope=tag_scope)
-        memories = [_recalled(memory, resolver) for memory in recalled.memories]
-        reflected = gateway.reflect(question.question, scope=tag_scope, include_facts=True)
-        citations = resolver.resolve_answer(reflected.text, reflected.memories)
+        # Recency is judged from the cutoff, as a researcher then would have had it
+        # (memory-quality ticket 07).
+        recalled = gateway.recall(question.question, scope=tag_scope, query_timestamp=row["cutoff"])
+        memories = [_recalled(memory, recalled, resolver) for memory in recalled.memories]
+        # Asked as a research answer is by default (memory-quality ticket 10); the replay's
+        # answer row is one `codex` unit (`atlas.jobs.budget`).
+        reflected = gateway.reflect(
+            question.question,
+            scope=tag_scope,
+            include_facts=True,
+            budget="mid",
+            exclude_mental_models=True,
+        )
+        citations = resolver.resolve_answer(
+            reflected.text, reflected.memories, reflected.mental_models
+        )
         leaked_recall = [m for m in memories if _named_versions(m) - visible]
         leaked_citations = [c for c in citations if _cited_versions(c) - visible]
         leaked_ids = sorted(
@@ -900,17 +918,11 @@ def replay_sections(replay_id: uuid.UUID) -> SectionLookup:
     return lookup
 
 
-def _recalled(memory: Memory, resolver: ProvenanceResolver) -> ReplayRecalledMemory:
+def _recalled(
+    memory: Memory, answer: RecallResult, resolver: ProvenanceResolver
+) -> ReplayRecalledMemory:
     return ReplayRecalledMemory(
-        memory_id=memory.id,
-        type=memory.type,
-        text=memory.text,
-        context=memory.context,
-        tags=memory.tags,
-        occurred_start=memory.occurred_start,
-        occurred_end=memory.occurred_end,
-        mentioned_at=memory.mentioned_at,
-        provenance=resolver.resolve_recalled(memory),
+        **dict(recalled_memory(memory, answer, resolver)),
         document_id=memory.document_id,
         source_version_id=memory.metadata.get("source_version_id"),
     )

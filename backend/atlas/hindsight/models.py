@@ -23,6 +23,7 @@ from pydantic import (
 from atlas.hindsight.errors import HindsightRuleViolation
 
 type Budget = Literal["low", "mid", "high"]
+type FactType = Literal["world", "experience", "observation"]
 type TagMatch = Literal["any_strict", "all_strict"]
 type OperationStatus = Literal[
     "pending", "processing", "completed", "failed", "cancelled", "not_found"
@@ -104,6 +105,15 @@ def _schema_nodes(node: object, path: str) -> list[tuple[str, Mapping[str, Any]]
 # --- requests ----------------------------------------------------------------------------------
 
 
+class RetainEntity(BaseModel):
+    """A name the retain item guarantees as an entity (`type` e.g. `ORG`)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    text: str
+    type: str | None = None
+
+
 class RetainItem(BaseModel):
     """One document of a retain batch (for Atlas: one section of a Source Version)."""
 
@@ -115,6 +125,12 @@ class RetainItem(BaseModel):
     context: str | None = None
     metadata: dict[str, str] | None = None
     tags: list[str] | None = None
+    # Given entities; with `resolve_entities` false Hindsight stores them as written.
+    entities: list[RetainEntity] | None = None
+    resolve_entities: bool | None = None
+    # The explicit observation scopes (each a tag set) the item's facts consolidate into.
+    # None: not sent, so Hindsight's default (`combined`: the item's full tag set) applies.
+    observation_scopes: list[list[str]] | None = None
 
 
 class MentalModelTrigger(BaseModel):
@@ -220,8 +236,24 @@ class SourceMemory(_Result):
     mentioned_at: datetime | None = None
 
 
+class RecallScores(_Result):
+    """A recall result's per-stage scores (0.10.2). Relative within one recall only; `final`
+    can exceed 1, and an arm's score is None when that arm didn't surface the result."""
+
+    final: float | None = None
+    reranker: float | None = None
+    semantic: float | None = None
+    keyword: float | None = None
+
+
 class Memory(_Result):
-    """A memory unit: a world/experience fact (with `document_id`) or an observation."""
+    """A memory unit: a world/experience fact (with `document_id`) or an observation.
+
+    In a recall result an observation's sources are `source_fact_ids` (0.10.2: null unless
+    `include.source_facts` was asked for); a memory lookup calls them `source_memory_ids`.
+    Both land in `source_memory_ids`. A recall result also carries its `scores` and the
+    canonical names of its `entities`.
+    """
 
     id: str
     text: str
@@ -235,21 +267,75 @@ class Memory(_Result):
     occurred_end: datetime | None = None
     mentioned_at: datetime | None = None
     state: str | None = None
-    source_memory_ids: list[str] = []
+    source_memory_ids: list[str] = Field(
+        default=[], validation_alias=AliasChoices("source_memory_ids", "source_fact_ids")
+    )
     source_memories: list[SourceMemory] = []  # filled by a memory lookup only
+    entities: list[str] = []  # a recall result's: the entities' canonical names
+    scores: RecallScores | None = None  # a ranked recall result's (not a source fact's)
 
     null_dicts = field_validator("metadata", mode="before")(_none_to_empty_dict)
     null_lists = field_validator("tags", "source_memory_ids", "source_memories", mode="before")(
         _none_to_empty_list
     )
 
+    @field_validator("entities", mode="before")
+    @classmethod
+    def _entity_names(cls, value: object) -> object:
+        # A recall gives a list; the memory list (`memories/list`) one comma-joined string.
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [name for name in value.split(", ") if name]
+        return value
+
+
+class RecallEntity(_Result):
+    """An entity a recall's results name (the answer's `entities` map, by canonical name)."""
+
+    entity_id: str
+    canonical_name: str
+
+
+class RecallChunk(_Result):
+    """A chunk a recall's results were extracted from (`include.chunks`), by chunk ID."""
+
+    id: str
+    text: str
+    chunk_index: int
+    truncated: bool = False
+
 
 class RecallResult(_Result):
+    """One recall's answer. Besides the ranked `memories`: the `entities` they name (by
+    canonical name, with the entity IDs), with `include.chunks` the `chunks` they came from
+    (by chunk ID), and with `include.source_facts` the facts their observations were built
+    from (`source_facts`, by fact ID) and whether the budget cut that map short
+    (`source_facts_truncated`; None when not asked for)."""
+
     memories: list[Memory] = Field(validation_alias="results")
+    entities: dict[str, RecallEntity] = {}
+    chunks: dict[str, RecallChunk] = {}
+    source_facts: dict[str, Memory] = {}
+    source_facts_truncated: bool | None = None
+
+    null_dicts = field_validator("entities", "chunks", "source_facts", mode="before")(
+        _none_to_empty_dict
+    )
+
+    def entity_id(self, name: str) -> str | None:
+        """The ID of the entity a result names by `name`, when the answer's map has it."""
+        entity = self.entities.get(name)
+        return entity.entity_id if entity is not None else None
 
 
 class CitedMemory(_Result):
-    """A memory an answer is based on. `id` can be missing (content without memory identity)."""
+    """A memory an answer is based on. `id` can be missing (content without memory identity).
+
+    0.10.2 (`reflect_options/02`): a reflect answer's cited world fact also carries its
+    `document_id`, `chunk_id`, `tags` and `metadata`, so it leads to its section in one hop;
+    an observation's are null and empty. A mental model's `based_on` carries none of them.
+    """
 
     id: str | None = None
     text: str
@@ -257,9 +343,19 @@ class CitedMemory(_Result):
     context: str | None = None
     occurred_start: datetime | None = None
     occurred_end: datetime | None = None
+    mentioned_at: datetime | None = None
+    document_id: str | None = None
+    chunk_id: str | None = None
+    tags: list[str] = []
+    metadata: dict[str, str] = {}
+
+    null_dicts = field_validator("metadata", mode="before")(_none_to_empty_dict)
+    null_lists = field_validator("tags", mode="before")(_none_to_empty_list)
 
 
 class CitedMentalModel(_Result):
+    """A mental model an answer read (`based_on.mental_models`): Hindsight's own synthesis."""
+
     id: str
     text: str
     context: str | None = None
@@ -381,6 +477,23 @@ class EntitySummary(_Result):
     id: str
     canonical_name: str
     mention_count: int
+
+
+class Chunk(_Result):
+    """One stored chunk of a retained document (`GET .../documents/{id}/chunks`; 0.10.2,
+    recording `chunks/03-list-chunks`). Its text is a verbatim slice of the retained content."""
+
+    chunk_id: str
+    document_id: str
+    chunk_index: int
+    chunk_text: str
+
+
+class ChunkPage(_Result):
+    items: list[Chunk]
+    total: int
+    limit: int
+    offset: int
 
 
 class EntityPage(_Result):

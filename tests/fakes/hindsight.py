@@ -65,16 +65,60 @@ Derived behaviours (each serves a recorded response with only the named fields c
   first source fact's), `tags` (the union of its sources'), `source_memory_ids` and
   `source_memories` changed (each embedded source is the recorded first one, with only `id`,
   `text`, `context` and `mentioned_at` changed).
+  `derive_observation(document_ids, scope=tags)` (memory-quality ticket 06) is the observation
+  consolidated in that explicit observation scope instead: its `tags` are the scope's tags
+  alone, as `observation_scopes/05` to `08` showed (one observation per scope, carrying only that
+  scope's tags), and every source document's retained item must have sent that scope in its
+  `observation_scopes` (the fake raises otherwise, so a test can't derive an observation the
+  item's scopes wouldn't produce). Without `scope`, the tags stay the union of its sources'
+  (the `combined` default of an item sent without scopes).
+  With `derive_memories` on and no scopes scripted, `GET .../observations/scopes` serves
+  `observation_scopes/09-list-scopes` with only `scopes` (each derived observation's tag set
+  in the bank with its count, most populous first, then in first-derived order), `total`,
+  `limit` and `offset` changed.
   An unrecorded strict-tag recall (`any_strict`/`all_strict`) serves `tags/02-tags-any_strict`
   with its `results` replaced by the derived observations, then facts, whose tags match the
   scope the way the recorded strict modes did (untagged and non-matching memories excluded).
   Each result is the recorded result of the same type (its first observation, its first world
   fact) with only the fields above changed; the scores stay as recorded.
+- **`include.source_facts` on a derived recall** (memory-quality ticket 07): when the recall's
+  body asks for source facts, each derived observation in the results has `source_fact_ids`
+  set to all its source facts (a deleted one too: the docs say the list always names every
+  source), and the response's `source_facts` map holds each source fact that exists, keyed by
+  its ID, deduplicated, in result order. Each entry is the first entry of
+  `recall_options/06-include-source-facts`'s map with only `id`, `text`, `context`,
+  `document_id`, `chunk_id`, `tags`, `metadata` and `mentioned_at` changed (the derived
+  fact's). `source_facts_truncated` is false, or true after `truncate_source_facts(keep)`
+  when the map was cut to its first `keep` facts (the budget's doing, by the docs). The other
+  0.10.2 recall fields are accepted and change nothing in a derived recall (but see
+  `derive_recall_options`); its `scores` and `entities` stay as recorded.
+- `derive_recall_options()` (off by default; needs `derive_memories`): **`query_timestamp`,
+  `prefer_observations` and `max_tokens` on a derived recall** (the integration of
+  memory-quality wave 2, for the conformance check's check 6; the recall docs' rules, the
+  recorded effects `recall_options/01`/`02`, `04`/`05` and `08`/`09`), applied in this
+  order to the derived results: with `query_timestamp`, the results are ordered by how far
+  their `mentioned_at` lies from it, nearest first (stable; the docs: recency is scored as
+  of that time; the recordings: the same memories in another order, none filtered); with
+  `prefer_observations: true`, a world fact that an observation in the results was built from
+  is dropped; with `max_tokens` sent, results are kept in order while their texts fit the
+  budget, a text too long for what is left skipped and the next tried, and the top result
+  returned whole when none fits (0: none), a token counted per four characters of `text`
+  (Hindsight uses its tokenizer, so a derived cut is not the real one). Without it, or
+  without the fields, a derived recall is as before.
 - `script_fact_text(document_id, text)` (needs `derive_memories`; Hindsight writes a fact in
   its own words, and no recorded fact is about an Atlas section): that document's derived
   world fact has `text`, **written by the test** (a paraphrase of a sentence of the section),
   instead of the section's first 200 characters, wherever the fact is served (read, listed,
   recalled, embedded in an observation). Nothing else about the fact changes.
+- `script_fact_labels(document_id, labels)` (memory-quality ticket 05; needs `derive_memories`;
+  which layer a fact concerns is the extractor's call): the `key:value` labels of the
+  document's derived world fact. A label of a group the bank's last derived template import
+  defines with `tag: true`, and with its value among the group's, is appended to the fact's
+  `tags` after the item's own, wherever the fact is served, so a strict recall by that tag
+  returns it; any other label is dropped, as the docs say of a value outside an enum group.
+  `entity_labels/04` and `05` recorded both (the item's tags, then `layer:<value>`; a recall
+  by `layer:chip-laser`, `any_strict`, returned only facts carrying it). The labels are not
+  added to the fact's entities.
 - `fail_recalls(where, status=..., times=...)` (needs `derive_memories`; a failed recall was
   never recorded): an unrecorded recall whose `query` matches answers HTTP `status` with a
   **hand-written** body `{"detail": "recall failed (scripted by the test)"}` (only the status
@@ -99,15 +143,23 @@ Derived behaviours (each serves a recorded response with only the named fields c
   operation serves `observations/02-consolidate-final` with only `operation_id` changed (and
   any `hold_operation`, or `hold_consolidations(status, polls)` for every later one, applied).
   It derives no observations.
-- `script_reflect(text, cited, ...)` (a reflect answer is LLM output, and no recorded one can
-  cite an Atlas section): the next unrecorded reflect serves `reflect/01-provenance` with only
-  `text`, `based_on.memories`, `structured_output` and `structured_output_error` changed.
-  Each cited memory is the recorded first `based_on` entry with only `id`, `text`, `type` and
-  `context` changed; a `ChunkContent(document_id)` entry is content without memory identity
-  (`id: null`, `type: null`), its `text` the retained section's first 400 characters
-  (whitespace collapsed); a `BankFacts()` entry stands for every derived fact the answering
-  bank holds when the answer is served, in retain order. **The answer text is written by the
-  test**, so the quotes in it are the test's choice.
+- `script_reflect(text, cited, ..., mental_models=())` (a reflect answer is LLM output, and no
+  recorded one can cite an Atlas section): the next unrecorded reflect serves 0.10.2's
+  `reflect_options/02-exclude-mental-models` (memory-quality ticket 10; before it,
+  `reflect/01-provenance`) with only `text`, `based_on.memories`, `based_on.mental_models`,
+  `structured_output` and `structured_output_error` changed. Each cited memory is the
+  recorded first `based_on` entry of its type (`world` or `observation`) with only `id`,
+  `text`, `type`, `context`, `document_id`, `chunk_id`, `tags`, `metadata` and `mentioned_at`
+  changed: a derived fact's own (as a 0.10.2 answer cites a world fact, with its document);
+  an observation's ID, text and tags, the rest null or empty (as recorded for one); a fact
+  deleted since, its ID and `(deleted)`, the rest null or empty. A `ChunkContent(document_id)`
+  entry is content without memory identity (`id: null`, `type: null`, the rest null or
+  empty), its `text` the retained section's first 400 characters (whitespace collapsed); a
+  `BankFacts()` entry stands for every derived fact the answering bank holds when the answer
+  is served, in retain order. Each of `mental_models` (models imported through the fake) is
+  `reflect_options/01-budget-mid-tag-scoped`'s cited model with only `id` and `text`
+  (`"<name>: <content>"`, as recorded) changed. **The answer text is written by the test**,
+  so the quotes in it are the test's choice.
 
 Derived by default (each is anchored to a request the real server was sent):
 
@@ -115,7 +167,11 @@ Derived by default (each is anchored to a request the real server was sent):
   importing mental models live queues their refreshes, i.e. LLM calls, so it wasn't
   re-recorded): an unrecorded `POST .../import` whose body differs from the recorded
   research-template request (`research_template/01-import-dry-run`, `02-import`) only in its
-  `mental_models` is served that recording's response with only `bank_id`,
+  `mental_models` and its `bank` config (memory-quality ticket 05: the missions and
+  `entity_labels`; ticket 10: two reflect fields of the bank, and the models' tags and
+  trigger fields), and which the bank-template schema 0.10.2 served
+  (`rerun-0.10.2/bank_templates/01-schema.json`) takes with every `bank` field one it names,
+  is served that recording's response with only `bank_id`,
   `mental_models_created` (the request's mental-model IDs, as `bank_templates/03-import-dry-run`
   and `04-import` list the models they created) and, for the real import, `operation_ids` (one
   derived refresh operation per model, as `bank_templates/04-import` queued) changed. A real
@@ -125,7 +181,8 @@ Derived by default (each is anchored to a request the real server was sent):
 - **mental models defined by a derived import**: `GET .../mental-models/<id>` serves
   `mental_models/03-get` with only `id`, `bank_id`, `name`, `source_query`, `max_tokens`,
   `tags`, the trigger's `refresh_after_consolidation`/`refresh_cron`/
-  `min_refresh_interval_seconds` (the template's), `content`, `reflect_response`,
+  `min_refresh_interval_seconds`/`exclude_mental_models`/`keep_trace` (the template's; 0.10.2
+  stores a trigger as sent, `tagged_mental_model/03-get`), `content`, `reflect_response`,
   `last_refreshed_at` and `is_stale` changed. Until its first refresh a model holds the
   placeholder content `mental_models/06-history` recorded before the first refresh
   (`"Generating content...\n"`), no `reflect_response` and no `last_refreshed_at` (the
@@ -149,19 +206,27 @@ Derived by default (each is anchored to a request the real server was sent):
   recorded, see `hold_retains`), so it never applies. `apply_refresh(...)` applies a refresh
   the same way without a request: one Hindsight ran by itself (its `refresh_cron`).
 
-Hand-written, not recorded (memory-quality ticket 02; to be replaced by ticket 01's recordings
-on 0.10.2): the two listings the memory-health read makes were never recorded, so their
-responses are built from the documented examples in the pinned OpenAPI schema, kept in
-`tests/fixtures/hindsight-handwritten/`:
+The two listings the memory-health read makes (memory-quality ticket 02), from ticket 01's
+0.10.2 recordings (ticket 14 replaced the hand-written fixtures ticket 02 used):
 
 - `script_observation_scopes(scopes)`: `GET .../observations/scopes?limit=N[&offset=M]` (any
-  bank) serves `observation-scopes.json` with only `scopes` (the scripted tag sets and counts,
-  in the order given), `total`, `limit` and `offset` changed.
+  bank) serves `observation_scopes/09-list-scopes` with only `scopes` (the scripted tag sets
+  and counts, in the order given), `total`, `limit` and `offset` changed.
 - `script_entities(entities)`: `GET .../entities?limit=N[&offset=M]` (any bank) serves
-  `entities.json` with only `items` (each the example item with `id` (a UUIDv5 of the name),
-  `canonical_name` and `mention_count` changed), `total`, `limit` and `offset` changed.
-- `fail_listings(status)`: both listings answer HTTP `status` with the hand-written body
-  `{"detail": "listing failed (scripted by the test)"}` (only the status is relied on).
+  `entities/03-list-entities` with only `items` (each the recorded first item with `id` (a
+  UUIDv5 of the name), `canonical_name` and `mention_count` changed), `total`, `limit` and
+  `offset` changed.
+- **The entity listing of derived facts** (the integration of memory-quality wave 2, for the
+  conformance check's check 2): with `derive_memories` on and no entities scripted,
+  `GET .../entities?limit=N[&offset=M]` serves `entities/03-list-entities` with only `items`,
+  `total`, `limit` and `offset` changed: one item per entity a retained item gave with
+  `resolve_entities: false` (stored as written, as `entities/01` to `04` recorded), each the
+  recorded first item with `id` (a UUIDv5 of the name), `canonical_name` (the given text) and
+  `mention_count` (the bank's derived facts whose item gave it) changed, most mentioned first,
+  then in first-derived order. Entities Hindsight's own extraction would find are not derived.
+- `fail_listings(status)` (a failed listing was never recorded): both listings answer HTTP
+  `status` with the **hand-written** body `{"detail": "listing failed (scripted by the test)"}`
+  (only the status is relied on).
 """
 
 import copy
@@ -171,15 +236,17 @@ import uuid
 from collections import defaultdict, deque
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import httpx2
+from jsonschema.validators import validator_for
 from pydantic import JsonValue
 
 RECORDINGS_DIR = Path(__file__).resolve().parents[2] / "spikes" / "hindsight" / "recordings"
-HANDWRITTEN_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "hindsight-handwritten"
+# The bank-template schema 0.10.2 served (memory-quality ticket 01; kept out of `recordings/`).
+TEMPLATE_SCHEMA_0102 = RECORDINGS_DIR.parent / "rerun-0.10.2" / "bank_templates" / "01-schema.json"
 
 type QueryKey = tuple[tuple[str, str], ...]
 type RequestKey = tuple[str, str, QueryKey, str]
@@ -286,6 +353,7 @@ class _ScriptedReflect:
     cited: "Sequence[str | ChunkContent | BankFacts]"
     structured_output: dict[str, JsonValue] | None
     structured_output_error: str | None
+    mental_models: Sequence[str] = ()
 
 
 @dataclass
@@ -357,8 +425,10 @@ DERIVED_DOCUMENT = "upsert/09-get-document"
 DERIVED_FACT = "reflect/06-resolve-source-memory"
 DERIVED_OBSERVATION = "reflect/02-resolve-memory"
 DERIVED_RECALL = "tags/02-tags-any_strict"
+DERIVED_SOURCE_FACTS = "recall_options/06-include-source-facts"
 DERIVED_MEMORY_LIST = "observations/04-list-via-memories"
-DERIVED_REFLECT = "reflect/01-provenance"
+DERIVED_REFLECT = "reflect_options/02-exclude-mental-models"  # 0.10.2 (memory-quality 10)
+DERIVED_REFLECT_MENTAL_MODEL = "reflect_options/01-budget-mid-tag-scoped"
 DERIVED_TEMPLATE_DRY_RUN = "research_template/01-import-dry-run"
 DERIVED_TEMPLATE_IMPORT = "research_template/02-import"
 DERIVED_MENTAL_MODEL = "mental_models/03-get"
@@ -367,13 +437,30 @@ DERIVED_MENTAL_MODEL_REFRESH_FINAL = "mental_models/05-refresh-final"
 DERIVED_MENTAL_MODEL_HISTORY = "mental_models/06-history"
 DERIVED_CONSOLIDATE = "observations/01-consolidate"
 DERIVED_CONSOLIDATE_FINAL = "observations/02-consolidate-final"
+DERIVED_SCOPES = "observation_scopes/09-list-scopes"
+DERIVED_ENTITIES = "entities/03-list-entities"
 _TEMPLATE_TRIGGER_FIELDS = (
     "refresh_after_consolidation",
     "refresh_cron",
     "min_refresh_interval_seconds",
+    "exclude_mental_models",
+    "keep_trace",
+)
+# The fields of a cited memory a derived reflect answer changes (see `script_reflect`).
+_CITED_FIELDS = (
+    "id",
+    "text",
+    "type",
+    "context",
+    "document_id",
+    "chunk_id",
+    "tags",
+    "metadata",
+    "mentioned_at",
 )
 FACT_TEXT_CHARS = 200
 CHUNK_TEXT_CHARS = 400
+CHARS_PER_TOKEN = 4  # a derived recall's `max_tokens` budget (see `_tokens`)
 _DERIVED_NAMESPACE = uuid.UUID("0f4c9a53-7d1e-4b8e-9c3a-2e6f1d5b8a70")
 _EMBEDDED_SOURCE_FIELDS = ("id", "text", "context", "mentioned_at")
 
@@ -408,9 +495,14 @@ class RecordedHindsight:
     _operation_errors: dict[str, int] = field(init=False, default_factory=dict[str, int])
     _submissions: dict[str, int] = field(init=False, default_factory=dict[str, int])
     _derive_memories: bool = field(init=False, default=False)
+    _derive_recall_options: bool = field(init=False, default=False)
     # observation ID -> (its bank, its source fact IDs)
     _observations: dict[str, tuple[str, list[str]]] = field(
         init=False, default_factory=dict[str, tuple[str, list[str]]]
+    )
+    # observation ID -> the explicit observation scope it was consolidated in (ticket 06)
+    _observation_scopes: dict[str, list[str]] = field(
+        init=False, default_factory=dict[str, list[str]]
     )
     _known_memories: set[str] = field(init=False, default_factory=set[str])
     _consolidations: set[str] = field(init=False, default_factory=set[str])
@@ -418,7 +510,14 @@ class RecordedHindsight:
     deleted_banks: list[str] = field(init=False, default_factory=list[str])
     _forgotten: set[str] = field(init=False, default_factory=set[str])
     _fact_texts: dict[str, str] = field(init=False, default_factory=dict[str, str])
+    # document ID -> the `key:value` labels scripted for its fact; bank -> its imported groups
+    _fact_labels: dict[str, list[str]] = field(init=False, default_factory=dict[str, list[str]])
+    _entity_labels: dict[str, list[dict[str, JsonValue]]] = field(
+        init=False, default_factory=dict[str, list[dict[str, JsonValue]]]
+    )
     _recall_failures: list[_RecallFailure] = field(init=False, default_factory=list[_RecallFailure])
+    # How many source facts a derived recall's `source_facts` map keeps (None: every one).
+    _source_facts_kept: int | None = field(init=False, default=None)
     _reflects: deque[_ScriptedReflect] = field(init=False, default_factory=deque[_ScriptedReflect])
     _mental_models: dict[str, _MentalModel] = field(
         init=False, default_factory=dict[str, _MentalModel]
@@ -430,7 +529,7 @@ class RecordedHindsight:
     _refresh_operations: dict[str, _RefreshOperation] = field(
         init=False, default_factory=dict[str, _RefreshOperation]
     )
-    # Hand-written listings (see the module docstring): None until scripted.
+    # The scripted listings (see the module docstring): None until scripted.
     _scopes: list[dict[str, JsonValue]] | None = field(init=False, default=None)
     _entities: list[tuple[str, int]] | None = field(init=False, default=None)
     _listing_failure: int | None = field(init=False, default=None)
@@ -499,18 +598,42 @@ class RecordedHindsight:
         self._derive = True
         self._derive_memories = True
 
+    def derive_recall_options(self) -> None:
+        """`query_timestamp`, `prefer_observations` and `max_tokens` change a derived recall
+        (derived; off by default, so tests written before it keep their answers)."""
+        self._derive_recall_options = True
+
     def derived_fact(self, document_id: str, bank: str | None = None) -> str:
         """The ID of the derived world fact extracted from a retained document (in `bank`;
         None: the one bank that holds the document)."""
         return _fact_id(self._holding_bank(document_id, bank), document_id)
 
-    def derive_observation(self, document_ids: Sequence[str], bank: str | None = None) -> str:
+    def derive_observation(
+        self,
+        document_ids: Sequence[str],
+        bank: str | None = None,
+        scope: Sequence[str] | None = None,
+    ) -> str:
         """An observation consolidated from these documents' facts (in `bank`; None: the one
-        bank that holds the first document); returns its ID."""
+        bank that holds the first document); returns its ID. With `scope`, it is the
+        observation of that explicit observation scope, which each document must have sent."""
         bank = self._holding_bank(document_ids[0], bank)
         sources = [self.derived_fact(document_id, bank) for document_id in document_ids]
-        observation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, "observation:" + "|".join(sources)))
+        key = "observation:" + "|".join(sources)
+        if scope is not None:
+            for document_id in document_ids:
+                item = self._derived_documents[bank][document_id]
+                sent = cast(list[list[str]], item.get("observation_scopes") or [])
+                if not any(set(s) == set(scope) for s in sent):
+                    raise AssertionError(
+                        f"{document_id} was retained with observation_scopes {sent}, "
+                        f"not with {list(scope)}"
+                    )
+            key += "#scope:" + "|".join(scope)
+        observation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, key))
         self._observations[observation_id] = (bank, sources)
+        if scope is not None:
+            self._observation_scopes[observation_id] = list(scope)
         self._known_memories.add(observation_id)
         self._memory_writes += 1
         return observation_id
@@ -547,6 +670,12 @@ class RecordedHindsight:
         the section's first characters (derived; see the module docstring)."""
         self._fact_texts[document_id] = text
 
+    def script_fact_labels(self, document_id: str, labels: Sequence[str]) -> None:
+        """The extractor labelled the document's derived world fact with these `key:value`
+        entity labels; those of a group the bank's imported template defines with `tag: true`
+        and the value among the group's are added to the fact's tags (derived; see above)."""
+        self._fact_labels[document_id] = list(labels)
+
     def fail_recalls(
         self, where: Callable[[str], bool], *, status: int, times: int | None = None
     ) -> None:
@@ -555,6 +684,11 @@ class RecordedHindsight:
         docstring)."""
         self._recall_failures.append(_RecallFailure(where, status, times))
 
+    def truncate_source_facts(self, keep: int) -> None:
+        """Derived recalls asked for source facts keep only the first `keep` of them in their
+        `source_facts` map and say `source_facts_truncated: true` (derived; see above)."""
+        self._source_facts_kept = keep
+
     def script_reflect(
         self,
         text: str,
@@ -562,10 +696,14 @@ class RecordedHindsight:
         *,
         structured_output: dict[str, JsonValue] | None = None,
         structured_output_error: str | None = None,
+        mental_models: Sequence[str] = (),
     ) -> None:
-        """Answer the next unrecorded reflect with this text and these citations (derived)."""
+        """Answer the next unrecorded reflect with this text and these citations (derived);
+        `mental_models` are the IDs of imported models the answer read."""
+        for mental_model_id in mental_models:
+            self._mental_model(mental_model_id)
         self._reflects.append(
-            _ScriptedReflect(text, cited, structured_output, structured_output_error)
+            _ScriptedReflect(text, cited, structured_output, structured_output_error, mental_models)
         )
 
     def script_refresh(
@@ -596,17 +734,17 @@ class RecordedHindsight:
         self._apply(mental_model_id, _ScriptedRefresh(content, cited, _iso(refreshed_at)))
 
     def script_observation_scopes(self, scopes: Sequence[tuple[Sequence[str], int]]) -> None:
-        """Serve these observation scopes (tag set, count) from the scopes listing
-        (hand-written; see the module docstring)."""
+        """Serve these observation scopes (tag set, count) from the scopes listing (derived
+        from the recording; see the module docstring)."""
         self._scopes = [{"tags": list(tags), "count": count} for tags, count in scopes]
 
     def script_entities(self, entities: Sequence[tuple[str, int]]) -> None:
         """Serve these entities (canonical name, mention count) from the entity listing, in
-        the order given (hand-written; see the module docstring)."""
+        the order given (derived from the recording; see the module docstring)."""
         self._entities = list(entities)
 
     def fail_listings(self, status: int) -> None:
-        """Answer HTTP `status` to the scopes and entity listings (hand-written)."""
+        """Answer HTTP `status` to the scopes and entity listings (a hand-written body)."""
         self._listing_failure = status
 
     def refreshes_requested(self) -> list[str]:
@@ -840,18 +978,34 @@ class RecordedHindsight:
                 "context": item.get("context"),
                 "document_id": document_id,
                 "chunk_id": f"{bank}_{document_id}_0",
-                "tags": item.get("tags", []),
+                "tags": self._fact_tags(bank, document_id, item),
                 "metadata": item.get("metadata", {}),
                 "mentioned_at": item.get("timestamp"),
             }
         return facts
 
+    def _fact_tags(self, bank: str, document_id: str, item: dict[str, JsonValue]) -> JsonValue:
+        """The item's tags, then the fact's scripted labels that are tags in this bank (as
+        `entity_labels/04` recorded: a `tag: true` group's labels follow the item's tags)."""
+        tags = cast(list[JsonValue], item.get("tags", []))
+        tagging = {
+            f"{group['key']}:{cast(dict[str, JsonValue], value)['value']}"
+            for group in self._entity_labels.get(bank, [])
+            if group.get("tag") is True
+            for value in cast(list[JsonValue], group.get("values") or [])
+        }
+        labels = [label for label in self._fact_labels.get(document_id, []) if label in tagging]
+        return [*tags, *(label for label in dict.fromkeys(labels) if label not in tags)]
+
     def _observation(self, observation_id: str, bank: str) -> dict[str, JsonValue]:
         facts = self._facts(bank)
         present = [facts[s] for s in self._observations[observation_id][1] if s in facts]
         tags: list[JsonValue] = []
-        for fact in present:
-            tags.extend(t for t in cast(list[JsonValue], fact["tags"]) if t not in tags)
+        if observation_id in self._observation_scopes:
+            tags.extend(self._observation_scopes[observation_id])  # the scope's tags alone
+        else:
+            for fact in present:
+                tags.extend(t for t in cast(list[JsonValue], fact["tags"]) if t not in tags)
         return {
             "id": observation_id,
             "text": present[0]["text"] if present else "",
@@ -928,16 +1082,91 @@ class RecordedHindsight:
             for fact in self._facts(bank).values()
             if in_scope(fact["tags"])
         )
-        response["results"] = results
+        response["results"] = self._recall_options(bank, body, results)
+        include = body.get("include")
+        if isinstance(include, dict) and "source_facts" in include:
+            self._attach_source_facts(bank, response)
         self.served.append(f"{DERIVED_RECALL} (derived)")
         return httpx2.Response(recording.status, json=response)
+
+    def _recall_options(
+        self, bank: str, body: dict[str, JsonValue], results: list[JsonValue]
+    ) -> list[JsonValue]:
+        """`query_timestamp`, `prefer_observations` and `max_tokens` on a derived recall, as the
+        recall docs describe them (see the module docstring; integration of memory-quality
+        wave 2, for the conformance check's check 6)."""
+        ranked = cast(list[dict[str, JsonValue]], results)
+        if not self._derive_recall_options:
+            return results
+        timestamp = body.get("query_timestamp")
+        if isinstance(timestamp, str):
+            anchor = datetime.fromisoformat(timestamp)
+            if anchor.tzinfo is None:
+                anchor = anchor.replace(tzinfo=UTC)
+
+            def distance(result: dict[str, JsonValue]) -> float:
+                mentioned = result.get("mentioned_at")
+                if not isinstance(mentioned, str):
+                    return float("inf")
+                moment = datetime.fromisoformat(mentioned)
+                if moment.tzinfo is None:
+                    moment = moment.replace(tzinfo=UTC)
+                return abs((moment - anchor).total_seconds())
+
+            ranked = sorted(ranked, key=distance)  # stable: ties keep their order
+        if body.get("prefer_observations") is True:
+            superseded = {
+                source
+                for result in ranked
+                if result["type"] == "observation" and self._in_bank(str(result["id"]), bank)
+                for source in self._observations[str(result["id"])][1]
+            }
+            ranked = [r for r in ranked if r["type"] == "observation" or r["id"] not in superseded]
+        max_tokens = body.get("max_tokens")
+        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+            kept: list[dict[str, JsonValue]] = []
+            spent = 0
+            for result in ranked:
+                tokens = _tokens(str(result["text"]))
+                if max_tokens > 0 and spent + tokens <= max_tokens:
+                    kept.append(result)
+                    spent += tokens
+            if not kept and ranked and max_tokens > 0:
+                kept = ranked[:1]  # the top fact whole, over budget, never an empty answer
+            ranked = kept
+        return list[JsonValue](ranked)
+
+    def _attach_source_facts(self, bank: str, response: dict[str, JsonValue]) -> None:
+        """`include.source_facts` on a derived recall (see the module docstring): each
+        observation lists all its sources; the map holds the ones that exist, in result
+        order, up to `truncate_source_facts`'s count."""
+        recorded = self.recording(DERIVED_SOURCE_FACTS).response_object()
+        entry = next(iter(cast(dict[str, JsonValue], recorded["source_facts"]).values()))
+        facts = self._facts(bank)
+        listed: dict[str, JsonValue] = {}
+        truncated = False
+        for result in cast(list[dict[str, JsonValue]], response["results"]):
+            if result["type"] != "observation":
+                continue
+            sources = self._observations[str(result["id"])][1]
+            result["source_fact_ids"] = list[JsonValue](sources)
+            for source in sources:
+                if source not in facts or source in listed:
+                    continue
+                if self._source_facts_kept is not None and len(listed) >= self._source_facts_kept:
+                    truncated = True
+                    continue
+                listed[source] = copy.deepcopy(cast(dict[str, JsonValue], entry)) | facts[source]
+        response["source_facts"] = listed
+        response["source_facts_truncated"] = truncated
 
     def _derived_reflect(self, bank: str) -> httpx2.Response:
         scripted = self._reflects.popleft()
         recording = self.recording(DERIVED_REFLECT)
         response = copy.deepcopy(recording.response_object())
         based_on = cast(dict[str, JsonValue], response["based_on"])
-        entry = cast(list[dict[str, JsonValue]], based_on["memories"])[0]
+        recorded = cast(list[dict[str, JsonValue]], based_on["memories"])
+        entries = {kind: next(m for m in recorded if m["type"] == kind) for kind in _KINDS}
         memories: list[JsonValue] = []
         expanded: list[str | ChunkContent] = []
         for cited in scripted.cited:
@@ -947,11 +1176,25 @@ class RecordedHindsight:
             if isinstance(cited, ChunkContent):
                 content = self._derived_documents[bank][cited.document_id]["content"]
                 text = _collapsed(content)[:CHUNK_TEXT_CHARS]
-                fields = {"id": None, "text": text, "type": None, "context": None}
+                fields = _no_identity(text)
             else:
-                fields = self._cited_fields(bank, cited)
+                fields = self._cited_answer_fields(bank, cited)
+            entry = entries["observation" if fields["type"] == "observation" else "world"]
             memories.append(copy.deepcopy(entry) | fields)
         based_on["memories"] = memories
+        model_entry = cast(
+            list[dict[str, JsonValue]],
+            cast(
+                dict[str, JsonValue],
+                self.recording(DERIVED_REFLECT_MENTAL_MODEL).response_object()["based_on"],
+            )["mental_models"],
+        )[0]
+        models: list[JsonValue] = []
+        for model_id in scripted.mental_models:
+            model = self._mental_model(model_id)
+            text = f"{model.definition['name']}: {model.content}"
+            models.append(copy.deepcopy(model_entry) | {"id": model_id, "text": text})
+        based_on["mental_models"] = models
         response |= {
             "text": scripted.text,
             "structured_output": scripted.structured_output,
@@ -971,6 +1214,18 @@ class RecordedHindsight:
             return {"id": cited, "text": fact["text"], "type": "world", "context": fact["context"]}
         # cited, then deleted: the answer still carries the text it was given
         return {"id": cited, "text": "(deleted)", "type": "world", "context": None}
+
+    def _cited_answer_fields(self, bank: str, cited: str) -> dict[str, JsonValue]:
+        """A cited memory's fields in a 0.10.2 reflect answer: a world fact also carries its
+        document, chunk, tags, metadata and mention time; an observation none of them."""
+        facts = self._facts(bank)
+        if cited in facts:
+            fact = facts[cited]
+            return {key: fact[key] for key in _CITED_FIELDS if key != "type"} | {"type": "world"}
+        fields = _no_identity("") | self._cited_fields(bank, cited)
+        if self._in_bank(cited, bank):
+            fields["tags"] = self._observation(cited, bank)["tags"]
+        return fields
 
     # --- derived template import and mental models (see the module docstring) -----------------
 
@@ -995,12 +1250,83 @@ class RecordedHindsight:
         if request.method == "POST" and route == ["consolidate"] and body == {}:
             return self._derived_consolidation(bank)
         if request.method == "GET" and route in (["observations", "scopes"], ["entities"]):
-            return self._handwritten_listing(request, route)
+            if route[0] == "observations" and self._scopes is None and self._derive_memories:
+                return self._derived_scopes(bank, request)
+            if route[0] == "entities" and self._entities is None and self._derive_memories:
+                return self._derived_entities(bank, request)
+            return self._scripted_listing(request, route)
         return None
 
-    # --- hand-written listings (see the module docstring) --------------------------------------
+    def _derived_entities(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
+        """The entity listing of the bank's derived facts: each entity an item gave with
+        `resolve_entities` false, as written, counted once per derived fact of that item."""
+        if self._listing_failure is not None:
+            return self._scripted_listing(request, ["entities"])
+        params = dict(request.url.params)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if limit is None or params:
+            return None
+        counts: dict[str, int] = {}
+        documents = self._derived_documents.get(bank, {})
+        for fact in self._facts(bank).values():
+            item = documents[str(fact["document_id"])]
+            if item.get("resolve_entities") is not False:
+                continue
+            given = cast(list[dict[str, JsonValue]], item.get("entities") or [])
+            for name in dict.fromkeys(str(entity["text"]) for entity in given):
+                counts[name] = counts.get(name, 0) + 1
+        ranked = sorted(counts.items(), key=lambda entry: -entry[1])  # stable: first-derived
+        recording = self.recording(DERIVED_ENTITIES)
+        response = copy.deepcopy(recording.response_object())
+        example = cast(list[dict[str, JsonValue]], response["items"])[0]
+        listed: list[JsonValue] = [
+            example
+            | {
+                "id": str(uuid.uuid5(_DERIVED_NAMESPACE, f"entity:{name}")),
+                "canonical_name": name,
+                "mention_count": mentions,
+            }
+            for name, mentions in ranked
+        ]
+        response |= {
+            "items": listed[offset : offset + int(limit)],
+            "total": len(listed),
+            "limit": int(limit),
+            "offset": offset,
+        }
+        self.served.append(f"{DERIVED_ENTITIES} (derived)")
+        return httpx2.Response(recording.status, json=response)
 
-    def _handwritten_listing(
+    def _derived_scopes(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
+        if self._listing_failure is not None:
+            return self._scripted_listing(request, ["observations", "scopes"])
+        params = dict(request.url.params)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if limit is None or params:
+            return None
+        counts: dict[tuple[str, ...], int] = {}
+        for observation_id in self._observations:
+            if self._in_bank(observation_id, bank) and observation_id not in self._forgotten:
+                tags = cast(list[str], self._observation(observation_id, bank)["tags"])
+                counts[tuple(tags)] = counts.get(tuple(tags), 0) + 1
+        ranked = sorted(counts.items(), key=lambda entry: -entry[1])  # stable: first-derived
+        listed: list[JsonValue] = [{"tags": list(tags), "count": n} for tags, n in ranked]
+        recording = self.recording(DERIVED_SCOPES)
+        response = copy.deepcopy(recording.response_object())
+        response |= {
+            "scopes": listed[offset : offset + int(limit)],
+            "total": len(listed),
+            "limit": int(limit),
+            "offset": offset,
+        }
+        self.served.append(f"{DERIVED_SCOPES} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    # --- the scripted listings (see the module docstring) --------------------------------------
+
+    def _scripted_listing(
         self, request: httpx2.Request, route: list[str]
     ) -> httpx2.Response | None:
         scopes = route == ["observations", "scopes"]
@@ -1014,9 +1340,9 @@ class RecordedHindsight:
         limit = params.pop("limit", None)
         if limit is None or params:
             return None
-        name = "observation-scopes" if scopes else "entities"
-        handwritten = json.loads((HANDWRITTEN_DIR / f"{name}.json").read_text(encoding="utf-8"))
-        response = cast(dict[str, JsonValue], handwritten["response"]["body"])
+        name = DERIVED_SCOPES if scopes else DERIVED_ENTITIES
+        recording = self.recording(name)
+        response = copy.deepcopy(recording.response_object())
         if scopes:
             assert self._scopes is not None
             listed: list[JsonValue] = list[JsonValue](self._scopes)
@@ -1040,8 +1366,8 @@ class RecordedHindsight:
             "limit": int(limit),
             "offset": offset,
         }
-        self.served.append(f"{name} (hand-written)")
-        return httpx2.Response(200, json=response)
+        self.served.append(f"{name} (derived)")
+        return httpx2.Response(recording.status, json=response)
 
     # --- derived consolidation and bank deletion (see the module docstring) --------------------
 
@@ -1077,13 +1403,19 @@ class RecordedHindsight:
     ) -> httpx2.Response | None:
         name = DERIVED_TEMPLATE_DRY_RUN if dry_run else DERIVED_TEMPLATE_IMPORT
         recording = self.recording(name)
-        if _without_mental_models(body) != _without_mental_models(recording.request_object()):
+        if _without_models_and_bank(body) != _without_models_and_bank(recording.request_object()):
+            return None
+        if not _bank_config_accepted(body):
             return None
         models = cast(list[dict[str, JsonValue]], body.get("mental_models") or [])
         ids: list[JsonValue] = [str(model["id"]) for model in models]
         response = copy.deepcopy(recording.response_object())
         response |= {"bank_id": bank, "mental_models_created": ids}
         if not dry_run:
+            config = body.get("bank")
+            if isinstance(config, dict) and "entity_labels" in config:
+                groups = cast(list[dict[str, JsonValue]] | None, config["entity_labels"])
+                self._entity_labels[bank] = list(groups or [])
             response["operation_ids"] = [
                 str(uuid.uuid5(_DERIVED_NAMESPACE, f"import-refresh:{bank}:{i}")) for i in ids
             ]
@@ -1134,7 +1466,9 @@ class RecordedHindsight:
         trigger = cast(dict[str, JsonValue], response["trigger"])
         template_trigger = cast(dict[str, JsonValue], definition.get("trigger") or {})
         for key in _TEMPLATE_TRIGGER_FIELDS:
-            trigger[key] = template_trigger.get(key)
+            # Unset, the two boolean fields are Hindsight's default, false (as recorded).
+            unset = False if key in ("exclude_mental_models", "keep_trace") else None
+            trigger[key] = template_trigger.get(key, unset)
         response |= {
             "id": model_id,
             "bank_id": bank,
@@ -1226,8 +1560,43 @@ class RecordedHindsight:
         model.seen_writes = self._writes()
 
 
-def _without_mental_models(body: dict[str, JsonValue]) -> dict[str, JsonValue]:
-    return {key: value for key, value in body.items() if key != "mental_models"}
+def _without_models_and_bank(body: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    return {key: value for key, value in body.items() if key not in ("mental_models", "bank")}
+
+
+@functools.cache
+def _template_schema_0102() -> dict[str, Any]:
+    recording = json.loads(TEMPLATE_SCHEMA_0102.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], recording["response"]["body"])
+
+
+def _bank_config_accepted(body: dict[str, JsonValue]) -> bool:
+    """Whether 0.10.2's recorded template schema takes the manifest, and its `bank` sets only
+    fields the schema names (the schema allows unknown ones, which Hindsight ignores)."""
+    schema = _template_schema_0102()
+    if next(validator_for(schema)(schema).iter_errors(body), None) is not None:
+        return False
+    bank = body.get("bank")
+    fields = cast(dict[str, Any], schema["$defs"]["BankTemplateConfig"]["properties"])
+    return not isinstance(bank, dict) or set(bank) <= set(fields)
+
+
+_KINDS = ("world", "observation")
+
+
+def _no_identity(text: str) -> dict[str, JsonValue]:
+    """A cited entry with no memory identity and nothing that leads to a document."""
+    return {
+        "id": None,
+        "text": text,
+        "type": None,
+        "context": None,
+        "document_id": None,
+        "chunk_id": None,
+        "tags": [],
+        "metadata": {},
+        "mentioned_at": None,
+    }
 
 
 def _iso(moment: datetime | None) -> str | None:
@@ -1240,3 +1609,9 @@ def _fact_id(bank: str, document_id: str) -> str:
 
 def _collapsed(content: JsonValue) -> str:
     return " ".join(str(content).split())
+
+
+def _tokens(text: str) -> int:
+    """A derived recall's token count of a memory's text: one token per four characters,
+    rounded up (Hindsight counts with its tokenizer; the fake has none)."""
+    return -(-len(text) // CHARS_PER_TOKEN)

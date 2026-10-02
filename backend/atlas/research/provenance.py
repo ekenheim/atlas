@@ -5,10 +5,18 @@ by hop, to a section of an archived Source Version:
 
 - an **observation** is followed through its `source_memory_ids` to the facts it was
   consolidated from (Hindsight 0.10.1 gives observations no `document_id`; the feature
-  matrix's two-hop path)
+  matrix's two-hop path). A recall asked with `include.source_facts` (0.10.2) carries an
+  observation's source IDs and its source facts in the same answer, and they are used
+  as they are; a source the answer lists but leaves out is asked for, so the states are
+  the same either way (memory-quality ticket 07)
 - a **world fact** maps via its `document_id` (`srcv:<source_version_uuid>:<anchor>`,
   ADR-0001) to the ledger's `memory_document` row, and its `metadata.source_version_id` (and
-  `metadata.section_anchor`) must agree with that row
+  `metadata.section_anchor`) must agree with that row. A world fact a 0.10.2 reflect answer
+  cites carries both, so it is resolved from the answer itself, without looking it up
+  (memory-quality ticket 10); one cited without them (a mental model's `based_on`) is
+  looked up first
+- a **mental model** a reflect answer read is reported as one (kind `mental_model`,
+  `unverified`): it is Hindsight's own synthesis, never resolved to a section
 - each **quote** in an answer must occur in the archived parsed text of a section the answer's
   resolved citations lead to (`atlas.research.quotes` holds the normalization rule)
 
@@ -34,12 +42,20 @@ from pydantic import BaseModel
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive
-from atlas.hindsight import CitedMemory, HindsightGateway, HindsightNotFound, Memory
+from atlas.hindsight import (
+    CitedMemory,
+    CitedMentalModel,
+    HindsightGateway,
+    HindsightNotFound,
+    Memory,
+    RecallResult,
+)
 from atlas.research.quotes import extract_quotes, find_quote
 
 type CitationState = Literal["resolved", "unverified", "broken"]
-type CitationKind = Literal["memory", "chunk", "quote"]
+type CitationKind = Literal["memory", "chunk", "quote", "mental_model"]
 type UnresolvedReason = Literal[
+    "mental_model",
     "no_memory_id",
     "memory_not_found",
     "source_memory_not_found",
@@ -207,13 +223,28 @@ class ProvenanceResolver:
         self._parsed: dict[uuid.UUID, str | None] = {}
         self._uris: dict[uuid.UUID, str | None] = {}
 
-    def resolve_recalled(self, memory: Memory) -> Citation:
-        """A recalled memory's provenance (the recall result carries a fact's document)."""
+    def resolve_recalled(self, memory: Memory, answer: RecallResult | None = None) -> Citation:
+        """A recalled memory's provenance (the recall result carries a fact's document).
+
+        With `answer`, the recall it came from: an observation's sources that the answer
+        carries (`include.source_facts`) are taken from it, so the observation resolves with
+        no request of its own; a source it lists but leaves out (the answer's
+        `source_facts_truncated`, or a source that no longer exists) is asked for as before,
+        so every citation state is the one the per-memory requests would give."""
+        if answer is not None:
+            for fact_id, fact in answer.source_facts.items():
+                self._memories.setdefault(fact_id, fact)
         outcome = self._resolve(memory, depth=0)
         return _citation("memory", outcome, memory.id, memory.type, memory.text)
 
-    def resolve_answer(self, answer: str, cited: Sequence[CitedMemory]) -> list[Citation]:
-        """The answer's cited memories and chunks, then each of its quotes."""
+    def resolve_answer(
+        self,
+        answer: str,
+        cited: Sequence[CitedMemory],
+        mental_models: Sequence[CitedMentalModel] = (),
+    ) -> list[Citation]:
+        """The answer's cited memories and chunks, the mental models it read, then each of
+        its quotes."""
         citations: list[Citation] = []
         for memory in cited:
             if memory.id is None:
@@ -224,15 +255,26 @@ class ProvenanceResolver:
                 )
                 citations.append(_citation("chunk", outcome, None, memory.type, memory.text))
                 continue
-            found = self._memory(memory.id)
-            if found is None:
-                outcome = _Outcome(
-                    "broken", "memory_not_found", "the cited memory no longer exists"
-                )
-                outcome.missing.append(memory.id)
+            if memory.type != "observation" and memory.document_id:
+                # 0.10.2: the cited fact names its document and metadata; one hop.
+                outcome = self._resolve_fact(_as_memory(memory))
             else:
-                outcome = self._resolve(found, depth=0)
+                found = self._memory(memory.id)
+                if found is None:
+                    outcome = _Outcome(
+                        "broken", "memory_not_found", "the cited memory no longer exists"
+                    )
+                    outcome.missing.append(memory.id)
+                else:
+                    outcome = self._resolve(found, depth=0)
             citations.append(_citation("memory", outcome, memory.id, memory.type, memory.text))
+        for model in mental_models:
+            outcome = _Outcome(
+                "unverified",
+                "mental_model",
+                "a mental model is Hindsight's own synthesis; it never resolves to a section",
+            )
+            citations.append(_citation("mental_model", outcome, model.id, None, model.text))
         citations.extend(self._quotes(answer, citations))
         return citations
 
@@ -404,6 +446,23 @@ class ProvenanceResolver:
                 None if uri is None else self._archive.get(uri).decode("utf-8")
             )
         return self._parsed[version_id]
+
+
+def _as_memory(cited: CitedMemory) -> Memory:
+    """A cited fact as the memory it names (the fields a fact's resolution reads)."""
+    return Memory(
+        id=cited.id or "",
+        text=cited.text,
+        type=cited.type or "world",
+        context=cited.context,
+        document_id=cited.document_id,
+        chunk_id=cited.chunk_id,
+        tags=cited.tags,
+        metadata=cited.metadata,
+        occurred_start=cited.occurred_start,
+        occurred_end=cited.occurred_end,
+        mentioned_at=cited.mentioned_at,
+    )
 
 
 def _citation(

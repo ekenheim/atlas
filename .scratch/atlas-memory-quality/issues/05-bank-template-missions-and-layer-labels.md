@@ -15,10 +15,10 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("The bank template"). Study: find
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done, except the comparison: the lead runs `spikes/hindsight/mission_compare_05.py` live, writes the note and adjusts the texts once (`docs/implementation-log.md`)
 
-- [ ] The template validates against the recorded 0.10.2 schema; the dry-run import through the fake accepts it; the recorded version is the new one.
-- [ ] Unit test: the `layer` values equal the taxonomy's layer names.
-- [ ] The fake derives label tags on derived facts (from the recording), and a recall filtered by a label tag returns only those (gateway-level test through the public recall once ticket 07's fields exist, otherwise through the fake's contract test).
+- [x] The template validates against the recorded 0.10.2 schema; the dry-run import through the fake accepts it; the recorded version is the new one.
+- [x] Unit test: the `layer` values equal the taxonomy's layer names.
+- [x] The fake derives label tags on derived facts (from the recording), and a recall filtered by a label tag returns only those (gateway-level test through the public recall once ticket 07's fields exist, otherwise through the fake's contract test).
 - [ ] The comparison note exists, says what was live, and the final texts follow it.
-- [ ] Decision entry; `AGENTS.md` line.
+- [x] Decision entry; `AGENTS.md` line.

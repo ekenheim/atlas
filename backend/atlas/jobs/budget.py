@@ -6,8 +6,10 @@ through LiteLLM) each renew in rolling windows (5 h by default). Each **provider
 budget per window, and the queue holds a provider's job kinds while its window is spent:
 
 - `codex`, counted in **Hindsight operations submitted** (retain and reprocess batches, and a
-  replay's retain batches and consolidation, one unit each): Atlas can't see Codex tokens,
-  only what it asked Hindsight to do.
+  replay's retain batches and consolidation, one unit each; and since memory-quality ticket
+  10 each reflect and each mental-model refresh Atlas submits, one unit each: a research
+  answer's reflect, every attempt; a refresh Atlas's `refresh_mental_model` job submitted; a
+  replay's reflect): Atlas can't see Codex tokens, only what it asked Hindsight to do.
 - `hindsight_minimax`, counted in **Hindsight operations submitted** too: the retain and
   reprocess batches whose items asked the shared Hindsight for its MiniMax extractor
   (`ATLAS_RETAIN_EXTRACTOR=minimax`; Hindsight's metadata routing, docs/decisions.md,
@@ -98,6 +100,18 @@ _SWEEPS: dict[Provider, str] = {
         " UNION ALL SELECT r.operation_id, 1 FROM replay_operation r"
         " WHERE NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'codex' AND u.source_id = r.operation_id)"
+        # Each reflect and each mental-model refresh Atlas submits (memory-quality ticket 10):
+        # a research answer's reflect, a refresh Atlas's job submitted, a replay's reflect.
+        " UNION ALL SELECT 'reflect_submission:' || s.id::text, 1 FROM reflect_submission s"
+        " WHERE NOT EXISTS (SELECT FROM provider_usage u WHERE u.provider = 'codex'"
+        "   AND u.source_id = 'reflect_submission:' || s.id::text)"
+        " UNION ALL SELECT 'mental_model_refresh:' || m.id::text, 1 FROM mental_model_refresh m"
+        " WHERE m.operation_id IS NOT NULL AND NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'codex' AND u.source_id = 'mental_model_refresh:' || m.id::text)"
+        " UNION ALL SELECT 'replay_answer:' || a.replay_job_id::text || ':' || a.position::text,"
+        " 1 FROM replay_answer a WHERE NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'codex' AND u.source_id = 'replay_answer:'"
+        "     || a.replay_job_id::text || ':' || a.position::text)"
     ),
     "hindsight_minimax": (
         "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"
