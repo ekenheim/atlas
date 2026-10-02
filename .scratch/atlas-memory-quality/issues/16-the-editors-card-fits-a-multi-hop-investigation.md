@@ -17,11 +17,13 @@ No migration is expected (the role call's status is a string; if a constraint li
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam with the scripted LiteLLM fake: 90 accepted Claims and an Editor answer cut at the cap; the call is recorded truncated, retried with the larger cap, and the card has its findings with Claim IDs mapped back from the short references.
-- [ ] An Editor answer that cites an unknown reference is rejected as an unknown Claim is today.
+- [x] Integration test at the investigation seam with the scripted LiteLLM fake: 90 accepted Claims and an Editor answer cut at the cap; the call is recorded truncated, retried with the larger cap, and the card has its findings with Claim IDs mapped back from the short references.
+- [x] An Editor answer that cites an unknown reference is rejected as an unknown Claim is today.
 - [ ] An Editor that is cut off at the bound too, or quarantined, leaves the investigation `needs_review` with the fallback card (no finding; Claims by company; the reason); the read returns it and the investigation page shows it.
-- [ ] A truncated answer of another role is recorded truncated and handled by that role's existing failure path (no behaviour change beyond the status).
-- [ ] The evaluation cases and the e2e seeds that script Editor answers are moved to the short references; `atlas evaluate` (fake mode) passes.
-- [ ] Decision entry; `AGENTS.md` line; API client regenerated if the read changes.
+- [x] A truncated answer of another role is recorded truncated and handled by that role's existing failure path (no behaviour change beyond the status).
+- [x] The evaluation cases and the e2e seeds that script Editor answers are moved to the short references; `atlas evaluate` (fake mode) passes.
+- [x] Decision entry; `AGENTS.md` line; API client regenerated if the read changes.
+
+The third box is left open only for its last clause: the read returns the fallback card (tested), and the investigation page renders it (`EditorFailed`), but no test renders the page with it (the e2e was not run and has no such scenario); see the implementation log.

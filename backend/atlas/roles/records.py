@@ -9,7 +9,10 @@ from sqlalchemy import Connection, text
 
 from atlas.roles.contract import QuotedText
 
-RoleCallStatus = Literal["running", "accepted", "quarantined", "failed", "budget_exhausted"]
+# `truncated` (ticket 16 of the memory-quality effort): the model stopped at the output cap.
+RoleCallStatus = Literal[
+    "running", "accepted", "quarantined", "truncated", "failed", "budget_exhausted"
+]
 
 
 class RunUsage(BaseModel):
@@ -42,8 +45,8 @@ class LLMAttempt(BaseModel):
 
 
 class RoleCallRecord(BaseModel):
-    """One call of a role. A quarantined call's outputs are visible in its attempts only;
-    `output` is set only for an accepted call."""
+    """One call of a role. A quarantined or truncated call's outputs are visible in its
+    attempts only; `output` is set only for an accepted call."""
 
     model_config = ConfigDict(frozen=True)
 

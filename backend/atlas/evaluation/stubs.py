@@ -359,13 +359,14 @@ def _skeptic(context: ScriptContext, reply: dict[str, Any], sent: dict[str, Any]
 
 
 def _editor(context: ScriptContext, reply: dict[str, Any], sent: dict[str, Any]) -> dict[str, Any]:
-    claims: list[Any] = [c["claim_id"] for c in sent["request"]["claims"]]
+    # The research card's Editor cites each Claim by its short reference (`ref`).
+    claims: list[Any] = [c["ref"] for c in sent["request"]["claims"]]
     findings: list[Any] = []
     if claims:
         findings.append(
             {
                 "statement": reply["statement"],
-                "claim_ids": claims,
+                "claim_refs": claims,
                 "limitations": reply.get("limitations", []),
                 "open_questions": reply.get("finding_open_questions", []),
             }

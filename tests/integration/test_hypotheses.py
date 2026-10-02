@@ -235,19 +235,21 @@ def quoting(*claims: dict[str, JsonValue]) -> Callable[[dict[str, Any]], JsonVal
 
 
 def claim_ids_by_quote(body: dict[str, Any]) -> dict[str, str]:
-    """{quote: claim ID} of the Claims an Editor was sent (their quotes are retrieved data)."""
+    """{quote: how the Editor cites it} of the Claims an Editor was sent (their quotes are
+    retrieved data): the Claim's ID for the Hypothesis Editor, its short reference (`ref`)
+    for the research card's."""
     sent = asked(body)
-    claim_ids = {each["claim_id"] for each in sent["request"]["claims"]}
-    return {each["text"]: each["id"] for each in sent["retrieved_data"] if each["id"] in claim_ids}
+    cited = {each.get("claim_id") or each["ref"] for each in sent["request"]["claims"]}
+    return {each["text"]: each["id"] for each in sent["retrieved_data"] if each["id"] in cited}
 
 
 def card_editor(body: dict[str, Any]) -> JsonValue:
-    """The research card: one finding per Claim it is sent."""
+    """The research card: one finding per Claim it is sent (cited by reference)."""
     ids = claim_ids_by_quote(body)
     findings: list[JsonValue] = [
         {
             "statement": SUPPLY_FINDING if quote == SUPPLY_QUOTE else INVESTMENT_FINDING,
-            "claim_ids": [claim_id],
+            "claim_refs": [claim_id],
             "limitations": ["A company's own statement."],
             "open_questions": [],
         }
@@ -695,7 +697,7 @@ def test_the_dossier_exports_as_json_and_markdown_with_citations_and_run_metadat
     assert all(run["finished_at"] is not None for run in meta["runs"])
     assert meta["runs"][1]["tokens_in"] == 4000
     assert [(c["role"], c["prompt_name"], c["prompt_version"]) for c in meta["role_calls"]] == [
-        ("editor", "editor", 5),
+        ("editor", "editor", 6),
         ("editor", "editor-hypothesis", 3),
     ]
     assert all(len(c["prompt_sha256"]) == 64 for c in meta["role_calls"])

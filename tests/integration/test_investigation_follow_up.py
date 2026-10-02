@@ -263,7 +263,7 @@ def editing(statement: str) -> Callable[[dict[str, Any]], JsonValue]:
             "findings": [
                 {
                     "statement": statement,
-                    "claim_ids": [c["claim_id"] for c in request["claims"]],
+                    "claim_refs": [c["ref"] for c in request["claims"]],
                     "limitations": ["A company's own statement; no volumes or prices."],
                     "open_questions": [OPEN_QUESTION],
                 }

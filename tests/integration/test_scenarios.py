@@ -333,7 +333,7 @@ def card_editor(body: dict[str, Any]) -> JsonValue:
         "findings": [
             {
                 "statement": "Coherent supplies NVIDIA with advanced lasers.",
-                "claim_ids": [each["claim_id"] for each in request["claims"]],
+                "claim_refs": [each["ref"] for each in request["claims"]],
                 "limitations": ["A company's own statement."],
                 "open_questions": [],
             }

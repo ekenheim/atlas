@@ -543,7 +543,7 @@ def investigate(atlas: Atlas, fakes: Fakes, companies: dict[str, str], question:
                 {
                     "statement": "Coherent supplies NVIDIA with advanced lasers under a"
                     " multi-year supply agreement.",
-                    "claim_ids": [each["claim_id"] for each in claims],
+                    "claim_refs": [each["ref"] for each in claims],
                     "limitations": ["A company's own statement; no volumes or prices."],
                     "open_questions": [OPEN_QUESTION],
                 }

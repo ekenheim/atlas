@@ -413,14 +413,16 @@ class RehearsalModel:
         if role == "financial_analyst":
             return {"scenarios": []}  # the scenario then comes from the researcher's table
         if role == "editor":
-            claim_ids: list[JsonValue] = [c["claim_id"] for c in request["claims"]]
-            finding: dict[str, JsonValue] = {
-                "statement": "Coherent supplies NVIDIA with advanced lasers.",
-                "claim_ids": claim_ids,
-                "limitations": ["A company's own statement."],
-                "open_questions": [],
-            }
+            statement = "Coherent supplies NVIDIA with advanced lasers."
             if "card_findings" in request:
+                # The Hypothesis draft cites Claims by ID; the research card by reference.
+                claim_ids: list[JsonValue] = [c["claim_id"] for c in request["claims"]]
+                finding: dict[str, JsonValue] = {
+                    "statement": statement,
+                    "claim_ids": claim_ids,
+                    "limitations": ["A company's own statement."],
+                    "open_questions": [],
+                }
                 return {
                     "thesis_statement": "Demand for advanced lasers may outgrow capacity.",
                     "mechanism": {
@@ -436,8 +438,15 @@ class RehearsalModel:
                     "unresolved_questions": ["Does NVIDIA qualify a second laser source?"],
                     "findings": [finding],
                 }
+            claim_refs: list[JsonValue] = [c["ref"] for c in request["claims"]]
+            card_finding: dict[str, JsonValue] = {
+                "statement": statement,
+                "claim_refs": claim_refs,
+                "limitations": ["A company's own statement."],
+                "open_questions": [],
+            }
             return {
-                "findings": [finding],
+                "findings": [card_finding],
                 "open_questions": ["Is InP substrate capacity a constraint for 2027?"],
                 "verdict": "answered",
             }

@@ -6,7 +6,8 @@ response has been recorded yet; replace the fixture with a recording (keys and b
 redacted) once one is made against the cluster.
 
 `/chat/completions` answers only with replies a test scripted (`script_chat`), in order:
-schema-valid or malformed content (`ChatReply.json` / `ChatReply.text`), content computed
+schema-valid or malformed content (`ChatReply.json` / `ChatReply.text`; `finish_reason="length"`
+for an answer cut off at the request's `max_tokens`), content computed
 from the request (`ChatReply.answer`, e.g. quoting the passages it was sent), an HTTP error in
 LiteLLM's error envelope (`ChatReply.error`), or a failed connection (`ChatReply.unreachable`).
 The reply is OpenAI's chat completion object, which LiteLLM's proxy returns: `model` is the
@@ -55,11 +56,19 @@ class ChatReply:
     error_body: dict[str, JsonValue] | None = None
     drop_connection: bool = False
     responder: "Callable[[dict[str, Any]], JsonValue] | None" = None
+    finish_reason: str = "stop"  # "length": cut off at the output cap
 
     @classmethod
-    def text(cls, content: str, *, tokens: tuple[int, int] = (120, 40)) -> "ChatReply":
+    def text(
+        cls, content: str, *, tokens: tuple[int, int] = (120, 40), finish_reason: str = "stop"
+    ) -> "ChatReply":
         """A completion whose message content is `content` (valid or not)."""
-        return cls(content=content, tokens_in=tokens[0], tokens_out=tokens[1])
+        return cls(
+            content=content,
+            tokens_in=tokens[0],
+            tokens_out=tokens[1],
+            finish_reason=finish_reason,
+        )
 
     @classmethod
     def json(cls, value: JsonValue, *, tokens: tuple[int, int] = (120, 40)) -> "ChatReply":
@@ -167,7 +176,7 @@ class FakeLiteLLM:
                 {
                     "index": 0,
                     "message": {"role": "assistant", "content": content},
-                    "finish_reason": "stop",
+                    "finish_reason": reply.finish_reason,
                 }
             ],
             "usage": {

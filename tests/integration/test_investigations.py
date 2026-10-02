@@ -11,10 +11,10 @@ LiteLLM is the scripted chat fake: **the Scout's, Investigator's, Skeptic's, Fin
 Analyst's and Editor's answers are written here** (the Investigator's quote the recorded
 Coherent 10-K; the Skeptic's quote the passages it is sent, of the recorded filings and of
 one hand-shaped later statement (`SUPPLY_UPDATE`, imported by hand); the Analyst proposes no
-scenario;
-the Editor's cite the Claim IDs it is sent; the Reviewer, chained after a final stop, confirms
-what it is sent). The Skeptic's and the Analyst's jobs run in parallel, in either order, so
-their answers are scripted by role (`script_role`) and their calls compared in plan order.
+scenario; the Editor's cite the short references (`c1`, ...) of the Claims it is sent; the
+Reviewer, chained after a final stop, confirms what it is sent). The Skeptic's and the
+Analyst's jobs run in parallel, in either order, so their answers are scripted by role
+(`script_role`) and their calls compared in plan order.
 SearXNG is the scripted fake over `tests/fixtures/searxng/`. The
 test universe is the repo's plus NVIDIA, which the 10-K names. Nothing live is called.
 """
@@ -358,7 +358,7 @@ def editing(
         finding: dict[str, JsonValue] = {
             "statement": "Coherent supplies NVIDIA with advanced lasers under a multi-year"
             " supply agreement.",
-            "claim_ids": [claim["claim_id"] for claim in request["claims"]],
+            "claim_refs": [claim["ref"] for claim in request["claims"]],
             "limitations": ["A company's own statement; no volumes or prices."],
             "open_questions": ["Does NVIDIA qualify a second laser source?"],
         }
@@ -623,7 +623,9 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert (editor["request"]["contradictions"], editor["request"]["bear_context"]) == ([], [])
     [sent] = editor["request"]["claims"]
     [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
-    assert sent["claim_id"] == accepted["id"]
+    # By its short reference, not its ID: code maps the Editor's citations back.
+    assert sent["ref"] == "c1"
+    assert accepted["id"] not in json.dumps(editor)
     assert (sent["subject"], sent["predicate"], sent["object"]) == (
         "Coherent",
         "supplies",
@@ -633,7 +635,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         lead["title"] for lead in found["leads"]
     ]
     quoted = {each["id"]: each for each in editor["retrieved_data"]}
-    assert quoted[accepted["id"]]["text"] == SUPPLY_QUOTE
+    assert quoted["c1"]["text"] == SUPPLY_QUOTE
     assert all(each["trust"] == "low" for each in editor["retrieved_data"])
     # The Claim and the Evidence tray say which selections chose its passage: the window
     # matches the question's terms and names NVIDIA.
@@ -696,21 +698,28 @@ def test_an_editor_finding_that_cites_no_accepted_claim_is_dropped_and_needs_rev
     started = seeded(atlas, "coherent")
     lead_citing: dict[str, JsonValue] = {
         "statement": "AXT is expanding InP substrate capacity.",
-        "claim_ids": ["LEAD"],
+        "claim_refs": ["LEAD"],
         "limitations": [],
         "open_questions": [],
     }
     invented: dict[str, JsonValue] = {
         "statement": "Coherent is the only qualified laser supplier.",
-        "claim_ids": [],
+        "claim_refs": [],
+        "limitations": [],
+        "open_questions": [],
+    }
+    # A reference it wasn't sent (one Claim is: `c1`), beside one it was.
+    unknown_ref: dict[str, JsonValue] = {
+        "statement": "Coherent supplies NVIDIA and Lumentum supplies NVIDIA.",
+        "claim_refs": ["c1", "c2"],
         "limitations": [],
         "open_questions": [],
     }
 
     def cite_a_lead(body: dict[str, Any]) -> JsonValue:
         lead_id = asked(body)["request"]["leads"][0]["lead_id"]
-        citing: dict[str, JsonValue] = {**lead_citing, "claim_ids": [lead_id]}
-        return editing(extra=[citing, invented])(body)
+        citing: dict[str, JsonValue] = {**lead_citing, "claim_refs": [lead_id]}
+        return editing(extra=[citing, invented, unknown_ref])(body)
 
     script_parallel(llm)
     llm.script_chat(
@@ -725,10 +734,11 @@ def test_an_editor_finding_that_cites_no_accepted_claim_is_dropped_and_needs_rev
 
     found = investigation(atlas, started["id"])
     assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
-    assert found["stop_detail"] == "2 unsupported findings were dropped"
+    assert found["stop_detail"] == "3 unsupported findings were dropped"
     card = found["research_card"]
     assert [f["claim_text"][:25] for f in card["findings"]] == ["Coherent supplies NVIDIA "]
     lead_id = found["leads"][0]["lead_id"]
+    [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
     assert card["unsupported_findings"] == [
         {
             "statement": "AXT is expanding InP substrate capacity.",
@@ -739,6 +749,12 @@ def test_an_editor_finding_that_cites_no_accepted_claim_is_dropped_and_needs_rev
             "statement": "Coherent is the only qualified laser supplier.",
             "claim_ids": [],
             "reason": "cites no Claim",
+        },
+        {
+            # The reference it was sent is recorded as its Claim's ID, the other as written.
+            "statement": "Coherent supplies NVIDIA and Lumentum supplies NVIDIA.",
+            "claim_ids": [accepted["id"], "c2"],
+            "reason": "cites what isn't an accepted Claim of this investigation: c2",
         },
     ]
 
@@ -2297,6 +2313,143 @@ def test_a_role_that_keeps_failing_stops_the_investigation_needs_review(
     assert metric(atlas, tokens, kind="investigation", direction="input") == calls["tokens_in"]
 
 
+def test_a_role_s_answer_cut_off_at_its_cap_is_truncated_and_fails_as_a_quarantine_did(
+    services: Services, llm: FakeLiteLLM
+) -> None:
+    atlas = services.start(ingest=False)
+    started = seeded(atlas, "coherent")
+    # Three attempts, each cut off at the Scout's cap: no repair is asked for.
+    cut = ChatReply.text(
+        '{"queries": [{"query": "InP sub', tokens=(900, 4096), finish_reason="length"
+    )
+    llm.script_chat(cut, cut, cut)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
+    assert found["stop_detail"].startswith("the scout task failed after 3 attempts")
+    assert "RoleOutputTruncated: scout output cut off at its" in found["stop_detail"]
+    assert statuses(found)["editor"] == "cancelled"
+    assert len(llm.chat_requests()) == 3
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [c["status"] for c in calls] == ["truncated"] * 3
+    assert [len(c["attempts"]) for c in calls] == [1, 1, 1]
+
+
+# Pilot investigation 1 on 0.3.0 (memory-quality ticket 16): 89 accepted Claims, an Editor
+# request of about 38,000 tokens, every answer cut off in a list of Claim IDs.
+MANY = 90
+
+
+def cut_off_card(cap: int) -> ChatReply:
+    """An Editor answer cut off at `cap` output tokens, inside its list of citations."""
+    partial = '{"findings": [{"statement": "Coherent supplies NVIDIA.", "claim_refs": ["c1", "c'
+    return ChatReply.text(partial, tokens=(38_000, cap), finish_reason="length")
+
+
+def test_an_editor_answer_cut_off_at_its_cap_is_asked_again_with_a_larger_cap(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    started = seeded(atlas, "coherent")
+    script_parallel(llm)
+    llm.script_role("editor", cut_off_card(8192), ChatReply.answer(editing(), tokens=(38_000, 900)))
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(*[supply_claim(atlas)] * MANY), tokens=(9000, 9000)),
+        *[REVIEWED] * 20,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    accepted = atlas.get("/api/v1/claims", outcome="accepted", limit=500)["items"]
+    assert len(accepted) == len(found["evidence"]) == MANY
+    assert (found["status"], found["stop_reason"]) == ("stopped", "answered")
+    # The cut-off call is truncated, not a schema failure: no repair, and once more with the
+    # cap doubled, up to the bound (ATLAS_EDITOR_MAX_OUTPUT_TOKENS, 16,384).
+    editors = [b for b in llm.chat_requests() if b["metadata"]["role"] == "editor"]
+    assert [b["max_tokens"] for b in editors] == [8192, 16_384]
+    assert [len(b["messages"]) for b in editors] == [2, 2]
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [c["status"] for c in calls if c["role"] == "editor"] == ["truncated", "accepted"]
+    # The Editor is sent each Claim by a short reference, never its ID.
+    sent = asked(editors[1])
+    assert [c["ref"] for c in sent["request"]["claims"]] == [f"c{n}" for n in range(1, MANY + 1)]
+    assert [q["id"] for q in sent["retrieved_data"][:MANY]] == [f"c{n}" for n in range(1, MANY + 1)]
+    assert not any(claim["id"] in editors[1]["messages"][1]["content"] for claim in accepted)
+    # Code maps the references back: the finding cites every accepted Claim by its ID.
+    [finding] = found["research_card"]["findings"]
+    assert sorted(finding["claim_ids"]) == sorted(claim["id"] for claim in accepted)
+    assert len(finding["source_spans"]) == MANY
+    assert found["research_card"]["editor_failure"] is None
+    assert found["research_card"]["claims_by_company"] == []
+
+
+@pytest.mark.parametrize("failure", ["cut-off-at-the-bound", "quarantined"])
+def test_an_editor_that_still_fails_leaves_a_card_without_findings_and_needs_review(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG, failure: str
+) -> None:
+    atlas = services.start()
+    started = seeded(atlas, "coherent")
+    script_parallel(llm)
+    if failure == "cut-off-at-the-bound":
+        llm.script_role("editor", cut_off_card(8192), cut_off_card(16_384))
+    else:  # malformed, and malformed again after the repair
+        llm.script_role("editor", ChatReply.text("A card."), ChatReply.text("Still a card."))
+    llm.script_chat(scout_reply(), ChatReply.answer(quoting(supply_claim(atlas))), *[REVIEWED] * 2)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    editor_calls = [c for c in calls if c["role"] == "editor"]
+    expected = ["truncated", "truncated"] if failure == "cut-off-at-the-bound" else ["quarantined"]
+    assert [c["status"] for c in editor_calls] == expected
+    reason = editor_calls[-1]["error"]
+    if failure == "cut-off-at-the-bound":
+        assert reason.startswith("editor output cut off at its 16384-token output cap")
+    else:
+        assert reason.startswith("editor output quarantined after a failed repair")
+    # The investigation stops needs_review, with a card that says why it has no finding.
+    assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
+    assert found["stop_detail"] == f"the Editor failed, so the card has no finding: {reason}"
+    assert tasks(found)["editor"]["status"] == "succeeded"
+    card = found["research_card"]
+    assert (card["findings"], card["editor_verdict"], card["editor_failure"]) == (
+        [],
+        "needs_review",
+        reason,
+    )
+    assert card["editor_role_call_id"] == editor_calls[-1]["id"]
+    assert card["claims_considered"] == 1
+    # The accepted Claims by company, what was searched and read; the Evidence tray as ever.
+    [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    [company] = card["claims_by_company"]
+    assert (company["company_id"], company["company_name"]) == (
+        company_id(atlas, "coherent"),
+        "Coherent",
+    )
+    [claim] = company["claims"]
+    assert (claim["claim_id"], claim["predicate"], claim["object"], claim["layer"]) == (
+        accepted["id"],
+        "supplies",
+        "NVIDIA",
+        "chip-laser",
+    )
+    assert claim["source_version_id"] == atlas.version(COHR_10K, "coherent")["id"]
+    assert [q["query"] for search in card["searched"] for q in search["queries"]] == [
+        SUBSTRATE,
+        SECOND_SOURCE,
+        NOTHING,
+    ]
+    assert [r["company_name"] for r in card["read"] if r["role"] == "investigator"] == ["Coherent"]
+    assert [e["claim_id"] for e in found["evidence"]] == [accepted["id"]]
+
+
 def test_requests_are_validated(services: Services) -> None:
     atlas = services.start(ingest=False)
 
@@ -3541,11 +3694,12 @@ def test_one_contradiction_marks_one_finding_and_the_rest_is_bear_context_on_the
     # The Editor is sent the two kinds separately, each item's quote as low-trust data.
     editor = asked(next(b for b in requests(llm) if b["metadata"]["role"] == "editor"))
     [sent] = editor["request"]["contradictions"]
-    assert (sent["counterevidence_id"], sent["how"], sent["contradicts_claim_ids"]) == (
+    assert (sent["counterevidence_id"], sent["how"], sent["contradicts_refs"]) == (
         limit["id"],
         "limits",
-        [claim["id"]],
+        ["c1"],
     )
+    assert [c["ref"] for c in editor["request"]["claims"]] == ["c1"]
     assert [
         (c["counterevidence_id"], c["checklist_item"], c["company"])
         for c in editor["request"]["bear_context"]
@@ -3560,7 +3714,7 @@ def test_one_contradiction_marks_one_finding_and_the_rest_is_bear_context_on_the
         assert quoted[item["id"]] == item["quote"]
     calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
     versions = {(c["prompt_name"], c["prompt_version"]) for c in calls}
-    assert {("skeptic", 3), ("editor", 5)} <= versions
+    assert {("skeptic", 3), ("editor", 6)} <= versions
     # Nothing but the contradiction can disprove a premise or needs an owner's eye.
     assert [p["status"] for p in found["premises"]] == ["open", "open"]
 

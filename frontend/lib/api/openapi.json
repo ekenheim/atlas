@@ -7679,6 +7679,82 @@
         "title": "CardBearContextItem",
         "description": "One accepted bear-context item: what the quote says, and its span."
       },
+      "CardClaimSummary": {
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Claim Id"
+          },
+          "predicate": {
+            "type": "string",
+            "title": "Predicate"
+          },
+          "object": {
+            "type": "string",
+            "title": "Object"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_title": {
+            "type": "string",
+            "title": "Source Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_id",
+          "predicate",
+          "object",
+          "layer",
+          "source_version_id",
+          "source_title"
+        ],
+        "title": "CardClaimSummary",
+        "description": "An accepted Claim as the card lists it when the Editor failed: what it states and\nwhere (its quote and span are in the Evidence tray)."
+      },
+      "CardCompanyClaims": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/CardClaimSummary"
+            },
+            "type": "array",
+            "title": "Claims"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "company_name",
+          "claims"
+        ],
+        "title": "CardCompanyClaims",
+        "description": "A company's accepted Claims (as their subject), as the card lists them when the\nEditor failed."
+      },
       "CardCompanyNotRead": {
         "properties": {
           "round": {
@@ -19837,6 +19913,24 @@
             },
             "type": "array",
             "title": "Not Read"
+          },
+          "editor_failure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor Failure"
+          },
+          "claims_by_company": {
+            "items": {
+              "$ref": "#/components/schemas/CardCompanyClaims"
+            },
+            "type": "array",
+            "title": "Claims By Company"
           }
         },
         "type": "object",
@@ -19853,7 +19947,7 @@
           "editor_role_call_id"
         ],
         "title": "ResearchCard",
-        "description": "The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10)."
+        "description": "The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10).\n\nWhen the Editor fails (its answer cut off at its output cap's bound, or quarantined), the\ncard is code's alone: no finding, `editor_failure` saying why, the accepted Claims by\ncompany (`claims_by_company`) and, as on every card, the contradictions, bear context and\nwhat was searched and read (memory-quality ticket 16)."
       },
       "ResearchScope": {
         "properties": {
@@ -20317,6 +20411,7 @@
               "running",
               "accepted",
               "quarantined",
+              "truncated",
               "failed",
               "budget_exhausted"
             ],
@@ -20390,7 +20485,7 @@
           "attempts"
         ],
         "title": "RoleCallRecord",
-        "description": "One call of a role. A quarantined call's outputs are visible in its attempts only;\n`output` is set only for an accepted call."
+        "description": "One call of a role. A quarantined or truncated call's outputs are visible in its\nattempts only; `output` is set only for an accepted call."
       },
       "RoutedDeployment": {
         "properties": {

@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     )
     llm_role_timeout_seconds: float = Field(default=180.0, gt=0)
     run_token_budget: int = Field(default=200_000, gt=0)
+    # The research card's Editor: the bound on its output cap. Its first call has the role's
+    # cap (atlas.roles.editor) up to this; an answer cut off at the cap is asked again once
+    # with the cap doubled, up to this (memory-quality ticket 16).
+    editor_max_output_tokens: int = Field(default=16_384, gt=0)
     # The Investigator (atlas.claims): at most this many passages per extraction, sent this
     # many to a call.
     investigator_max_passages: int = Field(default=24, gt=0)

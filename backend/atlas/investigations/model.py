@@ -473,8 +473,38 @@ class CardCompanyNotRead(BaseModel):
     reason: str  # the company budget had no room, or its premise was disproven
 
 
+class CardClaimSummary(BaseModel):
+    """An accepted Claim as the card lists it when the Editor failed: what it states and
+    where (its quote and span are in the Evidence tray)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    claim_id: uuid.UUID
+    predicate: str
+    object: str  # the object company's name, or the product/material/technology named
+    layer: str | None
+    source_version_id: uuid.UUID
+    source_title: str
+
+
+class CardCompanyClaims(BaseModel):
+    """A company's accepted Claims (as their subject), as the card lists them when the
+    Editor failed."""
+
+    model_config = ConfigDict(frozen=True)
+
+    company_id: uuid.UUID
+    company_name: str
+    claims: list[CardClaimSummary]
+
+
 class ResearchCard(BaseModel):
-    """The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10)."""
+    """The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10).
+
+    When the Editor fails (its answer cut off at its output cap's bound, or quarantined), the
+    card is code's alone: no finding, `editor_failure` saying why, the accepted Claims by
+    company (`claims_by_company`) and, as on every card, the contradictions, bear context and
+    what was searched and read (memory-quality ticket 16)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -501,6 +531,10 @@ class ResearchCard(BaseModel):
     # The companies the reading pointers name that no Investigator read, every round, best
     # ranked first (memory-directed reading ticket 06); cards drawn before it have none.
     not_read: list[CardCompanyNotRead] = Field(default_factory=list[CardCompanyNotRead])
+    # Why the Editor wrote no card (None: it did); then the card lists the accepted Claims by
+    # company instead of findings. Cards drawn before memory-quality ticket 16 have neither.
+    editor_failure: str | None = None
+    claims_by_company: list[CardCompanyClaims] = Field(default_factory=list[CardCompanyClaims])
 
 
 class EvidenceItem(BaseModel):
