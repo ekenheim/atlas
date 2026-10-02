@@ -18,6 +18,7 @@ from tests.live.stack import OUTCOMES, live_mode
 PHASE2_SUITE = "test_phase2_gate_live.py"
 EXTRACTION_SMOKE = "test_extraction_smoke_live.py"
 LIVE_VERIFY = "test_live_verify.py"
+MEMORY_CONFORMANCE = "test_memory_conformance_live.py"
 LOCAL_HOSTS = ["127.0.0.1", "localhost", "::1"]
 NOT_ENABLED = (
     "live Phase 2 suite not enabled: set ATLAS_LIVE_TESTS=1 (spends MiniMax quota) or "
@@ -34,6 +35,10 @@ OPT_IN_SUITES = {
     LIVE_VERIFY: (
         "live verification not enabled: set ATLAS_LIVE_TESTS=1 (spends MiniMax quota) or "
         "ATLAS_LIVE_TESTS=rehearse (every part against the fakes), or use scripts/live-verify.sh"
+    ),
+    MEMORY_CONFORMANCE: (
+        "live memory conformance check not enabled: set ATLAS_LIVE_TESTS=1 (spends the "
+        "owner's quota), or use scripts/memory-conformance.sh (--rehearse runs the CI one)"
     ),
 }
 

@@ -479,6 +479,23 @@ class EntitySummary(_Result):
     mention_count: int
 
 
+class Chunk(_Result):
+    """One stored chunk of a retained document (`GET .../documents/{id}/chunks`; 0.10.2,
+    recording `chunks/03-list-chunks`). Its text is a verbatim slice of the retained content."""
+
+    chunk_id: str
+    document_id: str
+    chunk_index: int
+    chunk_text: str
+
+
+class ChunkPage(_Result):
+    items: list[Chunk]
+    total: int
+    limit: int
+    offset: int
+
+
 class EntityPage(_Result):
     """A page of `GET .../entities` (ordered by mention count; `total` counts all)."""
 

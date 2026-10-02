@@ -1,0 +1,349 @@
+# Known answers (memory-quality ticket 14): the Source Version sections that hold an answer to
+# each pilot question, so the conformance check can measure whether Memory points at them
+# (`scripts/memory-conformance.sh`; `docs/runbooks.md`, "Memory conformance"; read-only on the
+# live bank, no LLM call).
+#
+# Questions are the probe set's (`configs/memory/probes.yaml`, by ID); each is recalled with its
+# Scout-style queries, as an investigation's pointer recalls are.
+#
+# Each answer names its company, its document (url; else accession, with `exhibit` for an
+# exhibit; else form and filed date, and the sentence picks the document), its section anchor
+# and its sentence, verbatim (typography and whitespace are folded when it is looked for). It is
+# labelled with the hop of the supply chain it is about (demand, system, module, chip,
+# substrate, feedstock, equipment) and the part of the bottleneck test it serves
+# (demand_vs_capacity, second_source, pricing_power, bom_share, financing_dilution): the
+# Serenity method's bottleneck test (M1), multi-hop mapping (M2), layer fluency (M3), share of
+# BOM (M4), financing and dilution (M6). `basis` says where it comes from: the pilot review
+# quotes the fact (review_quote), the review names it missing and the sentence is the
+# archive's (review_gap), or the question asks for it and no review covers it (question).
+#
+# Anchors: given where the sentence was found in the recorded EDGAR fixtures of the same
+# document (`tests/fixtures/edgar/`, parsed and sectioned by Atlas's own parser and sectioner).
+# `section: null` means the review named the document but the fixtures don't hold it (or hold
+# it truncated): the anchor is to be filled from the first live run, whose report lists the
+# section each such sentence was found in. Nothing here was invented.
+#
+# No answer serves bom_share: no review quotes a share-of-BOM statement, and none was found in
+# the recorded filings. The report shows that row empty, on purpose.
+#
+# Bump `version` on any change and say so in the implementation log.
+version: 1
+
+thresholds:
+  # First settings, before any live run (2026-10-02). The lead revisits them after the first
+  # live run, which is the before-measure.
+  recall_at_10: 0.25
+  recall_at_50: 0.5
+
+answers:
+  # --- laser-chips: who supplies the laser chips, who is constrained, what limits them -------
+  - id: lite-allocation
+    question: laser-chips
+    company: lumentum
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm
+    section: part-i-item-1
+    sentence: This demand is outpacing our current supply which has required us to make decisions on supply allocation.
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 1; third run (0.2.5), Missed evidence 1
+
+  - id: lite-supply-constraints
+    question: laser-chips
+    company: lumentum
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm
+    section: part-i-item-1a
+    sentence: Due to increased demand across a range of industries, our business and customers’ businesses are experiencing and could, in the future, experience supply constraints due to both constrained manufacturing capacity, as well as component parts shortages.
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Missed evidence 2 (proposed, rejected quote_mismatch)
+
+  - id: lite-limited-sources
+    question: laser-chips
+    company: lumentum
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm
+    section: part-i-item-1
+    sentence: Although our intention is to establish at least two sources of supply for materials whenever possible, for certain components we have sole or limited source supply arrangements.
+    hop: chip
+    test: second_source
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), The tasks, Skeptic (quoted as bear context)
+
+  - id: coh-nvidia-supply-agreement
+    question: laser-chips
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1
+    sentence: During fiscal 2026, we announced the expansion of our Sherman, Texas, manufacturing facility, entered into a strategic multi-year supply agreement with NVIDIA for advanced lasers and optical networking products supporting next-generation AI infrastructure, and received a $50 million preliminary memorandum of terms under the CHIPS and Science Act to support the Sherman expansion.
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 2; third run (0.2.5), Missed evidence 2
+
+  - id: coh-nvidia-purchase-commitment
+    question: laser-chips
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-ii-item-7
+    sentence: The non-exclusive agreement includes a multi-billion-dollar purchase commitment with NVIDIA, as well as future access and capacity rights for advanced laser and optical networking products.
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), Missed evidence 2 (the review quotes the 8-K's wording; this is the 10-K's sentence of the same agreement)
+
+  - id: coh-6inch-inp-capacity
+    question: laser-chips
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1
+    sentence: We continue to expand our global 6-inch InP manufacturing capacity in the United States and Europe to support increasing customer demand, while also operating multiple 6-inch GaAs VCSEL manufacturing facilities.
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 3 and Unsupported 1 (the VCSEL clause); third run (0.2.5), Saved work 1
+
+  - id: coh-sherman-inp-10k
+    question: laser-chips
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-ii-item-7
+    sentence: We are investing in manufacturing capacity for the Datacenter and Communications markets, including expanding our indium phosphide capacity in Sherman, Texas, to address our increased customer demand and industry-wide shortage.
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), Saved work 1 (quoted from the 10-Q; the 10-K's Item 7 has the same sentence)
+
+  - id: coh-sherman-inp-10q
+    question: laser-chips
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm
+    section: null  # the fixture is truncated at the start of Item 1: to be filled by the first live run
+    sentence: including expanding our indium phosphide capacity in Sherman, Texas, to address our increased customer demand and industry-wide shortage
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), Saved work 1 (10-Q filed 2026-05-06)
+
+  - id: coh-vertical-integration
+    question: laser-chips
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1
+    sentence: Our vertically integrated technology platform includes the in-house design and manufacture of transceivers and many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.
+    hop: chip
+    test: second_source
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 3; third run (0.2.5), Saved work 4
+
+  - id: coh-nvidia-investment
+    question: laser-chips
+    company: coherent
+    document:
+      form: 8-K
+      filed: 2026-03-02
+    section: null  # not in the fixtures: to be filled by the first live run
+    sentence: NVIDIA’s investment will support research and development initiatives, future capacity expansion, and operational capabilities, as Coherent expands its U.S.-based manufacturing footprint
+    hop: chip
+    test: financing_dilution
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), Saved work 2 (8-K filed 2026-03-02)
+
+  - id: lite-nvidia-investment
+    question: laser-chips
+    company: lumentum
+    document:
+      form: 8-K
+      filed: 2026-03-02
+      exhibit: EX-99.1
+    section: null  # not in the fixtures: to be filled by the first live run
+    sentence: NVIDIA is investing $2 billion in Lumentum to support R&D, future capacity and operations as the company builds out its U.S.-based manufacturing capabilities in a new fab
+    hop: chip
+    test: financing_dilution
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), Saved work 3 (8-K filed 2026-03-02, EX-99.1)
+
+  - id: coh-double-inp-output
+    question: laser-chips
+    company: coherent
+    document:
+      form: 8-K
+      filed: 2026-08-12
+      exhibit: EX-99.2
+    section: null  # not in the fixtures: to be filled by the first live run
+    sentence: On track to double internal InP output by year-end and more than double again by 2027
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), Missed evidence 3 (8-K filed 2026-08-12, EX-99.2; rejected party_not_in_quote)
+
+  - id: coh-6inch-platform
+    question: laser-chips
+    company: coherent
+    document:
+      form: 8-K
+      filed: 2026-08-12
+      exhibit: EX-99.2
+    section: null  # not in the fixtures: to be filled by the first live run
+    sentence: 6-inch platform producing EMLs, CW lasers, and photodiodes, with higher yields than 3-inch lines
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Investigation 1 third run (0.2.5), Missed evidence 3 (8-K filed 2026-08-12, EX-99.2)
+
+  - id: coh-tool-availability
+    question: laser-chips
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1a
+    sentence: Our ability to increase production is also subject to regulatory approvals, environmental and operational permits, clean-room and tool availability, hiring and training of qualified personnel, implementation of highly complex manufacturing processes, and the pace of bringing equipment and processes online with the capability to manufacture high-quality products at acceptable yields.
+    hop: equipment
+    test: demand_vs_capacity
+    basis: review_gap
+    review: Investigation 1 re-run (0.2.3), Missed evidence 3, and third run (0.2.5), Missed evidence 5 ("nothing on MOCVD"); the sentence is the archive's
+
+  # --- inp-substrates: who makes InP substrate, how concentrated, do export controls bind ---
+  - id: coh-buys-inp-substrates
+    question: inp-substrates
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1
+    sentence: These include InP substrates, ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials.
+    hop: substrate
+    test: second_source
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 3 (InP substrates named among its raw materials); third run (0.2.5), Unsupported 3
+
+  - id: coh-inp-limited-suppliers
+    question: inp-substrates
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1a
+    sentence: Our manufacturing processes and those of our contract manufacturers rely on many materials, including precious and rare earth metals, indium phosphide (“InP”) and certain lasers and laser components that may be difficult to source, may only be available from a single or limited number of suppliers.
+    hop: substrate
+    test: second_source
+    basis: review_gap
+    review: Investigation 1 re-run (0.2.3), Missed evidence 3 ("nothing names an InP substrate vendor"); the sentence is the archive's
+
+  - id: lite-china-indium-export
+    question: inp-substrates
+    company: lumentum
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm
+    section: part-i-item-1a
+    sentence: the restrictions in China on the export of indium, gallium, germanium and other rare earth metals and critical minerals
+    hop: feedstock
+    test: demand_vs_capacity
+    basis: review_gap
+    review: Investigation 1 re-run (0.2.3), Missed evidence 3, and third run (0.2.5), Missed evidence 5 ("nothing on ... export controls from the seed companies' filings"); the clause is the archive's
+
+  - id: lite-china-export-price
+    question: inp-substrates
+    company: lumentum
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm
+    section: part-i-item-1a
+    sentence: For example, China’s export controls affected the availability and price of rare earth metals and other critical minerals for us as well as our supply chain and customers, adversely affecting our operations, margins and sales.
+    hop: feedstock
+    test: pricing_power
+    basis: review_gap
+    review: Investigation 1 re-run (0.2.3), Missed evidence 3, and third run (0.2.5), Missed evidence 5 (export controls); the sentence is the archive's
+
+  # --- module-assembly: module capacity, customer concentration, qualification cycles ------
+  - id: coh-vertical-integration-module
+    question: module-assembly
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1
+    sentence: Our vertically integrated technology platform includes the in-house design and manufacture of transceivers and many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.
+    hop: module
+    test: second_source
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 3; third run (0.2.5), Saved work 4 (Coherent seeds investigation 3 too)
+
+  - id: coh-customer-concentration
+    question: module-assembly
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1a
+    sentence: A small number of customers have consistently accounted for a significant portion of our revenues, with two customers each contributing more than 10% of total revenues in fiscal 2026.
+    hop: module
+    test: pricing_power
+    basis: review_gap
+    review: Investigation 1 third run (0.2.5), The tasks, Skeptic and Editor (customer concentration; the review cites Lumentum's two customers, not quoted); Coherent's own sentence is the archive's
+
+  - id: coh-line-qualification
+    question: module-assembly
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1a
+    sentence: In addition, customers may require qualification or requalification of manufacturing lines before they will accept volume shipments, including when we establish new lines, relocate production, introduce new products, or transition work to new contract manufacturers or internal sites.
+    hop: module
+    test: second_source
+    basis: question
+    review: No review quotes it; the question asks for qualification cycles and investigation 1's Scout queried them (first run, What worked)
+
+  # --- dsp-drivers: who supplies DSPs and drivers -------------------------------------------
+  - id: coh-buys-dsps
+    question: dsp-drivers
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-i-item-1
+    sentence: These include InP substrates, ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials.
+    hop: chip
+    test: second_source
+    basis: review_quote
+    review: Investigation 1 re-run (0.2.3), Saved work 3 (the raw-materials sentence; it also names DSPs bought from third parties)
+
+  # --- coherent-demand: how systems demand pulls on component supply -------------------------
+  - id: lite-allocation-demand
+    question: coherent-demand
+    company: lumentum
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm
+    section: part-i-item-1
+    sentence: This demand is outpacing our current supply which has required us to make decisions on supply allocation.
+    hop: chip
+    test: demand_vs_capacity
+    basis: review_quote
+    review: Breadth runs on 0.2.5, New in these runs 2 (investigation 5 read it; rejected object_not_in_quote)
+
+  - id: coh-hyperscale-demand
+    question: coherent-demand
+    company: coherent
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
+    section: part-ii-item-7
+    sentence: The increasing investments by hyperscale and other cloud providers in AI datacenter infrastructures have significantly boosted demand for our datacenter transceivers.
+    hop: demand
+    test: demand_vs_capacity
+    basis: question
+    review: No review quotes it; the question asks how systems demand pulls on component supply (Coherent seeds investigation 5)
+
+  - id: lite-hyperscale-demand
+    question: coherent-demand
+    company: lumentum
+    document:
+      url: https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm
+    section: part-i-item-1
+    sentence: The convergence of cloud computing and AI is driving rapid innovation and expansion in optical hardware for hyperscale operators.
+    hop: demand
+    test: demand_vs_capacity
+    basis: question
+    review: No review quotes it; the question asks how systems demand pulls on component supply (Lumentum seeds investigation 5)

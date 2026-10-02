@@ -31,6 +31,8 @@ from atlas.hindsight.models import (
     BankConfig,
     BankDeleted,
     Budget,
+    Chunk,
+    ChunkPage,
     EntityPage,
     FactType,
     KnowledgeNode,
@@ -67,6 +69,9 @@ SERVER_CHECK_TIMEOUT = 5.0
 
 # Banks Atlas creates for a replay and deletes afterwards (§9.2; the only banks it deletes).
 REPLAY_BANK_PREFIX = "atlas-replay-"
+# The memory conformance check's throwaway banks (memory-quality ticket 14), deleted the same way.
+CONFORMANCE_BANK_PREFIX = "atlas-conformance-"
+_DELETABLE_PREFIXES = (REPLAY_BANK_PREFIX, CONFORMANCE_BANK_PREFIX)
 
 _KNOWLEDGE_TREE = TypeAdapter(list[KnowledgeNode])
 _HISTORY = TypeAdapter(list[MentalModelRevision])
@@ -269,6 +274,39 @@ class HindsightGateway:
             params["offset"] = offset
         return self._parse(EntityPage, self._get("/entities", params=params))
 
+    def document_chunks(self, document_id: str) -> list[Chunk]:
+        """A retained document's stored chunks in `chunk_index` order (0.10.2; recording
+        `chunks/03-list-chunks`)."""
+        chunks: list[Chunk] = []
+        while True:
+            params: dict[str, str | int] = {"offset": len(chunks)} if chunks else {}
+            path = f"/documents/{_segment(document_id)}/chunks"
+            page = self._parse(ChunkPage, self._get(path, params=params or None))
+            chunks.extend(page.items)
+            if not page.items or len(chunks) >= page.total:
+                return sorted(chunks, key=lambda chunk: chunk.chunk_index)
+
+    def entity_memories(
+        self, entity_id: str, *, scope: TagScope, page_size: int = 100
+    ) -> list[Memory]:
+        """Every memory carrying an entity, strictly scoped by tags (the memory list filtered
+        by `entity_id`; 0.10.2, recording `entity_memories/01-by-entity-and-tag`)."""
+        check_tag_scope(scope)
+        memories: list[Memory] = []
+        while True:
+            params: dict[str, str | int] = {
+                "entity_id": entity_id,
+                "tags": ",".join(scope.tags),
+                "tags_match": scope.match,
+                "limit": page_size,
+            }
+            if memories:
+                params["offset"] = len(memories)
+            page = self._parse(ObservationPage, self._get("/memories/list", params=params))
+            memories.extend(page.items)
+            if not page.items or len(memories) >= page.total:
+                return memories
+
     def knowledge_page_tree(self) -> list[KnowledgeNode]:
         # 0.10.1: GET /knowledge-base/pages is 405; the tree lists the pages.
         data = self._get("/knowledge-base/tree")
@@ -298,14 +336,17 @@ class HindsightGateway:
         return self._parse(OperationSubmitted, self._post("/consolidate", {}))
 
     def delete_bank(self) -> BankDeleted:
-        """Delete the whole bank (`DELETE /banks/{id}`): only a replay bank, never another.
+        """Delete the whole bank (`DELETE /banks/{id}`): only a replay bank or a conformance
+        check's throwaway bank, never another.
 
         Raises `HindsightRuleViolation` before any call for a bank whose ID doesn't start with
-        `REPLAY_BANK_PREFIX`, and `HindsightNotFound` if the bank doesn't exist.
+        `REPLAY_BANK_PREFIX` or `CONFORMANCE_BANK_PREFIX`, and `HindsightNotFound` if the bank
+        doesn't exist.
         """
-        if not self.bank_id.startswith(REPLAY_BANK_PREFIX):
+        if not self.bank_id.startswith(_DELETABLE_PREFIXES):
             raise HindsightRuleViolation(
-                f"only a replay bank ({REPLAY_BANK_PREFIX}*) may be deleted, not {self.bank_id!r}"
+                f"only a replay bank ({REPLAY_BANK_PREFIX}*) or a conformance bank"
+                f" ({CONFORMANCE_BANK_PREFIX}*) may be deleted, not {self.bank_id!r}"
             )
         data = self._request("DELETE", "", params=None)
         return self._parse(BankDeleted, data)
