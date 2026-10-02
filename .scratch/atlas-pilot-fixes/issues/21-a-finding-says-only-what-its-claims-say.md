@@ -16,10 +16,10 @@ The pilot's trust gate, second half ("every finding on the card cites Claims tha
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam with the scripted LiteLLM fake: an Editor answer whose finding carries a figure found only in bear context and a name found only in a lead is asked again once with those terms; the repaired finding stands; an unrepaired one is listed under `unsupported_findings` with `ungrounded: ...` and is not a finding.
-- [ ] A finding whose every number and name is in its cited Claims passes without a second call (the existing tests' findings unchanged).
-- [ ] A name written as the display name where the quote has the legal name is grounded; a year in the question is allowed; the fold handles typographic quotes and hyphens.
-- [ ] Unit tests of the grounding function: amounts with currency signs and separators, percentages, dates, multi-word names.
-- [ ] The evaluation cases (fake mode) pass; decision entry; `AGENTS.md` line; API client regenerated if the read changes.
+- [x] Integration test at the investigation seam with the scripted LiteLLM fake: an Editor answer whose finding carries a figure found only in bear context and a name found only in a lead is asked again once with those terms; the repaired finding stands; an unrepaired one is listed under `unsupported_findings` with `ungrounded: ...` and is not a finding.
+- [ ] A finding whose every number and name is in its cited Claims passes without a second call (the existing tests' findings unchanged). *Met for every grounded finding (asserted in the answered-card test), but not "unchanged": three scripted Editors wrote "Coherent supplies NVIDIA" over a Lumentum or AXT Claim, which the check rightly sets aside; their statements were changed to their Claims' (see the implementation log).*
+- [x] A name written as the display name where the quote has the legal name is grounded; a year in the question is allowed; the fold handles typographic quotes and hyphens.
+- [x] Unit tests of the grounding function: amounts with currency signs and separators, percentages, dates, multi-word names.
+- [x] The evaluation cases (fake mode) pass; decision entry; `AGENTS.md` line; API client regenerated if the read changes.

@@ -198,9 +198,13 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         "editor",
         # v4: what was searched and read, and a card with no accepted Claim (pilot fix 01);
         # v5: contradictions and bear context, separately (memory-directed reading, ticket 03);
-        # v6: Claims cited by short reference (memory-quality ticket 16)
-        6,
+        # v6: Claims cited by short reference (memory-quality ticket 16); v7: a statement says
+        # only what its cited Claims' quotes say (pilot-fixes ticket 21)
+        7,
         (
+            "says only what the quotes of the Claims it cites say",
+            "Bear context and contradictions are never a source for a statement",
+            "A lead is never a source for a statement",
             "`claim_refs`",
             "Cite only the `ref`s of the request's Claims",
             "in two separate lists",

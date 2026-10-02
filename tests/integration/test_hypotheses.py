@@ -697,7 +697,7 @@ def test_the_dossier_exports_as_json_and_markdown_with_citations_and_run_metadat
     assert all(run["finished_at"] is not None for run in meta["runs"])
     assert meta["runs"][1]["tokens_in"] == 4000
     assert [(c["role"], c["prompt_name"], c["prompt_version"]) for c in meta["role_calls"]] == [
-        ("editor", "editor", 6),
+        ("editor", "editor", 7),
         ("editor", "editor-hypothesis", 3),
     ]
     assert all(len(c["prompt_sha256"]) == 64 for c in meta["role_calls"])

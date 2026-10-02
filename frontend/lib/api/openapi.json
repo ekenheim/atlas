@@ -8106,6 +8106,17 @@
             },
             "type": "array",
             "title": "Open Questions"
+          },
+          "grounded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grounded"
           }
         },
         "type": "object",
@@ -24679,7 +24690,7 @@
           "reason"
         ],
         "title": "UnsupportedFinding",
-        "description": "A finding the Editor wrote that cites no accepted Claim of the investigation (or cites\nsomething else): recorded, never shown as a finding."
+        "description": "A finding the Editor wrote that cites no accepted Claim of the investigation (or cites\nsomething else), or whose statement says what its Claims don't even after it was asked\nagain (`reason` \"ungrounded: <terms>\", pilot-fixes ticket 21): recorded, never shown as a\nfinding."
       },
       "Usage": {
         "properties": {
