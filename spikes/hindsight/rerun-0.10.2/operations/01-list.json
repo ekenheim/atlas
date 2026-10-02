@@ -1,0 +1,304 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/operations",
+    "query": {
+      "limit": 50
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "bank_id": "atlas-q01-1790929097",
+      "total": 13,
+      "limit": 50,
+      "offset": 0,
+      "operations": [
+        {
+          "id": "be59de1d-bf61-4512-9b74-ea4fb2a7bbeb",
+          "task_type": "retain",
+          "operation_id": "be59de1d-bf61-4512-9b74-ea4fb2a7bbeb",
+          "operation_type": "retain",
+          "items_count": 1,
+          "document_id": "srcv:aurora-v2",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:55.807558+00:00",
+          "updated_at": "2026-10-02T08:19:59.018661+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": {
+            "stage": "storing",
+            "at": "2026-10-02T08:19:58.997342+00:00",
+            "processed": 1,
+            "total": 1,
+            "detail": {
+              "facts_committed": 1
+            }
+          }
+        },
+        {
+          "id": "e878e38e-aa8b-41c0-865b-607a436e4799",
+          "task_type": "batch_retain",
+          "operation_id": "e878e38e-aa8b-41c0-865b-607a436e4799",
+          "operation_type": "batch_retain",
+          "items_count": 1,
+          "document_id": "srcv:aurora-v2",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:55.807558+00:00",
+          "updated_at": "2026-10-02T08:19:59.018661+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": null
+        },
+        {
+          "id": "1c5b48f1-cdf9-43f0-b79e-1c83de571456",
+          "task_type": "retain",
+          "operation_id": "1c5b48f1-cdf9-43f0-b79e-1c83de571456",
+          "operation_type": "retain",
+          "items_count": 1,
+          "document_id": "srcv:aurora-v1",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:49.761928+00:00",
+          "updated_at": "2026-10-02T08:19:54.417622+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": {
+            "stage": "storing",
+            "at": "2026-10-02T08:19:54.395119+00:00",
+            "processed": 1,
+            "total": 1,
+            "detail": {
+              "facts_committed": 2
+            }
+          }
+        },
+        {
+          "id": "8b3d8d26-a3b5-4646-8728-b798a3d59061",
+          "task_type": "batch_retain",
+          "operation_id": "8b3d8d26-a3b5-4646-8728-b798a3d59061",
+          "operation_type": "batch_retain",
+          "items_count": 1,
+          "document_id": "srcv:aurora-v1",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:49.761928+00:00",
+          "updated_at": "2026-10-02T08:19:54.417622+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": null
+        },
+        {
+          "id": "73dae1b5-194b-43cc-b1e4-1c91f80f70be",
+          "task_type": "graph_maintenance",
+          "operation_id": "73dae1b5-194b-43cc-b1e4-1c91f80f70be",
+          "operation_type": "graph_maintenance",
+          "items_count": 0,
+          "document_id": null,
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:47.436727+00:00",
+          "updated_at": "2026-10-02T08:19:47.571276+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": null
+        },
+        {
+          "id": "2a11c72a-b85f-4056-98f4-ee0e78b990bf",
+          "task_type": "retain",
+          "operation_id": "2a11c72a-b85f-4056-98f4-ee0e78b990bf",
+          "operation_type": "retain",
+          "items_count": 1,
+          "document_id": "doc-upsert",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:43.718127+00:00",
+          "updated_at": "2026-10-02T08:19:47.442804+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": {
+            "stage": "storing",
+            "at": "2026-10-02T08:19:47.410904+00:00",
+            "processed": 1,
+            "total": 1,
+            "detail": {
+              "facts_committed": 1
+            }
+          }
+        },
+        {
+          "id": "462e47c9-e480-46ca-a37b-bc88ee0ad830",
+          "task_type": "batch_retain",
+          "operation_id": "462e47c9-e480-46ca-a37b-bc88ee0ad830",
+          "operation_type": "batch_retain",
+          "items_count": 1,
+          "document_id": "doc-upsert",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:43.718127+00:00",
+          "updated_at": "2026-10-02T08:19:47.442804+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": null
+        },
+        {
+          "id": "d0d4cdc4-df3a-4809-9b3b-be1f2c726508",
+          "task_type": "retain",
+          "operation_id": "d0d4cdc4-df3a-4809-9b3b-be1f2c726508",
+          "operation_type": "retain",
+          "items_count": 1,
+          "document_id": "doc-upsert",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:37.657584+00:00",
+          "updated_at": "2026-10-02T08:19:43.197173+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": {
+            "stage": "storing",
+            "at": "2026-10-02T08:19:43.172859+00:00",
+            "processed": 1,
+            "total": 1,
+            "detail": {
+              "facts_committed": 2
+            }
+          }
+        },
+        {
+          "id": "6f1284b0-b35d-4c7a-aa98-df2f755eb72c",
+          "task_type": "batch_retain",
+          "operation_id": "6f1284b0-b35d-4c7a-aa98-df2f755eb72c",
+          "operation_type": "batch_retain",
+          "items_count": 1,
+          "document_id": "doc-upsert",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:37.657584+00:00",
+          "updated_at": "2026-10-02T08:19:43.197173+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": null
+        },
+        {
+          "id": "e348236c-8134-402c-98ed-cc56dd88d0c7",
+          "task_type": "batch_retain",
+          "operation_id": "e348236c-8134-402c-98ed-cc56dd88d0c7",
+          "operation_type": "batch_retain",
+          "items_count": 2,
+          "document_id": null,
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:22.463700+00:00",
+          "updated_at": "2026-10-02T08:19:35.602537+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": null
+        },
+        {
+          "id": "db986c5d-4457-4a6c-9ab4-8cd127100b4e",
+          "task_type": "retain",
+          "operation_id": "db986c5d-4457-4a6c-9ab4-8cd127100b4e",
+          "operation_type": "retain",
+          "items_count": 2,
+          "document_id": null,
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:22.463700+00:00",
+          "updated_at": "2026-10-02T08:19:35.602537+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": {
+            "stage": "storing",
+            "at": "2026-10-02T08:19:35.578342+00:00",
+            "processed": 1,
+            "total": 1,
+            "detail": {
+              "facts_committed": 1
+            }
+          }
+        },
+        {
+          "id": "91c79284-c061-4614-83d7-7458f33640fd",
+          "task_type": "batch_retain",
+          "operation_id": "91c79284-c061-4614-83d7-7458f33640fd",
+          "operation_type": "batch_retain",
+          "items_count": 1,
+          "document_id": "doc-untagged",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:19.434508+00:00",
+          "updated_at": "2026-10-02T08:19:22.425973+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": null
+        },
+        {
+          "id": "b876a380-5bf7-49d9-a53a-5f4acd1da83a",
+          "task_type": "retain",
+          "operation_id": "b876a380-5bf7-49d9-a53a-5f4acd1da83a",
+          "operation_type": "retain",
+          "items_count": 1,
+          "document_id": "doc-untagged",
+          "filename": null,
+          "mental_model_id": null,
+          "details": null,
+          "created_at": "2026-10-02T08:19:19.434508+00:00",
+          "updated_at": "2026-10-02T08:19:22.425973+00:00",
+          "status": "completed",
+          "error_message": null,
+          "retry_count": 0,
+          "next_retry_at": null,
+          "progress": {
+            "stage": "storing",
+            "at": "2026-10-02T08:19:22.403108+00:00",
+            "processed": 1,
+            "total": 1,
+            "detail": {
+              "facts_committed": 1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

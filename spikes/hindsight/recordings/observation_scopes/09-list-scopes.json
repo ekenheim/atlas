@@ -1,0 +1,41 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/observations/scopes",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "scopes": [
+        {
+          "tags": [
+            "company:aurora"
+          ],
+          "count": 6
+        },
+        {
+          "tags": [
+            "company:borealis"
+          ],
+          "count": 2
+        },
+        {
+          "tags": [],
+          "count": 1
+        },
+        {
+          "tags": [
+            "theme:photonics"
+          ],
+          "count": 1
+        }
+      ],
+      "total": 4,
+      "limit": 100,
+      "offset": 0
+    }
+  }
+}

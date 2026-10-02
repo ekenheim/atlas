@@ -1,0 +1,49 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/operations/3e40f402-4f48-4490-a978-d6c35d0a87ad"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "3e40f402-4f48-4490-a978-d6c35d0a87ad",
+      "status": "completed",
+      "operation_type": "refresh_mental_model",
+      "id": "3e40f402-4f48-4490-a978-d6c35d0a87ad",
+      "task_type": "refresh_mental_model",
+      "mental_model_id": "mm-ec2a6be43d624043b3bd9e9ab4b38364",
+      "created_at": "2026-10-02T08:32:37.191673+00:00",
+      "updated_at": "2026-10-02T08:33:35.525314+00:00",
+      "completed_at": "2026-10-02T08:33:35.525314+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "name": "Aurora Optics overview",
+        "outcome": "content_written",
+        "content_len": 3227,
+        "failure_reason": null,
+        "based_on_counts": {
+          "world": 0,
+          "opinion": 0,
+          "directives": 0,
+          "experience": 0,
+          "observation": 6,
+          "mental-models": 0
+        },
+        "mental_model_id": "mm-ec2a6be43d624043b3bd9e9ab4b38364",
+        "delta_ops_applied": 0,
+        "delta_ops_skipped": 0,
+        "populated_content": true
+      },
+      "details": {
+        "operation_type": "refresh_mental_model",
+        "outcome": "content_written",
+        "failure_reason": null
+      },
+      "child_operations": null,
+      "task_payload": null
+    }
+  }
+}

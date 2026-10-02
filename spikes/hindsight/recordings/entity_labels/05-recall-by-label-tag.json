@@ -1,0 +1,140 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-labels-1790929097/memories/recall",
+    "query": null,
+    "body": {
+      "query": "lead times and supply of lasers and modules",
+      "tags": [
+        "layer:chip-laser"
+      ],
+      "tags_match": "any_strict"
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 11.86,
+    "body": {
+      "results": [
+        {
+          "id": "e710a641-e42a-4387-a11e-16ee3c3ec367",
+          "text": "Borealis Photonics Ltd. reported EML laser lead times rising to 40 weeks. | Involving: Borealis Photonics Ltd. | Significant supply constraint for EML lasers, well above typical lead times.",
+          "type": "world",
+          "entities": [
+            "Borealis Photonics Ltd.",
+            "layer:chip-laser",
+            "EML lasers"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-09-10T00:00:00+00:00",
+          "document_id": "doc-labelled",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "d1704d3e-143b-4db7-a9c0-df38ac915dc9"
+          },
+          "chunk_id": "atlas-q01-labels-1790929097_doc-labelled_0",
+          "tags": [
+            "form:8-K",
+            "company:borealis",
+            "layer:chip-laser"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.06197570931681,
+            "reranker": 0.9763031,
+            "semantic": 0.6032713292079382,
+            "keyword": 0.9000000357627869
+          },
+          "attachments": null
+        },
+        {
+          "id": "5441b865-463f-4790-ae91-15c223b2645c",
+          "text": "Aurora's epitaxy capacity is concentrated in a single MOCVD facility in Tucson, Arizona, and a disruption there would halt EML and CW laser production for several months. | When: fiscal 2026 | Involving: Aurora Optics Inc. | Single-site epitaxy concentration is a key manufacturing risk for chip-laser output.",
+          "type": "world",
+          "entities": [
+            "Tucson",
+            "MOCVD",
+            "Aurora Optics Inc.",
+            "layer:chip-laser",
+            "CW lasers",
+            "EML lasers",
+            "layer:epi"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-08-01T00:00:00.010000+00:00",
+          "document_id": "doc-chunked",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "a27f5746-30bb-458e-9879-b4e4e6417c05"
+          },
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_0",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "theme:photonics",
+            "layer:epi",
+            "layer:chip-laser"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 5.98698135697807e-05,
+            "reranker": 5.6171786e-05,
+            "semantic": 0.54933071136475,
+            "keyword": 0.5
+          },
+          "attachments": null
+        }
+      ],
+      "trace": null,
+      "entities": {
+        "Borealis Photonics Ltd.": {
+          "entity_id": "3b70fa1b-d5a6-492c-a963-157a781fb2d0",
+          "canonical_name": "Borealis Photonics Ltd.",
+          "observations": []
+        },
+        "layer:chip-laser": {
+          "entity_id": "8dffc1e9-bcbb-4bb9-b690-b0e50c43e377",
+          "canonical_name": "layer:chip-laser",
+          "observations": []
+        },
+        "EML lasers": {
+          "entity_id": "def18471-5bea-4b9e-9c71-9dda0bd883fc",
+          "canonical_name": "EML lasers",
+          "observations": []
+        },
+        "Tucson": {
+          "entity_id": "4dfad64a-81ae-480f-929b-56c7b50a3dba",
+          "canonical_name": "Tucson",
+          "observations": []
+        },
+        "MOCVD": {
+          "entity_id": "63c22000-9083-4f5c-aca6-6cbd1113d999",
+          "canonical_name": "MOCVD",
+          "observations": []
+        },
+        "Aurora Optics Inc.": {
+          "entity_id": "6fc144c5-2170-4dd2-8c27-94582fb05078",
+          "canonical_name": "Aurora Optics Inc.",
+          "observations": []
+        },
+        "CW lasers": {
+          "entity_id": "c5980930-d832-44fd-8b12-c861f9a148a3",
+          "canonical_name": "CW lasers",
+          "observations": []
+        },
+        "layer:epi": {
+          "entity_id": "e0c7713e-8602-482d-9232-fee77b8ce9d5",
+          "canonical_name": "layer:epi",
+          "observations": []
+        }
+      },
+      "chunks": null,
+      "source_facts": null,
+      "source_facts_truncated": null
+    }
+  }
+}

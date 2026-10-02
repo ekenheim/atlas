@@ -1,0 +1,54 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/reflect",
+    "query": null,
+    "body": {
+      "query": "Is Aurora Optics capacity constrained?",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "constrained": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "constrained",
+          "evidence"
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 39.99,
+    "body": {
+      "text": "# Yes \u2014 Aurora Optics is capacity constrained\n\nAurora Optics' laser output is constrained by a single indium phosphide (InP) wafer fab in Tucson, Arizona, and the binding bottleneck is the MOCVD epitaxy toolset, not raw wafer count.\n\n## The constraints on the supply side\n\n- The Tucson InP wafer fab has a stated capacity of **40,000 wafers per year** (stated January 2026).\n- The same fab ran at **full utilization in Q2 fiscal 2026** (April\u2013June 2026; reported July 30, 2026).\n- Aurora has stated that **laser output cannot grow until a new MOCVD line qualifies in early 2027** (reported July 30, 2026).\n- The Tucson fab is **scheduled to close by December 2026**, with laser production moving to a **contract manufacturer in Penang, Malaysia** (announced September 1, 2026). Under the announced plan, the qualifying MOCVD line in early 2027 would sit at the Penang contract manufacturer rather than in Tucson.\n\n## The constraints on the demand side\n\n- In Q3 2026, Aurora said **demand for 800G optical modules exceeded supply** (August 2026) \u2014 a reversal from March 2024, when Aurora had reported weak demand and elevated 800G inventories.\n\n## Why this matters\n\n- Customer concentration: Halcyon Networks accounted for **38% of Aurora's fiscal 2026 revenue** and is contracted to take **most of Aurora's 3.2T laser output in fiscal 2027**. The bulk of Aurora's next-generation capacity is therefore committed to a single buyer.\n\n## Caveats and gaps in the data\n\n- It is **not confirmed** in the retrieved data that the qualifying MOCVD line in early 2027 will physically sit at the Penang manufacturer's site \u2014 only that this is the announced plan.\n- The **identity of the Penang contract manufacturer is not stated** in the retrieved data.\n- **No upstream suppliers** (InP wafer, MOCVD precursor, or equipment vendors) are recorded.\n- **No other named end customers** beyond Halcyon Networks appear in the data; the 800G customer set is referenced but not enumerated.",
+      "based_on": null,
+      "structured_output": {
+        "constrained": true,
+        "evidence": [
+          "The Tucson InP wafer fab ran at full utilization in Q2 fiscal 2026",
+          "Aurora has stated that laser output cannot grow until a new MOCVD line qualifies in early 2027",
+          "The Tucson fab is scheduled to close by December 2026",
+          "In Q3 2026, Aurora said demand for 800G optical modules exceeded supply"
+        ]
+      },
+      "structured_output_error": null,
+      "usage": {
+        "input_tokens": 9872,
+        "output_tokens": 745,
+        "total_tokens": 10617,
+        "cached_tokens": 0,
+        "thoughts_tokens": 0
+      },
+      "trace": null
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/operations/a6a62cfd-3d17-4c58-8925-9320a2d41300"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "a6a62cfd-3d17-4c58-8925-9320a2d41300",
+      "status": "completed",
+      "operation_type": "consolidation",
+      "id": "a6a62cfd-3d17-4c58-8925-9320a2d41300",
+      "task_type": "consolidation",
+      "mental_model_id": null,
+      "created_at": "2026-10-02T08:21:31.588370+00:00",
+      "updated_at": "2026-10-02T08:22:16.025965+00:00",
+      "completed_at": "2026-10-02T08:22:16.025965+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": {
+        "stage": "refreshing_mental_models",
+        "at": "2026-10-02T08:22:16.020974+00:00",
+        "processed": 2,
+        "total": 2,
+        "detail": null
+      },
+      "result_metadata": {
+        "progress": {
+          "at": "2026-10-02T08:22:16.020974+00:00",
+          "stage": "refreshing_mental_models",
+          "total": 2,
+          "processed": 2
+        }
+      },
+      "details": null,
+      "child_operations": null,
+      "task_payload": null
+    }
+  }
+}

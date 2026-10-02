@@ -1,0 +1,50 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/memories",
+    "query": null,
+    "body": {
+      "items": [
+        {
+          "content": "Aurora said that Halcyon accounted for 38% of fiscal 2026 revenue, and that Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027.",
+          "document_id": "doc-entities",
+          "timestamp": "2026-09-02T00:00:00Z",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "metadata": {
+            "source_version_id": "1a20ca2b-2c92-47e6-9ce7-c9e15cd9f7ff",
+            "fixture": "feature-check"
+          },
+          "tags": [
+            "company:aurora",
+            "form:8-K"
+          ],
+          "entities": [
+            {
+              "text": "Aurora Optics Inc.",
+              "type": "ORG"
+            },
+            {
+              "text": "Halcyon Networks",
+              "type": "ORG"
+            }
+          ],
+          "resolve_entities": false
+        }
+      ],
+      "async": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "success": true,
+      "bank_id": "atlas-q01-1790929097",
+      "items_count": 1,
+      "async": true,
+      "operation_id": "82bc8619-c161-437b-aa64-210f0890ad39",
+      "operation_ids": null,
+      "usage": null
+    }
+  }
+}

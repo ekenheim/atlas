@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Usage: spikes/hindsight/run.sh <litellm-model> [extra-body-json] [compose args...]
-# Loads LITELLM_URL / LITELLM_API_KEY from the repo's .env (CRLF-safe) and
+# Loads LITELLM_URL / LITELLM_API_KEY from the repo's .env, or from the file
+# ATLAS_SPIKE_ENV_FILE names (a worktree has no .env of its own), CRLF-safe, and
 # (re)starts the local Hindsight with the given LLM alias.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -11,7 +12,7 @@ while IFS='=' read -r key value || [[ -n "$key" ]]; do
   [[ -z "$key" || "$key" == \#* ]] && continue
   value="${value%\"}"; value="${value#\"}"
   export "$key=$value"
-done < "$root/.env"
+done < "${ATLAS_SPIKE_ENV_FILE:-$root/.env}"
 export LITELLM_URL="${LITELLM_URL%/}"
 
 export ATLAS_LLM_MODEL="${1:?usage: run.sh <litellm-model> [extra-body-json]}"

@@ -1,0 +1,122 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/reflect",
+    "query": null,
+    "body": {
+      "query": "Is Aurora Optics capacity constrained? Cite evidence.",
+      "include": {
+        "facts": {}
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 50.36,
+    "body": {
+      "text": "## Is Aurora Optics capacity constrained?\n\n**Yes.** Aurora is binding-constrained by the epitaxy toolset at its only indium phosphide (InP) wafer fab, and that constraint persists into fiscal 2027 even as production shifts sites.\n\n### Evidence cited\n\n- **Single-site InP fab, already full.** Aurora's Tucson, Arizona indium phosphide wafer fab has a stated capacity of **40,000 wafers per year** (stated January 2026) and ran at **full utilization in Q2 fiscal 2026** (April\u2013June 2026; reported July 30, 2026).\n- **Lasers specifically cannot grow until 2027.** Aurora said **laser output cannot expand until a new MOCVD line qualifies in early 2027** (reported July 30, 2026). MOCVD is the InP epitaxy toolset \u2014 i.e., the binding bottleneck is epitaxial deposition capacity, not raw wafer throughput.\n- **Transition risk compounds the constraint.** The Tucson fab is scheduled to **close by December 2026**, with laser production moving to a **contract manufacturer in Penang, Malaysia** (announced September 1, 2026). Per the announced plan, the MOCVD line qualifying in early 2027 will sit at the Penang contract manufacturer rather than in Tucson \u2014 so the bottleneck lifts only at a site Aurora no longer owns.\n- **Demand is outstripping supply.** In Q3 2026 (August 2026), Aurora said **demand for 800G optical modules exceeded supply** \u2014 a reversal from March 2024, when it had reported weak demand and elevated 800G inventories. This is consistent with demand-side pull meeting the firm's epitaxy ceiling.\n- **Customer concentration amplifies the constraint.** **Halcyon Networks**, which accounted for **38% of Aurora's fiscal 2026 revenue** (reported September 2, 2026), is contracted to take **most of Aurora's 3.2T laser output in fiscal 2027** \u2014 so the bulk of next-generation 3.2T capacity is pre-committed to a single buyer, with no named alternative customers in the data to absorb any supply flexibility.\n\n### Caveats in the source data\n\n- The retrieved evidence does **not** name Aurora's upstream InP suppliers, nor confirm whether the qualifying MOCVD line in early 2027 will physically be located at the Penang manufacturer's site.\n- No customers other than Halcyon Networks are named; the 800G demand-exceeds-supply statement is at the optical-module level, not an InP-laser-level statement.\n- Industry-side, Borealis Photonics separately reported **52-week lead times** for silicon photonics modules (August 1, 2026) and an **industry-wide shortage of six-inch InP substrates** (August 12, 2026). These corroborate a tight photonics supply environment but describe the broader market, not Aurora's own fab directly.\n\n### Bottom line\n\nAurora is **capacity constrained on laser production**, locked at full utilization on its only InP fab, unable to grow output until an epitaxy line qualifies in early 2027, with that line (per the announced plan) sitting at a new contract manufacturer in Penang after the Tucson site closes in December 2026 \u2014 while demand for its optical-module products is reported to exceed supply and a single customer (Halcyon, 38% of FY26 revenue) has contracted for most of its FY27 3.2T laser output.",
+      "based_on": {
+        "memories": [
+          {
+            "id": "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+            "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-09-01T00:00:00+00:00",
+            "occurred_end": "2026-12-31T00:00:00+00:00",
+            "mentioned_at": "2026-09-01T00:00:00+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "9605b01f-9391-4e93-90e3-c4a9c416efac",
+            "text": "In Q3 2026, Aurora Optics stated that demand for 800G optical modules exceeded supply.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-07-01T00:00:00+00:00",
+            "occurred_end": "2026-09-30T00:00:00+00:00",
+            "mentioned_at": "2026-08-20T00:00:00+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+            "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": null,
+            "occurred_end": null,
+            "mentioned_at": "2026-01-10T00:00:00+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+            "text": "In Q2 fiscal 2026, Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization, and laser output cannot grow until a new MOCVD line qualifies in early 2027.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-04-01T00:00:00+00:00",
+            "occurred_end": "2026-06-30T00:00:00+00:00",
+            "mentioned_at": "2026-07-30T00:00:00.010000+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+            "text": "In March 2024, Aurora Optics reported weak demand and elevated inventory for 800G optical modules.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2024-03-01T00:00:00+00:00",
+            "occurred_end": "2024-03-31T00:00:00+00:00",
+            "mentioned_at": "2024-03-15T00:00:00+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          }
+        ],
+        "mental_models": [
+          {
+            "id": "aurora-status",
+            "text": "Aurora status: ## Overview\n\nAurora Optics' laser output is constrained by a single indium phosphide (InP) wafer fab in Tucson, Arizona, which is already at full utilization, cannot expand until a new MOCVD line qualifies in early 2027, and is scheduled to close by December 2026 with production moving to a contract manufacturer in Penang, Malaysia. On the demand side, the customer base is heavily concentrated in Halcyon Networks, which supplied the bulk of fiscal 2026 revenue and is contracted to take most of Aurora's 3.2T laser output in fiscal 2027.\n\n## What constrains laser capacity\n\n- The Tucson, Arizona InP wafer fab has a stated capacity of 40,000 wafers per year (stated January 2026).\n- The same fab ran at full utilization in Q2 fiscal 2026 (April\u2013June 2026; reported July 30, 2026).\n- Aurora stated that laser output cannot grow until a new MOCVD line qualifies in early 2027 (reported July 30, 2026) \u2014 i.e., the InP epitaxy toolset, not the wafer-count, is the binding bottleneck on output.\n- Aurora announced the Tucson fab will close by December 2026, with laser production moving to a contract manufacturer in Penang, Malaysia (announced September 1, 2026). This means the qualifying MOCVD line in early 2027 will, per the plan, sit at the Penang contract manufacturer rather than in Tucson.\n- Demand context: in Q3 2026, Aurora said demand for 800G optical modules exceeded supply (August 2026) \u2014 a reversal from March 2024, when it had reported weak demand and elevated 800G inventories.\n\n## Key customer: Halcyon Networks\n\n- Product relationship: Aurora supplies 1.6T transceiver lasers to Halcyon Networks (stated January 2026).\n- Revenue concentration: Halcyon accounted for 38% of Aurora's fiscal 2026 revenue (reported September 2, 2026) \u2014 a material customer-concentration risk.\n- Forward commitment: Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027 (reported September 2, 2026), tying the bulk of Aurora's next-generation 3.2T capacity to a single buyer.\n- No other named end customers appear in the retrieved data.\n\n## Key suppliers\n\nThe retrieved data does not name any of Aurora Optics' input suppliers (e.g., raw indium phosphide wafers, MOCVD precursors, equipment vendors). The only supplier-side entity mentioned is the future contract manufacturer in Penang, Malaysia that will take over laser production after the Tucson fab closes by December 2026.\n\n## What is not in the data\n\n- Named upstream suppliers (wafer/precursor/equipment vendors) for Aurora's InP process.\n- Customers other than Halcyon Networks. The 800G optical module line is referenced, but no specific 800G customer is named.\n- The identity of the Penang contract manufacturer, or confirmation that the qualifying MOCVD line in early 2027 will be located at that manufacturer's site.\n",
+            "context": "concept (structural)"
+          }
+        ],
+        "directives": []
+      },
+      "structured_output": null,
+      "structured_output_error": null,
+      "usage": {
+        "input_tokens": 8850,
+        "output_tokens": 1708,
+        "total_tokens": 10558,
+        "cached_tokens": 0,
+        "thoughts_tokens": 0
+      },
+      "trace": null
+    }
+  }
+}

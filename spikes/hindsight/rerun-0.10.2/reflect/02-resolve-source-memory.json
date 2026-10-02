@@ -1,0 +1,44 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/memories/3a59958d-623c-4598-bf03-af5d12b87183",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.02,
+    "body": {
+      "id": "3a59958d-623c-4598-bf03-af5d12b87183",
+      "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: December 2026 | Involving: Aurora Optics Inc. | Manufacturing relocation \u2014 potential supply chain impact",
+      "context": "Synthetic Atlas feature-check document (fictional companies).",
+      "date": "2026-12-01T00:00:00+00:00",
+      "type": "world",
+      "mentioned_at": "2026-09-01T00:00:00+00:00",
+      "occurred_start": "2026-12-01T00:00:00+00:00",
+      "occurred_end": "2026-12-31T00:00:00+00:00",
+      "entities": [
+        "Aurora Optics Inc.",
+        "Malaysia",
+        "Tucson",
+        "Arizona",
+        "Penang",
+        "laser production"
+      ],
+      "document_id": "doc-upsert",
+      "chunk_id": "atlas-q01-1790929097_doc-upsert_0",
+      "tags": [
+        "company:aurora"
+      ],
+      "metadata": {
+        "fixture": "feature-check",
+        "source_version_id": "e302e4c9-288a-4d5e-98e6-03541e6227fc"
+      },
+      "observation_scopes": null,
+      "state": "valid",
+      "invalidation_reason": null,
+      "invalidated_at": null,
+      "edited_at": null
+    }
+  }
+}

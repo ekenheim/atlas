@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "DELETE",
+    "path": "/v1/default/banks/atlas-q01-labels-1790929097",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.04,
+    "body": {
+      "success": true,
+      "message": "Bank 'atlas-q01-labels-1790929097' and all associated data deleted successfully",
+      "deleted_count": 43
+    }
+  }
+}

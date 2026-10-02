@@ -1,0 +1,84 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-labels-1790929097/memories/list",
+    "query": {
+      "document_id": "doc-labelled",
+      "limit": 100
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "items": [
+        {
+          "id": "81b8531f-0f34-4164-89e1-ead172a28806",
+          "text": "Borealis Photonics Ltd.'s silicon photonics transceiver modules shipped on schedule to Halcyon Networks. | Involving: Borealis Photonics Ltd., Halcyon Networks (customer) | Indicates module delivery performance and customer relationship.",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "date": "2026-09-10T00:00:00.010000+00:00",
+          "fact_type": "world",
+          "document_id": "doc-labelled",
+          "mentioned_at": "2026-09-10T00:00:00.010000+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "silicon photonics transceiver modules, Halcyon Networks, Borealis Photonics Ltd., layer:module",
+          "chunk_id": "atlas-q01-labels-1790929097_doc-labelled_0",
+          "proof_count": 1,
+          "tags": [
+            "form:8-K",
+            "company:borealis",
+            "layer:module"
+          ],
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "d1704d3e-143b-4db7-a9c0-df38ac915dc9"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T08:27:20.730628+00:00",
+          "source_memory_ids": []
+        },
+        {
+          "id": "e710a641-e42a-4387-a11e-16ee3c3ec367",
+          "text": "Borealis Photonics Ltd. reported EML laser lead times rising to 40 weeks. | Involving: Borealis Photonics Ltd. | Significant supply constraint for EML lasers, well above typical lead times.",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "date": "2026-09-10T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "doc-labelled",
+          "mentioned_at": "2026-09-10T00:00:00+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "EML lasers, layer:chip-laser, Borealis Photonics Ltd.",
+          "chunk_id": "atlas-q01-labels-1790929097_doc-labelled_0",
+          "proof_count": 1,
+          "tags": [
+            "form:8-K",
+            "company:borealis",
+            "layer:chip-laser"
+          ],
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "d1704d3e-143b-4db7-a9c0-df38ac915dc9"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T08:27:20.730628+00:00",
+          "source_memory_ids": []
+        }
+      ],
+      "total": 2,
+      "limit": 100,
+      "offset": 0
+    }
+  }
+}

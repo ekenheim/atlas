@@ -1,0 +1,49 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/operations/9a6b84a6-b53e-43e0-b01f-f2bd9a037703"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "9a6b84a6-b53e-43e0-b01f-f2bd9a037703",
+      "status": "completed",
+      "operation_type": "refresh_mental_model",
+      "id": "9a6b84a6-b53e-43e0-b01f-f2bd9a037703",
+      "task_type": "refresh_mental_model",
+      "mental_model_id": "aurora-status",
+      "created_at": "2026-10-02T08:27:47.375050+00:00",
+      "updated_at": "2026-10-02T08:29:17.282891+00:00",
+      "completed_at": "2026-10-02T08:29:17.282891+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "name": "Aurora status",
+        "outcome": "content_written",
+        "content_len": 2794,
+        "failure_reason": null,
+        "based_on_counts": {
+          "world": 10,
+          "opinion": 0,
+          "directives": 0,
+          "experience": 0,
+          "observation": 6,
+          "mental-models": 0
+        },
+        "mental_model_id": "aurora-status",
+        "delta_ops_applied": 0,
+        "delta_ops_skipped": 0,
+        "populated_content": true
+      },
+      "details": {
+        "operation_type": "refresh_mental_model",
+        "outcome": "content_written",
+        "failure_reason": null
+      },
+      "child_operations": null,
+      "task_payload": null
+    }
+  }
+}

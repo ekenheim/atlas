@@ -1,0 +1,61 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-labels-1790929097/memories/dry-run-extract",
+    "query": null,
+    "body": {
+      "content": "Cirrus Semiconductor said its six-inch indium phosphide substrate output doubled in 2026 and that its epitaxial wafer line in Fremont is sold out through 2027.",
+      "context": "Cirrus Semiconductor 8-K, September 2026. The filer is speaking.",
+      "timestamp": "2026-09-15T00:00:00Z"
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 3.42,
+    "body": {
+      "facts": [
+        {
+          "text": "Cirrus Semiconductor's six-inch indium phosphide substrate output doubled in 2026. | When: 2026 | Involving: Cirrus Semiconductor | Significant capacity expansion for InP substrates",
+          "fact_type": "world",
+          "occurred_start": "2026-01-01",
+          "occurred_end": "2026-12-31",
+          "entities": [
+            "Cirrus Semiconductor",
+            "indium phosphide",
+            "substrate",
+            "layer:substrate"
+          ],
+          "chunk_index": 0,
+          "attachments": []
+        },
+        {
+          "text": "Cirrus Semiconductor's epitaxial wafer line in Fremont is sold out through 2027. | When: through 2027 | Involving: Cirrus Semiconductor | Indicates strong demand and supply constraint for epi wafers",
+          "fact_type": "world",
+          "occurred_start": "2026-09-15",
+          "occurred_end": "2027-12-31",
+          "entities": [
+            "Cirrus Semiconductor",
+            "Fremont",
+            "epitaxial wafer",
+            "layer:epi"
+          ],
+          "chunk_index": 0,
+          "attachments": []
+        }
+      ],
+      "chunks": [
+        {
+          "text": "Cirrus Semiconductor said its six-inch indium phosphide substrate output doubled in 2026 and that its epitaxial wafer line in Fremont is sold out through 2027.",
+          "fact_count": 2
+        }
+      ],
+      "usage": {
+        "input_tokens": 3532,
+        "output_tokens": 324,
+        "total_tokens": 3856,
+        "cached_tokens": 3427,
+        "thoughts_tokens": 0
+      }
+    }
+  }
+}

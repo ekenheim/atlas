@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/files/download/tenants/public/banks/atlas-q01-1790929097/exports/0f0ffb58-4f5b-4968-8b3b-0b1c7deca4d9/transfer.zip",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "_binary_bytes": 2006,
+      "_content_type": "application/zip"
+    }
+  }
+}

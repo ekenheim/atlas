@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/knowledge-base/pages",
+    "query": null,
+    "body": {
+      "name": "Aurora Optics overview",
+      "source_query": "Summarize what is documented about Aurora Optics' capacity and customers."
+    }
+  },
+  "response": {
+    "status": 201,
+    "seconds": 0.08,
+    "body": {
+      "page_id": "kp-c40b5b1efcab49d69fef5271a61dc7a4",
+      "mental_model_id": "mm-ec2a6be43d624043b3bd9e9ab4b38364",
+      "operation_id": "3e40f402-4f48-4490-a978-d6c35d0a87ad"
+    }
+  }
+}

@@ -1,0 +1,858 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/memories/recall",
+    "query": null,
+    "body": {
+      "query": "Aurora Optics laser capacity and supply constraints"
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 5.16,
+    "body": {
+      "results": [
+        {
+          "id": "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "text": "Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027. | When: fiscal 2027 | Involving: Halcyon (customer), Aurora (supplier) | Indicates a major supply commitment tying Aurora's 3.2T laser capacity largely to Halcyon.",
+          "type": "world",
+          "entities": [
+            "Halcyon",
+            "Aurora Optics Inc.",
+            "laser output",
+            "Halcyon Networks",
+            "Aurora"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-09-02T00:00:00.010000+00:00",
+          "document_id": "doc-entities",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "1a20ca2b-2c92-47e6-9ce7-c9e15cd9f7ff"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-entities_0",
+          "tags": [
+            "form:8-K",
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.0723398372262223,
+            "reranker": 0.98981863,
+            "semantic": 0.6693710088729906,
+            "keyword": 0.9000000357627869
+          },
+          "attachments": null
+        },
+        {
+          "id": "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "text": "Aurora Optics stated that demand for 800G optical modules exceeded supply in Q3 2026. | When: August 2026 | Involving: Aurora Optics | Indicates supply constraint for 800G optical modules",
+          "type": "world",
+          "entities": [
+            "Aurora Optics",
+            "800G optical modules"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-07-01T00:00:00+00:00",
+          "occurred_end": "2026-09-30T00:00:00+00:00",
+          "mentioned_at": "2026-08-20T00:00:00+00:00",
+          "document_id": "doc-new",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "6722c6a3-ab2c-43ca-958a-f73c1d3ea981"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-new_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.0465862729143107,
+            "reranker": 0.9978422,
+            "semantic": 0.5962612388289724,
+            "keyword": 1.2000000476837158
+          },
+          "attachments": null
+        },
+        {
+          "id": "18b243be-e9e0-400c-be72-ad39155be14a",
+          "text": "Aurora Optics Inc. announced it will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: by December 2026 | Involving: Aurora Optics Inc. | Manufacturing capacity change with potential supply impact \u2014 fab closure and shift to contract manufacturing",
+          "type": "world",
+          "entities": [
+            "laser production",
+            "Aurora Optics Inc.",
+            "Tucson",
+            "Malaysia",
+            "Penang",
+            "Arizona"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-09-01T00:00:00+00:00",
+          "occurred_end": "2026-12-31T00:00:00+00:00",
+          "mentioned_at": "2026-09-01T00:00:00+00:00",
+          "document_id": "srcv:aurora-v2",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "f87f91ee-78e1-4058-bb46-54aee07a3a78"
+          },
+          "chunk_id": "atlas-q01-1790929097_srcv:aurora-v2_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.0406281880808075,
+            "reranker": 0.9610334,
+            "semantic": 0.6500629574097977,
+            "keyword": 1.0
+          },
+          "attachments": null
+        },
+        {
+          "id": "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "text": "In Q3 2026, Aurora Optics stated that demand for 800G optical modules exceeded supply.",
+          "type": "observation",
+          "entities": [
+            "Aurora Optics",
+            "800G optical modules"
+          ],
+          "context": null,
+          "occurred_start": "2026-07-01T00:00:00+00:00",
+          "occurred_end": "2026-09-30T00:00:00+00:00",
+          "mentioned_at": "2026-08-20T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.039185800751048,
+            "reranker": 0.9907864,
+            "semantic": 0.6607387459718446,
+            "keyword": 0.4000000059604645
+          },
+          "attachments": null
+        },
+        {
+          "id": "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+          "text": "Aurora Optics Inc. laser output cannot grow until a new MOCVD line qualifies in early 2027. | When: early 2027 | Involving: Aurora Optics Inc. | Manufacturing constraint \u2014 output growth blocked by MOCVD qualification timeline.",
+          "type": "world",
+          "entities": [
+            "MOCVD",
+            "laser",
+            "Aurora Optics Inc.",
+            "indium phosphide"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-07-30T00:00:00.010000+00:00",
+          "document_id": "doc-scope-one",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "7c1d5ca8-f808-49c2-9b62-44833dd434ca"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-scope-one_0",
+          "tags": [
+            "form:10-Q",
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.0331351106764843,
+            "reranker": 0.9703169,
+            "semantic": 0.6904256961130231,
+            "keyword": 0.9000000357627869
+          },
+          "attachments": null
+        },
+        {
+          "id": "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+          "text": "Aurora Optics Inc. Tucson indium phosphide fab ran at full utilization in Q2 fiscal 2026. | When: Q2 fiscal 2026 | Involving: Aurora Optics Inc. | Capacity constraint context \u2014 fab at full capacity limits near-term laser output growth.",
+          "type": "world",
+          "entities": [
+            "indium phosphide",
+            "Aur Optics Inc.",
+            "fab",
+            "Tucson"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-04-01T00:00:00+00:00",
+          "occurred_end": "2026-06-30T00:00:00+00:00",
+          "mentioned_at": "2026-07-30T00:00:00+00:00",
+          "document_id": "doc-scope-one",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "7c1d5ca8-f808-49c2-9b62-44833dd434ca"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-scope-one_0",
+          "tags": [
+            "form:10-Q",
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.9945954216102743,
+            "reranker": 0.9956045,
+            "semantic": 0.6583816597916674,
+            "keyword": 0.9000000357627869
+          },
+          "attachments": null
+        },
+        {
+          "id": "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks.",
+          "type": "observation",
+          "entities": [
+            "Aurora Optics Inc.",
+            "1.6T transceiver lasers",
+            "Halcyon Networks"
+          ],
+          "context": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-01-10T00:00:00.010000+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.9501078995227218,
+            "reranker": 0.99529123,
+            "semantic": 0.6331877708435104,
+            "keyword": 0.4000000059604645
+          },
+          "attachments": null
+        },
+        {
+          "id": "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks. | Involving: Aurora Optics Inc. (supplier), Halcyon Networks (customer) | Identifies customer dependency and product relationship",
+          "type": "world",
+          "entities": [
+            "Aurora Optics Inc.",
+            "Halcyon Networks",
+            "1.6T transceiver lasers"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-01-10T00:00:00.010000+00:00",
+          "document_id": "srcv:aurora-v1",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "8823851a-6b22-4893-8a8e-7364209e98bd"
+          },
+          "chunk_id": "atlas-q01-1790929097_srcv:aurora-v1_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.9266815337536952,
+            "reranker": 0.9707508,
+            "semantic": 0.6029453636971344,
+            "keyword": 0.9000000357627869
+          },
+          "attachments": null
+        },
+        {
+          "id": "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "text": "In March 2024 Aurora Optics reported that demand for 800G optical modules was weak and inventories were high. | When: March 2024 | Involving: Aurora Optics | Indicates weak demand and elevated inventory for 800G optical modules, relevant to capacity and supply outlook.",
+          "type": "world",
+          "entities": [
+            "Aurora Optics",
+            "800G optical modules"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2024-03-01T00:00:00+00:00",
+          "occurred_end": "2024-03-31T00:00:00+00:00",
+          "mentioned_at": "2024-03-15T00:00:00+00:00",
+          "document_id": "doc-old",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "ef96c325-aa10-485f-96c6-aff165ac9b70"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-old_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.9085801779999999,
+            "reranker": 0.98758715,
+            "semantic": 0.5971193669509521,
+            "keyword": 1.100000023841858
+          },
+          "attachments": null
+        },
+        {
+          "id": "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year.",
+          "type": "observation",
+          "entities": [
+            "Tucson",
+            "indium phosphide",
+            "wafer fab",
+            "Aurora Optics Inc.",
+            "Arizona"
+          ],
+          "context": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-01-10T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.8884627654074604,
+            "reranker": 0.9307145,
+            "semantic": 0.6313535539525947,
+            "keyword": 0.30000001192092896
+          },
+          "attachments": null
+        },
+        {
+          "id": "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "text": "In March 2024, Aurora Optics reported weak demand and elevated inventory for 800G optical modules.",
+          "type": "observation",
+          "entities": [
+            "Aurora Optics",
+            "800G optical modules"
+          ],
+          "context": null,
+          "occurred_start": "2024-03-01T00:00:00+00:00",
+          "occurred_end": "2024-03-31T00:00:00+00:00",
+          "mentioned_at": "2024-03-15T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.8580351755999999,
+            "reranker": 0.93264693,
+            "semantic": 0.6762392730998127,
+            "keyword": 0.30000001192092896
+          },
+          "attachments": null
+        },
+        {
+          "id": "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "text": "In Q2 fiscal 2026, Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization, and laser output cannot grow until a new MOCVD line qualifies in early 2027.",
+          "type": "observation",
+          "entities": [
+            "Tucson",
+            "Aurora Optics Inc.",
+            "laser",
+            "indium phosphide",
+            "fab",
+            "Aur Optics Inc.",
+            "MOCVD"
+          ],
+          "context": null,
+          "occurred_start": "2026-04-01T00:00:00+00:00",
+          "occurred_end": "2026-06-30T00:00:00+00:00",
+          "mentioned_at": "2026-07-30T00:00:00.010000+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.8334147893014051,
+            "reranker": 0.83426034,
+            "semantic": 0.7255714535713247,
+            "keyword": 0.30000001192092896
+          },
+          "attachments": null
+        },
+        {
+          "id": "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year. | Involving: Aurora Optics Inc. | Establishes manufacturing capacity baseline",
+          "type": "world",
+          "entities": [
+            "indium phosphide",
+            "Aurora Optics Inc.",
+            "Tucson",
+            "wafer fab",
+            "Arizona"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-01-10T00:00:00+00:00",
+          "document_id": "srcv:aurora-v1",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "8823851a-6b22-4893-8a8e-7364209e98bd"
+          },
+          "chunk_id": "atlas-q01-1790929097_srcv:aurora-v1_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.8306560514521302,
+            "reranker": 0.87015873,
+            "semantic": 0.5868187300454824,
+            "keyword": 0.800000011920929
+          },
+          "attachments": null
+        },
+        {
+          "id": "3a59958d-623c-4598-bf03-af5d12b87183",
+          "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: December 2026 | Involving: Aurora Optics Inc. | Manufacturing relocation \u2014 potential supply chain impact",
+          "type": "world",
+          "entities": [
+            "Arizona",
+            "Aurora Optics Inc.",
+            "Malaysia",
+            "laser production",
+            "Penang",
+            "Tucson"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-12-01T00:00:00+00:00",
+          "occurred_end": "2026-12-31T00:00:00+00:00",
+          "mentioned_at": "2026-09-01T00:00:00+00:00",
+          "document_id": "doc-upsert",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "e302e4c9-288a-4d5e-98e6-03541e6227fc"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-upsert_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.7811585,
+            "reranker": 0.7811585,
+            "semantic": 0.6375385902845031,
+            "keyword": 0.9000000357627869
+          },
+          "attachments": null
+        },
+        {
+          "id": "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia.",
+          "type": "observation",
+          "entities": [
+            "laser production",
+            "Penang",
+            "Tucson",
+            "Malaysia",
+            "Aurora Optics Inc.",
+            "Arizona"
+          ],
+          "context": null,
+          "occurred_start": "2026-09-01T00:00:00+00:00",
+          "occurred_end": "2026-12-31T00:00:00+00:00",
+          "mentioned_at": "2026-09-01T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.5055254514409752,
+            "reranker": 0.4668592,
+            "semantic": 0.6775482902719044,
+            "keyword": 0.30000001192092896
+          },
+          "attachments": null
+        },
+        {
+          "id": "4e5d2243-9929-4c16-bec1-43030aefd936",
+          "text": "Borealis Photonics Ltd. reported on August 1, 2026 that lead times for its silicon photonics modules rose to 52 weeks, indicating significant supply constraint / capacity tightness for silicon photonics modules.",
+          "type": "observation",
+          "entities": [
+            "Borealis Photonics Ltd.",
+            "silicon photonics modules"
+          ],
+          "context": null,
+          "occurred_start": "2026-08-01T00:00:00+00:00",
+          "occurred_end": "2026-08-01T23:59:59+00:00",
+          "mentioned_at": "2026-08-01T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "company:borealis"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.4835542928269845,
+            "reranker": 0.45368555,
+            "semantic": 0.5325204451394356,
+            "keyword": 0.30000001192092896
+          },
+          "attachments": null
+        },
+        {
+          "id": "c06a0c69-be76-4f6a-b556-0f455029b1d6",
+          "text": "Borealis Photonics Ltd. reported that lead times for its silicon photonics modules rose to 52 weeks. | When: Saturday, August 01, 2026 | Involving: Borealis Photonics Ltd. | Indicates significant supply constraint / capacity tightness for silicon photonics modules, which is economically material.",
+          "type": "world",
+          "entities": [
+            "Borealis Photonics Ltd.",
+            "silicon photonics modules"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-08-01T00:00:00+00:00",
+          "occurred_end": "2026-08-01T23:59:59+00:00",
+          "mentioned_at": "2026-08-01T00:00:00+00:00",
+          "document_id": "doc-sync",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "f7144979-a187-4808-ad8b-9ec7cb1d66a9"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-sync_0",
+          "tags": [
+            "company:borealis"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.1759458046864145,
+            "reranker": 0.16507778,
+            "semantic": 0.4501542255420292,
+            "keyword": 0.30000001192092896
+          },
+          "attachments": null
+        },
+        {
+          "id": "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "text": "Halcyon accounted for 38% of Aurora's fiscal 2026 revenue. | When: fiscal 2026 | Involving: Halcyon (customer), Aurora (supplier) | Highlights significant customer concentration risk.",
+          "type": "world",
+          "entities": [
+            "Aurora Optics Inc.",
+            "Aurora",
+            "Halcyon",
+            "Halcyon Networks"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-09-02T00:00:00+00:00",
+          "document_id": "doc-entities",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "1a20ca2b-2c92-47e6-9ce7-c9e15cd9f7ff"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-entities_0",
+          "tags": [
+            "form:8-K",
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.0003646313671322532,
+            "reranker": 0.0003365714,
+            "semantic": 0.460109797722686,
+            "keyword": 0.30000001192092896
+          },
+          "attachments": null
+        },
+        {
+          "id": "299014ca-e1be-401f-b4d2-b7b7b5ecc63c",
+          "text": "Borealis Photonics Ltd. signed a three-year agreement to purchase indium phosphide substrates from Cirrus Semiconductor, motivated by an industry-wide shortage of six-inch substrates. | Involving: Borealis Photonics Ltd. (buyer), Cirrus Semiconductor (supplier) | Industry-wide shortage of six-inch substrates drove the supply agreement",
+          "type": "world",
+          "entities": [
+            "Cirrus Semiconductor",
+            "indium phosphide substrates",
+            "Borealis Photonics Ltd.",
+            "six-inch substrates"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-08-12T00:00:00+00:00",
+          "document_id": "doc-scope-two",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "69750446-5626-4308-9514-7f4ea225e42c"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-scope-two_0",
+          "tags": [
+            "form:8-K",
+            "company:borealis",
+            "theme:photonics"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 5.3005949423696764e-05,
+            "reranker": 4.945216e-05,
+            "semantic": 0.5103533572169168,
+            "keyword": 0.10000000149011612
+          },
+          "attachments": null
+        },
+        {
+          "id": "81122dbd-5809-47ba-b5f5-c850ddf1c606",
+          "text": "Borealis Photonics Ltd. signed a three-year agreement to purchase indium phosphide substrates from Cirrus Semiconductor, motivated by an industry-wide shortage of six-inch substrates.",
+          "type": "observation",
+          "entities": [
+            "Cirrus Semiconductor",
+            "indium phosphide substrates",
+            "Borealis Photonics Ltd.",
+            "six-inch substrates"
+          ],
+          "context": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-08-12T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "company:borealis"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 2.782286595854804e-05,
+            "reranker": 2.5957479e-05,
+            "semantic": 0.5290632563271088,
+            "keyword": null
+          },
+          "attachments": null
+        },
+        {
+          "id": "eef7aba3-5295-4329-beff-dcf117e50ca7",
+          "text": "Borealis Photonics Ltd. signed a three-year agreement to purchase indium phosphide substrates from Cirrus Semiconductor, motivated by an industry-wide shortage of six-inch substrates.",
+          "type": "observation",
+          "entities": [
+            "Borealis Photonics Ltd.",
+            "Cirrus Semiconductor",
+            "indium phosphide substrates",
+            "six-inch substrates"
+          ],
+          "context": null,
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-08-12T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [
+            "theme:photonics"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 2.782286595854804e-05,
+            "reranker": 2.5957479e-05,
+            "semantic": 0.528434188868654,
+            "keyword": null
+          },
+          "attachments": null
+        },
+        {
+          "id": "ac436f41-597d-41e4-b8e6-51ab79fc766c",
+          "text": "Cirrus Semiconductor reported its gallium arsenide substrate output doubled in 2025. | When: 2025 | Involving: Cirrus Semiconductor | Indicates significant expansion of GaAs substrate manufacturing capacity",
+          "type": "world",
+          "entities": [
+            "gallium arsenide",
+            "substrate",
+            "Cirrus Semiconductor"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2025-01-01T00:00:00+00:00",
+          "occurred_end": "2025-12-31T00:00:00+00:00",
+          "mentioned_at": "2026-08-02T00:00:00+00:00",
+          "document_id": "doc-untagged",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "03dce133-d291-449d-a3e0-7f90eb7c0516"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-untagged_0",
+          "tags": [],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.3478415310201797e-05,
+            "reranker": 1.42009085e-05,
+            "semantic": 0.4393841290106858,
+            "keyword": 0.10000000149011612
+          },
+          "attachments": null
+        },
+        {
+          "id": "122f53e1-8702-4f23-bb3f-59946fb2443d",
+          "text": "Cirrus Semiconductor reported its gallium arsenide substrate output doubled in 2025.",
+          "type": "observation",
+          "entities": [
+            "substrate",
+            "Cirrus Semiconductor",
+            "gallium arsenide"
+          ],
+          "context": null,
+          "occurred_start": "2025-01-01T00:00:00+00:00",
+          "occurred_end": "2025-12-31T00:00:00+00:00",
+          "mentioned_at": "2026-08-02T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.2923746140626845e-05,
+            "reranker": 1.3616507e-05,
+            "semantic": 0.4931020136536377,
+            "keyword": null
+          },
+          "attachments": null
+        }
+      ],
+      "trace": null,
+      "entities": {
+        "Halcyon": {
+          "entity_id": "8fe7674d-9da9-4ea0-b215-e87bd6e5472f",
+          "canonical_name": "Halcyon",
+          "observations": []
+        },
+        "Aurora Optics Inc.": {
+          "entity_id": "29a05e01-c88f-4b83-b8b4-6b26c231fba7",
+          "canonical_name": "Aurora Optics Inc.",
+          "observations": []
+        },
+        "laser output": {
+          "entity_id": "093d3f41-2d6c-4254-919a-32a7adf76d16",
+          "canonical_name": "laser output",
+          "observations": []
+        },
+        "Halcyon Networks": {
+          "entity_id": "2c82000f-d856-4b65-a283-c2550bbfabf2",
+          "canonical_name": "Halcyon Networks",
+          "observations": []
+        },
+        "Aurora": {
+          "entity_id": "399de425-e409-48ea-bf79-fa3ce9c37726",
+          "canonical_name": "Aurora",
+          "observations": []
+        },
+        "Aurora Optics": {
+          "entity_id": "da14f212-75e9-4cf8-b2a9-a8457d0fe83d",
+          "canonical_name": "Aurora Optics",
+          "observations": []
+        },
+        "800G optical modules": {
+          "entity_id": "a723106b-415c-40a6-a7cf-b54e07586526",
+          "canonical_name": "800G optical modules",
+          "observations": []
+        },
+        "laser production": {
+          "entity_id": "cfce7c9c-0552-41cd-819f-cf044eb2759c",
+          "canonical_name": "laser production",
+          "observations": []
+        },
+        "Tucson": {
+          "entity_id": "b4e3d1c1-a7e7-4b91-b81d-0e718e2d1f5b",
+          "canonical_name": "Tucson",
+          "observations": []
+        },
+        "Malaysia": {
+          "entity_id": "b21bd294-b159-4f93-9ced-852ef538614e",
+          "canonical_name": "Malaysia",
+          "observations": []
+        },
+        "Penang": {
+          "entity_id": "c52fffd2-886e-46f2-b058-6364135aee55",
+          "canonical_name": "Penang",
+          "observations": []
+        },
+        "Arizona": {
+          "entity_id": "bd00e120-069e-4b2a-8951-2cae49e9a964",
+          "canonical_name": "Arizona",
+          "observations": []
+        },
+        "MOCVD": {
+          "entity_id": "6db16caf-a45a-4de2-963b-bc775f02026d",
+          "canonical_name": "MOCVD",
+          "observations": []
+        },
+        "laser": {
+          "entity_id": "a2f84d7e-57e7-49ff-9570-07372d9be2b6",
+          "canonical_name": "laser",
+          "observations": []
+        },
+        "indium phosphide": {
+          "entity_id": "fd8e8edc-1332-4e3e-b823-6684cfde1fd9",
+          "canonical_name": "indium phosphide",
+          "observations": []
+        },
+        "Aur Optics Inc.": {
+          "entity_id": "016d3a1a-c78b-417a-9efc-4401bc1441f2",
+          "canonical_name": "Aur Optics Inc.",
+          "observations": []
+        },
+        "fab": {
+          "entity_id": "3747b4fe-70a6-49ac-8a5d-ae0c9d592513",
+          "canonical_name": "fab",
+          "observations": []
+        },
+        "1.6T transceiver lasers": {
+          "entity_id": "be3c77dc-7ca9-4542-a0b9-08a2a967143a",
+          "canonical_name": "1.6T transceiver lasers",
+          "observations": []
+        },
+        "wafer fab": {
+          "entity_id": "00ccff6a-c701-4b73-8c22-bd9f2cc56837",
+          "canonical_name": "wafer fab",
+          "observations": []
+        },
+        "Borealis Photonics Ltd.": {
+          "entity_id": "c03d82f3-faff-462a-bd21-5303808d9bd1",
+          "canonical_name": "Borealis Photonics Ltd.",
+          "observations": []
+        },
+        "silicon photonics modules": {
+          "entity_id": "18dfa19b-52c1-4ef8-add8-2fc086e8286b",
+          "canonical_name": "silicon photonics modules",
+          "observations": []
+        },
+        "Cirrus Semiconductor": {
+          "entity_id": "70fe2c00-2299-4487-949b-e8fa66c676fe",
+          "canonical_name": "Cirrus Semiconductor",
+          "observations": []
+        },
+        "indium phosphide substrates": {
+          "entity_id": "bec89e58-1f7b-4d79-8ed0-fde4ced682b2",
+          "canonical_name": "indium phosphide substrates",
+          "observations": []
+        },
+        "six-inch substrates": {
+          "entity_id": "85f53875-f3b3-4320-8cd3-1bef1969c549",
+          "canonical_name": "six-inch substrates",
+          "observations": []
+        },
+        "gallium arsenide": {
+          "entity_id": "a635e97d-73b5-43e3-abf4-ee5a0f8840c9",
+          "canonical_name": "gallium arsenide",
+          "observations": []
+        },
+        "substrate": {
+          "entity_id": "691d129b-44cd-47fc-9fa7-db8984d284b6",
+          "canonical_name": "substrate",
+          "observations": []
+        }
+      },
+      "chunks": null,
+      "source_facts": null,
+      "source_facts_truncated": null
+    }
+  }
+}

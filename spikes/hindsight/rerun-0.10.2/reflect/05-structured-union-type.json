@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/reflect",
+    "query": null,
+    "body": {
+      "query": "How many wafers per year?",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "n"
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 500,
+    "seconds": 0.02,
+    "body": "Internal Server Error"
+  }
+}

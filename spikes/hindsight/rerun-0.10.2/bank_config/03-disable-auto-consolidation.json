@@ -1,0 +1,79 @@
+{
+  "request": {
+    "method": "PATCH",
+    "path": "/v1/default/banks/atlas-q01-1790929097/config",
+    "query": null,
+    "body": {
+      "updates": {
+        "enable_auto_consolidation": false
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "bank_id": "atlas-q01-1790929097",
+      "config": {
+        "recall_budget_min": 20,
+        "max_observations_per_scope": -1,
+        "disposition_skepticism": 5,
+        "recall_budget_adaptive_low": 0.025,
+        "consolidation_llm_batch_size": 8,
+        "store_document_text": true,
+        "audit_log_enabled": false,
+        "recall_budget_max": 2000,
+        "enable_reranking": true,
+        "retain_extraction_mode": "concise",
+        "disposition_literalism": 5,
+        "enable_text_search": true,
+        "recall_include_chunks": true,
+        "entity_labels": null,
+        "mental_model_min_refresh_interval_seconds": 0,
+        "recall_budget_function": "fixed",
+        "reflect_source_facts_max_tokens": -1,
+        "recall_budget_fixed_mid": 300,
+        "recall_budget_adaptive_mid": 0.075,
+        "disposition_empathy": null,
+        "knowledge_page_default_trigger": null,
+        "enable_auto_consolidation": false,
+        "retain_strategies": null,
+        "enable_temporal_retrieval": true,
+        "reflect_mission": "Form source-grounded syntheses; distinguish facts from claims; seek disconfirmation.",
+        "recall_max_tokens": 2048,
+        "retain_chunk_size": 3000,
+        "mcp_enabled_tools": null,
+        "enable_observations": true,
+        "retain_custom_instructions": null,
+        "reflect_default_options": null,
+        "entities_allow_free_form": true,
+        "consolidation_source_facts_max_tokens": 4096,
+        "recall_budget_fixed_low": 100,
+        "consolidation_source_facts_max_tokens_per_observation": 256,
+        "consolidation_strategies": null,
+        "observations_mission": null,
+        "memory_defense": null,
+        "retain_chunk_batch_size": 100,
+        "recall_chunks_max_tokens": 1000,
+        "llm_gemini_safety_settings": null,
+        "consolidation_llm_parallelism": 4,
+        "retain_default_strategy": null,
+        "retain_max_attachments_per_chunk": 8,
+        "recall_budget_fixed_high": 1000,
+        "consolidation_max_memories_per_round": 100,
+        "retain_mission": "Extract economically material facts about capacity, supply agreements, customer dependencies and manufacturing constraints. Keep stated and inferred facts distinct.",
+        "enable_graph_retrieval": true,
+        "observation_scope_limits": null,
+        "retain_structured_chunk_size": null,
+        "recall_budget_adaptive_high": 0.25
+      },
+      "overrides": {
+        "retain_mission": "Extract economically material facts about capacity, supply agreements, customer dependencies and manufacturing constraints. Keep stated and inferred facts distinct.",
+        "reflect_mission": "Form source-grounded syntheses; distinguish facts from claims; seek disconfirmation.",
+        "disposition_literalism": 5,
+        "disposition_skepticism": 5,
+        "enable_auto_consolidation": false
+      }
+    }
+  }
+}
