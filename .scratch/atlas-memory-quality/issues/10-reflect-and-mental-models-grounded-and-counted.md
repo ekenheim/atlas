@@ -17,10 +17,10 @@ Migration revision `0066` (down: main's head), only if a record needs it.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the API seam: a reflect is sent with `budget` and `exclude_mental_models`; the answer's citations are labelled; a model citation is reported with its kind.
-- [ ] A reflect job and a refresh job each add one `codex` unit (the queue read shows it); a spent window holds them as today.
-- [ ] The template validates and imports through the fake with the new trigger and bank fields and the theme tags; a template whose model could run away is still invalid.
-- [ ] The refresh record says Atlas's job refreshed; a model already refreshed inside its interval is still skipped.
-- [ ] API client regenerated; decision and runbook entries; `AGENTS.md` line.
+- [x] Integration test at the API seam: a reflect is sent with `budget` and `exclude_mental_models`; the answer's citations are labelled; a model citation is reported with its kind.
+- [x] A reflect job and a refresh job each add one `codex` unit (the queue read shows it); a spent window holds them as today.
+- [x] The template validates and imports through the fake with the new trigger and bank fields and the theme tags; a template whose model could run away is still invalid.
+- [x] The refresh record says Atlas's job refreshed; a model already refreshed inside its interval is still skipped.
+- [x] API client regenerated; decision and runbook entries; `AGENTS.md` line.

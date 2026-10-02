@@ -8,7 +8,7 @@
 - **The job** is pausable: a quota or outage failure pauses the queue like a retain's, and
   a paused queue doesn't claim it. It never refreshes a model inside the model's
   `min_refresh_interval_seconds` (from the template) since its last refresh, whether Atlas
-  asked for that one or Hindsight ran it on its own `refresh_cron`; and it doesn't refresh a
+  asked for that one or it was made in Hindsight itself; and it doesn't refresh a
   model Hindsight reports as not stale (nothing new in its scope). Otherwise it asks
   Hindsight to refresh the model, polls the operation, and records the new content.
 - **Every decision is recorded** as a `mental_model_refresh` row (skipped, submitted,
@@ -19,10 +19,13 @@
   model behind each alias) before asking Hindsight, and finishes it when the operation ends.
   Hindsight's refresh operation reports no token usage, so its totals stay 0.
 
-Hindsight's own `refresh_cron` (06:00 UTC in the template) is gated by the same minimum
-interval and by staleness on the server; Atlas's job runs after it (06:30 by default) and
-records what it finds. A manual refresh request is never rate-limited by Hindsight, which is
-why Atlas enforces the interval itself.
+Atlas's job is the only scheduler (memory-quality ticket 10): the template gives Hindsight
+no `refresh_cron` and never refreshes after consolidation, so every automatic refresh is one
+Atlas submitted, counted in the `codex` budget (`atlas.jobs.budget`). A refresh made in
+Hindsight itself (its API or UI) is still found: each record says who made the refresh it
+records (`refreshed_by`: `atlas`, or `hindsight` for one Atlas didn't make). A manual
+refresh request is never rate-limited by Hindsight, which is why Atlas enforces the interval
+itself.
 """
 
 import hashlib
@@ -48,6 +51,7 @@ REFRESH_KIND = "refresh_mental_model"
 
 type RefreshStatus = Literal["skipped", "submitted", "completed", "failed"]
 type SkipReason = Literal["min_interval", "not_stale"]
+type RefreshedBy = Literal["atlas", "hindsight"]
 
 
 class UnknownMentalModel(LookupError):
@@ -187,6 +191,7 @@ class MentalModelRefresher:
                     "run_id": None,
                     **_refresh_record(model),
                     "completed_at": now,
+                    "refreshed_by": self._refreshed_by(definition.id, model),
                 }
             )
             outcome: Artifacts = {
@@ -215,6 +220,7 @@ class MentalModelRefresher:
                 "raw_citations": "[]",
                 "refreshed_at": None,
                 "completed_at": None,
+                "refreshed_by": None,
             }
         )
         return self._await(row)
@@ -232,6 +238,26 @@ class MentalModelRefresher:
             ).scalar_one()
         moments = [m for m in (requested, model.last_refreshed_at) if m is not None]
         return max(moments) if moments else None
+
+    def _refreshed_by(self, mental_model_id: str, model: MentalModel) -> RefreshedBy | None:
+        """Who made the model's current refresh: Atlas's job (a refresh it completed left
+        this `last_refreshed_at`), Hindsight without Atlas, or nobody yet (None)."""
+        if model.last_refreshed_at is None:
+            return None
+        with self._engine.connect() as connection:
+            atlas = connection.execute(
+                text(
+                    "SELECT EXISTS (SELECT FROM mental_model_refresh WHERE bank_id = :bank"
+                    " AND mental_model_id = :model AND status = 'completed'"
+                    " AND refreshed_at = :refreshed_at)"
+                ),
+                {
+                    "bank": self.bank_id,
+                    "model": mental_model_id,
+                    "refreshed_at": model.last_refreshed_at,
+                },
+            ).scalar_one()
+        return "atlas" if atlas else "hindsight"
 
     # --- awaiting the operation ----------------------------------------------------------------
 
@@ -287,7 +313,7 @@ class MentalModelRefresher:
             ).scalar_one_or_none()
             self._update(
                 row["id"],
-                "status = 'completed', operation_status = :status,"
+                "status = 'completed', operation_status = :status, refreshed_by = 'atlas',"
                 " result_metadata = CAST(:metadata AS jsonb), refreshed_at = :refreshed_at,"
                 " content = :content, content_sha256 = :content_sha256,"
                 " raw_citations = CAST(:raw_citations AS jsonb), completed_at = :now",
@@ -359,11 +385,13 @@ class MentalModelRefresher:
                         "INSERT INTO mental_model_refresh (id, bank_id, mental_model_id, job_id,"
                         " scheduled_for, template_version, min_refresh_interval_seconds, status,"
                         " skip_reason, operation_id, run_id, previous_refreshed_at, refreshed_at,"
-                        " content, content_sha256, raw_citations, requested_at, completed_at)"
+                        " content, content_sha256, raw_citations, requested_at, completed_at,"
+                        " refreshed_by)"
                         " VALUES (:id, :bank, :mental_model_id, :job_id, :scheduled_for,"
                         " :version, :min_interval, :status, :skip_reason, :operation_id, :run_id,"
                         " :previous_refreshed_at, :refreshed_at, :content, :content_sha256,"
-                        " CAST(:raw_citations AS jsonb), :requested_at, :completed_at)"
+                        " CAST(:raw_citations AS jsonb), :requested_at, :completed_at,"
+                        " :refreshed_by)"
                         " RETURNING *"
                     ),
                     {"id": uuid.uuid4(), "bank": self.bank_id, "version": version, **fields},

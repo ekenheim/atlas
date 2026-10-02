@@ -319,7 +319,8 @@ def test_replay_operations_count_against_the_codex_budget(
     request_replay(atlas)
     atlas.worker_pass()
 
-    assert codex_used(atlas) == before + 3  # two retain batches and the consolidation
+    # Two retain batches, the consolidation and the two reflects (memory-quality ticket 10).
+    assert codex_used(atlas) == before + 5
 
 
 def codex_used(atlas: Atlas) -> int:
@@ -355,7 +356,7 @@ def test_a_replays_retains_ask_for_the_configured_extractor_and_stay_on_the_code
     batches = fake.retained(requested["bank_id"])
     assert len(batches) == 2
     assert {item["metadata"]["extractor"] for batch in batches for item in batch} == {"minimax"}
-    assert codex_used(atlas) == 3  # its two retain batches and the consolidation
+    assert codex_used(atlas) == 5  # its two retain batches, the consolidation, two reflects
     atlas.engine.dispose()
 
 

@@ -32,11 +32,14 @@ REFRESHES_SHOWN = 30
 
 
 class RefreshTrigger(BaseModel):
-    """When the model is refreshed, as the bank template defines it."""
+    """When and how the model is refreshed, as the bank template defines it."""
 
     refresh_after_consolidation: bool
-    refresh_cron: str  # UTC
+    refresh_cron: str | None  # UTC; None: Hindsight never refreshes it on a schedule
     min_refresh_interval_seconds: int
+    budget: Literal["low", "mid", "high"] | None  # None: Hindsight's `mid` for a refresh
+    exclude_mental_models: bool  # True: the refresh never reads another mental model
+    keep_trace: bool
 
 
 class MentalModelRefresh(BaseModel):
@@ -49,6 +52,9 @@ class MentalModelRefresh(BaseModel):
     min_refresh_interval_seconds: int
     status: Literal["skipped", "submitted", "completed", "failed"]
     skip_reason: Literal["min_interval", "not_stale"] | None
+    # Who made the refresh this row records: Atlas's job, or Hindsight without Atlas (for a
+    # skip: the refresh it found). None: before ticket 10, submitted or failed, or never.
+    refreshed_by: Literal["atlas", "hindsight"] | None
     operation_id: str | None
     run_id: uuid.UUID | None  # the run of a submitted refresh (None: skipped, or no LiteLLM)
     operation_status: str | None
@@ -74,6 +80,7 @@ class MentalModelView(BaseModel):
     id: str
     name: str
     source_query: str
+    tags: list[str]  # the memories a refresh reads (and a reflect must match to see it)
     trigger: RefreshTrigger
     bank_id: str
     in_bank: bool  # False: the template hasn't been applied to the bank yet
@@ -122,6 +129,9 @@ class MentalModelReader:
             refresh_after_consolidation=definition.trigger.refresh_after_consolidation,
             refresh_cron=definition.trigger.refresh_cron,
             min_refresh_interval_seconds=definition.trigger.min_refresh_interval_seconds,
+            budget=definition.trigger.budget,
+            exclude_mental_models=definition.trigger.exclude_mental_models,
+            keep_trace=definition.trigger.keep_trace,
         )
         try:
             model = self._gateway.get_mental_model(definition.id)
@@ -148,6 +158,7 @@ class MentalModelReader:
             id=definition.id,
             name=definition.name,
             source_query=definition.source_query,
+            tags=definition.tags,
             trigger=trigger,
             bank_id=self._gateway.bank_id,
             in_bank=model is not None,

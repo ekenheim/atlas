@@ -189,6 +189,17 @@ class ReflectRequest(BaseModel):
         default=None,
         description="a JSON Schema object for structured output; union types are refused",
     )
+    budget: Budget = Field(
+        default="mid", description="how deep reflect searches (Hindsight's own default is low)"
+    )
+    exclude_mental_models: bool = Field(
+        default=True,
+        description=(
+            "keep the mental models out of the answer, so every citation can resolve to a"
+            " section; false lets a scope that matches a model's tags read it (reported as a"
+            " `mental_model` citation)"
+        ),
+    )
 
 
 class ReflectPayload(BaseModel):
@@ -285,8 +296,9 @@ class Research:
                 connection.execute(
                     text(
                         "INSERT INTO research_answer (id, bank_id, question, scope,"
-                        " response_schema, status, job_id) VALUES (:id, :bank, :question,"
-                        " CAST(:scope AS jsonb), CAST(:schema AS jsonb), 'pending', :job)"
+                        " response_schema, status, job_id, budget, exclude_mental_models)"
+                        " VALUES (:id, :bank, :question, CAST(:scope AS jsonb),"
+                        " CAST(:schema AS jsonb), 'pending', :job, :budget, :exclude)"
                         " RETURNING *"
                     ),
                     {
@@ -296,6 +308,8 @@ class Research:
                         "scope": scope.model_dump_json(),
                         "schema": _json_or_null(request.response_schema),
                         "job": job_id,
+                        "budget": request.budget,
+                        "exclude": request.exclude_mental_models,
                     },
                 )
                 .mappings()
@@ -320,23 +334,26 @@ class Research:
         if row["status"] != "pending":
             return base | {"outcome": f"already_{row['status']}"}
         try:
-            return base | self._answer(row, runs)
+            return base | self._answer(row, job, runs)
         except Exception as error:
             if job.attempts >= job.max_attempts:
                 self._fail(answer_id, f"{type(error).__name__}: {error}")
             raise
 
-    def _answer(self, row: RowMapping, runs: RunRecorder | None) -> Artifacts:
+    def _answer(self, row: RowMapping, job: Job, runs: RunRecorder | None) -> Artifacts:
         scope = AppliedScope.model_validate(row["scope"])
         schema: dict[str, Any] | None = row["response_schema"]
         run = runs.start(REFLECT_KIND) if runs is not None else None
         tokens = (0, 0)
         try:
+            self._record_submission(row["id"], job)  # one unit of the codex budget
             reflected = self._gateway.reflect(
                 row["question"],
                 scope=TagScope(scope.tags, scope.tags_match),
                 response_schema=schema,
                 include_facts=True,
+                budget=row["budget"],
+                exclude_mental_models=row["exclude_mental_models"],
             )
             if reflected.usage is not None:
                 tokens = (reflected.usage.input_tokens, reflected.usage.output_tokens)
@@ -344,7 +361,9 @@ class Research:
             if runs is not None and run is not None:
                 runs.finish(run.id, tokens_in=tokens[0], tokens_out=tokens[1])
         resolver = ProvenanceResolver(self._engine, self._archive, self._gateway)
-        citations = resolver.resolve_answer(reflected.text, reflected.memories)
+        citations = resolver.resolve_answer(
+            reflected.text, reflected.memories, reflected.mental_models
+        )
         structured_error = structured_output_error(schema, reflected)
         raw = [memory.model_dump(mode="json") for memory in reflected.memories]
         with self._engine.begin() as connection:
@@ -392,6 +411,23 @@ class Research:
             "citations": {state: count for state, count in counts.items()},
             "run_id": str(run.id) if run is not None else None,
         }
+
+    def _record_submission(self, answer_id: uuid.UUID, job: Job) -> None:
+        """Record that this attempt submits the answer's reflect (`atlas.jobs.budget` counts
+        each such row as one `codex` unit, whatever Hindsight answers)."""
+        with self._engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO reflect_submission (id, research_answer_id, job_id, attempt)"
+                    " VALUES (:id, :answer, :job, :attempt)"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "answer": answer_id,
+                    "job": job.id,
+                    "attempt": max(job.attempts, 1),
+                },
+            )
 
     def _fail(self, answer_id: uuid.UUID, error: str) -> None:
         with self._engine.begin() as connection:

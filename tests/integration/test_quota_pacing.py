@@ -202,6 +202,72 @@ def test_a_backfill_over_the_codex_budget_spreads_over_two_windows_behind_intera
     assert paced.metrics()[("atlas_budget_usage_total", labels(provider="codex"))] == 5
 
 
+def test_each_reflect_and_each_refresh_atlas_submits_spends_one_codex_operation(
+    database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served], clock: Clock
+) -> None:
+    fake = hindsight[0]
+    fake.derive_memories()  # reflect answers are scripted (tests/fakes/hindsight.py)
+    paced = codex_paced(database_url, tmp_path, hindsight[1].url, clock, codex_budget_operations=3)
+    model = json.dumps({"mental_model_id": "theme-status"})
+    start = clock.now
+
+    def reflect(key: str) -> str:
+        response = paced.api.post(
+            "/api/v1/memory/reflect",
+            json={
+                "question": f"What constrains optics? ({key})",
+                "scope": {"theme_ids": ["photonics"]},
+            },
+        )
+        assert response.status_code == 202, response.text
+        return response.json()["job_id"]
+
+    fake.script_reflect("An answer.", [])
+    first = reflect("first")
+    paced.worker_pass()
+    assert paced.job(first)["status"] == "succeeded"
+    assert paced.budget("codex")["used"] == 1
+
+    fake.script_refresh("theme-status", "Theme.", [], refreshed_at=start)
+    refresh = paced.atlas.enqueue(
+        "jobs", "enqueue", "refresh_mental_model", "--key", "one", "--payload", model
+    )
+    paced.worker_pass()
+    assert paced.job(refresh)["artifacts"]["outcome"] == "completed"
+    assert paced.budget("codex")["used"] == 2
+
+    # A refresh skipped inside the model's interval asks Hindsight for nothing and spends
+    # nothing.
+    skipped = paced.atlas.enqueue(
+        "jobs", "enqueue", "refresh_mental_model", "--key", "two", "--payload", model
+    )
+    paced.worker_pass()
+    assert paced.job(skipped)["artifacts"]["outcome"] == "skipped"
+    assert paced.budget("codex")["used"] == 2
+
+    fake.script_reflect("Another answer.", [])
+    second = reflect("second")
+    paced.worker_pass()
+    assert paced.job(second)["status"] == "succeeded"
+    codex = paced.budget("codex")
+    assert (codex["used"], codex["interactive_held"]) == (3, True)
+    assert at(codex["interactive_resumes_at"]) == start + FIVE_HOURS
+    assert paced.metrics()[("atlas_budget_usage_total", labels(provider="codex"))] == 3
+
+    # The spent window holds the next reflect and the next refresh, as it holds a retain.
+    held = reflect("held")
+    held_refresh = paced.atlas.enqueue(
+        "jobs", "enqueue", "refresh_mental_model", "--key", "three", "--payload", model
+    )
+    paced.worker_pass()
+    assert paced.statuses([held, held_refresh]) == ["queued", "queued"]
+    assert paced.pending("reflect")["budget_held"] == 1
+    assert paced.pending("refresh_mental_model")["budget_held"] == 1
+    assert len(fake.requests("POST", "reflect")) == 2
+    assert fake.refreshes_requested() == ["theme-status"]
+    paced.atlas.engine.dispose()
+
+
 def test_a_429_still_pauses_the_queue_under_the_budgets(
     database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Served], clock: Clock
 ) -> None:

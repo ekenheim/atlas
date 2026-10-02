@@ -202,14 +202,25 @@ class HindsightGateway:
         scope: TagScope | None,
         response_schema: Mapping[str, Any] | None = None,
         include_facts: bool = True,
+        budget: Budget | None = None,
+        exclude_mental_models: bool | None = None,
     ) -> ReflectAnswer:
-        """Ask a reflect question; with `include_facts`, the answer lists the memories cited."""
+        """Ask a reflect question; with `include_facts`, the answer lists the memories cited.
+
+        `budget` None sends none (Hindsight's default, `low`); `exclude_mental_models` true
+        keeps every mental model out of the reflect loop (0.10.2, `reflect_options/02`), and
+        None sends none (Hindsight's default, false).
+        """
         body: dict[str, Any] = {"query": query, **_scope_fields(scope)}
         if include_facts:
             body["include"] = {"facts": {}}
         if response_schema is not None:
             check_response_schema(response_schema)
             body["response_schema"] = dict(response_schema)
+        if budget is not None:
+            body["budget"] = budget
+        if exclude_mental_models is not None:
+            body["exclude_mental_models"] = exclude_mental_models
         return self._parse(ReflectAnswer, self._post("/reflect", body))
 
     def get_memory(self, memory_id: str) -> Memory:

@@ -330,7 +330,12 @@ class RecallResult(_Result):
 
 
 class CitedMemory(_Result):
-    """A memory an answer is based on. `id` can be missing (content without memory identity)."""
+    """A memory an answer is based on. `id` can be missing (content without memory identity).
+
+    0.10.2 (`reflect_options/02`): a reflect answer's cited world fact also carries its
+    `document_id`, `chunk_id`, `tags` and `metadata`, so it leads to its section in one hop;
+    an observation's are null and empty. A mental model's `based_on` carries none of them.
+    """
 
     id: str | None = None
     text: str
@@ -338,9 +343,19 @@ class CitedMemory(_Result):
     context: str | None = None
     occurred_start: datetime | None = None
     occurred_end: datetime | None = None
+    mentioned_at: datetime | None = None
+    document_id: str | None = None
+    chunk_id: str | None = None
+    tags: list[str] = []
+    metadata: dict[str, str] = {}
+
+    null_dicts = field_validator("metadata", mode="before")(_none_to_empty_dict)
+    null_lists = field_validator("tags", mode="before")(_none_to_empty_list)
 
 
 class CitedMentalModel(_Result):
+    """A mental model an answer read (`based_on.mental_models`): Hindsight's own synthesis."""
+
     id: str
     text: str
     context: str | None = None

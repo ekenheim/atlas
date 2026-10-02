@@ -680,8 +680,18 @@ class Replays:
         # (memory-quality ticket 07).
         recalled = gateway.recall(question.question, scope=tag_scope, query_timestamp=row["cutoff"])
         memories = [_recalled(memory, recalled, resolver) for memory in recalled.memories]
-        reflected = gateway.reflect(question.question, scope=tag_scope, include_facts=True)
-        citations = resolver.resolve_answer(reflected.text, reflected.memories)
+        # Asked as a research answer is by default (memory-quality ticket 10); the replay's
+        # answer row is one `codex` unit (`atlas.jobs.budget`).
+        reflected = gateway.reflect(
+            question.question,
+            scope=tag_scope,
+            include_facts=True,
+            budget="mid",
+            exclude_mental_models=True,
+        )
+        citations = resolver.resolve_answer(
+            reflected.text, reflected.memories, reflected.mental_models
+        )
         leaked_recall = [m for m in memories if _named_versions(m) - visible]
         leaked_citations = [c for c in citations if _cited_versions(c) - visible]
         leaked_ids = sorted(
