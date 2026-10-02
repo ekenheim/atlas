@@ -16,10 +16,12 @@ from atlas.claims.selection import (
     ceiling,
     deal,
     keeps_a_passage,
+    placements,
     select,
     selections,
 )
 from atlas.research.search import bm25, overlap, query_terms, tokens
+from atlas.retention.sections import split_sections
 
 ALLOCATION = (
     "This demand is outpacing our current supply which has required us to make decisions on"
@@ -186,6 +188,68 @@ def test_a_labelled_pointer_is_recorded_by_its_label_not_its_query_number() -> N
     assert found.selected_by == ("pointer:inventory_cycle", "pointer:customer_concentration")
     assert found.pointer == (1, 2)
     assert selections(found.selected_by) == ["pointer"]
+
+
+def chunk_placed(document: Document, chunk_start: int, *, label: str | None = None) -> Pointer:
+    """A pointer into the document's first section placed by its fact's chunk, which starts at
+    `chunk_start`; its Memory text matches the allocation window best (memory-quality 08)."""
+    [section, *_] = split_sections(document.text, form=None, primary=False)
+    return Pointer(
+        document.id,
+        section.anchor,
+        1,
+        2,
+        MEMORY,
+        label=label,
+        section_char_start=section.start,
+        section_char_end=section.end,
+        chunk_char_start=chunk_start,
+    )
+
+
+def test_a_pointer_placed_by_its_chunk_reads_the_window_the_chunk_starts_in() -> None:
+    first = paragraph("We make optical components.")
+    document = note(first, paragraph(ALLOCATION), paragraph("We lease our facilities."))
+    pointers = [
+        chunk_placed(document, len(first) - 40),  # starts at the end of the first window
+        chunk_placed(document, len(first) - 40, label="inventory_cycle"),
+    ]
+
+    [found] = candidates([document], reading=Reading(pointers=pointers))
+
+    assert (found.start, found.end) == (0, len(first))
+    assert found.selected_by == ("pointer:2:chunk", "pointer:inventory_cycle:chunk")
+    assert selections(found.selected_by) == ["pointer"]
+    assert placements(found.selected_by) == ["chunk"]
+
+
+def test_a_chunk_placed_pointer_into_a_section_the_parse_has_elsewhere_is_placed_by_match() -> None:
+    # The parse read is not the one the chunk was located in: its section lies elsewhere.
+    first = paragraph("We make optical components.")
+    document = note(first, paragraph(ALLOCATION))
+    pointer = chunk_placed(document, 10)
+    moved = Pointer(
+        pointer.source_version_id,
+        pointer.section_anchor,
+        pointer.rank,
+        pointer.query_index,
+        pointer.memory_text,
+        section_char_start=5,
+        section_char_end=pointer.section_char_end,
+        chunk_char_start=10,
+    )
+
+    [found] = candidates([document], reading=Reading(pointers=[moved]))
+
+    assert document.text[found.start : found.end].startswith(ALLOCATION)
+    assert found.selected_by == ("pointer:2",)
+    assert placements(found.selected_by) == ["match"]
+
+
+def test_how_a_passage_s_pointers_were_placed() -> None:
+    assert placements(["pointer:0:chunk", "pointer:3", "search"]) == ["chunk", "match"]
+    assert placements(["pointer:customer_concentration:chunk"]) == ["chunk"]
+    assert placements(["search", f"entity:{NVIDIA}", "lead"]) == []
 
 
 def test_lead_windows_are_offered_only_by_a_document_with_no_other_candidate() -> None:

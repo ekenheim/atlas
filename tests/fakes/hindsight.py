@@ -105,6 +105,25 @@ Derived behaviours (each serves a recorded response with only the named fields c
   returned whole when none fits (0: none), a token counted per four characters of `text`
   (Hindsight uses its tokenizer, so a derived cut is not the real one). Without it, or
   without the fields, a derived recall is as before.
+- `derive_chunks(size=3000)` (memory-quality ticket 08; off by default, so tests written
+  before it keep their answers; needs `derive_memories`): **the chunks of a derived
+  document**. Its retained content is cut as `chunks/01`-`05` recorded a 0.10.2 retain cut
+  one: every chunk a verbatim slice of the content, in order, the breaks between chunks in
+  none; how the real splitter chooses its cuts was not recorded, so the fake packs
+  paragraphs (cut at blank lines) while a chunk stays within `size` characters (Hindsight's
+  default `retain_chunk_size`, 3,000), cutting a longer paragraph every `size` characters,
+  and trims each chunk's ends. `GET .../documents/<id>/chunks[?offset=M]` serves
+  `chunks/03-list-chunks` with only `items` (each the recorded first item with `chunk_id`
+  (`<bank>_<document>_<index>`), `document_id`, `bank_id`, `chunk_index` and `chunk_text`
+  changed), `total` and `offset` changed; a recall with `include.chunks` gets a `chunks` map
+  of the chunk of each result and source fact (each the first entry of
+  `recall_options/07-include-chunks` with only `id`, `text`, `chunk_index` and `truncated`
+  (false) changed), as `recall_options/10` carried both. A derived fact's chunk is its
+  document's chunk 0 unless `script_fact_chunk(document_id, index)` names another (which
+  chunk a fact came from is the extractor's doing); `script_chunk_text(document_id, index,
+  text)` serves a chunk with the test's text instead of its slice (a chunk that is not
+  verbatim). Without `derive_chunks`, the listing of a derived document is an empty page and
+  a derived recall has no `chunks` map (as the recorded 0.10.1 recall it is built from).
 - `script_fact_text(document_id, text)` (needs `derive_memories`; Hindsight writes a fact in
   its own words, and no recorded fact is about an Atlas section): that document's derived
   world fact has `text`, **written by the test** (a paraphrase of a sentence of the section),
@@ -232,6 +251,7 @@ The two listings the memory-health read makes (memory-quality ticket 02), from t
 import copy
 import functools
 import json
+import re
 import uuid
 from collections import defaultdict, deque
 from collections.abc import Callable, Sequence
@@ -439,6 +459,11 @@ DERIVED_CONSOLIDATE = "observations/01-consolidate"
 DERIVED_CONSOLIDATE_FINAL = "observations/02-consolidate-final"
 DERIVED_SCOPES = "observation_scopes/09-list-scopes"
 DERIVED_ENTITIES = "entities/03-list-entities"
+DERIVED_CHUNKS = "chunks/03-list-chunks"  # memory-quality ticket 08
+DERIVED_RECALL_CHUNKS = "recall_options/07-include-chunks"
+# Hindsight's default `retain_chunk_size` (characters; `bank_config/02-get-config` on 0.10.2).
+DEFAULT_CHUNK_SIZE = 3000
+_PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n")
 _TEMPLATE_TRIGGER_FIELDS = (
     "refresh_after_consolidation",
     "refresh_cron",
@@ -533,6 +558,13 @@ class RecordedHindsight:
     _scopes: list[dict[str, JsonValue]] | None = field(init=False, default=None)
     _entities: list[tuple[str, int]] | None = field(init=False, default=None)
     _listing_failure: int | None = field(init=False, default=None)
+    # Derived chunks (memory-quality ticket 08): None until `derive_chunks`, else the size.
+    _chunk_size: int | None = field(init=False, default=None)
+    _fact_chunks: dict[str, int] = field(init=False, default_factory=dict[str, int])
+    # document ID -> chunk index -> the text served instead of the derived slice
+    _chunk_texts: dict[str, dict[int, str]] = field(
+        init=False, default_factory=dict[str, dict[int, str]]
+    )
 
     def __post_init__(self) -> None:
         self._replies = defaultdict(deque)
@@ -602,6 +634,31 @@ class RecordedHindsight:
         """`query_timestamp`, `prefer_observations` and `max_tokens` change a derived recall
         (derived; off by default, so tests written before it keep their answers)."""
         self._derive_recall_options = True
+
+    def derive_chunks(self, size: int = DEFAULT_CHUNK_SIZE) -> None:
+        """Each derived document is cut into chunks of at most `size` characters, listed by
+        `GET .../documents/<id>/chunks` and served by a recall's `include.chunks` (derived;
+        off by default, so tests written before it keep their answers; see the module
+        docstring)."""
+        if size < 1:
+            raise ValueError("a chunk size is at least 1")
+        self._chunk_size = size
+
+    def script_fact_chunk(self, document_id: str, index: int) -> None:
+        """The document's derived world fact was extracted from its chunk `index` (default 0;
+        needs `derive_chunks`)."""
+        self._fact_chunks[document_id] = index
+
+    def script_chunk_text(self, document_id: str, index: int, text: str) -> None:
+        """The document's chunk `index` is listed and recalled with `text` (written by the test)
+        instead of its verbatim slice of the retained content: a chunk that is not a slice."""
+        self._chunk_texts.setdefault(document_id, {})[index] = text
+
+    def derived_chunks(self, document_id: str, bank: str | None = None) -> list[str]:
+        """The texts of a derived document's chunks, in `chunk_index` order (needs
+        `derive_chunks`)."""
+        bank = self._holding_bank(document_id, bank)
+        return self._chunks(bank, document_id)
 
     def derived_fact(self, document_id: str, bank: str | None = None) -> str:
         """The ID of the derived world fact extracted from a retained document (in `bank`;
@@ -849,6 +906,9 @@ class RecordedHindsight:
         if request.method == "GET" and len(route) == 2 and route[0] == "documents":
             if route[1] in self._derived_documents.get(bank, {}):
                 return self._derived_document(bank, route[1])
+        if request.method == "GET" and len(route) == 3 and route[::2] == ["documents", "chunks"]:
+            if route[1] in self._derived_documents.get(bank, {}):
+                return self._derived_chunk_list(bank, route[1], request)
         if request.method == "GET" and route == ["memories", "list"]:
             listed = self._derived_memory_list(bank, request)
             if listed is not None:
@@ -977,7 +1037,7 @@ class RecordedHindsight:
                 or _collapsed(item["content"])[:FACT_TEXT_CHARS],
                 "context": item.get("context"),
                 "document_id": document_id,
-                "chunk_id": f"{bank}_{document_id}_0",
+                "chunk_id": f"{bank}_{document_id}_{self._fact_chunks.get(document_id, 0)}",
                 "tags": self._fact_tags(bank, document_id, item),
                 "metadata": item.get("metadata", {}),
                 "mentioned_at": item.get("timestamp"),
@@ -1086,6 +1146,8 @@ class RecordedHindsight:
         include = body.get("include")
         if isinstance(include, dict) and "source_facts" in include:
             self._attach_source_facts(bank, response)
+        if isinstance(include, dict) and "chunks" in include and self._chunk_size is not None:
+            self._attach_chunks(bank, response)
         self.served.append(f"{DERIVED_RECALL} (derived)")
         return httpx2.Response(recording.status, json=response)
 
@@ -1159,6 +1221,70 @@ class RecordedHindsight:
                 listed[source] = copy.deepcopy(cast(dict[str, JsonValue], entry)) | facts[source]
         response["source_facts"] = listed
         response["source_facts_truncated"] = truncated
+
+    # --- derived chunks (memory-quality ticket 08; see the module docstring) -------------------
+
+    def _chunks(self, bank: str, document_id: str) -> list[str]:
+        """The document's chunk texts in `chunk_index` order (none until `derive_chunks`)."""
+        if self._chunk_size is None:
+            return []
+        content = str(self._derived_documents[bank][document_id]["content"])
+        texts = [content[start:end] for start, end in _chunk_spans(content, self._chunk_size)]
+        for index, text in self._chunk_texts.get(document_id, {}).items():
+            texts[index] = text
+        return texts
+
+    def _attach_chunks(self, bank: str, response: dict[str, JsonValue]) -> None:
+        """`include.chunks` on a derived recall: the chunk of every result and source fact
+        that has one, keyed by chunk ID, in that order."""
+        recorded = self.recording(DERIVED_RECALL_CHUNKS).response_object()
+        entry = next(iter(cast(dict[str, JsonValue], recorded["chunks"]).values()))
+        memories = [
+            *cast(list[dict[str, JsonValue]], response["results"]),
+            *cast(dict[str, dict[str, JsonValue]], response.get("source_facts") or {}).values(),
+        ]
+        chunks: dict[str, JsonValue] = {}
+        for memory in memories:
+            chunk_id, document_id = memory.get("chunk_id"), memory.get("document_id")
+            if not isinstance(chunk_id, str) or not isinstance(document_id, str):
+                continue
+            index = int(chunk_id.rsplit("_", 1)[1])
+            texts = self._chunks(bank, document_id)
+            if chunk_id in chunks or index >= len(texts):
+                continue
+            chunks[chunk_id] = copy.deepcopy(cast(dict[str, JsonValue], entry)) | {
+                "id": chunk_id,
+                "text": texts[index],
+                "chunk_index": index,
+                "truncated": False,
+            }
+        response["chunks"] = chunks
+
+    def _derived_chunk_list(
+        self, bank: str, document_id: str, request: httpx2.Request
+    ) -> httpx2.Response:
+        """`GET .../documents/<id>/chunks[?offset=M]`: `chunks/03-list-chunks` with only
+        `items`, `total` and `offset` changed (an empty page until `derive_chunks`)."""
+        offset = int(request.url.params.get("offset", "0"))
+        recording = self.recording(DERIVED_CHUNKS)
+        response = copy.deepcopy(recording.response_object())
+        first = cast(list[dict[str, JsonValue]], response["items"])[0]
+        limit = int(cast(int, response["limit"]))
+        texts = self._chunks(bank, document_id)
+        items = list[JsonValue](
+            copy.deepcopy(first)
+            | {
+                "chunk_id": f"{bank}_{document_id}_{index}",
+                "document_id": document_id,
+                "bank_id": bank,
+                "chunk_index": index,
+                "chunk_text": text,
+            }
+            for index, text in enumerate(texts)
+        )[offset : offset + limit]
+        response |= {"items": items, "total": len(texts), "offset": offset}
+        self.served.append(f"{DERIVED_CHUNKS} (derived)")
+        return httpx2.Response(recording.status, json=response)
 
     def _derived_reflect(self, bank: str) -> httpx2.Response:
         scripted = self._reflects.popleft()
@@ -1601,6 +1727,36 @@ def _no_identity(text: str) -> dict[str, JsonValue]:
 
 def _iso(moment: datetime | None) -> str | None:
     return None if moment is None else moment.isoformat()
+
+
+def _chunk_spans(content: str, size: int) -> list[tuple[int, int]]:
+    """Where a derived document's chunks lie in its content: paragraphs (cut at blank lines)
+    packed in order while a chunk stays within `size` characters, a longer paragraph cut every
+    `size` characters; each span trimmed of whitespace at both ends, so the breaks between
+    chunks belong to none (as `chunks/03` recorded at a paragraph break)."""
+    breaks = [(m.start(), m.end()) for m in _PARAGRAPH_BREAK.finditer(content)]
+    breaks.append((len(content), len(content)))
+    paragraphs: list[tuple[int, int]] = []
+    start = 0
+    for end, after in breaks:
+        for piece in range(start, end, size):
+            paragraphs.append(_trimmed(content, piece, min(piece + size, end)))
+        start = after
+    spans: list[tuple[int, int]] = []
+    for begin, end in (p for p in paragraphs if p[0] < p[1]):
+        if spans and end - spans[-1][0] <= size:
+            spans[-1] = (spans[-1][0], end)
+        else:
+            spans.append((begin, end))
+    return spans
+
+
+def _trimmed(content: str, start: int, end: int) -> tuple[int, int]:
+    while start < end and content[start].isspace():
+        start += 1
+    while end > start and content[end - 1].isspace():
+        end -= 1
+    return start, end
 
 
 def _fact_id(bank: str, document_id: str) -> str:

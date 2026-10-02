@@ -7983,6 +7983,13 @@
             "type": "object",
             "title": "Selections"
           },
+          "pointers_placed_by": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Pointers Placed By"
+          },
           "selected_by": {
             "anyOf": [
               {
@@ -8692,6 +8699,39 @@
           "available_at_basis": {
             "type": "string",
             "title": "Available At Basis"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "chunk_char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Char Start"
+          },
+          "chunk_char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Char End"
           }
         },
         "type": "object",
@@ -18625,6 +18665,48 @@
               }
             ],
             "title": "Entity Names"
+          },
+          "placed_by": {
+            "type": "string",
+            "enum": [
+              "chunk",
+              "match"
+            ],
+            "title": "Placed By",
+            "default": "match"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "chunk_char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Char Start"
+          },
+          "chunk_char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Char End"
           }
         },
         "type": "object",
@@ -18731,6 +18813,12 @@
             "type": "boolean",
             "title": "Include Source Facts",
             "description": "each observation's source facts in the same answer, so its provenance needs no request per observation",
+            "default": false
+          },
+          "include_chunks": {
+            "type": "boolean",
+            "title": "Include Chunks",
+            "description": "ask for the chunks the results came from, and locate each resolved fact's chunk in its section (its span in `provenance.sources`; the chunk's text is not returned)",
             "default": false
           }
         },

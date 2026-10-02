@@ -541,6 +541,10 @@ function PointerGroups({ groups }: { groups: PointerGroup[] }) {
                     <span className="muted-small">
                       {pointer.section_heading ?? pointer.section_anchor}; characters{" "}
                       {pointer.section_char_start}–{pointer.section_char_end}
+                      <br />
+                      {pointer.placed_by === "chunk"
+                        ? `read where its fact's chunk lies (characters ${pointer.chunk_char_start ?? "?"}–${pointer.chunk_char_end ?? "?"})`
+                        : "read where its words match best"}
                     </span>
                   </td>
                 </tr>

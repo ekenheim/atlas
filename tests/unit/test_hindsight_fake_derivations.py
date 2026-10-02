@@ -13,6 +13,7 @@ from atlas.hindsight import (
     TagScope,
 )
 from tests.fakes.hindsight import (
+    DERIVED_CHUNKS,
     DERIVED_CONSOLIDATE,
     DERIVED_CONSOLIDATE_FINAL,
     DERIVED_DOCUMENT,
@@ -242,6 +243,55 @@ def test_a_scripted_fact_text_changes_only_the_fact_s_text() -> None:
     assert recalled[fact_id] == after.text
     other = fake.derived_fact(ITEMS[1].document_id)
     assert recalled[other] == ITEMS[1].content  # the other document's fact is as derived
+
+
+CHUNKED = RetainItem(
+    content=(
+        "Item 1. Business\n\nWe make lasers for data centers.\n\n"
+        "Our customers include hyperscalers, and demand outpaces supply this year.\n"
+    ),
+    document_id="srcv:00000000-0000-4000-8000-000000000002:part-i-item-1",
+    timestamp=datetime(2026, 8, 11, 20, 24, 11, tzinfo=UTC),
+    metadata={"source_version_id": "00000000-0000-4000-8000-000000000002"},
+    tags=["company:x", "form:10-K"],
+)
+
+
+def test_derived_chunks_are_verbatim_slices_listed_and_recalled_by_chunk_id() -> None:
+    # Memory-quality ticket 08. Without `derive_chunks` a derived document lists no chunk and
+    # a recall carries none.
+    fake = RecordedHindsight()
+    fake.derive_memories()
+    client = gateway(fake)
+    client.retain_batch([CHUNKED])
+    scope = TagScope(["company:x"], "any_strict")
+    assert client.document_chunks(CHUNKED.document_id) == []
+    assert client.recall("q", scope=scope, include_chunks=True).chunks == {}
+
+    fake.derive_chunks(size=40)
+    fake.script_fact_chunk(CHUNKED.document_id, 2)
+
+    listed = client.document_chunks(CHUNKED.document_id)
+    texts = [
+        "Item 1. Business",
+        "We make lasers for data centers.",
+        "Our customers include hyperscalers, and",
+        "demand outpaces supply this year.",
+    ]
+    assert [c.chunk_text for c in listed] == texts == fake.derived_chunks(CHUNKED.document_id)
+    assert all(text in CHUNKED.content for text in texts)
+    assert [c.chunk_id for c in listed] == [f"{BANK}_{CHUNKED.document_id}_{i}" for i in range(4)]
+    served = fake.recording(DERIVED_CHUNKS).name + " (derived)"
+    assert served in fake.served
+    answer = client.recall("q", scope=scope, include_chunks=True)
+    [fact] = answer.memories
+    assert fact.chunk_id == f"{BANK}_{CHUNKED.document_id}_2"
+    assert {key: (c.text, c.chunk_index, c.truncated) for key, c in answer.chunks.items()} == {
+        fact.chunk_id: (texts[2], 2, False)
+    }
+
+    fake.script_chunk_text(CHUNKED.document_id, 2, "Not a slice.")
+    assert client.document_chunks(CHUNKED.document_id)[2].chunk_text == "Not a slice."
 
 
 def test_a_scripted_reflect_changes_only_its_answer_and_citations() -> None:

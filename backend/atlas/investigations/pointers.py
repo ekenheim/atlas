@@ -18,6 +18,14 @@ pointer keeps the recall's final score and its memory's entity names (insert-onl
 rest); the recall answer it came from also has the chunk ID and the entity IDs. Pointed
 companies are still ranked by reciprocal rank: the score is recorded before it is used.
 
+**Placed by the fact's chunk** (memory-quality ticket 08; docs/decisions.md, "Chunk-exact
+pointers"): each recall also asks for the chunks of its results, and each resolved fact's
+chunk is located in its section (atlas.research.chunks). A pointer whose memory has a fact
+whose chunk was located in the pointed section is `placed_by` `chunk` and keeps the chunk's
+ID and span (an observation's: its first source fact's in that section); passage selection
+then reads the window that span starts in. Otherwise it is `placed_by` `match`, and its
+memory's words choose the window as before. The chunk's text is never stored.
+
 A pointer is Memory used as an index. It says where to read; it is never Evidence, never
 quoted, never a witness, and never sent to a role as a statement. An Investigator's passages
 are chosen by the Scout's pointers of its round (`round_reading`; atlas.claims.selection,
@@ -58,10 +66,11 @@ from pydantic import JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
-from atlas.claims.selection import Pointer, Reading
+from atlas.claims.selection import CHUNK, MATCH, Pointer, Reading
 from atlas.hindsight import HindsightError
 from atlas.investigations.service import event, lock
 from atlas.jobs.pacing import classify_failure
+from atlas.research.provenance import CitationSource
 from atlas.research.service import RecallResponse
 
 SCOUT_ACTOR = Actor("atlas-scout")
@@ -129,10 +138,14 @@ def round_reading(
             rank=row.rank,
             query_index=row.query_index,
             memory_text=row.memory_text,
+            section_char_start=row.section_char_start,
+            section_char_end=row.section_char_end,
+            chunk_char_start=row.chunk_char_start,
         )
         for row in connection.execute(
             text(
-                "SELECT source_version_id, section_anchor, rank, query_index, memory_text"
+                "SELECT source_version_id, section_anchor, rank, query_index, memory_text,"
+                " section_char_start, section_char_end, chunk_char_start"
                 " FROM reading_pointer WHERE investigation_id = :id AND round = :round"
                 " AND query_kind = :kind AND source_version_id = ANY(:versions)"
                 " ORDER BY rank, query_index, source_version_id, section_char_start,"
@@ -173,6 +186,11 @@ class SkepticPointer:
     checklist_item: str
     query_company_id: uuid.UUID
     company_id: uuid.UUID | None
+    # The pointed section's offsets, and where in it the fact's chunk starts when the chunk
+    # placed the pointer (memory-quality ticket 08; None: the best match places it).
+    section_char_start: int | None = None
+    section_char_end: int | None = None
+    chunk_char_start: int | None = None
 
 
 def skeptic_pointers(connection: Connection, task_id: uuid.UUID) -> list[SkepticPointer]:
@@ -183,7 +201,8 @@ def skeptic_pointers(connection: Connection, task_id: uuid.UUID) -> list[Skeptic
         for row in connection.execute(
             text(
                 "SELECT source_version_id, section_anchor, rank, query_index, memory_text,"
-                " checklist_item, query_company_id, company_id FROM reading_pointer"
+                " checklist_item, query_company_id, company_id, section_char_start,"
+                " section_char_end, chunk_char_start FROM reading_pointer"
                 " WHERE task_id = :task AND query_kind = :kind"
                 " ORDER BY rank, query_index, source_version_id, section_char_start,"
                 " section_anchor, id"
@@ -291,7 +310,8 @@ _COLUMNS = (
     "id, investigation_id, round, task_id, query_index, query, discovery_query_id, rank,"
     " memory_id, memory_type, memory_text, source_version_id, section_anchor, section_heading,"
     " section_char_start, section_char_end, company_id, available_at, citation_state,"
-    " query_kind, checklist_item, query_company_id, score, entity_names"
+    " query_kind, checklist_item, query_company_id, score, entity_names,"
+    " placed_by, chunk_id, chunk_char_start, chunk_char_end"
 )
 _INSERT = (
     f"INSERT INTO reading_pointer ({_COLUMNS}) VALUES ("  # noqa: S608 (constant SQL)
@@ -321,6 +341,12 @@ def _resolved(
         if citation.state != "resolved":
             found.unresolved += 1
             continue
+        # Where in each section the memory's facts came from: the first of its facts there
+        # whose chunk was located (ticket 08; an observation's, by its source facts' chunks).
+        chunks: dict[tuple[uuid.UUID, str], CitationSource] = {}
+        for source in citation.sources:
+            if source.chunk_char_start is not None:
+                chunks.setdefault((source.source_version_id, source.section_anchor), source)
         seen: set[tuple[uuid.UUID, str]] = set()
         for source in citation.sources:
             section = (source.source_version_id, source.section_anchor)
@@ -330,6 +356,7 @@ def _resolved(
             if source.available_at > as_of:
                 found.later += 1
                 continue
+            placed = chunks.get(section)
             found.rows.append(
                 {
                     "id": uuid.uuid4(),
@@ -358,6 +385,12 @@ def _resolved(
                     # (memory-quality ticket 07): recorded, not yet used to weight anything.
                     "score": memory.scores.final if memory.scores is not None else None,
                     "entity_names": [entity.name for entity in memory.entities],
+                    # Which rule places its window (ticket 08): the span of the fact's chunk
+                    # in the section when it was located there, else the best match.
+                    "placed_by": CHUNK if placed is not None else MATCH,
+                    "chunk_id": (placed or source).chunk_id,
+                    "chunk_char_start": placed.chunk_char_start if placed is not None else None,
+                    "chunk_char_end": placed.chunk_char_end if placed is not None else None,
                 }
             )
     return found

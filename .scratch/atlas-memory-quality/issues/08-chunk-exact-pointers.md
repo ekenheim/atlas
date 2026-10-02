@@ -16,9 +16,11 @@ Migration revision `0065` (down: main's head).
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam: a section of several windows where the fact's words match one window best but its chunk lies in another; the passage read is the chunk's window, and the pointer says `chunk`.
-- [ ] A chunk that does not occur verbatim leaves the pointer on the best-match window with `match`.
-- [ ] The Skeptic's pointers are placed the same way.
-- [ ] Decision entry; `AGENTS.md` line; API client regenerated.
+- [x] Integration test at the investigation seam: a section of several windows where the fact's words match one window best but its chunk lies in another; the passage read is the chunk's window, and the pointer says `chunk`.
+- [x] A chunk that does not occur verbatim leaves the pointer on the best-match window with `match`.
+- [x] The Skeptic's pointers are placed the same way.
+- [x] Decision entry; `AGENTS.md` line; API client regenerated.
+
+Deviation (`docs/decisions.md`, "Chunk-exact pointers"): selection has no rule that extends a window, so a chunk span crossing a window boundary chooses the window it starts in.

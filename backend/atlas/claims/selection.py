@@ -16,6 +16,10 @@ recording all of them in `selected_by`:
    pointer with a `label` is recorded as `pointer:<label>` instead: the Skeptic's pointers
    carry their bear-checklist item (`pointer:customer_concentration`;
    atlas.investigations.skeptic), so its tags never read as a Scout query's number.
+   **A pointer placed by its fact's chunk** (memory-quality ticket 08) chooses instead the
+   window of the pointed section that the chunk's span starts in, tagged
+   `pointer:<query_index>:chunk` (`pointer:<label>:chunk`), when the parse read has the
+   section at the offsets the pointer recorded (else the best match, as above).
 2. **`search`.** Every window that contains a term of the extraction's question or of the
    round's Scout queries (`Reading.queries`), scored by Okapi BM25 over all windows of the
    extraction's documents (the terms of the question and the queries together, each once).
@@ -82,6 +86,11 @@ SEARCH = "search"
 ENTITY = "entity"
 LEAD = "lead"
 SELECTIONS = (POINTER, SEARCH, ENTITY, LEAD)
+# How a pointer's window was found (memory-quality ticket 08): the window its fact's chunk
+# starts in (its tag ends `:chunk`), or the one its Memory text matches best.
+CHUNK = "chunk"
+MATCH = "match"
+PLACEMENTS = (CHUNK, MATCH)
 # A periodic report's primary document keeps one passage; so does a results release.
 PERIODIC_FORMS = frozenset({"10-K", "10-Q", "20-F", "6-K", "40-F"})
 RESULTS_ITEM = "2.02"  # an 8-K's "Results of Operations and Financial Condition"
@@ -111,6 +120,12 @@ class Pointer:
     # What `selected_by` calls the pointer's query instead of its index (None: the index, a
     # Scout's; the Skeptic's pointers are labelled with their bear-checklist item).
     label: str | None = None
+    # A chunk-placed pointer's (memory-quality ticket 08): the pointed section's offsets as
+    # recorded and where the fact's chunk starts in the parsed text. None: the best match
+    # places it.
+    section_char_start: int | None = None
+    section_char_end: int | None = None
+    chunk_char_start: int | None = None
 
 
 @dataclass(frozen=True)
@@ -293,8 +308,12 @@ def candidates(
             for at, (anchor, _, _) in enumerate(windows[index])
             if anchor == pointer.section_anchor
         ] or list(range(len(windows[index])))
-        best = _best_window(query_terms(pointer.memory_text), words[index], within)
         tag = pointer.label if pointer.label is not None else str(pointer.query_index)
+        best = _chunk_window(pointer, sections[index], windows[index])
+        if best is not None:
+            tag = f"{tag}:{CHUNK}"
+        else:
+            best = _best_window(query_terms(pointer.memory_text), words[index], within)
         pointed.setdefault((index, best), []).append(
             (pointer.rank, pointer.query_index, f"{POINTER}:{tag}")
         )
@@ -413,6 +432,44 @@ def cut_windows(parsed: str, start: int, end: int) -> list[tuple[int, int]]:
         windows.append((position, limit))
         position = limit
     return windows
+
+
+def placements(selected_by: Sequence[str]) -> list[str]:
+    """How the pointers in a passage's `selected_by` were placed, each rule once, in
+    `PLACEMENTS` order: `chunk` for a tag ending `:chunk`, `match` for any other pointer tag
+    (memory-quality ticket 08). Empty for a passage no pointer chose."""
+    found = {
+        CHUNK if tag.endswith(f":{CHUNK}") else MATCH
+        for tag in selected_by
+        if tag.split(":", 1)[0] == POINTER
+    }
+    return [rule for rule in PLACEMENTS if rule in found]
+
+
+def _chunk_window(
+    pointer: Pointer, sections: Sequence[Section], windows: Sequence[tuple[str, int, int]]
+) -> int | None:
+    """A chunk-placed pointer's window (memory-quality ticket 08): the window of the pointed
+    section that the fact's chunk starts in. Only when the parse read has the section where
+    the pointer recorded it (the same anchor and offsets: the chunk was located in that
+    parse); None otherwise, and the best match places the pointer."""
+    start = pointer.chunk_char_start
+    if start is None:
+        return None
+    if not any(
+        section.anchor == pointer.section_anchor
+        and (section.start, section.end) == (pointer.section_char_start, pointer.section_char_end)
+        for section in sections
+    ):
+        return None
+    return next(
+        (
+            at
+            for at, (anchor, begin, end) in enumerate(windows)
+            if anchor == pointer.section_anchor and begin <= start < end
+        ),
+        None,
+    )
 
 
 def _best_window(

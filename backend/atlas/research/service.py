@@ -41,6 +41,7 @@ from atlas.hindsight import (
 )
 from atlas.hindsight.models import check_response_schema
 from atlas.jobs.queue import Artifacts, Job, JobQueue, job_id_for
+from atlas.research.chunks import ChunkPlacer
 from atlas.research.provenance import (
     Citation,
     CitationState,
@@ -119,6 +120,12 @@ class RecallRequest(BaseModel):
         default=False,
         description="each observation's source facts in the same answer, so its provenance"
         " needs no request per observation",
+    )
+    include_chunks: bool = Field(
+        default=False,
+        description="ask for the chunks the results came from, and locate each resolved"
+        " fact's chunk in its section (its span in `provenance.sources`; the chunk's text is"
+        " not returned)",
     )
 
 
@@ -265,10 +272,16 @@ class Research:
             prefer_observations=request.prefer_observations,
             query_timestamp=request.query_timestamp,
             include_source_facts=request.include_source_facts,
+            include_chunks=request.include_chunks,
         )
         resolver = ProvenanceResolver(self._engine, self._archive, self._gateway)
         memories = [recalled_memory(memory, result, resolver) for memory in result.memories]
         provenance = [memory.provenance for memory in memories]
+        if request.include_chunks:
+            # Each resolved fact's chunk located in its section (memory-quality ticket 08).
+            placer = ChunkPlacer(self._engine, self._archive, self._gateway, result.chunks)
+            for citation in provenance:
+                placer.place_all(citation.sources)
         return RecallResponse(
             query=request.query,
             scope=scope,

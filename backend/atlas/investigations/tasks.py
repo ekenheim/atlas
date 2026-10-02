@@ -540,7 +540,7 @@ class TaskRunner:
         Asked like a reading index (memory-quality ticket 07; docs/decisions.md, "Recall as a
         reading index"): `pointer_recall_max_tokens` of results, budget high, an observation
         in place of the facts it was built from, recency judged from the investigation's
-        as-of time, and each observation's sources in the same answer."""
+        as-of time, each observation's sources and every fact's chunk in the same answer."""
         research = Research(
             self._engine, open_archive(self._settings), self._gateway, actor, lambda: universe
         )
@@ -555,6 +555,9 @@ class TaskRunner:
                 prefer_observations=True,
                 query_timestamp=as_of,
                 include_source_facts=True,
+                # Each fact's chunk located in its section: the pointer's window is the
+                # chunk's (memory-quality ticket 08; atlas.research.chunks).
+                include_chunks=True,
             )
         )
 
