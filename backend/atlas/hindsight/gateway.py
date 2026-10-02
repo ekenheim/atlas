@@ -12,6 +12,7 @@ It exposes typed operations on one bank and enforces the pinned-version rules fr
 
 import time
 from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any, Literal, Self, cast
 from urllib.parse import quote
 
@@ -31,6 +32,7 @@ from atlas.hindsight.models import (
     BankDeleted,
     Budget,
     EntityPage,
+    FactType,
     KnowledgeNode,
     LlmRequestStats,
     Memory,
@@ -151,9 +153,46 @@ class HindsightGateway:
 
     # --- recall, reflect and memories ----------------------------------------------------------
 
-    def recall(self, query: str, *, scope: TagScope | None, budget: Budget = "mid") -> RecallResult:
-        """Recall memories for a query, strictly scoped by tags (scope=None: the whole bank)."""
+    def recall(
+        self,
+        query: str,
+        *,
+        scope: TagScope | None,
+        budget: Budget = "mid",
+        max_tokens: int | None = None,
+        types: Sequence[FactType] | None = None,
+        prefer_observations: bool | None = None,
+        query_timestamp: datetime | None = None,
+        include_source_facts: bool = False,
+        include_chunks: bool = False,
+    ) -> RecallResult:
+        """Recall memories for a query, strictly scoped by tags (scope=None: the whole bank).
+
+        The 0.10.2 options (`docs/hindsight-feature-matrix.md`) are sent only when given, so a
+        recall without them is the request it always was: `max_tokens` (the results' text
+        budget; server default 4096), `types`, `prefer_observations` (an observation replaces
+        the facts it was built from), `query_timestamp` (recency is judged from it; it ranks,
+        it does not filter), and the includes: `source_facts` (each observation's sources in
+        the same answer) and `chunks` (the chunks the results came from).
+        """
         body: dict[str, JsonValue] = {"query": query, "budget": budget, **_scope_fields(scope)}
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        if types is not None:
+            body["types"] = list[JsonValue](types)
+        if prefer_observations is not None:
+            body["prefer_observations"] = prefer_observations
+        if query_timestamp is not None:
+            if query_timestamp.tzinfo is None:
+                raise HindsightRuleViolation("a recall's query_timestamp needs a time zone")
+            body["query_timestamp"] = query_timestamp.astimezone(UTC).isoformat()
+        include: dict[str, JsonValue] = {}
+        if include_source_facts:
+            include["source_facts"] = {}
+        if include_chunks:
+            include["chunks"] = {}
+        if include:
+            body["include"] = include
         return self._parse(RecallResult, self._post("/memories/recall", body))
 
     def reflect(

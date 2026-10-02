@@ -1382,6 +1382,11 @@ def test_publishing_freezes_a_research_snapshot_of_what_the_version_was_built_fr
         assert [each[field] for each in frozen_pointers] == [p[field] for p in pointers], field
     for field in ("query_kind", "checklist_item", "query_company_id"):
         assert [each[field] for each in frozen_pointers] == [p[field] for p in pointers], field
+    # How strongly Memory ranked each and which entities its memory names (memory-quality
+    # ticket 07).
+    for field in ("score", "entity_names"):
+        assert [each[field] for each in frozen_pointers] == [p[field] for p in pointers], field
+    assert all(each["score"] is not None and each["entity_names"] for each in frozen_pointers)
     assert {each["query_kind"] for each in frozen_pointers} == {"scout", "bear_checklist"}
     # The Skeptic's passages a pointer chose are listed too, by checklist item (ticket 07).
     skeptic_pointed = content["memory"]["skeptic_pointer_selections"]

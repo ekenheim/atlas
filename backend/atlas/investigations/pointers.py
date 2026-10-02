@@ -10,6 +10,14 @@ points at the sections of the facts it was consolidated from. A section of a Sou
 that became available after the investigation's as-of time makes none, and neither does an
 unverified or broken memory.
 
+**Asked like a reading index** (memory-quality ticket 07; docs/decisions.md, "Recall as a
+reading index"): each recall asks for `ATLAS_POINTER_RECALL_MAX_TOKENS` of results at budget
+high, prefers an observation to the facts it was built from, judges recency from the
+investigation's as-of time and brings each observation's sources in the same answer. A
+pointer keeps the recall's final score and its memory's entity names (insert-only like the
+rest); the recall answer it came from also has the chunk ID and the entity IDs. Pointed
+companies are still ranked by reciprocal rank: the score is recorded before it is used.
+
 A pointer is Memory used as an index. It says where to read; it is never Evidence, never
 quoted, never a witness, and never sent to a role as a statement. An Investigator's passages
 are chosen by the Scout's pointers of its round (`round_reading`; atlas.claims.selection,
@@ -283,7 +291,7 @@ _COLUMNS = (
     "id, investigation_id, round, task_id, query_index, query, discovery_query_id, rank,"
     " memory_id, memory_type, memory_text, source_version_id, section_anchor, section_heading,"
     " section_char_start, section_char_end, company_id, available_at, citation_state,"
-    " query_kind, checklist_item, query_company_id"
+    " query_kind, checklist_item, query_company_id, score, entity_names"
 )
 _INSERT = (
     f"INSERT INTO reading_pointer ({_COLUMNS}) VALUES ("  # noqa: S608 (constant SQL)
@@ -346,6 +354,10 @@ def _resolved(
                     "query_kind": query.kind,
                     "checklist_item": query.checklist_item,
                     "query_company_id": query.company_id,
+                    # How strongly Memory ranked it and which entities its memory names
+                    # (memory-quality ticket 07): recorded, not yet used to weight anything.
+                    "score": memory.scores.final if memory.scores is not None else None,
+                    "entity_names": [entity.name for entity in memory.entities],
                 }
             )
     return found

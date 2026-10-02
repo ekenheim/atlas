@@ -164,6 +164,8 @@ def test_a_future_dated_source_is_accepted_zero_times(
     for recall in fake.requests("POST", "memories/recall"):
         assert recall["tags"] == [f"company:{lumentum}"]
         assert recall["tags_match"] == "any_strict"
+        # Recency is judged from the cutoff (memory-quality ticket 07).
+        assert recall["query_timestamp"] == CUTOFF
     for answer_row in replay["answers"]:
         recalled = answer_row["recall"]
         assert {m["source_version_id"] for m in recalled} == {ids["early"], ids["mid"]}

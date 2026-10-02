@@ -1061,6 +1061,63 @@ def test_reading_pointers_are_insert_only_and_audited(
     assert verified.returncode == 0, verified.stdout + verified.stderr
 
 
+def test_the_scout_asks_memory_like_a_reading_index_and_each_pointer_keeps_score_and_entities(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Memory-quality ticket 07: more results (the setting's max_tokens, 8,192 by default),
+    # budget high, an observation instead of the facts it was built from, recency judged from
+    # the as-of time, and an observation's sources in the same answer.
+    atlas = services.start()
+    fake = services.hindsight[0]
+    item_1 = atlas.section(COHR_10K, "coherent")
+    observation = fake.derive_observation([item_1["document_id"]])
+    as_of = "2026-08-15T12:00:00+00:00"
+    started = seeded(atlas, "coherent", as_of=as_of)
+    script_two_queries(llm, searxng)
+    lookups_before = len([r for r in fake.calls if r.method == "GET"])
+
+    atlas.worker_pass()
+
+    recalls = fake.requests("POST", "memories/recall")
+    assert [r["query"] for r in recalls] == [QUESTION, SUBSTRATE, SECOND_SOURCE]
+    for sent in recalls:
+        assert sent == {
+            "query": sent["query"],
+            "budget": "high",
+            "tags": ["theme:photonics"],
+            "tags_match": "any_strict",
+            "max_tokens": 8192,
+            "prefer_observations": True,
+            "query_timestamp": as_of,
+            "include": {"source_facts": {}},
+        }
+    # The observation resolved from the source facts its answer carried: no memory was asked
+    # for one by one.
+    asked_one_by_one = [
+        r
+        for r in fake.calls[lookups_before:]
+        if r.method == "GET" and "/memories/" in r.url.path and not r.url.path.endswith("/list")
+    ]
+    assert asked_one_by_one == []
+    # Each pointer keeps the recall's final score and its memory's entity names (as the
+    # derived recall serves them: the recorded result of the memory's type).
+    recorded: dict[str, Any] = dict(fake.recording("tags/02-tags-any_strict").response_object())
+    by_type = {r["type"]: r for r in reversed(recorded["results"])}
+    found = investigation(atlas, started["id"])
+    pointers = found["pointers"]
+    assert pointers
+    for pointer in pointers:
+        expected = by_type[pointer["memory_type"]]
+        assert pointer["score"] == expected["scores"]["final"]
+        assert pointer["entity_names"] == expected["entities"]
+    from_observation = [p for p in pointers if p["memory_id"] == observation]
+    assert {(p["source_version_id"], p["section_anchor"]) for p in from_observation} == {
+        (item_1["version"]["id"], ITEM_1)
+    }
+    # Pointed companies are still ranked by reciprocal rank: the score weights nothing yet.
+    assert [(c["slug"], c["outcome"]) for c in found["pointed_companies"]] == [("coherent", "seed")]
+
+
 def test_a_failed_recall_leaves_the_scout_succeeded_with_the_other_queries_pointers(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:

@@ -223,6 +223,153 @@ def test_an_observation_whose_source_memory_was_deleted_is_broken(
     assert all(observation_id not in e["memory_ids"] for e in recalled["evidence"])
 
 
+# --- recall as a reading index (memory-quality ticket 07) ----------------------------------
+
+
+def memory_lookups(fake: RecordedHindsight) -> list[str]:
+    """The memory IDs Hindsight was asked for one by one (`GET .../memories/<id>`)."""
+    return [
+        r.url.path.rsplit("/", 1)[1]
+        for r in fake.calls
+        if r.method == "GET"
+        and "/memories/" in r.url.path
+        and r.url.path.rsplit("/", 1)[1] != "list"
+    ]
+
+
+def recall_with(atlas: Atlas, query: str, **fields: Any) -> dict[str, Any]:
+    response = atlas.api.post(
+        "/api/v1/memory/recall",
+        json={"query": query, "scope": {"theme_ids": ["photonics"]}, **fields},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_a_recall_with_no_new_field_sends_what_it_sent_before(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    recalled = atlas.recall("lasers", theme_ids=["photonics"])
+
+    (sent,) = fake.requests("POST", "memories/recall")
+    assert sent == {
+        "query": "lasers",
+        "budget": "mid",
+        "tags": ["theme:photonics"],
+        "tags_match": "any_strict",
+    }
+    assert recalled["memories"]
+    assert recalled["source_facts_truncated"] is None
+
+
+def test_a_recall_sends_the_reading_index_fields_and_returns_scores_and_entities(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    recalled = recall_with(
+        atlas,
+        "lasers",
+        budget="high",
+        max_tokens=8192,
+        types=["world", "observation"],
+        prefer_observations=True,
+        query_timestamp="2026-06-30T00:00:00+00:00",
+        include_source_facts=True,
+    )
+
+    (sent,) = fake.requests("POST", "memories/recall")
+    assert sent == {
+        "query": "lasers",
+        "budget": "high",
+        "tags": ["theme:photonics"],
+        "tags_match": "any_strict",
+        "max_tokens": 8192,
+        "types": ["world", "observation"],
+        "prefer_observations": True,
+        "query_timestamp": "2026-06-30T00:00:00+00:00",
+        "include": {"source_facts": {}},
+    }
+    # The derived recall keeps the recorded world result's scores and entity names; each
+    # entity's ID is the recorded answer's `entities` map's.
+    recorded = cast(dict[str, Any], fake.recording("tags/02-tags-any_strict").response_object())
+    world = next(r for r in recorded["results"] if r["type"] == "world")
+    ids = {name: e["entity_id"] for name, e in recorded["entities"].items()}
+    memories = recalled["memories"]
+    assert memories and {m["type"] for m in memories} == {"world"}
+    for memory in memories:
+        assert memory["scores"] == world["scores"]
+        assert memory["entities"] == [
+            {"name": name, "entity_id": ids.get(name)} for name in world["entities"]
+        ]
+        document_id = memory["provenance"]["sources"][0]["document_id"]
+        assert memory["chunk_id"] == f"{BANK}_{document_id}_0"
+    assert recalled["source_facts_truncated"] is False
+
+
+def test_an_observation_resolves_from_the_source_facts_in_the_answer_without_asking_again(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    atlas.ingest_company("coherent")
+    lite = atlas.section(LITE_10K, "lumentum")
+    cohr = atlas.section(COHR_10K, "coherent")
+    observation_id = fake.derive_observation([lite["document_id"], cohr["document_id"]])
+
+    recalled = recall_with(atlas, "who makes lasers", include_source_facts=True)
+
+    (observation,) = [m for m in recalled["memories"] if m["type"] == "observation"]
+    provenance = observation["provenance"]
+    assert (observation["memory_id"], provenance["state"]) == (observation_id, "resolved")
+    lite_source, cohr_source = provenance["sources"]
+    assert lite_source["memory_id"] == fake.derived_fact(lite["document_id"])
+    assert cohr_source["memory_id"] == fake.derived_fact(cohr["document_id"])
+    assert_source(lite_source, lite, atlas.company("lumentum"))
+    assert_source(cohr_source, cohr, atlas.company("coherent"))
+    # The sources came in the same answer: no memory was asked for.
+    assert memory_lookups(fake) == []
+    assert recalled["source_facts_truncated"] is False
+
+
+def test_an_observation_whose_sources_were_cut_from_the_answer_asks_for_the_missing_one(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    atlas.ingest_company("coherent")
+    lite = atlas.section(LITE_10K, "lumentum")
+    cohr = atlas.section(COHR_10K, "coherent")
+    observation_id = fake.derive_observation([lite["document_id"], cohr["document_id"]])
+    fake.truncate_source_facts(keep=1)
+
+    recalled = recall_with(atlas, "who makes lasers", include_source_facts=True)
+
+    (observation,) = [m for m in recalled["memories"] if m["memory_id"] == observation_id]
+    provenance = observation["provenance"]
+    assert provenance["state"] == "resolved"
+    assert [s["memory_id"] for s in provenance["sources"]] == [
+        fake.derived_fact(lite["document_id"]),
+        fake.derived_fact(cohr["document_id"]),
+    ]
+    # Only the source the answer left out was asked for, once.
+    assert memory_lookups(fake) == [fake.derived_fact(cohr["document_id"])]
+    assert recalled["source_facts_truncated"] is True
+
+
+def test_an_observation_whose_source_was_deleted_is_broken_with_source_facts_too(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    ten_k = atlas.section(LITE_10K, "lumentum")
+    ten_q = atlas.section(LITE_10Q, "lumentum", anchor="cover")
+    observation_id = fake.derive_observation([ten_k["document_id"], ten_q["document_id"]])
+    deleted = fake.derived_fact(ten_q["document_id"])
+    fake.forget(deleted)
+
+    recalled = recall_with(atlas, "capacity", include_source_facts=True)
+
+    (observation,) = [m for m in recalled["memories"] if m["memory_id"] == observation_id]
+    assert observation["provenance"]["state"] == "broken"
+    assert observation["provenance"]["reason"] == "source_memory_not_found"
+    assert observation["provenance"]["missing_memory_ids"] == [deleted]
+    # The answer named the deleted source but had no entry for it: asked once, and gone.
+    assert memory_lookups(fake) == [deleted]
+
+
 # --- reflect ------------------------------------------------------------------------------
 
 
