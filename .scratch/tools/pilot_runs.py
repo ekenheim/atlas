@@ -87,7 +87,10 @@ def ids_under(value, suffixes, found):
 def main():
     number = int(sys.argv[1])
     question, seeds = RUNS[number]
-    target = OUT / f"inv-{number}"
+    # An optional second argument names the output folder (default pilot-0.3.0), so a run on a
+    # later version is kept apart: `pilot_runs.py 1 pilot-0.3.1`.
+    out = pathlib.Path(".scratch/live-runs") / sys.argv[2] if len(sys.argv) > 2 else OUT
+    target = out / f"inv-{number}"
     target.mkdir(parents=True, exist_ok=True)
     state_file = target / "state.json"
     if (target / "investigation.json").exists():

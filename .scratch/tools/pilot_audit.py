@@ -151,5 +151,10 @@ def audit(number, verdicts_name="verdicts.json", review_name="review.md"):
 
 
 if __name__ == "__main__":
+    # `gate <n> [folder]` and `audit <n> [folder] [verdicts] [review]`: the folder under
+    # .scratch/live-runs (default pilot-0.3.0).
     command, number = sys.argv[1], int(sys.argv[2])
-    sys.exit(gate(number) if command == "gate" else audit(number, *sys.argv[3:]))
+    rest = sys.argv[3:]
+    if rest and rest[0].startswith("pilot-"):
+        OUT = pathlib.Path(".scratch/live-runs") / rest.pop(0)
+    sys.exit(gate(number) if command == "gate" else audit(number, *rest))
