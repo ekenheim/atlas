@@ -2462,6 +2462,8 @@ export interface components {
             offset_source: ("model" | "located" | "folded") | null;
             /** Party Basis */
             party_basis?: ("named" | "filer") | null;
+            /** Speaker */
+            speaker?: string | null;
             /** Parser Version */
             parser_version?: string | null;
             /** Proposed */
@@ -3409,6 +3411,8 @@ export interface components {
             excluded: boolean;
             /** Passage Selected By */
             passage_selected_by?: string[];
+            /** Speaker */
+            speaker?: string | null;
         };
         /** ExportCompany */
         ExportCompany: {

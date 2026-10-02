@@ -37,6 +37,7 @@ import {
   pointerWeight,
   readerName,
   readingOutcome,
+  saidBy,
   selectionSummary,
   statusText,
   tokenUse,
@@ -671,6 +672,9 @@ function EvidenceTray({ items }: { items: EvidenceItem[] }) {
                   <blockquote id={`quote-${item.claim_id}`} className="quote">
                     {item.quote}
                   </blockquote>
+                  {saidBy(item.speaker) && (
+                    <p className="muted-small">{saidBy(item.speaker)}</p>
+                  )}
                   <Link
                     href={routes.span(item.source_version_id, item.assertion_id)}
                     aria-describedby={`quote-${item.claim_id}`}

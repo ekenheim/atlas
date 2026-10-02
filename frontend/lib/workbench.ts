@@ -159,6 +159,15 @@ export function foundBy(selectedBy: string[] | undefined): string | null {
   return kinds.length > 0 ? kinds.join(", ") : null;
 }
 
+/**
+ * Who says a Claim's quoted words, in a call or conference transcript ("said by Alex Example
+ * (CEO, Example Photonics)"): the paragraph's speaker label. Null for any other document.
+ */
+export function saidBy(speaker: string | null | undefined): string | null {
+  const label = speaker?.trim();
+  return label ? `said by ${label}` : null;
+}
+
 /** One query asked of Memory, and the reading pointers its recall gave. */
 export type PointerGroup = {
   round: number;

@@ -27,6 +27,7 @@ import {
   pointerWeight,
   readerName,
   readingOutcome,
+  saidBy,
   selectionSummary,
 } from "../lib/workbench";
 
@@ -133,6 +134,15 @@ test("a document's passages and a Claim's passage say which selections chose the
   expect(foundBy(["lead"])).toBe("lead");
   expect(foundBy([])).toBeNull();
   expect(foundBy(undefined)).toBeNull();
+});
+
+test("a transcript Claim's tray row says who said its words; a filing's says nothing", () => {
+  expect(saidBy("Alex Example (President and CEO, Example Photonics Inc)")).toBe(
+    "said by Alex Example (President and CEO, Example Photonics Inc)",
+  );
+  expect(saidBy(null)).toBeNull();
+  expect(saidBy(undefined)).toBeNull();
+  expect(saidBy(" ")).toBeNull();
 });
 
 test("the Skeptic's reading says what code chose for it, its counterevidence, or why it read nothing", () => {

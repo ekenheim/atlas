@@ -50,7 +50,11 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    occurrence is `quote_mismatch` and more than one `quote_ambiguous`. From here on **the
    quote is the archived text at the span**: that is what the Claim and the Assertion store
    and what every later check reads (the model's spelling stays in `proposed`). **The
-   Assertion span check** then runs on the final span (`quote_mismatch`); the quote names
+   Assertion span check** then runs on the final span (`quote_mismatch`); in a call or
+   conference transcript (source type `transcript`) the quote is one speaker's words
+   (`speaker_mixed`), and that speaker is one of the filer's own people by the paragraph's
+   label (`analyst_speaking`, `speaker_unknown`; `atlas.claims.speakers`), whose label the
+   accepted Claim records (`speaker`; pilot-fixes ticket 22); the quote names
    both parties (`party_not_in_quote`), **or leaves the filer unnamed** in a sentence of the
    filer's own document that names the other party (a company object) or the object product
    and no other company (`party_basis` `filer`, else `named`; a sentence naming another
@@ -140,6 +144,7 @@ from atlas.claims.predicates import (
 )
 from atlas.claims.reads import ClaimExtraction, Passage, SkippedVersion, get_extraction
 from atlas.claims.selection import Document, Reading, ceiling, select, selections
+from atlas.claims.speakers import TRANSCRIPT_SOURCE_TYPE, SpeakerRefusal, transcript_speaker
 from atlas.counterparties import (
     NamedCompany,
     NewCounterparty,
@@ -220,6 +225,7 @@ class _Version:
     parser_version: str | None = None
     items: tuple[str, ...] = ()  # its filing's 8-K Items ("2.02", "9.01"), when recorded
     provider: str | None = None  # its Source Document's provider (`tradingview`: a transcript)
+    source_type: str | None = None  # its Source Document's source type (`transcript`, ...)
 
 
 @dataclass(frozen=True)
@@ -258,6 +264,9 @@ class _Judged:
     company_level: bool = False
     # The named object company Atlas doesn't have yet: created when the Claim is accepted.
     counterparty: NewCounterparty | None = None
+    # The speaker label of the paragraph a transcript Claim quotes (`atlas.claims.speakers`):
+    # one of the filer's own people. None for every other document.
+    speaker: str | None = None
 
 
 class ClaimExtractor:
@@ -651,12 +660,12 @@ class ClaimExtractor:
                     " object_company_id, object_text, product, layer, quote, span_start,"
                     " span_end, epistemic_type, directional_cue, outcome, reason_code, reason,"
                     " assertion_id, offset_source, parser_version, party_basis, layer_term,"
-                    " layer_reason, company_level) VALUES (:id, :extraction,"
+                    " layer_reason, company_level, speaker) VALUES (:id, :extraction,"
                     " :run, :role_call, :ordinal, CAST(:proposed AS jsonb), :passage, :version,"
                     " :subject, :predicate, :object, :object_text, :product, :layer, :quote,"
                     " :span_start, :span_end, :epistemic_type, :cue, :outcome, :reason_code,"
                     " :reason, :assertion, :offset_source, :parser_version, :party_basis,"
-                    " :layer_term, :layer_reason, :company_level) RETURNING *"
+                    " :layer_term, :layer_reason, :company_level, :speaker) RETURNING *"
                 ),
                 {
                     "id": claim_id,
@@ -694,6 +703,7 @@ class ClaimExtractor:
                     "offset_source": judged.offset_source,
                     "parser_version": _parser_version(versions, judged.source_version_id),
                     "party_basis": judged.party_basis,
+                    "speaker": judged.speaker if accepted else None,
                 },
             )
             .mappings()
@@ -846,6 +856,15 @@ class ClaimExtractor:
             return _reject(judged, "invalid_claim", _first_error(error))
         except InvalidAssertion as refusal:
             return _reject(judged, refusal.code, refusal.message)
+        # In a call or conference transcript, only the filer's own people make its statements.
+        speaker: str | None = None
+        if version.source_type == TRANSCRIPT_SOURCE_TYPE:
+            filer_company = by_id.get(str(version.company_id))
+            filer_names = filer_company.names if filer_company is not None else []
+            said = transcript_speaker(self._text(version), span, filer_names)
+            if isinstance(said, SpeakerRefusal):
+                return _reject(judged, said.code, said.message)
+            speaker = said
         parties: list[tuple[str, Sequence[str]]] = [("subject", subject.names)]
         if rule.object_kind == "company":
             parties.append(("object", object_names))
@@ -945,6 +964,7 @@ class ClaimExtractor:
             layer_reason=layer_reason,
             company_level=own,
             counterparty=counterparty,
+            speaker=speaker,
         )
 
     # --- finishing ------------------------------------------------------------------------------
@@ -985,7 +1005,7 @@ class ClaimExtractor:
             rows = connection.execute(
                 text(
                     "SELECT v.id, d.title, d.form_type, d.document_type, d.company_id,"
-                    " d.provider, v.metadata -> 'items' AS items"
+                    " d.provider, d.source_type, v.metadata -> 'items' AS items"
                     " FROM source_version v"
                     " JOIN source_document d ON d.id = v.source_document_id"
                     " WHERE v.id = ANY(:ids)"

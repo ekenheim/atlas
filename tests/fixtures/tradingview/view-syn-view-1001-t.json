@@ -13,15 +13,15 @@
       {
         "type": "p",
         "children": [
-          {"type": "b", "children": ["Chief Executive Officer"]},
-          ": Thank you. In this fictional quarter our indium phosphide laser capacity was the constraint on shipments of 1.6T transceivers, and we expect the new line to be qualified by the end of the year."
+          {"type": "b", "children": ["Alex Example (President and CEO, Lumentum Holdings Inc)"]},
+          ": Thank you. In this fictional quarter our indium phosphide laser capacity was the constraint on shipments of 1.6T transceivers, and we are expanding our indium phosphide wafer fab capacity in the synthetic plant."
         ]
       },
       {
         "type": "p",
         "children": [
-          {"type": "b", "children": ["Analyst"]},
-          ": How much of the demand comes from",
+          {"type": "b", "children": ["Sam Sample (Managing Director and Equity Research Analyst, Example Securities)"]},
+          ": You said that we are expanding our indium phosphide wafer fab capacity in the synthetic plant. How much of the demand comes from",
           {"type": "br"},
           "the largest customer?"
         ]
@@ -29,7 +29,7 @@
       {
         "type": "p",
         "children": [
-          {"type": "b", "children": ["Chief Financial Officer"]},
+          {"type": "b", "children": ["Casey Placeholder (CFO, Lumentum)"]},
           ": We do not break that out, but the backlog is broad and it is spread across several customers."
         ]
       }

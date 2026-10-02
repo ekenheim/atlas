@@ -293,12 +293,15 @@ def test_a_transcript_view_parses_to_speaker_lines() -> None:
     assert parsed.text == (
         "Operator: Good afternoon and welcome to this synthetic call. It is a hand-written test"
         " fixture and not the record of a real call.\n"
-        "Chief Executive Officer: Thank you. In this fictional quarter our indium phosphide laser"
-        " capacity was the constraint on shipments of 1.6T transceivers, and we expect the new"
-        " line to be qualified by the end of the year.\n"
-        "Analyst: How much of the demand comes from\n"
+        "Alex Example (President and CEO, Lumentum Holdings Inc): Thank you. In this fictional"
+        " quarter our indium phosphide laser capacity was the constraint on shipments of 1.6T"
+        " transceivers, and we are expanding our indium phosphide wafer fab capacity in the"
+        " synthetic plant.\n"
+        "Sam Sample (Managing Director and Equity Research Analyst, Example Securities): You said"
+        " that we are expanding our indium phosphide wafer fab capacity in the synthetic plant."
+        " How much of the demand comes from\n"
         "the largest customer?\n"
-        "Chief Financial Officer: We do not break that out, but the backlog is broad and it is"
-        " spread across several customers.\n"
+        "Casey Placeholder (CFO, Lumentum): We do not break that out, but the backlog is broad and"
+        " it is spread across several customers.\n"
     )
     assert parse(raw, "application/x-tradingview-transcript+json") == parsed  # deterministic

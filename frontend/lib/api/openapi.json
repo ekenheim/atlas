@@ -8966,6 +8966,17 @@
             ],
             "title": "Party Basis"
           },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
+          },
           "parser_version": {
             "anyOf": [
               {
@@ -11604,6 +11615,17 @@
             },
             "type": "array",
             "title": "Passage Selected By"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
           }
         },
         "type": "object",

@@ -569,6 +569,10 @@ class EvidenceItem(BaseModel):
     # The selections that chose the passage the Claim quotes (its `selected_by`): which of
     # pointer, search, entity or lead found it (atlas.claims.selection).
     passage_selected_by: list[str] = Field(default_factory=list[str])
+    # Who says the quoted words, when the document is a call or conference transcript: the
+    # paragraph's speaker label, one of the company's own people (`atlas.claims.speakers`).
+    # Null for every other document.
+    speaker: str | None = None
 
 
 class FollowUp(BaseModel):
@@ -804,7 +808,7 @@ def _evidence(
             " c.subject_company_id, s.display_name AS subject_name, c.predicate,"
             " c.object_company_id, o.display_name AS object_name, c.object_text, c.product,"
             " c.layer, c.epistemic_type, c.quote, c.source_version_id, c.span_start,"
-            " c.span_end, d.title AS source_title, v.available_at,"
+            " c.span_end, c.speaker, d.title AS source_title, v.available_at,"
             " coalesce('family:' || m.evidence_family_id::text,"
             "  'version:' || c.source_version_id::text) AS evidence_family,"
             " a.verification_status,"
