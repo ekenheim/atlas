@@ -24,7 +24,9 @@ One attempt:
      Investigator for each other researched company the pointers name, in rank order, while
      the company budget has room (atlas.investigations.companies; the plan's advance).
    - **Investigator** (one per seed company, and one per company added for its pointers):
-     the Source Versions the round's pointers into its company name, best pointer first
+     its company's document floor (the latest periodic report and results release; pilot
+     fix 24), then the Source Versions the round's pointers into its company name, best
+     pointer first
      (one per Source Document: the latest a pointer names), then the latest parsed Source
      Versions of its other documents
      available at the investigation's as-of time, newest first, up to its share of what is
@@ -85,7 +87,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
@@ -108,7 +110,10 @@ from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
+from atlas.investigations.companies import FloorCandidate, document_floor, documents_in_order
 from atlas.investigations.coverage import coverage, not_read
+from atlas.investigations.entity_hop import HopLimits, record_entity_pointers
+from atlas.investigations.grounding import check_findings
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
@@ -140,6 +145,7 @@ from atlas.investigations.skeptic import (
 from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import run_recorder
+from atlas.research.provenance import ProvenanceResolver
 from atlas.research.service import RecallRequest, Research, ResearchScope
 from atlas.roles import (
     QuotedText,
@@ -151,6 +157,8 @@ from atlas.roles import (
 )
 from atlas.roles.editor import (
     EDITOR,
+    EDITOR_REGROUND,
+    CardFindingDraft,
     EditorBearContext,
     EditorCardClaim,
     EditorContradiction,
@@ -159,7 +167,9 @@ from atlas.roles.editor import (
     EditorLead,
     EditorQuery,
     EditorReading,
+    EditorRegroundRequest,
     EditorRequest,
+    RegroundedFindings,
 )
 from atlas.roles.financial_analyst import FINANCIAL_ANALYST
 from atlas.runs import RunRecorder
@@ -425,6 +435,25 @@ class TaskRunner:
             )
         return caller
 
+    def _ask_editor_again(
+        self,
+        investigation: RowMapping,
+        run_id: uuid.UUID,
+        request: EditorRegroundRequest,
+        retrieved: list[QuotedText],
+    ) -> tuple[RegroundedFindings, uuid.UUID]:
+        """The Editor asked once more for its ungrounded findings (pilot-fixes ticket 21)."""
+        with self._caller(investigation) as caller:
+            return caller.call_recorded(
+                EDITOR_REGROUND, request, run_id=run_id, retrieved=retrieved
+            )
+
+    def _company_names(self) -> list[tuple[str, str]]:
+        """Each company's display and legal names: one name, for the grounding check."""
+        with self._engine.connect() as connection:
+            rows = connection.execute(text("SELECT display_name, legal_name FROM company")).all()
+        return [(row.display_name, row.legal_name) for row in rows]
+
     def _runs(self) -> RunRecorder:
         runs = RunRecorder.from_settings(self._settings, self._engine)
         if runs is None:
@@ -484,6 +513,22 @@ class TaskRunner:
             task,
             queries,
         )
+        # The entity hop (memory-quality ticket 09): what other companies' documents say
+        # about the companies this round reads, whether or not a recall ranked them.
+        hop = record_entity_pointers(
+            self._engine,
+            self._gateway,
+            ProvenanceResolver(
+                self._engine, open_archive(self._settings), self._gateway
+            ).resolve_recalled,
+            investigation,
+            task,
+            HopLimits(
+                max_companies=self._settings.entity_hop_max_companies,
+                max_facts=self._settings.entity_hop_max_facts,
+                pointer_weight=self._settings.entity_hop_pointer_weight,
+            ),
+        )
         with self._engine.begin() as connection:
             lock(connection, investigation["id"])
             taken, dropped, rejected, total = _take_leads(
@@ -505,7 +550,7 @@ class TaskRunner:
                     max_leads=investigation["max_leads"],
                     dropped=dropped,
                 )
-        artifacts: dict[str, JsonValue] = dict(pointers)
+        artifacts: dict[str, JsonValue] = dict(pointers) | hop
         if edgar is not None and self._settings.sec_user_agent:
             # The filing leads' filers, by CIK (no mention extractor): Candidates for the
             # ones outside the universe (atlas.candidates).
@@ -540,7 +585,7 @@ class TaskRunner:
         Asked like a reading index (memory-quality ticket 07; docs/decisions.md, "Recall as a
         reading index"): `pointer_recall_max_tokens` of results, budget high, an observation
         in place of the facts it was built from, recency judged from the investigation's
-        as-of time, and each observation's sources in the same answer."""
+        as-of time, each observation's sources and every fact's chunk in the same answer."""
         research = Research(
             self._engine, open_archive(self._settings), self._gateway, actor, lambda: universe
         )
@@ -555,6 +600,9 @@ class TaskRunner:
                 prefer_observations=True,
                 query_timestamp=as_of,
                 include_source_facts=True,
+                # Each fact's chunk located in its section: the pointer's window is the
+                # chunk's (memory-quality ticket 08; atlas.research.chunks).
+                include_chunks=True,
             )
         )
 
@@ -624,9 +672,11 @@ class TaskRunner:
     def _documents(
         self, investigation: RowMapping, task: RowMapping
     ) -> tuple[list[uuid.UUID], int]:
-        """The task's Source Versions (chosen once, within the document budget): the ones the
-        round's reading pointers into its company name, best pointer first, then its latest
-        ones; and how many available ones the budget left out."""
+        """The task's Source Versions (chosen once, within the document budget): its
+        company's document floor (the latest periodic report and results release; pilot fix
+        24), then the ones the round's reading pointers into its company name, best pointer
+        first, then its latest ones (atlas.investigations.companies.documents_in_order); and
+        how many available ones the budget left out."""
         with self._engine.begin() as connection:
             lock(connection, investigation["id"])
             chosen = list(
@@ -649,10 +699,11 @@ class TaskRunner:
             }
             # Where Memory pointed in this company's documents: one Source Version per Source
             # Document (the latest one a pointer names), by its best pointer, best first.
-            pointed = list(
+            pointed_rows = list(
                 connection.execute(
                     text(
-                        "SELECT id FROM (SELECT DISTINCT ON (v.source_document_id) v.id,"
+                        "SELECT id, source_document_id FROM (SELECT DISTINCT ON"
+                        " (v.source_document_id) v.id, v.source_document_id,"
                         " p.rank, p.query_index, v.available_at FROM reading_pointer p"
                         " JOIN investigation_task t ON t.id = p.task_id AND t.role = 'scout'"
                         " JOIN source_version v ON v.id = p.source_version_id"
@@ -668,7 +719,11 @@ class TaskRunner:
                         " ORDER BY rank, query_index, available_at DESC, id"
                     ),
                     where,
-                ).scalars()
+                )
+            )
+            pointed: list[uuid.UUID] = [row.id for row in pointed_rows]
+            floor = _document_floor(
+                connection, where, {row.source_document_id: row.id for row in pointed_rows}
             )
             # Then the latest version of each of its other Source Documents, newest first.
             latest = list(
@@ -691,11 +746,12 @@ class TaskRunner:
                     where | {"pointed": pointed},
                 ).scalars()
             )
-            available = [*pointed, *latest]
+            available = len({*floor, *pointed, *latest})
             room = _document_share(
                 connection, investigation, task, max(investigation["max_documents"] - int(used), 0)
             )
-            chosen, dropped = available[:room], max(len(available) - room, 0)
+            chosen = documents_in_order(floor, pointed, latest, room)
+            dropped = available - len(chosen)
             for version_id in chosen:
                 connection.execute(
                     text(
@@ -710,6 +766,7 @@ class TaskRunner:
                     "UPDATE investigation_task SET artifacts = artifacts"
                     " || jsonb_build_object('documents', CAST(:n AS integer),"
                     " 'documents_pointed', CAST(:pointed AS integer),"
+                    " 'documents_floor', CAST(:floor AS jsonb),"
                     " 'documents_dropped', CAST(:dropped AS integer)) WHERE id = :id"
                 ),
                 {
@@ -717,6 +774,8 @@ class TaskRunner:
                     "n": len(chosen),
                     # How many of them the reading pointers named.
                     "pointed": len(set(chosen) & set(pointed)),
+                    # Which of them the document floor chose (pilot fix 24), in floor order.
+                    "floor": json.dumps([str(each) for each in floor if each in chosen]),
                     "dropped": dropped,
                 },
             )
@@ -1008,6 +1067,7 @@ class TaskRunner:
             )
         findings: list[CardFinding] = []
         unsupported: list[UnsupportedFinding] = []
+        citing: list[tuple[CardFindingDraft, list[str]]] = []
         for finding in draft.findings:
             cited = list(dict.fromkeys(finding.claim_refs))
             unknown = [each for each in cited if each not in refs]
@@ -1024,8 +1084,34 @@ class TaskRunner:
                     UnsupportedFinding(statement=finding.statement, claim_ids=named, reason=reason)
                 )
                 continue
+            citing.append((finding, cited))
+        # A finding says only what its Claims say (pilot-fixes ticket 21): checked by code,
+        # an ungrounded one asked again once, and set aside if it still is.
+        checked = check_findings(
+            citing,
+            refs,
+            investigation["question"],
+            self._company_names(),
+            lambda again, quotes: self._ask_editor_again(investigation, run_id, again, quotes),
+        )
+        for each in checked.findings:
+            if each.ungrounded:
+                unsupported.append(
+                    UnsupportedFinding(
+                        statement=each.draft.statement,
+                        claim_ids=[str(refs[ref]["id"]) for ref in each.cited],
+                        reason="ungrounded: " + ", ".join(each.ungrounded),
+                    )
+                )
+                continue
             findings.append(
-                card_finding(finding.statement, [refs[each] for each in cited], finding, by_claim)
+                card_finding(
+                    each.draft.statement,
+                    [refs[ref] for ref in each.cited],
+                    each.draft,
+                    by_claim,
+                    grounded=True,
+                )
             )
         contradicted = sum(1 for f in findings if f.counterevidence_ids)
         if not claims:
@@ -1074,6 +1160,14 @@ class TaskRunner:
                 "new_evidence_families": len(new_families),
                 "findings": len(findings),
                 "unsupported_findings": len(unsupported),
+                "grounding": {
+                    "asked_again": checked.asked_again,
+                    "repaired": checked.repaired,
+                    "role_call_id": (
+                        str(checked.role_call_id) if checked.role_call_id is not None else None
+                    ),
+                    "failure": checked.failure,
+                },
                 "contradictions": len(against),
                 "bear_context": sum(len(group.items) for group in context),
                 "contradicted_findings": contradicted,
@@ -1085,6 +1179,55 @@ class TaskRunner:
 
 
 # --- helpers ------------------------------------------------------------------------------------
+
+
+def _document_floor(
+    connection: Connection, where: Mapping[str, Any], pointed: Mapping[Any, uuid.UUID]
+) -> list[uuid.UUID]:
+    """The company's document floor (atlas.investigations.companies.document_floor) among
+    the latest parsed version of each of its Source Documents available as of the
+    investigation's time (or, for a document a pointer names, the version it names); a floor
+    document the investigation has already read is not read again."""
+    rows = connection.execute(
+        text(
+            "SELECT DISTINCT ON (v.source_document_id) v.id, v.source_document_id,"
+            " v.available_at, d.form_type, d.document_type, v.metadata -> 'items' AS filing_items"
+            " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
+            " WHERE d.company_id = :company AND v.available_at <= :as_of"
+            " AND v.parse_status IN ('parsed', 'incomplete')"
+            " AND v.parsed_object_uri IS NOT NULL"
+            " ORDER BY v.source_document_id, v.available_at DESC, v.id"
+        ),
+        dict(where),
+    ).all()
+    floor = document_floor(
+        [
+            FloorCandidate(
+                version_id=pointed.get(row.source_document_id, row.id),
+                available_at=row.available_at,
+                form_type=row.form_type,
+                document_type=row.document_type,
+                items=_filing_items(row.filing_items),
+            )
+            for row in rows
+        ]
+    )
+    read = set(
+        connection.execute(
+            text(
+                "SELECT source_version_id FROM investigation_document"
+                " WHERE investigation_id = :id AND source_version_id = ANY(:floor)"
+            ),
+            {"id": where["id"], "floor": floor},
+        ).scalars()
+    )
+    return [each for each in floor if each not in read]
+
+
+def _filing_items(recorded: Any) -> tuple[str, ...]:
+    """A version's recorded 8-K Items (`metadata.items`), none when not recorded."""
+    items = cast(list[Any], recorded) if isinstance(recorded, list) else []
+    return tuple(str(item) for item in items)
 
 
 def _document_share(
@@ -1265,10 +1408,12 @@ def card_finding(
     cited: list[RowMapping],
     finding: Any,
     counterevidence: Mapping[uuid.UUID, list[uuid.UUID]] | None = None,
+    *,
+    grounded: bool | None = None,
 ) -> CardFinding:
     """A finding citing `cited` accepted Claims, with the independent contradictions
     (`counterevidence`: claim ID -> counterevidence IDs, atlas.investigations.skeptic) of any
-    of them."""
+    of them; `grounded` the grounding check's result (None: not checked)."""
     available: list[datetime] = [c["available_at"] for c in cited]
     against = list(
         dict.fromkeys(each for c in cited for each in (counterevidence or {}).get(c["id"], []))
@@ -1305,6 +1450,7 @@ def card_finding(
         needs_review=bool(against)
         or any(c["verification_status"] != "corroborated" for c in cited),
         open_questions=finding.open_questions,
+        grounded=grounded,
     )
 
 

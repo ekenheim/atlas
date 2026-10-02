@@ -136,6 +136,14 @@ class Settings(BaseSettings):
     # The text budget, in tokens, of each pointer recall (the Scout's and the Skeptic's; memory-
     # quality ticket 07): more distinct sections per recall than Hindsight's default 4096.
     pointer_recall_max_tokens: int = Field(default=8192, ge=1, le=65536)
+    # The entity hop (memory-quality ticket 09; atlas.investigations.entity_hop): after the
+    # Scout's recalls, how many companies (seeds first) have the theme's facts carrying their
+    # entity listed, at most how many entity pointers each gives (newest first), and what one
+    # entity pointer weighs in the ranking of pointed companies (a recall pointer weighs
+    # 1 / its rank, so 1 at best; default half of that).
+    entity_hop_max_companies: int = Field(default=6, ge=0, le=25)
+    entity_hop_max_facts: int = Field(default=20, ge=1, le=200)
+    entity_hop_pointer_weight: float = Field(default=0.5, gt=0, le=1)
     # Retention: how long one poll job waits for a retain operation to reach a terminal
     # status (keep it below job_lease_seconds), and how often it asks. A poll that times out
     # fails its attempt and is retried, up to retain_poll_attempts.

@@ -16,10 +16,12 @@ from atlas.claims.selection import (
     ceiling,
     deal,
     keeps_a_passage,
+    placements,
     select,
     selections,
 )
 from atlas.research.search import bm25, overlap, query_terms, tokens
+from atlas.retention.sections import split_sections
 
 ALLOCATION = (
     "This demand is outpacing our current supply which has required us to make decisions on"
@@ -186,6 +188,68 @@ def test_a_labelled_pointer_is_recorded_by_its_label_not_its_query_number() -> N
     assert found.selected_by == ("pointer:inventory_cycle", "pointer:customer_concentration")
     assert found.pointer == (1, 2)
     assert selections(found.selected_by) == ["pointer"]
+
+
+def chunk_placed(document: Document, chunk_start: int, *, label: str | None = None) -> Pointer:
+    """A pointer into the document's first section placed by its fact's chunk, which starts at
+    `chunk_start`; its Memory text matches the allocation window best (memory-quality 08)."""
+    [section, *_] = split_sections(document.text, form=None, primary=False)
+    return Pointer(
+        document.id,
+        section.anchor,
+        1,
+        2,
+        MEMORY,
+        label=label,
+        section_char_start=section.start,
+        section_char_end=section.end,
+        chunk_char_start=chunk_start,
+    )
+
+
+def test_a_pointer_placed_by_its_chunk_reads_the_window_the_chunk_starts_in() -> None:
+    first = paragraph("We make optical components.")
+    document = note(first, paragraph(ALLOCATION), paragraph("We lease our facilities."))
+    pointers = [
+        chunk_placed(document, len(first) - 40),  # starts at the end of the first window
+        chunk_placed(document, len(first) - 40, label="inventory_cycle"),
+    ]
+
+    [found] = candidates([document], reading=Reading(pointers=pointers))
+
+    assert (found.start, found.end) == (0, len(first))
+    assert found.selected_by == ("pointer:2:chunk", "pointer:inventory_cycle:chunk")
+    assert selections(found.selected_by) == ["pointer"]
+    assert placements(found.selected_by) == ["chunk"]
+
+
+def test_a_chunk_placed_pointer_into_a_section_the_parse_has_elsewhere_is_placed_by_match() -> None:
+    # The parse read is not the one the chunk was located in: its section lies elsewhere.
+    first = paragraph("We make optical components.")
+    document = note(first, paragraph(ALLOCATION))
+    pointer = chunk_placed(document, 10)
+    moved = Pointer(
+        pointer.source_version_id,
+        pointer.section_anchor,
+        pointer.rank,
+        pointer.query_index,
+        pointer.memory_text,
+        section_char_start=5,
+        section_char_end=pointer.section_char_end,
+        chunk_char_start=10,
+    )
+
+    [found] = candidates([document], reading=Reading(pointers=[moved]))
+
+    assert document.text[found.start : found.end].startswith(ALLOCATION)
+    assert found.selected_by == ("pointer:2",)
+    assert placements(found.selected_by) == ["match"]
+
+
+def test_how_a_passage_s_pointers_were_placed() -> None:
+    assert placements(["pointer:0:chunk", "pointer:3", "search"]) == ["chunk", "match"]
+    assert placements(["pointer:customer_concentration:chunk"]) == ["chunk"]
+    assert placements(["search", f"entity:{NVIDIA}", "lead"]) == []
 
 
 def test_lead_windows_are_offered_only_by_a_document_with_no_other_candidate() -> None:
@@ -496,6 +560,54 @@ def test_the_ceiling_is_a_share_of_the_budget_and_at_least_one_passage() -> None
     assert ceiling(2, 1 / 3) == 1
     assert ceiling(6, 0.5) == 3
     assert ceiling(24, 1.0) == 24
+
+
+def hop(document: int, rank: int, start: int = 0) -> Candidate:
+    """A window an entity pointer chose (memory-quality ticket 09)."""
+    return Candidate(
+        document, "s", start, start + 10, (f"entity_pointer:{NVIDIA}",), entity_pointer=(rank, 1)
+    )
+
+
+def test_an_entity_pointer_chooses_its_window_and_is_tagged_with_the_company_it_was_found_for() -> (
+    None
+):
+    document = note(paragraph("We lease our facilities."), paragraph(ALLOCATION))
+    pointers = [
+        Pointer(document.id, "chunk-001", 2, 1, MEMORY, label=str(NVIDIA), entity=True),
+        Pointer(document.id, "chunk-001", 5, 3, MEMORY),
+    ]
+
+    [found] = candidates([document], reading=Reading(pointers=pointers))
+
+    assert document.text[found.start : found.end].startswith(ALLOCATION)
+    assert found.selected_by == ("pointer:3", f"entity_pointer:{NVIDIA}")
+    assert (found.pointer, found.entity_pointer) == ((5, 3), (2, 1))
+    assert selections(found.selected_by) == ["pointer", "entity_pointer"]
+
+
+def test_entity_pointer_windows_take_their_turn_but_never_crowd_out_the_recall_pointers() -> None:
+    # Every channel has more windows than the budget, each in a document of its own.
+    recalled = [pointed(0, rank=n + 1, start=n * 10) for n in range(12)]
+    hopped = [hop(1, rank=n + 1, start=n * 10) for n in range(12)]
+    found = [searched(2, 9.0 - n, start=n * 10) for n in range(12)]
+
+    dealt = deal([*recalled, *hopped, *found], floors=(), budget=9, ceiling=2)
+
+    # In turn, the entity pointer channel capped at the ceiling (2) under it; then what was
+    # passed over, in turn again.
+    assert [each.document for each in dealt[:6]] == [0, 1, 2, 0, 1, 2]
+    assert [each.document for each in dealt].count(1) <= [each.document for each in dealt].count(0)
+    assert [each for each in dealt if each.document == 1] == hopped[:3]
+
+
+def test_without_entity_pointers_the_dealing_is_as_before() -> None:
+    retained = [pointed(0, rank=n + 1, start=n * 10) for n in range(12)]
+    transcript = [searched(1, 9.0 - n, start=n * 10) for n in range(6)]
+
+    dealt = deal([*retained, *transcript], floors=(), budget=8, ceiling=8)
+
+    assert [each.document for each in dealt] == [0, 1, 0, 1, 0, 1, 0, 1]
 
 
 def test_the_kinds_of_selection_of_a_passage() -> None:

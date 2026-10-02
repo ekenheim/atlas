@@ -7210,7 +7210,7 @@
           "token_budget"
         ],
         "title": "Budgets",
-        "description": "Per-run limits (spec §7.4)."
+        "description": "Per-run limits (spec Â§7.4)."
       },
       "Candidate": {
         "properties": {
@@ -7839,12 +7839,35 @@
             "title": "Score"
           },
           "best_rank": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Best Rank"
           },
           "reason": {
             "type": "string",
             "title": "Reason"
+          },
+          "entity_pointers": {
+            "type": "integer",
+            "title": "Entity Pointers",
+            "default": 0
+          },
+          "channels": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "recall",
+                "entity"
+              ]
+            },
+            "type": "array",
+            "title": "Channels"
           }
         },
         "type": "object",
@@ -7983,6 +8006,13 @@
             "type": "object",
             "title": "Selections"
           },
+          "pointers_placed_by": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Pointers Placed By"
+          },
           "selected_by": {
             "anyOf": [
               {
@@ -7999,6 +8029,11 @@
               }
             ],
             "title": "Selected By"
+          },
+          "floor": {
+            "type": "boolean",
+            "title": "Floor",
+            "default": false
           }
         },
         "type": "object",
@@ -8094,6 +8129,17 @@
             },
             "type": "array",
             "title": "Open Questions"
+          },
+          "grounded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grounded"
           }
         },
         "type": "object",
@@ -8113,7 +8159,7 @@
           "open_questions"
         ],
         "title": "CardFinding",
-        "description": "A research card finding in the §7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
+        "description": "A research card finding in the Â§7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
       },
       "CardQuery": {
         "properties": {
@@ -8692,6 +8738,39 @@
           "available_at_basis": {
             "type": "string",
             "title": "Available At Basis"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "chunk_char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Char Start"
+          },
+          "chunk_char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Char End"
           }
         },
         "type": "object",
@@ -8966,6 +9045,17 @@
               }
             ],
             "title": "Party Basis"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
           },
           "parser_version": {
             "anyOf": [
@@ -10888,6 +10978,99 @@
         ],
         "title": "Entity"
       },
+      "EntityHop": {
+        "properties": {
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "listed",
+              "no_entity",
+              "listing_failed",
+              "entities_unavailable"
+            ],
+            "title": "Outcome"
+          },
+          "facts_listed": {
+            "type": "integer",
+            "title": "Facts Listed"
+          },
+          "pointers": {
+            "type": "integer",
+            "title": "Pointers"
+          },
+          "own_documents": {
+            "type": "integer",
+            "title": "Own Documents"
+          },
+          "after_as_of": {
+            "type": "integer",
+            "title": "After As Of"
+          },
+          "already_pointed": {
+            "type": "integer",
+            "title": "Already Pointed"
+          },
+          "unresolved": {
+            "type": "integer",
+            "title": "Unresolved"
+          },
+          "beyond_limit": {
+            "type": "integer",
+            "title": "Beyond Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "round",
+          "company_id",
+          "company_name",
+          "slug",
+          "entity_name",
+          "entity_id",
+          "outcome",
+          "facts_listed",
+          "pointers",
+          "own_documents",
+          "after_as_of",
+          "already_pointed",
+          "unresolved",
+          "beyond_limit"
+        ],
+        "title": "EntityHop",
+        "description": "What the entity hop (memory-quality ticket 09) did for one company of a round: the\nentity it found by the company's canonical name, the facts that carry it, and why each\nmade an entity pointer or not. `outcome`: `listed`; `no_entity` (no entity of exactly\nthat name in Memory); `listing_failed` (the memory listing failed: an event says why);\n`entities_unavailable` (the entity listing failed, so no company was hopped)."
+      },
       "EntityMatch": {
         "properties": {
           "id": {
@@ -11741,6 +11924,17 @@
             },
             "type": "array",
             "title": "Passage Selected By"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
           }
         },
         "type": "object",
@@ -14153,6 +14347,20 @@
             "type": "array",
             "title": "Pointed Companies"
           },
+          "entity_pointers": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingPointer"
+            },
+            "type": "array",
+            "title": "Entity Pointers"
+          },
+          "entity_hops": {
+            "items": {
+              "$ref": "#/components/schemas/EntityHop"
+            },
+            "type": "array",
+            "title": "Entity Hops"
+          },
           "documents": {
             "items": {
               "$ref": "#/components/schemas/InvestigationDocument"
@@ -14591,7 +14799,7 @@
           "hypothesis_id"
         ],
         "title": "InvestigationRequest",
-        "description": "The shared agent contract's request (spec §7.2), as every role of the run works to."
+        "description": "The shared agent contract's request (spec Â§7.2), as every role of the run works to."
       },
       "InvestigationSummary": {
         "properties": {
@@ -14942,6 +15150,23 @@
             ],
             "title": "Validation Errors"
           },
+          "ignored_fields": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Ignored Fields"
+          },
           "called_at": {
             "type": "string",
             "format": "date-time",
@@ -14957,10 +15182,11 @@
           "tokens_out",
           "content",
           "validation_errors",
+          "ignored_fields",
           "called_at"
         ],
         "title": "LLMAttempt",
-        "description": "One chat completion: the routed model, its usage, its raw content and why it failed\nvalidation (None: it validated)."
+        "description": "One chat completion: the routed model, its usage, its raw content, why it failed\nvalidation (None: it validated) and the fields of its answer the role's response model\ndoesn't name, which code dropped (each as its path in the answer; pilot-fixes ticket 26)."
       },
       "Layer": {
         "type": "string",
@@ -17764,7 +17990,14 @@
             "title": "Score"
           },
           "best_rank": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Best Rank"
           },
           "outcome": {
@@ -17787,6 +18020,11 @@
               }
             ],
             "title": "Task Key"
+          },
+          "entity_pointers": {
+            "type": "integer",
+            "title": "Entity Pointers",
+            "default": 0
           }
         },
         "type": "object",
@@ -18610,7 +18848,8 @@
             "type": "string",
             "enum": [
               "scout",
-              "bear_checklist"
+              "bear_checklist",
+              "entity"
             ],
             "title": "Query Kind"
           },
@@ -18766,6 +19005,59 @@
               }
             ],
             "title": "Entity Names"
+          },
+          "placed_by": {
+            "type": "string",
+            "enum": [
+              "chunk",
+              "match"
+            ],
+            "title": "Placed By",
+            "default": "match"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "chunk_char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Char Start"
+          },
+          "chunk_char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Char End"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
           }
         },
         "type": "object",
@@ -18872,6 +19164,12 @@
             "type": "boolean",
             "title": "Include Source Facts",
             "description": "each observation's source facts in the same answer, so its provenance needs no request per observation",
+            "default": false
+          },
+          "include_chunks": {
+            "type": "boolean",
+            "title": "Include Chunks",
+            "description": "ask for the chunks the results came from, and locate each resolved fact's chunk in its section (its span in `provenance.sources`; the chunk's text is not returned)",
             "default": false
           }
         },
@@ -20986,7 +21284,7 @@
           "editor_role_call_id"
         ],
         "title": "ResearchCard",
-        "description": "The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10).\n\nWhen the Editor fails (its answer cut off at its output cap's bound, or quarantined), the\ncard is code's alone: no finding, `editor_failure` saying why, the accepted Claims by\ncompany (`claims_by_company`) and, as on every card, the contradictions, bear context and\nwhat was searched and read (memory-quality ticket 16)."
+        "description": "The Editor's structured research card: always a draft (spec Â§7.1, Â§7.3 step 10).\n\nWhen the Editor fails (its answer cut off at its output cap's bound, or quarantined), the\ncard is code's alone: no finding, `editor_failure` saying why, the accepted Claims by\ncompany (`claims_by_company`) and, as on every card, the contradictions, bear context and\nwhat was searched and read (memory-quality ticket 16)."
       },
       "ResearchScope": {
         "properties": {
@@ -21669,6 +21967,13 @@
             "type": "integer",
             "title": "Tokens Out"
           },
+          "repairs": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Repairs"
+          },
           "role_calls": {
             "items": {
               "$ref": "#/components/schemas/RoleCallRecord"
@@ -21682,6 +21987,7 @@
           "run_id",
           "tokens_in",
           "tokens_out",
+          "repairs",
           "role_calls"
         ],
         "title": "RunRoleCalls"
@@ -24538,7 +24844,7 @@
           "reason"
         ],
         "title": "UnsupportedFinding",
-        "description": "A finding the Editor wrote that cites no accepted Claim of the investigation (or cites\nsomething else): recorded, never shown as a finding."
+        "description": "A finding the Editor wrote that cites no accepted Claim of the investigation (or cites\nsomething else), or whose statement says what its Claims don't even after it was asked\nagain (`reason` \"ungrounded: <terms>\", pilot-fixes ticket 21): recorded, never shown as a\nfinding."
       },
       "Usage": {
         "properties": {
@@ -24565,6 +24871,13 @@
           "tokens_out": {
             "type": "integer",
             "title": "Tokens Out"
+          },
+          "repairs": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Repairs"
           }
         },
         "type": "object",
@@ -24574,7 +24887,8 @@
           "documents",
           "companies",
           "tokens_in",
-          "tokens_out"
+          "tokens_out",
+          "repairs"
         ],
         "title": "Usage",
         "description": "How much of each budget the investigation has used."

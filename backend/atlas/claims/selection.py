@@ -16,11 +16,21 @@ recording all of them in `selected_by`:
    pointer with a `label` is recorded as `pointer:<label>` instead: the Skeptic's pointers
    carry their bear-checklist item (`pointer:customer_concentration`;
    atlas.investigations.skeptic), so its tags never read as a Scout query's number.
+   **A pointer placed by its fact's chunk** (memory-quality ticket 08) chooses instead the
+   window of the pointed section that the chunk's span starts in, tagged
+   `pointer:<query_index>:chunk` (`pointer:<label>:chunk`), when the parse read has the
+   section at the offsets the pointer recorded (else the best match, as above).
 2. **`search`.** Every window that contains a term of the extraction's question or of the
    round's Scout queries (`Reading.queries`), scored by Okapi BM25 over all windows of the
    extraction's documents (the terms of the question and the queries together, each once).
 3. **`entity:<company_id>`.** A window that names a known company other than the document's
    own, as before. Its score is its search score (0 when it matches no term).
+3a. **`entity_pointer:<company_id>`** (memory-quality ticket 09; docs/decisions.md, "The entity
+   hop"). For each **entity pointer** into the document (a fact carrying another company's
+   entity, from this document; atlas.investigations.entity_hop), the window of the pointed
+   section that shares most terms with the fact's text, chosen as a reading pointer's is.
+   The tag names the company the hop was made for (the company the window is about), not the
+   document's own. It is its own channel, not the recall pointers' and not the search's.
 4. **`lead`.** Only for a document none of whose windows is chosen by the above: its windows
    in lead order (its results sections first: a 10-Q's or 10-K's MD&A, an 8-K's Items 2.02,
    7.01 and 8.01; then the rest in text order; the cover only when there is nothing else).
@@ -34,6 +44,8 @@ archived document, retained or not, by its exact words. So neither is ranked abo
 - the **search and entity** candidates, by score (then the earlier document and window). A
   pointer window that also matches the search or names a company is in both lists, and is
   still one passage.
+- the **entity pointer** candidates (ticket 09), by their best entity pointer's rank (then the
+  company's place in the hop, the earlier document, the earlier window): a third list.
 
 Lead windows follow both, by their position in their document's lead order (then the earlier
 document).
@@ -54,12 +66,18 @@ document).
    document Memory doesn't hold yet (an unretained transcript) is read.
 3. **The budget is not stranded.** If passages are left (every document is at its ceiling or
    out of such candidates), the candidates passed over are taken, alternately again.
+3a. **The entity pointer channel** (ticket 09) takes its turn after each recall pointer's
+   (pointer, entity pointer, search, and so on), but under the ceiling it takes at most
+   `ceiling` passages in all, so it never takes more than one document may: the recall
+   pointers keep at least as many turns as it has. Passed-over entity pointer windows are
+   taken in step 3 like the others.
 4. **Lead windows** last: under the ceiling, then the rest. So a document with nothing but
    lead windows, and no floor, is read only when no other document has a pointer, search or
    entity candidate unread.
 
-The passages are returned in reading order: the pointer windows taken and the other search
-and entity windows taken, alternately, each in its order; then the lead windows. So a run
+The passages are returned in reading order: the pointer windows taken, the entity pointer
+windows taken and the other search and entity windows taken, in turn, each in its order;
+then the lead windows. So a run
 whose token budget ends part-way has sent the best of both channels. Not taken pointer,
 search and entity candidates are counted as dropped.
 """
@@ -75,13 +93,19 @@ from atlas.research.search import bm25, overlap, query_terms, tokens
 from atlas.retention.sections import Section, split_sections
 
 PASSAGE_CHARS = 3000
-# `selected_by` values: `pointer:<query_index>` (or `pointer:<label>`), `search`,
-# `entity:<company_id>`, `lead`.
+# `selected_by` values: `pointer:<query_index>` (or `pointer:<label>`),
+# `entity_pointer:<company_id>`, `search`, `entity:<company_id>`, `lead`.
 POINTER = "pointer"
+ENTITY_POINTER = "entity_pointer"
 SEARCH = "search"
 ENTITY = "entity"
 LEAD = "lead"
-SELECTIONS = (POINTER, SEARCH, ENTITY, LEAD)
+SELECTIONS = (POINTER, ENTITY_POINTER, SEARCH, ENTITY, LEAD)
+# How a pointer's window was found (memory-quality ticket 08): the window its fact's chunk
+# starts in (its tag ends `:chunk`), or the one its Memory text matches best.
+CHUNK = "chunk"
+MATCH = "match"
+PLACEMENTS = (CHUNK, MATCH)
 # A periodic report's primary document keeps one passage; so does a results release.
 PERIODIC_FORMS = frozenset({"10-K", "10-Q", "20-F", "6-K", "40-F"})
 RESULTS_ITEM = "2.02"  # an 8-K's "Results of Operations and Financial Condition"
@@ -109,8 +133,18 @@ class Pointer:
     query_index: int  # 0: the round's question; else the asking task's query's position
     memory_text: str  # finds the window; never quoted and never sent to a role
     # What `selected_by` calls the pointer's query instead of its index (None: the index, a
-    # Scout's; the Skeptic's pointers are labelled with their bear-checklist item).
+    # Scout's; the Skeptic's pointers are labelled with their bear-checklist item; an entity
+    # pointer with the company the hop was made for).
     label: str | None = None
+    # A chunk-placed pointer's (memory-quality ticket 08): the pointed section's offsets as
+    # recorded and where the fact's chunk starts in the parsed text. None: the best match
+    # places it.
+    section_char_start: int | None = None
+    section_char_end: int | None = None
+    chunk_char_start: int | None = None
+    # An entity pointer (memory-quality ticket 09): its own channel, tagged
+    # `entity_pointer:<label>`.
+    entity: bool = False
 
 
 @dataclass(frozen=True)
@@ -156,6 +190,8 @@ class Candidate:
     pointer: tuple[int, int] | None = None
     score: float = 0.0
     lead: int | None = None
+    # Its best entity pointer's (rank, query index): the entity pointer channel (ticket 09).
+    entity_pointer: tuple[int, int] | None = None
 
     @property
     def searched(self) -> bool:
@@ -238,14 +274,33 @@ def keeps_a_passage(
     a results call's transcript (the `tradingview` provider's "Call transcript")."""
     if provider == TRANSCRIPT_PROVIDER:
         return (document_type or "").strip().lower() in RESULTS_CALL_TYPES
+    return is_periodic_report(form_type, document_type) or is_results_release(
+        form_type, document_type, items
+    )
+
+
+def is_periodic_report(form_type: str | None, document_type: str | None) -> bool:
+    """Whether a document is a periodic report: the primary document of a 10-K, 10-Q, 20-F,
+    6-K or 40-F (or its amendment). An Investigator's document floor reads the latest one
+    (atlas.investigations.tasks)."""
     form = (form_type or "").upper().removesuffix("/A")
+    return form in PERIODIC_FORMS and _primary(form, document_type)
+
+
+def is_results_release(
+    form_type: str | None, document_type: str | None, items: Sequence[str] = ()
+) -> bool:
+    """Whether a document is a results release: an 8-K listing Item 2.02, its primary
+    document or its EX-99.1 or EX-99.2."""
+    form = (form_type or "").upper().removesuffix("/A")
+    if form != "8-K" or RESULTS_ITEM not in items:
+        return False
+    return _primary(form, document_type) or (document_type or "").upper() in RESULTS_EXHIBITS
+
+
+def _primary(form: str, document_type: str | None) -> bool:
     kind = (document_type or "").upper()
-    primary = bool(kind) and kind.removesuffix("/A") == form
-    if form in PERIODIC_FORMS:
-        return primary
-    if form == "8-K" and RESULTS_ITEM in items:
-        return primary or kind in RESULTS_EXHIBITS
-    return False
+    return bool(kind) and kind.removesuffix("/A") == form
 
 
 def candidates(
@@ -282,8 +337,9 @@ def candidates(
     positions = {document.id: index for index, document in enumerate(documents)}
 
     # The window each pointer chooses: (document, window) -> its pointers' (rank, query
-    # index, tag).
+    # index, tag); the recall pointers' and the entity pointers' apart.
     pointed: dict[tuple[int, int], list[tuple[int, int, str]]] = {}
+    hopped: dict[tuple[int, int], list[tuple[int, int, str]]] = {}
     for pointer in reading.pointers:
         index = positions.get(pointer.source_version_id)
         if index is None or not windows[index]:
@@ -293,10 +349,15 @@ def candidates(
             for at, (anchor, _, _) in enumerate(windows[index])
             if anchor == pointer.section_anchor
         ] or list(range(len(windows[index])))
-        best = _best_window(query_terms(pointer.memory_text), words[index], within)
         tag = pointer.label if pointer.label is not None else str(pointer.query_index)
-        pointed.setdefault((index, best), []).append(
-            (pointer.rank, pointer.query_index, f"{POINTER}:{tag}")
+        best = _chunk_window(pointer, sections[index], windows[index])
+        if best is not None:
+            tag = f"{tag}:{CHUNK}"
+        else:
+            best = _best_window(query_terms(pointer.memory_text), words[index], within)
+        kind, into = (ENTITY_POINTER, hopped) if pointer.entity else (POINTER, pointed)
+        into.setdefault((index, best), []).append(
+            (pointer.rank, pointer.query_index, f"{kind}:{tag}")
         )
 
     found: list[Candidate] = []
@@ -306,10 +367,12 @@ def candidates(
         for at, (anchor, start, end) in enumerate(windows[index]):
             score = next(scores).score
             pointers = pointed.get((index, at), [])
+            hops = hopped.get((index, at), [])
             window = document.text[start:end]
             selected_by = [
                 # Each pointer's tag once, in query order.
                 *dict.fromkeys(tag for _, _, tag in sorted(pointers, key=lambda p: p[1])),
+                *dict.fromkeys(tag for _, _, tag in sorted(hops, key=lambda p: p[1])),
                 *([SEARCH] if score > 0 else []),
                 *(f"{ENTITY}:{each}" for each, names in others if mentions(window, names)),
             ]
@@ -325,6 +388,9 @@ def candidates(
                         if pointers
                         else None,
                         score=score,
+                        entity_pointer=min((rank, query) for rank, query, _ in hops)
+                        if hops
+                        else None,
                     )
                 )
         found.extend(chosen or _lead(index, document, sections[index]))
@@ -343,6 +409,10 @@ def deal(
         (at for at, each in enumerate(offered) if each.pointer is not None),
         key=lambda at: _pointer_order(offered[at]),
     )
+    hops = sorted(
+        (at for at, each in enumerate(offered) if each.entity_pointer is not None),
+        key=lambda at: _entity_pointer_order(offered[at]),
+    )
     searches = sorted(
         (at for at, each in enumerate(offered) if each.lead is None and each.searched),
         key=lambda at: _search_order(offered[at]),
@@ -353,6 +423,7 @@ def deal(
     )
     chosen: set[int] = set()
     per_document: Counter[int] = Counter()
+    hops_taken = 0
 
     def take(at: int) -> None:
         chosen.add(at)
@@ -362,24 +433,30 @@ def deal(
         """Not taken yet, and its document under `limit` passages (None: no limit)."""
         return at not in chosen and (limit is None or per_document[offered[at].document] < limit)
 
-    # 1. The floor: a pointer window, else the best search or entity window, else a lead one.
-    for at in (*pointers, *searches, *leads):
+    # 1. The floor: a pointer window, else an entity pointer's, else the best search or entity
+    # window, else a lead one.
+    for at in (*pointers, *hops, *searches, *leads):
         if len(chosen) >= budget:
             break
         if offered[at].document in floors and per_document[offered[at].document] == 0:
             take(at)
-    # 2 and 3. Pointer and search windows in turn: under the ceiling, then what was passed over.
+    # 2 and 3. Pointer, entity pointer and search windows in turn: under the ceiling (where the
+    # entity pointer channel takes at most `ceiling` in all), then what was passed over.
+    channels = (pointers, hops, searches)
     for limit in (ceiling, None):
         turn = 0
         while len(chosen) < budget:
-            for channel in (turn, 1 - turn):
-                found = next((at for at in (pointers, searches)[channel] if free(at, limit)), None)
+            for channel in (turn, (turn + 1) % 3, (turn + 2) % 3):
+                if channel == 1 and limit is not None and hops_taken >= ceiling:
+                    continue
+                found = next((at for at in channels[channel] if free(at, limit)), None)
                 if found is not None:
                     take(found)
-                    turn = 1 - channel
+                    hops_taken += channel == 1
+                    turn = (channel + 1) % 3
                     break
             else:
-                break  # neither channel has a candidate left under this limit
+                break  # no channel has a candidate left under this limit
     # 4. Lead windows last.
     for limit in (ceiling, None):
         for at in leads:
@@ -415,6 +492,44 @@ def cut_windows(parsed: str, start: int, end: int) -> list[tuple[int, int]]:
     return windows
 
 
+def placements(selected_by: Sequence[str]) -> list[str]:
+    """How the pointers in a passage's `selected_by` were placed, each rule once, in
+    `PLACEMENTS` order: `chunk` for a tag ending `:chunk`, `match` for any other pointer tag
+    (memory-quality ticket 08). Empty for a passage no pointer chose."""
+    found = {
+        CHUNK if tag.endswith(f":{CHUNK}") else MATCH
+        for tag in selected_by
+        if tag.split(":", 1)[0] == POINTER
+    }
+    return [rule for rule in PLACEMENTS if rule in found]
+
+
+def _chunk_window(
+    pointer: Pointer, sections: Sequence[Section], windows: Sequence[tuple[str, int, int]]
+) -> int | None:
+    """A chunk-placed pointer's window (memory-quality ticket 08): the window of the pointed
+    section that the fact's chunk starts in. Only when the parse read has the section where
+    the pointer recorded it (the same anchor and offsets: the chunk was located in that
+    parse); None otherwise, and the best match places the pointer."""
+    start = pointer.chunk_char_start
+    if start is None:
+        return None
+    if not any(
+        section.anchor == pointer.section_anchor
+        and (section.start, section.end) == (pointer.section_char_start, pointer.section_char_end)
+        for section in sections
+    ):
+        return None
+    return next(
+        (
+            at
+            for at, (anchor, begin, end) in enumerate(windows)
+            if anchor == pointer.section_anchor and begin <= start < end
+        ),
+        None,
+    )
+
+
 def _best_window(
     memory: Sequence[str], words: Sequence[frozenset[str]], within: Sequence[int]
 ) -> int:
@@ -430,6 +545,13 @@ def _pointer_order(candidate: Candidate) -> tuple[int, int, int, int]:
     return (rank, query, candidate.document, candidate.start)
 
 
+def _entity_pointer_order(candidate: Candidate) -> tuple[int, int, int, int]:
+    """Entity pointer windows: the best rank first, then the company's place in the hop, the
+    earlier document, the earlier window."""
+    rank, query = candidate.entity_pointer or (0, 0)
+    return (rank, query, candidate.document, candidate.start)
+
+
 def _search_order(candidate: Candidate) -> tuple[float, int, int]:
     """Search and entity windows: the highest score first, then the earlier document, the
     earlier window."""
@@ -442,14 +564,25 @@ def _lead_order(candidate: Candidate) -> tuple[int, int, int]:
 
 
 def _reading_order(taken: Sequence[Candidate]) -> list[Candidate]:
-    """The passages as sent: the pointer windows and the other search and entity windows
-    alternately, each in its own order, then the lead windows."""
+    """The passages as sent: the pointer windows, the entity pointer windows and the other
+    search and entity windows in turn, each in its own order, then the lead windows."""
     pointed = sorted((each for each in taken if each.pointer is not None), key=_pointer_order)
+    hopped = sorted(
+        (each for each in taken if each.pointer is None and each.entity_pointer is not None),
+        key=_entity_pointer_order,
+    )
     others = sorted(
-        (each for each in taken if each.pointer is None and each.lead is None), key=_search_order
+        (
+            each
+            for each in taken
+            if each.pointer is None and each.entity_pointer is None and each.lead is None
+        ),
+        key=_search_order,
     )
     leads = sorted((each for each in taken if each.lead is not None), key=_lead_order)
-    mixed = [each for pair in zip_longest(pointed, others) for each in pair if each is not None]
+    mixed = [
+        each for turn in zip_longest(pointed, hopped, others) for each in turn if each is not None
+    ]
     return [*mixed, *leads]
 
 

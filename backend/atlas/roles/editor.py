@@ -17,6 +17,9 @@ question. Code, not the model, decides what a finding may cite: it maps each ref
 to its Claim; a finding citing no accepted Claim of the investigation (or a reference it
 wasn't sent) is dropped as unsupported, and every cited Claim's quote, span and Source
 Version are filled in by code (atlas.investigations).
+A finding's statement says only what its cited Claims say (v7; pilot-fixes ticket 21): code
+checks its numbers, names and quoted phrases against them (atlas.investigations.grounding)
+and asks the Editor once more for the ungrounded ones (`EDITOR_REGROUND`).
 With no accepted Claim the Editor still writes the card: no finding, and open questions for
 the next round drawn from what was searched and read (the card's `searched` and `read`
 sections are code's, never the model's).
@@ -31,8 +34,9 @@ from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 # v2: counterevidence (ticket 15); v3: the bottleneck method; v4: what was searched and read,
 # and a card with no accepted Claim (pilot fix 01); v5: contradictions and bear context,
 # separately (memory-directed reading, ticket 03); v6: Claims by short reference (memory
-# quality, ticket 16)
-EDITOR_PROMPT_VERSION = 6
+# quality, ticket 16); v7: a finding's statement says only what its cited Claims' quotes say
+# (pilot-fixes ticket 21)
+EDITOR_PROMPT_VERSION = 7
 
 
 class _Request(BaseModel):
@@ -187,6 +191,46 @@ EDITOR = Role(
     request=EditorRequest,
     response=ResearchCardDraft,
     max_output_tokens=8192,
+)
+
+
+# --- a finding asked again (pilot-fixes ticket 21) ---------------------------------------------
+
+# A finding whose statement names a number, a name or a quoted phrase none of its cited Claims
+# holds (atlas.investigations.grounding) is sent back once, with what wasn't found; the
+# answer's statements are checked again.
+EDITOR_REGROUND_PROMPT_VERSION = 1
+
+
+class EditorUngroundedFinding(_Request):
+    finding: str  # `f1`, `f2`, ...: how the answer names it
+    statement: str
+    claim_refs: list[str]
+    ungrounded: list[str]  # what none of its cited Claims holds, as the statement writes it
+
+
+class EditorRegroundRequest(_Request):
+    research_question: str
+    findings: list[EditorUngroundedFinding]
+    claims: list[EditorCardClaim]  # the Claims those findings cite
+
+
+class RegroundedFinding(RoleOutput):
+    finding: str
+    statement: str
+
+
+class RegroundedFindings(RoleOutput):
+    findings: list[RegroundedFinding]
+
+
+# The same Editor role (its calls are recorded as `editor`), with its own versioned prompt.
+EDITOR_REGROUND = Role(
+    name="editor",
+    prompt=Prompt.load(PROMPTS_DIR, "editor-reground", EDITOR_REGROUND_PROMPT_VERSION),
+    request=EditorRegroundRequest,
+    response=RegroundedFindings,
+    max_output_tokens=4096,
 )
 
 

@@ -52,6 +52,7 @@ def hindsight_fake() -> RecordedHindsight:
     fake = RecordedHindsight()
     fake.derive_memories()
     fake.derive_recall_options()  # check 6: recency, prefer_observations, max_tokens
+    fake.derive_chunks()  # check 7: each fact's chunk, at Hindsight's default chunk size
     return fake
 
 
@@ -174,8 +175,12 @@ def test_the_rehearsal_passes_or_reports_each_check_pending_with_its_ticket(
     # Each behaviour check passes, or is pending with the ticket that builds it.
     behaviours = report.behaviours or []
     assert [c.number for c in behaviours] == list(range(1, 11))
-    # Tickets 03 to 07 and 10 are merged; 08 and 09 are not yet.
-    assert [c.number for c in behaviours if c.verdict == "pending"] == [7, 8]
+    # Tickets 03 to 10 are merged: no check is pending.
+    assert [c.number for c in behaviours if c.verdict == "pending"] == []
+    chunks = behaviours[6]
+    assert chunks.verdict == "passed"
+    assert chunks.evidence["facts"] == chunks.evidence["placed_by_chunk"]
+    assert chunks.evidence["not_placed"] == [] and chunks.evidence["facts"] != 0
     for check in behaviours:
         assert check.promise and check.source
         if check.verdict == "pending":

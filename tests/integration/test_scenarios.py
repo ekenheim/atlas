@@ -328,11 +328,15 @@ def analysing(body: dict[str, Any]) -> JsonValue:
 
 
 def card_editor(body: dict[str, Any]) -> JsonValue:
+    """One finding citing every Claim sent, saying only what the first one says (its subject,
+    predicate and object; pilot-fixes ticket 21)."""
     request = asked(body)["request"]
+    first = request["claims"][0]
     return {
         "findings": [
             {
-                "statement": "Coherent supplies NVIDIA with advanced lasers.",
+                "statement": f"{first['subject']} {first['predicate'].replace('_', ' ')}"
+                f" {first['object']}.",
                 "claim_refs": [each["ref"] for each in request["claims"]],
                 "limitations": ["A company's own statement."],
                 "open_questions": [],

@@ -22,8 +22,10 @@ import {
   addedInvestigator,
   byRound,
   canSaveHypothesis,
+  channelsLabel,
   checklistLabel,
   counterevidenceSummary,
+  entityHopSummary,
   figureLabel,
   followUpBlocked,
   foundBy,
@@ -37,6 +39,7 @@ import {
   pointerWeight,
   readerName,
   readingOutcome,
+  saidBy,
   selectionSummary,
   statusText,
   tokenUse,
@@ -141,6 +144,11 @@ function Summary({ investigation }: { investigation: Investigation }) {
           <span className="muted-small">
             ({usage.tokens_in} in, {usage.tokens_out} out)
           </span>
+        </Row>
+        <Row name="Schema repairs">
+          {Object.entries(usage.repairs)
+            .map(([role, count]) => `${role} ${count}`)
+            .join(", ") || "none"}
         </Row>
         <Row name="As of">
           <Timestamp value={investigation.request.as_of_utc} />
@@ -443,6 +451,7 @@ function Pointers({ investigation }: { investigation: Investigation }) {
       </p>
       <PointedCompanies investigation={investigation} />
       {scouts.length === 0 ? <p>No reading pointer.</p> : <PointerGroups groups={scouts} />}
+      <EntityPointers investigation={investigation} />
       <h3 id="skeptic-pointers">The Skeptic&apos;s</h3>
       <p>
         The Skeptic asks Memory each bear-checklist item for each company the accepted Claims
@@ -467,7 +476,8 @@ function PointedCompanies({ investigation }: { investigation: Investigation }) {
   return (
     <table>
       <caption>
-        Companies the pointers name, best ranked first (a pointer weighs 1 / its rank)
+        Companies the pointers name, best ranked first (a recall pointer weighs 1 / its rank;
+        an entity pointer its share of that)
       </caption>
       <thead>
         <tr>
@@ -498,6 +508,38 @@ function PointedCompanies({ investigation }: { investigation: Investigation }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * The entity hop's pointers, apart from the recall pointers: for each company the round
+ * reads, the documents of other companies whose facts carry its entity in Memory.
+ */
+function EntityPointers({ investigation }: { investigation: Investigation }) {
+  const hops = investigation.entity_hops ?? [];
+  const groups = pointerGroups(investigation.entity_pointers ?? []);
+  return (
+    <>
+      <h3 id="entity-pointers">The entity hop</h3>
+      <p>
+        For each company the round reads, Memory lists the facts that carry its entity; a fact
+        from another company&apos;s document points there. A co-mention is a reason to read,
+        never an edge or Evidence.
+      </p>
+      {hops.length === 0 ? (
+        <p>No entity hop.</p>
+      ) : (
+        <ul>
+          {hops.map((hop) => (
+            <li key={`${hop.round}:${hop.company_id}`}>
+              {hop.company_name}
+              {hop.round > 1 && ` (round ${hop.round})`}: {entityHopSummary(hop)}
+            </li>
+          ))}
+        </ul>
+      )}
+      {groups.length > 0 && <PointerGroups groups={groups} />}
+    </>
   );
 }
 
@@ -541,6 +583,10 @@ function PointerGroups({ groups }: { groups: PointerGroup[] }) {
                     <span className="muted-small">
                       {pointer.section_heading ?? pointer.section_anchor}; characters{" "}
                       {pointer.section_char_start}–{pointer.section_char_end}
+                      <br />
+                      {pointer.placed_by === "chunk"
+                        ? `read where its fact's chunk lies (characters ${pointer.chunk_char_start ?? "?"}–${pointer.chunk_char_end ?? "?"})`
+                        : "read where its words match best"}
                     </span>
                   </td>
                 </tr>
@@ -671,6 +717,9 @@ function EvidenceTray({ items }: { items: EvidenceItem[] }) {
                   <blockquote id={`quote-${item.claim_id}`} className="quote">
                     {item.quote}
                   </blockquote>
+                  {saidBy(item.speaker) && (
+                    <p className="muted-small">{saidBy(item.speaker)}</p>
+                  )}
                   <Link
                     href={routes.span(item.source_version_id, item.assertion_id)}
                     aria-describedby={`quote-${item.claim_id}`}
@@ -1046,6 +1095,9 @@ function Read({ card }: { card: ResearchCard }) {
                       {document.selected_by === "fallback" && (
                         <span className="muted-small"> (chosen by code)</span>
                       )}
+                      {document.floor && (
+                        <span className="muted-small"> (the latest filing: document floor)</span>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1075,6 +1127,7 @@ function NotRead({ card }: { card: ResearchCard }) {
           <li key={`${company.round}:${company.company_id}`}>
             <Link href={routes.company(company.company_id)}>{company.company_name}</Link>
             {company.round > 1 && ` (round ${company.round})`}: {pointerWeight(company)};{" "}
+            {channelsLabel(company.channels) && `${channelsLabel(company.channels)}; `}
             {company.reason}.
           </li>
         ))}

@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import type {
   CardReading,
   Counterevidence,
+  EntityHop,
   Investigation,
   InvestigationTask,
   PointedCompany,
@@ -13,8 +14,10 @@ import {
   type PointerGroup,
   addedInvestigator,
   canSaveHypothesis,
+  channelsLabel,
   checklistLabel,
   counterevidenceSummary,
+  entityHopSummary,
   figureLabel,
   followUpBlocked,
   foundBy,
@@ -27,6 +30,7 @@ import {
   pointerWeight,
   readerName,
   readingOutcome,
+  saidBy,
   selectionSummary,
 } from "../lib/workbench";
 
@@ -44,7 +48,7 @@ function investigation(overrides: Partial<Investigation>): Investigation {
     status: "stopped",
     stop_reason: "answered",
     research_card: card,
-    usage: { rounds: 1, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0 },
+    usage: { rounds: 1, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0, repairs: {} },
     budgets: {
       max_rounds: 2,
       max_leads: 10,
@@ -75,7 +79,7 @@ test("a follow-up is offered only when the API would take it", () => {
   expect(
     followUpBlocked(
       investigation({
-        usage: { rounds: 2, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0 },
+        usage: { rounds: 2, leads: 0, documents: 0, companies: 2, tokens_in: 0, tokens_out: 0, repairs: {} },
       }),
     ),
   ).toMatch(/2 rounds are spent/);
@@ -133,6 +137,15 @@ test("a document's passages and a Claim's passage say which selections chose the
   expect(foundBy(["lead"])).toBe("lead");
   expect(foundBy([])).toBeNull();
   expect(foundBy(undefined)).toBeNull();
+});
+
+test("a transcript Claim's tray row says who said its words; a filing's says nothing", () => {
+  expect(saidBy("Alex Example (President and CEO, Example Photonics Inc)")).toBe(
+    "said by Alex Example (President and CEO, Example Photonics Inc)",
+  );
+  expect(saidBy(null)).toBeNull();
+  expect(saidBy(undefined)).toBeNull();
+  expect(saidBy(" ")).toBeNull();
 });
 
 test("the Skeptic's reading says what code chose for it, its counterevidence, or why it read nothing", () => {
@@ -260,6 +273,7 @@ function pointed(overrides: Partial<PointedCompany>): PointedCompany {
     best_rank: 1,
     outcome: "added",
     task_key: "investigator:axt",
+    entity_pointers: 0,
     ...overrides,
   };
 }
@@ -299,6 +313,78 @@ test("a company the pointers name says what became of it, and an added Investiga
   expect(addedInvestigator(task(1, "investigator:coherent"), [coherent, axt])).toBeNull();
   expect(addedInvestigator(task(2, "investigator:axt"), [coherent, axt])).toBeNull(); // round 1's
   expect(addedInvestigator(task(1, "scout"), [])).toBeNull();
+});
+
+test("the entity hop's pointers are grouped by the company each hop was made for, after the Scout's", () => {
+  const hopped = (overrides: Partial<ReadingPointer>) =>
+    pointer({
+      query_kind: "entity",
+      query: "Coherent Corp.",
+      query_company_id: "c-coherent",
+      query_company_name: "Coherent",
+      entity_id: "e-coherent",
+      ...overrides,
+    });
+  const groups = pointerGroups([
+    hopped({ query_index: 1, rank: 2, company_name: "Lumentum" }),
+    pointer({ query_index: 1, query: "InP wafer substrate capacity", rank: 1 }),
+    hopped({ query_index: 1, rank: 1 }),
+  ]);
+
+  expect(groups.map((group) => [group.kind, group.queryIndex])).toEqual([
+    ["scout", 1],
+    ["entity", 1],
+  ]);
+  const hop = groups[1] as PointerGroup;
+  expect(pointerQueryLabel(hop)).toBe("Other companies' documents naming Coherent");
+  expect(pointerSummary(hop)).toBe("2 pointers: AXT 1, Lumentum 1");
+  expect(hop.pointers.map((each) => each.rank)).toEqual([1, 2]);
+});
+
+test("a company reached by the entity hop says so, and the channels that reached it", () => {
+  const axt = pointed({ pointers: 0, entity_pointers: 1, score: 0.5, best_rank: null });
+  expect(pointerWeight(axt)).toBe("0 pointers, 1 entity pointer, weight 0.5");
+  expect(pointerWeight(pointed({ entity_pointers: 2, score: 5 }))).toBe(
+    "4 pointers, best rank 1, 2 entity pointers, weight 5",
+  );
+  expect(channelsLabel(["entity"])).toBe("reached by the entity hop");
+  expect(channelsLabel(["recall", "entity"])).toBe("reached by recall and the entity hop");
+  expect(channelsLabel([])).toBeNull();
+  expect(selectionSummary({ search: 2, entity_pointer: 1, pointer: 3 })).toBe(
+    "pointer 3, entity_pointer 1, search 2",
+  );
+});
+
+test("what the entity hop did for a company is said in words", () => {
+  const hop: EntityHop = {
+    round: 1,
+    company_id: "c-coherent",
+    company_name: "Coherent",
+    slug: "coherent",
+    entity_name: "Coherent Corp.",
+    entity_id: "e-coherent",
+    outcome: "listed",
+    facts_listed: 4,
+    pointers: 1,
+    own_documents: 2,
+    after_as_of: 1,
+    already_pointed: 0,
+    unresolved: 0,
+    beyond_limit: 0,
+  };
+  expect(entityHopSummary(hop)).toBe(
+    '4 facts carry "Coherent Corp.": 1 entity pointer; 2 from its own documents, 1 after the' +
+      " as-of time",
+  );
+  expect(entityHopSummary({ ...hop, own_documents: 0, after_as_of: 0 })).toBe(
+    '4 facts carry "Coherent Corp.": 1 entity pointer',
+  );
+  expect(entityHopSummary({ ...hop, outcome: "no_entity", entity_id: null })).toBe(
+    'no entity named "Coherent Corp." in Memory',
+  );
+  expect(entityHopSummary({ ...hop, outcome: "listing_failed" })).toBe(
+    'listing the facts of "Coherent Corp." failed (see the events)',
+  );
 });
 
 test("the Skeptic's reading pointers are grouped apart from the Scout's, by checklist item and company", () => {

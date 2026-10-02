@@ -17,10 +17,10 @@ Migration revision `0064` (down: main's head).
 
 **Blocked by:** 04, 07
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam: seeds A; company B's recorded filing names A in a section no recall returns; the plan gains an Investigator for B (room permitting) whose passages include that section, selected by `entity`.
-- [ ] A fact available after `as_of` makes no pointer; a company's own documents make none; the bounds hold.
-- [ ] A failed listing leaves the Scout succeeded with an event; a company without an entity is recorded.
-- [ ] The read and the page show the channel (frontend unit test of the pure part); API client regenerated.
-- [ ] Decision entry; glossary entry if a new term is needed; `AGENTS.md` line.
+- [x] Integration test at the investigation seam: seeds A; company B's recorded filing names A in a section no recall returns; the plan gains an Investigator for B (room permitting) whose passages include that section, selected by `entity`. (B's document is a hand-shaped manual import, AXT's note, not an EDGAR filing; the selection tag is `entity_pointer:<A's id>`, since `entity:<id>` already means a name match in the search channel: `docs/decisions.md`, "The entity hop".)
+- [x] A fact available after `as_of` makes no pointer; a company's own documents make none; the bounds hold.
+- [x] A failed listing leaves the Scout succeeded with an event; a company without an entity is recorded.
+- [x] The read and the page show the channel (frontend unit test of the pure part); API client regenerated.
+- [x] Decision entry; glossary entry if a new term is needed; `AGENTS.md` line.

@@ -5,6 +5,7 @@
 import type {
   CardReading,
   Counterevidence,
+  EntityHop,
   Investigation,
   InvestigationTask,
   PointedCompany,
@@ -128,9 +129,9 @@ export function readingOutcome(reading: CardReading): string {
 
 /**
  * The kinds of passage selection, best first: a reading pointer's window (Memory as an
- * index), the term search, an entity tag, a lead window.
+ * index), an entity pointer's (the entity hop), the term search, an entity tag, a lead window.
  */
-const SELECTIONS = ["pointer", "search", "entity", "lead"];
+const SELECTIONS = ["pointer", "entity_pointer", "search", "entity", "lead"];
 
 const selectionOrder = (kind: string) =>
   SELECTIONS.includes(kind) ? SELECTIONS.indexOf(kind) : SELECTIONS.length;
@@ -157,6 +158,15 @@ export function foundBy(selectedBy: string[] | undefined): string | null {
     (a, b) => selectionOrder(a) - selectionOrder(b) || a.localeCompare(b),
   );
   return kinds.length > 0 ? kinds.join(", ") : null;
+}
+
+/**
+ * Who says a Claim's quoted words, in a call or conference transcript ("said by Alex Example
+ * (CEO, Example Photonics)"): the paragraph's speaker label. Null for any other document.
+ */
+export function saidBy(speaker: string | null | undefined): string | null {
+  const label = speaker?.trim();
+  return label ? `said by ${label}` : null;
 }
 
 /** One query asked of Memory, and the reading pointers its recall gave. */
@@ -218,7 +228,8 @@ export function pointerGroups(pointers: ReadingPointer[]): PointerGroup[] {
       .map(([name, count]) => ({ name, pointers: count }))
       .sort((a, b) => b.pointers - a.pointers || a.name.localeCompare(b.name));
   }
-  const asker = (group: PointerGroup) => (group.kind === "scout" ? 0 : 1);
+  const ASKERS = { scout: 0, entity: 1, bear_checklist: 2 };
+  const asker = (group: PointerGroup) => ASKERS[group.kind];
   return [...groups.values()].sort(
     (a, b) => a.round - b.round || asker(a) - asker(b) || a.queryIndex - b.queryIndex,
   );
@@ -232,9 +243,11 @@ export function pointerQueryLabel(group: PointerGroup): string {
   const which =
     group.kind === "bear_checklist"
       ? `${checklistLabel(group.checklistItem ?? "")} of ${group.queryCompany ?? "a company"}`
-      : group.queryIndex === 0
-        ? "The question"
-        : `Query ${group.queryIndex}`;
+      : group.kind === "entity"
+        ? `Other companies' documents naming ${group.queryCompany ?? "a company"}`
+        : group.queryIndex === 0
+          ? "The question"
+          : `Query ${group.queryIndex}`;
   return group.round > 1 ? `${which} (follow-up round ${group.round})` : which;
 }
 
@@ -245,16 +258,58 @@ export function pointerSummary(group: PointerGroup): string {
 }
 
 /**
- * How strongly a round's reading pointers name a company, in words: how many, the best rank
- * among them, and their weight (each pointer weighs 1 / its rank in its recall).
+ * How strongly a round's reading pointers name a company, in words: how many recall pointers,
+ * the best rank among them, how many entity pointers (the entity hop's), and their weight
+ * (a recall pointer weighs 1 / its rank in its recall, an entity pointer its own share).
  */
 export function pointerWeight(company: {
   pointers: number;
-  best_rank: number;
+  best_rank: number | null;
   score: number;
+  entity_pointers?: number;
 }): string {
   const weight = Number(company.score.toFixed(2));
-  return `${plural(company.pointers, "pointer")}, best rank ${company.best_rank}, weight ${weight}`;
+  const parts = [plural(company.pointers, "pointer")];
+  if (company.best_rank !== null) parts.push(`best rank ${company.best_rank}`);
+  if (company.entity_pointers) parts.push(plural(company.entity_pointers, "entity pointer"));
+  parts.push(`weight ${weight}`);
+  return parts.join(", ");
+}
+
+/** The channels that reached a company no Investigator read, in words. */
+export function channelsLabel(channels: string[] | undefined): string | null {
+  const names: Record<string, string> = { recall: "recall", entity: "the entity hop" };
+  const named = (channels ?? []).map((channel) => names[channel] ?? channel);
+  return named.length > 0 ? `reached by ${named.join(" and ")}` : null;
+}
+
+/**
+ * What the entity hop did for one company, in words: the entity it found by the company's
+ * canonical name and the pointers its facts made, or why there are none.
+ */
+export function entityHopSummary(hop: EntityHop): string {
+  switch (hop.outcome) {
+    case "no_entity":
+      return `no entity named "${hop.entity_name}" in Memory`;
+    case "listing_failed":
+      return `listing the facts of "${hop.entity_name}" failed (see the events)`;
+    case "entities_unavailable":
+      return "the entity listing failed, so no company was hopped (see the events)";
+    case "listed": {
+      const skipped = [
+        hop.own_documents > 0 && `${hop.own_documents} from its own documents`,
+        hop.after_as_of > 0 && `${hop.after_as_of} after the as-of time`,
+        hop.already_pointed > 0 && `${hop.already_pointed} already pointed at by recall`,
+        hop.unresolved > 0 && `${hop.unresolved} not resolved to a section`,
+        hop.beyond_limit > 0 && `${hop.beyond_limit} beyond the bound`,
+      ].filter((part): part is string => typeof part === "string");
+      const facts = `${plural(hop.facts_listed, "fact")} carry "${hop.entity_name}"`;
+      const made = `${plural(hop.pointers, "entity pointer")}`;
+      return skipped.length > 0
+        ? `${facts}: ${made}; ${skipped.join(", ")}`
+        : `${facts}: ${made}`;
+    }
+  }
 }
 
 /**

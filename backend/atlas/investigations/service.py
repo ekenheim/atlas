@@ -73,6 +73,7 @@ from atlas.companies import Universe
 from atlas.investigations.companies import (
     ADDED_FOR_POINTERS,
     COMPANY_BUDGET,
+    DEFAULT_ENTITY_WEIGHT,
     POINTED_COMPANIES,
     RankedCompany,
     allot,
@@ -626,7 +627,14 @@ class Investigations:
             return False
         investigation_id: uuid.UUID = investigation["id"]
         budget: int = investigation["max_companies"]
-        ranked = pointed_companies(connection, investigation_id, scout.round)
+        # Entity pointers weigh what the Scout's hop recorded (memory-quality ticket 09).
+        weight = scout.artifacts.get("entity_pointer_weight")
+        ranked = pointed_companies(
+            connection,
+            investigation_id,
+            scout.round,
+            entity_weight=float(weight) if weight is not None else DEFAULT_ENTITY_WEIGHT,
+        )
         investigators = [task for task in others if task.role == "investigator"]
         task_keys = {
             task.company_id: task.key for task in investigators if task.company_id is not None

@@ -350,14 +350,18 @@ def editing(
     *,
     verdict: str = "answered",
     extra: list[dict[str, JsonValue]] | None = None,
+    statement: str = (
+        "Coherent supplies NVIDIA with advanced lasers under a multi-year supply agreement."
+    ),
 ) -> Callable[[dict[str, Any]], JsonValue]:
-    """An Editor answer with one finding citing every Claim it was sent, plus `extra`."""
+    """An Editor answer with one finding citing every Claim it was sent, plus `extra`. The
+    finding's `statement` must say only what those Claims say (pilot-fixes ticket 21): the
+    default is the supply Claim's."""
 
     def respond(body: dict[str, Any]) -> JsonValue:
         request = asked(body)["request"]
         finding: dict[str, JsonValue] = {
-            "statement": "Coherent supplies NVIDIA with advanced lasers under a multi-year"
-            " supply agreement.",
+            "statement": statement,
             "claim_refs": [claim["ref"] for claim in request["claims"]],
             "limitations": ["A company's own statement; no volumes or prices."],
             "open_questions": ["Does NVIDIA qualify a second laser source?"],
@@ -594,6 +598,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         "companies": 2,
         "tokens_in": 15_400,
         "tokens_out": 1_520,
+        "repairs": {},
     }
     tokens = "atlas_llm_tokens_total"
     assert metric(atlas, tokens, kind="investigation", direction="input") == 15_400
@@ -672,6 +677,14 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert finding["counterevidence_ids"] == []
     assert (card["contradictions"], card["bear_context"]) == ([], [])
     assert finding["limitations"] == ["A company's own statement; no volumes or prices."]
+    # Every name in its statement is in its Claim: grounded, with no second Editor call.
+    assert finding["grounded"] is True
+    assert tasks(found)["editor"]["artifacts"]["grounding"] == {
+        "asked_again": 0,
+        "repaired": 0,
+        "role_call_id": None,
+        "failure": None,
+    }
     assert card["editor_role_call_id"] == calls["role_calls"][-1]["id"]
     # The event log tells the story in order, ending with the stop and its reason.
     log = events(atlas, started["id"])
@@ -679,6 +692,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         ("task_queued", "scout"),
         ("task_started", "scout"),
         ("pointers_recorded", "scout"),  # what Memory was asked, and what it pointed at
+        ("entity_pointers_recorded", "scout"),  # the entity hop (memory-quality ticket 09)
         ("task_succeeded", "scout"),
     ]
     assert log[-1]["type"] == "stopped"
@@ -1089,7 +1103,7 @@ def test_the_scout_asks_memory_like_a_reading_index_and_each_pointer_keeps_score
             "max_tokens": 8192,
             "prefer_observations": True,
             "query_timestamp": as_of,
-            "include": {"source_facts": {}},
+            "include": {"source_facts": {}, "chunks": {}},  # chunks: ticket 08
         }
     # The observation resolved from the source facts its answer carried: no memory was asked
     # for one by one.
@@ -1445,7 +1459,7 @@ def test_the_investigator_reads_the_window_memory_points_to_and_the_best_search_
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(allocation)),
-        ChatReply.answer(editing()),
+        ChatReply.answer(editing(statement="Lumentum's demand is outpacing its supply.")),
         REVIEWED,
     )
     script_searches(searxng)
@@ -1647,7 +1661,7 @@ def test_a_company_memory_points_to_gains_an_investigator_that_reads_where_memor
         # Coherent's Investigator and AXT's, in either order: each quotes what it was sent.
         ChatReply.answer(quoting(agreement)),
         ChatReply.answer(quoting(agreement)),
-        ChatReply.answer(editing()),
+        ChatReply.answer(editing(statement="AXT supplies Coherent with 6-inch InP substrates.")),
         REVIEWED,
     )
     script_searches(searxng)
@@ -1678,7 +1692,12 @@ def test_a_company_memory_points_to_gains_an_investigator_that_reads_where_memor
     )
     assert (added["depends_on"], added["premise_keys"]) == (["scout"], ["question", "company:axt"])
     # Why it was added: four pointers at rank 1, each weighing 1/rank.
-    assert added["artifacts"]["added_for_pointers"] == {"pointers": 4, "score": 4.0, "best_rank": 1}
+    assert added["artifacts"]["added_for_pointers"] == {
+        "pointers": 4,
+        "entity_pointers": 0,  # the note's section is pointed at by recall already
+        "score": 4.0,
+        "best_rank": 1,
+    }
     investigators = GROWN_PLAN[1:4]
     assert plan["skeptic"]["depends_on"] == plan["financial_analyst"]["depends_on"] == investigators
     assert plan["editor"]["depends_on"] == [*investigators, "skeptic", "financial_analyst"]
@@ -1696,6 +1715,7 @@ def test_a_company_memory_points_to_gains_an_investigator_that_reads_where_memor
         "company_name": "AXT",
         "slug": "axt",
         "pointers": 4,
+        "entity_pointers": 0,
         "score": 4.0,
         "best_rank": 1,
         "outcome": "added",
@@ -1842,6 +1862,8 @@ def test_a_pointed_company_the_company_budget_has_no_room_for_is_listed_as_not_r
             "score": left_out["score"],
             "best_rank": left_out["best_rank"],
             "reason": "the company budget (2 Investigators a round) had no room",
+            "entity_pointers": 0,
+            "channels": ["recall"],
         }
     ]
     assert not [d for d in found["documents"] if d["company_id"] == axt["id"]]
@@ -1886,11 +1908,13 @@ def test_an_investigator_takes_the_documents_its_pointers_name_before_its_latest
     ten_k = atlas.version(COHR_10K, "coherent")
     ten_q = atlas.version(COHR_10Q, "coherent")
     assert at(ten_q["available_at"]) < at(ten_k["available_at"])
-    # Memory holds one fact, from the older filing: the 10-Q is pointed at, the newer 10-K is
-    # not, and the document budget has room for one.
+    # A document of Coherent's newer than both filings, which Memory holds nothing of.
+    [note] = import_transcripts(atlas, "coherent", "Coherent", 1)
+    # Memory holds one fact, from the older filing: the 10-Q is pointed at, the newer 10-K
+    # and the newest note are not, and the document budget has room for two.
     section = retained_sections(atlas, COHR_10Q, "coherent")[0]
     fake.report_zero_facts(lambda document_id: document_id != section["document_id"])
-    started = seeded(atlas, "coherent", budgets={"max_documents": 1})
+    started = seeded(atlas, "coherent", budgets={"max_documents": 2})
     llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
     script_searches(searxng)
 
@@ -1898,10 +1922,409 @@ def test_an_investigator_takes_the_documents_its_pointers_name_before_its_latest
 
     found = investigation(atlas, started["id"])
     assert {p["source_version_id"] for p in found["pointers"]} == {ten_q["id"]}
-    assert [d["source_version_id"] for d in found["documents"]] == [ten_q["id"]]
+    # The 10-K is the floor (the latest periodic report, pilot fix 24), the 10-Q the pointed
+    # document; the newest note, neither, is left out.
+    read = {d["source_version_id"] for d in found["documents"]}
+    assert read == {ten_k["id"], ten_q["id"]}
+    assert note not in read
     artifacts = tasks(found)["investigator:coherent"]["artifacts"]
-    assert (artifacts["documents"], artifacts["documents_pointed"]) == (1, 1)
-    assert artifacts["documents_dropped"] == 1  # the newer 10-K
+    assert (artifacts["documents"], artifacts["documents_pointed"]) == (2, 1)
+    assert artifacts["documents_floor"] == [ten_k["id"]]
+    assert artifacts["documents_dropped"] == 1  # the newest note
+
+
+def import_transcripts(atlas: Atlas, slug: str, name: str, count: int) -> list[str]:
+    """Record `count` short hand-written stand-ins for results-call transcripts of the company
+    (`atlas sources import`), published in September 2026 (newer than any recorded filing, the
+    first oldest), in plain English so each is retained (one section, so one fact in Memory
+    by the fake's derivation), and run their retention; their Source Versions' IDs, in import
+    order."""
+    ids: list[str] = []
+    for number in range(1, count + 1):
+        path = atlas.tmp_path / f"{slug}-transcript-{number}.txt"
+        path.write_text(
+            f"Synthetic test transcript {number}: a hand-written stand-in for a results call,"
+            f" and it is not a transcript of {name}.\n\n"
+            f"In call {number} the speaker says that demand for the lasers used in data"
+            " centers stayed strong in the quarter, and names no customer.\n",
+            encoding="utf-8",
+        )
+        imported = atlas.cli(
+            "sources",
+            "import",
+            "--company",
+            slug,
+            "--file",
+            str(path),
+            "--origin-url",
+            f"https://transcripts.example.test/{slug}-call-{number}",
+            "--published-at",
+            f"2026-09-{number + 10:02d}T12:00:00+00:00",
+            "--title",
+            f"{name} call transcript {number}, hand-shaped",
+        )
+        assert imported.returncode == 0, imported.stderr
+        atlas.worker_pass()
+        version_id = json.loads(imported.stdout)["source_version_id"]
+        assert atlas.memory(version_id)["retained"] is True
+        ids.append(version_id)
+    return ids
+
+
+def lumentum_with_pointed_transcripts(
+    services: Services, transcripts: int
+) -> tuple[Atlas, dict[str, str], list[str]]:
+    """Lumentum's recorded filings (the FY2026 10-K, the Q4 results 8-K with its EX-99.1 and
+    the Q3 10-Q) and `transcripts` hand-written transcripts, every one of Memory's facts from
+    a transcript: the round's pointers name only transcripts, the first imported best (the
+    fake recalls in retain order)."""
+    atlas = services.start(ingest=False)
+    fake = services.hindsight[0]
+    atlas.ingest_company("lumentum")
+    filings = {
+        name: atlas.version(url, "lumentum")["id"]
+        for name, url in [
+            ("10-K", LITE_10K),
+            ("8-K", LITE_8K),
+            ("EX-99.1", LITE_EX991),
+            ("10-Q", LITE_10Q),
+        ]
+    }
+    calls = import_transcripts(atlas, "lumentum", "Lumentum", transcripts)
+    held = {d["document_id"] for version in calls for d in atlas.memory(version)["documents"]}
+    fake.report_zero_facts(lambda document_id: document_id not in held)
+    return atlas, filings, calls
+
+
+def test_an_investigator_reads_its_company_s_latest_periodic_report_and_results_release(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot investigation 1 on 0.3.1: the pointers named transcripts only, and no 10-K, 10-Q
+    # or 8-K was read. The floor: the latest periodic report and the latest results release.
+    atlas, filings, calls = lumentum_with_pointed_transcripts(services, 3)
+    started = seeded(atlas, "lumentum", budgets={"max_documents": 4})
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    scouted = {p["source_version_id"] for p in found["pointers"] if p["task_key"] == "scout"}
+    assert scouted == set(calls)
+    # The 10-K (the latest periodic report, not the older 10-Q), the press release (EX-99.1,
+    # the latest results release) and the best-pointed transcripts, within the share.
+    read = {d["source_version_id"] for d in found["documents"]}
+    assert read == {filings["10-K"], filings["EX-99.1"], calls[0], calls[1]}
+    artifacts = tasks(found)["investigator:lumentum"]["artifacts"]
+    assert artifacts["documents_floor"] == [filings["10-K"], filings["EX-99.1"]]
+    assert (artifacts["documents"], artifacts["documents_pointed"]) == (4, 2)
+    # Left out: the third transcript, the 10-Q and the 8-K's own document.
+    assert artifacts["documents_dropped"] == 3
+    # The card's `read` says which documents came from the floor.
+    [row] = [r for r in found["research_card"]["read"] if r["task_key"] == "investigator:lumentum"]
+    assert {d["source_version_id"]: d["floor"] for d in row["documents"]} == {
+        filings["10-K"]: True,
+        filings["EX-99.1"]: True,
+        calls[0]: False,
+        calls[1]: False,
+    }
+
+
+def test_a_share_of_two_takes_the_periodic_report_and_the_best_pointed_document(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas, filings, calls = lumentum_with_pointed_transcripts(services, 2)
+    started = seeded(atlas, "lumentum", budgets={"max_documents": 2})
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert {d["source_version_id"] for d in found["documents"]} == {filings["10-K"], calls[0]}
+    artifacts = tasks(found)["investigator:lumentum"]["artifacts"]
+    assert artifacts["documents_floor"] == [filings["10-K"]]
+    assert (artifacts["documents"], artifacts["documents_pointed"]) == (2, 1)
+    # The results release, the 10-Q, the 8-K and the second transcript are left out.
+    assert artifacts["documents_dropped"] == 4
+
+
+def test_a_company_with_no_periodic_report_takes_its_pointed_documents(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(ingest=False)
+    fake = services.hindsight[0]
+    calls = import_transcripts(atlas, "lumentum", "Lumentum", 3)
+    # Memory holds the first two transcripts' facts; the third, the newest, is not pointed at.
+    held = {d["document_id"] for version in calls[:2] for d in atlas.memory(version)["documents"]}
+    fake.report_zero_facts(lambda document_id: document_id not in held)
+    started = seeded(atlas, "lumentum", budgets={"max_documents": 2})
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert {d["source_version_id"] for d in found["documents"]} == {calls[0], calls[1]}
+    artifacts = tasks(found)["investigator:lumentum"]["artifacts"]
+    assert artifacts["documents_floor"] == []
+    assert (artifacts["documents"], artifacts["documents_pointed"]) == (2, 2)
+    assert artifacts["documents_dropped"] == 1  # the newest transcript
+
+
+# --- the entity hop (memory-quality ticket 09) -------------------------------------------------
+
+
+def import_text(atlas: Atlas, slug: str, title: str, body: str, published_at: str) -> str:
+    """Record a short hand-written document of the company (`atlas sources import`), published
+    at `published_at`, and run its retention; its Source Version's ID."""
+    path = atlas.tmp_path / f"{title}.txt"
+    path.write_text(body, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        slug,
+        "--file",
+        str(path),
+        "--origin-url",
+        f"https://notes.example.test/{title}",
+        "--published-at",
+        published_at,
+        "--title",
+        title,
+    )
+    assert imported.returncode == 0, imported.stderr
+    atlas.worker_pass()
+    version_id = json.loads(imported.stdout)["source_version_id"]
+    assert atlas.memory(version_id)["retained"] is True
+    return version_id
+
+
+def company_memo(atlas: Atlas, title: str, published_at: str) -> str:
+    """A Coherent memo that names no other company (its title makes its bytes its own)."""
+    return import_text(
+        atlas,
+        "coherent",
+        title,
+        f"Synthetic test memo {title}, hand-written for a test. The memo says that Coherent"
+        " makes lasers for data centers in its own plants and names none of its customers.\n",
+        published_at,
+    )
+
+
+LUMENTUM_ON_COHERENT = (
+    "Synthetic test memo, hand-written for a test. The memo says that Lumentum competes with"
+    " Coherent in datacom lasers and that the two companies sell to the same customers.\n"
+)
+
+
+def entity_hops(found: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Round 1's entity hops, by the slug of the company each was made for."""
+    return {hop["slug"]: hop for hop in found["entity_hops"] if hop["round"] == 1}
+
+
+def test_a_document_of_another_company_naming_a_seed_is_read_through_the_entity_hop(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Memory answers each recall with its one best fact only (a text budget of one token):
+    # Coherent's memo, the nearest to the as-of time. AXT's note names Coherent in its last
+    # section, which no recall returns.
+    atlas = services.start(ingest=False, pointer_recall_max_tokens=1)
+    fake = services.hindsight[0]
+    fake.derive_recall_options()
+    memo = company_memo(atlas, "coherent-memo", "2026-09-02T12:00:00+00:00")
+    note = import_axt_note(atlas)  # published 2026-08-05
+    coherent, axt = atlas.company("coherent"), atlas.company("axt")
+    [section] = retained_sections(atlas, AXT_NOTE_URL, "axt")
+    fake.script_fact_text(section["document_id"], AXT_MEMORY)
+    started = seeded(atlas, "coherent", as_of="2026-09-10T00:00:00Z")
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.json({"claims": []}),
+        ChatReply.json({"claims": []}),
+        NOTHING_ACCEPTED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+    # Every recall pointed at Coherent's memo only; none at AXT's note.
+    assert {p["source_version_id"] for p in found["pointers"]} == {memo}
+    assert {p["query_kind"] for p in found["pointers"]} == {"scout"}
+    # The hop for Coherent listed the theme's facts carrying its entity: its own memo's (no
+    # pointer) and the note's, which became one entity pointer, apart from the recall pointers.
+    [hopped] = found["entity_pointers"]
+    assert (hopped["round"], hopped["task_key"], hopped["query_kind"]) == (1, "scout", "entity")
+    assert (hopped["source_version_id"], hopped["section_anchor"]) == (
+        note,
+        section["section_anchor"],
+    )
+    assert (hopped["company_id"], hopped["company_name"]) == (axt["id"], "AXT")
+    assert (hopped["query_company_id"], hopped["query_company_name"]) == (
+        coherent["id"],
+        "Coherent",
+    )
+    assert (hopped["query"], hopped["query_index"], hopped["rank"]) == ("Coherent Corp.", 1, 1)
+    assert (hopped["memory_type"], hopped["memory_text"]) == ("world", AXT_MEMORY)
+    assert hopped["entity_id"]
+    hop = entity_hops(found)["coherent"]
+    assert (hop["company_id"], hop["entity_name"], hop["entity_id"]) == (
+        coherent["id"],
+        "Coherent Corp.",
+        hopped["entity_id"],
+    )
+    assert (hop["outcome"], hop["facts_listed"], hop["pointers"]) == ("listed", 2, 1)
+    assert (hop["own_documents"], hop["after_as_of"], hop["already_pointed"]) == (1, 0, 0)
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["entity_pointers"], scout["entity_listings_failed"]) == (1, 0)
+
+    # AXT joined the ranking by its entity pointer, at half a recall pointer's best weight,
+    # and the plan gained its Investigator.
+    ranked = pointed(found)
+    assert ranked["axt"] == {
+        "round": 1,
+        "company_id": axt["id"],
+        "company_name": "AXT",
+        "slug": "axt",
+        "pointers": 0,
+        "entity_pointers": 1,
+        "score": 0.5,
+        "best_rank": None,
+        "outcome": "added",
+        "task_key": "investigator:axt",
+    }
+    plan = tasks(found)
+    added = plan["investigator:axt"]
+    assert added["artifacts"]["added_for_pointers"] == {
+        "pointers": 0,
+        "entity_pointers": 1,
+        "score": 0.5,
+        "best_rank": None,
+    }
+    # AXT's Investigator read the note, and its passages include the section that names
+    # Coherent, selected by the entity pointer.
+    assert [d["source_version_id"] for d in found["documents"] if d["company_id"] == axt["id"]] == [
+        note
+    ]
+    assert added["artifacts"]["documents_pointed"] == 1
+    extraction = atlas.get(f"/api/v1/claim-extractions/{added['artifacts']['extraction_id']}")
+    tag = f"entity_pointer:{coherent['id']}"
+    at_quote = atlas.parsed(note).index(AXT_QUOTE)
+    [chosen] = [p for p in extraction["passages"] if tag in p["selected_by"]]
+    assert chosen["char_start"] <= at_quote < chosen["char_end"]
+    assert chosen["section_anchor"] == section["section_anchor"]
+    # The card's `read` names the channel; the memory's text reached no role.
+    axt_read = next(
+        r for r in found["research_card"]["read"] if r["task_key"] == "investigator:axt"
+    )
+    [document] = axt_read["documents"]
+    assert document["selections"]["entity_pointer"] == 1
+    assert AXT_MEMORY not in json.dumps(llm.chat_requests())
+    # Co-mention is a reason to read: no Claim was accepted, so no edge and no Evidence.
+    assert found["evidence"] == []
+    assert atlas.get("/api/v1/relationships")["items"] == []
+
+
+def test_the_entity_hop_keeps_to_the_as_of_time_its_own_documents_and_its_bounds(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # One company hopped, one pointer each; each recall gives its one best fact (a Coherent
+    # memo, the nearest to the as-of time).
+    atlas = services.start(
+        ingest=False,
+        pointer_recall_max_tokens=1,
+        entity_hop_max_companies=1,
+        entity_hop_max_facts=1,
+    )
+    services.hindsight[0].derive_recall_options()
+    company_memo(atlas, "coherent-september", "2026-09-09T12:00:00+00:00")
+    company_memo(atlas, "coherent-august", "2026-08-14T12:00:00+00:00")
+    note = import_axt_note(atlas)  # 2026-08-05
+    lumentum_memo = import_text(
+        atlas, "lumentum", "lumentum-on-coherent", LUMENTUM_ON_COHERENT, "2026-09-05T12:00:00+00:00"
+    )
+    script_searches(searxng)
+
+    # As of September 10, two documents of other companies name Coherent; one fact is taken,
+    # the newest: Lumentum's memo.
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.json({"claims": []}),
+        ChatReply.json({"claims": []}),
+        NOTHING_ACCEPTED,
+    )
+    september = seeded(atlas, "coherent", as_of="2026-09-10T00:00:00Z")
+    atlas.worker_pass()
+    found = investigation(atlas, september["id"])
+    assert [(p["source_version_id"], p["query_kind"]) for p in found["entity_pointers"]] == [
+        (lumentum_memo, "entity")
+    ]
+    hop = entity_hops(found)["coherent"]
+    assert (hop["facts_listed"], hop["own_documents"], hop["after_as_of"]) == (4, 2, 0)
+    assert (hop["pointers"], hop["beyond_limit"]) == (1, 1)
+    assert [c["slug"] for c in found["pointed_companies"] if c["outcome"] == "added"] == [
+        "lumentum"
+    ]
+
+    # As of August 15 Lumentum's memo is not public yet: only AXT's note is pointed at. The
+    # seeds are Coherent and Lumentum, and the hop is bounded to one company: Coherent. The
+    # company budget is the two seeds, so AXT is not read.
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+    august = seeded(
+        atlas,
+        "coherent",
+        "lumentum",
+        as_of="2026-08-15T00:00:00Z",
+        budgets={"max_companies": 2},
+    )
+    atlas.worker_pass()
+    found = investigation(atlas, august["id"])
+    assert [p["source_version_id"] for p in found["entity_pointers"]] == [note]
+    assert list(entity_hops(found)) == ["coherent"]
+    hop = entity_hops(found)["coherent"]
+    # Its September memo is its own; Lumentum's memo is after the as-of time.
+    assert (hop["facts_listed"], hop["own_documents"], hop["after_as_of"]) == (4, 2, 1)
+    assert (hop["pointers"], hop["beyond_limit"]) == (1, 0)
+    assert all(p["available_at"] <= "2026-08-15" for p in found["entity_pointers"])
+    # The card's `not_read` names the channel that reached AXT: the entity hop alone.
+    [unread] = found["research_card"]["not_read"]
+    assert (unread["company_name"], unread["channels"]) == ("AXT", ["entity"])
+    assert (unread["pointers"], unread["entity_pointers"], unread["best_rank"]) == (0, 1, None)
+    assert unread["score"] == 0.5
+
+
+def test_a_failed_listing_leaves_the_scout_succeeded_and_a_company_without_an_entity_is_recorded(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(ingest=False)
+    fake = services.hindsight[0]
+    company_memo(atlas, "coherent-memo", "2026-09-02T12:00:00+00:00")
+    fake.fail_entity_memories(500)
+    # Lumentum has no document: no retain item ever named it, so Memory has no entity for it.
+    started = seeded(atlas, "coherent", "lumentum", as_of="2026-09-10T00:00:00Z")
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["scout"] == "succeeded"
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+    assert found["entity_pointers"] == []
+    hops = entity_hops(found)
+    assert (hops["coherent"]["outcome"], hops["coherent"]["pointers"]) == ("listing_failed", 0)
+    assert (hops["lumentum"]["outcome"], hops["lumentum"]["entity_id"]) == ("no_entity", None)
+    assert hops["lumentum"]["entity_name"] == "Lumentum Holdings Inc."
+    [failed] = [e for e in events(atlas, started["id"]) if e["type"] == "entity_listing_failed"]
+    assert (failed["round"], failed["task_key"]) == (1, "scout")
+    assert failed["detail"]["company_id"] == atlas.company("coherent")["id"]
+    assert "HTTP 500" in failed["detail"]["error"]
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["entity_pointers"], scout["entity_listings_failed"]) == (0, 1)
 
 
 def test_with_no_accepted_claim_the_editor_writes_a_card_of_what_was_searched_and_read(
@@ -2366,6 +2789,8 @@ def test_a_role_that_keeps_failing_stops_the_investigation_needs_review(
     # The run is finished with its token totals; its quarantined calls stay visible.
     calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")
     assert [c["status"] for c in calls["role_calls"]] == ["quarantined"] * 3
+    # Each quarantined call asked for its one repair (pilot-fixes ticket 26).
+    assert calls["repairs"] == found["usage"]["repairs"] == {"scout": 3}
     tokens = "atlas_llm_tokens_total"
     assert metric(atlas, tokens, kind="investigation", direction="input") == calls["tokens_in"]
 
@@ -2989,6 +3414,142 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     assert [p["status"] for p in found["premises"]] == ["open", "open"]
 
 
+# --- a finding says only what its Claims say (pilot-fixes ticket 21) -----------------------------
+
+
+def test_a_finding_saying_what_its_claims_do_not_is_asked_again_once_then_kept_or_set_aside(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(investigator_max_passages=500, investigator_passages_per_call=500)
+    coherent = company_id(atlas, "coherent")
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    unretained = memory_documents(atlas, ten_q)
+    services.hindsight[0].report_zero_facts(lambda document_id: document_id in unretained)
+    started = seeded(atlas, "coherent")
+    # A share count only the Skeptic's bear context states (the 10-Q's balance sheet), and a
+    # place only a lead's title names ("... capacity in Beijing").
+    with_bear_figure = (
+        "Coherent supplies NVIDIA with advanced lasers and issued 212,340,736 shares."
+    )
+    with_lead_place = "Coherent supplies NVIDIA with advanced lasers made in Beijing."
+    # Grounded: the legal names stand for the display names, and the quoted phrase is the
+    # quote's, through the typographic fold (curly quotation marks, a non-breaking hyphen).
+    grounded = (
+        "Coherent Corp. entered into a \N{LEFT DOUBLE QUOTATION MARK}strategic"
+        " multi\N{NON-BREAKING HYPHEN}year supply agreement\N{RIGHT DOUBLE QUOTATION MARK}"
+        " with NVIDIA Corporation."
+    )
+
+    def finding(statement: str) -> dict[str, JsonValue]:
+        return {
+            "statement": statement,
+            "claim_refs": ["c1"],
+            "limitations": ["A company's own statement."],
+            "open_questions": [],
+        }
+
+    first: JsonValue = {
+        "findings": [finding(with_bear_figure), finding(with_lead_place), finding(grounded)],
+        "open_questions": ["Is the supply agreement exclusive?"],
+        "verdict": "answered",
+    }
+    repaired = "Coherent supplies NVIDIA with advanced lasers."
+    still_ungrounded = "Coherent supplies NVIDIA with advanced lasers made in Beijing, China."
+    again: JsonValue = {
+        "findings": [
+            {"finding": "f1", "statement": repaired},
+            {"finding": "f2", "statement": still_ungrounded},
+        ]
+    }
+    llm.script_role("financial_analyst", ANALYSED)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan((DILUTION, "dilution_financing")),
+        ChatReply.answer(
+            countering(counter(DILUTION_QUOTE, "dilution_financing", coherent, contradicts=False))
+        ),
+        ChatReply.json(first, tokens=(3000, 400)),
+        ChatReply.json(again, tokens=(800, 120)),
+        REVIEWED,
+    )
+    script_searches(searxng)
+    searxng.script(DILUTION, SearchReply.of("skeptic-dilution"))
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    # The Editor was asked once more, for the two ungrounded findings only, in one call.
+    assert roles(llm) == [
+        "scout",
+        "investigator",
+        "skeptic",
+        "skeptic",
+        "financial_analyst",
+        "editor",
+        "editor",
+        "reviewer",
+    ]
+    card_request, again_request = (asked(body) for body in requests(llm)[5:7])
+    # What it wrote came from what it was sent beside the Claim: the bear context's quote and
+    # the lead's title.
+    [bear] = card_request["request"]["bear_context"]
+    bear_quote = {each["id"]: each["text"] for each in card_request["retrieved_data"]}
+    assert "212,340,736" in bear_quote[bear["counterevidence_id"]]
+    assert any("Beijing" in lead["title"] for lead in card_request["request"]["leads"])
+    assert again_request["request"]["research_question"] == QUESTION
+    assert again_request["request"]["findings"] == [
+        {
+            "finding": "f1",
+            "statement": with_bear_figure,
+            "claim_refs": ["c1"],
+            "ungrounded": ["212,340,736"],
+        },
+        {
+            "finding": "f2",
+            "statement": with_lead_place,
+            "claim_refs": ["c1"],
+            "ungrounded": ["Beijing"],
+        },
+    ]
+    assert [c["ref"] for c in again_request["request"]["claims"]] == ["c1"]
+    # Only the cited Claims' quotes: no bear context, no lead.
+    assert [(q["id"], q["text"]) for q in again_request["retrieved_data"]] == [("c1", SUPPLY_QUOTE)]
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [(c["prompt_name"], c["prompt_version"]) for c in calls if c["role"] == "editor"] == [
+        ("editor", 7),
+        ("editor-reground", 1),
+    ]
+    # The repaired finding stands, the grounded one was never sent back; the one still
+    # ungrounded is set aside with its terms, and is no finding.
+    card = found["research_card"]
+    assert [(f["claim_text"], f["grounded"]) for f in card["findings"]] == [
+        (repaired, True),
+        (grounded, True),
+    ]
+    assert [f["limitations"] for f in card["findings"]] == [["A company's own statement."]] * 2
+    [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert card["unsupported_findings"] == [
+        {
+            "statement": still_ungrounded,
+            "claim_ids": [accepted["id"]],
+            "reason": "ungrounded: Beijing, China",
+        }
+    ]
+    assert (found["stop_reason"], found["stop_detail"]) == (
+        "needs_review",
+        "1 unsupported findings were dropped",
+    )
+    artifacts = tasks(found)["editor"]["artifacts"]
+    assert artifacts["unsupported_findings"] == 1
+    assert artifacts["grounding"] == {
+        "asked_again": 2,
+        "repaired": 1,
+        "role_call_id": calls[-1]["id"],
+        "failure": None,
+    }
+
+
 # --- the Skeptic reads by pointers (memory-directed reading, ticket 07) --------------------------
 
 ITEM_1A = "part-i-item-1a"
@@ -3017,6 +3578,9 @@ NVIDIA_SECOND_SOURCE_QUERY = (
     "NVIDIA: second source, alternative or additional qualified suppliers, sole or single"
     " source supply; Coherent; advanced lasers"
 )
+
+
+ALLOCATION_FINDING = "Lumentum says its customers' demand is outpacing its current supply."
 
 
 def allocation_claim(atlas: Atlas) -> dict[str, JsonValue]:
@@ -3206,6 +3770,155 @@ def test_the_skeptic_reads_the_window_memory_points_to_for_a_bear_checklist_item
     assert context["source_span"]["quote"] == CONCENTRATION_STATEMENT
     assert card["findings"][0]["counterevidence_ids"] == []
     assert found["stop_reason"] == "answered"
+
+
+# Memory-quality ticket 08: the fake cuts each retained section into chunks of at most this
+# many characters (`derive_chunks`), so the 10-K's Item 1 has several.
+CHUNK_SIZE = 1200
+
+
+def chunk_placed_lumentum(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> tuple[Atlas, RecordedHindsight, dict[str, Any], str, int]:
+    """Lumentum's recorded filings, its 10-K's Item 1 holding Memory's one fact, extracted
+    (says the fake) from the chunk of Item 1 that holds the allocation statement; its text is
+    the fake's default, the section's first 200 characters, whose words match Item 1's
+    opening window best. Returns the Atlas, the fake, Item 1, the 10-K's ID and the chunk's
+    index; nothing has run yet."""
+    atlas = services.start(ingest=False, investigation_max_passages=30)
+    fake = services.hindsight[0]
+    fake.derive_chunks(CHUNK_SIZE)
+    atlas.ingest_company("lumentum")
+    ten_k = atlas.version(LITE_10K, "lumentum")["id"]
+    item_1 = atlas.section(LITE_10K, "lumentum")
+    fake.report_zero_facts(lambda document_id: document_id != item_1["document_id"])
+    chunks = fake.derived_chunks(item_1["document_id"])
+    [index] = [i for i, chunk in enumerate(chunks) if LITE_ALLOCATION in chunk]
+    assert index > 0  # not the chunk the section opens with
+    fake.script_fact_chunk(item_1["document_id"], index)
+    return atlas, fake, item_1, ten_k, index
+
+
+def test_a_pointer_reads_the_window_its_fact_s_chunk_lies_in_not_the_best_matching_one(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas, fake, item_1, ten_k, index = chunk_placed_lumentum(services, llm, searxng)
+    started = seeded(atlas, "lumentum")
+    script_parallel(llm)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(allocation_claim(atlas))),
+        # The finding says only what the allocation Claim says (pilot-fixes ticket 21).
+        ChatReply.answer(editing(statement=ALLOCATION_FINDING)),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["investigator:lumentum"] == "succeeded"
+    # The pointer recalls asked for the chunks of their results.
+    recalls = fake.requests("POST", "memories/recall")
+    assert recalls and all(r["include"] == {"source_facts": {}, "chunks": {}} for r in recalls)
+    # Every pointer, the Scout's and the Skeptic's, is placed by the fact's chunk: its span
+    # in the parsed text is the chunk's text exactly (the fake's chunk, found verbatim).
+    parsed = atlas.parsed(ten_k)
+    chunk = fake.derived_chunks(item_1["document_id"])[index]
+    pointers = found["pointers"]
+    assert {p["task_key"] for p in pointers} == {"scout", "skeptic"}
+    assert {(p["section_anchor"], p["placed_by"]) for p in pointers} == {(ITEM_1, "chunk")}
+    for pointer in pointers:
+        assert parsed[pointer["chunk_char_start"] : pointer["chunk_char_end"]] == chunk
+        assert item_1["char_start"] <= pointer["chunk_char_start"] < item_1["char_end"]
+    chunk_start = pointers[0]["chunk_char_start"]
+
+    # The Investigator's pointer window is the one the chunk starts in, which holds the
+    # allocation statement; not Item 1's opening window, whose words the fact matches best.
+    extraction = atlas.get(
+        f"/api/v1/claim-extractions/{tasks(found)['investigator:lumentum']['artifacts']['extraction_id']}"
+    )
+    pointed = [
+        p
+        for p in extraction["passages"]
+        if any(tag.startswith("pointer:") for tag in p["selected_by"])
+    ]
+    [first] = pointed
+    assert first["section_anchor"] == ITEM_1
+    assert first["char_start"] <= chunk_start < first["char_end"]
+    assert first["char_start"] <= parsed.index(ALLOCATION_STATEMENT) < first["char_end"]
+    assert first["char_start"] > item_1["char_start"]
+    # Each pointer's tag says the chunk placed it.
+    assert first["selected_by"][:4] == [
+        "pointer:0:chunk",
+        "pointer:1:chunk",
+        "pointer:2:chunk",
+        "pointer:3:chunk",
+    ]
+    # The Claim read there says so in the Evidence tray, and the card's `read` counts it.
+    [claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert claim["passage_selected_by"] == first["selected_by"]
+    [evidence] = found["evidence"]
+    assert evidence["passage_selected_by"] == first["selected_by"]
+    [read] = [r for r in found["research_card"]["read"] if r["role"] == "investigator"]
+    shown = {d["source_version_id"]: d for d in read["documents"]}
+    assert shown[ten_k]["pointers_placed_by"] == {"chunk": 1}
+    # The chunk located the span and went no further: no role was sent its text.
+    sent = json.dumps(llm.chat_requests())
+    assert all(p["memory_text"] not in sent for p in pointers)
+
+    # The Skeptic reads the same way: its first passage is the chunk's window too.
+    readings = [c for c in skeptic_calls(llm) if "passages" in c["request"]]
+    assert readings
+    version_id, _, span = readings[0]["retrieved_data"][0]["source"].partition("#")
+    start, end = (int(part) for part in span.split("-"))
+    assert version_id == ten_k and start <= chunk_start < end
+    skeptic_row = skeptic_read(found)
+    [document] = [d for d in skeptic_row["documents"] if d["source_version_id"] == ten_k]
+    assert document["pointers_placed_by"] == {"chunk": 1}
+
+
+def test_a_chunk_that_is_not_in_its_section_leaves_the_pointer_on_the_best_matching_window(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas, fake, item_1, ten_k, index = chunk_placed_lumentum(services, llm, searxng)
+    # Hindsight's chunk of the fact is not a slice of the section (written here).
+    fake.script_chunk_text(item_1["document_id"], index, "A chunk no section of Atlas holds.")
+    started = seeded(atlas, "lumentum")
+    script_parallel(llm)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(allocation_claim(atlas))),
+        # The finding says only what the allocation Claim says (pilot-fixes ticket 21).
+        ChatReply.answer(editing(statement=ALLOCATION_FINDING)),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    pointers = found["pointers"]
+    assert pointers
+    assert {(p["placed_by"], p["chunk_char_start"], p["chunk_char_end"]) for p in pointers} == {
+        ("match", None, None)
+    }
+    extraction = atlas.get(
+        f"/api/v1/claim-extractions/{tasks(found)['investigator:lumentum']['artifacts']['extraction_id']}"
+    )
+    [first] = [
+        p
+        for p in extraction["passages"]
+        if any(tag.startswith("pointer:") for tag in p["selected_by"])
+    ]
+    # The window the fact's words match best: Item 1's opening one (the fact is its first
+    # 200 characters), tagged as before.
+    assert first["section_anchor"] == ITEM_1
+    assert first["char_start"] == item_1["char_start"]
+    assert first["selected_by"][:4] == ["pointer:0", "pointer:1", "pointer:2", "pointer:3"]
+    [read] = [r for r in found["research_card"]["read"] if r["role"] == "investigator"]
+    shown = {d["source_version_id"]: d for d in read["documents"]}
+    assert shown[ten_k]["pointers_placed_by"] == {"match": 1}
 
 
 def test_a_company_memory_points_to_nothing_of_is_read_through_the_fallback(
@@ -3771,7 +4484,7 @@ def test_one_contradiction_marks_one_finding_and_the_rest_is_bear_context_on_the
         assert quoted[item["id"]] == item["quote"]
     calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
     versions = {(c["prompt_name"], c["prompt_version"]) for c in calls}
-    assert {("skeptic", 3), ("editor", 6)} <= versions
+    assert {("skeptic", 3), ("editor", 7)} <= versions
     # Nothing but the contradiction can disprove a premise or needs an owner's eye.
     assert [p["status"] for p in found["premises"]] == ["open", "open"]
 

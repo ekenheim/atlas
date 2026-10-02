@@ -105,6 +105,11 @@ class Claim(BaseModel):
     # of its own document). Null for a rejected Claim and for Claims recorded before migration
     # 0052.
     party_basis: PartyBasis | None = None
+    # The speaker label of the transcript paragraph an accepted Claim quotes ("Alex Example
+    # (President and CEO, Example Photonics Inc)"): one of the filer's own people
+    # (`atlas.claims.speakers`). Null for a rejected Claim, for a Claim on any other document
+    # and for Claims recorded before migration 0070.
+    speaker: str | None = None
     # The parse of the Source Version its passage was cut from (and its span is in). Null for
     # Claims recorded before migration 0046 (the recorded parse) and for an unknown passage.
     parser_version: str | None = None

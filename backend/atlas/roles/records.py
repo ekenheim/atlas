@@ -29,8 +29,9 @@ class RunUsage(BaseModel):
 
 
 class LLMAttempt(BaseModel):
-    """One chat completion: the routed model, its usage, its raw content and why it failed
-    validation (None: it validated)."""
+    """One chat completion: the routed model, its usage, its raw content, why it failed
+    validation (None: it validated) and the fields of its answer the role's response model
+    doesn't name, which code dropped (each as its path in the answer; pilot-fixes ticket 26)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -41,6 +42,7 @@ class LLMAttempt(BaseModel):
     tokens_out: int
     content: str
     validation_errors: list[dict[str, JsonValue]] | None
+    ignored_fields: list[list[str | int]]
     called_at: datetime
 
 
@@ -72,6 +74,8 @@ class RunRoleCalls(BaseModel):
     run_id: uuid.UUID
     tokens_in: int
     tokens_out: int
+    # Repairs asked for, by role: the chat completions after a call's first (ticket 26).
+    repairs: dict[str, int]
     role_calls: list[RoleCallRecord]
 
 
@@ -88,6 +92,19 @@ def run_usage(connection: Connection, run_id: uuid.UUID) -> RunUsage:
         .one()
     )
     return RunUsage(tokens_in=int(row["tokens_in"]), tokens_out=int(row["tokens_out"]))
+
+
+def run_repairs(connection: Connection, run_id: uuid.UUID) -> dict[str, int]:
+    """How many repairs the run's role calls asked for, by role (a role with none left out)."""
+    rows = connection.execute(
+        text(
+            "SELECT r.role, count(*) AS repairs FROM llm_call c JOIN role_call r"
+            " ON r.id = c.role_call_id WHERE c.run_id = :run AND c.attempt > 1"
+            " GROUP BY r.role ORDER BY r.role"
+        ),
+        {"run": run_id},
+    ).all()
+    return {str(row.role): int(row.repairs) for row in rows}
 
 
 def run_role_calls(connection: Connection, run_id: uuid.UUID) -> RunRoleCalls | None:
@@ -113,5 +130,9 @@ def run_role_calls(connection: Connection, run_id: uuid.UUID) -> RunRoleCalls | 
         calls.append(RoleCallRecord.model_validate(values))
     usage = run_usage(connection, run_id)
     return RunRoleCalls(
-        run_id=run_id, tokens_in=usage.tokens_in, tokens_out=usage.tokens_out, role_calls=calls
+        run_id=run_id,
+        tokens_in=usage.tokens_in,
+        tokens_out=usage.tokens_out,
+        repairs=run_repairs(connection, run_id),
+        role_calls=calls,
     )
