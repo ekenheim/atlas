@@ -1,0 +1,44 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/memories",
+    "query": null,
+    "body": {
+      "items": [
+        {
+          "content": "Borealis Photonics Ltd. reported that lead times for its silicon photonics modules rose to 52 weeks.",
+          "document_id": "doc-sync",
+          "timestamp": "2026-08-01T00:00:00Z",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "metadata": {
+            "source_version_id": "f7144979-a187-4808-ad8b-9ec7cb1d66a9",
+            "fixture": "feature-check"
+          },
+          "tags": [
+            "company:borealis"
+          ]
+        }
+      ],
+      "async": false
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 61.14,
+    "body": {
+      "success": true,
+      "bank_id": "atlas-q01-1790929097",
+      "items_count": 1,
+      "async": false,
+      "operation_id": null,
+      "operation_ids": null,
+      "usage": {
+        "input_tokens": 3169,
+        "output_tokens": 204,
+        "total_tokens": 3373,
+        "cached_tokens": 0,
+        "thoughts_tokens": 0
+      }
+    }
+  }
+}

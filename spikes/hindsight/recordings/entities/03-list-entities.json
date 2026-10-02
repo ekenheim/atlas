@@ -1,0 +1,229 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/entities",
+    "query": {
+      "limit": 200
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "items": [
+        {
+          "id": "29a05e01-c88f-4b83-b8b4-6b26c231fba7",
+          "canonical_name": "Aurora Optics Inc.",
+          "mention_count": 7,
+          "first_seen": "2026-01-10T00:00:00+00:00",
+          "last_seen": "2026-12-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "b4e3d1c1-a7e7-4b91-b81d-0e718e2d1f5b",
+          "canonical_name": "Tucson",
+          "mention_count": 4,
+          "first_seen": "2026-01-10T00:00:00+00:00",
+          "last_seen": "2026-12-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "bd00e120-069e-4b2a-8951-2cae49e9a964",
+          "canonical_name": "Arizona",
+          "mention_count": 3,
+          "first_seen": "2026-01-10T00:00:00+00:00",
+          "last_seen": "2026-12-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "2c82000f-d856-4b65-a283-c2550bbfabf2",
+          "canonical_name": "Halcyon Networks",
+          "mention_count": 3,
+          "first_seen": "2026-01-10T00:00:00.010000+00:00",
+          "last_seen": "2026-09-02T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "fd8e8edc-1332-4e3e-b823-6684cfde1fd9",
+          "canonical_name": "indium phosphide",
+          "mention_count": 3,
+          "first_seen": "2026-01-10T00:00:00+00:00",
+          "last_seen": "2026-07-30T00:00:00.010000+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "b21bd294-b159-4f93-9ced-852ef538614e",
+          "canonical_name": "Malaysia",
+          "mention_count": 2,
+          "first_seen": "2026-12-01T00:00:00+00:00",
+          "last_seen": "2026-12-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "c52fffd2-886e-46f2-b058-6364135aee55",
+          "canonical_name": "Penang",
+          "mention_count": 2,
+          "first_seen": "2026-12-01T00:00:00+00:00",
+          "last_seen": "2026-12-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "cfce7c9c-0552-41cd-819f-cf044eb2759c",
+          "canonical_name": "laser production",
+          "mention_count": 2,
+          "first_seen": "2026-12-01T00:00:00+00:00",
+          "last_seen": "2026-12-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "399de425-e409-48ea-bf79-fa3ce9c37726",
+          "canonical_name": "Aurora",
+          "mention_count": 2,
+          "first_seen": "2026-09-02T00:00:00+00:00",
+          "last_seen": "2026-09-02T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "8fe7674d-9da9-4ea0-b215-e87bd6e5472f",
+          "canonical_name": "Halcyon",
+          "mention_count": 2,
+          "first_seen": "2026-09-02T00:00:00+00:00",
+          "last_seen": "2026-09-02T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "70fe2c00-2299-4487-949b-e8fa66c676fe",
+          "canonical_name": "Cirrus Semiconductor",
+          "mention_count": 2,
+          "first_seen": "2025-01-01T00:00:00+00:00",
+          "last_seen": "2026-08-12T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "c03d82f3-faff-462a-bd21-5303808d9bd1",
+          "canonical_name": "Borealis Photonics Ltd.",
+          "mention_count": 2,
+          "first_seen": "2026-08-01T00:00:00+00:00",
+          "last_seen": "2026-08-12T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "a723106b-415c-40a6-a7cf-b54e07586526",
+          "canonical_name": "800G optical modules",
+          "mention_count": 2,
+          "first_seen": "2024-03-01T00:00:00+00:00",
+          "last_seen": "2026-07-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "da14f212-75e9-4cf8-b2a9-a8457d0fe83d",
+          "canonical_name": "Aurora Optics",
+          "mention_count": 2,
+          "first_seen": "2024-03-01T00:00:00+00:00",
+          "last_seen": "2026-07-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "093d3f41-2d6c-4254-919a-32a7adf76d16",
+          "canonical_name": "laser output",
+          "mention_count": 1,
+          "first_seen": "2026-09-02T00:00:00.010000+00:00",
+          "last_seen": "2026-09-02T00:00:00.010000+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "85f53875-f3b3-4320-8cd3-1bef1969c549",
+          "canonical_name": "six-inch substrates",
+          "mention_count": 1,
+          "first_seen": "2026-08-12T00:00:00+00:00",
+          "last_seen": "2026-08-12T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "bec89e58-1f7b-4d79-8ed0-fde4ced682b2",
+          "canonical_name": "indium phosphide substrates",
+          "mention_count": 1,
+          "first_seen": "2026-08-12T00:00:00+00:00",
+          "last_seen": "2026-08-12T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "18dfa19b-52c1-4ef8-add8-2fc086e8286b",
+          "canonical_name": "silicon photonics modules",
+          "mention_count": 1,
+          "first_seen": "2026-08-01T00:00:00+00:00",
+          "last_seen": "2026-08-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "6db16caf-a45a-4de2-963b-bc775f02026d",
+          "canonical_name": "MOCVD",
+          "mention_count": 1,
+          "first_seen": "2026-07-30T00:00:00.010000+00:00",
+          "last_seen": "2026-07-30T00:00:00.010000+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "a2f84d7e-57e7-49ff-9570-07372d9be2b6",
+          "canonical_name": "laser",
+          "mention_count": 1,
+          "first_seen": "2026-07-30T00:00:00.010000+00:00",
+          "last_seen": "2026-07-30T00:00:00.010000+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "016d3a1a-c78b-417a-9efc-4401bc1441f2",
+          "canonical_name": "Aur Optics Inc.",
+          "mention_count": 1,
+          "first_seen": "2026-04-01T00:00:00+00:00",
+          "last_seen": "2026-04-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "3747b4fe-70a6-49ac-8a5d-ae0c9d592513",
+          "canonical_name": "fab",
+          "mention_count": 1,
+          "first_seen": "2026-04-01T00:00:00+00:00",
+          "last_seen": "2026-04-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "be3c77dc-7ca9-4542-a0b9-08a2a967143a",
+          "canonical_name": "1.6T transceiver lasers",
+          "mention_count": 1,
+          "first_seen": "2026-01-10T00:00:00.010000+00:00",
+          "last_seen": "2026-01-10T00:00:00.010000+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "00ccff6a-c701-4b73-8c22-bd9f2cc56837",
+          "canonical_name": "wafer fab",
+          "mention_count": 1,
+          "first_seen": "2026-01-10T00:00:00+00:00",
+          "last_seen": "2026-01-10T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "691d129b-44cd-47fc-9fa7-db8984d284b6",
+          "canonical_name": "substrate",
+          "mention_count": 1,
+          "first_seen": "2025-01-01T00:00:00+00:00",
+          "last_seen": "2025-01-01T00:00:00+00:00",
+          "metadata": {}
+        },
+        {
+          "id": "a635e97d-73b5-43e3-abf4-ee5a0f8840c9",
+          "canonical_name": "gallium arsenide",
+          "mention_count": 1,
+          "first_seen": "2025-01-01T00:00:00+00:00",
+          "last_seen": "2025-01-01T00:00:00+00:00",
+          "metadata": {}
+        }
+      ],
+      "total": 26,
+      "limit": 200,
+      "offset": 0
+    }
+  }
+}

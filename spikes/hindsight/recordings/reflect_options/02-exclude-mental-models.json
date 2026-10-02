@@ -1,0 +1,332 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/reflect",
+    "query": null,
+    "body": {
+      "query": "Is Aurora Optics capacity constrained? Cite evidence.",
+      "tags": [
+        "company:aurora"
+      ],
+      "tags_match": "any_strict",
+      "include": {
+        "facts": {}
+      },
+      "budget": "low",
+      "exclude_mental_models": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 43.82,
+    "body": {
+      "text": "## Is Aurora Optics capacity constrained?\n\n**Yes \u2014 Aurora Optics is capacity constrained**, based on multiple converging pieces of evidence.\n\n### Direct capacity evidence\n\n| Evidence | Source | Period |\n|---|---|---|\n| Tucson indium phosphide fab ran at **full utilization** in Q2 fiscal 2026 | Aurora 10-Q | Apr\u2013Jun 2026 |\n| **Laser output cannot grow** until a new MOCVD line qualifies in early 2027 | Aurora 10-Q | Through early 2027 |\n| **Demand for 800G optical modules exceeded supply** in Q3 2026 | Aurora statement | Aug 2026 |\n\nThe strongest signal is Aurora's own statement: the fab is at full utilization and output growth is blocked until an MOCVD line qualifies in early 2027. The 800G demand-exceeds-supply statement is the demand-side corroboration.\n\n### Structural factors that reinforce the constraint\n\n- **Single-site dependency:** Aurora operates one indium phosphide wafer fab in Tucson, Arizona, with stated capacity of **40,000 wafers per year**. All laser output flows through this one facility.\n- **Customer concentration:** Halcyon Networks accounted for **38% of Aurora's fiscal 2026 revenue** and is contracted to take **most of Aurora's 3.2T laser output in fiscal 2027**. A single large customer absorbing the bulk of constrained output amplifies the constraint for other customers.\n- **Upcoming site transition:** Aurora will **close the Tucson fab by December 2026** and move laser production to a contract manufacturer in Penang, Malaysia. The constrained line is winding down just as output depends on a new contract-manufacturing ramp.\n\n### Note on the 800G demand picture (reversal over time)\n\n- **March 2024:** Aurora reported **weak demand** and elevated 800G inventory.\n- **August 2026 (Q3):** Aurora reported demand **exceeded supply**.\n\nThe August 2026 statement is the most recent and supersedes the March 2024 one \u2014 the current operating reality is supply-constrained, not demand-weak.\n\n### Bottom line\n\nAurora is capacity constrained on the supply side (Tucson fab at full utilization, MOCVD expansion gated to early 2027) **and** on the demand side for at least one product line (800G modules, Q3 2026). The constraint is concentrated in a single fab serving a concentrated customer base, and a December 2026 fab closure adds transition risk on top of the existing bottleneck.",
+      "based_on": {
+        "memories": [
+          {
+            "id": "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+            "text": "Aurora Optics Inc. Tucson indium phosphide fab ran at full utilization in Q2 fiscal 2026. | When: Q2 fiscal 2026 | Involving: Aurora Optics Inc. | Capacity constraint context \u2014 fab at full capacity limits near-term laser output growth.",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": "2026-04-01T00:00:00+00:00",
+            "occurred_end": "2026-06-30T00:00:00+00:00",
+            "mentioned_at": "2026-07-30T00:00:00+00:00",
+            "document_id": "doc-scope-one",
+            "chunk_id": "atlas-q01-1790929097_doc-scope-one_0",
+            "tags": [
+              "form:10-Q",
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "7c1d5ca8-f808-49c2-9b62-44833dd434ca"
+            },
+            "attachments": null
+          },
+          {
+            "id": "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+            "text": "Aurora Optics Inc. laser output cannot grow until a new MOCVD line qualifies in early 2027. | When: early 2027 | Involving: Aurora Optics Inc. | Manufacturing constraint \u2014 output growth blocked by MOCVD qualification timeline.",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": null,
+            "occurred_end": null,
+            "mentioned_at": "2026-07-30T00:00:00.010000+00:00",
+            "document_id": "doc-scope-one",
+            "chunk_id": "atlas-q01-1790929097_doc-scope-one_0",
+            "tags": [
+              "form:10-Q",
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "7c1d5ca8-f808-49c2-9b62-44833dd434ca"
+            },
+            "attachments": null
+          },
+          {
+            "id": "18b243be-e9e0-400c-be72-ad39155be14a",
+            "text": "Aurora Optics Inc. announced it will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: by December 2026 | Involving: Aurora Optics Inc. | Manufacturing capacity change with potential supply impact \u2014 fab closure and shift to contract manufacturing",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": "2026-09-01T00:00:00+00:00",
+            "occurred_end": "2026-12-31T00:00:00+00:00",
+            "mentioned_at": "2026-09-01T00:00:00+00:00",
+            "document_id": "srcv:aurora-v2",
+            "chunk_id": "atlas-q01-1790929097_srcv:aurora-v2_0",
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "f87f91ee-78e1-4058-bb46-54aee07a3a78"
+            },
+            "attachments": null
+          },
+          {
+            "id": "3a59958d-623c-4598-bf03-af5d12b87183",
+            "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: December 2026 | Involving: Aurora Optics Inc. | Manufacturing relocation \u2014 potential supply chain impact",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": "2026-12-01T00:00:00+00:00",
+            "occurred_end": "2026-12-31T00:00:00+00:00",
+            "mentioned_at": "2026-09-01T00:00:00+00:00",
+            "document_id": "doc-upsert",
+            "chunk_id": "atlas-q01-1790929097_doc-upsert_0",
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "e302e4c9-288a-4d5e-98e6-03541e6227fc"
+            },
+            "attachments": null
+          },
+          {
+            "id": "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+            "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year. | Involving: Aurora Optics Inc. | Establishes manufacturing capacity baseline",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": null,
+            "occurred_end": null,
+            "mentioned_at": "2026-01-10T00:00:00+00:00",
+            "document_id": "srcv:aurora-v1",
+            "chunk_id": "atlas-q01-1790929097_srcv:aurora-v1_0",
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "8823851a-6b22-4893-8a8e-7364209e98bd"
+            },
+            "attachments": null
+          },
+          {
+            "id": "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+            "text": "Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027. | When: fiscal 2027 | Involving: Halcyon (customer), Aurora (supplier) | Indicates a major supply commitment tying Aurora's 3.2T laser capacity largely to Halcyon.",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": null,
+            "occurred_end": null,
+            "mentioned_at": "2026-09-02T00:00:00.010000+00:00",
+            "document_id": "doc-entities",
+            "chunk_id": "atlas-q01-1790929097_doc-entities_0",
+            "tags": [
+              "form:8-K",
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "1a20ca2b-2c92-47e6-9ce7-c9e15cd9f7ff"
+            },
+            "attachments": null
+          },
+          {
+            "id": "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+            "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks. | Involving: Aurora Optics Inc. (supplier), Halcyon Networks (customer) | Identifies customer dependency and product relationship",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": null,
+            "occurred_end": null,
+            "mentioned_at": "2026-01-10T00:00:00.010000+00:00",
+            "document_id": "srcv:aurora-v1",
+            "chunk_id": "atlas-q01-1790929097_srcv:aurora-v1_0",
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "8823851a-6b22-4893-8a8e-7364209e98bd"
+            },
+            "attachments": null
+          },
+          {
+            "id": "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+            "text": "In March 2024 Aurora Optics reported that demand for 800G optical modules was weak and inventories were high. | When: March 2024 | Involving: Aurora Optics | Indicates weak demand and elevated inventory for 800G optical modules, relevant to capacity and supply outlook.",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": "2024-03-01T00:00:00+00:00",
+            "occurred_end": "2024-03-31T00:00:00+00:00",
+            "mentioned_at": "2024-03-15T00:00:00+00:00",
+            "document_id": "doc-old",
+            "chunk_id": "atlas-q01-1790929097_doc-old_0",
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "ef96c325-aa10-485f-96c6-aff165ac9b70"
+            },
+            "attachments": null
+          },
+          {
+            "id": "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+            "text": "Aurora Optics stated that demand for 800G optical modules exceeded supply in Q3 2026. | When: August 2026 | Involving: Aurora Optics | Indicates supply constraint for 800G optical modules",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": "2026-07-01T00:00:00+00:00",
+            "occurred_end": "2026-09-30T00:00:00+00:00",
+            "mentioned_at": "2026-08-20T00:00:00+00:00",
+            "document_id": "doc-new",
+            "chunk_id": "atlas-q01-1790929097_doc-new_0",
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "6722c6a3-ab2c-43ca-958a-f73c1d3ea981"
+            },
+            "attachments": null
+          },
+          {
+            "id": "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+            "text": "Halcyon accounted for 38% of Aurora's fiscal 2026 revenue. | When: fiscal 2026 | Involving: Halcyon (customer), Aurora (supplier) | Highlights significant customer concentration risk.",
+            "type": "world",
+            "context": "Synthetic Atlas feature-check document (fictional companies).",
+            "occurred_start": null,
+            "occurred_end": null,
+            "mentioned_at": "2026-09-02T00:00:00+00:00",
+            "document_id": "doc-entities",
+            "chunk_id": "atlas-q01-1790929097_doc-entities_0",
+            "tags": [
+              "form:8-K",
+              "company:aurora"
+            ],
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "1a20ca2b-2c92-47e6-9ce7-c9e15cd9f7ff"
+            },
+            "attachments": null
+          },
+          {
+            "id": "9605b01f-9391-4e93-90e3-c4a9c416efac",
+            "text": "In Q3 2026, Aurora Optics stated that demand for 800G optical modules exceeded supply.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-07-01T00:00:00+00:00",
+            "occurred_end": "2026-09-30T00:00:00+00:00",
+            "mentioned_at": "2026-08-20T00:00:00+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+            "text": "In March 2024, Aurora Optics reported weak demand and elevated inventory for 800G optical modules.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2024-03-01T00:00:00+00:00",
+            "occurred_end": "2024-03-31T00:00:00+00:00",
+            "mentioned_at": "2024-03-15T00:00:00+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+            "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": null,
+            "occurred_end": null,
+            "mentioned_at": "2026-01-10T00:00:00+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+            "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-09-01T00:00:00+00:00",
+            "occurred_end": "2026-12-31T00:00:00+00:00",
+            "mentioned_at": "2026-09-01T00:00:00+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "9aa22de0-d949-4b31-b1b7-c01953d24341",
+            "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": null,
+            "occurred_end": null,
+            "mentioned_at": "2026-01-10T00:00:00.010000+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          },
+          {
+            "id": "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+            "text": "In Q2 fiscal 2026, Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization, and laser output cannot grow until a new MOCVD line qualifies in early 2027.",
+            "type": "observation",
+            "context": null,
+            "occurred_start": "2026-04-01T00:00:00+00:00",
+            "occurred_end": "2026-06-30T00:00:00+00:00",
+            "mentioned_at": "2026-07-30T00:00:00.010000+00:00",
+            "document_id": null,
+            "chunk_id": null,
+            "tags": [
+              "company:aurora"
+            ],
+            "metadata": {},
+            "attachments": null
+          }
+        ],
+        "mental_models": [],
+        "directives": []
+      },
+      "structured_output": null,
+      "structured_output_error": null,
+      "usage": {
+        "input_tokens": 13523,
+        "output_tokens": 1508,
+        "total_tokens": 15031,
+        "cached_tokens": 0,
+        "thoughts_tokens": 0
+      },
+      "trace": null
+    }
+  }
+}

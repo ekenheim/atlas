@@ -1,35 +1,98 @@
-# Hindsight feature matrix: 0.10.1
+# Hindsight feature matrix: 0.10.2
 
-Verified 2026-09-28 by live calls against `ghcr.io/vectorize-io/hindsight-api:0.10.1-slim` (the cluster's digest) in local Compose (`spikes/hindsight/`). The LLM was MiniMax-M3 with thinking disabled via LiteLLM; embeddings were `qwen3-embedding-0.6b` (1024 dims); the reranker was LiteLLM `rerank`. The documents were synthetic (fictional companies). Every claim links to a recorded request/response under `spikes/hindsight/recordings/`, which double as contract fixtures for Atlas's fake Hindsight. The harness is `feature_check.py` + `feature_followup.py`, with the evidence summary in `spikes/hindsight/results/feature-check.json`. The extraction-quality results are in `docs/research/extraction-bakeoff.md`.
+The cluster runs **0.10.2** (`ghcr.io/vectorize-io/hindsight-api:0.10.2-slim@sha256:3c7b54a7…de99`, home-ops `kubernetes/apps/llm/hindsight/app/helmrelease.yaml`). This matrix was extended on 0.10.2 on 2026-10-02 (memory-quality ticket 01) by live calls against that image in the spike's local Compose (`spikes/hindsight/compose.yaml`, `run.sh`): MiniMax-M3 with thinking disabled through LiteLLM, the cluster's embedding model `qwen3-embedding-0.6b` (1024 dims), LiteLLM `rerank`, synthetic documents about fictional companies. The harness is `spikes/hindsight/feature_check_0102.py`; its evidence summary is `spikes/hindsight/results/feature-check-0.10.2.json`. **Not the cluster's LLM:** the cluster extracts and consolidates with Codex (`gpt-5.6-luna`, reflect `gpt-5.6-sol`); the request counts below are per call of the server, whichever model answers.
 
-The spec defers to this matrix. Differences that change Atlas's design are listed at the end and in `docs/decisions.md`.
+The spec defers to this matrix. It has two parts:
 
-| Feature (spec §6.1) | Verdict | What was observed | Recordings |
+1. **The memory-quality features** (`.scratch/atlas-memory-quality/spec.md`), first observed on 0.10.2. Recordings under `spikes/hindsight/recordings/<feature>/`; the recorded fake serves them as recorded (`tests/fakes/hindsight.py`), and `tests/unit/test_hindsight_contract.py` replays each one.
+2. **The 0.10.1 rows, re-run on 0.10.2.** The 0.10.1 recordings stay the contract fixtures they were; the re-run's recordings are under `spikes/hindsight/rerun-0.10.2/` (not loaded by the fake), and the re-run's verdict is a column of that table.
+
+LLM requests of the whole run: **51** of the 60 allowed, counted from each bank's own LLM request log: 5 in a first run stopped on a harness bug (5 retain extractions; its banks deleted, its recordings discarded), then 46 (17 extraction, counting the dry run's; 9 consolidation; 10 reflect; 10 mental-model refresh). Every bank was deleted at the end (`rerun-0.10.2/bank_delete/`).
+
+## 0.10.2: the memory-quality features
+
+| Feature | Verdict | What was observed | Recordings |
 |---|---|---|---|
-| Retain: sync | ✅ verified | `"async": false` returns 200 with `success`, `items_count`, `usage` once extraction completes | `retain/01-sync` |
-| Retain: async + operations | ✅ verified | `"async": true` returns an `operation_id`; polling reaches `status: completed` | `retain/02-async*` |
-| Retain: batch | ✅ verified | several `items` in one request → **one** operation for the batch | `retain/04-batch*` |
-| `document_id` upsert | ✅ verified, **destructive** | re-retaining the same `document_id` removed v1's facts: after v2 there was 1 fact and the "40,000 wafers" fact was gone. Per-version IDs (`srcv:<hash>`) kept both versions intact | `upsert/*` |
-| Recall: tags, `tags_match=any` | ✅ verified, **includes untagged** | filter `company:aurora` + `any` returned 10 Aurora + 2 untagged Cirrus results | `tags/01-tags-any` |
-| Recall: strict tags | ✅ verified | `any_strict`, `all_strict` and `exact` returned only Aurora (untagged excluded) | `tags/02..04` |
-| `query_timestamp` / `temporal_window` | ✅ verified, **not a hard filter** | a 2024 window still returned 7 of 14 results dated 2026, some ranked first | `temporal/01-window-2024` |
-| Reflect: provenance | ⚠️ behaves differently | `include.facts` → `based_on.memories` has only `id, text, type, context, occurred_*`, **no `document_id`**. In this bank every citation was an **observation** (`document_id: null`). Tracing needs two hops: observation → `source_memory_ids` → world fact → `document_id` + `chunk_id` + Atlas's own `metadata` (preserved verbatim) | `reflect/01-provenance`, `reflect/02-resolve-memory`, `reflect/*resolve-observation*`, `reflect/*resolve-source-memory*` |
-| Reflect: JSON Schema | ✅ verified, one bug | `response_schema` → `structured_output`, with `structured_output_error: null` on success. **Union types (`"type": [..., "null"]`) return HTTP 500** (`TypeError: unhashable type: 'list'`) | `reflect/03-structured`, `reflect/04-structured-union-type` |
-| Operations API | ✅ verified | list shows `id, task_type, status, error_message, retry_count, next_retry_at, document_id, progress, …`; retry/delete endpoints exist (not exercised) | `operations/01-list` |
-| Bank config API | ✅ verified | `PUT /banks/{id}` accepts `retain_mission`, `reflect_mission`, `disposition_*`; `GET …/config` returns `config` + `overrides` | `bank_config/*` |
-| Bank templates | ✅ verified | `GET /v1/bank-template-schema`; `GET /banks/{id}/export` → manifest (`version, bank, mental_models, directives`); `POST /banks/{id}/import?dry_run=true` validates; a real import applied the config (mission present) and created the mental models, queuing their refresh operations | `bank_templates/*` |
-| Observations | ✅ verified | consolidation ran (`POST …/consolidate` → completed) and produced 6 observations. They are listed via `GET …/memories/list?type=observation`; **`GET …/observations` returns 405** in 0.10.1 | `observations/*` |
-| Mental models | ✅ verified | create (`id`, `name`, `source_query`, `trigger` incl. `refresh_after_consolidation`, `min_refresh_interval_seconds`) → an operation; `GET` gives the content; manual `refresh` works; `history` returned 2 entries with `previous_content` | `mental_models/*` |
-| Knowledge pages | ✅ verified | `POST …/knowledge-base/pages` → 201, **backed by a mental model** (`mental_model_id`); listed via `GET …/knowledge-base/tree` (`GET …/pages` returns 405); a page has `markdown`/`body` | `knowledge_pages/*` |
-| Document export / import | ✅ verified | `POST …/document-transfer/export?document_id=…` → operation → `result_metadata.storage_key` → ZIP via `GET /v1/default/files/download/{key}`; multipart `POST …/document-transfer` into a new bank imported 3 memories with **zero LLM requests** (a copy, not re-extraction) | `export_import/*` |
-| Per-bank LLM request log | ✅ verified (bonus) | `GET …/llm-requests[/stats]`: operation, scope, provider, **alias** as model (not the LiteLLM deployment), tokens, duration, full prompt and output | `llm_requests/01-stats` |
+| Retain with explicit `observation_scopes` | ✅ verified | An item tagged `company:aurora`, `form:10-Q` sent with `[["company:aurora"]]` consolidated only into `company:aurora`. An item tagged `company:borealis`, `theme:photonics`, `form:8-K` sent with `[["company:borealis"], ["theme:photonics"]]` produced **one observation in each scope** (the same text twice). No scope carries the form tag. | `observation_scopes/01`–`08` |
+| `GET …/observations/scopes` | ✅ verified | `{scopes: [{tags, count}], total, limit, offset}`, most populous first; `tags: []` is the global scope (here the untagged document's observation) | `observation_scopes/09-list-scopes`, `reprocess/09-list-scopes` |
+| Recall `max_tokens` | ✅ verified | 8,192 returned all 23 memories of the small bank; 128 returned 3 | `recall_options/01`, `02` |
+| Recall `types` | ✅ verified | `["world"]` returned only world facts (13) | `recall_options/03` |
+| Recall `prefer_observations` | ✅ verified | with `types: [world, observation]`: 12 results, none a world fact that an observation in the answer was built from; without it 23 results, 11 of them such world facts | `recall_options/04`, `05` (sources from `06`) |
+| Recall `include.source_facts` | ✅ verified | a `source_facts` map keyed by fact ID (full results with `document_id`, `metadata`, `chunk_id`) and `source_facts_truncated`. **An observation's `source_fact_ids` is null unless this is asked for.** | `recall_options/06` |
+| Recall `include.chunks` | ✅ verified | a `chunks` map keyed by `chunk_id` (`id`, `text`, `chunk_index`, `truncated`); every result with a chunk has its key in it; the text is the stored chunk's | `recall_options/07`, `chunks/06` |
+| Recall `query_timestamp` | ✅ verified, **ranks, does not filter** | 2024-04-01 against none: the same 23 memories in another order | `recall_options/08`, `09` |
+| Per-result `scores` | ✅ verified | every result has `scores: {final, reranker, semantic, keyword}`; `final` can exceed 1 (1.07: reranker plus boosts); an arm's score is null when that arm didn't surface the result | every `recall_options/*` |
+| All of these in one pointer recall | ✅ verified | `budget: high`, `max_tokens: 8192`, `prefer_observations`, `query_timestamp`, both includes, `tags: [company:aurora]` `any_strict`: 8 results, all in scope, with 8 source facts and 7 chunks in the same answer | `recall_options/10-pointer-recall` |
+| Retain `entities` with `resolve_entities: false` | ✅ verified, **does not merge a company's names** | The given `Aurora Optics Inc.` and `Halcyon Networks` are on every fact of the item, as written. The text said "Aurora" and "Halcyon", and the extractor's own `Aurora` and `Halcyon` stay entities of their own beside them; the bank also holds `Aurora Optics` and `Aur Optics Inc.` from other documents. A given name is added; it neither replaces nor absorbs the extracted ones. | `entities/01`–`04` |
+| `entity_labels` group with `tag: true`; recall by the label's tag | ✅ verified | A `layer` group (`multi-values`, the Claim layer taxonomy's seven values) set by `PATCH …/config`: each fact got one or two `layer:<value>` entries, both as tags and as entities. A recall with `tags: [layer:chip-laser]`, `any_strict` returned only facts carrying that tag, from two documents of two companies. | `entity_labels/01`–`06` |
+| `GET …/memories/list?entity_id=` with a tag and a date filter | ⚠️ partly verified | The listing returned the 7 world facts naming `Aurora Optics Inc.`, from 5 documents, all tagged `company:aurora` (the tag filter held). With `time_field=mentioned_at` and a 2026 window it returned the same 7: every fact was inside the window, so **a fact outside the window being left out was not observed**. | `entity_memories/01`–`03` |
+| `POST …/memories/dry-run-extract` | ✅ verified | `{facts, chunks, usage}`: 2 facts (the bank's layer labels among their entities), 1 chunk, 1 LLM request, nothing stored | `dry_run_extract/01` |
+| Reflect `budget` | ✅ verified | `budget: mid`, tag-scoped: 200, 2 LLM requests (it answered from the mental model) | `reflect_options/01` |
+| Reflect `exclude_mental_models` | ✅ verified | `based_on.mental_models` empty; it cited 10 world facts and 6 observations instead (3 LLM requests at `low`) | `reflect_options/02` |
+| A tagged mental model and a tag-scoped reflect | ✅ verified: **seen** | A model with `tags: [company:aurora]` (trigger `budget: low`, `exclude_mental_models`, `keep_trace`, all stored as sent; 4 LLM requests to create) was cited in `based_on.mental_models` by a reflect with `tags: [company:aurora]`, `any_strict` | `tagged_mental_model/01`–`03`, `reflect_options/01` |
+| A document's `reprocess` | ✅ verified | `POST …/documents/{id}/reprocess` (no body) → an operation. The stored text was re-extracted under the bank's **current** config: the layer labels added after the retain appeared on every fact; new memory IDs; the facts kept the context of the original retain; 2 LLM requests (one per chunk) | `reprocess/01`–`03` |
+| Chunks | ✅ verified | `GET …/documents/{id}/chunks`, `GET /v1/default/chunks/{chunk_id}`; chunk IDs are `<bank>_<document_id>_<index>`; each fact has its `chunk_id`; the document keeps `original_text` and `retain_params` (context, metadata, event date) | `chunks/01`–`06` |
+
+## The study's four questions, answered
+
+**(a) Does a stored document take a new scope, context, entities or labels without being retained again?** Only what lives in the bank's config.
+- `reprocess` takes no body. It re-extracts the stored text under the bank's current config: labels configured after the retain were applied (`reprocess/03`). The facts kept the original context (by the docs it replays the original retain parameters), so it cannot carry a new context, entities or scopes.
+- **Retaining the same content again under the same `document_id` does not re-extract.** With a new context, three given entities, one more tag and two explicit scopes, the second retain made **0 LLM requests**; the facts kept their IDs and their old context; the given entities were not added (a fact about substrates still lacks `Halcyon Networks`); only the **tags were replaced** on the stored facts (`theme:photonics` appeared). Hindsight skips unchanged chunks by content hash (delta retain), also in the default `replace` mode (`reprocess/04`–`06`).
+- The new explicit scopes were the ones the next consolidation used (`reprocess/09`: `company:aurora` and `theme:photonics`, 5 each). Nothing had been consolidated in that bank before, so whether facts already consolidated under older scopes are re-scoped was not tested. By the docs, `PATCH …/documents/{id}` with `tags` replaces a document's tags and re-consolidates it (not exercised).
+- So **a new context or new entities reach stored facts only through a new extraction, and neither `reprocess` nor a same-content retain gives one.** The backfill must delete the document and retain it again (or retain different content); that path is not recorded here, and its first run should check it on one document. Recorded in `docs/decisions.md`.
+
+**(b) Is a chunk's text a verbatim slice of the retained content, and how are its offsets had?** Yes. An 814-character section with paragraphs, a tab, two spaces, typographic quotes and a dash (bank `retain_chunk_size` 700) was cut into 2 chunks at a paragraph break: chunk 0 is `content[0:603]`, chunk 1 is `content[605:813]`; the `\n\n` between them and the final `\n` belong to no chunk. The API gives no offsets: they are had by finding each chunk's text in the retained content in `chunk_index` order, each search starting where the previous chunk ended. Recall's `chunks` text is the stored chunk's text (`chunks/03`–`06`). Tested at chunk size 700, not the server's default; it is the same splitter.
+
+**(c) How many LLM requests does consolidation make per retained item?** One per observation scope a consolidation run touches, not one per fact. Measured with auto-consolidation off and an explicit consolidate after each item (the cluster consolidates after every retain operation, which processes the same unconsolidated facts):
+
+| What was consolidated | Facts | Scopes touched | Consolidation requests |
+|---|---|---|---|
+| one item, `[["company:aurora"]]` | 2 | 1 | 1 |
+| one item, `[["company:borealis"], ["theme:photonics"]]` | 1 | 2 | 2 |
+| the re-run's 10 facts, default scopes (each tag set its own) | 10 | 3 | 3 |
+| the labels bank's 5 facts, two explicit scopes | 5 | 2 | 2 |
+
+Extraction is one request per chunk (17 extraction requests: 16 chunks retained or reprocessed, and the dry run). So explicit scopes for company and theme double a retained section's consolidation requests, and consolidation runs on the cluster's primary LLM (Codex), not on the MiniMax extractor. Batches larger than these (many facts in one scope) were not measured.
+
+**(d) What changed between 0.10.1 and 0.10.2?** The re-run's changed verdicts:
+1. **Reflect provenance:** `based_on.memories` now carries `document_id`, `chunk_id`, `metadata`, `tags`, `mentioned_at` and `attachments` (0.10.1: `id, text, type, context, occurred_*`). A cited **world fact** leads to its document and Atlas's metadata in one hop (`reflect_options/02`); a cited observation still has `document_id: null`, so the observation hop remains.
+2. **Bank deletion** is verified: `DELETE /v1/default/banks/{id}` → 200 `{success, message, deleted_count}`; the bank's config then answers 404 (`rerun-0.10.2/bank_delete/`).
+3. **Operations** gain `operation_id` and `operation_type` in the list; a mental-model trigger gains `budget` (a multiple of the reflect iterations).
+4. **Document import** still copied without extraction (no request in the import bank's log right after the import), but a consolidation of the imported facts followed: 1 request in that log by the end of the run. In 0.10.1 the log was also read right after the import, so this may not be new.
+
+Everything else re-ran unchanged (the table below). Between the two tags' docs (`references/openapi.json`) 0.10.2 adds bank aliases (`/banks/{id}/aliases`), consolidation strategies (per-scope missions; `consolidation-strategies/preview`), extracted-fact attachments, `thoughts_tokens` in the LLM log and `last_refresh_failed_at` on models and pages; none of these was exercised.
+
+## The 0.10.1 rows, re-run on 0.10.2
+
+Verified 2026-09-28 by live calls against `ghcr.io/vectorize-io/hindsight-api:0.10.1-slim` (then the cluster's digest), MiniMax-M3 with thinking disabled via LiteLLM, `qwen3-embedding-0.6b`, LiteLLM `rerank`, synthetic documents. Harness `feature_check.py` + `feature_followup.py`, evidence `spikes/hindsight/results/feature-check.json`; extraction quality in `docs/research/extraction-bakeoff.md`. Re-run 2026-10-02 on 0.10.2 by `feature_check_0102.py` with the same requests (the main bank had auto-consolidation off and consolidation was asked for explicitly; the template import ran before any mental model existed, so it imported none; the mental-model refresh and history were re-run on the tagged model).
+
+| Feature (spec §6.1) | Verdict | What was observed | Recordings | 0.10.2 re-run (`rerun-0.10.2/`) |
+|---|---|---|---|---|
+| Retain: sync | ✅ verified | `"async": false` returns 200 with `success`, `items_count`, `usage` once extraction completes | `retain/01-sync` | unchanged: 200 with `success`, `items_count`, `usage` (and `operation_id(s)`) (`retain/01`) |
+| Retain: async + operations | ✅ verified | `"async": true` returns an `operation_id`; polling reaches `status: completed` | `retain/02-async*` | unchanged (`retain/02`, `03`) |
+| Retain: batch | ✅ verified | several `items` in one request → **one** operation for the batch | `retain/04-batch*` | unchanged: one operation for the batch (`retain/04`, `05`) |
+| `document_id` upsert | ✅ verified, **destructive** | re-retaining the same `document_id` removed v1's facts: after v2 there was 1 fact and the "40,000 wafers" fact was gone. Per-version IDs (`srcv:<hash>`) kept both versions intact | `upsert/*` | unchanged: v1 had 2 facts, after v2 1 fact and no "40,000"; per-version IDs kept 2 and 1 (`upsert/*`) |
+| Recall: tags, `tags_match=any` | ✅ verified, **includes untagged** | filter `company:aurora` + `any` returned 10 Aurora + 2 untagged Cirrus results | `tags/01-tags-any` | unchanged: 6 Aurora + 1 untagged Cirrus (`tags/01`) |
+| Recall: strict tags | ✅ verified | `any_strict`, `all_strict` and `exact` returned only Aurora (untagged excluded) | `tags/02..04` | unchanged: 6 Aurora only in each strict mode (`tags/02`–`04`) |
+| `query_timestamp` / `temporal_window` | ✅ verified, **not a hard filter** | a 2024 window still returned 7 of 14 results dated 2026, some ranked first | `temporal/01-window-2024` | unchanged: 4 of 8 results dated 2026, one ranked first (`temporal/01`) |
+| Reflect: provenance | ⚠️ behaves differently | `include.facts` → `based_on.memories` has only `id, text, type, context, occurred_*`, **no `document_id`**. In this bank every citation was an **observation** (`document_id: null`). Tracing needs two hops: observation → `source_memory_ids` → world fact → `document_id` + `chunk_id` + Atlas's own `metadata` (preserved verbatim) | `reflect/01-provenance`, `reflect/02-resolve-memory`, `reflect/*resolve-observation*`, `reflect/*resolve-source-memory*` | **changed:** cited memories now carry `document_id`, `chunk_id`, `metadata`, `tags`; still all observations here (`document_id: null`); the observation → source fact hop is unchanged (`reflect/01`–`04`; a world fact cited directly in `recordings/reflect_options/02`) |
+| Reflect: JSON Schema | ✅ verified, one bug | `response_schema` → `structured_output`, with `structured_output_error: null` on success. **Union types (`"type": [..., "null"]`) return HTTP 500** (`TypeError: unhashable type: 'list'`) | `reflect/03-structured`, `reflect/04-structured-union-type` | unchanged: `structured_output` on success; a union type still HTTP 500 (`reflect/05`, `06`) |
+| Operations API | ✅ verified | list shows `id, task_type, status, error_message, retry_count, next_retry_at, document_id, progress, …`; retry/delete endpoints exist (not exercised) | `operations/01-list` | unchanged, plus `operation_id` and `operation_type` in the list (`operations/01`) |
+| Bank config API | ✅ verified | `PUT /banks/{id}` accepts `retain_mission`, `reflect_mission`, `disposition_*`; `GET …/config` returns `config` + `overrides` | `bank_config/*` | unchanged (`bank_config/01`, `02`); `PATCH …/config` with `updates` also used (`03`) |
+| Bank templates | ✅ verified | `GET /v1/bank-template-schema`; `GET /banks/{id}/export` → manifest (`version, bank, mental_models, directives`); `POST /banks/{id}/import?dry_run=true` validates; a real import applied the config (mission present) and created the mental models, queuing their refresh operations | `bank_templates/*` | unchanged for the config; no mental model was in the exported manifest this time, so none was created (`bank_templates/*`) |
+| Observations | ✅ verified | consolidation ran (`POST …/consolidate` → completed) and produced 6 observations. They are listed via `GET …/memories/list?type=observation`; **`GET …/observations` returns 405** in 0.10.1 | `observations/*` | unchanged: consolidation completed; `GET …/observations` still 405; 7 observations via `memories/list?type=observation` (`observations/*`) |
+| Mental models | ✅ verified | create (`id`, `name`, `source_query`, `trigger` incl. `refresh_after_consolidation`, `min_refresh_interval_seconds`) → an operation; `GET` gives the content; manual `refresh` works; `history` returned 2 entries with `previous_content` | `mental_models/*` | unchanged: create, get, manual refresh (3 LLM requests at trigger budget `low`), history of 2 entries with `previous_content` (`mental_models/*`; create in `recordings/tagged_mental_model/`) |
+| Knowledge pages | ✅ verified | `POST …/knowledge-base/pages` → 201, **backed by a mental model** (`mental_model_id`); listed via `GET …/knowledge-base/tree` (`GET …/pages` returns 405); a page has `markdown`/`body` | `knowledge_pages/*` | unchanged: 201, backed by a mental model; `GET …/pages` still 405 (`knowledge_pages/*`) |
+| Document export / import | ✅ verified | `POST …/document-transfer/export?document_id=…` → operation → `result_metadata.storage_key` → ZIP via `GET /v1/default/files/download/{key}`; multipart `POST …/document-transfer` into a new bank imported 3 memories with **zero LLM requests** (a copy, not re-extraction) | `export_import/*` | unchanged: copied 3 memories, no request right after the import; **1 consolidation request followed** in the import bank (`export_import/*`) |
+| Per-bank LLM request log | ✅ verified (bonus) | `GET …/llm-requests[/stats]`: operation, scope, provider, **alias** as model (not the LiteLLM deployment), tokens, duration, full prompt and output | `llm_requests/01-stats` | unchanged; also the per-request list `GET …/llm-requests` (`operation`, `scope`, `status`), used to count this run |
 
 Operational facts found along the way (details in `docs/research/extraction-bakeoff.md`):
 
 - `HINDSIGHT_API_WORKER_MAX_SLOTS` ≤ 2 starves retain, because consolidation reserves 2 slots. Use ≥ 3 and pace with `HINDSIGHT_API_LLM_MAX_CONCURRENT`.
 - MiniMax thinking is disabled only via `HINDSIGHT_API_LLM_EXTRA_BODY` when it sits behind `provider=openai`.
 - Reflect can answer from raw chunks as well as facts (bake-off: a table figure absent from facts appeared in reflect output).
-- Across this whole run, 31 LLM calls used 128k input / 12k output tokens, all successful.
+- Across the 0.10.1 run, 31 LLM calls used 128k input / 12k output tokens, all successful. The 0.10.2 run: 51 (above), all successful.
+- 0.10.2: `PATCH …/banks/{id}/config` with `{"updates": {"enable_auto_consolidation": false}}` turns automatic consolidation off for one bank; `retain_chunk_size` and `entity_labels` are set the same way.
 
 ## Differences that change Atlas's design
 
@@ -39,12 +102,23 @@ Operational facts found along the way (details in `docs/research/extraction-bake
 4. **Templates exist**, so the bank template (not the config API fallback) is the versioned configuration mechanism.
 5. **Document export/import copies memories without re-extraction.** That is useful for moving banks. Whether it can seed a replay bank without temporal leakage is a Phase 6a question, because extraction and entity resolution in the source bank may have seen later documents.
 
+Added on 0.10.2 (memory-quality ticket 01; `docs/decisions.md`, "Hindsight 0.10.2 recorded"):
+
+6. **A new context, new entities or new explicit scopes need a new extraction.** `reprocess` replays the stored retain parameters (it only picks up bank-config changes such as labels), and a retain of unchanged content under the same `document_id` re-extracts nothing (0 LLM requests; only the tags are replaced). The backfill deletes and re-retains, or the spec's "same document ID, so Hindsight replaces the document's memories" does not hold.
+7. **Given entities don't merge a company's names.** With `resolve_entities: false` the given canonical name is added to every fact as written, but the extractor's short forms ("Aurora") stay separate entities. The entity hop should list by the canonical entity Atlas gives, which every retained fact then carries.
+8. **An observation's sources come only with `include.source_facts`.** Without it `source_fact_ids` is null in a recall; with it the sources are in the same answer, so the provenance resolver needs no request per observation.
+9. **Explicit scopes multiply consolidation requests by the number of scopes**; one scope per company plus one per theme doubles them for a single-theme section.
+10. **A chunk is a verbatim slice of the retained content**, offsets had by searching in `chunk_index` order: chunk-exact pointers are possible.
+
 ## Not verified here
 
 - the retry and delete operation endpoints
 - mental-model refresh loops (upstream issue #4532) and the slot hang (#4763), from ticket 01
 - `refresh_after_consolidation` behavior
-- bank deletion
+- that the memory listing's date filter leaves out a fact outside its window (all facts were inside it)
+- re-scoping of facts already consolidated, and `PATCH …/documents/{id}` with new tags
+- that deleting a document and retaining it again applies a new context and entities (expected, not recorded)
+- consolidation batches with many facts in one scope (the cost per scope at scale)
 - the MCP endpoints
 - tenant API-key auth (the local spike runs without the tenant extension)
 - behavior under sustained load

@@ -1,0 +1,281 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/memories/recall",
+    "query": null,
+    "body": {
+      "query": "optical module demand and supply constraints",
+      "budget": "mid",
+      "tags": [
+        "company:aurora"
+      ],
+      "tags_match": "all_strict"
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 5.39,
+    "body": {
+      "results": [
+        {
+          "id": "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "text": "Aurora Optics stated that demand for 800G optical modules exceeded supply in Q3 2026. | When: August 2026 | Involving: Aurora Optics | Indicates supply constraint for 800G optical modules",
+          "type": "world",
+          "entities": [
+            "800G optical modules",
+            "Aurora Optics"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-07-01T00:00:00+00:00",
+          "occurred_end": "2026-09-30T00:00:00+00:00",
+          "mentioned_at": "2026-08-20T00:00:00+00:00",
+          "document_id": "doc-new",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "6722c6a3-ab2c-43ca-958a-f73c1d3ea981"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-new_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.0473629814592715,
+            "reranker": 0.9985815,
+            "semantic": 0.6749716401100159,
+            "keyword": 1.3000000715255737
+          },
+          "attachments": null
+        },
+        {
+          "id": "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "text": "In March 2024 Aurora Optics reported that demand for 800G optical modules was weak and inventories were high. | When: March 2024 | Involving: Aurora Optics | Indicates weak demand and elevated inventory for 800G optical modules, relevant to capacity and supply outlook.",
+          "type": "world",
+          "entities": [
+            "800G optical modules",
+            "Aurora Optics"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2024-03-01T00:00:00+00:00",
+          "occurred_end": "2024-03-31T00:00:00+00:00",
+          "mentioned_at": "2024-03-15T00:00:00+00:00",
+          "document_id": "doc-old",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "ef96c325-aa10-485f-96c6-aff165ac9b70"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-old_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 0.908349212,
+            "reranker": 0.9873361,
+            "semantic": 0.6691895723342896,
+            "keyword": 1.2000000476837158
+          },
+          "attachments": null
+        },
+        {
+          "id": "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks. | Involving: Aurora Optics Inc. (supplier), Halcyon Networks (customer) | Identifies customer dependency and product relationship",
+          "type": "world",
+          "entities": [
+            "Aurora Optics Inc.",
+            "Halcyon Networks",
+            "1.6T transceiver lasers"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-01-10T00:00:00.010000+00:00",
+          "document_id": "srcv:aurora-v1",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "8823851a-6b22-4893-8a8e-7364209e98bd"
+          },
+          "chunk_id": "atlas-q01-1790929097_srcv:aurora-v1_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 6.192368151831391e-05,
+            "reranker": 6.4868436e-05,
+            "semantic": 0.4617999792098999,
+            "keyword": 0.4000000059604645
+          },
+          "attachments": null
+        },
+        {
+          "id": "18b243be-e9e0-400c-be72-ad39155be14a",
+          "text": "Aurora Optics Inc. announced it will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: by December 2026 | Involving: Aurora Optics Inc. | Manufacturing capacity change with potential supply impact \u2014 fab closure and shift to contract manufacturing",
+          "type": "world",
+          "entities": [
+            "Aurora Optics Inc.",
+            "Malaysia",
+            "Tucson",
+            "Arizona",
+            "Penang",
+            "laser production"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-09-01T00:00:00+00:00",
+          "occurred_end": "2026-12-31T00:00:00+00:00",
+          "mentioned_at": "2026-09-01T00:00:00+00:00",
+          "document_id": "srcv:aurora-v2",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "f87f91ee-78e1-4058-bb46-54aee07a3a78"
+          },
+          "chunk_id": "atlas-q01-1790929097_srcv:aurora-v2_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 3.8159989850784514e-05,
+            "reranker": 3.5241195e-05,
+            "semantic": 0.44902724027633667,
+            "keyword": 0.4000000059604645
+          },
+          "attachments": null
+        },
+        {
+          "id": "3a59958d-623c-4598-bf03-af5d12b87183",
+          "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: December 2026 | Involving: Aurora Optics Inc. | Manufacturing relocation \u2014 potential supply chain impact",
+          "type": "world",
+          "entities": [
+            "Aurora Optics Inc.",
+            "Malaysia",
+            "Tucson",
+            "Arizona",
+            "Penang",
+            "laser production"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-12-01T00:00:00+00:00",
+          "occurred_end": "2026-12-31T00:00:00+00:00",
+          "mentioned_at": "2026-09-01T00:00:00+00:00",
+          "document_id": "doc-upsert",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "e302e4c9-288a-4d5e-98e6-03541e6227fc"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-upsert_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 3.348634e-05,
+            "reranker": 3.348634e-05,
+            "semantic": 0.44023633003234863,
+            "keyword": 0.4000000059604645
+          },
+          "attachments": null
+        },
+        {
+          "id": "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year. | Involving: Aurora Optics Inc. | Establishes manufacturing capacity baseline",
+          "type": "world",
+          "entities": [
+            "wafer fab",
+            "Aurora Optics Inc.",
+            "Tucson",
+            "Arizona",
+            "indium phosphide"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-01-10T00:00:00+00:00",
+          "document_id": "srcv:aurora-v1",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "8823851a-6b22-4893-8a8e-7364209e98bd"
+          },
+          "chunk_id": "atlas-q01-1790929097_srcv:aurora-v1_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.4395115376229426e-05,
+            "reranker": 1.5079669e-05,
+            "semantic": 0.4022349417209625,
+            "keyword": 0.30000001192092896
+          },
+          "attachments": null
+        }
+      ],
+      "trace": null,
+      "entities": {
+        "800G optical modules": {
+          "entity_id": "a723106b-415c-40a6-a7cf-b54e07586526",
+          "canonical_name": "800G optical modules",
+          "observations": []
+        },
+        "Aurora Optics": {
+          "entity_id": "da14f212-75e9-4cf8-b2a9-a8457d0fe83d",
+          "canonical_name": "Aurora Optics",
+          "observations": []
+        },
+        "Aurora Optics Inc.": {
+          "entity_id": "29a05e01-c88f-4b83-b8b4-6b26c231fba7",
+          "canonical_name": "Aurora Optics Inc.",
+          "observations": []
+        },
+        "Halcyon Networks": {
+          "entity_id": "2c82000f-d856-4b65-a283-c2550bbfabf2",
+          "canonical_name": "Halcyon Networks",
+          "observations": []
+        },
+        "1.6T transceiver lasers": {
+          "entity_id": "be3c77dc-7ca9-4542-a0b9-08a2a967143a",
+          "canonical_name": "1.6T transceiver lasers",
+          "observations": []
+        },
+        "Malaysia": {
+          "entity_id": "b21bd294-b159-4f93-9ced-852ef538614e",
+          "canonical_name": "Malaysia",
+          "observations": []
+        },
+        "Tucson": {
+          "entity_id": "b4e3d1c1-a7e7-4b91-b81d-0e718e2d1f5b",
+          "canonical_name": "Tucson",
+          "observations": []
+        },
+        "Arizona": {
+          "entity_id": "bd00e120-069e-4b2a-8951-2cae49e9a964",
+          "canonical_name": "Arizona",
+          "observations": []
+        },
+        "Penang": {
+          "entity_id": "c52fffd2-886e-46f2-b058-6364135aee55",
+          "canonical_name": "Penang",
+          "observations": []
+        },
+        "laser production": {
+          "entity_id": "cfce7c9c-0552-41cd-819f-cf044eb2759c",
+          "canonical_name": "laser production",
+          "observations": []
+        },
+        "wafer fab": {
+          "entity_id": "00ccff6a-c701-4b73-8c22-bd9f2cc56837",
+          "canonical_name": "wafer fab",
+          "observations": []
+        },
+        "indium phosphide": {
+          "entity_id": "fd8e8edc-1332-4e3e-b823-6684cfde1fd9",
+          "canonical_name": "indium phosphide",
+          "observations": []
+        }
+      },
+      "chunks": null,
+      "source_facts": null,
+      "source_facts_truncated": null
+    }
+  }
+}

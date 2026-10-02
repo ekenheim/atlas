@@ -1,0 +1,39 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-labels-1790929097/memories",
+    "query": null,
+    "body": {
+      "items": [
+        {
+          "content": "Item 1A. Risk Factors\n\nAurora Optics Inc. (\u201cAurora\u201d) depends on a single supplier, Cirrus Semiconductor, for six-inch indium phosphide substrates.  Cirrus has told Aurora that its 2026 output is fully allocated \u2014 any new order ships in 2027 at the earliest.\n\n\tOur epitaxy capacity is concentrated in one MOCVD facility in Tucson, Arizona. A disruption there would halt production of our EML and CW lasers for several months.\n\nHalcyon Networks, our largest customer, accounted for 38% of fiscal 2026 revenue. Halcyon buys our 1.6T transceivers for its AI cluster switches; it may qualify a second source.\n\nWe outsource module assembly to a contract manufacturer in Penang, Malaysia. The contract manufacturer\u2019s yields on 1.6T modules were below plan in the fourth quarter, which reduced our shipments by about 12%.\n",
+          "document_id": "doc-chunked",
+          "timestamp": "2026-08-01T00:00:00Z",
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "metadata": {
+            "source_version_id": "706d1ce9-2df5-4cdc-b313-b63fced0233b",
+            "fixture": "feature-check"
+          },
+          "tags": [
+            "company:aurora",
+            "form:10-K"
+          ]
+        }
+      ],
+      "async": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "success": true,
+      "bank_id": "atlas-q01-labels-1790929097",
+      "items_count": 1,
+      "async": true,
+      "operation_id": "e9545f07-d122-4f9c-88b3-67446928240e",
+      "operation_ids": null,
+      "usage": null
+    }
+  }
+}

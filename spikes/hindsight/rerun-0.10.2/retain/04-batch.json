@@ -1,0 +1,51 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/memories",
+    "query": null,
+    "body": {
+      "items": [
+        {
+          "content": "In March 2024 Aurora Optics said demand for 800G optical modules was weak and inventories were high.",
+          "document_id": "doc-old",
+          "timestamp": "2024-03-15T00:00:00Z",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "metadata": {
+            "source_version_id": "ef96c325-aa10-485f-96c6-aff165ac9b70",
+            "fixture": "feature-check"
+          },
+          "tags": [
+            "company:aurora"
+          ]
+        },
+        {
+          "content": "In August 2026 Aurora Optics said demand for 800G optical modules exceeded supply for the third quarter.",
+          "document_id": "doc-new",
+          "timestamp": "2026-08-20T00:00:00Z",
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "metadata": {
+            "source_version_id": "6722c6a3-ab2c-43ca-958a-f73c1d3ea981",
+            "fixture": "feature-check"
+          },
+          "tags": [
+            "company:aurora"
+          ]
+        }
+      ],
+      "async": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "success": true,
+      "bank_id": "atlas-q01-1790929097",
+      "items_count": 2,
+      "async": true,
+      "operation_id": "e348236c-8134-402c-98ed-cc56dd88d0c7",
+      "operation_ids": null,
+      "usage": null
+    }
+  }
+}

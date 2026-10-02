@@ -1,4 +1,9 @@
-"""A transport-level fake Hindsight 0.10.1, replaying the spike's recorded interactions.
+"""A transport-level fake Hindsight, replaying the spike's recorded interactions.
+
+The recordings are 0.10.1's (the Phase 2 contract) and 0.10.2's memory-quality features
+(observation scopes, recall options and scores, entities, entity labels, the entity listing,
+dry-run extraction, reflect options, a tagged mental model, chunks, reprocess; memory-quality
+ticket 01). The 0.10.2 ones are served exactly as recorded; no derivation was added for them.
 
 Every response it serves is a real recording from `spikes/hindsight/recordings/`. A request is
 answered only when its method, path, query and JSON body match a recording exactly; anything

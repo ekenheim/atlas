@@ -1,0 +1,2360 @@
+{
+  "banks": [
+    "atlas-q01-1790929097",
+    "atlas-q01-labels-1790929097",
+    "atlas-q01-import-1790929097",
+    "atlas-q01-template-1790929097"
+  ],
+  "cap": 55,
+  "evidence": {
+    "version": {
+      "status": 200,
+      "version": {
+        "api_version": "0.10.2",
+        "features": {
+          "observations": true,
+          "mcp": true,
+          "worker": true,
+          "bank_config_api": true,
+          "bank_llm_health": false,
+          "file_upload_api": true,
+          "document_export_api": true,
+          "document_import_api": true,
+          "audit_log": false,
+          "llm_trace": true,
+          "store_document_text": true
+        }
+      }
+    },
+    "rerun.bank_config": {
+      "create_status": 200,
+      "config_status": 200,
+      "config_keys": [
+        "bank_id",
+        "config",
+        "overrides"
+      ],
+      "auto_consolidation_off": {
+        "status": 200,
+        "value": false
+      }
+    },
+    "labels_bank": {
+      "create": 200,
+      "config": 200,
+      "retain_chunk_size": 700
+    },
+    "rerun.retain_modes": {
+      "sync_status": 200,
+      "sync_response_keys": [
+        "async",
+        "bank_id",
+        "items_count",
+        "operation_id",
+        "operation_ids",
+        "success",
+        "usage"
+      ],
+      "sync_ok": true,
+      "async_submit": 200,
+      "async_final": "completed",
+      "batch_submit": 200,
+      "batch_final": "completed",
+      "batch_ops_returned": "e348236c-8134-402c-98ed-cc56dd88d0c7",
+      "memories_total": 4,
+      "llm_requests": 4
+    },
+    "rerun.upsert": {
+      "v1_facts": 2,
+      "v1_mentions_40000": 1,
+      "after_v2_facts": 1,
+      "after_v2_mentions_40000": 0,
+      "after_v2_mentions_penang": 1,
+      "own_ids_v1_facts": 2,
+      "own_ids_v2_facts": 1,
+      "document_status": 200,
+      "llm_requests": 4
+    },
+    "rerun.free": {
+      "operations": {
+        "list_status": 200,
+        "count": 13,
+        "statuses": {
+          "completed": 13
+        },
+        "fields": [
+          "created_at",
+          "details",
+          "document_id",
+          "error_message",
+          "filename",
+          "id",
+          "items_count",
+          "mental_model_id",
+          "next_retry_at",
+          "operation_id",
+          "operation_type",
+          "progress",
+          "retry_count",
+          "status",
+          "task_type",
+          "updated_at"
+        ]
+      },
+      "tags": {
+        "any": {
+          "status": 200,
+          "results": 7,
+          "by_company": {
+            "aurora": 6,
+            "borealis": 0,
+            "cirrus": 1
+          }
+        },
+        "any_strict": {
+          "status": 200,
+          "results": 6,
+          "by_company": {
+            "aurora": 6,
+            "borealis": 0,
+            "cirrus": 0
+          }
+        },
+        "all_strict": {
+          "status": 200,
+          "results": 6,
+          "by_company": {
+            "aurora": 6,
+            "borealis": 0,
+            "cirrus": 0
+          }
+        },
+        "exact": {
+          "status": 200,
+          "results": 6,
+          "by_company": {
+            "aurora": 6,
+            "borealis": 0,
+            "cirrus": 0
+          }
+        },
+        "no_filter": {
+          "status": 200,
+          "results": 8,
+          "by_company": {
+            "aurora": 6,
+            "borealis": 1,
+            "cirrus": 1
+          }
+        }
+      },
+      "temporal": {
+        "status": 200,
+        "results": 8,
+        "future_dated_results": 4,
+        "first_results": [
+          "aurora optics stated that demand for 800g optical modules exceeded supply in q3 2026. | when: august 2026 | involving: a",
+          "in march 2024 aurora optics reported that demand for 800g optical modules was weak and inventories were high. | when: ma",
+          "borealis photonics ltd. reported that lead times for its silicon photonics modules rose to 52 weeks. | when: saturday, a",
+          "aurora optics supplies 1.6t transceiver lasers to halcyon networks. | involving: aurora optics inc. (supplier), halcyon ",
+          "aurora optics inc. announced it will close its tucson, arizona fab by december 2026 and move laser production to a contr"
+        ],
+        "hard_filter": false
+      }
+    },
+    "rerun.observations": {
+      "consolidate_status": 200,
+      "consolidate_final": "completed",
+      "observations": 0,
+      "sample": [],
+      "llm_requests": 3
+    },
+    "rerun.followup": {
+      "observations_via_memories_list": {
+        "status": 200,
+        "count": 7
+      },
+      "provenance_two_hop": {
+        "observation_document_id": null,
+        "observation_fields": [
+          "chunk_id",
+          "context",
+          "date",
+          "document_id",
+          "edited_at",
+          "entities",
+          "history",
+          "id",
+          "invalidated_at",
+          "invalidation_reason",
+          "mentioned_at",
+          "metadata",
+          "observation_scopes",
+          "occurred_end",
+          "occurred_start",
+          "source_memories",
+          "source_memory_ids",
+          "state",
+          "tags",
+          "text",
+          "type"
+        ],
+        "source_hops": [
+          {
+            "status": 200,
+            "type": "world",
+            "document_id": "doc-upsert",
+            "chunk_id": "atlas-q01-1790929097_doc-upsert_0",
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "e302e4c9-288a-4d5e-98e6-03541e6227fc"
+            }
+          },
+          {
+            "status": 200,
+            "type": "world",
+            "document_id": "srcv:aurora-v2",
+            "chunk_id": "atlas-q01-1790929097_srcv:aurora-v2_0",
+            "metadata": {
+              "fixture": "feature-check",
+              "source_version_id": "f87f91ee-78e1-4058-bb46-54aee07a3a78"
+            }
+          }
+        ]
+      }
+    },
+    "observation_scopes": {
+      "llm": {
+        "retain_one_scope": 1,
+        "consolidate_one_scope": 1,
+        "retain_two_scopes": 1,
+        "consolidate_two_scopes": 2,
+        "by_operation_after": {
+          "consolidation/consolidation/success": 6,
+          "retain/retain_extract_facts/success": 10
+        }
+      },
+      "facts_one_scope": 2,
+      "facts_two_scopes": 1,
+      "fact_fields": [
+        "chunk_id",
+        "consolidated_at",
+        "consolidation_failed_at",
+        "context",
+        "date",
+        "document_id",
+        "edited_at",
+        "entities",
+        "fact_type",
+        "id",
+        "invalidated_at",
+        "invalidation_reason",
+        "mentioned_at",
+        "metadata",
+        "occurred_end",
+        "occurred_start",
+        "proof_count",
+        "source_memory_ids",
+        "state",
+        "tags",
+        "text",
+        "updated_at"
+      ],
+      "fact_tags": [
+        [
+          "form:10-Q",
+          "company:aurora"
+        ],
+        [
+          "form:10-Q",
+          "company:aurora"
+        ],
+        [
+          "form:8-K",
+          "company:borealis",
+          "theme:photonics"
+        ]
+      ],
+      "scopes_status": 200,
+      "scopes": {
+        "scopes": [
+          {
+            "tags": [
+              "company:aurora"
+            ],
+            "count": 6
+          },
+          {
+            "tags": [
+              "company:borealis"
+            ],
+            "count": 2
+          },
+          {
+            "tags": [],
+            "count": 1
+          },
+          {
+            "tags": [
+              "theme:photonics"
+            ],
+            "count": 1
+          }
+        ],
+        "total": 4,
+        "limit": 100,
+        "offset": 0
+      },
+      "observations": [
+        {
+          "tags": [
+            "company:aurora"
+          ],
+          "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia.",
+          "sources": 2
+        },
+        {
+          "tags": [
+            "company:aurora"
+          ],
+          "text": "In Q3 2026, Aurora Optics stated that demand for 800G optical modules exceeded supply.",
+          "sources": 1
+        },
+        {
+          "tags": [
+            "theme:photonics"
+          ],
+          "text": "Borealis Photonics Ltd. signed a three-year agreement to purchase indium phosphide substrates from Cirrus Semiconductor, motivated by an industry-wide shortage ",
+          "sources": 1
+        },
+        {
+          "tags": [
+            "company:borealis"
+          ],
+          "text": "Borealis Photonics Ltd. signed a three-year agreement to purchase indium phosphide substrates from Cirrus Semiconductor, motivated by an industry-wide shortage ",
+          "sources": 1
+        },
+        {
+          "tags": [],
+          "text": "Cirrus Semiconductor reported its gallium arsenide substrate output doubled in 2025.",
+          "sources": 1
+        },
+        {
+          "tags": [
+            "company:borealis"
+          ],
+          "text": "Borealis Photonics Ltd. reported on August 1, 2026 that lead times for its silicon photonics modules rose to 52 weeks, indicating significant supply constraint ",
+          "sources": 1
+        },
+        {
+          "tags": [
+            "company:aurora"
+          ],
+          "text": "In Q2 fiscal 2026, Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization, and laser output cannot grow until a new MOCVD line qualifies in ea",
+          "sources": 2
+        },
+        {
+          "tags": [
+            "company:aurora"
+          ],
+          "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks.",
+          "sources": 1
+        },
+        {
+          "tags": [
+            "company:aurora"
+          ],
+          "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year.",
+          "sources": 1
+        },
+        {
+          "tags": [
+            "company:aurora"
+          ],
+          "text": "In March 2024, Aurora Optics reported weak demand and elevated inventory for 800G optical modules.",
+          "sources": 1
+        }
+      ]
+    },
+    "entities": {
+      "retain_llm_requests": 1,
+      "entities_status": 200,
+      "entities": [
+        [
+          "Aurora Optics Inc.",
+          7,
+          "29a05e01-c88f-4b83-b8b4-6b26c231fba7"
+        ],
+        [
+          "Tucson",
+          4,
+          "b4e3d1c1-a7e7-4b91-b81d-0e718e2d1f5b"
+        ],
+        [
+          "Arizona",
+          3,
+          "bd00e120-069e-4b2a-8951-2cae49e9a964"
+        ],
+        [
+          "Halcyon Networks",
+          3,
+          "2c82000f-d856-4b65-a283-c2550bbfabf2"
+        ],
+        [
+          "indium phosphide",
+          3,
+          "fd8e8edc-1332-4e3e-b823-6684cfde1fd9"
+        ],
+        [
+          "Malaysia",
+          2,
+          "b21bd294-b159-4f93-9ced-852ef538614e"
+        ],
+        [
+          "Penang",
+          2,
+          "c52fffd2-886e-46f2-b058-6364135aee55"
+        ],
+        [
+          "laser production",
+          2,
+          "cfce7c9c-0552-41cd-819f-cf044eb2759c"
+        ],
+        [
+          "Aurora",
+          2,
+          "399de425-e409-48ea-bf79-fa3ce9c37726"
+        ],
+        [
+          "Halcyon",
+          2,
+          "8fe7674d-9da9-4ea0-b215-e87bd6e5472f"
+        ],
+        [
+          "Cirrus Semiconductor",
+          2,
+          "70fe2c00-2299-4487-949b-e8fa66c676fe"
+        ],
+        [
+          "Borealis Photonics Ltd.",
+          2,
+          "c03d82f3-faff-462a-bd21-5303808d9bd1"
+        ],
+        [
+          "800G optical modules",
+          2,
+          "a723106b-415c-40a6-a7cf-b54e07586526"
+        ],
+        [
+          "Aurora Optics",
+          2,
+          "da14f212-75e9-4cf8-b2a9-a8457d0fe83d"
+        ],
+        [
+          "laser output",
+          1,
+          "093d3f41-2d6c-4254-919a-32a7adf76d16"
+        ],
+        [
+          "six-inch substrates",
+          1,
+          "85f53875-f3b3-4320-8cd3-1bef1969c549"
+        ],
+        [
+          "indium phosphide substrates",
+          1,
+          "bec89e58-1f7b-4d79-8ed0-fde4ced682b2"
+        ],
+        [
+          "silicon photonics modules",
+          1,
+          "18dfa19b-52c1-4ef8-add8-2fc086e8286b"
+        ],
+        [
+          "MOCVD",
+          1,
+          "6db16caf-a45a-4de2-963b-bc775f02026d"
+        ],
+        [
+          "laser",
+          1,
+          "a2f84d7e-57e7-49ff-9570-07372d9be2b6"
+        ],
+        [
+          "Aur Optics Inc.",
+          1,
+          "016d3a1a-c78b-417a-9efc-4401bc1441f2"
+        ],
+        [
+          "fab",
+          1,
+          "3747b4fe-70a6-49ac-8a5d-ae0c9d592513"
+        ],
+        [
+          "1.6T transceiver lasers",
+          1,
+          "be3c77dc-7ca9-4542-a0b9-08a2a967143a"
+        ],
+        [
+          "wafer fab",
+          1,
+          "00ccff6a-c701-4b73-8c22-bd9f2cc56837"
+        ],
+        [
+          "substrate",
+          1,
+          "691d129b-44cd-47fc-9fa7-db8984d284b6"
+        ],
+        [
+          "gallium arsenide",
+          1,
+          "a635e97d-73b5-43e3-abf4-ee5a0f8840c9"
+        ]
+      ],
+      "memories_status": 200,
+      "memories": [
+        {
+          "text": "Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027. | When: fiscal 2027 | Involving: Halcyon (customer), Aurora (supplier) | Indicates a major supply commitment tying Aurora's 3.2T laser capacity largely to Halcyon.",
+          "entities": "Halcyon, laser output, Halcyon Networks, Aurora Optics Inc., Aurora",
+          "chunk_id": "atlas-q01-1790929097_doc-entities_0"
+        },
+        {
+          "text": "Halcyon accounted for 38% of Aurora's fiscal 2026 revenue. | When: fiscal 2026 | Involving: Halcyon (customer), Aurora (supplier) | Highlights significant customer concentration risk.",
+          "entities": "Halcyon Networks, Aurora, Aurora Optics Inc., Halcyon",
+          "chunk_id": "atlas-q01-1790929097_doc-entities_0"
+        }
+      ]
+    },
+    "entity_memories": {
+      "entity": {
+        "id": "29a05e01-c88f-4b83-b8b4-6b26c231fba7",
+        "canonical_name": "Aurora Optics Inc.",
+        "mention_count": 7,
+        "first_seen": "2026-01-10T00:00:00+00:00",
+        "last_seen": "2026-12-01T00:00:00+00:00",
+        "metadata": {}
+      },
+      "by_entity_and_tag": {
+        "status": 200,
+        "rows": [
+          {
+            "text": "Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027. | When: fiscal 2027 | Involving: Halcyon (customer)",
+            "type": "world",
+            "mentioned_at": "2026-09-02T00:00:00.010000+00:00",
+            "document_id": "doc-entities"
+          },
+          {
+            "text": "Halcyon accounted for 38% of Aurora's fiscal 2026 revenue. | When: fiscal 2026 | Involving: Halcyon (customer), Aurora (",
+            "type": "world",
+            "mentioned_at": "2026-09-02T00:00:00+00:00",
+            "document_id": "doc-entities"
+          },
+          {
+            "text": "Aurora Optics Inc. announced it will close its Tucson, Arizona fab by December 2026 and move laser production to a contr",
+            "type": "world",
+            "mentioned_at": "2026-09-01T00:00:00+00:00",
+            "document_id": "srcv:aurora-v2"
+          },
+          {
+            "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufactu",
+            "type": "world",
+            "mentioned_at": "2026-09-01T00:00:00+00:00",
+            "document_id": "doc-upsert"
+          },
+          {
+            "text": "Aurora Optics Inc. laser output cannot grow until a new MOCVD line qualifies in early 2027. | When: early 2027 | Involvi",
+            "type": "world",
+            "mentioned_at": "2026-07-30T00:00:00.010000+00:00",
+            "document_id": "doc-scope-one"
+          },
+          {
+            "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks. | Involving: Aurora Optics Inc. (supplier), Halcyon ",
+            "type": "world",
+            "mentioned_at": "2026-01-10T00:00:00.010000+00:00",
+            "document_id": "srcv:aurora-v1"
+          },
+          {
+            "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year. | ",
+            "type": "world",
+            "mentioned_at": "2026-01-10T00:00:00+00:00",
+            "document_id": "srcv:aurora-v1"
+          }
+        ]
+      },
+      "with_date_filter": {
+        "status": 200,
+        "rows": [
+          {
+            "text": "Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027. | When: fiscal 2027 | Involving: Halcyon (customer)",
+            "type": "world",
+            "mentioned_at": "2026-09-02T00:00:00.010000+00:00",
+            "document_id": "doc-entities"
+          },
+          {
+            "text": "Halcyon accounted for 38% of Aurora's fiscal 2026 revenue. | When: fiscal 2026 | Involving: Halcyon (customer), Aurora (",
+            "type": "world",
+            "mentioned_at": "2026-09-02T00:00:00+00:00",
+            "document_id": "doc-entities"
+          },
+          {
+            "text": "Aurora Optics Inc. announced it will close its Tucson, Arizona fab by December 2026 and move laser production to a contr",
+            "type": "world",
+            "mentioned_at": "2026-09-01T00:00:00+00:00",
+            "document_id": "srcv:aurora-v2"
+          },
+          {
+            "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufactu",
+            "type": "world",
+            "mentioned_at": "2026-09-01T00:00:00+00:00",
+            "document_id": "doc-upsert"
+          },
+          {
+            "text": "Aurora Optics Inc. laser output cannot grow until a new MOCVD line qualifies in early 2027. | When: early 2027 | Involvi",
+            "type": "world",
+            "mentioned_at": "2026-07-30T00:00:00.010000+00:00",
+            "document_id": "doc-scope-one"
+          },
+          {
+            "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks. | Involving: Aurora Optics Inc. (supplier), Halcyon ",
+            "type": "world",
+            "mentioned_at": "2026-01-10T00:00:00.010000+00:00",
+            "document_id": "srcv:aurora-v1"
+          },
+          {
+            "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year. | ",
+            "type": "world",
+            "mentioned_at": "2026-01-10T00:00:00+00:00",
+            "document_id": "srcv:aurora-v1"
+          }
+        ]
+      },
+      "entity_detail_status": 200
+    },
+    "recall_options": {
+      "max_tokens_8192": {
+        "status": 200,
+        "results": 23,
+        "types": [
+          "world",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "observation"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "18b243be-e9e0-400c-be72-ad39155be14a",
+          "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+          "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+          "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "3a59958d-623c-4598-bf03-af5d12b87183",
+          "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "4e5d2243-9929-4c16-bec1-43030aefd936",
+          "c06a0c69-be76-4f6a-b556-0f455029b1d6",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "299014ca-e1be-401f-b4d2-b7b7b5ecc63c",
+          "81122dbd-5809-47ba-b5f5-c850ddf1c606",
+          "eef7aba3-5295-4329-beff-dcf117e50ca7",
+          "ac436f41-597d-41e4-b8e6-51ab79fc766c",
+          "122f53e1-8702-4f23-bb3f-59946fb2443d"
+        ],
+        "scores": [
+          {
+            "final": 1.0723398824695336,
+            "reranker": 0.98981863,
+            "semantic": 0.667920509824692,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.046586318524369,
+            "reranker": 0.9978422,
+            "semantic": 0.5953489187151849,
+            "keyword": 1.2000000476837158
+          },
+          {
+            "final": 1.0406282320083837,
+            "reranker": 0.9610334,
+            "semantic": 0.6479550809887015,
+            "keyword": 1.0
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 0,
+        "chunks": 0,
+        "source_fact_ids": [
+          null,
+          null,
+          null
+        ]
+      },
+      "max_tokens_128": {
+        "status": 200,
+        "results": 3,
+        "types": [
+          "world",
+          "world",
+          "observation"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "122f53e1-8702-4f23-bb3f-59946fb2443d"
+        ],
+        "scores": [
+          {
+            "final": 1.0723398811803277,
+            "reranker": 0.98981863,
+            "semantic": 0.667920509824692,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.0465863172247123,
+            "reranker": 0.9978422,
+            "semantic": 0.5953489187151849,
+            "keyword": 1.2000000476837158
+          },
+          {
+            "final": 1.292374674528447e-05,
+            "reranker": 1.3616507e-05,
+            "semantic": 0.4931936566118216,
+            "keyword": null
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 0,
+        "chunks": 0,
+        "source_fact_ids": [
+          null
+        ]
+      },
+      "types_world": {
+        "status": 200,
+        "results": 13,
+        "types": [
+          "world",
+          "world",
+          "world",
+          "world",
+          "world",
+          "world",
+          "world",
+          "world",
+          "world",
+          "world",
+          "world",
+          "world",
+          "world"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "18b243be-e9e0-400c-be72-ad39155be14a",
+          "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+          "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+          "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "3a59958d-623c-4598-bf03-af5d12b87183",
+          "c06a0c69-be76-4f6a-b556-0f455029b1d6",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "299014ca-e1be-401f-b4d2-b7b7b5ecc63c",
+          "ac436f41-597d-41e4-b8e6-51ab79fc766c"
+        ],
+        "scores": [
+          {
+            "final": 1.072339879968509,
+            "reranker": 0.98981863,
+            "semantic": 0.6693710088729906,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.0465863160030708,
+            "reranker": 0.9978422,
+            "semantic": 0.5962612388289724,
+            "keyword": 1.2000000476837158
+          },
+          {
+            "final": 1.0406282295800922,
+            "reranker": 0.9610334,
+            "semantic": 0.6500629574097977,
+            "keyword": 1.0
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 0,
+        "chunks": 0,
+        "source_fact_ids": []
+      },
+      "prefer_observations": {
+        "status": 200,
+        "results": 12,
+        "types": [
+          "world",
+          "observation",
+          "observation",
+          "observation",
+          "observation",
+          "observation",
+          "observation",
+          "observation",
+          "world",
+          "observation",
+          "observation",
+          "observation"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "4e5d2243-9929-4c16-bec1-43030aefd936",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "81122dbd-5809-47ba-b5f5-c850ddf1c606",
+          "eef7aba3-5295-4329-beff-dcf117e50ca7",
+          "122f53e1-8702-4f23-bb3f-59946fb2443d"
+        ],
+        "scores": [
+          {
+            "final": 1.0723398781515066,
+            "reranker": 0.98981863,
+            "semantic": 0.6693710088729906,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.0391858417163458,
+            "reranker": 0.9907864,
+            "semantic": 0.6607387459718446,
+            "keyword": 0.4000000059604645
+          },
+          {
+            "final": 0.9501079406742774,
+            "reranker": 0.99529123,
+            "semantic": 0.6331877708435104,
+            "keyword": 0.4000000059604645
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 0,
+        "chunks": 0,
+        "source_fact_ids": [
+          null,
+          null,
+          null
+        ]
+      },
+      "no_prefer_observations": {
+        "status": 200,
+        "results": 23,
+        "types": [
+          "world",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "observation"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "18b243be-e9e0-400c-be72-ad39155be14a",
+          "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+          "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+          "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "3a59958d-623c-4598-bf03-af5d12b87183",
+          "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "4e5d2243-9929-4c16-bec1-43030aefd936",
+          "c06a0c69-be76-4f6a-b556-0f455029b1d6",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "299014ca-e1be-401f-b4d2-b7b7b5ecc63c",
+          "81122dbd-5809-47ba-b5f5-c850ddf1c606",
+          "eef7aba3-5295-4329-beff-dcf117e50ca7",
+          "ac436f41-597d-41e4-b8e6-51ab79fc766c",
+          "122f53e1-8702-4f23-bb3f-59946fb2443d"
+        ],
+        "scores": [
+          {
+            "final": 1.0723398765706154,
+            "reranker": 0.98981863,
+            "semantic": 0.6693710088729906,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.0465863125776333,
+            "reranker": 0.9978422,
+            "semantic": 0.5962612388289724,
+            "keyword": 1.2000000476837158
+          },
+          {
+            "final": 1.0406282262810136,
+            "reranker": 0.9610334,
+            "semantic": 0.6500629574097977,
+            "keyword": 1.0
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 0,
+        "chunks": 0,
+        "source_fact_ids": [
+          null,
+          null,
+          null
+        ]
+      },
+      "source_facts": {
+        "status": 200,
+        "results": 23,
+        "types": [
+          "world",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "observation"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "18b243be-e9e0-400c-be72-ad39155be14a",
+          "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+          "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+          "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "3a59958d-623c-4598-bf03-af5d12b87183",
+          "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "4e5d2243-9929-4c16-bec1-43030aefd936",
+          "c06a0c69-be76-4f6a-b556-0f455029b1d6",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "299014ca-e1be-401f-b4d2-b7b7b5ecc63c",
+          "81122dbd-5809-47ba-b5f5-c850ddf1c606",
+          "eef7aba3-5295-4329-beff-dcf117e50ca7",
+          "ac436f41-597d-41e4-b8e6-51ab79fc766c",
+          "122f53e1-8702-4f23-bb3f-59946fb2443d"
+        ],
+        "scores": [
+          {
+            "final": 1.072339874769871,
+            "reranker": 0.98981863,
+            "semantic": 0.6693710088729906,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.046586310762292,
+            "reranker": 0.9978422,
+            "semantic": 0.5962612388289724,
+            "keyword": 1.2000000476837158
+          },
+          {
+            "final": 1.0406282245326373,
+            "reranker": 0.9610334,
+            "semantic": 0.6500629574097977,
+            "keyword": 1.0
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 11,
+        "chunks": 0,
+        "source_fact_ids": [
+          [
+            "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb"
+          ],
+          [
+            "deb1ca46-4ba1-44ce-a0ca-678ffc22135b"
+          ],
+          [
+            "b65a464f-7cdc-4724-bfdb-51fa7047864b"
+          ]
+        ]
+      },
+      "chunks": {
+        "status": 200,
+        "results": 23,
+        "types": [
+          "world",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "observation"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "18b243be-e9e0-400c-be72-ad39155be14a",
+          "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+          "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+          "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "3a59958d-623c-4598-bf03-af5d12b87183",
+          "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "4e5d2243-9929-4c16-bec1-43030aefd936",
+          "c06a0c69-be76-4f6a-b556-0f455029b1d6",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "299014ca-e1be-401f-b4d2-b7b7b5ecc63c",
+          "81122dbd-5809-47ba-b5f5-c850ddf1c606",
+          "eef7aba3-5295-4329-beff-dcf117e50ca7",
+          "ac436f41-597d-41e4-b8e6-51ab79fc766c",
+          "122f53e1-8702-4f23-bb3f-59946fb2443d"
+        ],
+        "scores": [
+          {
+            "final": 1.07233987105038,
+            "reranker": 0.98981863,
+            "semantic": 0.667920509824692,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.0465863070126504,
+            "reranker": 0.9978422,
+            "semantic": 0.5953489187151849,
+            "keyword": 1.2000000476837158
+          },
+          {
+            "final": 1.0406282209213142,
+            "reranker": 0.9610334,
+            "semantic": 0.6479550809887015,
+            "keyword": 1.0
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 0,
+        "chunks": 10,
+        "source_fact_ids": [
+          null,
+          null,
+          null
+        ]
+      },
+      "query_timestamp_2024": {
+        "status": 200,
+        "results": 23,
+        "types": [
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "observation"
+        ],
+        "ids": [
+          "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+          "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+          "18b243be-e9e0-400c-be72-ad39155be14a",
+          "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "3a59958d-623c-4598-bf03-af5d12b87183",
+          "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "4e5d2243-9929-4c16-bec1-43030aefd936",
+          "c06a0c69-be76-4f6a-b556-0f455029b1d6",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "299014ca-e1be-401f-b4d2-b7b7b5ecc63c",
+          "81122dbd-5809-47ba-b5f5-c850ddf1c606",
+          "eef7aba3-5295-4329-beff-dcf117e50ca7",
+          "ac436f41-597d-41e4-b8e6-51ab79fc766c",
+          "122f53e1-8702-4f23-bb3f-59946fb2443d"
+        ],
+        "scores": [
+          {
+            "final": 1.09762642,
+            "reranker": 0.9978422,
+            "semantic": 0.5953489187151849,
+            "keyword": 1.2000000476837158
+          },
+          {
+            "final": 1.09516495,
+            "reranker": 0.9956045,
+            "semantic": 0.656919181346898,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.094820353,
+            "reranker": 0.99529123,
+            "semantic": 0.6311805687927522,
+            "keyword": 0.4000000059604645
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 0,
+        "chunks": 0,
+        "source_fact_ids": [
+          null,
+          null,
+          null
+        ]
+      },
+      "query_timestamp_none": {
+        "status": 200,
+        "results": 23,
+        "types": [
+          "world",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "world",
+          "world",
+          "observation",
+          "observation",
+          "world",
+          "observation"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "18b243be-e9e0-400c-be72-ad39155be14a",
+          "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+          "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+          "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+          "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+          "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+          "3a59958d-623c-4598-bf03-af5d12b87183",
+          "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "4e5d2243-9929-4c16-bec1-43030aefd936",
+          "c06a0c69-be76-4f6a-b556-0f455029b1d6",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+          "299014ca-e1be-401f-b4d2-b7b7b5ecc63c",
+          "81122dbd-5809-47ba-b5f5-c850ddf1c606",
+          "eef7aba3-5295-4329-beff-dcf117e50ca7",
+          "ac436f41-597d-41e4-b8e6-51ab79fc766c",
+          "122f53e1-8702-4f23-bb3f-59946fb2443d"
+        ],
+        "scores": [
+          {
+            "final": 1.0723398372262223,
+            "reranker": 0.98981863,
+            "semantic": 0.6693710088729906,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.0465862729143107,
+            "reranker": 0.9978422,
+            "semantic": 0.5962612388289724,
+            "keyword": 1.2000000476837158
+          },
+          {
+            "final": 1.0406281880808075,
+            "reranker": 0.9610334,
+            "semantic": 0.6500629574097977,
+            "keyword": 1.0
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 0,
+        "chunks": 0,
+        "source_fact_ids": [
+          null,
+          null,
+          null
+        ]
+      },
+      "pointer_recall": {
+        "status": 200,
+        "results": 8,
+        "types": [
+          "world",
+          "observation",
+          "observation",
+          "observation",
+          "observation",
+          "observation",
+          "observation",
+          "world"
+        ],
+        "ids": [
+          "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "9605b01f-9391-4e93-90e3-c4a9c416efac",
+          "9aa22de0-d949-4b31-b1b7-c01953d24341",
+          "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+          "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+          "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+          "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+          "0bc2645b-a18e-41c3-b894-ad0ba36dc411"
+        ],
+        "scores": [
+          {
+            "final": 1.0736142346298971,
+            "reranker": 0.98981863,
+            "semantic": 0.6691368818283129,
+            "keyword": 0.9000000357627869
+          },
+          {
+            "final": 1.0404614441643836,
+            "reranker": 0.9907864,
+            "semantic": 0.6616382993244123,
+            "keyword": 0.4000000059604645
+          },
+          {
+            "final": 0.9513893429316141,
+            "reranker": 0.99529123,
+            "semantic": 0.6321395039558455,
+            "keyword": 0.4000000059604645
+          }
+        ],
+        "result_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "entities",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "scores",
+          "source_fact_ids",
+          "tags",
+          "text",
+          "type"
+        ],
+        "top_keys": [
+          "chunks",
+          "entities",
+          "results",
+          "source_facts",
+          "source_facts_truncated",
+          "trace"
+        ],
+        "source_facts": 8,
+        "chunks": 7,
+        "source_fact_ids": [
+          [
+            "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb"
+          ],
+          [
+            "deb1ca46-4ba1-44ce-a0ca-678ffc22135b"
+          ],
+          [
+            "b65a464f-7cdc-4724-bfdb-51fa7047864b"
+          ]
+        ]
+      }
+    },
+    "chunks": {
+      "retain_llm_requests": 2,
+      "chunks_status": 200,
+      "chunk_count": 2,
+      "chunk_fields": [
+        "attachments",
+        "bank_id",
+        "chunk_id",
+        "chunk_index",
+        "chunk_text",
+        "created_at",
+        "document_id"
+      ],
+      "verbatim": [
+        {
+          "chunk_index": 0,
+          "chars": 603,
+          "verbatim": true,
+          "offset": 0,
+          "end": 603,
+          "after_previous": true,
+          "stripped_verbatim": true
+        },
+        {
+          "chunk_index": 1,
+          "chars": 208,
+          "verbatim": true,
+          "offset": 605,
+          "end": 813,
+          "after_previous": true,
+          "stripped_verbatim": true
+        }
+      ],
+      "content_chars": 814,
+      "get_chunk_status": 200,
+      "get_chunk_fields": [
+        "attachments",
+        "bank_id",
+        "chunk_id",
+        "chunk_index",
+        "chunk_text",
+        "created_at",
+        "document_id"
+      ],
+      "document_status": 200,
+      "document_original_text_is_content": true,
+      "document_fields": [
+        "attachments",
+        "bank_id",
+        "content_hash",
+        "created_at",
+        "document_metadata",
+        "id",
+        "memory_unit_count",
+        "nodes_by_fact_type",
+        "observation_scopes",
+        "original_text",
+        "retain_params",
+        "tags",
+        "updated_at"
+      ],
+      "facts": [
+        {
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_0",
+          "text": "Halcyon Networks, Aurora's largest customer, accounted for 38% of fiscal 2026 revenue, purchasing 1.",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ]
+        },
+        {
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_1",
+          "text": "The contract manufacturer's yields on 1.6T modules were below plan in the fourth quarter of fiscal 2",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ]
+        },
+        {
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_0",
+          "text": "Aurora's epitaxy capacity is concentrated in a single MOCVD facility in Tucson, Arizona; a disruptio",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ]
+        },
+        {
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_1",
+          "text": "Aurora Optics outsources module assembly to a contract manufacturer located in Penang, Malaysia. | I",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ]
+        },
+        {
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_0",
+          "text": "Aurora Optics Inc. depends on a single supplier, Cirrus Semiconductor, for six-inch indium phosphide",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ]
+        }
+      ],
+      "recall_status": 200,
+      "recall_chunks_verbatim": {
+        "atlas-q01-labels-1790929097_doc-chunked_0": true,
+        "atlas-q01-labels-1790929097_doc-chunked_1": true
+      }
+    },
+    "reprocess": {
+      "labels_config_status": 200,
+      "labels_config_applied": true,
+      "reprocess": {
+        "status": 200,
+        "response": {
+          "success": true,
+          "operation_id": "df98957c-e528-4d9c-88ee-590bab4f1552",
+          "items_count": 1
+        },
+        "final": "completed",
+        "llm_requests": 2
+      },
+      "before": [
+        {
+          "id": "8bc5a1af-9d1f-448f-8697-c148158ddccc",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking."
+        },
+        {
+          "id": "5877623c-5acf-41f4-b1da-b92b0ed6b7a3",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking."
+        },
+        {
+          "id": "cb61fe35-9704-4330-b9a4-de02b41f748f",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking."
+        },
+        {
+          "id": "2f83c99e-ff0a-405a-a1d7-e1dccf1552ac",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking."
+        },
+        {
+          "id": "9731e6af-bdd1-4f1d-b277-4dd4df050cee",
+          "tags": [
+            "form:10-K",
+            "company:aurora"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking."
+        }
+      ],
+      "after_reprocess": [
+        {
+          "id": "7454584f-38e8-4f8c-b3c2-9f23a6f00605",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:module",
+            "layer:system"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "layer:module, Aurora Optics Inc., 1.6T transceivers, AI cluster switches, layer:system, Halcyon Networks"
+        },
+        {
+          "id": "5441b865-463f-4790-ae91-15c223b2645c",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:epi",
+            "layer:chip-laser"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "layer:epi, Aurora Optics Inc., CW lasers, layer:chip-laser, Tucson, MOCVD, EML lasers"
+        },
+        {
+          "id": "06ef420b-e793-4afc-b8a9-3a955b7c3680",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:contract-manufacturing",
+            "layer:module"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "Penang, layer:module, layer:contract-manufacturing, contract manufacturer, Malaysia, shipments, 1.6T modules, Aurora Optics Inc."
+        },
+        {
+          "id": "4ec1f816-ca34-4d95-b677-8388c625b689",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:substrate"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "Cirrus Semiconductor, layer:substrate, Aurora Optics Inc., indium phosphide substrates"
+        },
+        {
+          "id": "bb98ff88-54f8-428c-a9fd-0e24995aec0e",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:contract-manufacturing",
+            "layer:module"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "Aurora Optics Inc., module assembly, contract manufacturer, layer:module, Penang, layer:contract-manufacturing, Malaysia"
+        }
+      ],
+      "retain_again_llm_requests": 0,
+      "after_retain_again": [
+        {
+          "id": "7454584f-38e8-4f8c-b3c2-9f23a6f00605",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "theme:photonics",
+            "layer:module",
+            "layer:system"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "layer:module, Aurora Optics Inc., 1.6T transceivers, AI cluster switches, layer:system, Halcyon Networks"
+        },
+        {
+          "id": "5441b865-463f-4790-ae91-15c223b2645c",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "theme:photonics",
+            "layer:epi",
+            "layer:chip-laser"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "layer:epi, Aurora Optics Inc., CW lasers, layer:chip-laser, Tucson, MOCVD, EML lasers"
+        },
+        {
+          "id": "06ef420b-e793-4afc-b8a9-3a955b7c3680",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "theme:photonics",
+            "layer:contract-manufacturing",
+            "layer:module"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "Penang, layer:module, layer:contract-manufacturing, contract manufacturer, Malaysia, shipments, 1.6T modules, Aurora Optics Inc."
+        },
+        {
+          "id": "4ec1f816-ca34-4d95-b677-8388c625b689",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "theme:photonics",
+            "layer:substrate"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "Cirrus Semiconductor, layer:substrate, Aurora Optics Inc., indium phosphide substrates"
+        },
+        {
+          "id": "bb98ff88-54f8-428c-a9fd-0e24995aec0e",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "theme:photonics",
+            "layer:contract-manufacturing",
+            "layer:module"
+          ],
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "entities": "Aurora Optics Inc., module assembly, contract manufacturer, layer:module, Penang, layer:contract-manufacturing, Malaysia"
+        }
+      ],
+      "consolidate_llm_requests": 2,
+      "scopes": {
+        "scopes": [
+          {
+            "tags": [
+              "company:aurora"
+            ],
+            "count": 5
+          },
+          {
+            "tags": [
+              "theme:photonics"
+            ],
+            "count": 5
+          }
+        ],
+        "total": 2,
+        "limit": 100,
+        "offset": 0
+      }
+    },
+    "entity_labels": {
+      "retain_llm_requests": 1,
+      "facts": [
+        {
+          "text": "Borealis Photonics Ltd.'s silicon photonics transceiver modules shipped on schedule to Halcyon Networks. | Involving: Borealis Photonics Ltd., Halcyon Networks (customer) | Indicates module delivery performance and customer relationship.",
+          "tags": [
+            "form:8-K",
+            "company:borealis",
+            "layer:module"
+          ],
+          "entities": "silicon photonics transceiver modules, Halcyon Networks, Borealis Photonics Ltd., layer:module"
+        },
+        {
+          "text": "Borealis Photonics Ltd. reported EML laser lead times rising to 40 weeks. | Involving: Borealis Photonics Ltd. | Significant supply constraint for EML lasers, well above typical lead times.",
+          "tags": [
+            "form:8-K",
+            "company:borealis",
+            "layer:chip-laser"
+          ],
+          "entities": "EML lasers, layer:chip-laser, Borealis Photonics Ltd."
+        }
+      ],
+      "label_tags": [
+        "layer:chip-laser",
+        "layer:module"
+      ],
+      "recall_tag": "layer:chip-laser",
+      "recall_status": 200,
+      "recall": [
+        {
+          "text": "Borealis Photonics Ltd. reported EML laser lead times rising to 40 weeks. | Involving: Borealis Photonics Ltd. | Signifi",
+          "tags": [
+            "form:8-K",
+            "company:borealis",
+            "layer:chip-laser"
+          ]
+        },
+        {
+          "text": "Aurora's epitaxy capacity is concentrated in a single MOCVD facility in Tucson, Arizona, and a disruption there would ha",
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "theme:photonics",
+            "layer:epi",
+            "layer:chip-laser"
+          ]
+        }
+      ],
+      "entities": [
+        "Aurora Optics Inc.",
+        "layer:module",
+        "Halcyon Networks",
+        "Borealis Photonics Ltd.",
+        "layer:chip-laser",
+        "EML lasers",
+        "Penang",
+        "Malaysia",
+        "contract manufacturer",
+        "layer:contract-manufacturing",
+        "silicon photonics transceiver modules",
+        "Tucson",
+        "MOCVD",
+        "CW lasers",
+        "layer:epi",
+        "Cirrus Semiconductor",
+        "indium phosphide substrates",
+        "module assembly",
+        "shipments",
+        "1.6T modules",
+        "layer:system",
+        "1.6T transceivers",
+        "AI cluster switches",
+        "layer:substrate"
+      ]
+    },
+    "dry_run_extract": {
+      "status": 200,
+      "llm_requests": 1,
+      "keys": [
+        "chunks",
+        "facts",
+        "usage"
+      ],
+      "facts": [
+        {
+          "text": "Cirrus Semiconductor's six-inch indium phosphide substrate output doubled in 2026. | When: 2026 | Involving: Cirrus Semiconductor | Significant capacity expansion for InP substrates",
+          "fact_type": "world",
+          "occurred_start": "2026-01-01",
+          "occurred_end": "2026-12-31",
+          "entities": [
+            "Cirrus Semiconductor",
+            "indium phosphide",
+            "substrate",
+            "layer:substrate"
+          ],
+          "chunk_index": 0,
+          "attachments": []
+        },
+        {
+          "text": "Cirrus Semiconductor's epitaxial wafer line in Fremont is sold out through 2027. | When: through 2027 | Involving: Cirrus Semiconductor | Indicates strong demand and supply constraint for epi wafers",
+          "fact_type": "world",
+          "occurred_start": "2026-09-15",
+          "occurred_end": "2027-12-31",
+          "entities": [
+            "Cirrus Semiconductor",
+            "Fremont",
+            "epitaxial wafer",
+            "layer:epi"
+          ],
+          "chunk_index": 0,
+          "attachments": []
+        }
+      ],
+      "chunks": 1,
+      "stored_after": 0
+    },
+    "rerun.bank_templates": {
+      "schema_status": 200,
+      "export_status": 200,
+      "manifest_keys": [
+        "bank",
+        "directives",
+        "mental_models",
+        "version"
+      ],
+      "dry_run_status": 200,
+      "dry_run": {
+        "bank_id": "atlas-q01-template-1790929097",
+        "config_applied": true,
+        "mental_models_created": [],
+        "mental_models_updated": [],
+        "directives_created": [],
+        "directives_updated": [],
+        "operation_ids": [],
+        "dry_run": true
+      },
+      "import_status": 200,
+      "import": {
+        "bank_id": "atlas-q01-template-1790929097",
+        "config_applied": true,
+        "mental_models_created": [],
+        "mental_models_updated": [],
+        "directives_created": [],
+        "directives_updated": [],
+        "operation_ids": [],
+        "dry_run": false
+      },
+      "imported_config_has_retain_mission": true,
+      "llm_requests": 0
+    },
+    "rerun.export_import": {
+      "export_status": 202,
+      "export_final": "completed",
+      "bytes": 2006,
+      "download_status": 200,
+      "import_status": 202,
+      "import_final": "completed",
+      "import_error": null,
+      "imported_memories": 3,
+      "import_llm_requests": [],
+      "llm_requests": 0
+    },
+    "tagged_mental_model": {
+      "create_status": 200,
+      "create_response": null,
+      "create_final": "completed",
+      "llm_requests": 4,
+      "get_status": 200,
+      "fields": [
+        "bank_id",
+        "content",
+        "created_at",
+        "id",
+        "is_stale",
+        "last_memory_seen_at",
+        "last_refresh_failed_at",
+        "last_refreshed_at",
+        "max_tokens",
+        "name",
+        "reflect_response",
+        "source_query",
+        "tags",
+        "trigger"
+      ],
+      "tags": [
+        "company:aurora"
+      ],
+      "trigger": {
+        "budget": "low",
+        "mode": "full",
+        "refresh_after_consolidation": false,
+        "refresh_cron": null,
+        "min_refresh_interval_seconds": 3600,
+        "fact_types": null,
+        "exclude_mental_models": true,
+        "exclude_mental_model_ids": null,
+        "tags_match": null,
+        "tag_groups": null,
+        "include_chunks": null,
+        "recall_max_tokens": null,
+        "recall_chunks_max_tokens": null,
+        "reflect_search_observations_max_tokens": null,
+        "reflect_search_observations_include_entities": null,
+        "response_schema": null,
+        "keep_trace": true
+      },
+      "content_chars": 2794
+    },
+    "reflect_options": {
+      "budget-mid-tag-scoped": {
+        "status": 200,
+        "llm_requests": 2,
+        "based_on_keys": [
+          "directives",
+          "memories",
+          "mental_models"
+        ],
+        "mental_models_cited": [
+          {
+            "id": "aurora-status",
+            "text": "Aurora status: ## Overview\n\nAurora Optics' laser output is constrained by a single indium phosphide (InP) wafer fab in Tucson, Arizona, which is already at full utilization, cannot expand until a new MOCVD line qualifies in early 2027, and is scheduled to close by December 2026 with production moving to a contract manufacturer in Penang, Malaysia. On the demand side, the customer base is heavily concentrated in Halcyon Networks, which supplied the bulk of fiscal 2026 revenue and is contracted to take most of Aurora's 3.2T laser output in fiscal 2027.\n\n## What constrains laser capacity\n\n- The Tucson, Arizona InP wafer fab has a stated capacity of 40,000 wafers per year (stated January 2026).\n- The same fab ran at full utilization in Q2 fiscal 2026 (April\u2013June 2026; reported July 30, 2026).\n- Aurora stated that laser output cannot grow until a new MOCVD line qualifies in early 2027 (reported July 30, 2026) \u2014 i.e., the InP epitaxy toolset, not the wafer-count, is the binding bottleneck on output.\n- Aurora announced the Tucson fab will close by December 2026, with laser production moving to a contract manufacturer in Penang, Malaysia (announced September 1, 2026). This means the qualifying MOCVD line in early 2027 will, per the plan, sit at the Penang contract manufacturer rather than in Tucson.\n- Demand context: in Q3 2026, Aurora said demand for 800G optical modules exceeded supply (August 2026) \u2014 a reversal from March 2024, when it had reported weak demand and elevated 800G inventories.\n\n## Key customer: Halcyon Networks\n\n- Product relationship: Aurora supplies 1.6T transceiver lasers to Halcyon Networks (stated January 2026).\n- Revenue concentration: Halcyon accounted for 38% of Aurora's fiscal 2026 revenue (reported September 2, 2026) \u2014 a material customer-concentration risk.\n- Forward commitment: Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027 (reported September 2, 2026), tying the bulk of Aurora's next-generation 3.2T capacity to a single buyer.\n- No other named end customers appear in the retrieved data.\n\n## Key suppliers\n\nThe retrieved data does not name any of Aurora Optics' input suppliers (e.g., raw indium phosphide wafers, MOCVD precursors, equipment vendors). The only supplier-side entity mentioned is the future contract manufacturer in Penang, Malaysia that will take over laser production after the Tucson fab closes by December 2026.\n\n## What is not in the data\n\n- Named upstream suppliers (wafer/precursor/equipment vendors) for Aurora's InP process.\n- Customers other than Halcyon Networks. The 800G optical module line is referenced, but no specific 800G customer is named.\n- The identity of the Penang contract manufacturer, or confirmation that the qualifying MOCVD line in early 2027 will be located at that manufacturer's site.\n",
+            "context": "concept (structural)"
+          }
+        ],
+        "memories_cited": 4,
+        "cited_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "tags",
+          "text",
+          "type"
+        ],
+        "usage": {
+          "input_tokens": 8391,
+          "output_tokens": 867,
+          "total_tokens": 9258,
+          "cached_tokens": 0,
+          "thoughts_tokens": 0
+        },
+        "response": null
+      },
+      "exclude-mental-models": {
+        "status": 200,
+        "llm_requests": 3,
+        "based_on_keys": [
+          "directives",
+          "memories",
+          "mental_models"
+        ],
+        "mental_models_cited": null,
+        "memories_cited": 16,
+        "cited_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "tags",
+          "text",
+          "type"
+        ],
+        "usage": {
+          "input_tokens": 13523,
+          "output_tokens": 1508,
+          "total_tokens": 15031,
+          "cached_tokens": 0,
+          "thoughts_tokens": 0
+        },
+        "response": null
+      }
+    },
+    "rerun.reflect": {
+      "provenance": {
+        "status": 200,
+        "llm_requests": 2,
+        "based_on_keys": [
+          "directives",
+          "memories",
+          "mental_models"
+        ],
+        "cited": 5,
+        "cited_fact_fields": [
+          "attachments",
+          "chunk_id",
+          "context",
+          "document_id",
+          "id",
+          "mentioned_at",
+          "metadata",
+          "occurred_end",
+          "occurred_start",
+          "tags",
+          "text",
+          "type"
+        ],
+        "cited_types": [
+          "observation"
+        ],
+        "structured_output": null,
+        "structured_output_error": null,
+        "error": null
+      },
+      "structured-union-type": {
+        "status": 500,
+        "llm_requests": 0,
+        "based_on_keys": [],
+        "cited": 0,
+        "cited_fact_fields": null,
+        "cited_types": [],
+        "structured_output": null,
+        "structured_output_error": null,
+        "error": "Internal Server Error"
+      },
+      "structured": {
+        "status": 200,
+        "llm_requests": 3,
+        "based_on_keys": [],
+        "cited": 0,
+        "cited_fact_fields": null,
+        "cited_types": [],
+        "structured_output": {
+          "constrained": true,
+          "evidence": [
+            "The Tucson InP wafer fab ran at full utilization in Q2 fiscal 2026",
+            "Aurora has stated that laser output cannot grow until a new MOCVD line qualifies in early 2027",
+            "The Tucson fab is scheduled to close by December 2026",
+            "In Q3 2026, Aurora said demand for 800G optical modules exceeded supply"
+          ]
+        },
+        "structured_output_error": null,
+        "error": null
+      }
+    },
+    "rerun.mental_models": {
+      "exception": "AttributeError(\"'list' object has no attribute 'get'\")",
+      "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\ekenh\\atlas\\.claude\\worktrees\\wf_579f135d-015-1\\spikes\\hindsight\\feature_check_0102.py\", line 133, in step\n    evidence[name] = fn()\n                     ^^^^\n  File \"C:\\Users\\ekenh\\atlas\\.claude\\worktrees\\wf_579f135d-015-1\\spikes\\hindsight\\feature_check_0102.py\", line 569, in s_rerun_mental_model\n    \"history_entries\": len(hist.get(\"items\", hist)) if isinstance(hist, (dict, list)) else hist,\n                           ^^^^^^^^\nAttributeError: 'list' object has no attribute 'get'\n"
+    },
+    "rerun.knowledge_pages": {
+      "create_status": 201,
+      "create_response_keys": [
+        "mental_model_id",
+        "operation_id",
+        "page_id"
+      ],
+      "create_final": "completed",
+      "list_status": 405,
+      "pages": 1,
+      "llm_requests": 3
+    },
+    "llm_requests_total": 46,
+    "llm_requests_by_bank": {
+      "atlas-q01-1790929097": {
+        "refresh_mental_model/reflect_tool_call/success": 10,
+        "reflect/reflect_structured/success": 1,
+        "reflect/reflect_tool_call/success": 9,
+        "retain/retain_extract_facts/success": 11,
+        "consolidation/consolidation/success": 6
+      },
+      "atlas-q01-labels-1790929097": {
+        "retain/retain_extract_facts/success": 6,
+        "consolidation/consolidation/success": 2
+      },
+      "atlas-q01-import-1790929097": {
+        "consolidation/consolidation/success": 1
+      },
+      "atlas-q01-template-1790929097": {}
+    },
+    "skipped": [],
+    "llm_requests_0102": {
+      "atlas-q01-1790929097": [
+        {
+          "time": "2026-10-02T00:00:00+00:00",
+          "statuses": {
+            "success": 37
+          },
+          "total": 37,
+          "tokens": {
+            "input": 153625,
+            "output": 12628,
+            "cached": 91990,
+            "thoughts": 0,
+            "total": 166253
+          }
+        }
+      ],
+      "atlas-q01-labels-1790929097": [
+        {
+          "time": "2026-10-02T00:00:00+00:00",
+          "statuses": {
+            "success": 8
+          },
+          "total": 8,
+          "tokens": {
+            "input": 29914,
+            "output": 3638,
+            "cached": 18641,
+            "thoughts": 0,
+            "total": 33552
+          }
+        }
+      ],
+      "atlas-q01-import-1790929097": [
+        {
+          "time": "2026-10-02T00:00:00+00:00",
+          "statuses": {
+            "success": 1
+          },
+          "total": 1,
+          "tokens": {
+            "input": 4116,
+            "output": 290,
+            "cached": 3724,
+            "thoughts": 0,
+            "total": 4406
+          }
+        }
+      ],
+      "atlas-q01-template-1790929097": []
+    },
+    "delete": {
+      "atlas-q01-1790929097": {
+        "status": 200,
+        "response": {
+          "success": true,
+          "message": "Bank 'atlas-q01-1790929097' and all associated data deleted successfully",
+          "deleted_count": 59
+        }
+      },
+      "atlas-q01-labels-1790929097": {
+        "status": 200,
+        "response": {
+          "success": true,
+          "message": "Bank 'atlas-q01-labels-1790929097' and all associated data deleted successfully",
+          "deleted_count": 43
+        }
+      },
+      "atlas-q01-import-1790929097": {
+        "status": 200,
+        "response": {
+          "success": true,
+          "message": "Bank 'atlas-q01-import-1790929097' and all associated data deleted successfully",
+          "deleted_count": 18
+        }
+      },
+      "atlas-q01-template-1790929097": {
+        "status": 200,
+        "response": {
+          "success": true,
+          "message": "Bank 'atlas-q01-template-1790929097' and all associated data deleted successfully",
+          "deleted_count": 0
+        }
+      },
+      "after": {
+        "status": 404
+      }
+    }
+  }
+}

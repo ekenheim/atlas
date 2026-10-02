@@ -1,0 +1,43 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/operations/e348236c-8134-402c-98ed-cc56dd88d0c7"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "e348236c-8134-402c-98ed-cc56dd88d0c7",
+      "status": "completed",
+      "operation_type": "batch_retain",
+      "id": "e348236c-8134-402c-98ed-cc56dd88d0c7",
+      "task_type": "batch_retain",
+      "mental_model_id": null,
+      "created_at": "2026-10-02T08:19:22.463700+00:00",
+      "updated_at": "2026-10-02T08:19:35.602537+00:00",
+      "completed_at": "2026-10-02T08:19:35.602537+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "is_parent": true,
+        "items_count": 2,
+        "total_tokens": 46,
+        "unit_ids_count": 2,
+        "num_sub_batches": 1,
+        "extraction_errors_count": 0
+      },
+      "details": null,
+      "child_operations": [
+        {
+          "operation_id": "db986c5d-4457-4a6c-9ab4-8cd127100b4e",
+          "status": "completed",
+          "sub_batch_index": 1,
+          "items_count": 2,
+          "error_message": null
+        }
+      ],
+      "task_payload": null
+    }
+  }
+}

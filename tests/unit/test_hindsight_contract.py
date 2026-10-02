@@ -1,4 +1,5 @@
-"""Contract tests: the gateway against every Hindsight 0.10.1 recording.
+"""Contract tests: the gateway against every Hindsight recording (0.10.1, and 0.10.2's
+memory-quality features).
 
 Each test drives the gateway through the recorded fake with the inputs of a recorded request, so
 the fake answers only when the gateway sends exactly what the real server was sent. It then
@@ -11,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
+import httpx2
 import pytest
 from pydantic import JsonValue
 
@@ -595,6 +597,517 @@ def test_server_version_reports_the_pinned_api_version() -> None:
     assert version.features == expected["features"]
 
 
+# --- 0.10.2: the memory-quality features (memory-quality ticket 01) ---------------------------
+#
+# Recorded against 0.10.2 by `spikes/hindsight/feature_check_0102.py` (docs/hindsight-feature-
+# matrix.md, "0.10.2"). The gateway doesn't send these fields yet (no Atlas behaviour changed in
+# that ticket), so each test replays its recording's exact request through the fake's transport,
+# the one the gateway is built on, and checks the field the later tickets will rely on.
+
+
+def replay(fake: RecordedHindsight, name: str) -> dict[str, JsonValue]:
+    """Send the recording's own request through the fake; return the (2xx) JSON answer."""
+    recording = fake.recording(name)
+    params: list[tuple[str, str | int | float | bool | None]] = []
+    for key, value in (recording.query or {}).items():
+        for one in value if isinstance(value, list) else [value]:
+            params.append((key, str(one)))
+    with httpx2.Client(base_url="http://hindsight.test", transport=fake.transport) as client:
+        response = client.request(
+            recording.method,
+            recording.path,
+            params=params,
+            json=recording.body if recording.body is not None else None,
+        )
+    assert response.status_code == recording.status == 200, name
+    assert fake.served[-1] == name
+    return cast(dict[str, JsonValue], response.json())
+
+
+def results(answer: dict[str, JsonValue]) -> list[dict[str, JsonValue]]:
+    return as_list(answer["results"])
+
+
+def items(answer: dict[str, JsonValue]) -> list[dict[str, JsonValue]]:
+    return as_list(answer["items"])
+
+
+def tags_of(memory: dict[str, JsonValue]) -> list[str]:
+    return [str(t) for t in as_list(memory["tags"])] if memory["tags"] is not None else []
+
+
+def request_of(name: str) -> dict[str, JsonValue]:
+    return RECORDINGS[name].request_object()
+
+
+def first_item(name: str) -> dict[str, JsonValue]:
+    return as_dict(as_list(request_of(name)["items"])[0])
+
+
+@pytest.mark.parametrize(
+    ("name", "scopes"),
+    [
+        ("observation_scopes/01-retain-one-scope", [["company:aurora"]]),
+        ("observation_scopes/05-retain-two-scopes", [["company:borealis"], ["theme:photonics"]]),
+    ],
+)
+def test_a_retain_with_explicit_observation_scopes_is_accepted(
+    name: str, scopes: list[list[str]]
+) -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, name)
+
+    assert first_item(name)["observation_scopes"] == scopes
+    assert answer["operation_id"] == RECORDINGS[name].response_object()["operation_id"]
+
+
+def test_the_scopes_listing_has_one_scope_per_explicit_scope_not_per_tag_set() -> None:
+    # the two-scope item was tagged company:borealis + theme:photonics + form:8-K: its facts
+    # consolidated into each scope it named, and no scope carries the form tag
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "observation_scopes/09-list-scopes")
+
+    scopes = {tuple(as_list(s["tags"])): s["count"] for s in as_list(answer["scopes"])}
+    assert set(scopes) == {("company:aurora",), ("company:borealis",), ("theme:photonics",), ()}
+    assert all(isinstance(count, int) and count > 0 for count in scopes.values())
+    assert answer["total"] == len(scopes)
+
+
+def test_recall_returns_a_score_breakdown_on_every_result() -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "recall_options/01-max-tokens-8192")
+
+    for result in results(answer):
+        scores = as_dict(result["scores"])
+        assert isinstance(scores["final"], float)
+        assert set(scores) == {"final", "reranker", "semantic", "keyword"}
+
+
+def test_recall_max_tokens_bounds_how_many_results_come_back() -> None:
+    fake = RecordedHindsight()
+
+    wide = replay(fake, "recall_options/01-max-tokens-8192")
+    narrow = replay(fake, "recall_options/02-max-tokens-128")
+
+    assert request_of("recall_options/02-max-tokens-128")["max_tokens"] == 128
+    assert 0 < len(results(narrow)) < len(results(wide))
+
+
+def test_recall_types_returns_only_the_requested_fact_type() -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "recall_options/03-types-world")
+
+    assert request_of("recall_options/03-types-world")["types"] == ["world"]
+    assert results(answer) and {str(r["type"]) for r in results(answer)} == {"world"}
+
+
+def test_prefer_observations_drops_facts_an_observation_in_the_answer_was_built_from() -> None:
+    fake = RecordedHindsight()
+    # source_fact_ids come only with include.source_facts: take them from that recording
+    with_sources = replay(fake, "recall_options/06-include-source-facts")
+    sources_of = {
+        str(r["id"]): {str(i) for i in as_list(r["source_fact_ids"] or [])}
+        for r in results(with_sources)
+        if r["type"] == "observation"
+    }
+
+    preferred = replay(fake, "recall_options/04-prefer-observations")
+    plain = replay(fake, "recall_options/05-no-prefer-observations")
+
+    def duplicates(answer: dict[str, JsonValue]) -> int:
+        observed = set[str]().union(
+            *(
+                sources_of.get(str(r["id"]), set[str]())
+                for r in results(answer)
+                if r["type"] == "observation"
+            )
+        )
+        return sum(str(r["id"]) in observed for r in results(answer) if r["type"] == "world")
+
+    assert duplicates(plain) > 0
+    assert duplicates(preferred) == 0
+
+
+def test_include_source_facts_returns_each_observation_s_sources_in_the_same_answer() -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "recall_options/06-include-source-facts")
+
+    source_facts = as_dict(answer["source_facts"])
+    observations = [r for r in results(answer) if r["type"] == "observation"]
+    assert observations and answer["source_facts_truncated"] is False
+    for observation in observations:
+        ids = as_list(observation["source_fact_ids"])
+        assert ids and all(i in source_facts for i in ids)
+    for fact in source_facts.values():
+        assert as_dict(fact)["type"] == "world" and as_dict(fact)["document_id"]
+
+
+def test_include_chunks_returns_the_chunk_of_every_fact_keyed_by_its_chunk_id() -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "recall_options/07-include-chunks")
+
+    chunks = as_dict(answer["chunks"])
+    with_chunk = [r for r in results(answer) if r["chunk_id"] is not None]
+    assert with_chunk and all(r["chunk_id"] in chunks for r in with_chunk)
+    for chunk_id, chunk in chunks.items():
+        assert as_dict(chunk)["id"] == chunk_id and as_dict(chunk)["truncated"] is False
+
+
+def test_query_timestamp_reranks_the_same_memories() -> None:
+    fake = RecordedHindsight()
+
+    then = replay(fake, "recall_options/08-query-timestamp-2024")
+    now = replay(fake, "recall_options/09-query-timestamp-none")
+
+    assert request_of("recall_options/08-query-timestamp-2024")["query_timestamp"] == (
+        "2024-04-01T00:00:00Z"
+    )
+    then_ids = [r["id"] for r in results(then)]
+    now_ids = [r["id"] for r in results(now)]
+    assert sorted(map(str, then_ids)) == sorted(map(str, now_ids)) and then_ids != now_ids
+
+
+def test_a_pointer_recall_with_every_option_stays_in_scope_and_brings_its_sources() -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "recall_options/10-pointer-recall")
+
+    request = request_of("recall_options/10-pointer-recall")
+    assert (request["budget"], request["prefer_observations"]) == ("high", True)
+    assert all("company:aurora" in tags_of(r) for r in results(answer))
+    assert as_dict(answer["source_facts"]) and as_dict(answer["chunks"])
+    assert all(isinstance(as_dict(r["scores"])["final"], float) for r in results(answer))
+
+
+def test_entities_given_unresolved_are_taken_as_written_beside_the_extracted_ones() -> None:
+    fake = RecordedHindsight()
+    item = first_item("entities/01-retain-entities-unresolved")
+    given = [str(as_dict(e)["text"]) for e in as_list(item["entities"])]
+
+    replay(fake, "entities/01-retain-entities-unresolved")
+    listed = replay(fake, "entities/03-list-entities")
+    memories = replay(fake, "entities/04-document-memories")
+
+    assert item["resolve_entities"] is False
+    assert given == ["Aurora Optics Inc.", "Halcyon Networks"]
+    names = {str(as_dict(e)["canonical_name"]) for e in items(listed)}
+    assert set(given) <= names
+    # the text says only "Aurora" and "Halcyon": the extractor's short forms stay entities
+    # of their own, so a given name does not merge them
+    assert {"Aurora", "Halcyon"} <= names
+    for memory in items(memories):
+        entities = {e.strip() for e in str(memory["entities"]).split(",")}
+        assert set(given) <= entities
+
+
+@pytest.mark.parametrize(
+    "name", ["entity_memories/01-by-entity-and-tag", "entity_memories/02-by-entity-tag-and-date"]
+)
+def test_the_memory_list_by_entity_returns_the_facts_naming_it_within_tag_and_dates(
+    name: str,
+) -> None:
+    fake = RecordedHindsight()
+    query = cast(dict[str, JsonValue], RECORDINGS[name].query)
+    entity = replay(fake, "entity_memories/03-entity-detail")
+
+    answer = replay(fake, name)
+
+    assert query["entity_id"] == entity["id"]
+    assert items(answer)
+    for memory in items(answer):
+        assert str(entity["canonical_name"]) in str(memory["entities"])
+        assert str(query["tags"]) in tags_of(memory)
+        if "start_date" in query:
+            assert str(query["start_date"]) <= str(memory["mentioned_at"]) < str(query["end_date"])
+
+
+def test_an_entity_label_group_with_tag_true_tags_each_fact_and_filters_recall() -> None:
+    fake = RecordedHindsight()
+
+    config = replay(fake, "entity_labels/01-config-layer-labels")
+    facts = replay(fake, "entity_labels/04-document-memories")
+    recalled = replay(fake, "entity_labels/05-recall-by-label-tag")
+
+    group = as_dict(as_list(as_dict(config["config"])["entity_labels"])[0])
+    assert (group["key"], group["type"], group["tag"]) == ("layer", "multi-values", True)
+    allowed = {f"layer:{as_dict(v)['value']}" for v in as_list(group["values"])}
+    labels = [t for f in items(facts) for t in tags_of(f) if t.startswith("layer:")]
+    assert labels and set(labels) <= allowed
+    wanted = str(as_list(request_of("entity_labels/05-recall-by-label-tag")["tags"])[0])
+    assert results(recalled) and all(wanted in tags_of(r) for r in results(recalled))
+
+
+def test_dry_run_extract_returns_facts_and_chunks_without_storing_anything() -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "dry_run_extract/01-dry-run-extract")
+
+    facts = items({"items": answer["facts"]})
+    assert facts and all(f["fact_type"] == "world" for f in facts)
+    # the bank's layer labels apply to a dry run too
+    assert any(str(e).startswith("layer:") for f in facts for e in as_list(f["entities"]))
+    assert len(as_list(answer["chunks"])) == 1
+    assert as_dict(answer["usage"])
+
+
+def test_a_tag_scoped_reflect_with_a_budget_sees_the_tagged_mental_model() -> None:
+    fake = RecordedHindsight()
+
+    model = replay(fake, "tagged_mental_model/03-get")
+    answer = replay(fake, "reflect_options/01-budget-mid-tag-scoped")
+
+    request = request_of("reflect_options/01-budget-mid-tag-scoped")
+    assert request["budget"] == "mid" and request["tags"] == model["tags"] == ["company:aurora"]
+    based_on = as_dict(answer["based_on"])
+    assert [as_dict(m)["id"] for m in as_list(based_on["mental_models"])] == [model["id"]]
+    # 0.10.2: a cited memory carries its document, chunk, tags and Atlas metadata
+    for memory in as_list(based_on["memories"]):
+        assert {"document_id", "chunk_id", "metadata", "tags"} <= set(as_dict(memory))
+
+
+def test_exclude_mental_models_keeps_the_tagged_model_out_of_a_reflect() -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "reflect_options/02-exclude-mental-models")
+
+    assert request_of("reflect_options/02-exclude-mental-models")["exclude_mental_models"] is True
+    based_on = as_dict(answer["based_on"])
+    assert as_list(based_on["mental_models"]) == [] and as_list(based_on["memories"])
+
+
+def test_a_tagged_mental_model_keeps_its_tags_and_its_trigger() -> None:
+    fake = RecordedHindsight()
+
+    replay(fake, "tagged_mental_model/01-create")
+    model = replay(fake, "tagged_mental_model/03-get")
+
+    sent = as_dict(request_of("tagged_mental_model/01-create")["trigger"])
+    trigger = as_dict(model["trigger"])
+    assert model["tags"] == request_of("tagged_mental_model/01-create")["tags"]
+    assert {k: trigger[k] for k in sent} == sent
+    assert model["content"]
+
+
+def test_reprocess_re_extracts_a_stored_document_under_the_bank_s_new_labels() -> None:
+    fake = RecordedHindsight()
+
+    submitted = replay(fake, "reprocess/01-reprocess-document")
+    after = replay(fake, "reprocess/03-memories-after-reprocess")
+
+    assert submitted["success"] is True and submitted["operation_id"]
+    # the document was retained before the labels were configured; after reprocess its facts
+    # carry them, and keep the context they were retained with
+    assert all(any(t.startswith("layer:") for t in tags_of(m)) for m in items(after))
+    context = str(first_item("chunks/01-retain-chunked")["context"])
+    assert {str(m["context"]) for m in items(after)} == {context}
+
+
+def test_retaining_the_same_content_again_changes_tags_but_not_context_or_facts() -> None:
+    fake = RecordedHindsight()
+    again = first_item("reprocess/04-retain-again-same-id")
+
+    before = replay(fake, "reprocess/03-memories-after-reprocess")
+    after = replay(fake, "reprocess/06-memories-after-retain-again")
+
+    assert again["content"] == first_item("chunks/01-retain-chunked")["content"]
+    assert [m["id"] for m in items(after)] == [m["id"] for m in items(before)]
+    assert all("theme:photonics" in tags_of(m) for m in items(after))
+    contexts = {str(m["context"]) for m in items(after)}
+    assert contexts == {str(m["context"]) for m in items(before)}
+    assert str(again["context"]) not in contexts
+
+
+def test_scopes_sent_with_the_second_retain_are_the_ones_consolidation_used() -> None:
+    fake = RecordedHindsight()
+
+    answer = replay(fake, "reprocess/09-list-scopes")
+
+    sent = as_list(first_item("reprocess/04-retain-again-same-id")["observation_scopes"])
+    assert sorted(tuple(as_list(s["tags"])) for s in as_list(answer["scopes"])) == sorted(
+        tuple(as_list(s)) for s in sent
+    )
+
+
+def test_a_chunk_is_a_verbatim_slice_of_the_retained_content_in_order() -> None:
+    fake = RecordedHindsight()
+    content = str(first_item("chunks/01-retain-chunked")["content"])
+
+    listed = replay(fake, "chunks/03-list-chunks")
+    one = replay(fake, "chunks/04-get-chunk")
+    document = replay(fake, "chunks/05-get-document")
+
+    chunks = sorted(items(listed), key=lambda c: cast(int, c["chunk_index"]))
+    assert len(chunks) > 1
+    cursor = 0
+    for chunk in chunks:
+        text = str(chunk["chunk_text"])
+        at = content.find(text, cursor)
+        assert at >= cursor  # verbatim, and after the previous chunk
+        cursor = at + len(text)
+    assert one == chunks[0]
+    assert document["original_text"] == content
+
+
+def test_recall_chunks_are_the_stored_chunks_text() -> None:
+    fake = RecordedHindsight()
+    stored = {c["chunk_id"]: c["chunk_text"] for c in items(replay(fake, "chunks/03-list-chunks"))}
+
+    answer = replay(fake, "chunks/06-recall-include-chunks")
+
+    chunks = as_dict(answer["chunks"])
+    assert chunks and {k: as_dict(v)["text"] for k, v in chunks.items()} == {
+        k: stored[k] for k in chunks
+    }
+
+
+RECORDED_0102_BY_GATEWAY = {
+    "chunks/01-retain-chunked",
+    "entity_labels/02-retain-labelled",
+}
+
+
+@pytest.mark.parametrize("name", sorted(RECORDED_0102_BY_GATEWAY))
+def test_a_0_10_2_retain_without_new_fields_goes_through_the_gateway(name: str) -> None:
+    fake = RecordedHindsight()
+    recording = fake.recording(name)
+    retain_items = [
+        RetainItem.model_validate(item) for item in as_list(recording.request_object()["items"])
+    ]
+
+    submitted = gateway_for(fake, recording).retain_batch(retain_items)
+
+    assert fake.served == [name]
+    assert submitted.operation_id == recording.response_object()["operation_id"]
+
+
+OPERATION_STATUSES_0102 = [
+    "chunks/02-retain-chunked-final",
+    "entities/02-retain-entities-unresolved-final",
+    "entity_labels/03-retain-labelled-final",
+    "observation_scopes/02-retain-one-scope-final",
+    "observation_scopes/04-consolidate-one-scope-final",
+    "observation_scopes/06-retain-two-scopes-final",
+    "observation_scopes/08-consolidate-two-scopes-final",
+    "reprocess/02-reprocess-document-final",
+    "reprocess/05-retain-again-same-id-final",
+    "reprocess/08-consolidate-final",
+    "tagged_mental_model/02-create-final",
+]
+
+
+@pytest.mark.parametrize("name", OPERATION_STATUSES_0102)
+def test_the_gateway_parses_every_0_10_2_operation(name: str) -> None:
+    fake = RecordedHindsight()
+    recording = fake.recording(name)
+
+    operation = gateway_for(fake, recording).operation(recording.path.rsplit("/", 1)[-1])
+
+    expected = recording.response_object()
+    assert fake.served == [name]
+    assert operation.status == expected["status"] == "completed" and operation.succeeded
+    assert operation.operation_type == expected["operation_type"]
+
+
+CONSOLIDATIONS_0102 = [
+    "observation_scopes/03-consolidate-one-scope",
+    "observation_scopes/07-consolidate-two-scopes",
+    "reprocess/07-consolidate",
+]
+
+
+def test_the_gateway_s_consolidate_is_what_0_10_2_was_sent() -> None:
+    # the two consolidations of the main bank are the same request; replayed in recorded order
+    fake = RecordedHindsight()
+
+    submitted = [
+        gateway_for(fake, fake.recording(name)).consolidate().operation_id
+        for name in CONSOLIDATIONS_0102
+    ]
+
+    assert fake.served == CONSOLIDATIONS_0102
+    assert submitted == [
+        RECORDINGS[n].response_object()["operation_id"] for n in CONSOLIDATIONS_0102
+    ]
+
+
+LLM_STATS_0102 = [
+    "llm_requests_0102/01-stats-main",
+    "llm_requests_0102/02-stats-labels",
+    "llm_requests_0102/03-stats-import",
+    "llm_requests_0102/04-stats-template",
+]
+
+
+@pytest.mark.parametrize("name", LLM_STATS_0102)
+def test_the_gateway_reads_the_0_10_2_llm_request_stats(name: str) -> None:
+    fake = RecordedHindsight()
+    recording = fake.recording(name)
+
+    stats = gateway_for(fake, recording).llm_request_stats(period="1d")
+
+    assert fake.served == [name]
+    assert sum(b.total for b in stats.buckets) == sum(
+        cast(int, as_dict(b)["total"]) for b in as_list(recording.response_object()["buckets"])
+    )
+
+
+REPLAYED_0102 = {
+    "observation_scopes/01-retain-one-scope",
+    "observation_scopes/05-retain-two-scopes",
+    "observation_scopes/09-list-scopes",
+    *(
+        f"recall_options/{n}"
+        for n in (
+            "01-max-tokens-8192",
+            "02-max-tokens-128",
+            "03-types-world",
+            "04-prefer-observations",
+            "05-no-prefer-observations",
+            "06-include-source-facts",
+            "07-include-chunks",
+            "08-query-timestamp-2024",
+            "09-query-timestamp-none",
+            "10-pointer-recall",
+        )
+    ),
+    "entities/01-retain-entities-unresolved",
+    "entities/03-list-entities",
+    "entities/04-document-memories",
+    "entity_memories/01-by-entity-and-tag",
+    "entity_memories/02-by-entity-tag-and-date",
+    "entity_memories/03-entity-detail",
+    "entity_labels/01-config-layer-labels",
+    "entity_labels/04-document-memories",
+    "entity_labels/05-recall-by-label-tag",
+    "dry_run_extract/01-dry-run-extract",
+    "tagged_mental_model/01-create",
+    "tagged_mental_model/03-get",
+    "reflect_options/01-budget-mid-tag-scoped",
+    "reflect_options/02-exclude-mental-models",
+    "reprocess/01-reprocess-document",
+    "reprocess/03-memories-after-reprocess",
+    "reprocess/06-memories-after-retain-again",
+    "reprocess/09-list-scopes",
+    "chunks/03-list-chunks",
+    "chunks/04-get-chunk",
+    "chunks/05-get-document",
+    "chunks/06-recall-include-chunks",
+}
+
+NOT_REPLAYED_0102 = {
+    "reprocess/04-retain-again-same-id": "its request is read by the retain-again tests; the "
+    "submit itself answers like any retain",
+    "entity_labels/06-list-entities": "evidence for the matrix (the label entities); the entity "
+    "listing is replayed from entities/03",
+}
+
+
 # --- completeness ------------------------------------------------------------------------------
 
 EXERCISED = {
@@ -651,7 +1164,22 @@ NOT_CALLED_BY_ATLAS = {
 }
 
 
+EXERCISED_0102 = {
+    *REPLAYED_0102,
+    *RECORDED_0102_BY_GATEWAY,
+    *OPERATION_STATUSES_0102,
+    *CONSOLIDATIONS_0102,
+    *LLM_STATS_0102,
+}
+
+
 def test_every_recording_is_classified() -> None:
-    assert len(RECORDINGS) == 63
+    assert len(RECORDINGS) == 63 + 57  # 0.10.1, then the 0.10.2 memory-quality recordings
     assert EXERCISED.isdisjoint(NOT_CALLED_BY_ATLAS)
-    assert EXERCISED | set(NOT_CALLED_BY_ATLAS) == set(RECORDINGS)
+    assert EXERCISED_0102.isdisjoint(NOT_REPLAYED_0102)
+    assert (EXERCISED | EXERCISED_0102).isdisjoint(
+        set(NOT_CALLED_BY_ATLAS) | set(NOT_REPLAYED_0102)
+    )
+    assert EXERCISED | set(NOT_CALLED_BY_ATLAS) | EXERCISED_0102 | set(NOT_REPLAYED_0102) == set(
+        RECORDINGS
+    )

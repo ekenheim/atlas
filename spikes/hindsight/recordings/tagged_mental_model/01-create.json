@@ -1,0 +1,31 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/mental-models",
+    "query": null,
+    "body": {
+      "id": "aurora-status",
+      "name": "Aurora status",
+      "tags": [
+        "company:aurora"
+      ],
+      "source_query": "What constrains Aurora Optics' laser capacity, and who are its key suppliers and customers?",
+      "max_tokens": 1024,
+      "trigger": {
+        "refresh_after_consolidation": false,
+        "min_refresh_interval_seconds": 3600,
+        "budget": "low",
+        "exclude_mental_models": true,
+        "keep_trace": true
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 2.17,
+    "body": {
+      "mental_model_id": "aurora-status",
+      "operation_id": "9a6b84a6-b53e-43e0-b01f-f2bd9a037703"
+    }
+  }
+}

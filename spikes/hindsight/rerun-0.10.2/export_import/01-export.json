@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/document-transfer/export",
+    "query": {
+      "document_id": [
+        "srcv:aurora-v1",
+        "srcv:aurora-v2"
+      ]
+    },
+    "body": null
+  },
+  "response": {
+    "status": 202,
+    "seconds": 0.02,
+    "body": {
+      "operation_id": "02ba5424-1a57-4a99-846a-7fe502ee6aa5",
+      "status": "pending"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/operations/e878e38e-aa8b-41c0-865b-607a436e4799"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operation_id": "e878e38e-aa8b-41c0-865b-607a436e4799",
+      "status": "completed",
+      "operation_type": "batch_retain",
+      "id": "e878e38e-aa8b-41c0-865b-607a436e4799",
+      "task_type": "batch_retain",
+      "mental_model_id": null,
+      "created_at": "2026-10-02T08:19:55.807558+00:00",
+      "updated_at": "2026-10-02T08:19:59.018661+00:00",
+      "completed_at": "2026-10-02T08:19:59.018661+00:00",
+      "error_message": null,
+      "retry_count": 0,
+      "next_retry_at": null,
+      "progress": null,
+      "result_metadata": {
+        "is_parent": true,
+        "document_id": "srcv:aurora-v2",
+        "items_count": 1,
+        "total_tokens": 34,
+        "unit_ids_count": 1,
+        "num_sub_batches": 1,
+        "extraction_errors_count": 0
+      },
+      "details": null,
+      "child_operations": [
+        {
+          "operation_id": "be59de1d-bf61-4512-9b74-ea4fb2a7bbeb",
+          "status": "completed",
+          "sub_batch_index": 1,
+          "items_count": 1,
+          "error_message": null
+        }
+      ],
+      "task_payload": null
+    }
+  }
+}

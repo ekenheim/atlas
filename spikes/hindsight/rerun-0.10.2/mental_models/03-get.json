@@ -1,0 +1,293 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-1790929097/mental-models/aurora-status",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.03,
+    "body": {
+      "id": "aurora-status",
+      "bank_id": "atlas-q01-1790929097",
+      "name": "Aurora status",
+      "source_query": "What constrains Aurora Optics' laser capacity, and who are its key suppliers and customers?",
+      "content": "## What constrains Aurora Optics' laser capacity\n\nAurora's laser output is constrained by a single physical asset and a specific equipment-qualification milestone. The retrievable facts, listed in order of when they were reported (oldest to newest `mentioned_at`):\n\n- Mar 2024: weak 800G demand and elevated inventory (suggesting capacity was not the binding constraint at that time).\n\n- Jan 2026: Aurora operates one indium phosphide wafer fab in Tucson, Arizona with nameplate capacity of 40,000 wafers per year.\n\n- Jul 2026: in Q2 fiscal 2026 the Tucson indium phosphide fab ran at full utilization, and laser output cannot grow until a new MOCVD line qualifies in early 2027.\n\n- Aug 2026: Aurora stated that demand for 800G optical modules exceeded supply in Q3 2026.\n\n- Sep 2026: Aurora announced it will close the Tucson fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia.\n\nReading these together, the binding constraints on laser capacity as of the most recent statements are: (1) the Tucson indium phosphide fab is at full utilization, (2) growth is blocked until a new MOCVD line qualifies in early 2027, and (3) the Tucson fab itself is being wound down by December 2026 with production relocating to a contract manufacturer in Penang \u2014 so qualification, ramp, and the contract-manufacturer transition together govern how quickly output can actually expand. The earlier 2024 weak-demand condition is no longer consistent with later facts and is superseded.\n\n## Key customers\n\nThe retrievable data records only one customer, Halcyon Networks, and ties Aurora's near-term output to it. The relevant facts, in `mentioned_at` order:\n\n- Jan 2026: Aurora supplies 1.6T transceiver lasers to Halcyon Networks.\n\n- Sep 2026: Halcyon accounted for 38% of Aurora's fiscal 2026 revenue.\n\n- Sep 2026: Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027.\n\nThis implies significant customer concentration: 38% of fiscal 2026 revenue from a single buyer, and an even larger share of fiscal 2027 3.2T laser output committed to that same buyer. The data does not record any other named customers.\n\n## Key suppliers and contract manufacturers\n\nThe data does not name upstream input suppliers (e.g., wafer or MOCVD equipment vendors). The only supplier-side entity identified is:\n\n- An unnamed contract manufacturer in Penang, Malaysia, to which Aurora is moving laser production as the Tucson fab closes by December 2026 (announced Sep 2026).\n\nNo other supplier names are recorded in the retrieved data.\n",
+      "tags": [
+        "company:aurora"
+      ],
+      "max_tokens": 1024,
+      "trigger": {
+        "budget": "low",
+        "mode": "full",
+        "refresh_after_consolidation": false,
+        "refresh_cron": null,
+        "min_refresh_interval_seconds": 3600,
+        "fact_types": null,
+        "exclude_mental_models": true,
+        "exclude_mental_model_ids": null,
+        "tags_match": null,
+        "tag_groups": null,
+        "include_chunks": null,
+        "recall_max_tokens": null,
+        "recall_chunks_max_tokens": null,
+        "reflect_search_observations_max_tokens": null,
+        "reflect_search_observations_include_entities": null,
+        "response_schema": null,
+        "keep_trace": true
+      },
+      "last_refreshed_at": "2026-10-02T08:32:35.554761+00:00",
+      "last_memory_seen_at": "2026-10-02T08:27:47.361050+00:00",
+      "last_refresh_failed_at": null,
+      "created_at": "2026-10-02T08:27:47.361050+00:00",
+      "reflect_response": {
+        "text": "## What constrains Aurora Optics' laser capacity\n\nAurora's laser output is constrained by a single physical asset and a specific equipment-qualification milestone. The retrievable facts, listed in order of when they were reported (oldest to newest `mentioned_at`):\n\n- Mar 2024: weak 800G demand and elevated inventory (suggesting capacity was not the binding constraint at that time).\n\n- Jan 2026: Aurora operates one indium phosphide wafer fab in Tucson, Arizona with nameplate capacity of 40,000 wafers per year.\n\n- Jul 2026: in Q2 fiscal 2026 the Tucson indium phosphide fab ran at full utilization, and laser output cannot grow until a new MOCVD line qualifies in early 2027.\n\n- Aug 2026: Aurora stated that demand for 800G optical modules exceeded supply in Q3 2026.\n\n- Sep 2026: Aurora announced it will close the Tucson fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia.\n\nReading these together, the binding constraints on laser capacity as of the most recent statements are: (1) the Tucson indium phosphide fab is at full utilization, (2) growth is blocked until a new MOCVD line qualifies in early 2027, and (3) the Tucson fab itself is being wound down by December 2026 with production relocating to a contract manufacturer in Penang \u2014 so qualification, ramp, and the contract-manufacturer transition together govern how quickly output can actually expand. The earlier 2024 weak-demand condition is no longer consistent with later facts and is superseded.\n\n## Key customers\n\nThe retrievable data records only one customer, Halcyon Networks, and ties Aurora's near-term output to it. The relevant facts, in `mentioned_at` order:\n\n- Jan 2026: Aurora supplies 1.6T transceiver lasers to Halcyon Networks.\n\n- Sep 2026: Halcyon accounted for 38% of Aurora's fiscal 2026 revenue.\n\n- Sep 2026: Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027.\n\nThis implies significant customer concentration: 38% of fiscal 2026 revenue from a single buyer, and an even larger share of fiscal 2027 3.2T laser output committed to that same buyer. The data does not record any other named customers.\n\n## Key suppliers and contract manufacturers\n\nThe data does not name upstream input suppliers (e.g., wafer or MOCVD equipment vendors). The only supplier-side entity identified is:\n\n- An unnamed contract manufacturer in Penang, Malaysia, to which Aurora is moving laser production as the Tucson fab closes by December 2026 (announced Sep 2026).\n\nNo other supplier names are recorded in the retrieved data.",
+        "trace": {
+          "usage": {
+            "input_tokens": 23465,
+            "total_tokens": 24859,
+            "cached_tokens": 0,
+            "output_tokens": 1394,
+            "thoughts_tokens": 0
+          },
+          "outcome": "content_written",
+          "warnings": [],
+          "llm_calls": [
+            {
+              "scope": "agent_1",
+              "duration_ms": 2886
+            },
+            {
+              "scope": "agent_2",
+              "duration_ms": 2578
+            },
+            {
+              "scope": "agent_3",
+              "duration_ms": 3165
+            },
+            {
+              "scope": "agent_4",
+              "duration_ms": 12692
+            }
+          ],
+          "retraction": null,
+          "tool_calls": [
+            {
+              "tool": "search_observations",
+              "input": {
+                "tool": "search_observations",
+                "query": "Aurora Optics laser capacity constraints suppliers customers",
+                "reason": "Initial search for Aurora Optics overview and laser operations"
+              },
+              "output": null,
+              "reason": "Initial search for Aurora Optics overview and laser operations",
+              "iteration": 1,
+              "updated_at": null,
+              "duration_ms": 17969,
+              "result_count": 6
+            },
+            {
+              "tool": "search_observations",
+              "input": {
+                "tool": "search_observations",
+                "query": "Aurora Optics key suppliers components",
+                "reason": "Search for specific supplier relationships"
+              },
+              "output": null,
+              "reason": "Search for specific supplier relationships",
+              "iteration": 1,
+              "updated_at": null,
+              "duration_ms": 132,
+              "result_count": 6
+            },
+            {
+              "tool": "search_observations",
+              "input": {
+                "tool": "search_observations",
+                "query": "Aurora Optics customers orders transceiver",
+                "reason": "Search for additional customer relationships"
+              },
+              "output": null,
+              "reason": "Search for additional customer relationships",
+              "iteration": 2,
+              "updated_at": null,
+              "duration_ms": 198,
+              "result_count": 6
+            },
+            {
+              "tool": "recall",
+              "input": {
+                "tool": "recall",
+                "query": "Aurora Optics suppliers components wafers materials",
+                "reason": "Get raw facts on Aurora Optics suppliers"
+              },
+              "output": null,
+              "reason": "Get raw facts on Aurora Optics suppliers",
+              "iteration": 2,
+              "updated_at": null,
+              "duration_ms": 318,
+              "result_count": 10
+            },
+            {
+              "tool": "recall",
+              "input": {
+                "tool": "recall",
+                "query": "Aurora Optics customers sales Halcyon",
+                "reason": "Get raw facts on Aurora Optics customers"
+              },
+              "output": null,
+              "reason": "Get raw facts on Aurora Optics customers",
+              "iteration": 2,
+              "updated_at": null,
+              "duration_ms": 265,
+              "result_count": 10
+            },
+            {
+              "tool": "recall",
+              "input": {
+                "tool": "recall",
+                "query": "Aurora Optics contract manufacturer Penang MOCVD equipment supplier",
+                "reason": "Search for any supplier/contract manufacturer information"
+              },
+              "output": null,
+              "reason": "Search for any supplier/contract manufacturer information",
+              "iteration": 3,
+              "updated_at": null,
+              "duration_ms": 241,
+              "result_count": 10
+            },
+            {
+              "tool": "recall",
+              "input": {
+                "tool": "recall",
+                "query": "Aurora Optics other customers Velocita Lumen orders bookings",
+                "reason": "Search for other customer names beyond Halcyon"
+              },
+              "output": null,
+              "reason": "Search for other customer names beyond Halcyon",
+              "iteration": 3,
+              "updated_at": null,
+              "duration_ms": 150,
+              "result_count": 10
+            }
+          ],
+          "duration_ms": 39873,
+          "recorded_at": "2026-10-02T08:32:34.643531Z",
+          "effective_mode": "full",
+          "delta_operations": null,
+          "mode_fallback_reason": null
+        },
+        "outcome": "content_written",
+        "based_on": {
+          "world": [
+            {
+              "id": "b65a464f-7cdc-4724-bfdb-51fa7047864b",
+              "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year. | Involving: Aurora Optics Inc. | Establishes manufacturing capacity baseline",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "deb1ca46-4ba1-44ce-a0ca-678ffc22135b",
+              "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks. | Involving: Aurora Optics Inc. (supplier), Halcyon Networks (customer) | Identifies customer dependency and product relationship",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+              "text": "Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027. | When: fiscal 2027 | Involving: Halcyon (customer), Aurora (supplier) | Indicates a major supply commitment tying Aurora's 3.2T laser capacity largely to Halcyon.",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+              "text": "Aurora Optics stated that demand for 800G optical modules exceeded supply in Q3 2026. | When: August 2026 | Involving: Aurora Optics | Indicates supply constraint for 800G optical modules",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "18b243be-e9e0-400c-be72-ad39155be14a",
+              "text": "Aurora Optics Inc. announced it will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: by December 2026 | Involving: Aurora Optics Inc. | Manufacturing capacity change with potential supply impact \u2014 fab closure and shift to contract manufacturing",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "3a59958d-623c-4598-bf03-af5d12b87183",
+              "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia. | When: December 2026 | Involving: Aurora Optics Inc. | Manufacturing relocation \u2014 potential supply chain impact",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "81345d5a-754f-41e8-bb5a-d0460e1d9962",
+              "text": "In March 2024 Aurora Optics reported that demand for 800G optical modules was weak and inventories were high. | When: March 2024 | Involving: Aurora Optics | Indicates weak demand and elevated inventory for 800G optical modules, relevant to capacity and supply outlook.",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "ebc6e2a4-8763-46c7-86a7-1796319596dc",
+              "text": "Aurora Optics Inc. Tucson indium phosphide fab ran at full utilization in Q2 fiscal 2026. | When: Q2 fiscal 2026 | Involving: Aurora Optics Inc. | Capacity constraint context \u2014 fab at full capacity limits near-term laser output growth.",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "a431e924-96ad-4dd9-926e-d1962ce2a7f1",
+              "text": "Aurora Optics Inc. laser output cannot grow until a new MOCVD line qualifies in early 2027. | When: early 2027 | Involving: Aurora Optics Inc. | Manufacturing constraint \u2014 output growth blocked by MOCVD qualification timeline.",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            },
+            {
+              "id": "0bc2645b-a18e-41c3-b894-ad0ba36dc411",
+              "text": "Halcyon accounted for 38% of Aurora's fiscal 2026 revenue. | When: fiscal 2026 | Involving: Halcyon (customer), Aurora (supplier) | Highlights significant customer concentration risk.",
+              "type": "world",
+              "context": "Synthetic Atlas feature-check document (fictional companies)."
+            }
+          ],
+          "opinion": [],
+          "directives": [],
+          "experience": [],
+          "observation": [
+            {
+              "id": "9aa22de0-d949-4b31-b1b7-c01953d24341",
+              "text": "Aurora Optics supplies 1.6T transceiver lasers to Halcyon Networks.",
+              "type": "observation",
+              "context": null
+            },
+            {
+              "id": "9605b01f-9391-4e93-90e3-c4a9c416efac",
+              "text": "In Q3 2026, Aurora Optics stated that demand for 800G optical modules exceeded supply.",
+              "type": "observation",
+              "context": null
+            },
+            {
+              "id": "bcf39c58-4db7-4a4f-bf39-85446af8fc82",
+              "text": "In Q2 fiscal 2026, Aurora Optics Inc.'s Tucson indium phosphide fab ran at full utilization, and laser output cannot grow until a new MOCVD line qualifies in early 2027.",
+              "type": "observation",
+              "context": null
+            },
+            {
+              "id": "73762dbd-1f9c-4884-9df1-29a798eeeb18",
+              "text": "In March 2024, Aurora Optics reported weak demand and elevated inventory for 800G optical modules.",
+              "type": "observation",
+              "context": null
+            },
+            {
+              "id": "bff459ec-d047-4d5c-ac68-f3d9918d6af1",
+              "text": "Aurora Optics Inc. operates an indium phosphide wafer fab in Tucson, Arizona with capacity of 40,000 wafers per year.",
+              "type": "observation",
+              "context": null
+            },
+            {
+              "id": "b4e5b6d6-6d6a-4dd4-8266-d1f64809b4c7",
+              "text": "Aurora Optics Inc. will close its Tucson, Arizona fab by December 2026 and move laser production to a contract manufacturer in Penang, Malaysia.",
+              "type": "observation",
+              "context": null
+            }
+          ],
+          "mental-models": []
+        },
+        "mental_models": []
+      },
+      "is_stale": false
+    }
+  }
+}

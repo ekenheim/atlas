@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/mental-models/aurora-status/refresh",
+    "query": null,
+    "body": {}
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "operation_id": "faeb3a84-07e2-4c7e-8093-d06a8f809bec",
+      "status": "queued"
+    }
+  }
+}

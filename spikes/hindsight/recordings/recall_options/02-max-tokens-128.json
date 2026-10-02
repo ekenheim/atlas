@@ -1,0 +1,165 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q01-1790929097/memories/recall",
+    "query": null,
+    "body": {
+      "query": "Aurora Optics laser capacity and supply constraints",
+      "max_tokens": 128
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.2,
+    "body": {
+      "results": [
+        {
+          "id": "502c1e15-efc3-457e-bfd4-5f1fe6432dcb",
+          "text": "Halcyon will take most of Aurora's 3.2T laser output in fiscal 2027. | When: fiscal 2027 | Involving: Halcyon (customer), Aurora (supplier) | Indicates a major supply commitment tying Aurora's 3.2T laser capacity largely to Halcyon.",
+          "type": "world",
+          "entities": [
+            "laser output",
+            "Aurora Optics Inc.",
+            "Halcyon Networks",
+            "Aurora",
+            "Halcyon"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": null,
+          "occurred_end": null,
+          "mentioned_at": "2026-09-02T00:00:00.010000+00:00",
+          "document_id": "doc-entities",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "1a20ca2b-2c92-47e6-9ce7-c9e15cd9f7ff"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-entities_0",
+          "tags": [
+            "form:8-K",
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.0723398811803277,
+            "reranker": 0.98981863,
+            "semantic": 0.667920509824692,
+            "keyword": 0.9000000357627869
+          },
+          "attachments": null
+        },
+        {
+          "id": "e89cfa92-7013-49c2-84fd-ca6f8f3ba7bb",
+          "text": "Aurora Optics stated that demand for 800G optical modules exceeded supply in Q3 2026. | When: August 2026 | Involving: Aurora Optics | Indicates supply constraint for 800G optical modules",
+          "type": "world",
+          "entities": [
+            "800G optical modules",
+            "Aurora Optics"
+          ],
+          "context": "Synthetic Atlas feature-check document (fictional companies).",
+          "occurred_start": "2026-07-01T00:00:00+00:00",
+          "occurred_end": "2026-09-30T00:00:00+00:00",
+          "mentioned_at": "2026-08-20T00:00:00+00:00",
+          "document_id": "doc-new",
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "6722c6a3-ab2c-43ca-958a-f73c1d3ea981"
+          },
+          "chunk_id": "atlas-q01-1790929097_doc-new_0",
+          "tags": [
+            "company:aurora"
+          ],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.0465863172247123,
+            "reranker": 0.9978422,
+            "semantic": 0.5953489187151849,
+            "keyword": 1.2000000476837158
+          },
+          "attachments": null
+        },
+        {
+          "id": "122f53e1-8702-4f23-bb3f-59946fb2443d",
+          "text": "Cirrus Semiconductor reported its gallium arsenide substrate output doubled in 2025.",
+          "type": "observation",
+          "entities": [
+            "substrate",
+            "Cirrus Semiconductor",
+            "gallium arsenide"
+          ],
+          "context": null,
+          "occurred_start": "2025-01-01T00:00:00+00:00",
+          "occurred_end": "2025-12-31T00:00:00+00:00",
+          "mentioned_at": "2026-08-02T00:00:00+00:00",
+          "document_id": null,
+          "metadata": {},
+          "chunk_id": null,
+          "tags": [],
+          "source_fact_ids": null,
+          "scores": {
+            "final": 1.292374674528447e-05,
+            "reranker": 1.3616507e-05,
+            "semantic": 0.4931936566118216,
+            "keyword": null
+          },
+          "attachments": null
+        }
+      ],
+      "trace": null,
+      "entities": {
+        "laser output": {
+          "entity_id": "093d3f41-2d6c-4254-919a-32a7adf76d16",
+          "canonical_name": "laser output",
+          "observations": []
+        },
+        "Aurora Optics Inc.": {
+          "entity_id": "29a05e01-c88f-4b83-b8b4-6b26c231fba7",
+          "canonical_name": "Aurora Optics Inc.",
+          "observations": []
+        },
+        "Halcyon Networks": {
+          "entity_id": "2c82000f-d856-4b65-a283-c2550bbfabf2",
+          "canonical_name": "Halcyon Networks",
+          "observations": []
+        },
+        "Aurora": {
+          "entity_id": "399de425-e409-48ea-bf79-fa3ce9c37726",
+          "canonical_name": "Aurora",
+          "observations": []
+        },
+        "Halcyon": {
+          "entity_id": "8fe7674d-9da9-4ea0-b215-e87bd6e5472f",
+          "canonical_name": "Halcyon",
+          "observations": []
+        },
+        "800G optical modules": {
+          "entity_id": "a723106b-415c-40a6-a7cf-b54e07586526",
+          "canonical_name": "800G optical modules",
+          "observations": []
+        },
+        "Aurora Optics": {
+          "entity_id": "da14f212-75e9-4cf8-b2a9-a8457d0fe83d",
+          "canonical_name": "Aurora Optics",
+          "observations": []
+        },
+        "substrate": {
+          "entity_id": "691d129b-44cd-47fc-9fa7-db8984d284b6",
+          "canonical_name": "substrate",
+          "observations": []
+        },
+        "Cirrus Semiconductor": {
+          "entity_id": "70fe2c00-2299-4487-949b-e8fa66c676fe",
+          "canonical_name": "Cirrus Semiconductor",
+          "observations": []
+        },
+        "gallium arsenide": {
+          "entity_id": "a635e97d-73b5-43e3-abf4-ee5a0f8840c9",
+          "canonical_name": "gallium arsenide",
+          "observations": []
+        }
+      },
+      "chunks": null,
+      "source_facts": null,
+      "source_facts_truncated": null
+    }
+  }
+}

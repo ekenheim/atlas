@@ -1,0 +1,44 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-labels-1790929097/documents/doc-chunked",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.02,
+    "body": {
+      "id": "doc-chunked",
+      "bank_id": "atlas-q01-labels-1790929097",
+      "original_text": "Item 1A. Risk Factors\n\nAurora Optics Inc. (\u201cAurora\u201d) depends on a single supplier, Cirrus Semiconductor, for six-inch indium phosphide substrates.  Cirrus has told Aurora that its 2026 output is fully allocated \u2014 any new order ships in 2027 at the earliest.\n\n\tOur epitaxy capacity is concentrated in one MOCVD facility in Tucson, Arizona. A disruption there would halt production of our EML and CW lasers for several months.\n\nHalcyon Networks, our largest customer, accounted for 38% of fiscal 2026 revenue. Halcyon buys our 1.6T transceivers for its AI cluster switches; it may qualify a second source.\n\nWe outsource module assembly to a contract manufacturer in Penang, Malaysia. The contract manufacturer\u2019s yields on 1.6T modules were below plan in the fourth quarter, which reduced our shipments by about 12%.\n",
+      "content_hash": "d02870c708dd9b9a09a1165cb44217fd785a08f43d45c122ff6b3f5b87ac7442",
+      "created_at": "2026-10-02T08:24:17.543747+00:00",
+      "updated_at": "2026-10-02T08:24:17.543747+00:00",
+      "memory_unit_count": 5,
+      "nodes_by_fact_type": {
+        "world": 5,
+        "experience": 0,
+        "observation": 0
+      },
+      "tags": [
+        "form:10-K",
+        "company:aurora"
+      ],
+      "document_metadata": {
+        "fixture": "feature-check",
+        "source_version_id": "706d1ce9-2df5-4cdc-b313-b63fced0233b"
+      },
+      "retain_params": {
+        "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+        "metadata": {
+          "fixture": "feature-check",
+          "source_version_id": "706d1ce9-2df5-4cdc-b313-b63fced0233b"
+        },
+        "event_date": "2026-08-01T00:00:00+00:00"
+      },
+      "observation_scopes": null,
+      "attachments": null
+    }
+  }
+}

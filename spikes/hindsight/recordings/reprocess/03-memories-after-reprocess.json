@@ -1,0 +1,181 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q01-labels-1790929097/memories/list",
+    "query": {
+      "document_id": "doc-chunked",
+      "limit": 100
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.02,
+    "body": {
+      "items": [
+        {
+          "id": "7454584f-38e8-4f8c-b3c2-9f23a6f00605",
+          "text": "Halcyon Networks, Aurora's largest customer, accounted for 38% of fiscal 2026 revenue and purchases 1.6T transceivers for AI cluster switches; Halcyon may qualify a second source. | When: fiscal 2026 | Involving: Halcyon Networks (Aurora's largest customer) | Material customer concentration with risk of second-source qualification threatening module revenue.",
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "date": "2026-01-01T00:00:00.020000+00:00",
+          "fact_type": "world",
+          "document_id": "doc-chunked",
+          "mentioned_at": "2026-08-01T00:00:00.020000+00:00",
+          "occurred_start": "2026-01-01T00:00:00.020000+00:00",
+          "occurred_end": "2026-12-31T00:00:00.020000+00:00",
+          "entities": "layer:module, Aurora Optics Inc., 1.6T transceivers, AI cluster switches, layer:system, Halcyon Networks",
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_0",
+          "proof_count": 1,
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:module",
+            "layer:system"
+          ],
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "706d1ce9-2df5-4cdc-b313-b63fced0233b"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T08:24:57.201995+00:00",
+          "source_memory_ids": []
+        },
+        {
+          "id": "5441b865-463f-4790-ae91-15c223b2645c",
+          "text": "Aurora's epitaxy capacity is concentrated in a single MOCVD facility in Tucson, Arizona, and a disruption there would halt EML and CW laser production for several months. | When: fiscal 2026 | Involving: Aurora Optics Inc. | Single-site epitaxy concentration is a key manufacturing risk for chip-laser output.",
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "date": "2026-08-01T00:00:00.010000+00:00",
+          "fact_type": "world",
+          "document_id": "doc-chunked",
+          "mentioned_at": "2026-08-01T00:00:00.010000+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "layer:epi, Aurora Optics Inc., CW lasers, layer:chip-laser, Tucson, MOCVD, EML lasers",
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_0",
+          "proof_count": 1,
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:epi",
+            "layer:chip-laser"
+          ],
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "706d1ce9-2df5-4cdc-b313-b63fced0233b"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T08:24:57.201995+00:00",
+          "source_memory_ids": []
+        },
+        {
+          "id": "06ef420b-e793-4afc-b8a9-3a955b7c3680",
+          "text": "The Penang contract manufacturer's yields on 1.6T modules were below plan in Q4 fiscal 2026, reducing Aurora Optics' shipments by approximately 12%. | When: Q4 fiscal 2026 | Involving: Aurora Optics Inc., contract manufacturer in Penang, Malaysia | Yield shortfall on advanced node modules signals capacity/yield risk and shipment impact.",
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "date": "2026-04-01T00:00:00.010000+00:00",
+          "fact_type": "world",
+          "document_id": "doc-chunked",
+          "mentioned_at": "2026-08-01T00:00:00.010000+00:00",
+          "occurred_start": "2026-04-01T00:00:00.010000+00:00",
+          "occurred_end": "2026-06-30T00:00:00.010000+00:00",
+          "entities": "Penang, layer:module, layer:contract-manufacturing, contract manufacturer, Malaysia, shipments, 1.6T modules, Aurora Optics Inc.",
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_1",
+          "proof_count": 1,
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:contract-manufacturing",
+            "layer:module"
+          ],
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "706d1ce9-2df5-4cdc-b313-b63fced0233b"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T08:24:57.201995+00:00",
+          "source_memory_ids": []
+        },
+        {
+          "id": "4ec1f816-ca34-4d95-b677-8388c625b689",
+          "text": "Aurora Optics Inc. depends on a single supplier, Cirrus Semiconductor, for six-inch indium phosphide substrates, and Cirrus's 2026 output is fully allocated with any new order shipping in 2027 at the earliest. | When: fiscal 2026 | Involving: Aurora Optics Inc., Cirrus Semiconductor (single supplier) | Single-supplier dependency on a constrained substrate input creates a hard capacity ceiling on Aurora's production.",
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "date": "2026-01-01T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "doc-chunked",
+          "mentioned_at": "2026-08-01T00:00:00+00:00",
+          "occurred_start": "2026-01-01T00:00:00+00:00",
+          "occurred_end": "2026-12-31T00:00:00+00:00",
+          "entities": "Cirrus Semiconductor, layer:substrate, Aurora Optics Inc., indium phosphide substrates",
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_0",
+          "proof_count": 1,
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:substrate"
+          ],
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "706d1ce9-2df5-4cdc-b313-b63fced0233b"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T08:24:57.201995+00:00",
+          "source_memory_ids": []
+        },
+        {
+          "id": "bb98ff88-54f8-428c-a9fd-0e24995aec0e",
+          "text": "Aurora Optics outsources module assembly to a contract manufacturer located in Penang, Malaysia. | Involving: Aurora Optics Inc., contract manufacturer in Penang, Malaysia | Key manufacturing dependency; identifies single-source assembly partner and geography.",
+          "context": "Aurora Optics Inc. 10-K for fiscal 2026, Item 1A. Risk Factors. The filer is speaking.",
+          "date": "2026-08-01T00:00:00+00:00",
+          "fact_type": "world",
+          "document_id": "doc-chunked",
+          "mentioned_at": "2026-08-01T00:00:00+00:00",
+          "occurred_start": null,
+          "occurred_end": null,
+          "entities": "Aurora Optics Inc., module assembly, contract manufacturer, layer:module, Penang, layer:contract-manufacturing, Malaysia",
+          "chunk_id": "atlas-q01-labels-1790929097_doc-chunked_1",
+          "proof_count": 1,
+          "tags": [
+            "form:10-K",
+            "company:aurora",
+            "layer:contract-manufacturing",
+            "layer:module"
+          ],
+          "metadata": {
+            "fixture": "feature-check",
+            "source_version_id": "706d1ce9-2df5-4cdc-b313-b63fced0233b"
+          },
+          "consolidated_at": null,
+          "consolidation_failed_at": null,
+          "state": "valid",
+          "invalidation_reason": null,
+          "invalidated_at": null,
+          "edited_at": null,
+          "updated_at": "2026-10-02T08:24:57.201995+00:00",
+          "source_memory_ids": []
+        }
+      ],
+      "total": 5,
+      "limit": 100,
+      "offset": 0
+    }
+  }
+}

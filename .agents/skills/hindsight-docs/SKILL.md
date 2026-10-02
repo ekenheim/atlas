@@ -3,7 +3,7 @@ name: hindsight-docs
 description: Complete Hindsight documentation for AI agents. Use this to learn about Hindsight architecture, APIs, configuration, and best practices.
 ---
 
-> **Atlas note (local addition):** this documentation is vendored from `vectorize-io/hindsight@v0.10.1:skills/hindsight-docs/` (MIT) to match the pinned server version. Upstream `main` has moved on; don't mix in newer docs. Where these docs disagree with `docs/hindsight-feature-matrix.md` or the recordings in `spikes/hindsight/recordings/`, **the matrix and recordings win**: they're observed 0.10.1 behavior. The OpenAPI schema for 0.10.1 is at `references/openapi.json`.
+> **Atlas note (local addition):** this documentation is vendored from `vectorize-io/hindsight@v0.10.2:skills/hindsight-docs/` (MIT; tag commit `5fc4ce20917b916240cef27c212c387a177f115b`, re-vendored 2026-10-02 by memory-quality ticket 01) to match the cluster's server version. Upstream `main` has moved on; don't mix in newer docs. Two things about the tag's docs: its changelog's newest entry is 0.10.1 (0.10.2's notes were written after the tag), and its `references/openapi.json` says `"version": "0.10.1"` in `info` (the v0.10.1 tag's said 0.10.0); the schema is still the one the tag was cut with. Where these docs disagree with `docs/hindsight-feature-matrix.md` or the recordings in `spikes/hindsight/recordings/`, **the matrix and recordings win**: they're observed behaviour (0.10.1 for the first rows, 0.10.2 for the memory-quality rows).
 
 # Hindsight Documentation Skill
 

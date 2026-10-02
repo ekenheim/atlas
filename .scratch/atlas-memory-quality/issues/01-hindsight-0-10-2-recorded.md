@@ -15,10 +15,10 @@ This ticket makes live calls to a local Hindsight and to MiniMax through LiteLLM
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The matrix is headed with 0.10.2 and has one row per feature above, each with its verdict and its recordings; the four questions are answered with the evidence.
-- [ ] The existing matrix rows were re-run on 0.10.2; changed verdicts are listed (or "none").
-- [ ] The fake serves each new field; the existing contract tests pass, and one test per new field replays its recording through the gateway's transport.
-- [ ] The LLM request count of the run is in the implementation log, with what was live and what was not.
-- [ ] `docs/decisions.md` records anything that changes the spec's design (for example: scopes cannot be changed without retaining again).
+- [x] The matrix is headed with 0.10.2 and has one row per feature above, each with its verdict and its recordings; the four questions are answered with the evidence.
+- [x] The existing matrix rows were re-run on 0.10.2; changed verdicts are listed (or "none").
+- [x] The fake serves each new field; the existing contract tests pass, and one test per new field replays its recording through the gateway's transport.
+- [x] The LLM request count of the run is in the implementation log, with what was live and what was not.
+- [x] `docs/decisions.md` records anything that changes the spec's design (for example: scopes cannot be changed without retaining again).
