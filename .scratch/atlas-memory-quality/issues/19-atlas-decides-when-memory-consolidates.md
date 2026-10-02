@@ -25,3 +25,9 @@ Migration revision `0069` (down: the head in your base), only if the record need
 - [ ] `atlas memory consolidate` enqueues one (CLI test); a second while one is running does not submit another request.
 - [ ] The health read shows the consolidation record; the metric counts outcomes.
 - [ ] Decision and runbook entries; `AGENTS.md` line; the API client regenerated.
+
+## Comments
+
+**2026-10-02, the lead: the owner stopped the waste by hand.** After the lead's review of the cluster's consolidation log, the owner set `enable_auto_consolidation` to false on the research bank, cancelled the running consolidation operation and deleted its log entry (said 2026-10-02). So from now until this ticket ships, nothing consolidates in Atlas's bank: recall returns the raw facts, and the observations that exist stay as they are. Two things follow for the release:
+- The template of the release must carry `enable_auto_consolidation: false` (this ticket), so the next template import keeps what the owner set. Tickets 05 and 10 also change the template; the three go out together, never 05 or 10 without this one.
+- The first `consolidate` job after the deploy has the whole unconsolidated backlog to do. It should run after the backfill has re-extracted a company, not before: the release's runbook step says so.
