@@ -1996,6 +1996,34 @@ def lumentum_with_pointed_transcripts(
     return atlas, filings, calls
 
 
+def test_a_filing_the_corrected_availability_puts_after_as_of_is_not_read(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot-fix 29: the 10-Q recorded itself available in May 2026, before the as-of time, but
+    # a recorded correction (EDGAR held it back) makes it public after it: it is not read, by
+    # the pointed documents, the latest documents or the document floor alike.
+    atlas = services.start()
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    with atlas.engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO source_version_availability_correction (id, source_version_id,"
+                " available_at, available_at_basis, reason)"
+                " VALUES (gen_random_uuid(), :id, '2026-07-02T00:00:00Z', 'sec_dissemination',"
+                " 'test')"
+            ),
+            {"id": ten_q},
+        )
+    started = seeded(atlas, "coherent", as_of="2026-07-01T00:00:00Z")
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert found["documents"] == []
+
+
 def test_an_investigator_reads_its_company_s_latest_periodic_report_and_results_release(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
