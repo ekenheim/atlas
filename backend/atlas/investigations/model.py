@@ -232,6 +232,11 @@ class ReadingPointer(BaseModel):
     chunk_char_end: int | None = None
     # An entity pointer's: the Hindsight entity its fact was listed by. None for the others.
     entity_id: str | None = None
+    # Which recall made it (memory-quality ticket 13): `theme`, across the theme as every
+    # pointer was made before; or `theme_layer`, the second recall of a Scout query that
+    # carries a layer, limited to the facts labelled with `layer`.
+    scope: Literal["theme", "theme_layer"] = "theme"
+    layer: str | None = None
 
 
 class EntityHop(BaseModel):
@@ -831,14 +836,16 @@ def get_investigation(
                 " p.section_char_start, p.section_char_end, p.company_id,"
                 " c.display_name AS company_name, p.available_at, p.citation_state,"
                 " p.created_at, p.score, p.entity_names, p.placed_by, p.chunk_id,"
-                " p.chunk_char_start, p.chunk_char_end, p.entity_id FROM reading_pointer p"
+                " p.chunk_char_start, p.chunk_char_end, p.entity_id, p.scope, p.layer"
+                " FROM reading_pointer p"
                 " JOIN investigation_task t ON t.id = p.task_id"
                 " JOIN source_version v ON v.id = p.source_version_id"
                 " JOIN source_document d ON d.id = v.source_document_id"
                 " LEFT JOIN company c ON c.id = p.company_id"
                 " LEFT JOIN company qc ON qc.id = p.query_company_id"
                 " WHERE p.investigation_id = :id"
-                " ORDER BY p.round, t.position, p.query_index, p.rank, p.source_version_id,"
+                " ORDER BY p.round, t.position, p.query_index, p.scope, p.rank,"
+                " p.source_version_id,"
                 " p.section_char_start, p.section_anchor"
             ),
             params,

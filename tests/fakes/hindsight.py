@@ -138,6 +138,10 @@ Derived behaviours (each serves a recorded response with only the named fields c
   `entity_labels/04` and `05` recorded both (the item's tags, then `layer:<value>`; a recall
   by `layer:chip-laser`, `any_strict`, returned only facts carrying it). The labels are not
   added to the fact's entities.
+- A derived recall's **`tag_groups`** (memory-quality ticket 13): a list of leaves
+  `{tags, match}` (`any_strict` or `all_strict`) is a compound filter, a fact is in scope when
+  every leaf matches it (the recall docs: the groups are AND-ed); `tag_groups` and flat
+  `tags` are exclusive, as the docs say. A compound node (`and`, `or`, `not`) is not derived.
 - `fail_recalls(where, status=..., times=...)` (needs `derive_memories`; a failed recall was
   never recorded): an unrecorded recall whose `query` matches answers HTTP `status` with a
   **hand-written** body `{"detail": "recall failed (scripted by the test)"}` (only the status
@@ -1194,8 +1198,11 @@ class RecordedHindsight:
         )
 
     def _derived_recall(self, bank: str, body: dict[str, JsonValue]) -> httpx2.Response | None:
+        groups = _leaf_groups(body.get("tag_groups"))
         match, tags = body.get("tags_match"), body.get("tags")
-        if match not in ("any_strict", "all_strict") or not isinstance(tags, list) or not tags:
+        if groups is None and (
+            match not in ("any_strict", "all_strict") or not isinstance(tags, list) or not tags
+        ):
             return None
         for failure in self._recall_failures:
             if failure.times != 0 and failure.where(str(body.get("query"))):
@@ -1205,10 +1212,15 @@ class RecordedHindsight:
                 return httpx2.Response(
                     failure.status, json={"detail": "recall failed (scripted by the test)"}
                 )
-        scope = {str(tag) for tag in tags}
+        scope = {str(tag) for tag in cast(list[JsonValue], tags or [])}
 
         def in_scope(memory_tags: JsonValue) -> bool:
             have = {str(tag) for tag in cast(list[JsonValue], memory_tags)}
+            if groups is not None:  # compound: every group's leaf matches (ticket 13)
+                return all(
+                    bool(have & wanted) if how == "any_strict" else wanted <= have
+                    for wanted, how in groups
+                )
             return bool(have & scope) if match == "any_strict" else scope <= have
 
         recording = self.recording(DERIVED_RECALL)
@@ -1890,3 +1902,21 @@ def _tokens(text: str) -> int:
     """A derived recall's token count of a memory's text: one token per four characters,
     rounded up (Hindsight counts with its tokenizer; the fake has none)."""
     return -(-len(text) // CHARS_PER_TOKEN)
+
+
+def _leaf_groups(tag_groups: JsonValue) -> list[tuple[set[str], str]] | None:
+    """A recall's `tag_groups` as (tags, match) leaves that must all match, or None when the
+    request has none or has a shape the fake doesn't derive (a compound node: `and`, `or`,
+    `not`), which then falls through to the recorded answers."""
+    if not isinstance(tag_groups, list) or not tag_groups:
+        return None
+    leaves: list[tuple[set[str], str]] = []
+    for group in tag_groups:
+        tags = group.get("tags") if isinstance(group, dict) else None
+        if not isinstance(group, dict) or not isinstance(tags, list):
+            return None
+        how = group.get("match", "any_strict")
+        if how not in ("any_strict", "all_strict") or not tags:
+            return None
+        leaves.append(({str(tag) for tag in tags}, str(how)))
+    return leaves

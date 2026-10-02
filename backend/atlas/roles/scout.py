@@ -6,7 +6,8 @@ discovery keeps the first `max_queries` distinct ones (atlas.discovery). Each qu
 a `filing_phrase` (v3, pilot fix 12): the exact phrase to search in SEC filings through EDGAR
 full-text search, the discovery's second channel. v4 asks for a specific phrase (at least two
 words, or a theme product term; a bare term paired with a second phrase): only such a phrase is
-searched, and only a kept hit proposes its filer (memory-directed reading, ticket 04).
+searched, and only a kept hit proposes its filer (memory-directed reading, ticket 04). v5 adds
+a `layer` per query: the supply-chain layer it concerns, or null (memory-quality ticket 13).
 """
 
 from typing import Any
@@ -15,8 +16,9 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-# v2: the bottleneck method; v3: a filing phrase per query; v4: a specific filing phrase
-SCOUT_PROMPT_VERSION = 4
+# v2: the bottleneck method; v3: a filing phrase per query; v4: a specific filing phrase;
+# v5: the supply-chain layer a query concerns (memory-quality ticket 13)
+SCOUT_PROMPT_VERSION = 5
 
 
 def filing_phrase_required(schema: dict[str, Any]) -> None:
@@ -38,13 +40,26 @@ class ScoutRequest(BaseModel):
     max_queries: int
 
 
+def scout_query_required(schema: dict[str, Any]) -> None:
+    """`filing_phrase` and `layer` are required (nullable) properties of a Scout query; an
+    answer without them (recorded before v3 and v5) still parses as null."""
+    filing_phrase_required(schema)
+    if "layer" not in schema["required"]:
+        schema["required"].append("layer")
+    schema["properties"]["layer"].pop("default", None)
+
+
 class ScoutQuery(RoleOutput):
-    model_config = ConfigDict(json_schema_extra=filing_phrase_required)
+    model_config = ConfigDict(json_schema_extra=scout_query_required)
 
     query: str
     purpose: str | None  # which gap or part of the question it is for
     # The exact phrase to search in SEC filings (EDGAR full-text search), or None.
     filing_phrase: str | None = None
+    # The supply-chain layer the query concerns (a name of the Claim layer taxonomy), or None.
+    # Atlas keeps it only when it names a layer (atlas.claims.LAYER_NAMES); a layer makes the
+    # pointer recall ask the facts labelled with it too (atlas.investigations.pointers).
+    layer: str | None = None
 
 
 class ScoutQueries(RoleOutput):

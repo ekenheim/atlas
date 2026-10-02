@@ -36,6 +36,7 @@ from atlas.hindsight import (
     RecallResult,
     RecallScores,
     ReflectAnswer,
+    TagGroups,
     TagMatch,
     TagScope,
 )
@@ -57,6 +58,15 @@ REFLECT_KIND = "reflect"
 SCOPE_MATCH: TagMatch = "any_strict"
 
 
+def _recall_scope(scope: "AppliedScope") -> TagScope | TagGroups:
+    """What the gateway filters a recall by: the scope's tags, or, with a layer, the scope's
+    tags AND the layer's label tag (`layer:<value>`; a label group with `tag: true`)."""
+    flat = TagScope(scope.tags, scope.tags_match)
+    if scope.layer is None:
+        return flat
+    return TagGroups([flat, TagScope([f"layer:{scope.layer}"], "any_strict")])
+
+
 class ResearchRefused(Exception):
     """A request Atlas won't run: `code` is the API error code (422)."""
 
@@ -73,6 +83,21 @@ class ResearchScope(BaseModel):
     theme_ids: list[str] = Field(
         default_factory=list[str], max_length=100, description="theme slugs, e.g. photonics"
     )
+    layer: str | None = Field(
+        default=None,
+        description="a supply-chain layer (`substrate`, `epi`, `chip-laser`, ...): a recall"
+        " is also limited to the facts labelled with it, the scope AND the layer's label tag"
+        " (a compound tag filter); a reflect refuses it",
+    )
+
+    @model_validator(mode="after")
+    def _layer_known(self) -> Self:
+        # Imported here: atlas.claims imports this package (passage selection's search).
+        from atlas.claims import LAYER_NAMES
+
+        if self.layer is not None and self.layer not in LAYER_NAMES:
+            raise ValueError(f"unknown layer {self.layer!r}; one of {sorted(LAYER_NAMES)}")
+        return self
 
     @model_validator(mode="after")
     def _not_empty(self) -> Self:
@@ -88,6 +113,9 @@ class AppliedScope(BaseModel):
     theme_ids: list[str]
     tags: list[str]
     tags_match: TagMatch
+    # The layer whose label tag (`layer:<value>`) a recall was also scoped by: the facts
+    # carrying one of `tags` AND the layer's tag. None: no layer scope.
+    layer: str | None = None
 
 
 class RecallRequest(BaseModel):
@@ -256,7 +284,11 @@ class Research:
                 raise ResearchRefused("unknown_theme", f"unknown theme: {', '.join(unknown)}")
         tags = [f"company:{c}" for c in company_ids] + [f"theme:{t}" for t in theme_ids]
         return AppliedScope(
-            company_ids=company_ids, theme_ids=theme_ids, tags=tags, tags_match=SCOPE_MATCH
+            company_ids=company_ids,
+            theme_ids=theme_ids,
+            tags=tags,
+            tags_match=SCOPE_MATCH,
+            layer=scope.layer,
         )
 
     # --- recall --------------------------------------------------------------------------------
@@ -265,7 +297,7 @@ class Research:
         scope = self.apply_scope(request.scope)
         result = self._gateway.recall(
             request.query,
-            scope=TagScope(scope.tags, scope.tags_match),
+            scope=_recall_scope(scope),
             budget=request.budget,
             max_tokens=request.max_tokens,
             types=request.types,
@@ -300,6 +332,10 @@ class Research:
         """
         if request.response_schema is not None:
             check_schema(request.response_schema)
+        if request.scope.layer is not None:
+            raise ResearchRefused(
+                "layer_scope_unsupported", "a layer scopes a recall; a reflect takes none"
+            )
         scope = self.apply_scope(request.scope)
         answer_id = uuid.uuid4()
         key = f"reflect:{answer_id}"

@@ -252,6 +252,16 @@ export function pointerQueryLabel(group: PointerGroup): string {
   return group.round > 1 ? `${which} (follow-up round ${group.round})` : which;
 }
 
+/**
+ * Which recall made a pointer, in words (memory-quality ticket 13): a Scout query that carries
+ * a layer is asked across the theme and again among the facts labelled with that layer.
+ */
+export function pointerScope(pointer: Pick<ReadingPointer, "scope" | "layer">): string {
+  return pointer.scope === "theme_layer"
+    ? `the theme's facts labelled ${pointer.layer ?? "with a layer"}`
+    : "the theme";
+}
+
 /** A group's pointers in words: how many, and how many name each company. */
 export function pointerSummary(group: PointerGroup): string {
   const companies = group.companies.map((each) => `${each.name} ${each.pointers}`).join(", ");

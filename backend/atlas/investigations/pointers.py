@@ -46,6 +46,18 @@ with its events, its counts in the task's artifacts and one audit event
 `atlas-skeptic`, its hash over the rows). A later attempt of the task finds the counts
 recorded and asks nothing again.
 
+**Layer-aware** (memory-quality ticket 13; docs/decisions.md, "Layer-aware pointer recall"): a
+Scout query that carries a layer (`discovery_query.layer`: the Scout names one of the Claim
+taxonomy's layers) is asked of Memory a second time, with the theme's scope AND the layer's
+label tag (a compound tag filter; the facts the extractor labelled with that layer, wherever
+their wording differs from the query's). Both recalls' pointers are kept, each naming its
+scope (`scope` `theme` or `theme_layer`, with the `layer`). A memory both recalls return makes
+one pointer per recall, as a memory two queries return does; the pointed companies' weight
+(the sum of 1 / rank over their pointers) is unchanged, so such a memory counts twice. Before
+facts carry the label (the backfill brings them) the second recall returns nothing: it is
+recorded as an empty layer recall (`layer_recalls_empty`), never as a failure. The question's
+recall asks no layer, and neither does a Skeptic's.
+
 **Failures.** A recall that fails for a reason of its own (an HTTP error that is neither a
 quota nor an outage, an answer off the contract) is recorded as a `pointer_recall_failed`
 event and the other queries proceed: the pointers are fewer. A quota or outage failure is
@@ -93,6 +105,11 @@ _ERROR_LIMIT = 500
 
 # The theme-scoped recall of a query, each memory with its provenance.
 Recall = Callable[[str], RecallResponse]
+# The same recall limited to the facts labelled with a layer: (query, layer).
+LayerRecall = Callable[[str, str], RecallResponse]
+# What scoped a recall: the theme alone, or the theme and a layer's label (ticket 13).
+THEME_SCOPE = "theme"
+LAYER_SCOPE = "theme_layer"
 
 
 @dataclass(frozen=True)
@@ -104,6 +121,8 @@ class PointerQuery:
     # A bear-checklist query's item and the company it asks about; None for a Scout's.
     checklist_item: str | None = None
     company_id: uuid.UUID | None = None
+    # A Scout query's layer (memory-quality ticket 13): also asked among that layer's facts.
+    layer: str | None = None
 
 
 def scout_queries(
@@ -112,14 +131,14 @@ def scout_queries(
     """What a Scout task asks Memory: the round's question, then its discovery's queries."""
     rows = connection.execute(
         text(
-            "SELECT id, position, query FROM discovery_query WHERE discovery_id = :discovery"
+            "SELECT id, position, query, layer FROM discovery_query WHERE discovery_id = :discovery"
             " ORDER BY position"
         ),
         {"discovery": discovery_id},
     )
     return [
         PointerQuery(QUESTION_INDEX, question),
-        *(PointerQuery(row.position, row.query, row.id) for row in rows),
+        *(PointerQuery(row.position, row.query, row.id, layer=row.layer) for row in rows),
     ]
 
 
@@ -228,10 +247,12 @@ def record_pointers(
     queries: Sequence[PointerQuery],
     *,
     actor: Actor = SCOUT_ACTOR,
+    layer_recall: LayerRecall | None = None,
 ) -> dict[str, JsonValue]:
     """Ask Memory each query and store the task's reading pointers (see the module); returns
     the task's pointer artifacts. A task whose pointers are recorded asks nothing. `actor`
-    is the asking role's, for the audit event (the Scout's by default)."""
+    is the asking role's, for the audit event (the Scout's by default). With `layer_recall`, a
+    query that carries a layer is asked a second time among that layer's facts."""
     recorded = _recorded(task["artifacts"])
     if recorded is not None:
         return recorded
@@ -240,6 +261,9 @@ def record_pointers(
     failed: list[tuple[PointerQuery, str]] = []
     without: list[str] = []
     memories = unresolved = later = 0
+    layer_asked = layer_memories = layer_rows = 0
+    layer_failed: list[tuple[PointerQuery, str]] = []
+    layer_empty: list[PointerQuery] = []
     for query in queries:
         try:
             response = recall(query.text[:MAX_QUERY_CHARS])
@@ -247,14 +271,32 @@ def record_pointers(
             if classify_failure(error) is not None:
                 raise  # a quota or an outage: the queue pauses and the task asks again
             failed.append((query, f"{type(error).__name__}: {error}"[:_ERROR_LIMIT]))
+        else:
+            found = _resolved(investigation, task, query, response, as_of)
+            memories += len(response.memories)
+            unresolved += found.unresolved
+            later += found.later
+            rows.extend(found.rows)
+            if not found.rows:
+                without.append(query.text)
+        if layer_recall is None or query.layer is None:
             continue
-        found = _resolved(investigation, task, query, response, as_of)
-        memories += len(response.memories)
+        layer_asked += 1
+        try:
+            by_layer = layer_recall(query.text[:MAX_QUERY_CHARS], query.layer)
+        except HindsightError as error:
+            if classify_failure(error) is not None:
+                raise
+            layer_failed.append((query, f"{type(error).__name__}: {error}"[:_ERROR_LIMIT]))
+            continue
+        found = _resolved(investigation, task, query, by_layer, as_of, layer=query.layer)
+        layer_memories += len(by_layer.memories)
         unresolved += found.unresolved
         later += found.later
+        layer_rows += len(found.rows)
         rows.extend(found.rows)
-        if not found.rows:
-            without.append(query.text)
+        if not by_layer.memories:
+            layer_empty.append(query)  # no fact carries the label (yet): not a failure
     with engine.begin() as connection:
         lock(connection, investigation["id"])
         recorded = _recorded(
@@ -275,6 +317,26 @@ def record_pointers(
             "pointers": len(rows),
             "pointers_by_company": _by_company(connection, rows),
         }
+        if layer_recall is not None:
+            artifacts |= {
+                "layer_recalls": layer_asked,
+                "layer_recalls_failed": len(layer_failed),
+                "layer_recalls_empty": len(layer_empty),
+                "layer_memories_recalled": layer_memories,
+                "layer_pointers": layer_rows,
+            }
+        for query, error in layer_failed:
+            event(
+                connection,
+                investigation["id"],
+                "pointer_recall_failed",
+                round=task["round"],
+                task_key=task["key"],
+                query_index=query.index,
+                query=query.text,
+                layer=query.layer,
+                error=error,
+            )
         for query, error in failed:
             event(
                 connection,
@@ -294,6 +356,15 @@ def record_pointers(
             task_key=task["key"],
             **artifacts,
             queries_without_pointers=list[JsonValue](without),
+            **(
+                {
+                    "layer_recalls_empty_for": list[JsonValue](
+                        [{"query_index": each.index, "layer": each.layer} for each in layer_empty]
+                    )
+                }
+                if layer_recall is not None
+                else {}
+            ),
         )
         connection.execute(
             text(
@@ -319,7 +390,7 @@ _COLUMNS = (
     " memory_id, memory_type, memory_text, source_version_id, section_anchor, section_heading,"
     " section_char_start, section_char_end, company_id, available_at, citation_state,"
     " query_kind, checklist_item, query_company_id, score, entity_names,"
-    " placed_by, chunk_id, chunk_char_start, chunk_char_end"
+    " placed_by, chunk_id, chunk_char_start, chunk_char_end, scope, layer"
 )
 _INSERT = (
     f"INSERT INTO reading_pointer ({_COLUMNS}) VALUES ("  # noqa: S608 (constant SQL)
@@ -341,8 +412,11 @@ def _resolved(
     query: PointerQuery,
     response: RecallResponse,
     as_of: datetime,
+    *,
+    layer: str | None = None,
 ) -> _Found:
-    """The recall's pointers: one per resolved memory and section available by `as_of`."""
+    """The recall's pointers: one per resolved memory and section available by `as_of`, each
+    naming the scope that recalled it (`layer`: the layer-scoped second recall's)."""
     found = _Found(rows=[])
     for rank, memory in enumerate(response.memories, start=1):
         citation = memory.provenance
@@ -399,6 +473,8 @@ def _resolved(
                     "chunk_id": (placed or source).chunk_id,
                     "chunk_char_start": placed.chunk_char_start if placed is not None else None,
                     "chunk_char_end": placed.chunk_char_end if placed is not None else None,
+                    "scope": THEME_SCOPE if layer is None else LAYER_SCOPE,
+                    "layer": layer,
                 }
             )
     return found
@@ -436,5 +512,10 @@ _ARTIFACTS = frozenset(
         "sections_after_as_of",
         "pointers",
         "pointers_by_company",
+        "layer_recalls",
+        "layer_recalls_failed",
+        "layer_recalls_empty",
+        "layer_memories_recalled",
+        "layer_pointers",
     }
 )

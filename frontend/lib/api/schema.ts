@@ -1519,6 +1519,8 @@ export interface components {
             /** Tags */
             tags: string[];
             tags_match: components["schemas"]["TagMatch"];
+            /** Layer */
+            layer?: string | null;
         };
         /** Assertion */
         Assertion: {
@@ -3063,6 +3065,8 @@ export interface components {
             purpose: string | null;
             /** Filing Phrase */
             filing_phrase: string | null;
+            /** Layer */
+            layer?: string | null;
             /**
              * Status
              * @enum {string}
@@ -6065,6 +6069,14 @@ export interface components {
             chunk_char_end?: number | null;
             /** Entity Id */
             entity_id?: string | null;
+            /**
+             * Scope
+             * @default theme
+             * @enum {string}
+             */
+            scope: "theme" | "theme_layer";
+            /** Layer */
+            layer?: string | null;
         };
         /**
          * RecallRequest
@@ -6800,6 +6812,11 @@ export interface components {
              * @description theme slugs, e.g. photonics
              */
             theme_ids?: string[];
+            /**
+             * Layer
+             * @description a supply-chain layer (`substrate`, `epi`, `chip-laser`, ...): a recall is also limited to the facts labelled with it, the scope AND the layer's label tag (a compound tag filter); a reflect refuses it
+             */
+            layer?: string | null;
         };
         /**
          * ResearchSnapshot

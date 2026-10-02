@@ -6374,6 +6374,17 @@
           },
           "tags_match": {
             "$ref": "#/components/schemas/TagMatch"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer"
           }
         },
         "type": "object",
@@ -10705,6 +10716,17 @@
               }
             ],
             "title": "Filing Phrase"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer"
           },
           "status": {
             "type": "string",
@@ -19169,6 +19191,26 @@
               }
             ],
             "title": "Entity Id"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "theme",
+              "theme_layer"
+            ],
+            "title": "Scope",
+            "default": "theme"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer"
           }
         },
         "type": "object",
@@ -21434,6 +21476,18 @@
             "maxItems": 100,
             "title": "Theme Ids",
             "description": "theme slugs, e.g. photonics"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer",
+            "description": "a supply-chain layer (`substrate`, `epi`, `chip-laser`, ...): a recall is also limited to the facts labelled with it, the scope AND the layer's label tag (a compound tag filter); a reflect refuses it"
           }
         },
         "additionalProperties": false,

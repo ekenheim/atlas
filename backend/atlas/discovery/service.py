@@ -102,6 +102,9 @@ class DiscoveryQuery(BaseModel):
     query: str
     purpose: str | None
     filing_phrase: str | None  # the exact phrase asked for in filings, as written
+    # The supply-chain layer the Scout said the query concerns (memory-quality ticket 13); the
+    # pointer recall asks the facts labelled with it too. None: no layer.
+    layer: str | None = None
     status: Literal["pending", "searched", "failed"]
     result_count: int | None  # results SearXNG returned (web URLs or not)
     new_leads: int | None  # of them, canonical URLs never seen before
@@ -283,6 +286,7 @@ class Scout:
                     query.query,
                     query.purpose,
                     query.filing_phrase,
+                    layer=query.layer,
                     edgar=self._edgar,
                     window=window,
                 )
@@ -329,6 +333,14 @@ def _update(
 # --- queries and searches (shared with the Skeptic's discovery) ------------------------------
 
 
+def _layer_names() -> frozenset[str]:
+    """The Claim layer taxonomy's names (imported here: atlas.claims imports the research
+    package, which loads beside this one)."""
+    from atlas.claims import LAYER_NAMES
+
+    return LAYER_NAMES
+
+
 def months_before(day: date, months: int) -> date:
     """The same day `months` calendar months earlier (the month's last day if it is shorter)."""
     index = day.year * 12 + day.month - 1 - months
@@ -359,6 +371,7 @@ def add_query(
     *,
     edgar: EdgarFullTextSearch | None,
     window: tuple[date, date],
+    layer: str | None = None,
 ) -> None:
     """Add a query to a discovery, with its EDGAR search when the channel is on and the query
     has a filing phrase. A phrase that isn't specific enough (`edgar.skip_reason`: one word
@@ -368,7 +381,8 @@ def add_query(
     connection.execute(
         text(
             "INSERT INTO discovery_query (id, discovery_id, position, query, purpose,"
-            " filing_phrase) VALUES (:id, :discovery, :position, :query, :purpose, :phrase)"
+            " filing_phrase, layer) VALUES (:id, :discovery, :position, :query, :purpose,"
+            " :phrase, :layer)"
         ),
         {
             "id": query_id,
@@ -377,6 +391,8 @@ def add_query(
             "query": query,
             "purpose": purpose,
             "phrase": filing_phrase,
+            # Only a name of the layer taxonomy is kept; anything else the model wrote is none.
+            "layer": layer if layer is not None and layer in _layer_names() else None,
         },
     )
     phrases = filing_phrases(filing_phrase)
@@ -540,7 +556,12 @@ def _distinct(queries: Sequence[ScoutQuery]) -> list[ScoutQuery]:
         if query and key not in seen:
             seen.add(key)
             kept.append(
-                ScoutQuery(query=query, purpose=each.purpose, filing_phrase=each.filing_phrase)
+                ScoutQuery(
+                    query=query,
+                    purpose=each.purpose,
+                    filing_phrase=each.filing_phrase,
+                    layer=each.layer,
+                )
             )
     return kept
 

@@ -262,6 +262,49 @@ def test_a_recall_with_no_new_field_sends_what_it_sent_before(
     assert recalled["source_facts_truncated"] is None
 
 
+def test_a_recall_with_a_layer_scope_is_filtered_by_the_scope_and_the_layer_s_label(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # Memory-quality ticket 13: a compound tag filter, the theme AND the layer's label tag.
+    section = atlas.section(LITE_10K, "lumentum")
+    fake.script_fact_labels(section["document_id"], ["layer:substrate"])
+
+    recalled = atlas.recall("wafers", theme_ids=["photonics"], layer="substrate")
+
+    (sent,) = fake.requests("POST", "memories/recall")
+    assert sent == {
+        "query": "wafers",
+        "budget": "mid",
+        "tag_groups": [
+            {"tags": ["theme:photonics"], "match": "any_strict"},
+            {"tags": ["layer:substrate"], "match": "any_strict"},
+        ],
+    }
+    assert recalled["scope"]["layer"] == "substrate"
+    # Only the labelled fact is recalled (the derived recall filters by the compound tags).
+    assert [m["memory_id"] for m in recalled["memories"]] == [
+        fake.derived_fact(section["document_id"])
+    ]
+    other = atlas.recall("wafers", theme_ids=["photonics"], layer="module")
+    assert other["memories"] == []
+
+
+def test_a_layer_must_be_a_name_of_the_taxonomy_and_a_reflect_takes_none(atlas: Atlas) -> None:
+    unknown = atlas.api.post(
+        "/api/v1/memory/recall",
+        json={"query": "q", "scope": {"theme_ids": ["photonics"], "layer": "feedstock"}},
+    )
+    reflect = atlas.api.post(
+        "/api/v1/memory/reflect",
+        json={"question": "q", "scope": {"theme_ids": ["photonics"], "layer": "substrate"}},
+    )
+
+    assert unknown.status_code == 422
+    assert "unknown layer" in unknown.text
+    assert reflect.status_code == 422
+    assert "layer_scope_unsupported" in reflect.text
+
+
 def test_a_recall_sends_the_reading_index_fields_and_returns_scores_and_entities(
     atlas: Atlas, fake: RecordedHindsight
 ) -> None:
@@ -415,6 +458,7 @@ def test_reflect_runs_as_a_job_and_the_api_returns_the_stored_answer(
         "theme_ids": ["photonics"],
         "tags": ["theme:photonics"],
         "tags_match": "any_strict",
+        "layer": None,
     }
     assert [(c["id"], c["type"]) for c in answer["raw_citations"]] == [(fact, "world")]
     memory, quote = answer["citations"]

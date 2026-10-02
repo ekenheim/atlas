@@ -55,6 +55,7 @@ from atlas.hindsight.models import (
     RetainSubmitted,
     ServerHealth,
     ServerVersion,
+    TagGroups,
     TagScope,
     TemplateApplication,
     TemplateImportResult,
@@ -164,7 +165,7 @@ class HindsightGateway:
         self,
         query: str,
         *,
-        scope: TagScope | None,
+        scope: TagScope | TagGroups | None,
         budget: Budget = "mid",
         max_tokens: int | None = None,
         types: Sequence[FactType] | None = None,
@@ -173,7 +174,8 @@ class HindsightGateway:
         include_source_facts: bool = False,
         include_chunks: bool = False,
     ) -> RecallResult:
-        """Recall memories for a query, strictly scoped by tags (scope=None: the whole bank).
+        """Recall memories for a query, strictly scoped by tags (scope=None: the whole bank; a
+        `TagGroups` is a compound filter, every group matching).
 
         The 0.10.2 options (`docs/hindsight-feature-matrix.md`) are sent only when given, so a
         recall without them is the request it always was: `max_tokens` (the results' text
@@ -448,9 +450,16 @@ class HindsightGateway:
             ) from error
 
 
-def _scope_fields(scope: TagScope | None) -> dict[str, JsonValue]:
+def _scope_fields(scope: TagScope | TagGroups | None) -> dict[str, JsonValue]:
     if scope is None:
         return {}
+    if isinstance(scope, TagGroups):
+        # `tag_groups` and `tags` are mutually exclusive (recall docs): only the groups are sent.
+        groups: list[JsonValue] = []
+        for group in scope.groups:
+            check_tag_scope(group)
+            groups.append({"tags": list(group.tags), "match": group.match})
+        return {"tag_groups": groups}
     check_tag_scope(scope)  # again at call time, however the scope was built
     return {"tags": list(scope.tags), "tags_match": scope.match}
 

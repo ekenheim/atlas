@@ -84,7 +84,7 @@ One attempt:
 
 import json
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal, cast
@@ -128,6 +128,7 @@ from atlas.investigations.model import (
 )
 from atlas.investigations.pointers import (
     SCOUT_ACTOR,
+    LayerRecall,
     Recall,
     record_pointers,
     round_reading,
@@ -146,7 +147,7 @@ from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import run_recorder
 from atlas.research.provenance import ProvenanceResolver
-from atlas.research.service import RecallRequest, Research, ResearchScope
+from atlas.research.service import RecallRequest, RecallResponse, Research, ResearchScope
 from atlas.roles import (
     QuotedText,
     RoleCaller,
@@ -512,6 +513,7 @@ class TaskRunner:
             investigation,
             task,
             queries,
+            layer_recall=self._layer_recall(theme_id, universe, investigation["as_of"]),
         )
         # The entity hop (memory-quality ticket 09): what other companies' documents say
         # about the companies this round reads, whether or not a recall ranked them.
@@ -580,6 +582,20 @@ class TaskRunner:
     def _theme_recall(
         self, theme_id: str, universe: Universe, as_of: datetime, actor: Actor = SCOUT_ACTOR
     ) -> Recall:
+        ask = self._asker(theme_id, universe, as_of, actor)
+        return lambda query: ask(query, None)
+
+    def _layer_recall(
+        self, theme_id: str, universe: Universe, as_of: datetime, actor: Actor = SCOUT_ACTOR
+    ) -> LayerRecall:
+        """The same recall limited to the facts labelled with a layer (memory-quality ticket
+        13): the theme AND the layer's label tag, in one compound tag filter."""
+        ask = self._asker(theme_id, universe, as_of, actor)
+        return lambda query, layer: ask(query, layer)
+
+    def _asker(
+        self, theme_id: str, universe: Universe, as_of: datetime, actor: Actor
+    ) -> Callable[[str, str | None], RecallResponse]:
         """Recall across the theme: every memory tagged with it, whichever company's.
 
         Asked like a reading index (memory-quality ticket 07; docs/decisions.md, "Recall as a
@@ -589,22 +605,25 @@ class TaskRunner:
         research = Research(
             self._engine, open_archive(self._settings), self._gateway, actor, lambda: universe
         )
-        scope = ResearchScope(theme_ids=[theme_id])
         max_tokens = self._settings.pointer_recall_max_tokens
-        return lambda query: research.recall(
-            RecallRequest(
-                query=query,
-                scope=scope,
-                budget="high",
-                max_tokens=max_tokens,
-                prefer_observations=True,
-                query_timestamp=as_of,
-                include_source_facts=True,
-                # Each fact's chunk located in its section: the pointer's window is the
-                # chunk's (memory-quality ticket 08; atlas.research.chunks).
-                include_chunks=True,
+
+        def ask(query: str, layer: str | None = None) -> RecallResponse:
+            return research.recall(
+                RecallRequest(
+                    query=query,
+                    scope=ResearchScope(theme_ids=[theme_id], layer=layer),
+                    budget="high",
+                    max_tokens=max_tokens,
+                    prefer_observations=True,
+                    query_timestamp=as_of,
+                    include_source_facts=True,
+                    # Each fact's chunk located in its section: the pointer's window is the
+                    # chunk's (memory-quality ticket 08; atlas.research.chunks).
+                    include_chunks=True,
+                )
             )
-        )
+
+        return ask
 
     def _investigator(
         self, job: Job, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID

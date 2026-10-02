@@ -43,7 +43,7 @@ QUERIES = [
     {"query": SECOND_SOURCE, "purpose": "InP lasers: second sources"},
     {"query": NOTHING, "purpose": "EML lasers: pricing power"},
 ]
-SCOUT_PROMPT = (REPO / "backend" / "atlas" / "roles" / "prompts" / "scout.v4.md").read_text(
+SCOUT_PROMPT = (REPO / "backend" / "atlas" / "roles" / "prompts" / "scout.v5.md").read_text(
     encoding="utf-8"
 )
 AXT = "https://photonics-news.test/2026/08/axt-expands-inp-substrate-capacity"

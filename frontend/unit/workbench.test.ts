@@ -29,6 +29,7 @@ import {
   pointedOutcome,
   pointerGroups,
   pointerQueryLabel,
+  pointerScope,
   pointerSummary,
   pointerWeight,
   readerName,
@@ -220,6 +221,16 @@ function pointer(overrides: Partial<ReadingPointer>): ReadingPointer {
     ...overrides,
   } as ReadingPointer;
 }
+
+test("a pointer says which recall made it: the theme, or the theme's facts of a layer", () => {
+  const themed = pointer({ query_index: 1, rank: 1, scope: "theme", layer: null });
+  const layered = pointer({ query_index: 1, rank: 1, scope: "theme_layer", layer: "substrate" });
+  expect(pointerScope(themed)).toBe("the theme");
+  expect(pointerScope(layered)).toBe("the theme's facts labelled substrate");
+  // Both recalls' pointers of one query stay in its group.
+  const [group] = pointerGroups([layered, themed]);
+  expect(group?.pointers).toHaveLength(2);
+});
 
 test("reading pointers are grouped by the query asked of Memory, best rank first", () => {
   const question = "Who supplies the laser chips, and what feedstock limits them?";
