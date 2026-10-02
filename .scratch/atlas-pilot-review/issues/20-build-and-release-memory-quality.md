@@ -36,3 +36,18 @@ The answer records the release, the deploy, the before and after numbers, the co
 - Every recall is capped near 45 memories by the default `max_tokens` (ticket 07).
 - 11 companies are pointed at over the 91 recalls, two of them far more than the rest (3,953 and 3,886 source sections, then 1,793 and 983; three companies under 12). Memory holds little of most companies: about 1,900 sections' retains were cancelled early in the rollout (ticket 12 brings them in).
 - The same recalls are run again after the release and the backfill, through ticket 02's probe script, whose report can also be computed from these raw answers.
+
+**2026-10-02 (09:40 UTC), the lead: the before-measure in the probe set's own format** (`scripts/memory_probe.py`, ticket 02; `configs/memory/probes.yaml` version 1: the five pilot questions and four Scout-style queries each, 25 theme-scoped recalls; production 0.3.0; report in `.scratch/live-runs/20261002-memory-probe-before-official/`). This is the table the after-measure is compared with.
+
+| Probe | Memories | Resolved | Sections | Companies | Observations | Superseded |
+|---|---|---|---|---|---|---|
+| laser-chips | 210 | 209 | 148 | 8 | 21% | 54 |
+| inp-substrates | 215 | 215 | 136 | 5 | 21% | 47 |
+| module-assembly | 242 | 241 | 179 | 8 | 13% | 17 |
+| dsp-drivers | 233 | 223 | 208 | 9 | 16% | 16 |
+| coherent-demand | 249 | 248 | 149 | 7 | 22% | 61 |
+| total | 1,149 | 1,136 | 405 | 10 | 19% | 195 |
+
+- "Superseded" is a fact returned beside an observation of the same answer that was built from it: 195 of 1,149 places (17%). The lead added the measure after the script's first run: its "repeats" only saw identical text and read 0. (The 34% above came from 91 other queries, most of them investigation 1's.)
+- Pointer weight by company over the 25 recalls: Coherent 90.2, Lumentum 78.1, Applied Optoelectronics 27.3, AXT 22.9, MACOM 6.9, Marvell 3.9, Ciena 3.4, Fabrinet 3.2, IQE 0.3, STMicroelectronics 0.02; Soitec and Innolight none. The dsp-drivers and coherent-demand questions are seeded with Marvell, MACOM and Ciena.
+- The memory-health read is not on production until this effort is deployed; its before-numbers are the metric's (695 completed, 22 zero-fact, 1,907 recorded failed of which the sampled ones are all the owner's cancellations, 59 pending, at 07:53 UTC).
