@@ -39,7 +39,7 @@ Open decision to record when the first transcript Claims exist: a management sta
 
 - The six companies with no section yet (Ciena, IQE, MACOM, Marvell, STMicroelectronics, Soitec) are in the retain queue, which was held by the Codex budget until the owner merged home-ops #7194 at 07:54 UTC; it is draining under the `hindsight_minimax` budget (93 retains queued at 08:26 UTC). Three of them are seeds of investigations 4 and 5.
 - Soitec's nine transcripts are in English, so Memory will hold Soitec through them although its AMF filings are French.
-- Innolight has no transcript on TradingView (its catalog holds eight interim and annual reports, which are not retrievable). The owner's answer is news through TradingView: memory-quality tickets 17 and 18.
+- Innolight has no transcript on TradingView (its catalog holds eight interim and annual reports, which are not retrievable). News through TradingView was considered and dropped with the owner (memory-quality tickets 17 and 18, `wontfix`), so Innolight stays uncovered until the owner imports documents or holds a licence.
 - These retains carry the old context (for a transcript, "Q4 2026: chunk-004"); the backfill (memory-quality ticket 12) re-extracts them under the new profile.
 - Open decision from the question, still open: a management statement in a transcript is Tier B, and only Tier A Evidence makes a `machine_reviewed` edge, so every transcript edge goes to the owner's queue.
 

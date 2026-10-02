@@ -125,9 +125,6 @@ Memory stays an index. Nothing here lets a memory's text be quoted, serve as a w
 **The embedding model.**
 - The owner offered a different embedding model (2026-10-02). The choice is measured, not assumed: the current model as served, the same with its query instruction, the model Hindsight's thresholds are calibrated for, and at most two further candidates, each on the known answers and against the five similarity thresholds, with the cost of each change stated (a query prefix re-embeds nothing; a new model re-embeds every bank; another dimension needs an empty store). The owner decides; the backfill runs after the decision.
 
-**News through TradingView, as leads.**
-- The owner widened the TradingView override to news story text (2026-10-02). A story is a Tier C Source Version; Memory holds it apart (its own tags and observation scopes), recall leaves it out unless asked, and an investigation uses it only for lead pointers and a list of news leads on the card. A story makes no Assertion, no Claim and no contradiction (product spec §4.1). This is how a company with no fetchable primary source, Innolight today, is present at all.
-
 **The backfill.**
 - A backfill-class job per company re-retains the sections whose retain profile is older than the current one (same document ID, so Hindsight replaces the document's memories), re-enqueues failed sections, and then asks for consolidation. It runs under the retain budget on the MiniMax extractor and in the backfill window, newest documents first, resumable.
 - Its completion criterion is the health read: every non-skipped section of the pilot's companies completed, zero-fact or failed with a recorded reason, at the current profile.
@@ -143,6 +140,7 @@ Memory stays an index. Nothing here lets a memory's text be quoted, serve as a w
 ## Out of Scope
 
 - Any use of a memory's text as Evidence, as a quote or as input to a role.
+- News story text through TradingView, in the archive or in Memory: considered on 2026-10-02 and dropped with the owner, since a Tier C story makes no Claim and no edge (tickets 17 and 18, `wontfix`). Headlines stay Tier C leads.
 - Per-company and per-layer mental models, and a reflect-written prior-knowledge brief for the Scout: they wait until the two existing models are grounded and counted (the map's "More of Hindsight").
 - Retain strategies per document type and the `verbose` or `verbatim` extraction modes: the first ticket's dry-run comparison says whether they are worth a ticket; none is built here.
 - Changing the reranker model or Hindsight's version. (The embedding model is in scope as a measured decision.)

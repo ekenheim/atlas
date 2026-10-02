@@ -18,7 +18,7 @@ Migration revision `0068` (down: main's head).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** wontfix
 
 - [ ] Integration test at the worker seam with the TradingView fake: a catalog job stores two headlines and enqueues the news job; the news job fetches both stories within its cap, each a Tier C Source Version with publisher, published time, override text and named companies; a rerun fetches nothing.
 - [ ] A story listed for two companies is fetched once and linked; two publishers' copies of one text share an Evidence Family.
@@ -27,3 +27,7 @@ Migration revision `0068` (down: main's head).
 - [ ] `extract_claims` given a news Source Version refuses it; passage selection never offers one; no Assertion can be created on one (API test).
 - [ ] The lead read and the source viewer show the story as Tier C (API client regenerated; frontend unit test of the pure part).
 - [ ] Decision, licence, runbook entries; `AGENTS.md` line.
+
+## Comments
+
+**2026-10-02, the lead: not pursued.** The lead proposed that a news story make no Claim and no edge (Tier C is a lead, product spec §4.1). The owner agreed and drew the conclusion: "I agree with the news angle has no edge, perhaps not worth pursuing." With no Claim and no edge, news in Memory would only add lead pointers and a list on the card, for the cost of two tickets and a standing stream of TradingView calls. The implementer was stopped before it changed anything. Headlines stay what they are today: Tier C leads from the catalog job. Innolight stays without archived material until the owner imports documents by hand or holds an exchange licence.

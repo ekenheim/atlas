@@ -39,7 +39,7 @@ The pilot's verdict, in two artifacts:
 
 ## Not yet specified
 
-- **News beyond leads.** Memory-quality tickets 17 and 18 bring TradingView's news stories into the archive and into Memory as leads (the owner, 2026-10-02: "We can use tradingview for news"), which is how Innolight is covered; Soitec is covered by its English call transcripts. Not decided: whether a news story may ever support a `third_party_report` Claim that goes to the owner's queue. Today Tier C makes no Claim (spec §4.1), and the lead kept it so.
+- **Innolight has nothing in Memory** (the before-measure, ticket 20): HKEXnews may not be fetched and TradingView has no transcript for it. News story text through TradingView was considered and dropped with the owner on 2026-10-02 (a Tier C story makes no Claim and no edge; memory-quality tickets 17 and 18, `wontfix`). It needs the owner's manual imports (`atlas sources import`) or a licence. Soitec is covered by its nine English call transcripts.
 - **A third fix round before the verdict.** Whether one is needed depends on what investigations 2–5 show; the focus rule says no unless a blocker appears.
 - **What Hindsight adds.** The baseline and the live evaluation both bear on whether recall and reflect improve a card over reading the archive directly; the question can't be phrased sharply until the baseline is defined.
 - **Cost at scale.** Tokens per investigation against the MiniMax and Codex budgets when the universe and the number of questions grow; needs the five runs' numbers.

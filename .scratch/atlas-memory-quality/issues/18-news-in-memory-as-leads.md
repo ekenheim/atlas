@@ -17,7 +17,7 @@ Migration revision `0069` (down: main's head).
 
 **Blocked by:** 04, 06, 07, 17
 
-**Status:** ready-for-agent
+**Status:** wontfix
 
 - [ ] Integration test at the worker seam: a news Source Version is retained with `tier:c`, `doctype:news`, its own scopes, the third-party context and its entities; a filing's retain is unchanged.
 - [ ] A scoped recall without the field returns no news memory; with it, news memories come back marked Tier C; reflect and the mental models never see them.
@@ -25,3 +25,7 @@ Migration revision `0069` (down: main's head).
 - [ ] No passage of a news Source Version is ever selected (the selection test of ticket 17 extended).
 - [ ] The investigation page shows news leads apart from Evidence (frontend unit test of the pure part); API client regenerated.
 - [ ] Glossary and decision entries; `AGENTS.md` line.
+
+## Comments
+
+**2026-10-02, the lead: not pursued.** The lead proposed that a news story make no Claim and no edge (Tier C is a lead, product spec §4.1). The owner agreed and drew the conclusion: "I agree with the news angle has no edge, perhaps not worth pursuing." With no Claim and no edge, news in Memory would only add lead pointers and a list on the card, for the cost of two tickets and a standing stream of TradingView calls. The implementer was stopped before it changed anything. Headlines stay what they are today: Tier C leads from the catalog job. Innolight stays without archived material until the owner imports documents by hand or holds an exchange licence.

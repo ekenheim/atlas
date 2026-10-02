@@ -6,11 +6,11 @@ Blocked by: 19
 
 ## Question
 
-Build the spec `.scratch/atlas-memory-quality/spec.md` (eighteen tickets in `.scratch/atlas-memory-quality/issues/`), integrate and release it with the `release-atlas` skill, deploy it, run the backfill for the pilot's companies and show the conformance check passing strict.
+Build the spec `.scratch/atlas-memory-quality/spec.md` (sixteen tickets to build, in `.scratch/atlas-memory-quality/issues/`), integrate and release it with the `release-atlas` skill, deploy it, run the backfill for the pilot's companies and show the conformance check passing strict.
 
 - Wave 1 (no blockers): 01 Hindsight 0.10.2 recorded, 02 Memory health and the probe set.
 - Out of band, at once: 16 The Editor's card fits a multi-hop investigation. A blocker (investigation 1 on 0.3.0 ended with no card), released by itself as 0.3.1 so investigation 1 can be run again.
-- Added on the owner's word (2026-10-02, news through TradingView): 17 News stories in the ledger (no blockers), 18 News in Memory as leads (after 04, 06, 07, 17).
+- Not built: 17 and 18 (news stories through TradingView). Written on the owner's suggestion and dropped with the owner the same day: a news story makes no Claim and no edge.
 - Wave 2: 03 A section's outcome (no blocker since the cancellations were confirmed); 04 What a retained section says, 05 The bank template, 06 Observation scopes, 07 Recall as a reading index, 10 Reflect and the models (after 01); 14 The conformance check (after 01, 02).
 - Wave 3: 08 Chunk-exact pointers (after 07), 09 The entity hop (after 04, 07), 15 The embedding model (after 01, 14).
 - Wave 4: 11 The owner's server settings (after 02, 15; the lead's, the owner merges), 12 The backfill (after 03 to 06, 15).
