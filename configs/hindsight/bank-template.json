@@ -7,7 +7,7 @@
       "entity_labels": [
         {
           "key": "layer",
-          "description": "The optical supply-chain layer or layers the fact concerns. Give every layer the fact is about, and none when it concerns none of them; a material named alone (indium phosphide, gallium arsenide, silicon photonics) is no layer.",
+          "description": "The optical supply-chain layer or layers the fact concerns. Give every layer the fact is about, and none when it concerns none of them; a material named alone (indium phosphide, gallium arsenide, silicon photonics) is no layer, and neither is a raw material, metal or mineral (indium, gallium, germanium, rare earths) or its supply, prices or export controls: a layer is a product or a manufacturing step.",
           "type": "multi-values",
           "optional": true,
           "tag": true,

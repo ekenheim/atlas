@@ -20,5 +20,5 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("The bank template"). Study: find
 - [x] The template validates against the recorded 0.10.2 schema; the dry-run import through the fake accepts it; the recorded version is the new one.
 - [x] Unit test: the `layer` values equal the taxonomy's layer names.
 - [x] The fake derives label tags on derived facts (from the recording), and a recall filtered by a label tag returns only those (gateway-level test through the public recall once ticket 07's fields exist, otherwise through the fake's contract test).
-- [ ] The comparison note exists, says what was live, and the final texts follow it.
+- [x] The comparison note exists, says what was live, and the final texts follow it. (`docs/research/mission-comparison.md`, run by the lead on 2026-10-02: 6 live requests; the label description was tightened after it.)
 - [x] Decision entry; `AGENTS.md` line.
