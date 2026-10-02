@@ -2118,6 +2118,10 @@ export interface components {
             selections?: {
                 [key: string]: number;
             };
+            /** Pointers Placed By */
+            pointers_placed_by?: {
+                [key: string]: number;
+            };
             /** Selected By */
             selected_by?: ("pointer" | "plan" | "search" | "fallback") | null;
         };
@@ -2384,6 +2388,12 @@ export interface components {
             available_at: string;
             /** Available At Basis */
             available_at_basis: string;
+            /** Chunk Id */
+            chunk_id?: string | null;
+            /** Chunk Char Start */
+            chunk_char_start?: number | null;
+            /** Chunk Char End */
+            chunk_char_end?: number | null;
         };
         /** @enum {string} */
         CitationState: "resolved" | "unverified" | "broken";
@@ -5916,6 +5926,18 @@ export interface components {
             score?: number | null;
             /** Entity Names */
             entity_names?: string[] | null;
+            /**
+             * Placed By
+             * @default match
+             * @enum {string}
+             */
+            placed_by: "chunk" | "match";
+            /** Chunk Id */
+            chunk_id?: string | null;
+            /** Chunk Char Start */
+            chunk_char_start?: number | null;
+            /** Chunk Char End */
+            chunk_char_end?: number | null;
         };
         /**
          * RecallRequest
@@ -5954,6 +5976,12 @@ export interface components {
              * @default false
              */
             include_source_facts: boolean;
+            /**
+             * Include Chunks
+             * @description ask for the chunks the results came from, and locate each resolved fact's chunk in its section (its span in `provenance.sources`; the chunk's text is not returned)
+             * @default false
+             */
+            include_chunks: boolean;
         };
         /** RecallResponse */
         RecallResponse: {

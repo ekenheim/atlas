@@ -88,6 +88,19 @@ class CitationSource(BaseModel):
     section_char_end: int
     available_at: datetime
     available_at_basis: str
+    # The chunk the fact was extracted from (memory-quality ticket 08): its ID, as Hindsight
+    # gave it, and, when a recall asked for chunks and the chunk's text occurs verbatim in the
+    # section, its span in the parsed text (code points, [start, end); atlas.research.chunks).
+    # The chunk's text is never kept.
+    chunk_id: str | None = None
+    chunk_char_start: int | None = None
+    chunk_char_end: int | None = None
+
+
+# A source's fields that belong to its fact, not to its section (left out of `Evidence`).
+_FACT_FIELDS = frozenset(
+    {"memory_id", "document_id", "chunk_id", "chunk_char_start", "chunk_char_end"}
+)
 
 
 class QuoteSpan(BaseModel):
@@ -139,7 +152,7 @@ def evidence_from(citations: Sequence[Citation]) -> list[Evidence]:
         for source in citation.sources:
             key = (source.source_version_id, source.section_anchor)
             if key not in found:
-                fields = source.model_dump(exclude={"memory_id", "document_id"})
+                fields = source.model_dump(exclude=set(_FACT_FIELDS))
                 found[key] = Evidence(**fields, memory_ids=[], quotes=[])
             evidence = found[key]
             for memory_id in (citation.memory_id, source.memory_id):
@@ -351,6 +364,7 @@ class ProvenanceResolver:
                 f" section_anchor={claimed_anchor!r}) disagrees with the ledger's"
                 f" {source.source_version_id}/{source.section_anchor}",
             )
+        source.chunk_id = memory.chunk_id
         return _Outcome("resolved", sources=[source])
 
     def _section(self, document_id: str, memory_id: str) -> _Section | None:

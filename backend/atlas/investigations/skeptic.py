@@ -713,6 +713,10 @@ class Skeptic:
                         query_index=pointer.query_index,
                         memory_text=pointer.memory_text,
                         label=pointer.checklist_item,
+                        # Placed by its fact's chunk, when it was (memory-quality ticket 08).
+                        section_char_start=pointer.section_char_start,
+                        section_char_end=pointer.section_char_end,
+                        chunk_char_start=pointer.chunk_char_start,
                     )
                     for pointer in pointers
                 ],

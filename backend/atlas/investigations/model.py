@@ -215,6 +215,15 @@ class ReadingPointer(BaseModel):
     # memory (memory-quality ticket 07); None for pointers recorded before it.
     score: float | None = None
     entity_names: list[str] | None = None
+    # Which rule placed its window (memory-quality ticket 08): `chunk`, the window the chunk
+    # its memory's fact was extracted from starts in, that chunk located verbatim in the
+    # section at [chunk_char_start, chunk_char_end) of the parsed text; or `match`, the window
+    # its Memory text matches best (every pointer recorded before ticket 08). The chunk's ID,
+    # never its text; null when the fact named none, and before ticket 08.
+    placed_by: Literal["chunk", "match"] = "match"
+    chunk_id: str | None = None
+    chunk_char_start: int | None = None
+    chunk_char_end: int | None = None
 
 
 class PointedCompany(BaseModel):
@@ -429,6 +438,11 @@ class CardDocumentRead(BaseModel):
     # `passages`. Empty for a document none of whose passages was sent, and on cards stored
     # before memory-directed reading ticket 05 (the Skeptic's documents: before ticket 07).
     selections: dict[str, int] = Field(default_factory=dict[str, int])
+    # How the pointers that chose its passages sent were placed (memory-quality ticket 08):
+    # passages per rule, `chunk` (the window its fact's chunk starts in) or `match` (the
+    # window its Memory text matches best); a passage pointers of both rules chose counts
+    # under each. Empty when no pointer chose one, and on cards stored before ticket 08.
+    pointers_placed_by: dict[str, int] = Field(default_factory=dict[str, int])
     # The Skeptic's documents: where its reading pointers led (`pointer`), matched by its
     # search, or chosen by code's fallback for a company Memory pointed at nothing of (pilot
     # fix 06; ticket 07). `plan`: chosen by its plan call, on cards stored before ticket 07.
@@ -711,7 +725,8 @@ def get_investigation(
                 " d.title AS source_title, p.section_anchor, p.section_heading,"
                 " p.section_char_start, p.section_char_end, p.company_id,"
                 " c.display_name AS company_name, p.available_at, p.citation_state,"
-                " p.created_at, p.score, p.entity_names FROM reading_pointer p"
+                " p.created_at, p.score, p.entity_names, p.placed_by, p.chunk_id,"
+                " p.chunk_char_start, p.chunk_char_end FROM reading_pointer p"
                 " JOIN investigation_task t ON t.id = p.task_id"
                 " JOIN source_version v ON v.id = p.source_version_id"
                 " JOIN source_document d ON d.id = v.source_document_id"

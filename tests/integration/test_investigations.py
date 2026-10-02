@@ -1089,7 +1089,7 @@ def test_the_scout_asks_memory_like_a_reading_index_and_each_pointer_keeps_score
             "max_tokens": 8192,
             "prefer_observations": True,
             "query_timestamp": as_of,
-            "include": {"source_facts": {}},
+            "include": {"source_facts": {}, "chunks": {}},  # chunks: ticket 08
         }
     # The observation resolved from the source facts its answer carried: no memory was asked
     # for one by one.
@@ -3206,6 +3206,153 @@ def test_the_skeptic_reads_the_window_memory_points_to_for_a_bear_checklist_item
     assert context["source_span"]["quote"] == CONCENTRATION_STATEMENT
     assert card["findings"][0]["counterevidence_ids"] == []
     assert found["stop_reason"] == "answered"
+
+
+# Memory-quality ticket 08: the fake cuts each retained section into chunks of at most this
+# many characters (`derive_chunks`), so the 10-K's Item 1 has several.
+CHUNK_SIZE = 1200
+
+
+def chunk_placed_lumentum(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> tuple[Atlas, RecordedHindsight, dict[str, Any], str, int]:
+    """Lumentum's recorded filings, its 10-K's Item 1 holding Memory's one fact, extracted
+    (says the fake) from the chunk of Item 1 that holds the allocation statement; its text is
+    the fake's default, the section's first 200 characters, whose words match Item 1's
+    opening window best. Returns the Atlas, the fake, Item 1, the 10-K's ID and the chunk's
+    index; nothing has run yet."""
+    atlas = services.start(ingest=False, investigation_max_passages=30)
+    fake = services.hindsight[0]
+    fake.derive_chunks(CHUNK_SIZE)
+    atlas.ingest_company("lumentum")
+    ten_k = atlas.version(LITE_10K, "lumentum")["id"]
+    item_1 = atlas.section(LITE_10K, "lumentum")
+    fake.report_zero_facts(lambda document_id: document_id != item_1["document_id"])
+    chunks = fake.derived_chunks(item_1["document_id"])
+    [index] = [i for i, chunk in enumerate(chunks) if LITE_ALLOCATION in chunk]
+    assert index > 0  # not the chunk the section opens with
+    fake.script_fact_chunk(item_1["document_id"], index)
+    return atlas, fake, item_1, ten_k, index
+
+
+def test_a_pointer_reads_the_window_its_fact_s_chunk_lies_in_not_the_best_matching_one(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas, fake, item_1, ten_k, index = chunk_placed_lumentum(services, llm, searxng)
+    started = seeded(atlas, "lumentum")
+    script_parallel(llm)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(allocation_claim(atlas))),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["investigator:lumentum"] == "succeeded"
+    # The pointer recalls asked for the chunks of their results.
+    recalls = fake.requests("POST", "memories/recall")
+    assert recalls and all(r["include"] == {"source_facts": {}, "chunks": {}} for r in recalls)
+    # Every pointer, the Scout's and the Skeptic's, is placed by the fact's chunk: its span
+    # in the parsed text is the chunk's text exactly (the fake's chunk, found verbatim).
+    parsed = atlas.parsed(ten_k)
+    chunk = fake.derived_chunks(item_1["document_id"])[index]
+    pointers = found["pointers"]
+    assert {p["task_key"] for p in pointers} == {"scout", "skeptic"}
+    assert {(p["section_anchor"], p["placed_by"]) for p in pointers} == {(ITEM_1, "chunk")}
+    for pointer in pointers:
+        assert parsed[pointer["chunk_char_start"] : pointer["chunk_char_end"]] == chunk
+        assert item_1["char_start"] <= pointer["chunk_char_start"] < item_1["char_end"]
+    chunk_start = pointers[0]["chunk_char_start"]
+
+    # The Investigator's pointer window is the one the chunk starts in, which holds the
+    # allocation statement; not Item 1's opening window, whose words the fact matches best.
+    extraction = atlas.get(
+        f"/api/v1/claim-extractions/{tasks(found)['investigator:lumentum']['artifacts']['extraction_id']}"
+    )
+    pointed = [
+        p
+        for p in extraction["passages"]
+        if any(tag.startswith("pointer:") for tag in p["selected_by"])
+    ]
+    [first] = pointed
+    assert first["section_anchor"] == ITEM_1
+    assert first["char_start"] <= chunk_start < first["char_end"]
+    assert first["char_start"] <= parsed.index(ALLOCATION_STATEMENT) < first["char_end"]
+    assert first["char_start"] > item_1["char_start"]
+    # Each pointer's tag says the chunk placed it.
+    assert first["selected_by"][:4] == [
+        "pointer:0:chunk",
+        "pointer:1:chunk",
+        "pointer:2:chunk",
+        "pointer:3:chunk",
+    ]
+    # The Claim read there says so in the Evidence tray, and the card's `read` counts it.
+    [claim] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert claim["passage_selected_by"] == first["selected_by"]
+    [evidence] = found["evidence"]
+    assert evidence["passage_selected_by"] == first["selected_by"]
+    [read] = [r for r in found["research_card"]["read"] if r["role"] == "investigator"]
+    shown = {d["source_version_id"]: d for d in read["documents"]}
+    assert shown[ten_k]["pointers_placed_by"] == {"chunk": 1}
+    # The chunk located the span and went no further: no role was sent its text.
+    sent = json.dumps(llm.chat_requests())
+    assert all(p["memory_text"] not in sent for p in pointers)
+
+    # The Skeptic reads the same way: its first passage is the chunk's window too.
+    readings = [c for c in skeptic_calls(llm) if "passages" in c["request"]]
+    assert readings
+    version_id, _, span = readings[0]["retrieved_data"][0]["source"].partition("#")
+    start, end = (int(part) for part in span.split("-"))
+    assert version_id == ten_k and start <= chunk_start < end
+    skeptic_row = skeptic_read(found)
+    [document] = [d for d in skeptic_row["documents"] if d["source_version_id"] == ten_k]
+    assert document["pointers_placed_by"] == {"chunk": 1}
+
+
+def test_a_chunk_that_is_not_in_its_section_leaves_the_pointer_on_the_best_matching_window(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas, fake, item_1, ten_k, index = chunk_placed_lumentum(services, llm, searxng)
+    # Hindsight's chunk of the fact is not a slice of the section (written here).
+    fake.script_chunk_text(item_1["document_id"], index, "A chunk no section of Atlas holds.")
+    started = seeded(atlas, "lumentum")
+    script_parallel(llm)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(allocation_claim(atlas))),
+        ChatReply.answer(editing()),
+        REVIEWED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    pointers = found["pointers"]
+    assert pointers
+    assert {(p["placed_by"], p["chunk_char_start"], p["chunk_char_end"]) for p in pointers} == {
+        ("match", None, None)
+    }
+    extraction = atlas.get(
+        f"/api/v1/claim-extractions/{tasks(found)['investigator:lumentum']['artifacts']['extraction_id']}"
+    )
+    [first] = [
+        p
+        for p in extraction["passages"]
+        if any(tag.startswith("pointer:") for tag in p["selected_by"])
+    ]
+    # The window the fact's words match best: Item 1's opening one (the fact is its first
+    # 200 characters), tagged as before.
+    assert first["section_anchor"] == ITEM_1
+    assert first["char_start"] == item_1["char_start"]
+    assert first["selected_by"][:4] == ["pointer:0", "pointer:1", "pointer:2", "pointer:3"]
+    [read] = [r for r in found["research_card"]["read"] if r["role"] == "investigator"]
+    shown = {d["source_version_id"]: d for d in read["documents"]}
+    assert shown[ten_k]["pointers_placed_by"] == {"match": 1}
 
 
 def test_a_company_memory_points_to_nothing_of_is_read_through_the_fallback(

@@ -27,7 +27,7 @@ from typing import Any
 
 from sqlalchemy import Connection, Row, text
 
-from atlas.claims.selection import selections
+from atlas.claims.selection import placements, selections
 from atlas.investigations.companies import COMPANY_BUDGET, POINTED_COMPANIES, not_read_reason
 from atlas.investigations.model import (
     CardCompanyNotRead,
@@ -143,6 +143,7 @@ def _read(connection: Connection, investigation_id: uuid.UUID) -> list[CardReadi
         artifacts: dict[str, Any] = task.artifacts
         chain = _extractions(connection, artifacts.get("extraction_id"))
         sections, per_document, selected, sent = _sent(connection, chain)
+        placed = _placed(connection, chain)
         documents = [
             CardDocumentRead(
                 source_version_id=row.source_version_id,
@@ -150,6 +151,7 @@ def _read(connection: Connection, investigation_id: uuid.UUID) -> list[CardReadi
                 sections=sections.get(row.source_version_id, []),
                 passages=per_document.get(row.source_version_id, 0),
                 selections=selected.get(row.source_version_id, {}),
+                pointers_placed_by=placed.get(row.source_version_id, {}),
             )
             for row in connection.execute(
                 text(
@@ -224,6 +226,7 @@ def _skeptic_read(connection: Connection, task: Row[Any]) -> CardReading:
     sections: dict[str, list[str]] = {}
     per_document: dict[str, int] = {}
     selected: dict[str, dict[str, int]] = {}
+    placed: dict[str, dict[str, int]] = {}
     for passage in sent:
         key = str(passage["source_version_id"])
         per_document[key] = per_document.get(key, 0) + 1
@@ -233,6 +236,9 @@ def _skeptic_read(connection: Connection, task: Row[Any]) -> CardReading:
         kinds = selected.setdefault(key, {})
         for kind in selections(passage.get("selected_by") or []):
             kinds[kind] = kinds.get(kind, 0) + 1
+        rules = placed.setdefault(key, {})
+        for rule in placements(passage.get("selected_by") or []):
+            rules[rule] = rules.get(rule, 0) + 1
     chosen: list[dict[str, Any]] = search["documents"]
     titles = {
         row.id: row.title
@@ -260,6 +266,7 @@ def _skeptic_read(connection: Connection, task: Row[Any]) -> CardReading:
                     sections=sections.get(str(each["source_version_id"]), []),
                     passages=per_document.get(str(each["source_version_id"]), 0),
                     selections=selected.get(str(each["source_version_id"]), {}),
+                    pointers_placed_by=placed.get(str(each["source_version_id"]), {}),
                     selected_by=each["selected_by"],
                 )
                 for each in chosen
@@ -326,3 +333,22 @@ def _sent(
             for kind in selections(passage.get("selected_by") or []):
                 kinds[kind] = kinds.get(kind, 0) + 1
     return sections, per_document, selected, count
+
+
+def _placed(connection: Connection, chain: list[uuid.UUID]) -> dict[uuid.UUID, dict[str, int]]:
+    """Of the passages the extractions sent, how the pointers that chose them were placed,
+    per Source Version: passages per rule (`chunk`, `match`; memory-quality ticket 08)."""
+    placed: dict[uuid.UUID, dict[str, int]] = {}
+    for extraction_id in chain:
+        row = connection.execute(
+            text(
+                "SELECT passages, batches_done * passages_per_call AS sent"
+                " FROM claim_extraction WHERE id = :id"
+            ),
+            {"id": extraction_id},
+        ).one()
+        for passage in row.passages[: row.sent]:
+            rules = placed.setdefault(uuid.UUID(str(passage["source_version_id"])), {})
+            for rule in placements(passage.get("selected_by") or []):
+                rules[rule] = rules.get(rule, 0) + 1
+    return placed
