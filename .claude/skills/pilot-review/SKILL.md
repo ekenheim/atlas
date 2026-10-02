@@ -48,4 +48,4 @@ Then: one ticket per defect with the production IDs (investigation, discovery, e
 
 ## Owner decisions
 
-Approving or rejecting an edge (`POST /relationships/{id}/review`) is the owner's act, and so is deleting nothing: list the decisions with your recommendation and the reason; never apply them.
+Since 2026-10-02 the owner has delegated the edge review to the lead (pilot-review ticket 09): after a review, the lead applies `POST /relationships/{id}/review` by one rule (every Evidence Claim judged right: approve; Evidence judged wrong: reject; anything else stays, with a note), the reason in the review note. Delete nothing. The owner sees the evidence at the final decision.

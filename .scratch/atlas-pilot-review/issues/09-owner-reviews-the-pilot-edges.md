@@ -1,4 +1,4 @@
-# The owner reviews the pilot's edges
+# The pilot's edges are reviewed (the lead, delegated by the owner on 2026-10-02)
 
 Type: task
 Status: open
@@ -41,3 +41,5 @@ The results section counted the three boilerplate `sole_sources` edges and the I
 | [Coherent `capacity_constrained`: manufacturing capacity (`module`)](https://atlas.ekenhome.se/relationship?id=635611db-e3e9-4cc2-8bbb-285e13a30c2d) | needs_human_review | **Reject.** The quote states an expansion, not a constraint, and the object is generic. |
 | [Coherent `capacity_constrained`: indium phosphide capacity (`substrate`)](https://atlas.ekenhome.se/relationship?id=2add892e-9998-4467-a393-8511d9f6b1a7) | machine_reviewed | **Reject for the layer.** The fact is right and important ("industry-wide shortage"), but Coherent buys its InP substrates; this capacity is its device fab. A review can't change the layer. |
 | [Coherent `expands_capacity_for`: indium phosphide capacity in Sherman, Texas (`substrate`)](https://atlas.ekenhome.se/relationship?id=8bab66e5-c53a-4840-8ec1-baca91703033) | machine_reviewed | **Reject for the layer**, as above. |
+
+**2026-10-02, the owner delegated this to the lead:** "I recall we agreed you would handle this loop ... any action from my part will need evidence at the final decision." The lead now applies the decisions (`POST /api/v1/relationships/{id}/review`, actor the lead, the reason in the review note), each from the Claim verdicts of the pilot review that covers the edge's Evidence: an edge whose every Evidence Claim was judged right is approved; one whose Evidence was judged wrong is rejected; anything else stays in the queue with a note. Done per reviewed investigation, after its review, so the verdict's pooled edge precision and the publish gate rest on decisions made by one rule. The open question the queue raises (may a management statement in a transcript make a `machine_reviewed` edge?) is the lead's to decide in the verdict ticket.
