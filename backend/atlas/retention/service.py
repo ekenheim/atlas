@@ -73,6 +73,15 @@ from atlas.jobs.pacing import (
     is_transient_error_text,
 )
 from atlas.jobs.queue import Artifacts, JobQueue
+from atlas.retention.context import (
+    RETAIN_PROFILE,
+    KnownCompany,
+    SectionSource,
+    display_metadata,
+    known_companies,
+    section_context,
+    section_entities,
+)
 from atlas.retention.decisions import effective_decisions
 from atlas.retention.reads import SectionErrorClass
 from atlas.retention.sections import SECTIONER_VERSION, Section, split_sections
@@ -312,6 +321,25 @@ class SourceVersionInfo:
     title: str
     company_id: uuid.UUID | None
     company_slug: str | None
+    company_name: str | None  # the company's display name
+    company_legal_name: str | None  # its canonical name, as written in the universe
+    publisher: str
+    metadata: dict[str, Any]  # the version's adapter metadata
+
+    def section_source(self) -> SectionSource:
+        """What the retain item's context, entities and display metadata are built from."""
+        return SectionSource(
+            source_type=self.source_type,
+            form_type=self.form_type,
+            document_type=self.document_type,
+            title=self.title,
+            publisher=self.publisher,
+            available_at=self.available_at,
+            company_id=self.company_id,
+            company_name=self.company_name,
+            company_legal_name=self.company_legal_name,
+            metadata=self.metadata,
+        )
 
 
 def load_version(engine: Engine, source_version_id: uuid.UUID) -> SourceVersionInfo:
@@ -322,7 +350,9 @@ def load_version(engine: Engine, source_version_id: uuid.UUID) -> SourceVersionI
                 text(
                     "SELECT v.id, v.raw_sha256, v.parse_status, v.parsed_object_uri,"
                     " v.language, a.available_at, d.provider, d.source_type, d.form_type,"
-                    " d.document_type, d.title, d.company_id, c.slug AS company_slug"
+                    " d.document_type, d.title, d.company_id, c.slug AS company_slug,"
+                    " c.display_name AS company_name, c.legal_name AS company_legal_name,"
+                    " d.publisher, coalesce(v.metadata, CAST('{}' AS jsonb)) AS metadata"
                     " FROM source_version v"
                     " JOIN source_version_availability a ON a.source_version_id = v.id"
                     " JOIN source_document d ON d.id = v.source_document_id"
@@ -375,10 +405,17 @@ def retain_item(
     start: int,
     end: int,
     tags: list[str],
+    companies: Sequence[KnownCompany] = (),
     extractor: RetainExtractor | None = None,
 ) -> RetainItem:
     """One section of the version as a retain item: its parsed text, timestamped with the
     version's availability, with the metadata the provenance resolver checks.
+
+    It says what the section is (memory-quality ticket 04, `atlas.retention.context`, profile
+    `RETAIN_PROFILE`): the context built from the version and the section; the display
+    metadata (company name, form, period) after the provenance keys; and as `entities`, taken
+    as written (`resolve_entities` false), the filer and each of `companies` (every company
+    Atlas has) the section's text names.
 
     With an `extractor` (`ATLAS_RETAIN_EXTRACTOR`), the metadata also carries `extractor`,
     the key Hindsight's metadata routing matches to choose the chain member that extracts
@@ -392,15 +429,21 @@ def retain_item(
         "char_end": str(end),
         "available_at": version.available_at.isoformat(),
     }
+    source = version.section_source()
+    metadata |= display_metadata(source)
     if extractor is not None:
         metadata[EXTRACTOR_METADATA_KEY] = extractor
+    content = parsed[start:end]
+    entities = section_entities(source, content, companies)
     return RetainItem(
-        content=parsed[start:end],
+        content=content,
         document_id=document_id,
         timestamp=version.available_at,
-        context=f"{version.title}: {heading or anchor}",
+        context=section_context(source, heading=heading, anchor=anchor),
         metadata=metadata,
         tags=tags,
+        entities=entities or None,
+        resolve_entities=False if entities else None,
     )
 
 
@@ -695,6 +738,8 @@ class Retention:
     def _items(self, version: SourceVersionInfo, rows: Sequence[RowMapping]) -> list[RetainItem]:
         parsed = self._parsed_text(version)
         tags = version_tags(version, self._universe)
+        with self._engine.connect() as connection:
+            companies = known_companies(connection)
         return [
             retain_item(
                 version,
@@ -705,6 +750,7 @@ class Retention:
                 start=row["char_start"],
                 end=row["char_end"],
                 tags=tags,
+                companies=companies,
                 extractor=self._extractor,
             )
             for row in rows
@@ -728,7 +774,9 @@ class Retention:
         the primary), since Hindsight stores nothing about the route: a section shows the
         extractor of its latest attempt, and the operation's decides which budget it spends.
         """
-        submitted = self._gateway.retain_batch(self._items(version, rows))
+        items = self._items(version, rows)
+        sent = {item.document_id: item for item in items}
+        submitted = self._gateway.retain_batch(items)
         operation_id = submitted.operation_id
         document_ids = [row["hindsight_document_id"] for row in rows]
         if resubmit:
@@ -771,11 +819,14 @@ class Retention:
                     connection,
                     row["id"],
                     "operation_id = :operation, reprocess_count = :reprocess, fact_count = NULL,"
-                    " memory_ids = NULL, extraction_errors = NULL, extractor = :extractor",
+                    " memory_ids = NULL, extraction_errors = NULL, extractor = :extractor,"
+                    " retain_profile = :profile, retain_context = :context,"
+                    " retain_entities = CAST(:entities AS jsonb)",
                     {
                         "operation": operation_id,
                         "reprocess": row["reprocess_count"] + bump,
                         "extractor": self._extractor,
+                        **_profile(sent[row["hindsight_document_id"]]),
                     },
                     expect="retain_state = 'pending' AND operation_id IS NOT DISTINCT FROM :was",
                     expect_params={"was": row["operation_id"]},
@@ -1274,6 +1325,16 @@ def _extraction_errors(operation: Operation) -> int | None:
     """The operation's `extraction_errors_count` (None when Hindsight reported none)."""
     value = operation.result_metadata.get("extraction_errors_count")
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _profile(item: RetainItem) -> dict[str, Any]:
+    """What a section records of the item it was submitted as: the profile, the context and
+    the entities' names."""
+    return {
+        "profile": RETAIN_PROFILE,
+        "context": item.context,
+        "entities": json.dumps([entity.text for entity in item.entities or []]),
+    }
 
 
 def _retainable(row: RowMapping) -> bool:

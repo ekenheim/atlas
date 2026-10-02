@@ -51,20 +51,41 @@ COHR = "https://www.sec.gov/Archives/edgar/data/820318"
 COHR_10K = f"{COHR}/000082031826000020/iivi-20260630.htm"
 COHR_10Q = f"{COHR}/000082031826000013/iivi-20260331.htm"
 COHR_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json"
+# The Item 5 heading of Coherent's FY2026 10-K, as the filing writes it.
+COHR_ITEM_5_HEADING = (
+    "Item 5. MARKET FOR REGISTRANT\N{RIGHT SINGLE QUOTATION MARK}S COMMON EQUITY,"
+    " RELATED STOCKHOLDER MATTERS AND ISSUER PURCHASES OF EQUITY SECURITIES"
+)
 
 # The Item headings of the fixtures' 10-Qs (trimmed early in Part I Item 1), and the Lumentum
 # 8-K's Items 2.02 and 9.01 (the 10-Ks' are `TEN_K_ANCHORS`).
 TEN_Q_ANCHORS = ["cover", "part-i-item-1"]
 EIGHT_K_ANCHORS = ["cover", "item-2-02", "item-9-01"]
-# A retain item as Atlas has always sent it: its fields and its metadata keys, in order.
-RETAIN_ITEM_FIELDS = ["content", "document_id", "timestamp", "context", "metadata", "tags"]
-RETAIN_METADATA_KEYS = [
+# A retain item's fields and its metadata keys, in order: the provenance keys Atlas has always
+# sent, then the display keys (memory-quality ticket 04).
+RETAIN_ITEM_FIELDS = [
+    "content",
+    "document_id",
+    "timestamp",
+    "context",
+    "metadata",
+    "tags",
+    "entities",
+    "resolve_entities",
+]
+PROVENANCE_METADATA_KEYS = [
     "source_version_id",
     "section_anchor",
     "char_start",
     "char_end",
     "available_at",
 ]
+RETAIN_METADATA_KEYS = [*PROVENANCE_METADATA_KEYS, "company_name", "form", "period"]
+# Each Lumentum filing's report date (the fixtures' submissions index, `reportDate`).
+LITE_PERIODS = {"10-K": "2026-06-27", "10-Q": "2026-03-28", "8-K": "2026-08-11"}
+LITE_ENTITY = {"text": "Lumentum Holdings Inc.", "type": "ORG"}
+# The profile of what a retain item says (atlas.retention.context.RETAIN_PROFILE).
+RETAIN_PROFILE = "retain-v2"
 
 
 @pytest.fixture
@@ -195,16 +216,25 @@ def test_one_batch_per_source_version_with_the_specified_ids_tags_metadata_and_t
                 "char_start": str(section["char_start"]),
                 "char_end": str(section["char_end"]),
                 "available_at": datetime.fromisoformat(version["available_at"]).isoformat(),
+                "company_name": "Lumentum",
+                "form": form,
+                "period": LITE_PERIODS[form],
             }
             assert datetime.fromisoformat(str(item["timestamp"])) == datetime.fromisoformat(
                 version["available_at"]
             )
             assert item["content"] == parsed[section["char_start"] : section["char_end"]]
-            # Nothing else is sent: the fields and metadata keys Atlas has always sent, in
-            # their order, and no extractor asked for (ATLAS_RETAIN_EXTRACTOR is unset).
+            # Nothing else is sent: the fields and metadata keys, in their order, and no
+            # extractor asked for (ATLAS_RETAIN_EXTRACTOR is unset).
             assert list(item) == RETAIN_ITEM_FIELDS
             assert list(item["metadata"]) == RETAIN_METADATA_KEYS
+            assert item["entities"][0] == LITE_ENTITY
+            assert item["resolve_entities"] is False
             assert section["extractor"] is None
+            # What the item said is recorded on its section.
+            assert section["retain_profile"] == RETAIN_PROFILE
+            assert section["retain_context"] == item["context"]
+            assert section["retain_entities"] == [e["text"] for e in item["entities"]]
         (operation,) = atlas.memory(version["id"])["operations"]
         assert operation["extractor"] is None
     assert len(retain_bodies(fake)) == 4
@@ -232,7 +262,8 @@ def test_with_the_retain_extractor_set_every_item_asks_for_it_and_its_section_re
     for item in [item for batch in batches for item in batch]:
         # Hindsight's metadata routing reads this key; the provenance keys are as before.
         assert list(item) == RETAIN_ITEM_FIELDS
-        assert list(item["metadata"]) == [*RETAIN_METADATA_KEYS, "extractor"]
+        assert list(item["metadata"])[-1] == "extractor"
+        assert list(item["metadata"])[:5] == PROVENANCE_METADATA_KEYS
         assert item["metadata"]["extractor"] == "minimax"
     ten_k = atlas.version(LITE_10K)
     parsed = atlas.parsed(ten_k["id"])
@@ -245,6 +276,9 @@ def test_with_the_retain_extractor_set_every_item_asks_for_it_and_its_section_re
         "char_start": str(item_1["char_start"]),
         "char_end": str(item_1["char_end"]),
         "available_at": datetime.fromisoformat(ten_k["available_at"]).isoformat(),
+        "company_name": "Lumentum",
+        "form": "10-K",
+        "period": "2026-06-27",
         "extractor": "minimax",
     }
     assert sent["content"] == parsed[item_1["char_start"] : item_1["char_end"]]
@@ -322,6 +356,53 @@ def test_coherent_is_ingested_and_retained_alongside_lumentum(
         str(tag) for items in fake.retained() for item in items for tag in item["tags"]
     } & {f"company:{atlas.company('lumentum')['id']}", f"company:{coherent['id']}"}
     assert len(company_tags) == 2  # both companies are in the bank, tagged apart
+
+
+def test_a_section_naming_another_universe_company_says_whose_it_is_and_names_both(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # Coherent's FY2026 10-K names "Lumentum Holdings, Inc." in its Item 5 peer group.
+    atlas.ingest("lumentum")
+    job = atlas.ingest("coherent", company="coherent")
+
+    assert job["status"] == "succeeded", job["failures"]
+    ten_k = atlas.version(COHR_10K, "coherent")
+    (batch,) = batch_for(fake, ten_k["id"])
+    sent = {str(item["document_id"]).rsplit(":", 1)[1]: item for item in batch}
+    item_5 = sent["part-ii-item-5"]
+    assert "Lumentum Holdings, Inc." in item_5["content"]
+    # The filer, then the company the text names, each as written in the universe and
+    # taken as written by Hindsight.
+    assert item_5["entities"] == [
+        {"text": "Coherent Corp.", "type": "ORG"},
+        LITE_ENTITY,
+    ]
+    assert item_5["resolve_entities"] is False
+    assert item_5["metadata"] == {
+        "source_version_id": ten_k["id"],
+        "section_anchor": "part-ii-item-5",
+        "char_start": item_5["metadata"]["char_start"],
+        "char_end": item_5["metadata"]["char_end"],
+        "available_at": "2026-08-14T12:10:05+00:00",
+        "company_name": "Coherent",
+        "form": "10-K",
+        "period": "2026-06-30",
+    }
+    assert item_5["context"] == (
+        "This is Coherent's annual report on Form 10-K for the period ended 2026-06-30."
+        " It was made public on 2026-08-14."
+        f' This section is headed "{COHR_ITEM_5_HEADING}".'
+        " Coherent is speaking: this is its own document."
+    )
+    # A section that names no other company carries the filer alone.
+    assert sent["part-i-item-1b"]["entities"] == [{"text": "Coherent Corp.", "type": "ORG"}]
+
+    memory = atlas.memory(ten_k["id"])
+    assert memory["current_retain_profile"] == RETAIN_PROFILE
+    section = by_anchor(memory)["part-ii-item-5"]
+    assert section["retain_profile"] == RETAIN_PROFILE
+    assert section["retain_context"] == item_5["context"]
+    assert section["retain_entities"] == ["Coherent Corp.", "Lumentum Holdings Inc."]
 
 
 # --- idempotency and revisions ---

@@ -144,6 +144,18 @@ def test_a_future_dated_source_is_accepted_zero_times(
     batches = fake.retained(replay_bank)
     retained = [{item["metadata"]["source_version_id"] for item in b} for b in batches]
     assert retained == [{ids["early"]}, {ids["mid"]}]
+    # Each item says what the research bank's retain of the same section said (memory-quality
+    # ticket 04): the context, the entities taken as written and the display metadata.
+    research = {item["document_id"]: item for b in fake.retained(BANK) for item in b}
+    said = ("context", "entities", "resolve_entities", "metadata")
+    for item in [item for b in batches for item in b]:
+        assert {key: item[key] for key in said} == {
+            key: research[item["document_id"]][key] for key in said
+        }
+        assert item["context"].startswith("This is Lumentum's document ")
+        assert item["entities"][0] == {"text": "Lumentum Holdings Inc.", "type": "ORG"}
+        assert item["resolve_entities"] is False
+        assert item["metadata"]["company_name"] == "Lumentum"
     assert [v["retain_status"] for v in replay["source_versions"]] == ["completed"] * 2
     assert all(v["facts"] and v["sections"] for v in replay["source_versions"])
     assert replay["consolidation"]["status"] == "completed"

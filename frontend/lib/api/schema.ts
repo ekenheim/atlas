@@ -4814,6 +4814,12 @@ export interface components {
             reprocess_count: number;
             /** Extractor */
             extractor: string | null;
+            /** Retain Profile */
+            retain_profile: string | null;
+            /** Retain Context */
+            retain_context: string | null;
+            /** Retain Entities */
+            retain_entities: string[] | null;
             /** Template Version */
             template_version: string;
             /** Operation Id */
@@ -7273,6 +7279,8 @@ export interface components {
             source_version_id: string;
             /** Bank Id */
             bank_id: string;
+            /** Current Retain Profile */
+            current_retain_profile: string;
             /** Retained */
             retained: boolean;
             /** Linked To Source Version Id */

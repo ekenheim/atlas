@@ -15629,6 +15629,42 @@
             ],
             "title": "Extractor"
           },
+          "retain_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retain Profile"
+          },
+          "retain_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retain Context"
+          },
+          "retain_entities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retain Entities"
+          },
           "template_version": {
             "type": "string",
             "title": "Template Version"
@@ -15727,6 +15763,9 @@
           "memory_ids",
           "reprocess_count",
           "extractor",
+          "retain_profile",
+          "retain_context",
+          "retain_entities",
           "template_version",
           "operation_id",
           "linked_to_source_version_id",
@@ -22530,6 +22569,10 @@
             "type": "string",
             "title": "Bank Id"
           },
+          "current_retain_profile": {
+            "type": "string",
+            "title": "Current Retain Profile"
+          },
           "retained": {
             "type": "boolean",
             "title": "Retained"
@@ -22590,6 +22633,7 @@
         "required": [
           "source_version_id",
           "bank_id",
+          "current_retain_profile",
           "retained",
           "linked_to_source_version_id",
           "counts",
