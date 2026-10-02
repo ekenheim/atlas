@@ -384,8 +384,9 @@ def skeptic_coverage(
             text(
                 "SELECT DISTINCT d.company_id FROM source_version v"
                 " JOIN source_document d ON d.id = v.source_document_id"
+                " JOIN source_version_availability a ON a.source_version_id = v.id"
                 " WHERE d.company_id = ANY(:ids) AND d.source_tier = :tier"
-                " AND d.source_type <> 'xbrl_companyfacts' AND v.available_at <= :as_of"
+                " AND d.source_type <> 'xbrl_companyfacts' AND a.available_at <= :as_of"
                 " AND v.parse_status IN ('parsed', 'incomplete')"
                 " AND v.parsed_object_uri IS NOT NULL"
             ),
