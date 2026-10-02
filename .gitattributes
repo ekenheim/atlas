@@ -5,3 +5,7 @@ tests/evaluation/gold/** -text
 # Generated from the OpenAPI schema by scripts/gen_api_client.sh.
 frontend/lib/api/openapi.json linguist-generated
 frontend/lib/api/schema.ts linguist-generated
+# Shell scripts run under WSL and on the runners: LF in every checkout.
+*.sh text eol=lf
+# A prompt is compared and hashed byte for byte.
+backend/atlas/roles/prompts/*.md text eol=lf
