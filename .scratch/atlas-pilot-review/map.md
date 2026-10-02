@@ -72,6 +72,8 @@ The pilot's verdict, in two artifacts:
 
 - Decision-shaped models (Jev, Clef, Kev, OpenAI's Decisions API) as role calls: no open problem is in the bounded calls (see "Not yet specified"). Only the reranker question is live, inside memory-quality ticket 15.
 - News story text through TradingView: no Claim, no edge (memory-quality tickets 17 and 18, `wontfix`).
+- **The universe grows with the theories (owner, 2026-10-02).** Each committed Candidate costs a bounded catch-up (about 250 sections for two years of history, roughly 3 hours of the retain budget), then about 10 sections a month. Investigations stay capped (6 Investigators a round), so research cost does not grow with the universe. What does not yet scale: (1) the nightly CronJob names its companies, so a committed Candidate gets its first ingest but no nightly ingest after it (fix: the nightly loop reads the stored universe, `universe_company` included); (2) no company leaves the universe when its theory dies (an `inactive` state: no ingest, its memory kept); (3) a new company's first ingest takes two years when a theory may need only the latest 10-K, 10-Q and calls (a shallower first ingest, deepened on demand); (4) the owner's commit review per Candidate. Parked until the verdict, because no Candidate has been committed yet. (1) comes first once one is.
+- **Retain format changes re-retain the whole bank,** so each costs more as the bank grows: change it rarely, batch the changes, and only on a measured gain (the 0.4.1 backfill is the first).
 
 ## Parked (owner)
 
