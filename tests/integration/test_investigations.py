@@ -1829,11 +1829,13 @@ def test_an_investigator_takes_the_documents_its_pointers_name_before_its_latest
     ten_k = atlas.version(COHR_10K, "coherent")
     ten_q = atlas.version(COHR_10Q, "coherent")
     assert at(ten_q["available_at"]) < at(ten_k["available_at"])
-    # Memory holds one fact, from the older filing: the 10-Q is pointed at, the newer 10-K is
-    # not, and the document budget has room for one.
+    # A document of Coherent's newer than both filings, which Memory holds nothing of.
+    [note] = import_transcripts(atlas, "coherent", "Coherent", 1)
+    # Memory holds one fact, from the older filing: the 10-Q is pointed at, the newer 10-K
+    # and the newest note are not, and the document budget has room for two.
     section = retained_sections(atlas, COHR_10Q, "coherent")[0]
     fake.report_zero_facts(lambda document_id: document_id != section["document_id"])
-    started = seeded(atlas, "coherent", budgets={"max_documents": 1})
+    started = seeded(atlas, "coherent", budgets={"max_documents": 2})
     llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
     script_searches(searxng)
 
@@ -1841,10 +1843,154 @@ def test_an_investigator_takes_the_documents_its_pointers_name_before_its_latest
 
     found = investigation(atlas, started["id"])
     assert {p["source_version_id"] for p in found["pointers"]} == {ten_q["id"]}
-    assert [d["source_version_id"] for d in found["documents"]] == [ten_q["id"]]
+    # The 10-K is the floor (the latest periodic report, pilot fix 24), the 10-Q the pointed
+    # document; the newest note, neither, is left out.
+    read = {d["source_version_id"] for d in found["documents"]}
+    assert read == {ten_k["id"], ten_q["id"]}
+    assert note not in read
     artifacts = tasks(found)["investigator:coherent"]["artifacts"]
-    assert (artifacts["documents"], artifacts["documents_pointed"]) == (1, 1)
-    assert artifacts["documents_dropped"] == 1  # the newer 10-K
+    assert (artifacts["documents"], artifacts["documents_pointed"]) == (2, 1)
+    assert artifacts["documents_floor"] == [ten_k["id"]]
+    assert artifacts["documents_dropped"] == 1  # the newest note
+
+
+def import_transcripts(atlas: Atlas, slug: str, name: str, count: int) -> list[str]:
+    """Record `count` short hand-written stand-ins for results-call transcripts of the company
+    (`atlas sources import`), published in September 2026 (newer than any recorded filing, the
+    first oldest), in plain English so each is retained (one section, so one fact in Memory
+    by the fake's derivation), and run their retention; their Source Versions' IDs, in import
+    order."""
+    ids: list[str] = []
+    for number in range(1, count + 1):
+        path = atlas.tmp_path / f"{slug}-transcript-{number}.txt"
+        path.write_text(
+            f"Synthetic test transcript {number}: a hand-written stand-in for a results call,"
+            f" and it is not a transcript of {name}.\n\n"
+            f"In call {number} the speaker says that demand for the lasers used in data"
+            " centers stayed strong in the quarter, and names no customer.\n",
+            encoding="utf-8",
+        )
+        imported = atlas.cli(
+            "sources",
+            "import",
+            "--company",
+            slug,
+            "--file",
+            str(path),
+            "--origin-url",
+            f"https://transcripts.example.test/{slug}-call-{number}",
+            "--published-at",
+            f"2026-09-{number + 10:02d}T12:00:00+00:00",
+            "--title",
+            f"{name} call transcript {number}, hand-shaped",
+        )
+        assert imported.returncode == 0, imported.stderr
+        atlas.worker_pass()
+        version_id = json.loads(imported.stdout)["source_version_id"]
+        assert atlas.memory(version_id)["retained"] is True
+        ids.append(version_id)
+    return ids
+
+
+def lumentum_with_pointed_transcripts(
+    services: Services, transcripts: int
+) -> tuple[Atlas, dict[str, str], list[str]]:
+    """Lumentum's recorded filings (the FY2026 10-K, the Q4 results 8-K with its EX-99.1 and
+    the Q3 10-Q) and `transcripts` hand-written transcripts, every one of Memory's facts from
+    a transcript: the round's pointers name only transcripts, the first imported best (the
+    fake recalls in retain order)."""
+    atlas = services.start(ingest=False)
+    fake = services.hindsight[0]
+    atlas.ingest_company("lumentum")
+    filings = {
+        name: atlas.version(url, "lumentum")["id"]
+        for name, url in [
+            ("10-K", LITE_10K),
+            ("8-K", LITE_8K),
+            ("EX-99.1", LITE_EX991),
+            ("10-Q", LITE_10Q),
+        ]
+    }
+    calls = import_transcripts(atlas, "lumentum", "Lumentum", transcripts)
+    held = {d["document_id"] for version in calls for d in atlas.memory(version)["documents"]}
+    fake.report_zero_facts(lambda document_id: document_id not in held)
+    return atlas, filings, calls
+
+
+def test_an_investigator_reads_its_company_s_latest_periodic_report_and_results_release(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot investigation 1 on 0.3.1: the pointers named transcripts only, and no 10-K, 10-Q
+    # or 8-K was read. The floor: the latest periodic report and the latest results release.
+    atlas, filings, calls = lumentum_with_pointed_transcripts(services, 3)
+    started = seeded(atlas, "lumentum", budgets={"max_documents": 4})
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    scouted = {p["source_version_id"] for p in found["pointers"] if p["task_key"] == "scout"}
+    assert scouted == set(calls)
+    # The 10-K (the latest periodic report, not the older 10-Q), the press release (EX-99.1,
+    # the latest results release) and the best-pointed transcripts, within the share.
+    read = {d["source_version_id"] for d in found["documents"]}
+    assert read == {filings["10-K"], filings["EX-99.1"], calls[0], calls[1]}
+    artifacts = tasks(found)["investigator:lumentum"]["artifacts"]
+    assert artifacts["documents_floor"] == [filings["10-K"], filings["EX-99.1"]]
+    assert (artifacts["documents"], artifacts["documents_pointed"]) == (4, 2)
+    # Left out: the third transcript, the 10-Q and the 8-K's own document.
+    assert artifacts["documents_dropped"] == 3
+    # The card's `read` says which documents came from the floor.
+    [row] = [r for r in found["research_card"]["read"] if r["task_key"] == "investigator:lumentum"]
+    assert {d["source_version_id"]: d["floor"] for d in row["documents"]} == {
+        filings["10-K"]: True,
+        filings["EX-99.1"]: True,
+        calls[0]: False,
+        calls[1]: False,
+    }
+
+
+def test_a_share_of_two_takes_the_periodic_report_and_the_best_pointed_document(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas, filings, calls = lumentum_with_pointed_transcripts(services, 2)
+    started = seeded(atlas, "lumentum", budgets={"max_documents": 2})
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert {d["source_version_id"] for d in found["documents"]} == {filings["10-K"], calls[0]}
+    artifacts = tasks(found)["investigator:lumentum"]["artifacts"]
+    assert artifacts["documents_floor"] == [filings["10-K"]]
+    assert (artifacts["documents"], artifacts["documents_pointed"]) == (2, 1)
+    # The results release, the 10-Q, the 8-K and the second transcript are left out.
+    assert artifacts["documents_dropped"] == 4
+
+
+def test_a_company_with_no_periodic_report_takes_its_pointed_documents(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(ingest=False)
+    fake = services.hindsight[0]
+    calls = import_transcripts(atlas, "lumentum", "Lumentum", 3)
+    # Memory holds the first two transcripts' facts; the third, the newest, is not pointed at.
+    held = {d["document_id"] for version in calls[:2] for d in atlas.memory(version)["documents"]}
+    fake.report_zero_facts(lambda document_id: document_id not in held)
+    started = seeded(atlas, "lumentum", budgets={"max_documents": 2})
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert {d["source_version_id"] for d in found["documents"]} == {calls[0], calls[1]}
+    artifacts = tasks(found)["investigator:lumentum"]["artifacts"]
+    assert artifacts["documents_floor"] == []
+    assert (artifacts["documents"], artifacts["documents_pointed"]) == (2, 2)
+    assert artifacts["documents_dropped"] == 1  # the newest transcript
 
 
 def test_with_no_accepted_claim_the_editor_writes_a_card_of_what_was_searched_and_read(

@@ -24,7 +24,9 @@ One attempt:
      Investigator for each other researched company the pointers name, in rank order, while
      the company budget has room (atlas.investigations.companies; the plan's advance).
    - **Investigator** (one per seed company, and one per company added for its pointers):
-     the Source Versions the round's pointers into its company name, best pointer first
+     its company's document floor (the latest periodic report and results release; pilot
+     fix 24), then the Source Versions the round's pointers into its company name, best
+     pointer first
      (one per Source Document: the latest a pointer names), then the latest parsed Source
      Versions of its other documents
      available at the investigation's as-of time, newest first, up to its share of what is
@@ -85,7 +87,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
@@ -108,6 +110,7 @@ from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
+from atlas.investigations.companies import FloorCandidate, document_floor, documents_in_order
 from atlas.investigations.coverage import coverage, not_read
 from atlas.investigations.model import (
     RUN_KIND,
@@ -604,9 +607,11 @@ class TaskRunner:
     def _documents(
         self, investigation: RowMapping, task: RowMapping
     ) -> tuple[list[uuid.UUID], int]:
-        """The task's Source Versions (chosen once, within the document budget): the ones the
-        round's reading pointers into its company name, best pointer first, then its latest
-        ones; and how many available ones the budget left out."""
+        """The task's Source Versions (chosen once, within the document budget): its
+        company's document floor (the latest periodic report and results release; pilot fix
+        24), then the ones the round's reading pointers into its company name, best pointer
+        first, then its latest ones (atlas.investigations.companies.documents_in_order); and
+        how many available ones the budget left out."""
         with self._engine.begin() as connection:
             lock(connection, investigation["id"])
             chosen = list(
@@ -629,10 +634,11 @@ class TaskRunner:
             }
             # Where Memory pointed in this company's documents: one Source Version per Source
             # Document (the latest one a pointer names), by its best pointer, best first.
-            pointed = list(
+            pointed_rows = list(
                 connection.execute(
                     text(
-                        "SELECT id FROM (SELECT DISTINCT ON (v.source_document_id) v.id,"
+                        "SELECT id, source_document_id FROM (SELECT DISTINCT ON"
+                        " (v.source_document_id) v.id, v.source_document_id,"
                         " p.rank, p.query_index, v.available_at FROM reading_pointer p"
                         " JOIN investigation_task t ON t.id = p.task_id AND t.role = 'scout'"
                         " JOIN source_version v ON v.id = p.source_version_id"
@@ -648,7 +654,11 @@ class TaskRunner:
                         " ORDER BY rank, query_index, available_at DESC, id"
                     ),
                     where,
-                ).scalars()
+                )
+            )
+            pointed: list[uuid.UUID] = [row.id for row in pointed_rows]
+            floor = _document_floor(
+                connection, where, {row.source_document_id: row.id for row in pointed_rows}
             )
             # Then the latest version of each of its other Source Documents, newest first.
             latest = list(
@@ -671,11 +681,12 @@ class TaskRunner:
                     where | {"pointed": pointed},
                 ).scalars()
             )
-            available = [*pointed, *latest]
+            available = len({*floor, *pointed, *latest})
             room = _document_share(
                 connection, investigation, task, max(investigation["max_documents"] - int(used), 0)
             )
-            chosen, dropped = available[:room], max(len(available) - room, 0)
+            chosen = documents_in_order(floor, pointed, latest, room)
+            dropped = available - len(chosen)
             for version_id in chosen:
                 connection.execute(
                     text(
@@ -690,6 +701,7 @@ class TaskRunner:
                     "UPDATE investigation_task SET artifacts = artifacts"
                     " || jsonb_build_object('documents', CAST(:n AS integer),"
                     " 'documents_pointed', CAST(:pointed AS integer),"
+                    " 'documents_floor', CAST(:floor AS jsonb),"
                     " 'documents_dropped', CAST(:dropped AS integer)) WHERE id = :id"
                 ),
                 {
@@ -697,6 +709,8 @@ class TaskRunner:
                     "n": len(chosen),
                     # How many of them the reading pointers named.
                     "pointed": len(set(chosen) & set(pointed)),
+                    # Which of them the document floor chose (pilot fix 24), in floor order.
+                    "floor": json.dumps([str(each) for each in floor if each in chosen]),
                     "dropped": dropped,
                 },
             )
@@ -1063,6 +1077,55 @@ class TaskRunner:
 
 
 # --- helpers ------------------------------------------------------------------------------------
+
+
+def _document_floor(
+    connection: Connection, where: Mapping[str, Any], pointed: Mapping[Any, uuid.UUID]
+) -> list[uuid.UUID]:
+    """The company's document floor (atlas.investigations.companies.document_floor) among
+    the latest parsed version of each of its Source Documents available as of the
+    investigation's time (or, for a document a pointer names, the version it names); a floor
+    document the investigation has already read is not read again."""
+    rows = connection.execute(
+        text(
+            "SELECT DISTINCT ON (v.source_document_id) v.id, v.source_document_id,"
+            " v.available_at, d.form_type, d.document_type, v.metadata -> 'items' AS filing_items"
+            " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
+            " WHERE d.company_id = :company AND v.available_at <= :as_of"
+            " AND v.parse_status IN ('parsed', 'incomplete')"
+            " AND v.parsed_object_uri IS NOT NULL"
+            " ORDER BY v.source_document_id, v.available_at DESC, v.id"
+        ),
+        dict(where),
+    ).all()
+    floor = document_floor(
+        [
+            FloorCandidate(
+                version_id=pointed.get(row.source_document_id, row.id),
+                available_at=row.available_at,
+                form_type=row.form_type,
+                document_type=row.document_type,
+                items=_filing_items(row.filing_items),
+            )
+            for row in rows
+        ]
+    )
+    read = set(
+        connection.execute(
+            text(
+                "SELECT source_version_id FROM investigation_document"
+                " WHERE investigation_id = :id AND source_version_id = ANY(:floor)"
+            ),
+            {"id": where["id"], "floor": floor},
+        ).scalars()
+    )
+    return [each for each in floor if each not in read]
+
+
+def _filing_items(recorded: Any) -> tuple[str, ...]:
+    """A version's recorded 8-K Items (`metadata.items`), none when not recorded."""
+    items = cast(list[Any], recorded) if isinstance(recorded, list) else []
+    return tuple(str(item) for item in items)
 
 
 def _document_share(

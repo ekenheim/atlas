@@ -7999,6 +7999,11 @@
               }
             ],
             "title": "Selected By"
+          },
+          "floor": {
+            "type": "boolean",
+            "title": "Floor",
+            "default": false
           }
         },
         "type": "object",

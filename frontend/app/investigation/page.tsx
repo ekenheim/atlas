@@ -1046,6 +1046,9 @@ function Read({ card }: { card: ResearchCard }) {
                       {document.selected_by === "fallback" && (
                         <span className="muted-small"> (chosen by code)</span>
                       )}
+                      {document.floor && (
+                        <span className="muted-small"> (the latest filing: document floor)</span>
+                      )}
                     </li>
                   ))}
                 </ul>

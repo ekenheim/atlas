@@ -7,8 +7,9 @@ Written by code, never the Editor, so a card with no finding still says, from th
 - **read:** each Investigator task, the Source Versions it read with the sections of the
   passages it was sent (across a budget-exhausted extraction and its continuation), how
   many passages of each (pilot fix 10) and in all, how each document's passages were
-  selected (pointer, search, entity, lead; memory-directed reading ticket 05), the documents
-  the budget left out, and
+  selected (pointer, search, entity, lead; memory-directed reading ticket 05), which
+  documents its document floor chose (`floor`; pilot fix 24), the documents the budget left
+  out, and
   the extraction's outcomes: Claims proposed, accepted, and rejected by reason code; or why
   it read nothing. Then (pilot fix 06) each round's Skeptic, the same way: the Source
   Versions it read (each with who chose it: its reading pointers, its search or code's
@@ -143,6 +144,8 @@ def _read(connection: Connection, investigation_id: uuid.UUID) -> list[CardReadi
         artifacts: dict[str, Any] = task.artifacts
         chain = _extractions(connection, artifacts.get("extraction_id"))
         sections, per_document, selected, sent = _sent(connection, chain)
+        recorded: list[Any] = artifacts.get("documents_floor") or []
+        floor = {str(each) for each in recorded}
         documents = [
             CardDocumentRead(
                 source_version_id=row.source_version_id,
@@ -150,6 +153,7 @@ def _read(connection: Connection, investigation_id: uuid.UUID) -> list[CardReadi
                 sections=sections.get(row.source_version_id, []),
                 passages=per_document.get(row.source_version_id, 0),
                 selections=selected.get(row.source_version_id, {}),
+                floor=str(row.source_version_id) in floor,
             )
             for row in connection.execute(
                 text(
