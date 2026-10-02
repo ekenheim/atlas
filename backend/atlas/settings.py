@@ -190,6 +190,11 @@ class Settings(BaseSettings):
     # queued or running it waits and tries again an hour later, at most this many times a
     # day. A job polls its operation for at most the timeout (keep it below
     # job_lease_seconds); a run still going then is followed by the next job.
+    # Whether Atlas asks Hindsight to consolidate at all (by hand, the backfill or the daily
+    # schedule). Off: every consolidate job is recorded as skipped (`consolidation_off`) and no
+    # request is made; consolidation runs on the shared server's primary model, so the owner
+    # decides its cost (docs/runbooks.md, "Consolidation").
+    consolidation_enabled: bool = True
     consolidate_at: str = Field(default="04:30", pattern=r"^$|^([01]\d|2[0-3]):[0-5]\d$")
     consolidate_max_tries: int = Field(default=6, ge=1, le=24)
     consolidate_poll_timeout_seconds: float = Field(default=240.0, gt=0)

@@ -36,6 +36,7 @@ _CONSOLIDATION_OUTCOMES = (
     "failed",
     "skipped_nothing_retained",
     "skipped_retains_pending",
+    "skipped_consolidation_off",
 )
 _PARSE_STATUSES = ("parsed", "incomplete", "failed", "unsupported", "not_applicable")
 # Seconds; a reflect is a job, so its latency includes the wait in the queue.

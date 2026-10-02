@@ -33,7 +33,13 @@ TEMPLATE_FILE: dict[str, Any] = json.loads(TEMPLATE.read_text(encoding="utf-8"))
 SCHEMA = cast(
     dict[str, Any], RecordedHindsight().recording("bank_templates/01-schema").response_object()
 )
-OUTCOMES = ("completed", "failed", "skipped_nothing_retained", "skipped_retains_pending")
+OUTCOMES = (
+    "completed",
+    "failed",
+    "skipped_nothing_retained",
+    "skipped_retains_pending",
+    "skipped_consolidation_off",
+)
 
 
 class Consolidating(Atlas):
@@ -219,6 +225,7 @@ def test_retains_request_no_consolidation_until_the_job_asks_once_and_counts_it(
         "failed": 0,
         "skipped_nothing_retained": 0,
         "skipped_retains_pending": 0,
+        "skipped_consolidation_off": 0,
     }
 
     # Asked again with nothing retained since: skipped, no request.
@@ -360,6 +367,7 @@ def test_the_daily_run_waits_for_retains_then_skips_a_day_with_nothing_new(
         "failed": 0,
         "skipped_nothing_retained": 1,
         "skipped_retains_pending": 1,
+        "skipped_consolidation_off": 0,
     }
 
 
@@ -385,3 +393,31 @@ def test_the_daily_run_tries_a_bounded_number_of_times(
         "retains_pending",
     ]
     assert consolidations(fake) == 0
+
+
+def test_with_consolidation_off_no_request_is_made_by_any_path(
+    atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served]
+) -> None:
+    # ATLAS_CONSOLIDATION_ENABLED=false (the owner's choice while the cost of consolidation on
+    # the shared server's model is open): a job asked for by hand, by the backfill or by the
+    # schedule is recorded as skipped, no request reaches Hindsight and nothing is counted.
+    fake, _ = hindsight
+    atlas.overrides["consolidation_enabled"] = False
+    atlas.schedule_daily()
+    atlas.ingest_company("lumentum")
+    before = atlas.codex()["used"]
+
+    enqueued = atlas.consolidate("--key", "by-hand-while-off")
+    atlas.scheduled_pass()
+
+    job = atlas.get(f"/api/v1/jobs/{enqueued['id']}")
+    assert job["status"] == "succeeded", job["failures"]
+    assert (job["artifacts"]["outcome"], job["artifacts"]["reason"]) == (
+        "skipped",
+        "consolidation_off",
+    )
+    assert consolidations(fake) == 0
+    assert atlas.codex()["used"] == before
+    assert outcomes(atlas.metrics())["skipped_consolidation_off"] == 1
+    # The daily schedule enqueues nothing while consolidation is off.
+    assert [j["id"] for j in atlas.consolidate_jobs()] == [enqueued["id"]]

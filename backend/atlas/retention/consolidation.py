@@ -58,7 +58,7 @@ RETRY_OUTCOMES = frozenset({"retains_pending", "running"})
 RETRY_AFTER = timedelta(hours=1)
 
 type ConsolidationStatus = Literal["skipped", "submitted", "completed", "failed"]
-type SkipReason = Literal["nothing_retained", "retains_pending"]
+type SkipReason = Literal["nothing_retained", "retains_pending", "consolidation_off"]
 
 
 class ConsolidatePayload(BaseModel):
@@ -160,7 +160,9 @@ class Consolidation:
         *,
         clock: Clock = utc_now,
         timings: ConsolidationTimings | None = None,
+        enabled: bool = True,
     ) -> None:
+        self._enabled = enabled
         self._engine = engine
         self._gateway = gateway
         self._actor = actor
@@ -226,7 +228,9 @@ class Consolidation:
                 "sections_retained": since,
             }
             reason: SkipReason | None = None
-            if _retains_pending(connection):
+            if not self._enabled:
+                reason = "consolidation_off"
+            elif _retains_pending(connection):
                 reason = "retains_pending"
             elif since == 0:
                 reason = "nothing_retained"
@@ -436,6 +440,7 @@ def register_consolidation_handlers(
                     poll_timeout=settings.consolidate_poll_timeout_seconds,
                     poll_interval=settings.consolidate_poll_interval_seconds,
                 ),
+                enabled=settings.consolidation_enabled,
             ).run(payload, job)
 
     # Pausable: consolidation is an LLM run on Hindsight's primary model, so quota and
@@ -446,6 +451,8 @@ def register_consolidation_handlers(
 def consolidation_schedules(settings: Settings, engine: Engine) -> list[Schedule]:
     """The daily consolidation, or none when Hindsight or the schedule is off."""
     if not settings.hindsight_url or not settings.consolidate_at:
+        return []
+    if not settings.consolidation_enabled:
         return []
     hour, minute = (int(part) for part in settings.consolidate_at.split(":"))
     return [
