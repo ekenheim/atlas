@@ -27,6 +27,7 @@ OVERSEAS_PDF = FILES / "0904" / "2026090400456.pdf"
 ORIGIN = "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0821/2026082101227.pdf"
 ORIGIN_ZH = "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0904/2026090400456.pdf"
 TITLE = "INTERIM RESULTS ANNOUNCEMENT FOR THE SIX MONTHS ENDED 30 JUNE 2026"
+HKEX = "HKEXnews (Hong Kong Exchanges and Clearing Limited)"
 
 
 @pytest.fixture
@@ -67,7 +68,9 @@ def audit_actors(atlas: Atlas, entity_id: str) -> set[tuple[str, str]]:
         return {(row.action, row.actor) for row in rows}
 
 
-def test_an_imported_pdf_is_recorded_parsed_and_retained(atlas: Atlas) -> None:
+def test_an_imported_pdf_is_recorded_parsed_and_retained(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
     imported = import_interim(atlas)
     atlas.worker_pass()  # the retain
 
@@ -103,6 +106,24 @@ def test_an_imported_pdf_is_recorded_parsed_and_retained(atlas: Atlas) -> None:
     memory = atlas.memory(version["id"])
     assert memory["retained"]
     assert {d["retain_state"] for d in memory["documents"]} == {"completed"}
+    # What the retain said (memory-quality ticket 04): the publisher is the speaker. An
+    # evaluation bank's sources are manual imports retained this way too.
+    first = memory["documents"][0]
+    (item,) = [i for b in fake.retained() for i in b if i["document_id"] == first["document_id"]]
+    assert item["context"] == (
+        f'This is Zhongji Innolight\'s document "{TITLE}",'
+        f" imported by hand from {HKEX}."
+        " It was made public on 2026-08-21."
+        " This is part 1 of the document."
+        f" {HKEX} published it and is taken as the speaker."
+    )
+    assert item["entities"][0] == {"text": "Zhongji Innolight Co., Ltd.", "type": "ORG"}
+    assert item["resolve_entities"] is False
+    assert item["metadata"]["company_name"] == "Zhongji Innolight"
+    assert "form" not in item["metadata"]
+    assert "period" not in item["metadata"]
+    assert first["retain_profile"] == "retain-v2"
+    assert first["retain_context"] == item["context"]
     assert ("source_version.created", "local-researcher") in audit_actors(atlas, version["id"])
     assert ("source_document.created", "local-researcher") in audit_actors(atlas, document["id"])
 

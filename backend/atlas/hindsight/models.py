@@ -104,6 +104,15 @@ def _schema_nodes(node: object, path: str) -> list[tuple[str, Mapping[str, Any]]
 # --- requests ----------------------------------------------------------------------------------
 
 
+class RetainEntity(BaseModel):
+    """A name the retain item guarantees as an entity (`type` e.g. `ORG`)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    text: str
+    type: str | None = None
+
+
 class RetainItem(BaseModel):
     """One document of a retain batch (for Atlas: one section of a Source Version)."""
 
@@ -115,6 +124,9 @@ class RetainItem(BaseModel):
     context: str | None = None
     metadata: dict[str, str] | None = None
     tags: list[str] | None = None
+    # Given entities; with `resolve_entities` false Hindsight stores them as written.
+    entities: list[RetainEntity] | None = None
+    resolve_entities: bool | None = None
 
 
 class MentalModelTrigger(BaseModel):

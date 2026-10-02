@@ -71,6 +71,7 @@ from atlas.replay.questions import QuestionSet, ReplayQuestion
 from atlas.replay.reads import ReplayRecalledMemory
 from atlas.research.provenance import Citation, ProvenanceResolver, SectionLookup
 from atlas.research.service import SCOPE_MATCH, AppliedScope
+from atlas.retention.context import known_companies
 from atlas.retention.service import (
     RETAINABLE_LANGUAGES,
     RETAINABLE_PARSES,
@@ -503,6 +504,9 @@ class Replays:
         parsed = self._archive.get(version.parsed_object_uri).decode("utf-8")
         sections = version_sections(version, parsed)
         tags = version_tags(version, self._universe)
+        # The same context, entities and display metadata as a production retain.
+        with self._engine.connect() as connection:
+            companies = known_companies(connection)
         documents = [(section_document_id(version.id, s), s) for s in sections]
         items = [
             retain_item(
@@ -514,6 +518,7 @@ class Replays:
                 start=section.start,
                 end=section.end,
                 tags=tags,
+                companies=companies,
                 extractor=self._extractor,
             )
             for document, section in documents

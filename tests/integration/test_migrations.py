@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0061"
+    assert revision == "0062"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -603,3 +603,52 @@ def test_reading_pointers_recorded_before_0059_are_the_scout_s(empty_database_ur
     assert refused == ["2", "3", "4"]
     assert kinds == [("scout", None), ("bear_checklist", "inventory_cycle")]
     assert still_insert_only
+
+
+def test_sections_retained_before_0062_read_as_the_first_retain_profile(
+    empty_database_url: str,
+) -> None:
+    # 0062: a memory document records the retain profile it was submitted under. Every
+    # section retained before it is `retain-v1`, with no context or entities recorded; a
+    # linked section was never submitted and has none.
+    upgrade(empty_database_url, "0061")
+    engine = create_engine(empty_database_url)
+    version = "00000000-0000-0000-0000-000000000001"
+    twin = "00000000-0000-0000-0000-000000000002"
+    insert = text(
+        "INSERT INTO memory_document (id, source_version_id, section_anchor, char_start,"
+        " char_end, sectioner_version, hindsight_document_id, bank_id, retain_state,"
+        " fact_count, template_version, linked_to_source_version_id) VALUES"
+        " (gen_random_uuid(), :version, :anchor, 0, 10, 'sec-items-v1', :document, 'b',"
+        " :state, :facts, 't1', :linked)"
+    )
+    rows: list[dict[str, Any]] = [
+        {"version": version, "anchor": "cover", "state": "completed", "facts": 2, "linked": None},
+        {"version": version, "anchor": "item-1", "state": "pending", "facts": None, "linked": None},
+        {"version": twin, "anchor": "cover", "state": "linked", "facts": None, "linked": version},
+    ]
+    with engine.begin() as connection:
+        # The rows' parents (the Source Versions) are not what is migrated.
+        connection.execute(text("SET LOCAL session_replication_role = replica"))
+        for row in rows:
+            document = None if row["linked"] else f"srcv:{row['version']}:{row['anchor']}"
+            connection.execute(insert, row | {"document": document})
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        recorded = [
+            tuple(row)
+            for row in connection.execute(
+                text(
+                    "SELECT retain_state, retain_profile, retain_context, retain_entities"
+                    " FROM memory_document ORDER BY retain_state"
+                )
+            )
+        ]
+    engine.dispose()
+    assert recorded == [
+        ("completed", "retain-v1", None, None),
+        ("linked", None, None, None),
+        ("pending", "retain-v1", None, None),
+    ]

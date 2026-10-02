@@ -2901,3 +2901,34 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - **Pending age** is measured from the section row's last update (its last submission or reset).
   - No migration.
 - **Next:** the lead deploys and runs the health read and `scripts/memory_probe.py` against production for the before-numbers; ticket 01's recordings replace the hand-written listing fixtures; the failed-group counts decide whether the long-Item split becomes a ticket (spec, "Intake that doesn't lose sections").
+
+## 2026-10-02: memory-quality ticket 04, what a retained section says
+
+- **Ticket:** `.scratch/atlas-memory-quality/issues/04-what-a-retained-section-says.md`. A retain item now says whose document a section is, what kind, for which period and who speaks (the context), names the filer and the other companies the text names as entities taken as written (`resolve_entities: false`), and carries display metadata (company name, form, period); each memory document records the retain profile, context and entities it was submitted with. Rules in `docs/decisions.md`, "What a retained section says".
+- **Files:**
+  - `backend/atlas/retention/context.py` (new): `section_context`, `section_entities`, `display_metadata`, `known_companies`, `RETAIN_PROFILE` (`retain-v2`).
+  - `backend/atlas/retention/service.py`: `SourceVersionInfo` gains the company's names, the publisher and the version's metadata (`section_source()`); `retain_item` builds the context, entities and display metadata (new `companies` argument); `Retention._submit` records `retain_profile`, `retain_context`, `retain_entities` on each section it submits.
+  - `backend/atlas/retention/reads.py`: the memory read shows the three fields and `current_retain_profile`.
+  - `backend/atlas/hindsight/models.py`, `__init__.py`: `RetainEntity`; `RetainItem.entities` and `resolve_entities`.
+  - `backend/atlas/replay/service.py`: a replay's items carry the same companies, so the same entities.
+  - `backend/atlas/db/migrations/versions/0062_retain_profile.py` (down `0061`; the lead re-chains): the three columns; `retain-v1` on every non-linked section recorded before.
+  - `frontend/lib/api/{openapi.json,schema.ts}` regenerated.
+  - Tests: `tests/unit/test_retain_context.py` (new); `tests/integration/test_retention.py`, `test_manual_import.py`, `test_replay.py`, `test_migrations.py` extended.
+  - `docs/decisions.md`, `AGENTS.md`.
+- **Tests run (inside WSL, `wsl_checks.sh`):**
+  - `tests/unit/test_retain_context.py`: **10 passed** (the exact context of a 10-K Item, a 10-K cover, an 8-K exhibit chunk, a call transcript, a manual import and an amended 10-Q without a report date; no identifier in the context; entities as written, filer first, no match inside a word; display metadata).
+  - `tests/integration/test_retention.py` + `test_migrations.py`: **28 passed** (new: Coherent's 10-K Item 5, which names "Lumentum Holdings, Inc.", is sent with the entities `Coherent Corp.` and `Lumentum Holdings Inc.`, `resolve_entities` false, the display metadata and the exact context, and its memory read shows `retain-v2`, the context and the entities; a section naming no other company carries the filer alone; sections recorded before `0062` read `retain-v1` with no context or entities, a linked one none; the earlier item-shape tests updated to the new fields and keys).
+  - `tests/integration/test_manual_import.py` + `test_replay.py`: **24 passed** (a manual import's exact context names the publisher as the speaker; a replay's items say exactly what the research bank's retain of the same sections said).
+  - `tests/unit` (whole): **899 passed**.
+  - `tests/integration/test_research.py`, `test_retention_triage.py`, `test_tradingview.py`, `test_memory_health.py`, `test_amf.py`, `test_quota_pacing.py`: **55 passed** (regression: unchanged).
+  - `ruff format --check`, `ruff check` (backend, tests, scripts): clean; strict `pyright`: 0 errors. Frontend `lint`, `typecheck`, `test` (42 passed). The API client regenerated (`wsl_checks.sh client`).
+- **Red run:** none seen. The code was written before its tests (the context function and the item first, then the tests at the unit and worker seams), so no test was seen failing for the missing behaviour; the one failure seen was the integration test's own placeholder for the Item 5 heading, replaced by the filing's heading.
+- **Not run:** the full suite, the e2e, `scripts/ci.sh`.
+- **Fixture-only vs live:** nothing live. The retain requests are checked as the recorded Hindsight fake received them; that Hindsight 0.10.2 takes `entities` with `resolve_entities: false` as written is ticket 01's recording (`entities/01`–`04`), not re-run here.
+- **Deviations and readings of the ticket:**
+  - **Evaluation banks:** their existing tests (`test_evaluations.py`) run fake mode, which makes no retain, so they could not be extended to check retain fields; an evaluation bank's sources are manual imports retained by the production `Retention`, and the manual-import test now checks that path's context, entities and profile.
+  - **"A section retained before this ticket reads as an older profile"** is tested at the migration seam (`test_migrations.py`), since a section retained before cannot be produced by today's code.
+  - **The period** is EDGAR's report date for every form (for an 8-K the report's date, written "dated") and a transcript's fiscal period; an exchange announcement or a manual import has none.
+  - **The manual import's speaker** is its publisher, as the ticket says ("<publisher> published it and is taken as the speaker"); an exchange announcement is the company's own document.
+  - **Canonical name** = the company's `legal_name` (the universe's, or a counterparty's resolved one).
+- **Next:** ticket 12 (backfill) finds sections whose `retain_profile` is below `current_retain_profile` and deletes and retains them; ticket 06 adds `observation_scopes` after `resolve_entities` on the item.

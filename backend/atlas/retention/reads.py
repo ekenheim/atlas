@@ -7,6 +7,8 @@ from typing import Literal, get_args
 from pydantic import BaseModel
 from sqlalchemy import Connection, text
 
+from atlas.retention.context import RETAIN_PROFILE
+
 RetainState = Literal["pending", "completed", "failed", "zero_fact", "linked"]
 RETAIN_STATES: tuple[RetainState, ...] = get_args(RetainState)
 
@@ -50,6 +52,13 @@ class MemoryDocument(BaseModel):
     # section never submitted (linked, or still awaiting its first batch). It is what Atlas
     # asked for, not what Hindsight did: Hindsight stores nothing about the route.
     extractor: str | None
+    # What the section's retain item said when it was last submitted (memory-quality ticket
+    # 04): the profile (`retain-v1` for a section retained before profiles were recorded,
+    # with no context or entities recorded), the context and the names sent as entities.
+    # None: never submitted.
+    retain_profile: str | None
+    retain_context: str | None
+    retain_entities: list[str] | None
     template_version: str
     operation_id: str | None
     linked_to_source_version_id: uuid.UUID | None
@@ -61,6 +70,8 @@ class MemoryDocument(BaseModel):
 class SourceVersionMemory(BaseModel):
     source_version_id: uuid.UUID
     bank_id: str
+    # The retain profile a section submitted now is sent under; a section below it says less.
+    current_retain_profile: str
     retained: bool  # any memory documents recorded (retained or linked)
     linked_to_source_version_id: uuid.UUID | None
     counts: dict[RetainState, int]  # memory documents by retain state
@@ -105,6 +116,7 @@ def source_version_memory(
     return SourceVersionMemory(
         source_version_id=source_version_id,
         bank_id=bank_id,
+        current_retain_profile=RETAIN_PROFILE,
         retained=bool(documents),
         linked_to_source_version_id=next(iter(linked_to)) if len(linked_to) == 1 else None,
         counts=counts,
