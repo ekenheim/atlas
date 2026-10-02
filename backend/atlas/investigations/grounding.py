@@ -173,6 +173,14 @@ _ELLIPSIS = re.compile(r"\.\.\.|…|\[[^\]]*\]")
 _TOKEN = re.compile(r"[^\s,;:()\[\]{}\"!?]+")
 _EDGE = "'."  # the statement is folded: its quotation marks are ASCII
 
+# What the card says about this check (`ResearchCard.grounding_limit`; pilot-fixes ticket 25).
+GROUNDING_LIMIT = (
+    "A finding is checked for the names, figures and quoted phrases it uses, which must occur"
+    " in the Claims it cites. Direction (who did what to whom), tense (a plan written as a"
+    " fact) and the merging of two facts into one are not checked: a finding that passed can"
+    " still misstate its Claims."
+)
+
 
 @dataclass(frozen=True)
 class _Number:

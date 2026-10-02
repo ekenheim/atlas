@@ -546,6 +546,41 @@ class CardCompanyNotRead(BaseModel):
     )
 
 
+class CardSkepticDocument(BaseModel):
+    """A document the Skeptic read for a company, and how much of it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source_version_id: uuid.UUID
+    title: str
+    passages: int  # the passages of it the Skeptic was sent
+
+
+class CardSkepticCompany(BaseModel):
+    """What the Skeptic did for one company the accepted Claims name (pilot-fixes ticket 25,
+    the disclosure part): `checked` (it was sent passages of at least one document of the
+    company; its outcome is how many items it accepted) or `not_checked` with the reason.
+    Written by code from the Skeptic's records, so "no contradiction" on the card never
+    stands for a company it did not read."""
+
+    model_config = ConfigDict(frozen=True)
+
+    company_id: uuid.UUID
+    company_name: str
+    claims: int  # the accepted Claims that name it (as subject or object)
+    outcome: Literal["checked", "not_checked"]
+    documents: list[CardSkepticDocument]
+    passages: int
+    contradictions: int  # accepted items about it of each kind
+    bear_context: int
+    # Set when not checked: a code, and the reason in words.
+    reason_code: (
+        Literal["skeptic_not_run", "no_budget", "only_tier_b_pointed", "no_document", "not_chosen"]
+        | None
+    ) = None
+    reason: str | None = None
+
+
 class CardClaimSummary(BaseModel):
     """An accepted Claim as the card lists it when the Editor failed: what it states and
     where (its quote and span are in the Evidence tray)."""
@@ -604,6 +639,12 @@ class ResearchCard(BaseModel):
     # The companies the reading pointers name that no Investigator read, every round, best
     # ranked first (memory-directed reading ticket 06); cards drawn before it have none.
     not_read: list[CardCompanyNotRead] = Field(default_factory=list[CardCompanyNotRead])
+    # What the Skeptic read for each company the accepted Claims name, and which it did not
+    # check (pilot-fixes ticket 25, disclosure); cards drawn before it have none.
+    skeptic_coverage: list[CardSkepticCompany] = Field(default_factory=list[CardSkepticCompany])
+    # The limit of the grounding check (pilot-fixes ticket 21), stated on the card; None on
+    # cards drawn before it.
+    grounding_limit: str | None = None
     # Why the Editor wrote no card (None: it did); then the card lists the accepted Claims by
     # company instead of findings. Cards drawn before memory-quality ticket 16 have neither.
     editor_failure: str | None = None

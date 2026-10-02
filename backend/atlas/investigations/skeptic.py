@@ -176,6 +176,7 @@ CATALOG_LIMIT = 60
 MAX_RECALL_COMPANIES = 6
 # The Skeptic's witnesses: Tier A archived documents.
 _WITNESS_TIER = "A"
+WITNESS_TIER = _WITNESS_TIER  # the tier of the documents it reads (the card says so)
 _PARSED = ("parsed", "incomplete")
 _ERROR_LIMIT = 500
 _SPACE = re.compile(r"\s+")

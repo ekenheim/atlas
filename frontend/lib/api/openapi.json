@@ -8340,6 +8340,117 @@
         "title": "CardSearch",
         "description": "What one round's Scout searched: its queries, how many leads they found, and the\nleads the investigation took (in rank order; Tier C, never Evidence)."
       },
+      "CardSkepticCompany": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "claims": {
+            "type": "integer",
+            "title": "Claims"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "checked",
+              "not_checked"
+            ],
+            "title": "Outcome"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/CardSkepticDocument"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "passages": {
+            "type": "integer",
+            "title": "Passages"
+          },
+          "contradictions": {
+            "type": "integer",
+            "title": "Contradictions"
+          },
+          "bear_context": {
+            "type": "integer",
+            "title": "Bear Context"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skeptic_not_run",
+                  "no_budget",
+                  "only_tier_b_pointed",
+                  "no_document",
+                  "not_chosen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "company_name",
+          "claims",
+          "outcome",
+          "documents",
+          "passages",
+          "contradictions",
+          "bear_context"
+        ],
+        "title": "CardSkepticCompany",
+        "description": "What the Skeptic did for one company the accepted Claims name (pilot-fixes ticket 25,\nthe disclosure part): `checked` (it was sent passages of at least one document of the\ncompany; its outcome is how many items it accepted) or `not_checked` with the reason.\nWritten by code from the Skeptic's records, so \"no contradiction\" on the card never\nstands for a company it did not read."
+      },
+      "CardSkepticDocument": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "passages": {
+            "type": "integer",
+            "title": "Passages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "title",
+          "passages"
+        ],
+        "title": "CardSkepticDocument",
+        "description": "A document the Skeptic read for a company, and how much of it."
+      },
       "CaseResult": {
         "properties": {
           "id": {
@@ -21250,6 +21361,24 @@
             },
             "type": "array",
             "title": "Not Read"
+          },
+          "skeptic_coverage": {
+            "items": {
+              "$ref": "#/components/schemas/CardSkepticCompany"
+            },
+            "type": "array",
+            "title": "Skeptic Coverage"
+          },
+          "grounding_limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grounding Limit"
           },
           "editor_failure": {
             "anyOf": [

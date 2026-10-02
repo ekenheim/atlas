@@ -23,6 +23,8 @@ import {
   byRound,
   canSaveHypothesis,
   channelsLabel,
+  skepticCompanyLine,
+  skepticCoverageSummary,
   checklistLabel,
   counterevidenceSummary,
   entityHopSummary,
@@ -902,9 +904,15 @@ function Card({ card }: { card: ResearchCard | null }) {
               ))}
             </ol>
           )}
+          {card.grounding_limit && card.findings.length > 0 && (
+            <p className="muted-small">
+              What the check of the findings does not hold: {card.grounding_limit}
+            </p>
+          )}
           {card.disproven_premises.length > 0 && (
             <p>Disproven premises: {card.disproven_premises.join("; ")}</p>
           )}
+          <SkepticCoverage card={card} />
           <BearContext card={card} />
           <Searched card={card} />
           <Read card={card} />
@@ -957,6 +965,38 @@ function EditorFailed({ card, reason }: { card: ResearchCard; reason: string }) 
           </div>
         ))
       )}
+    </>
+  );
+}
+
+/** What the Skeptic did for each company the accepted Claims name: checked, or not checked and why. */
+function SkepticCoverage({ card }: { card: ResearchCard }) {
+  const rows = card.skeptic_coverage ?? [];
+  const summary = skepticCoverageSummary(rows);
+  if (summary === null) return null;
+  const anyMissed = rows.some((row) => row.outcome === "not_checked");
+  return (
+    <>
+      <h3 id="skeptic-coverage">Skeptic coverage</h3>
+      <p role={anyMissed ? "alert" : undefined}>{summary}</p>
+      <ul aria-labelledby="skeptic-coverage">
+        {rows.map((row) => (
+          <li key={row.company_id}>
+            <Link href={routes.company(row.company_id)}>{row.company_name}</Link> (
+            {row.claims} Claim{row.claims === 1 ? "" : "s"}): {skepticCompanyLine(row)}
+            {row.documents.length > 0 && (
+              <ul className="muted-small">
+                {row.documents.map((document) => (
+                  <li key={document.source_version_id}>
+                    <Link href={routes.version(document.source_version_id)}>{document.title}</Link>
+                    : {document.passages} passage{document.passages === 1 ? "" : "s"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
     </>
   );
 }

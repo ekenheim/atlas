@@ -111,9 +111,9 @@ from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
 from atlas.investigations.companies import FloorCandidate, document_floor, documents_in_order
-from atlas.investigations.coverage import coverage, not_read
+from atlas.investigations.coverage import coverage, not_read, skeptic_coverage, unchecked_note
 from atlas.investigations.entity_hop import HopLimits, record_entity_pointers
-from atlas.investigations.grounding import check_findings
+from atlas.investigations.grounding import GROUNDING_LIMIT, check_findings
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
@@ -920,6 +920,7 @@ class TaskRunner:
             )
             searched, read = coverage(connection, investigation["id"])
             unread = not_read(connection, investigation["id"])
+            unchecked = skeptic_coverage(connection, investigation, claims)
         round_ = task["round"]
         earlier = {_family(c) for c in claims if c["round"] < round_}
         new_families = sorted({_family(c) for c in claims if c["round"] == round_} - earlier)
@@ -1033,6 +1034,8 @@ class TaskRunner:
             # The investigation never ends card-less: code writes the card without findings.
             stop_reason = "needs_review" if claims else "no_new_independent_evidence"
             stop_detail = f"the Editor failed, so the card has no finding: {failure}"
+            if (note := unchecked_note(unchecked)) is not None:
+                stop_detail = f"{stop_detail}; {note}"
             card = ResearchCard(
                 status="draft",
                 question=investigation["question"],
@@ -1049,6 +1052,8 @@ class TaskRunner:
                 searched=searched,
                 read=read,
                 not_read=unread,
+                skeptic_coverage=unchecked,
+                grounding_limit=GROUNDING_LIMIT,
                 editor_failure=str(failure),
                 claims_by_company=claims_by_company(claims),
             )
@@ -1137,6 +1142,8 @@ class TaskRunner:
             if draft.verdict != "answered":
                 problems.append("the Editor asks for review")
             stop_detail = "; ".join(problems)
+        if claims and (note := unchecked_note(unchecked)) is not None:
+            stop_detail = f"{stop_detail}; {note}"
         card = ResearchCard(
             status="draft",
             question=investigation["question"],
@@ -1153,6 +1160,8 @@ class TaskRunner:
             searched=searched,
             read=read,
             not_read=unread,
+            skeptic_coverage=unchecked,
+            grounding_limit=GROUNDING_LIMIT,
         )
         return _Outcome(
             "succeeded",
