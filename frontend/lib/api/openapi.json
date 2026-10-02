@@ -11875,6 +11875,23 @@
       },
       "FailedGroup": {
         "properties": {
+          "state": {
+            "type": "string",
+            "title": "State",
+            "description": "failed or cancelled"
+          },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Class",
+            "description": "cancelled, permanent, transient or missing (null: recorded before classes)"
+          },
           "error": {
             "type": "string",
             "title": "Error",
@@ -11921,6 +11938,8 @@
         },
         "type": "object",
         "required": [
+          "state",
+          "error_class",
           "error",
           "count",
           "example",
@@ -11929,7 +11948,8 @@
           "last_at",
           "companies"
         ],
-        "title": "FailedGroup"
+        "title": "FailedGroup",
+        "description": "Sections not in memory that share a state, an error class and a normalized error."
       },
       "FetchGateDecision": {
         "properties": {
@@ -21623,6 +21643,12 @@
             "title": "Failed",
             "default": 0
           },
+          "cancelled": {
+            "type": "integer",
+            "title": "Cancelled",
+            "description": "the operation was cancelled; not a failure",
+            "default": 0
+          },
           "zero_fact": {
             "type": "integer",
             "title": "Zero Fact",
@@ -21636,7 +21662,7 @@
           "partial": {
             "type": "integer",
             "title": "Partial",
-            "description": "completed sections whose operation reported extraction errors",
+            "description": "completed sections whose extraction reported errors after their one retry",
             "default": 0
           },
           "fact_count": {

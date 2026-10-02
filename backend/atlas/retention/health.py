@@ -12,8 +12,8 @@ One read, two sources:
   error class (`cancelled`, `permanent`, `transient`, `missing`) and their **normalized
   error** (IDs, UUIDs, hex and numbers of four or more digits replaced by placeholders,
   whitespace collapsed), each group with its count, its latest raw example, the first and
-  last time a section of it was marked and its companies; and the pending sections by how long they have waited
-  since their last submission.
+  last time a section of it was marked and its companies; and the pending sections by how
+  long they have waited since their last submission.
 - **Hindsight, read-only** (no LLM call): the observation scopes (`GET .../observations/scopes`)
   and, for each universe company, the entities whose name matches it (`GET .../entities`,
   paged). An entity matches a company when its normalized name (`atlas.identity.normalize`)

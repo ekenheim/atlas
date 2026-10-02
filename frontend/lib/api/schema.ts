@@ -3509,8 +3509,21 @@ export interface components {
             /** Statement */
             statement: string;
         };
-        /** FailedGroup */
+        /**
+         * FailedGroup
+         * @description Sections not in memory that share a state, an error class and a normalized error.
+         */
         FailedGroup: {
+            /**
+             * State
+             * @description failed or cancelled
+             */
+            state: string;
+            /**
+             * Error Class
+             * @description cancelled, permanent, transient or missing (null: recorded before classes)
+             */
+            error_class: string | null;
             /**
              * Error
              * @description the normalized error text
@@ -6945,6 +6958,12 @@ export interface components {
              */
             failed: number;
             /**
+             * Cancelled
+             * @description the operation was cancelled; not a failure
+             * @default 0
+             */
+            cancelled: number;
+            /**
              * Zero Fact
              * @default 0
              */
@@ -6956,7 +6975,7 @@ export interface components {
             linked: number;
             /**
              * Partial
-             * @description completed sections whose operation reported extraction errors
+             * @description completed sections whose extraction reported errors after their one retry
              * @default 0
              */
             partial: number;
