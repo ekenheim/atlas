@@ -19,8 +19,9 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         SCOUT,
         "scout",
         # v3: a filing phrase per query for EDGAR full-text search (pilot fix 12); v4: a
-        # specific phrase, with a good and a bad example (memory-directed reading, ticket 04)
-        4,
+        # specific phrase, with a good and a bad example (memory-directed reading, ticket 04);
+        # v5: the layer a query concerns (memory-quality ticket 13)
+        5,
         (
             "a specific phrase of two to four words",
             "Good: `InP substrates`",

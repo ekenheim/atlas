@@ -12,8 +12,10 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("Layer-aware recall"). Depends on
 
 **Blocked by:** 05, 07, 12
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam: a layer-tagged Scout query produces two recalls; a fact labelled with the layer and worded unlike the query is pointed at through the second; an unlabelled bank gives none and no failure.
-- [ ] The public recall with a `layer` scope filters (API test); the API client is regenerated.
-- [ ] Decision entry; `AGENTS.md` line.
+- [x] Integration test at the investigation seam: a layer-tagged Scout query produces two recalls; a fact labelled with the layer and worded unlike the query is pointed at through the second; an unlabelled bank gives none and no failure.
+- [x] The public recall with a `layer` scope filters (API test); the API client is regenerated.
+- [x] Decision entry; `AGENTS.md` line.
+
+**Notes (implementer):** The Scout's queries carried no layer, so `scout.v5` asks for one per query (`discovery_query.layer`, migration `0073`), kept only when it names a layer of the taxonomy; see `docs/decisions.md`, "Layer-aware pointer recall". The compound filter is tested against the recorded fake's derivation of `tag_groups`, not recorded from a real Hindsight.

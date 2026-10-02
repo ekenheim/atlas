@@ -10,6 +10,7 @@ from atlas.hindsight import (
     HindsightHTTPError,
     HindsightNotFound,
     RetainItem,
+    TagGroups,
     TagScope,
 )
 from tests.fakes.hindsight import (
@@ -436,6 +437,31 @@ def test_labels_become_tags_only_in_a_bank_whose_group_has_tag_true() -> None:
 
         assert client.get_memory(fake.derived_fact(ITEMS[0].document_id)).tags == ITEMS[0].tags
         assert client.recall("q", scope=TagScope(["layer:chip-laser"], "any_strict")).memories == []
+
+
+def test_a_recall_by_tag_groups_returns_the_facts_every_group_matches() -> None:
+    # A compound filter (memory-quality ticket 13): the groups are AND-ed, as the recall docs say.
+    fake, client = labelled([LAYER_GROUP])
+    fake.script_fact_labels(ITEMS[0].document_id, ["layer:chip-laser"])
+    fake.script_fact_labels(ITEMS[1].document_id, ["layer:module"])
+    company = TagScope(["company:x"], "any_strict")
+    module = TagScope(["layer:module"], "any_strict")
+
+    both = client.recall("q", scope=TagGroups([company, module]))
+    elsewhere = client.recall("q", scope=TagGroups([TagScope(["company:y"], "any_strict"), module]))
+    unlabelled = client.recall(
+        "q", scope=TagGroups([company, TagScope(["layer:epi"], "any_strict")])
+    )
+
+    assert [m.id for m in both.memories] == [fake.derived_fact(ITEMS[1].document_id)]
+    assert elsewhere.memories == []  # the layer matches; the company does not
+    assert unlabelled.memories == []
+    sent = fake.requests("POST", "memories/recall")[0]
+    assert sent["tag_groups"] == [
+        {"tags": ["company:x"], "match": "any_strict"},
+        {"tags": ["layer:module"], "match": "any_strict"},
+    ]
+    assert "tags" not in sent  # the docs: `tags` and `tag_groups` are exclusive
 
 
 def test_an_imported_mental_model_is_derived_until_and_after_its_refreshes() -> None:

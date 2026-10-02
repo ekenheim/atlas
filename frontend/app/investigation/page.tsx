@@ -37,6 +37,7 @@ import {
   type PointerGroup,
   pointerGroups,
   pointerQueryLabel,
+  pointerScope,
   pointerSummary,
   pointerWeight,
   readerName,
@@ -570,7 +571,15 @@ function PointerGroups({ groups }: { groups: PointerGroup[] }) {
             <tbody>
               {group.pointers.map((pointer) => (
                 <tr key={pointer.id}>
-                  <td>{pointer.rank}</td>
+                  <td>
+                    {pointer.rank}
+                    {pointer.scope === "theme_layer" && (
+                      <>
+                        <br />
+                        <span className="muted-small">recalled among {pointerScope(pointer)}</span>
+                      </>
+                    )}
+                  </td>
                   <td>
                     <strong>Memory</strong>{" "}
                     <span className="muted-small">({pointer.memory_type})</span>:{" "}

@@ -1192,6 +1192,152 @@ def test_recalls_that_return_nothing_leave_no_pointer_and_the_event_log_says_so(
     assert recorded["detail"]["queries_without_pointers"] == [QUESTION, SUBSTRATE, SECOND_SOURCE]
 
 
+def script_layered_queries(
+    llm: FakeLiteLLM, searxng: FakeSearXNG, layer: str | None = "substrate"
+) -> None:
+    """The Scout writes the two queries, the first one concerning `layer`; the Investigator
+    proposes nothing and the Editor's card has no finding."""
+    first, second = TWO_QUERIES
+    assert isinstance(first, dict) and isinstance(second, dict)
+    llm.script_chat(
+        ChatReply.json({"queries": [first | {"layer": layer}, second | {"layer": None}]}),
+        ChatReply.json({"claims": []}),
+        NOTHING_ACCEPTED,
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+
+
+def layer_pointers(found: dict[str, Any]) -> list[dict[str, Any]]:
+    return [p for p in found["pointers"] if p["scope"] == "theme_layer"]
+
+
+def test_a_query_with_a_layer_is_also_asked_among_the_facts_labelled_with_it(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Memory-quality ticket 13: the theme AND the layer's label tag, a compound tag filter.
+    atlas = services.start()
+    fake = services.hindsight[0]
+    item_1 = atlas.section(COHR_10K, "coherent")
+    # A fact worded unlike the query ("wafers cut from crystal boules" for "substrate capacity")
+    # that the extractor labelled with the layer; another fact is not labelled.
+    fake.script_fact_text(item_1["document_id"], "Wafers are cut from crystal boules we grow.")
+    fake.script_fact_labels(item_1["document_id"], ["layer:substrate"])
+    started = seeded(atlas, "coherent")
+    script_layered_queries(llm, searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["scout"] == "succeeded"
+    recalls = fake.requests("POST", "memories/recall")
+    theme = {"tag_groups": None, "tags": ["theme:photonics"], "tags_match": "any_strict"}
+    in_layer = {
+        "tag_groups": [
+            {"tags": ["theme:photonics"], "match": "any_strict"},
+            {"tags": ["layer:substrate"], "match": "any_strict"},
+        ],
+        "tags": None,
+        "tags_match": None,
+    }
+    assert [
+        (r["query"], {k: r.get(k) for k in ("tag_groups", "tags", "tags_match")}) for r in recalls
+    ] == [
+        (QUESTION, theme),
+        (SUBSTRATE, theme),
+        (SUBSTRATE, in_layer),
+        (SECOND_SOURCE, theme),
+    ]
+    # The labelled fact is pointed at through the second recall: its section, once, naming the
+    # scope; every other pointer is the theme's.
+    [pointer] = layer_pointers(found)
+    assert (pointer["query_index"], pointer["query"], pointer["layer"]) == (
+        1,
+        SUBSTRATE,
+        "substrate",
+    )
+    assert (pointer["source_version_id"], pointer["section_anchor"]) == (
+        item_1["version"]["id"],
+        ITEM_1,
+    )
+    assert pointer["memory_text"] == "Wafers are cut from crystal boules we grow."
+    assert pointer["memory_id"] == fake.derived_fact(item_1["document_id"])
+    themed = [p for p in found["pointers"] if p["scope"] == "theme"]
+    assert {p["layer"] for p in themed} == {None}
+    # The same memory is also a theme pointer of the query: one pointer per recall.
+    assert pointer["memory_id"] in {p["memory_id"] for p in themed if p["query_index"] == 1}
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["pointer_recalls"], scout["pointer_recalls_failed"]) == (3, 0)
+    assert (
+        scout["layer_recalls"],
+        scout["layer_recalls_failed"],
+        scout["layer_recalls_empty"],
+    ) == (
+        1,
+        0,
+        0,
+    )
+    assert (scout["layer_pointers"], scout["layer_memories_recalled"]) == (1, 1)
+    assert scout["pointers"] == len(found["pointers"])
+    discovery = atlas.get(f"/api/v1/discoveries/{scout['discovery_id']}")
+    assert [(q["position"], q["layer"]) for q in discovery["queries"]] == [
+        (1, "substrate"),
+        (2, None),
+    ]
+
+
+def test_a_layer_no_fact_carries_yet_gives_an_empty_second_recall_and_no_failure(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()  # facts exist, none labelled (the backfill is ticket 12)
+    fake = services.hindsight[0]
+    started = seeded(atlas, "coherent")
+    script_layered_queries(llm, searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["scout"] == "succeeded"
+    layered = [r for r in fake.requests("POST", "memories/recall") if r.get("tag_groups")]
+    assert [r["query"] for r in layered] == [SUBSTRATE]
+    assert layer_pointers(found) == []
+    assert {p["query_index"] for p in found["pointers"]} == {0, 1, 2}  # the theme's, as before
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (
+        scout["layer_recalls"],
+        scout["layer_recalls_failed"],
+        scout["layer_recalls_empty"],
+    ) == (
+        1,
+        0,
+        1,
+    )
+    assert (scout["layer_memories_recalled"], scout["layer_pointers"]) == (0, 0)
+    assert [e for e in events(atlas, started["id"]) if e["type"] == "pointer_recall_failed"] == []
+    [recorded] = [e for e in events(atlas, started["id"]) if e["type"] == "pointers_recorded"]
+    assert recorded["detail"]["layer_recalls_empty_for"] == [
+        {"query_index": 1, "layer": "substrate"}
+    ]
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+
+
+def test_a_layer_the_taxonomy_does_not_name_is_not_asked(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    fake = services.hindsight[0]
+    started = seeded(atlas, "coherent")
+    script_layered_queries(llm, searxng, layer="feedstock")  # a raw material: no layer
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert [r for r in fake.requests("POST", "memories/recall") if r.get("tag_groups")] == []
+    assert layer_pointers(found) == []
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["layer_recalls"], scout["layer_pointers"]) == (0, 0)
+
+
 def test_a_hindsight_outage_during_the_recalls_pauses_the_scout_and_it_resumes(
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:

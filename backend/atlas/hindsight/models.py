@@ -53,6 +53,21 @@ class TagScope:
         check_tag_scope(self)
 
 
+@dataclass(frozen=True)
+class TagGroups:
+    """A compound tag filter for a recall (`tag_groups`; memory-quality ticket 13): every
+    group must match (the groups are AND-ed), each group a `TagScope` leaf. "The theme and the
+    layer" is two groups; flat `tags` with `any_strict` could only say "the theme or the
+    layer". Used by the layer-aware pointer recall alone."""
+
+    groups: Sequence[TagScope]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "groups", tuple(self.groups))
+        if not self.groups:
+            raise HindsightRuleViolation("a compound tag filter needs at least one group")
+
+
 def check_tag_scope(scope: TagScope) -> None:
     if scope.match not in STRICT_TAG_MATCHES:
         raise HindsightRuleViolation(
