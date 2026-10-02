@@ -358,6 +358,40 @@ class ObservationPage(_Result):
     offset: int
 
 
+class ObservationScope(_Result):
+    """One distinct observation scope: the exact tag set observations were consolidated
+    under (normalized order; empty: the untagged scope) and how many live there."""
+
+    tags: list[str]
+    count: int
+
+
+class ObservationScopePage(_Result):
+    """A page of `GET .../observations/scopes` (most populous first; `total` counts all)."""
+
+    scopes: list[ObservationScope]
+    total: int
+    limit: int
+    offset: int
+
+
+class EntitySummary(_Result):
+    """One entity of the bank's entity list (`GET .../entities`)."""
+
+    id: str
+    canonical_name: str
+    mention_count: int
+
+
+class EntityPage(_Result):
+    """A page of `GET .../entities` (ordered by mention count; `total` counts all)."""
+
+    items: list[EntitySummary]
+    total: int
+    limit: int
+    offset: int
+
+
 class KnowledgeNode(_Result):
     id: str
     kind: str

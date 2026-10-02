@@ -100,7 +100,14 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(sources_router(engine, archive))
     app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
-    app.include_router(memory_router(engine, settings.hindsight_bank_id))
+    app.include_router(
+        memory_router(
+            engine,
+            settings.hindsight_bank_id,
+            hindsight,
+            lambda: load_universe(settings.themes_config),
+        )
+    )
     app.include_router(
         triage_router(engine, archive, Actor.from_settings(settings), settings.hindsight_bank_id)
     )

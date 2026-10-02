@@ -1,0 +1,292 @@
+{
+  "query": "Who is capacity constrained in laser chips?",
+  "scope": {
+    "company_ids": [],
+    "theme_ids": [
+      "photonics"
+    ],
+    "tags": [
+      "theme:photonics"
+    ],
+    "tags_match": "any_strict"
+  },
+  "memories": [
+    {
+      "memory_id": "00000000-0000-4000-8000-000000000001",
+      "type": "observation",
+      "text": "Lumentum is capacity constrained in EML lasers.",
+      "context": null,
+      "tags": [
+        "theme:photonics"
+      ],
+      "occurred_start": null,
+      "occurred_end": null,
+      "mentioned_at": "2026-08-14T12:10:05Z",
+      "provenance": {
+        "kind": "memory",
+        "state": "resolved",
+        "reason": null,
+        "detail": null,
+        "memory_id": "00000000-0000-4000-8000-000000000001",
+        "memory_type": "observation",
+        "text": "Lumentum is capacity constrained in EML lasers.",
+        "sources": [
+          {
+            "memory_id": "f1",
+            "document_id": "srcv:a9ec1d5d-9b72-533a-ab44-62e5e14caefd:part-i-item-1",
+            "source_version_id": "a9ec1d5d-9b72-533a-ab44-62e5e14caefd",
+            "source_document_id": "93dd4002-3b37-5beb-b85b-c885780e3c71",
+            "company_id": "c1b77861-cb62-5c38-a26b-200add1a7b04",
+            "form_type": "10-K",
+            "section_anchor": "part-i-item-1",
+            "section_heading": null,
+            "section_char_start": 1000,
+            "section_char_end": 9000,
+            "available_at": "2026-08-14T12:10:05Z",
+            "available_at_basis": "edgar_acceptance"
+          },
+          {
+            "memory_id": "f2",
+            "document_id": "srcv:f7100847-6eeb-5970-9c70-767162d75351:part-i-item-1",
+            "source_version_id": "f7100847-6eeb-5970-9c70-767162d75351",
+            "source_document_id": "93dd4002-3b37-5beb-b85b-c885780e3c71",
+            "company_id": "c1b77861-cb62-5c38-a26b-200add1a7b04",
+            "form_type": "10-Q",
+            "section_anchor": "part-i-item-1",
+            "section_heading": null,
+            "section_char_start": 800,
+            "section_char_end": 5000,
+            "available_at": "2026-08-14T12:10:05Z",
+            "available_at_basis": "edgar_acceptance"
+          },
+          {
+            "memory_id": "f3",
+            "document_id": "srcv:a9ec1d5d-9b72-533a-ab44-62e5e14caefd:part-i-item-1",
+            "source_version_id": "a9ec1d5d-9b72-533a-ab44-62e5e14caefd",
+            "source_document_id": "93dd4002-3b37-5beb-b85b-c885780e3c71",
+            "company_id": "c1b77861-cb62-5c38-a26b-200add1a7b04",
+            "form_type": "10-K",
+            "section_anchor": "part-i-item-1",
+            "section_heading": null,
+            "section_char_start": 1000,
+            "section_char_end": 9000,
+            "available_at": "2026-08-14T12:10:05Z",
+            "available_at_basis": "edgar_acceptance"
+          }
+        ],
+        "missing_memory_ids": [],
+        "quote": null
+      }
+    },
+    {
+      "memory_id": "00000000-0000-4000-8000-000000000002",
+      "type": "world",
+      "text": "Lumentum is  capacity constrained in EML lasers. ",
+      "context": null,
+      "tags": [
+        "theme:photonics"
+      ],
+      "occurred_start": null,
+      "occurred_end": null,
+      "mentioned_at": "2026-08-14T12:10:05Z",
+      "provenance": {
+        "kind": "memory",
+        "state": "resolved",
+        "reason": null,
+        "detail": null,
+        "memory_id": "00000000-0000-4000-8000-000000000002",
+        "memory_type": "world",
+        "text": "Lumentum is  capacity constrained in EML lasers. ",
+        "sources": [
+          {
+            "memory_id": "00000000-0000-4000-8000-000000000002",
+            "document_id": "srcv:a9ec1d5d-9b72-533a-ab44-62e5e14caefd:part-i-item-1",
+            "source_version_id": "a9ec1d5d-9b72-533a-ab44-62e5e14caefd",
+            "source_document_id": "93dd4002-3b37-5beb-b85b-c885780e3c71",
+            "company_id": "c1b77861-cb62-5c38-a26b-200add1a7b04",
+            "form_type": "10-K",
+            "section_anchor": "part-i-item-1",
+            "section_heading": null,
+            "section_char_start": 1000,
+            "section_char_end": 9000,
+            "available_at": "2026-08-14T12:10:05Z",
+            "available_at_basis": "edgar_acceptance"
+          }
+        ],
+        "missing_memory_ids": [],
+        "quote": null
+      }
+    },
+    {
+      "memory_id": "00000000-0000-4000-8000-000000000003",
+      "type": "world",
+      "text": "Coherent supplies InP substrates.",
+      "context": null,
+      "tags": [
+        "theme:photonics"
+      ],
+      "occurred_start": null,
+      "occurred_end": null,
+      "mentioned_at": "2026-08-14T12:10:05Z",
+      "provenance": {
+        "kind": "memory",
+        "state": "resolved",
+        "reason": null,
+        "detail": null,
+        "memory_id": "00000000-0000-4000-8000-000000000003",
+        "memory_type": "world",
+        "text": "Coherent supplies InP substrates.",
+        "sources": [
+          {
+            "memory_id": "00000000-0000-4000-8000-000000000003",
+            "document_id": "srcv:21b714b0-a0ef-5ee1-843e-c81909464f50:part-i-item-1a",
+            "source_version_id": "21b714b0-a0ef-5ee1-843e-c81909464f50",
+            "source_document_id": "547911b2-5788-532b-81b2-bb193e9b0564",
+            "company_id": "cbe30797-ec30-53f2-8015-7acad1f4c9c7",
+            "form_type": "10-K",
+            "section_anchor": "part-i-item-1a",
+            "section_heading": null,
+            "section_char_start": 9000,
+            "section_char_end": 20000,
+            "available_at": "2026-08-14T12:10:05Z",
+            "available_at_basis": "edgar_acceptance"
+          }
+        ],
+        "missing_memory_ids": [],
+        "quote": null
+      }
+    },
+    {
+      "memory_id": "00000000-0000-4000-8000-000000000004",
+      "type": "world",
+      "text": "AXT expanded its Beijing capacity.",
+      "context": null,
+      "tags": [
+        "theme:photonics"
+      ],
+      "occurred_start": null,
+      "occurred_end": null,
+      "mentioned_at": "2026-08-14T12:10:05Z",
+      "provenance": {
+        "kind": "memory",
+        "state": "unverified",
+        "reason": "unknown_document",
+        "detail": null,
+        "memory_id": "00000000-0000-4000-8000-000000000004",
+        "memory_type": "world",
+        "text": "AXT expanded its Beijing capacity.",
+        "sources": [],
+        "missing_memory_ids": [],
+        "quote": null
+      }
+    },
+    {
+      "memory_id": "00000000-0000-4000-8000-000000000005",
+      "type": "world",
+      "text": "coherent supplies InP substrates.",
+      "context": null,
+      "tags": [
+        "theme:photonics"
+      ],
+      "occurred_start": null,
+      "occurred_end": null,
+      "mentioned_at": "2026-08-14T12:10:05Z",
+      "provenance": {
+        "kind": "memory",
+        "state": "resolved",
+        "reason": null,
+        "detail": null,
+        "memory_id": "00000000-0000-4000-8000-000000000005",
+        "memory_type": "world",
+        "text": "coherent supplies InP substrates.",
+        "sources": [
+          {
+            "memory_id": "00000000-0000-4000-8000-000000000005",
+            "document_id": "srcv:a947bff8-9349-551b-8b15-b7d00d33a19f:cover",
+            "source_version_id": "a947bff8-9349-551b-8b15-b7d00d33a19f",
+            "source_document_id": "547911b2-5788-532b-81b2-bb193e9b0564",
+            "company_id": "cbe30797-ec30-53f2-8015-7acad1f4c9c7",
+            "form_type": "10-Q",
+            "section_anchor": "cover",
+            "section_heading": null,
+            "section_char_start": 0,
+            "section_char_end": 700,
+            "available_at": "2026-08-14T12:10:05Z",
+            "available_at_basis": "edgar_acceptance"
+          }
+        ],
+        "missing_memory_ids": [],
+        "quote": null
+      }
+    },
+    {
+      "memory_id": "00000000-0000-4000-8000-000000000006",
+      "type": "observation",
+      "text": "The industry is constrained.",
+      "context": null,
+      "tags": [
+        "theme:photonics"
+      ],
+      "occurred_start": null,
+      "occurred_end": null,
+      "mentioned_at": "2026-08-14T12:10:05Z",
+      "provenance": {
+        "kind": "memory",
+        "state": "broken",
+        "reason": "memory_not_found",
+        "detail": null,
+        "memory_id": "00000000-0000-4000-8000-000000000006",
+        "memory_type": "observation",
+        "text": "The industry is constrained.",
+        "sources": [],
+        "missing_memory_ids": [],
+        "quote": null
+      }
+    },
+    {
+      "memory_id": "00000000-0000-4000-8000-000000000007",
+      "type": "world",
+      "text": "A results release names no filer.",
+      "context": null,
+      "tags": [
+        "theme:photonics"
+      ],
+      "occurred_start": null,
+      "occurred_end": null,
+      "mentioned_at": "2026-08-14T12:10:05Z",
+      "provenance": {
+        "kind": "memory",
+        "state": "resolved",
+        "reason": null,
+        "detail": null,
+        "memory_id": "00000000-0000-4000-8000-000000000007",
+        "memory_type": "world",
+        "text": "A results release names no filer.",
+        "sources": [
+          {
+            "memory_id": "00000000-0000-4000-8000-000000000007",
+            "document_id": "srcv:a38bd9cd-aa4d-567d-b49f-0058fe69c1ef:chunk-001",
+            "source_version_id": "a38bd9cd-aa4d-567d-b49f-0058fe69c1ef",
+            "source_document_id": "7639d084-847e-517e-9478-384a23a5b6cd",
+            "company_id": null,
+            "form_type": "8-K",
+            "section_anchor": "chunk-001",
+            "section_heading": null,
+            "section_char_start": 0,
+            "section_char_end": 4000,
+            "available_at": "2026-08-14T12:10:05Z",
+            "available_at_basis": "edgar_acceptance"
+          }
+        ],
+        "missing_memory_ids": [],
+        "quote": null
+      }
+    }
+  ],
+  "counts": {
+    "resolved": 5,
+    "unverified": 1,
+    "broken": 1
+  },
+  "evidence": []
+}

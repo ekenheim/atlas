@@ -396,6 +396,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/memory/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["health_api_v1_memory_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/triage": {
         parameters: {
             query?: never;
@@ -2584,8 +2601,38 @@ export interface components {
             /** Fetch Gate Block Total */
             fetch_gate_block_total: number;
         };
+        /** CompanyEntities */
+        CompanyEntities: {
+            /** Company Id */
+            company_id: string | null;
+            /** Slug */
+            slug: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Names
+             * @description the names and tickers matched against
+             */
+            names: string[];
+            /** Entities */
+            entities: components["schemas"]["EntityMatch"][];
+            /** One Entity */
+            one_entity: boolean;
+        };
         /** @enum {string} */
         CompanyRole: "researched" | "counterparty";
+        /** CompanySections */
+        CompanySections: {
+            /** Company Id */
+            company_id: string | null;
+            /** Slug */
+            slug: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Role */
+            role: string | null;
+            sections: components["schemas"]["SectionCounts"];
+        };
         /** ContentLinks */
         ContentLinks: {
             /** Raw */
@@ -2907,6 +2954,34 @@ export interface components {
             /** Searched At */
             searched_at: string | null;
         };
+        /** EntitiesHealth */
+        EntitiesHealth: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "unavailable";
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Total
+             * @description the bank's entities
+             */
+            total?: number | null;
+            /**
+             * Scanned
+             * @default 0
+             */
+            scanned: number;
+            /**
+             * Complete
+             * @description false: more entities than were read
+             * @default true
+             */
+            complete: boolean;
+            /** Companies */
+            companies?: components["schemas"]["CompanyEntities"][];
+        };
         /** Entity */
         Entity: {
             /** Name */
@@ -2931,6 +3006,15 @@ export interface components {
              * @default []
              */
             listings: components["schemas"]["Listing"][];
+        };
+        /** EntityMatch */
+        EntityMatch: {
+            /** Id */
+            id: string;
+            /** Canonical Name */
+            canonical_name: string;
+            /** Mention Count */
+            mention_count: number;
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -3383,6 +3467,40 @@ export interface components {
             observed_at: string;
             /** Statement */
             statement: string;
+        };
+        /** FailedGroup */
+        FailedGroup: {
+            /**
+             * Error
+             * @description the normalized error text
+             */
+            error: string;
+            /** Count */
+            count: number;
+            /**
+             * Example
+             * @description the latest failed section's error, as recorded
+             */
+            example: string;
+            /** Example Document Id */
+            example_document_id: string | null;
+            /**
+             * First At
+             * Format: date-time
+             */
+            first_at: string;
+            /**
+             * Last At
+             * Format: date-time
+             */
+            last_at: string;
+            /**
+             * Companies
+             * @description sections by company slug (or unattributed)
+             */
+            companies: {
+                [key: string]: number;
+            };
         };
         /**
          * FetchGateDecision
@@ -4661,6 +4779,27 @@ export interface components {
              */
             updated_at: string;
         };
+        /** MemoryHealth */
+        MemoryHealth: {
+            /** Bank Id */
+            bank_id: string;
+            /** Company Id */
+            company_id: string | null;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            sections: components["schemas"]["SectionCounts"];
+            /** Companies */
+            companies: components["schemas"]["CompanySections"][];
+            /** Failed Groups */
+            failed_groups: components["schemas"]["FailedGroup"][];
+            /** Pending By Age */
+            pending_by_age: components["schemas"]["PendingBucket"][];
+            observation_scopes: components["schemas"]["ObservationScopesHealth"];
+            entities: components["schemas"]["EntitiesHealth"];
+        };
         /**
          * MemoryOperation
          * @description A Hindsight operation that retained (or reprocessed) some of the version's sections.
@@ -4895,6 +5034,32 @@ export interface components {
             kind: "missing";
             /** Reason */
             reason?: string | null;
+        };
+        /** ObservationScopesHealth */
+        ObservationScopesHealth: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "unavailable";
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Total
+             * @description the bank's distinct scopes
+             */
+            total?: number | null;
+            /**
+             * Complete
+             * @description false: more scopes than were read
+             * @default true
+             */
+            complete: boolean;
+            /**
+             * Scopes
+             * @description most populous first; with company_id, the scopes tagged with it
+             */
+            scopes?: components["schemas"]["ScopeCount"][];
         };
         /** OwnerReview */
         OwnerReview: {
@@ -5187,6 +5352,18 @@ export interface components {
             selected_by: string[];
             /** Parser Version */
             parser_version?: string | null;
+        };
+        /** PendingBucket */
+        PendingBucket: {
+            /**
+             * Age
+             * @enum {string}
+             */
+            age: "under_1h" | "1h_to_24h" | "1d_to_7d" | "over_7d";
+            /** Count */
+            count: number;
+            /** Oldest At */
+            oldest_at: string | null;
         };
         /** PendingKind */
         PendingKind: {
@@ -6676,6 +6853,61 @@ export interface components {
             };
             /** Sensitivity */
             sensitivity: components["schemas"]["SensitivityRow"][];
+        };
+        /** ScopeCount */
+        ScopeCount: {
+            /** Tags */
+            tags: string[];
+            /** Count */
+            count: number;
+        };
+        /**
+         * SectionCounts
+         * @description Sections in the bank by retain state; `partial` is a subset of `completed`.
+         */
+        SectionCounts: {
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Zero Fact
+             * @default 0
+             */
+            zero_fact: number;
+            /**
+             * Linked
+             * @default 0
+             */
+            linked: number;
+            /**
+             * Partial
+             * @description completed sections whose operation reported extraction errors
+             * @default 0
+             */
+            partial: number;
+            /**
+             * Fact Count
+             * @description memories counted across completed sections
+             * @default 0
+             */
+            fact_count: number;
         };
         /** Security */
         Security: {
@@ -8600,6 +8832,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceVersionMemory"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    health_api_v1_memory_health_get: {
+        parameters: {
+            query?: {
+                company_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryHealth"];
                 };
             };
             /** @description Not Found */

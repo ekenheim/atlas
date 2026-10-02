@@ -1496,6 +1496,66 @@
         }
       }
     },
+    "/api/v1/memory/health": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Health",
+        "operationId": "health_api_v1_memory_health_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryHealth"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/triage": {
       "get": {
         "tags": [
@@ -9349,12 +9409,126 @@
         ],
         "title": "CompanyDossier"
       },
+      "CompanyEntities": {
+        "properties": {
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Names",
+            "description": "the names and tickers matched against"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityMatch"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "one_entity": {
+            "type": "boolean",
+            "title": "One Entity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "slug",
+          "display_name",
+          "names",
+          "entities",
+          "one_entity"
+        ],
+        "title": "CompanyEntities"
+      },
       "CompanyRole": {
         "type": "string",
         "enum": [
           "researched",
           "counterparty"
         ]
+      },
+      "CompanySections": {
+        "properties": {
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "sections": {
+            "$ref": "#/components/schemas/SectionCounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "slug",
+          "display_name",
+          "role",
+          "sections"
+        ],
+        "title": "CompanySections"
       },
       "ContentLinks": {
         "properties": {
@@ -10359,6 +10533,64 @@
         "title": "EdgarSearch",
         "description": "A query's EDGAR full-text search (atlas.discovery.edgar_fts)."
       },
+      "EntitiesHealth": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "the bank's entities"
+          },
+          "scanned": {
+            "type": "integer",
+            "title": "Scanned",
+            "default": 0
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "description": "false: more entities than were read",
+            "default": true
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyEntities"
+            },
+            "type": "array",
+            "title": "Companies"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "EntitiesHealth"
+      },
       "Entity": {
         "properties": {
           "name": {
@@ -10442,6 +10674,29 @@
           "name"
         ],
         "title": "Entity"
+      },
+      "EntityMatch": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "canonical_name": {
+            "type": "string",
+            "title": "Canonical Name"
+          },
+          "mention_count": {
+            "type": "integer",
+            "title": "Mention Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "canonical_name",
+          "mention_count"
+        ],
+        "title": "EntityMatch"
       },
       "ErrorDetail": {
         "properties": {
@@ -11541,6 +11796,64 @@
         ],
         "title": "Fact",
         "description": "One external fact the resolution used: where it came from and when it was read."
+      },
+      "FailedGroup": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "the normalized error text"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "example": {
+            "type": "string",
+            "title": "Example",
+            "description": "the latest failed section's error, as recorded"
+          },
+          "example_document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Example Document Id"
+          },
+          "first_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First At"
+          },
+          "last_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last At"
+          },
+          "companies": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Companies",
+            "description": "sections by company slug (or unattributed)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "count",
+          "example",
+          "example_document_id",
+          "first_at",
+          "last_at",
+          "companies"
+        ],
+        "title": "FailedGroup"
       },
       "FetchGateDecision": {
         "properties": {
@@ -15291,6 +15604,74 @@
         "title": "MemoryDocument",
         "description": "One section of the Source Version, as retained (or linked) into the bank."
       },
+      "MemoryHealth": {
+        "properties": {
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "sections": {
+            "$ref": "#/components/schemas/SectionCounts"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanySections"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "failed_groups": {
+            "items": {
+              "$ref": "#/components/schemas/FailedGroup"
+            },
+            "type": "array",
+            "title": "Failed Groups"
+          },
+          "pending_by_age": {
+            "items": {
+              "$ref": "#/components/schemas/PendingBucket"
+            },
+            "type": "array",
+            "title": "Pending By Age"
+          },
+          "observation_scopes": {
+            "$ref": "#/components/schemas/ObservationScopesHealth"
+          },
+          "entities": {
+            "$ref": "#/components/schemas/EntitiesHealth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bank_id",
+          "company_id",
+          "generated_at",
+          "sections",
+          "companies",
+          "failed_groups",
+          "pending_by_age",
+          "observation_scopes",
+          "entities"
+        ],
+        "title": "MemoryHealth"
+      },
       "MemoryOperation": {
         "properties": {
           "id": {
@@ -16077,6 +16458,60 @@
           "kind"
         ],
         "title": "MissingInput"
+      },
+      "ObservationScopesHealth": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "the bank's distinct scopes"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "description": "false: more scopes than were read",
+            "default": true
+          },
+          "scopes": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeCount"
+            },
+            "type": "array",
+            "title": "Scopes",
+            "description": "most populous first; with company_id, the scopes tagged with it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ObservationScopesHealth"
       },
       "OwnerReview": {
         "properties": {
@@ -16873,6 +17308,43 @@
         ],
         "title": "Passage",
         "description": "A stretch of one Source Version's parsed text sent to the Investigator."
+      },
+      "PendingBucket": {
+        "properties": {
+          "age": {
+            "type": "string",
+            "enum": [
+              "under_1h",
+              "1h_to_24h",
+              "1d_to_7d",
+              "over_7d"
+            ],
+            "title": "Age"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "oldest_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "age",
+          "count",
+          "oldest_at"
+        ],
+        "title": "PendingBucket"
       },
       "PendingKind": {
         "properties": {
@@ -20969,6 +21441,76 @@
           "sensitivity"
         ],
         "title": "ScenarioOutputs"
+      },
+      "ScopeCount": {
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tags",
+          "count"
+        ],
+        "title": "ScopeCount"
+      },
+      "SectionCounts": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "default": 0
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed",
+            "default": 0
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed",
+            "default": 0
+          },
+          "zero_fact": {
+            "type": "integer",
+            "title": "Zero Fact",
+            "default": 0
+          },
+          "linked": {
+            "type": "integer",
+            "title": "Linked",
+            "default": 0
+          },
+          "partial": {
+            "type": "integer",
+            "title": "Partial",
+            "description": "completed sections whose operation reported extraction errors",
+            "default": 0
+          },
+          "fact_count": {
+            "type": "integer",
+            "title": "Fact Count",
+            "description": "memories counted across completed sections",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SectionCounts",
+        "description": "Sections in the bank by retain state; `partial` is a subset of `completed`."
       },
       "Security": {
         "properties": {

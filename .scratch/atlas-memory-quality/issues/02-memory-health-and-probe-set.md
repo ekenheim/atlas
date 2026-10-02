@@ -14,9 +14,9 @@ The lead, not the implementer, runs both against production after the deploy and
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the API seam: with sections in each retain outcome for two companies and two different error texts, the health read returns the counts per company and the error groups; with the Hindsight fake's scopes and entities, it returns them; with the fake failing, that part is `unavailable` and the status is still 200.
-- [ ] Unit test of the probe report from a recorded recall answer: the counts, the duplicates and the ranking are the expected ones.
-- [ ] The probes file is validated at load (a probe without a scope or with an unknown theme is refused).
-- [ ] The API client is regenerated; `AGENTS.md` gains one line for the read and the script; the runbook entry exists.
+- [x] Integration test at the API seam: with sections in each retain outcome for two companies and two different error texts, the health read returns the counts per company and the error groups; with the Hindsight fake's scopes and entities, it returns them; with the fake failing, that part is `unavailable` and the status is still 200.
+- [x] Unit test of the probe report from a recorded recall answer: the counts, the duplicates and the ranking are the expected ones. (The answer is hand-written in the `RecallResponse` shape and validated against it, not recorded from production: see the implementation log.)
+- [x] The probes file is validated at load (a probe without a scope or with an unknown theme is refused).
+- [x] The API client is regenerated; `AGENTS.md` gains one line for the read and the script; the runbook entry exists.
