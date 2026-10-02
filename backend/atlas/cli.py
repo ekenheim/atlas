@@ -174,6 +174,30 @@ def enqueue_job(
     _print_enqueued(enqueued)
 
 
+def enqueue_consolidate(settings: Settings, key: str | None, *, backfill: bool) -> None:
+    """`atlas memory consolidate`: one `consolidate` job for the research bank."""
+    import uuid
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.jobs import JobQueue
+    from atlas.retention.consolidation import enqueue_consolidation
+
+    if not settings.hindsight_url:
+        print("atlas: consolidation needs ATLAS_HINDSIGHT_URL", file=sys.stderr)
+        raise SystemExit(2)
+    engine = create_engine(settings)
+    try:
+        enqueued = enqueue_consolidation(
+            JobQueue(engine, actor=Actor.from_settings(settings)),
+            key or f"consolidate:{uuid.uuid4()}",
+            job_class="backfill" if backfill else "interactive",
+        )
+    finally:
+        engine.dispose()
+    _print_enqueued(enqueued)
+
+
 def _print_enqueued(enqueued: "Enqueued") -> None:
     import json
 
@@ -1088,6 +1112,15 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="skip when this exact template is already the bank's latest application",
     )
+    memory = commands.add_parser("memory", help="the research bank's memory")
+    memory_commands = memory.add_subparsers(dest="memory_command", required=True)
+    consolidate = memory_commands.add_parser(
+        "consolidate",
+        help="enqueue a consolidation of the research bank (skipped with nothing retained"
+        " since the last one or a retain pending; a running one is followed, not resubmitted)",
+    )
+    consolidate.add_argument("--key", help="idempotency key (default: a new request each time)")
+    consolidate.add_argument("--backfill", action="store_true", help="backfill class")
     evaluate = commands.add_parser(
         "evaluate",
         help="run the gold evaluation cases and store the results (GET /api/v1/evaluations)",
@@ -1192,5 +1225,7 @@ def main(argv: list[str] | None = None) -> None:
         seed_companies(settings)
     elif args.command == "evaluate":
         raise SystemExit(run_evaluate(settings, args.cases, live=args.live))
+    elif args.command == "memory":
+        enqueue_consolidate(settings, args.key, backfill=args.backfill)
     else:
         run_worker(settings, once=args.once)

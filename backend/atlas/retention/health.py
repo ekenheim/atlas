@@ -23,6 +23,10 @@ One read, two sources:
 
 A Hindsight read that fails (or Hindsight not configured) makes its part `unavailable` with the
 reason; the rest of the read still answers.
+
+`consolidation` (ticket 19) is Atlas's record of the bank's consolidations: the last requested
+and the last completed run, their operations, and the sections retained since the last
+completed one (`atlas.retention.consolidation`).
 """
 
 import re
@@ -38,6 +42,7 @@ from sqlalchemy import Connection, text
 from atlas.companies import CompanyConfig, Universe
 from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightGateway
 from atlas.identity.normalize import normalize_name
+from atlas.retention.consolidation import ConsolidationRecord, consolidation_record
 from atlas.retention.reads import RETAIN_STATES
 
 PartStatus = Literal["ok", "unavailable"]
@@ -175,6 +180,10 @@ class MemoryHealth(BaseModel):
     pending_by_age: list[PendingBucket]
     observation_scopes: ObservationScopesHealth
     entities: EntitiesHealth
+    consolidation: ConsolidationRecord = Field(
+        description="the bank's last requested and last completed consolidation (ticket 19);"
+        " for the whole bank, whatever company_id is"
+    )
 
 
 @dataclass
@@ -243,6 +252,7 @@ def memory_health(
         pending_by_age=_pending(connection, where, params, now),
         observation_scopes=_scopes(gateway, company_id),
         entities=_entities(gateway, universe, companies, company_id),
+        consolidation=consolidation_record(connection, bank_id),
     )
 
 

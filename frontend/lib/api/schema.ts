@@ -2674,6 +2674,61 @@ export interface components {
             role: string | null;
             sections: components["schemas"]["SectionCounts"];
         };
+        /** ConsolidationRecord */
+        ConsolidationRecord: {
+            last_requested: components["schemas"]["ConsolidationRun"] | null;
+            last_completed: components["schemas"]["ConsolidationRun"] | null;
+            /**
+             * Sections Retained Since
+             * @description sections retained since the last completed consolidation was requested
+             */
+            sections_retained_since: number;
+        };
+        /**
+         * ConsolidationRun
+         * @description A consolidation request Atlas submitted to the bank.
+         */
+        ConsolidationRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Job Id */
+            job_id: string | null;
+            /** Operation Id */
+            operation_id: string;
+            /**
+             * Status
+             * @description submitted: its operation is still running, as last polled
+             * @enum {string}
+             */
+            status: "submitted" | "completed" | "failed";
+            /**
+             * Operation Status
+             * @description what Hindsight last reported
+             */
+            operation_status: string | null;
+            /**
+             * Deduplicated
+             * @description Hindsight reused a pending consolidation for it
+             */
+            deduplicated: boolean;
+            /**
+             * Sections Retained
+             * @description sections retained since the last completed consolidation when it was asked
+             */
+            sections_retained: number;
+            /** Error */
+            error: string | null;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Completed At */
+            completed_at: string | null;
+        };
         /** ContentLinks */
         ContentLinks: {
             /** Raw */
@@ -4869,6 +4924,8 @@ export interface components {
             pending_by_age: components["schemas"]["PendingBucket"][];
             observation_scopes: components["schemas"]["ObservationScopesHealth"];
             entities: components["schemas"]["EntitiesHealth"];
+            /** @description the bank's last requested and last completed consolidation (ticket 19); for the whole bank, whatever company_id is */
+            consolidation: components["schemas"]["ConsolidationRecord"];
         };
         /**
          * MemoryOperation

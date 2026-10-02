@@ -371,6 +371,19 @@ A rehearsal's model answers are scripted (`RehearsalModel`), and so are its Sear
 **After the first live run:** the report lists, under "Anchors found from the sentence", the section of each answer the file gives no anchor for (`section: null`: documents the recorded fixtures don't hold); write them into the file and bump its `version`. Revisit the thresholds (first set at 0.25 at 10 and 0.5 at 50, before any measurement) from that run, which is the before-measure. A check that fails on live but passes in the rehearsal is a finding about Hindsight or our settings: record it, with the evidence from `results.json`, in `docs/hindsight-feature-matrix.md` and a ticket.
 
 **Record it** in `docs/implementation-log.md` as LIVE: the known-answers table (overall, per hop, per test part), each check's verdict, and the usage line.
+## Consolidation (memory-quality ticket 19)
+
+**What:** Hindsight no longer consolidates the research bank by itself after each retain; Atlas asks, once a day from `ATLAS_CONSOLIDATE_AT` (default 04:30 UTC) and by hand. Each request is one unit of the `codex` budget (the owner's ChatGPT subscription pays for it). Rules in `docs/decisions.md`, "Atlas decides when Memory consolidates".
+
+**The bank's setting must be off.** Bank template `1.4.0` carries `enable_auto_consolidation: false`; apply it after deploying (`uv run atlas hindsight apply-template --if-changed`, or the deploy's own apply). Check on Hindsight: `GET /v1/default/banks/<bank>/config` should show `"enable_auto_consolidation": false`. If it still shows `true` (a template applied before 1.4.0, or a server that ignored the field on import), set it directly: `PATCH /v1/default/banks/<bank>/config` with `{"updates": {"enable_auto_consolidation": false}}` (the 0.10.2 feature check turned it off this way). Without it, Hindsight keeps consolidating after every retain, uncounted, and Atlas's daily run adds to it.
+
+**Ask for one:** `uv run atlas memory consolidate [--key K] [--backfill]` enqueues a `consolidate` job; `atlas worker` runs it (pausable; a spent Codex window holds it; `--backfill` keeps it in the backfill window and off the interactive reserve). It submits nothing when no section was retained since the last completed run, or while a retain, retain poll or reprocess job is queued or running (the job's artifacts say `skipped` and why), and it follows a run still going rather than asking again (`joined`). The job polls for at most `ATLAS_CONSOLIDATE_POLL_TIMEOUT_SECONDS` (240 s); a longer run stays recorded as running and the next job, by hand or the next hourly try, picks it up.
+
+**Watch it:** `GET /api/v1/memory/health` → `consolidation`: `last_requested` (its `operation_id`, `status` `submitted` while running, Hindsight's last `operation_status`), `last_completed`, and `sections_retained_since` (what the next run would consolidate). `atlas_consolidations_total{outcome}` counts completed and failed runs and the skips by reason. A run's progress is Hindsight's: `GET /v1/default/banks/<bank>/operations/<operation_id>`.
+
+**Stop one** (the owner's call; Atlas never cancels): `DELETE /v1/default/banks/<bank>/operations/<operation_id>` on Hindsight (a running one stops at its next checkpoint). The next `consolidate` job reads it `cancelled` and records the run `failed`; the next request starts fresh. To stop the daily run, set `ATLAS_CONSOLIDATE_AT=` (empty) on the worker.
+
+**A long backlog** (the 2026-10-02 one: 6,709 memories at ~10 s each): let the night's run work through it, followed hourly by the day's tries (`ATLAS_CONSOLIDATE_MAX_TRIES`, 6). A retain queued at 04:30 makes the day's try wait an hour, so a backfill that runs all night delays the run; finish or pause the backfill (its retains) first, then ask by hand.
 
 ## EDGAR availability corrections (after deploying migration `0012`)
 

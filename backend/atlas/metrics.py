@@ -31,6 +31,12 @@ from atlas.retention.triage import LATEST_TRIAGE_JOBS
 # (failed and cancelled sections). `cancelled` is not a failure (memory-quality ticket 03).
 _FINAL_SECTION_STATES = ("completed", "zero_fact", "failed", "cancelled", "linked")
 _FETCH_OUTCOMES = ("new_version", "unchanged", "not_modified")
+_CONSOLIDATION_OUTCOMES = (
+    "completed",
+    "failed",
+    "skipped_nothing_retained",
+    "skipped_retains_pending",
+)
 _PARSE_STATUSES = ("parsed", "incomplete", "failed", "unsupported", "not_applicable")
 # Seconds; a reflect is a job, so its latency includes the wait in the queue.
 _REFLECT_BUCKETS = (5.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0, 3600.0)
@@ -98,6 +104,7 @@ class StateCollector(Collector):
             yield from self._ledger(connection)
             yield from self._jobs(connection)
             yield from self._operations(connection)
+            yield from self._consolidations(connection)
             yield from self._sections(connection)
             yield from self._triage(connection)
             yield from self._research(connection)
@@ -333,6 +340,26 @@ class StateCollector(Collector):
         ).all():
             operations.add_metric([kind, status, error_class], count)
         yield operations
+
+    def _consolidations(self, connection: Connection) -> Iterator[Metric]:
+        consolidations = CounterMetricFamily(
+            "atlas_consolidations",
+            "Decisions of the consolidate job that reached their end (memory-quality ticket 19):"
+            " requests completed or failed, and skips by reason",
+            labels=["outcome"],
+        )
+        counts = {outcome: 0 for outcome in _CONSOLIDATION_OUTCOMES}
+        for outcome, count in connection.execute(
+            text(
+                "SELECT CASE WHEN status = 'skipped' THEN 'skipped_' || skip_reason"
+                " ELSE status END, count(*) FROM memory_consolidation"
+                " WHERE status <> 'submitted' GROUP BY 1"
+            )
+        ).all():
+            counts[outcome] = count
+        for outcome, count in counts.items():
+            consolidations.add_metric([outcome], count)
+        yield consolidations
 
     def _sections(self, connection: Connection) -> Iterator[Metric]:
         counts: dict[str, int] = {
