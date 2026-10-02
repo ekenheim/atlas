@@ -109,6 +109,7 @@ from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
 from atlas.investigations.coverage import coverage, not_read
+from atlas.investigations.entity_hop import HopLimits, record_entity_pointers
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
@@ -140,6 +141,7 @@ from atlas.investigations.skeptic import (
 from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import run_recorder
+from atlas.research.provenance import ProvenanceResolver
 from atlas.research.service import RecallRequest, Research, ResearchScope
 from atlas.roles import (
     QuotedText,
@@ -484,6 +486,22 @@ class TaskRunner:
             task,
             queries,
         )
+        # The entity hop (memory-quality ticket 09): what other companies' documents say
+        # about the companies this round reads, whether or not a recall ranked them.
+        hop = record_entity_pointers(
+            self._engine,
+            self._gateway,
+            ProvenanceResolver(
+                self._engine, open_archive(self._settings), self._gateway
+            ).resolve_recalled,
+            investigation,
+            task,
+            HopLimits(
+                max_companies=self._settings.entity_hop_max_companies,
+                max_facts=self._settings.entity_hop_max_facts,
+                pointer_weight=self._settings.entity_hop_pointer_weight,
+            ),
+        )
         with self._engine.begin() as connection:
             lock(connection, investigation["id"])
             taken, dropped, rejected, total = _take_leads(
@@ -505,7 +523,7 @@ class TaskRunner:
                     max_leads=investigation["max_leads"],
                     dropped=dropped,
                 )
-        artifacts: dict[str, JsonValue] = dict(pointers)
+        artifacts: dict[str, JsonValue] = dict(pointers) | hop
         if edgar is not None and self._settings.sec_user_agent:
             # The filing leads' filers, by CIK (no mention extractor): Candidates for the
             # ones outside the universe (atlas.candidates).

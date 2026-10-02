@@ -679,6 +679,7 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
         ("task_queued", "scout"),
         ("task_started", "scout"),
         ("pointers_recorded", "scout"),  # what Memory was asked, and what it pointed at
+        ("entity_pointers_recorded", "scout"),  # the entity hop (memory-quality ticket 09)
         ("task_succeeded", "scout"),
     ]
     assert log[-1]["type"] == "stopped"
@@ -1678,7 +1679,12 @@ def test_a_company_memory_points_to_gains_an_investigator_that_reads_where_memor
     )
     assert (added["depends_on"], added["premise_keys"]) == (["scout"], ["question", "company:axt"])
     # Why it was added: four pointers at rank 1, each weighing 1/rank.
-    assert added["artifacts"]["added_for_pointers"] == {"pointers": 4, "score": 4.0, "best_rank": 1}
+    assert added["artifacts"]["added_for_pointers"] == {
+        "pointers": 4,
+        "entity_pointers": 0,  # the note's section is pointed at by recall already
+        "score": 4.0,
+        "best_rank": 1,
+    }
     investigators = GROWN_PLAN[1:4]
     assert plan["skeptic"]["depends_on"] == plan["financial_analyst"]["depends_on"] == investigators
     assert plan["editor"]["depends_on"] == [*investigators, "skeptic", "financial_analyst"]
@@ -1696,6 +1702,7 @@ def test_a_company_memory_points_to_gains_an_investigator_that_reads_where_memor
         "company_name": "AXT",
         "slug": "axt",
         "pointers": 4,
+        "entity_pointers": 0,
         "score": 4.0,
         "best_rank": 1,
         "outcome": "added",
@@ -1842,6 +1849,8 @@ def test_a_pointed_company_the_company_budget_has_no_room_for_is_listed_as_not_r
             "score": left_out["score"],
             "best_rank": left_out["best_rank"],
             "reason": "the company budget (2 Investigators a round) had no room",
+            "entity_pointers": 0,
+            "channels": ["recall"],
         }
     ]
     assert not [d for d in found["documents"] if d["company_id"] == axt["id"]]
@@ -1902,6 +1911,261 @@ def test_an_investigator_takes_the_documents_its_pointers_name_before_its_latest
     artifacts = tasks(found)["investigator:coherent"]["artifacts"]
     assert (artifacts["documents"], artifacts["documents_pointed"]) == (1, 1)
     assert artifacts["documents_dropped"] == 1  # the newer 10-K
+
+
+# --- the entity hop (memory-quality ticket 09) -------------------------------------------------
+
+
+def import_text(atlas: Atlas, slug: str, title: str, body: str, published_at: str) -> str:
+    """Record a short hand-written document of the company (`atlas sources import`), published
+    at `published_at`, and run its retention; its Source Version's ID."""
+    path = atlas.tmp_path / f"{title}.txt"
+    path.write_text(body, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        slug,
+        "--file",
+        str(path),
+        "--origin-url",
+        f"https://notes.example.test/{title}",
+        "--published-at",
+        published_at,
+        "--title",
+        title,
+    )
+    assert imported.returncode == 0, imported.stderr
+    atlas.worker_pass()
+    version_id = json.loads(imported.stdout)["source_version_id"]
+    assert atlas.memory(version_id)["retained"] is True
+    return version_id
+
+
+def company_memo(atlas: Atlas, title: str, published_at: str) -> str:
+    """A Coherent memo that names no other company (its title makes its bytes its own)."""
+    return import_text(
+        atlas,
+        "coherent",
+        title,
+        f"Synthetic test memo {title}, hand-written for a test. The memo says that Coherent"
+        " makes lasers for data centers in its own plants and names none of its customers.\n",
+        published_at,
+    )
+
+
+LUMENTUM_ON_COHERENT = (
+    "Synthetic test memo, hand-written for a test. The memo says that Lumentum competes with"
+    " Coherent in datacom lasers and that the two companies sell to the same customers.\n"
+)
+
+
+def entity_hops(found: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Round 1's entity hops, by the slug of the company each was made for."""
+    return {hop["slug"]: hop for hop in found["entity_hops"] if hop["round"] == 1}
+
+
+def test_a_document_of_another_company_naming_a_seed_is_read_through_the_entity_hop(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Memory answers each recall with its one best fact only (a text budget of one token):
+    # Coherent's memo, the nearest to the as-of time. AXT's note names Coherent in its last
+    # section, which no recall returns.
+    atlas = services.start(ingest=False, pointer_recall_max_tokens=1)
+    fake = services.hindsight[0]
+    fake.derive_recall_options()
+    memo = company_memo(atlas, "coherent-memo", "2026-09-02T12:00:00+00:00")
+    note = import_axt_note(atlas)  # published 2026-08-05
+    coherent, axt = atlas.company("coherent"), atlas.company("axt")
+    [section] = retained_sections(atlas, AXT_NOTE_URL, "axt")
+    fake.script_fact_text(section["document_id"], AXT_MEMORY)
+    started = seeded(atlas, "coherent", as_of="2026-09-10T00:00:00Z")
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.json({"claims": []}),
+        ChatReply.json({"claims": []}),
+        NOTHING_ACCEPTED,
+    )
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+    # Every recall pointed at Coherent's memo only; none at AXT's note.
+    assert {p["source_version_id"] for p in found["pointers"]} == {memo}
+    assert {p["query_kind"] for p in found["pointers"]} == {"scout"}
+    # The hop for Coherent listed the theme's facts carrying its entity: its own memo's (no
+    # pointer) and the note's, which became one entity pointer, apart from the recall pointers.
+    [hopped] = found["entity_pointers"]
+    assert (hopped["round"], hopped["task_key"], hopped["query_kind"]) == (1, "scout", "entity")
+    assert (hopped["source_version_id"], hopped["section_anchor"]) == (
+        note,
+        section["section_anchor"],
+    )
+    assert (hopped["company_id"], hopped["company_name"]) == (axt["id"], "AXT")
+    assert (hopped["query_company_id"], hopped["query_company_name"]) == (
+        coherent["id"],
+        "Coherent",
+    )
+    assert (hopped["query"], hopped["query_index"], hopped["rank"]) == ("Coherent Corp.", 1, 1)
+    assert (hopped["memory_type"], hopped["memory_text"]) == ("world", AXT_MEMORY)
+    assert hopped["entity_id"]
+    hop = entity_hops(found)["coherent"]
+    assert (hop["company_id"], hop["entity_name"], hop["entity_id"]) == (
+        coherent["id"],
+        "Coherent Corp.",
+        hopped["entity_id"],
+    )
+    assert (hop["outcome"], hop["facts_listed"], hop["pointers"]) == ("listed", 2, 1)
+    assert (hop["own_documents"], hop["after_as_of"], hop["already_pointed"]) == (1, 0, 0)
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["entity_pointers"], scout["entity_listings_failed"]) == (1, 0)
+
+    # AXT joined the ranking by its entity pointer, at half a recall pointer's best weight,
+    # and the plan gained its Investigator.
+    ranked = pointed(found)
+    assert ranked["axt"] == {
+        "round": 1,
+        "company_id": axt["id"],
+        "company_name": "AXT",
+        "slug": "axt",
+        "pointers": 0,
+        "entity_pointers": 1,
+        "score": 0.5,
+        "best_rank": None,
+        "outcome": "added",
+        "task_key": "investigator:axt",
+    }
+    plan = tasks(found)
+    added = plan["investigator:axt"]
+    assert added["artifacts"]["added_for_pointers"] == {
+        "pointers": 0,
+        "entity_pointers": 1,
+        "score": 0.5,
+        "best_rank": None,
+    }
+    # AXT's Investigator read the note, and its passages include the section that names
+    # Coherent, selected by the entity pointer.
+    assert [d["source_version_id"] for d in found["documents"] if d["company_id"] == axt["id"]] == [
+        note
+    ]
+    assert added["artifacts"]["documents_pointed"] == 1
+    extraction = atlas.get(f"/api/v1/claim-extractions/{added['artifacts']['extraction_id']}")
+    tag = f"entity_pointer:{coherent['id']}"
+    at_quote = atlas.parsed(note).index(AXT_QUOTE)
+    [chosen] = [p for p in extraction["passages"] if tag in p["selected_by"]]
+    assert chosen["char_start"] <= at_quote < chosen["char_end"]
+    assert chosen["section_anchor"] == section["section_anchor"]
+    # The card's `read` names the channel; the memory's text reached no role.
+    axt_read = next(
+        r for r in found["research_card"]["read"] if r["task_key"] == "investigator:axt"
+    )
+    [document] = axt_read["documents"]
+    assert document["selections"]["entity_pointer"] == 1
+    assert AXT_MEMORY not in json.dumps(llm.chat_requests())
+    # Co-mention is a reason to read: no Claim was accepted, so no edge and no Evidence.
+    assert found["evidence"] == []
+    assert atlas.get("/api/v1/relationships")["items"] == []
+
+
+def test_the_entity_hop_keeps_to_the_as_of_time_its_own_documents_and_its_bounds(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # One company hopped, one pointer each; each recall gives its one best fact (a Coherent
+    # memo, the nearest to the as-of time).
+    atlas = services.start(
+        ingest=False,
+        pointer_recall_max_tokens=1,
+        entity_hop_max_companies=1,
+        entity_hop_max_facts=1,
+    )
+    services.hindsight[0].derive_recall_options()
+    company_memo(atlas, "coherent-september", "2026-09-09T12:00:00+00:00")
+    company_memo(atlas, "coherent-august", "2026-08-14T12:00:00+00:00")
+    note = import_axt_note(atlas)  # 2026-08-05
+    lumentum_memo = import_text(
+        atlas, "lumentum", "lumentum-on-coherent", LUMENTUM_ON_COHERENT, "2026-09-05T12:00:00+00:00"
+    )
+    script_searches(searxng)
+
+    # As of September 10, two documents of other companies name Coherent; one fact is taken,
+    # the newest: Lumentum's memo.
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.json({"claims": []}),
+        ChatReply.json({"claims": []}),
+        NOTHING_ACCEPTED,
+    )
+    september = seeded(atlas, "coherent", as_of="2026-09-10T00:00:00Z")
+    atlas.worker_pass()
+    found = investigation(atlas, september["id"])
+    assert [(p["source_version_id"], p["query_kind"]) for p in found["entity_pointers"]] == [
+        (lumentum_memo, "entity")
+    ]
+    hop = entity_hops(found)["coherent"]
+    assert (hop["facts_listed"], hop["own_documents"], hop["after_as_of"]) == (4, 2, 0)
+    assert (hop["pointers"], hop["beyond_limit"]) == (1, 1)
+    assert [c["slug"] for c in found["pointed_companies"] if c["outcome"] == "added"] == [
+        "lumentum"
+    ]
+
+    # As of August 15 Lumentum's memo is not public yet: only AXT's note is pointed at. The
+    # seeds are Coherent and Lumentum, and the hop is bounded to one company: Coherent. The
+    # company budget is the two seeds, so AXT is not read.
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+    august = seeded(
+        atlas,
+        "coherent",
+        "lumentum",
+        as_of="2026-08-15T00:00:00Z",
+        budgets={"max_companies": 2},
+    )
+    atlas.worker_pass()
+    found = investigation(atlas, august["id"])
+    assert [p["source_version_id"] for p in found["entity_pointers"]] == [note]
+    assert list(entity_hops(found)) == ["coherent"]
+    hop = entity_hops(found)["coherent"]
+    # Its September memo is its own; Lumentum's memo is after the as-of time.
+    assert (hop["facts_listed"], hop["own_documents"], hop["after_as_of"]) == (4, 2, 1)
+    assert (hop["pointers"], hop["beyond_limit"]) == (1, 0)
+    assert all(p["available_at"] <= "2026-08-15" for p in found["entity_pointers"])
+    # The card's `not_read` names the channel that reached AXT: the entity hop alone.
+    [unread] = found["research_card"]["not_read"]
+    assert (unread["company_name"], unread["channels"]) == ("AXT", ["entity"])
+    assert (unread["pointers"], unread["entity_pointers"], unread["best_rank"]) == (0, 1, None)
+    assert unread["score"] == 0.5
+
+
+def test_a_failed_listing_leaves_the_scout_succeeded_and_a_company_without_an_entity_is_recorded(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(ingest=False)
+    fake = services.hindsight[0]
+    company_memo(atlas, "coherent-memo", "2026-09-02T12:00:00+00:00")
+    fake.fail_entity_memories(500)
+    # Lumentum has no document: no retain item ever named it, so Memory has no entity for it.
+    started = seeded(atlas, "coherent", "lumentum", as_of="2026-09-10T00:00:00Z")
+    llm.script_chat(scout_reply(), ChatReply.json({"claims": []}), NOTHING_ACCEPTED)
+    script_searches(searxng)
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    assert statuses(found)["scout"] == "succeeded"
+    assert (found["status"], found["stop_reason"]) == ("stopped", "no_new_independent_evidence")
+    assert found["entity_pointers"] == []
+    hops = entity_hops(found)
+    assert (hops["coherent"]["outcome"], hops["coherent"]["pointers"]) == ("listing_failed", 0)
+    assert (hops["lumentum"]["outcome"], hops["lumentum"]["entity_id"]) == ("no_entity", None)
+    assert hops["lumentum"]["entity_name"] == "Lumentum Holdings Inc."
+    [failed] = [e for e in events(atlas, started["id"]) if e["type"] == "entity_listing_failed"]
+    assert (failed["round"], failed["task_key"]) == (1, "scout")
+    assert failed["detail"]["company_id"] == atlas.company("coherent")["id"]
+    assert "HTTP 500" in failed["detail"]["error"]
+    scout = tasks(found)["scout"]["artifacts"]
+    assert (scout["entity_pointers"], scout["entity_listings_failed"]) == (0, 1)
 
 
 def test_with_no_accepted_claim_the_editor_writes_a_card_of_what_was_searched_and_read(

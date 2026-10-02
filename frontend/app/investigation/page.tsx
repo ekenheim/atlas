@@ -22,8 +22,10 @@ import {
   addedInvestigator,
   byRound,
   canSaveHypothesis,
+  channelsLabel,
   checklistLabel,
   counterevidenceSummary,
+  entityHopSummary,
   figureLabel,
   followUpBlocked,
   foundBy,
@@ -443,6 +445,7 @@ function Pointers({ investigation }: { investigation: Investigation }) {
       </p>
       <PointedCompanies investigation={investigation} />
       {scouts.length === 0 ? <p>No reading pointer.</p> : <PointerGroups groups={scouts} />}
+      <EntityPointers investigation={investigation} />
       <h3 id="skeptic-pointers">The Skeptic&apos;s</h3>
       <p>
         The Skeptic asks Memory each bear-checklist item for each company the accepted Claims
@@ -467,7 +470,8 @@ function PointedCompanies({ investigation }: { investigation: Investigation }) {
   return (
     <table>
       <caption>
-        Companies the pointers name, best ranked first (a pointer weighs 1 / its rank)
+        Companies the pointers name, best ranked first (a recall pointer weighs 1 / its rank;
+        an entity pointer its share of that)
       </caption>
       <thead>
         <tr>
@@ -498,6 +502,38 @@ function PointedCompanies({ investigation }: { investigation: Investigation }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * The entity hop's pointers, apart from the recall pointers: for each company the round
+ * reads, the documents of other companies whose facts carry its entity in Memory.
+ */
+function EntityPointers({ investigation }: { investigation: Investigation }) {
+  const hops = investigation.entity_hops ?? [];
+  const groups = pointerGroups(investigation.entity_pointers ?? []);
+  return (
+    <>
+      <h3 id="entity-pointers">The entity hop</h3>
+      <p>
+        For each company the round reads, Memory lists the facts that carry its entity; a fact
+        from another company&apos;s document points there. A co-mention is a reason to read,
+        never an edge or Evidence.
+      </p>
+      {hops.length === 0 ? (
+        <p>No entity hop.</p>
+      ) : (
+        <ul>
+          {hops.map((hop) => (
+            <li key={`${hop.round}:${hop.company_id}`}>
+              {hop.company_name}
+              {hop.round > 1 && ` (round ${hop.round})`}: {entityHopSummary(hop)}
+            </li>
+          ))}
+        </ul>
+      )}
+      {groups.length > 0 && <PointerGroups groups={groups} />}
+    </>
   );
 }
 
@@ -1075,6 +1111,7 @@ function NotRead({ card }: { card: ResearchCard }) {
           <li key={`${company.round}:${company.company_id}`}>
             <Link href={routes.company(company.company_id)}>{company.company_name}</Link>
             {company.round > 1 && ` (round ${company.round})`}: {pointerWeight(company)};{" "}
+            {channelsLabel(company.channels) && `${channelsLabel(company.channels)}; `}
             {company.reason}.
           </li>
         ))}

@@ -2050,9 +2050,16 @@ export interface components {
             /** Score */
             score: number;
             /** Best Rank */
-            best_rank: number;
+            best_rank: number | null;
             /** Reason */
             reason: string;
+            /**
+             * Entity Pointers
+             * @default 0
+             */
+            entity_pointers: number;
+            /** Channels */
+            channels?: ("recall" | "entity")[];
         };
         /**
          * CardContradiction
@@ -3047,6 +3054,50 @@ export interface components {
              * @default []
              */
             listings: components["schemas"]["Listing"][];
+        };
+        /**
+         * EntityHop
+         * @description What the entity hop (memory-quality ticket 09) did for one company of a round: the
+         *     entity it found by the company's canonical name, the facts that carry it, and why each
+         *     made an entity pointer or not. `outcome`: `listed`; `no_entity` (no entity of exactly
+         *     that name in Memory); `listing_failed` (the memory listing failed: an event says why);
+         *     `entities_unavailable` (the entity listing failed, so no company was hopped).
+         */
+        EntityHop: {
+            /** Round */
+            round: number;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Slug */
+            slug: string;
+            /** Entity Name */
+            entity_name: string;
+            /** Entity Id */
+            entity_id: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "listed" | "no_entity" | "listing_failed" | "entities_unavailable";
+            /** Facts Listed */
+            facts_listed: number;
+            /** Pointers */
+            pointers: number;
+            /** Own Documents */
+            own_documents: number;
+            /** After As Of */
+            after_as_of: number;
+            /** Already Pointed */
+            already_pointed: number;
+            /** Unresolved */
+            unresolved: number;
+            /** Beyond Limit */
+            beyond_limit: number;
         };
         /** EntityMatch */
         EntityMatch: {
@@ -4305,6 +4356,10 @@ export interface components {
             pointers: components["schemas"]["ReadingPointer"][];
             /** Pointed Companies */
             pointed_companies: components["schemas"]["PointedCompany"][];
+            /** Entity Pointers */
+            entity_pointers?: components["schemas"]["ReadingPointer"][];
+            /** Entity Hops */
+            entity_hops?: components["schemas"]["EntityHop"][];
             /** Documents */
             documents: components["schemas"]["InvestigationDocument"][];
             /** Counterevidence */
@@ -5479,7 +5534,7 @@ export interface components {
             /** Score */
             score: number;
             /** Best Rank */
-            best_rank: number;
+            best_rank: number | null;
             /**
              * Outcome
              * @enum {string}
@@ -5487,6 +5542,11 @@ export interface components {
             outcome: "seed" | "added" | "no_room" | "premise_disproven";
             /** Task Key */
             task_key: string | null;
+            /**
+             * Entity Pointers
+             * @default 0
+             */
+            entity_pointers: number;
         };
         /** Premise */
         Premise: {
@@ -5802,7 +5862,7 @@ export interface components {
              * Query Kind
              * @enum {string}
              */
-            query_kind: "scout" | "bear_checklist";
+            query_kind: "scout" | "bear_checklist" | "entity";
             /** Query Index */
             query_index: number;
             /** Query */
@@ -5859,6 +5919,8 @@ export interface components {
             score?: number | null;
             /** Entity Names */
             entity_names?: string[] | null;
+            /** Entity Id */
+            entity_id?: string | null;
         };
         /**
          * RecallRequest

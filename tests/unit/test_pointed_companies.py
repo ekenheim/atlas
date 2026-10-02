@@ -46,6 +46,30 @@ def test_a_company_with_no_pointer_is_not_ranked() -> None:
     assert rank_companies({}) == []
 
 
+def test_an_entity_pointer_weighs_half_a_top_recall_pointer_over_its_rank_by_default() -> None:
+    # Memory-quality ticket 09: AXT reached only by the entity hop, two pointers (1/2 + 1/4);
+    # IQE by one recall pointer at rank 2 (1/2) and one entity pointer at rank 1 (1/2).
+    weights = dict(rank_companies({"iqe": [2]}, {"axt": [1, 2], "iqe": [1]}))
+
+    assert weights["axt"] == PointerWeight(0, 0.75, None, entity_pointers=2)
+    assert weights["iqe"] == PointerWeight(1, 1.0, 2, entity_pointers=1)
+    assert weights["axt"].as_json() == {
+        "pointers": 0,
+        "entity_pointers": 2,
+        "score": 0.75,
+        "best_rank": None,
+    }
+
+
+def test_the_entity_pointer_weight_is_a_setting_and_ties_go_to_a_recall_rank() -> None:
+    # At weight 1 an entity pointer at rank 2 weighs what a recall pointer at rank 2 does; the
+    # company with a recall rank comes first.
+    assert [
+        slug for slug, _ in rank_companies({"macom": [2]}, {"axt": [2]}, entity_weight=1.0)
+    ] == ["macom", "axt"]
+    assert [slug for slug, _ in rank_companies({"macom": [3]}, {"axt": [1]})] == ["axt", "macom"]
+
+
 def test_seeds_are_read_whatever_their_rank_and_the_others_in_rank_order_while_there_is_room() -> (
     None
 ):

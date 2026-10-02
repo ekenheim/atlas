@@ -146,6 +146,11 @@ def hindsight_stub(request: httpx2.Request) -> httpx2.Response:
             )
         if request.method == "POST" and path.endswith("/memories/recall"):
             return httpx2.Response(200, json={"results": []})
+        if request.method == "GET" and path.endswith("/entities"):
+            # The entity hop's lookup (memory-quality ticket 09): an evaluation's stub holds
+            # no memory, so no entity.
+            limit = int(request.url.params.get("limit", "100"))
+            return httpx2.Response(200, json={"items": [], "total": 0, "limit": limit, "offset": 0})
         if request.method == "GET" and "/mental-models/" in path:
             return httpx2.Response(404, json={"detail": "no mental models in an evaluation"})
     raise StubError(f"Hindsight stub: unexpected {request.method} {path}")

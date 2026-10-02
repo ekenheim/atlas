@@ -69,9 +69,12 @@ SCOUT_ACTOR = Actor("atlas-scout")
 QUESTION_INDEX = 0
 # What a pointer's query was: the Scout's (the question or one of its queries), or a
 # Skeptic's bear-checklist query about a company.
-type QueryKind = Literal["scout", "bear_checklist"]
+type QueryKind = Literal["scout", "bear_checklist", "entity"]
 SCOUT_QUERY: QueryKind = "scout"
 BEAR_CHECKLIST_QUERY: QueryKind = "bear_checklist"
+# An entity pointer (memory-quality ticket 09; atlas.investigations.entity_hop): no query, a
+# listing of the facts carrying a company's entity.
+ENTITY_QUERY: QueryKind = "entity"
 # A recall's query is at most this long (atlas.research.service.RecallRequest).
 MAX_QUERY_CHARS = 4000
 # The task artifact that says its pointers are recorded.
@@ -120,8 +123,10 @@ def round_reading(
     """What directs an Investigator's reading of these Source Versions in a round of the
     investigation (atlas.claims.selection): the reading pointers the round's Scout recorded
     into them (the question's and its queries'; never a Skeptic's bear-checklist pointers,
-    which direct the Skeptic's own reading), best rank first; and the queries of the round's
-    Scout, in order, which the search selection uses beside the round's question."""
+    which direct the Skeptic's own reading), best rank first, and its entity pointers (their
+    own channel, labelled with the company each hop was made for; memory-quality ticket 09);
+    and the queries of the round's Scout, in order, which the search selection uses beside the
+    round's question."""
     pointers = [
         Pointer(
             source_version_id=row.source_version_id,
@@ -129,19 +134,22 @@ def round_reading(
             rank=row.rank,
             query_index=row.query_index,
             memory_text=row.memory_text,
+            label=str(row.query_company_id) if row.query_kind == ENTITY_QUERY else None,
+            entity=row.query_kind == ENTITY_QUERY,
         )
         for row in connection.execute(
             text(
-                "SELECT source_version_id, section_anchor, rank, query_index, memory_text"
+                "SELECT source_version_id, section_anchor, rank, query_index, memory_text,"
+                " query_kind, query_company_id"
                 " FROM reading_pointer WHERE investigation_id = :id AND round = :round"
-                " AND query_kind = :kind AND source_version_id = ANY(:versions)"
+                " AND query_kind = ANY(:kinds) AND source_version_id = ANY(:versions)"
                 " ORDER BY rank, query_index, source_version_id, section_char_start,"
                 " section_anchor, id"
             ),
             {
                 "id": investigation_id,
                 "round": round_,
-                "kind": SCOUT_QUERY,
+                "kinds": [SCOUT_QUERY, ENTITY_QUERY],
                 "versions": list(source_version_ids),
             },
         )

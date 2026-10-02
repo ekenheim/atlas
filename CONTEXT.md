@@ -42,6 +42,10 @@ _Avoid_: Evidence, knowledge (unqualified)
 A recalled Memory resolved to a section of a Source Version, recorded with the query that recalled it and its rank in that recall. It is Memory used as an index: it says where an investigation should read. The Scout's pointers (the question and its queries) direct the Investigators; the Skeptic's (each bear-checklist item asked about each company the accepted Claims name) direct the Skeptic. It is never Evidence, never quoted, never a witness, and never sent to a role as a statement.
 _Avoid_: Recall hit, citation, lead (a lead is a web or filing-search result)
 
+**Entity pointer**:
+A reading pointer made by the entity hop rather than a recall: a fact in Memory that carries a company's entity (its canonical name, as its documents and other companies' send it), from another company's document, resolved to that document's section. It names the company whose document it is and the company it was found for, and has its own channel in passage selection and its own weight in the ranking of companies. A co-mention is a reason to read: never an edge, never Evidence, never quoted, never sent to a role.
+_Avoid_: Mention, co-mention edge, entity link
+
 ### Research objects
 
 **Bottleneck**:
