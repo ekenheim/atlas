@@ -18,3 +18,20 @@ Build the spec `.scratch/atlas-memory-quality/spec.md` (sixteen tickets in `.scr
 Each ticket goes to one Opus implementer in its own worktree (`docs/agents/implementer-brief.md`); the lead names the migration revisions, checks each implementer's artifacts against its ticket before merging, integrates, runs the runners and releases. Before the build: the health read and the probe set run on production as the before-measure. After the deploy and the backfill: both again, and `scripts/memory-conformance.sh --strict`.
 
 The answer records the release, the deploy, the before and after numbers, the conformance report and how each implementer's work held up against its ticket.
+
+## Comments
+
+**2026-10-02, the lead: the before-measure of recall** (`.scratch/tools/probe_before.py`, production 0.3.0, 08:10 to 08:40 UTC, read-only, no LLM call; raw answers in `.scratch/live-runs/20261002-memory-probe-before/`, not in git). 91 theme-scoped recalls as Atlas sends them today: the five pilot questions, and 86 Scout queries of investigation 1 on 0.3.0 and of the breadth runs on 0.2.5. None failed.
+
+| | Pilot questions (5) | Scout queries (86) |
+|---|---|---|
+| Memories per recall, median (range) | 46 (37 to 49) | 42 (34 to 54) |
+| Of them observations, median | 15 | 13 |
+| Distinct sections pointed at, median | 63 | 50.5 |
+| Distinct companies pointed at, median | 3 | 3 |
+| Citations resolved / unverified / broken | 224 / 1 / 0 | 3,561 / 42 / 0 |
+
+- Of the 3,828 memories returned in all, 1,313 (34%) are facts returned beside an observation that was built from them: places a recall with `prefer_observations` would give to other sections (ticket 07).
+- Every recall is capped near 45 memories by the default `max_tokens` (ticket 07).
+- 11 companies are pointed at over the 91 recalls, two of them far more than the rest (3,953 and 3,886 source sections, then 1,793 and 983; three companies under 12). Memory holds little of most companies: about 1,900 sections' retains were cancelled early in the rollout (ticket 12 brings them in).
+- The same recalls are run again after the release and the backfill, through ticket 02's probe script, whose report can also be computed from these raw answers.
