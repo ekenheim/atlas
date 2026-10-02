@@ -105,10 +105,10 @@ class Check:
 
 
 def run_checks(bank: BehaviourBank, checks: Sequence[Check] | None = None) -> list[CheckResult]:
-    """Run each check (default: all ten) and return its result; a check that raises fails
-    with the error, and an interrupt propagates."""
+    """Run each check (None: all ten; an empty list: none) and return its result; a check
+    that raises fails with the error, and an interrupt propagates."""
     results: list[CheckResult] = []
-    for check in checks or CHECKS:
+    for check in CHECKS if checks is None else checks:
         verdict: Verdict
         evidence: Evidence = {}
         reason: str | None

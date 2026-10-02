@@ -659,7 +659,7 @@ def test_sections_failed_by_a_cancellation_before_0068_are_cancelled(
             {"id": "op-failed", "status": "failed", "version": version} | {"class": "permanent"},
         )
 
-    upgrade(empty_database_url)
+    upgrade(empty_database_url, "0068")  # its rows have no parent: 0062 updates them
 
     with engine.connect() as connection:
         sections = {

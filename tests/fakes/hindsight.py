@@ -90,9 +90,21 @@ Derived behaviours (each serves a recorded response with only the named fields c
   `document_id`, `chunk_id`, `tags`, `metadata` and `mentioned_at` changed (the derived
   fact's). `source_facts_truncated` is false, or true after `truncate_source_facts(keep)`
   when the map was cut to its first `keep` facts (the budget's doing, by the docs). The other
-  0.10.2 recall fields (`max_tokens`, `types`, `prefer_observations`, `query_timestamp`) are
-  accepted and change nothing in a derived recall; its `scores` and `entities` stay as
-  recorded.
+  0.10.2 recall fields are accepted and change nothing in a derived recall (but see
+  `derive_recall_options`); its `scores` and `entities` stay as recorded.
+- `derive_recall_options()` (off by default; needs `derive_memories`): **`query_timestamp`,
+  `prefer_observations` and `max_tokens` on a derived recall** (the integration of
+  memory-quality wave 2, for the conformance check's check 6; the recall docs' rules, the
+  recorded effects `recall_options/01`/`02`, `04`/`05` and `08`/`09`), applied in this
+  order to the derived results: with `query_timestamp`, the results are ordered by how far
+  their `mentioned_at` lies from it, nearest first (stable; the docs: recency is scored as
+  of that time; the recordings: the same memories in another order, none filtered); with
+  `prefer_observations: true`, a world fact that an observation in the results was built from
+  is dropped; with `max_tokens` sent, results are kept in order while their texts fit the
+  budget, a text too long for what is left skipped and the next tried, and the top result
+  returned whole when none fits (0: none), a token counted per four characters of `text`
+  (Hindsight uses its tokenizer, so a derived cut is not the real one). Without it, or
+  without the fields, a derived recall is as before.
 - `script_fact_text(document_id, text)` (needs `derive_memories`; Hindsight writes a fact in
   its own words, and no recorded fact is about an Atlas section): that document's derived
   world fact has `text`, **written by the test** (a paraphrase of a sentence of the section),
@@ -204,6 +216,14 @@ The two listings the memory-health read makes (memory-quality ticket 02), from t
   `entities/03-list-entities` with only `items` (each the recorded first item with `id` (a
   UUIDv5 of the name), `canonical_name` and `mention_count` changed), `total`, `limit` and
   `offset` changed.
+- **The entity listing of derived facts** (the integration of memory-quality wave 2, for the
+  conformance check's check 2): with `derive_memories` on and no entities scripted,
+  `GET .../entities?limit=N[&offset=M]` serves `entities/03-list-entities` with only `items`,
+  `total`, `limit` and `offset` changed: one item per entity a retained item gave with
+  `resolve_entities: false` (stored as written, as `entities/01` to `04` recorded), each the
+  recorded first item with `id` (a UUIDv5 of the name), `canonical_name` (the given text) and
+  `mention_count` (the bank's derived facts whose item gave it) changed, most mentioned first,
+  then in first-derived order. Entities Hindsight's own extraction would find are not derived.
 - `fail_listings(status)` (a failed listing was never recorded): both listings answer HTTP
   `status` with the **hand-written** body `{"detail": "listing failed (scripted by the test)"}`
   (only the status is relied on).
@@ -216,7 +236,7 @@ import uuid
 from collections import defaultdict, deque
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -440,6 +460,7 @@ _CITED_FIELDS = (
 )
 FACT_TEXT_CHARS = 200
 CHUNK_TEXT_CHARS = 400
+CHARS_PER_TOKEN = 4  # a derived recall's `max_tokens` budget (see `_tokens`)
 _DERIVED_NAMESPACE = uuid.UUID("0f4c9a53-7d1e-4b8e-9c3a-2e6f1d5b8a70")
 _EMBEDDED_SOURCE_FIELDS = ("id", "text", "context", "mentioned_at")
 
@@ -474,6 +495,7 @@ class RecordedHindsight:
     _operation_errors: dict[str, int] = field(init=False, default_factory=dict[str, int])
     _submissions: dict[str, int] = field(init=False, default_factory=dict[str, int])
     _derive_memories: bool = field(init=False, default=False)
+    _derive_recall_options: bool = field(init=False, default=False)
     # observation ID -> (its bank, its source fact IDs)
     _observations: dict[str, tuple[str, list[str]]] = field(
         init=False, default_factory=dict[str, tuple[str, list[str]]]
@@ -575,6 +597,11 @@ class RecordedHindsight:
         """One world fact per derived document, observations, and strict recalls (derived)."""
         self._derive = True
         self._derive_memories = True
+
+    def derive_recall_options(self) -> None:
+        """`query_timestamp`, `prefer_observations` and `max_tokens` change a derived recall
+        (derived; off by default, so tests written before it keep their answers)."""
+        self._derive_recall_options = True
 
     def derived_fact(self, document_id: str, bank: str | None = None) -> str:
         """The ID of the derived world fact extracted from a retained document (in `bank`;
@@ -1055,12 +1082,59 @@ class RecordedHindsight:
             for fact in self._facts(bank).values()
             if in_scope(fact["tags"])
         )
-        response["results"] = results
+        response["results"] = self._recall_options(bank, body, results)
         include = body.get("include")
         if isinstance(include, dict) and "source_facts" in include:
             self._attach_source_facts(bank, response)
         self.served.append(f"{DERIVED_RECALL} (derived)")
         return httpx2.Response(recording.status, json=response)
+
+    def _recall_options(
+        self, bank: str, body: dict[str, JsonValue], results: list[JsonValue]
+    ) -> list[JsonValue]:
+        """`query_timestamp`, `prefer_observations` and `max_tokens` on a derived recall, as the
+        recall docs describe them (see the module docstring; integration of memory-quality
+        wave 2, for the conformance check's check 6)."""
+        ranked = cast(list[dict[str, JsonValue]], results)
+        if not self._derive_recall_options:
+            return results
+        timestamp = body.get("query_timestamp")
+        if isinstance(timestamp, str):
+            anchor = datetime.fromisoformat(timestamp)
+            if anchor.tzinfo is None:
+                anchor = anchor.replace(tzinfo=UTC)
+
+            def distance(result: dict[str, JsonValue]) -> float:
+                mentioned = result.get("mentioned_at")
+                if not isinstance(mentioned, str):
+                    return float("inf")
+                moment = datetime.fromisoformat(mentioned)
+                if moment.tzinfo is None:
+                    moment = moment.replace(tzinfo=UTC)
+                return abs((moment - anchor).total_seconds())
+
+            ranked = sorted(ranked, key=distance)  # stable: ties keep their order
+        if body.get("prefer_observations") is True:
+            superseded = {
+                source
+                for result in ranked
+                if result["type"] == "observation" and self._in_bank(str(result["id"]), bank)
+                for source in self._observations[str(result["id"])][1]
+            }
+            ranked = [r for r in ranked if r["type"] == "observation" or r["id"] not in superseded]
+        max_tokens = body.get("max_tokens")
+        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+            kept: list[dict[str, JsonValue]] = []
+            spent = 0
+            for result in ranked:
+                tokens = _tokens(str(result["text"]))
+                if max_tokens > 0 and spent + tokens <= max_tokens:
+                    kept.append(result)
+                    spent += tokens
+            if not kept and ranked and max_tokens > 0:
+                kept = ranked[:1]  # the top fact whole, over budget, never an empty answer
+            ranked = kept
+        return list[JsonValue](ranked)
 
     def _attach_source_facts(self, bank: str, response: dict[str, JsonValue]) -> None:
         """`include.source_facts` on a derived recall (see the module docstring): each
@@ -1178,8 +1252,51 @@ class RecordedHindsight:
         if request.method == "GET" and route in (["observations", "scopes"], ["entities"]):
             if route[0] == "observations" and self._scopes is None and self._derive_memories:
                 return self._derived_scopes(bank, request)
+            if route[0] == "entities" and self._entities is None and self._derive_memories:
+                return self._derived_entities(bank, request)
             return self._scripted_listing(request, route)
         return None
+
+    def _derived_entities(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
+        """The entity listing of the bank's derived facts: each entity an item gave with
+        `resolve_entities` false, as written, counted once per derived fact of that item."""
+        if self._listing_failure is not None:
+            return self._scripted_listing(request, ["entities"])
+        params = dict(request.url.params)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if limit is None or params:
+            return None
+        counts: dict[str, int] = {}
+        documents = self._derived_documents.get(bank, {})
+        for fact in self._facts(bank).values():
+            item = documents[str(fact["document_id"])]
+            if item.get("resolve_entities") is not False:
+                continue
+            given = cast(list[dict[str, JsonValue]], item.get("entities") or [])
+            for name in dict.fromkeys(str(entity["text"]) for entity in given):
+                counts[name] = counts.get(name, 0) + 1
+        ranked = sorted(counts.items(), key=lambda entry: -entry[1])  # stable: first-derived
+        recording = self.recording(DERIVED_ENTITIES)
+        response = copy.deepcopy(recording.response_object())
+        example = cast(list[dict[str, JsonValue]], response["items"])[0]
+        listed: list[JsonValue] = [
+            example
+            | {
+                "id": str(uuid.uuid5(_DERIVED_NAMESPACE, f"entity:{name}")),
+                "canonical_name": name,
+                "mention_count": mentions,
+            }
+            for name, mentions in ranked
+        ]
+        response |= {
+            "items": listed[offset : offset + int(limit)],
+            "total": len(listed),
+            "limit": int(limit),
+            "offset": offset,
+        }
+        self.served.append(f"{DERIVED_ENTITIES} (derived)")
+        return httpx2.Response(recording.status, json=response)
 
     def _derived_scopes(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
         if self._listing_failure is not None:
@@ -1492,3 +1609,9 @@ def _fact_id(bank: str, document_id: str) -> str:
 
 def _collapsed(content: JsonValue) -> str:
     return " ".join(str(content).split())
+
+
+def _tokens(text: str) -> int:
+    """A derived recall's token count of a memory's text: one token per four characters,
+    rounded up (Hindsight counts with its tokenizer; the fake has none)."""
+    return -(-len(text) // CHARS_PER_TOKEN)

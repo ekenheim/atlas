@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from atlas.claims import LAYER_TERMS
 from atlas.companies import load_universe
 from atlas.conformance import (
     CHECKS,
@@ -28,7 +29,7 @@ from atlas.conformance import (
     run_known_answers,
 )
 from atlas.research.probes import load_probes
-from tests.fakes.hindsight import RecordedHindsight
+from tests.fakes.hindsight import BankFacts, RecordedHindsight
 from tests.fakes.serve import Served, serve
 from tests.fakes.tradingview import FakeTradingView
 from tests.live.conformance import (
@@ -50,6 +51,7 @@ TICKETS = {1: "03", 2: "04", 3: "04", 4: "05", 5: "06", 6: "07", 7: "08", 8: "09
 def hindsight_fake() -> RecordedHindsight:
     fake = RecordedHindsight()
     fake.derive_memories()
+    fake.derive_recall_options()  # check 6: recency, prefer_observations, max_tokens
     return fake
 
 
@@ -98,6 +100,39 @@ class Rehearsal:
         return self.report
 
 
+def stand_in_for_hindsight_s_llm(fake: RecordedHindsight, bank: BehaviourBank) -> None:
+    """What Hindsight's LLM makes of the bank on a live run, which the fake can't: through the
+    fake's derivations the feature tickets added, each section's fact is labelled with the
+    layers its text names (`script_fact_labels`, ticket 05), the consolidation leaves one
+    observation in the theme's scope drawn from a section of each company
+    (`derive_observation(scope=)`, ticket 06), and the reflect and each model's refresh cite
+    the bank's facts (`script_reflect` with `BankFacts`, ticket 10; `script_refresh`)."""
+    items = [item for batch in fake.retained(bank.bank_id) for item in batch]
+    for item in items:
+        content = str(item["content"]).lower()
+        layers = [
+            layer
+            for layer, terms in LAYER_TERMS.items()
+            if any(term.lower() in content for term in terms)
+        ]
+        fake.script_fact_labels(str(item["document_id"]), [f"layer:{layer}" for layer in layers])
+    theme_tag = f"theme:{bank.theme}"
+    first: dict[str, dict[str, Any]] = {}
+    for item in items:
+        for slug, company_id in bank.companies.items():
+            if f"company:{company_id}" in item["tags"] and slug not in first:
+                first[slug] = item
+    (scope,) = [s for s in first[next(iter(first))]["observation_scopes"] if theme_tag in s]
+    fake.derive_observation(
+        [str(item["document_id"]) for item in first.values()], bank=bank.bank_id, scope=scope
+    )
+    fake.script_reflect("Coherent and Lumentum report constrained laser capacity.", [BankFacts()])
+    for model in bank.template["mental_models"]:
+        fake.script_refresh(
+            str(model["id"]), "Constrained suppliers.", fake.bank_facts(bank.bank_id)
+        )
+
+
 def results_dir(tmp_path: Path) -> Path:
     configured = os.environ.get("ATLAS_CONFORMANCE_RESULTS_DIR")
     return Path(configured) if configured else tmp_path / "report"
@@ -120,6 +155,7 @@ def test_the_rehearsal_passes_or_reports_each_check_pending_with_its_ticket(
         )
 
         def known_answers(bank: BehaviourBank) -> None:
+            stand_in_for_hindsight_s_llm(fake, bank)
             rehearsal.report.known_answers = run_known_answers(bank.api, answers, probes)
 
         report = rehearsal.run(during=known_answers)
@@ -132,11 +168,14 @@ def test_the_rehearsal_passes_or_reports_each_check_pending_with_its_ticket(
     assert fake.bank_documents(rehearsal.bank_id) == []
     assert report.usage.retain_operations == len(fake.retained())
     assert 0 < report.usage.retain_operations <= report.usage.retain_cap
-    assert report.usage.llm_operations == 1  # the consolidation; no reflect while 10 is pending
+    # The consolidation, check 9's reflect and its refresh of each of the two models.
+    assert report.usage.llm_operations == 4
 
     # Each behaviour check passes, or is pending with the ticket that builds it.
     behaviours = report.behaviours or []
     assert [c.number for c in behaviours] == list(range(1, 11))
+    # Tickets 03 to 07 and 10 are merged; 08 and 09 are not yet.
+    assert [c.number for c in behaviours if c.verdict == "pending"] == [7, 8]
     for check in behaviours:
         assert check.promise and check.source
         if check.verdict == "pending":
