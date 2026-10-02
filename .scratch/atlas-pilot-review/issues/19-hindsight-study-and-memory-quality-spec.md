@@ -1,7 +1,7 @@
 # Study Hindsight and specify the memory-quality effort
 
 Type: research
-Status: claimed
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -13,6 +13,15 @@ The owner asked (2026-10-02) for a close reading of how Hindsight 0.10.1 works, 
 - Write the verified findings to `docs/research/` and the spec with `to-spec`, then the tickets with `to-tickets`.
 
 The answer points at the findings file, the spec and the tickets, and says how each reader's artifact held up against its brief.
+
+## Answer
+
+Resolved by the lead on 2026-10-02; the owner approved the ticket breakdown the same day.
+
+- **Findings:** `docs/research/hindsight-memory-use.md`. Seven findings, each marked observed, documented or open. The largest is not a missing feature: production records 695 retained sections as completed and 1,907 as failed. Then: observations never cross a company, a form or a source; recall is asked with the query, the budget and the tags only; Atlas passes Hindsight neither the companies it knows nor a usable context; reflect runs at its shallowest setting and cannot see Atlas's mental models; the shared server embeds without the model's query instruction and with thresholds calibrated for another model.
+- **Spec:** `.scratch/atlas-memory-quality/spec.md`. **Tickets:** `.scratch/atlas-memory-quality/issues/` 01 to 15. Two came from the owner's reply: 14, a conformance check that says behaviour by behaviour whether Memory works as advertised, and 15, the embedding model measured and decided (the owner offered a different model).
+- **The readers:** six Opus readers, 110 findings, every quote found verbatim in the file it cites (`.scratch/tools/study_audit.py`; notes in `.scratch/hindsight-study/`). The lead confirmed on production or in the cluster's manifests what they marked unverified. One over-reach: the API reader took "10 to 14 memories per recall" from the synthetic recordings; production returned 45. Three findings came back from three or four readers working apart.
+- **Order:** ticket 20 builds and releases the effort; investigations 2 to 5 wait for it.
 
 ## Comments
 

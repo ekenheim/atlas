@@ -26,6 +26,7 @@ A researcher's question reaches a Memory that holds the archive it should, knows
 6. **Two new ways to point:** the exact chunk a fact came from, and every fact in the theme that names a company (the company-to-company hop).
 7. **Reflect and the mental models are grounded:** a real search depth, no model reading another, citations that resolve, and their cost counted.
 8. **The corpus already in Memory is brought up to the same standard** by a backfill, and the five pilot investigations then run on that Memory.
+9. **A conformance check says, behaviour by behaviour, that Memory works as Hindsight advertises and as this spec plans,** and it passes before anything is benchmarked.
 
 Memory stays an index. Nothing here lets a memory's text be quoted, serve as a witness, or reach a role.
 
@@ -57,7 +58,9 @@ Memory stays an index. Nothing here lets a memory's text be quoted, serve as a w
 24. As the lead, I want every Hindsight feature Atlas starts to use recorded against the cluster's version first, so that the fake and the tests rest on observed behaviour.
 25. As the lead, I want the same probe recalls and the same health read before and after, so that the effort's effect is a number and not an impression.
 26. As the owner, I want the corpus already retained brought to the new standard without re-fetching anything, so that the pilot runs on one Memory.
-27. As a reviewer, I want Memory to remain an index: never quoted, never a witness, never sent to a role, so that every Claim still rests on archived text.
+27. As the owner, I want one report that says whether each thing Hindsight promises (no lost sections, one entity per company, observations across documents, recall that finds known answers, citations that resolve) holds on our settings, so that a benchmark of Atlas is not a benchmark of a broken memory.
+28. As the owner, I want the embedding model chosen from a measurement on our own material, so that retrieval is as good as the server can make it.
+29. As a reviewer, I want Memory to remain an index: never quoted, never a witness, never sent to a role, so that every Claim still rests on archived text.
 
 ## Implementation Decisions
 
@@ -115,6 +118,12 @@ Memory stays an index. Nothing here lets a memory's text be quoted, serve as a w
 **The owner's server settings.**
 - One home-ops PR drafted by the lead, each setting with its effect on the server's other banks: the Qwen3 query instruction as the embeddings query prefix; failing a retain on extraction errors; a reranker chain that ends in rank fusion. Two more are proposed with a measurement and left to the owner: recalibrated similarity thresholds, and a consolidation model of its own.
 
+**Memory works as advertised: the conformance check.**
+- The owner's requirement (2026-10-02): Hindsight is used as its documentation describes, and before the system is benchmarked we know the memory under it works as planned. One command reports a pass or a fail per promised behaviour, with the evidence: known answers recalled on the live bank (read-only), and the behaviours this spec builds checked on a throwaway bank retained through Atlas's real path. It is the precondition of a pilot or benchmark run, and the release runs it strict.
+
+**The embedding model.**
+- The owner offered a different embedding model (2026-10-02). The choice is measured, not assumed: the current model as served, the same with its query instruction, the model Hindsight's thresholds are calibrated for, and at most two further candidates, each on the known answers and against the five similarity thresholds, with the cost of each change stated (a query prefix re-embeds nothing; a new model re-embeds every bank; another dimension needs an empty store). The owner decides; the backfill runs after the decision.
+
 **The backfill.**
 - A backfill-class job per company re-retains the sections whose retain profile is older than the current one (same document ID, so Hindsight replaces the document's memories), re-enqueues failed sections, and then asks for consolidation. It runs under the retain budget on the MiniMax extractor and in the backfill window, newest documents first, resumable.
 - Its completion criterion is the health read: every non-skipped section of the pilot's companies completed, zero-fact or failed with a recorded reason, at the current profile.
@@ -132,7 +141,7 @@ Memory stays an index. Nothing here lets a memory's text be quoted, serve as a w
 - Any use of a memory's text as Evidence, as a quote or as input to a role.
 - Per-company and per-layer mental models, and a reflect-written prior-knowledge brief for the Scout: they wait until the two existing models are grounded and counted (the map's "More of Hindsight").
 - Retain strategies per document type and the `verbose` or `verbatim` extraction modes: the first ticket's dry-run comparison says whether they are worth a ticket; none is built here.
-- Changing the embedding model, the reranker model or Hindsight's version.
+- Changing the reranker model or Hindsight's version. (The embedding model is in scope as a measured decision.)
 - A dedicated Hindsight for Atlas (parked with the owner).
 - New Claim predicates or role prompts.
 
