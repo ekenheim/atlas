@@ -395,6 +395,20 @@ def version_tags(version: SourceVersionInfo, universe: Universe) -> list[str]:
     return tags
 
 
+def observation_scopes(tags: Sequence[str]) -> list[list[str]] | None:
+    """The explicit observation scopes of an item with these tags: one per theme tag, so
+    Memory consolidates across all of a theme's companies and documents (docs/decisions.md,
+    "Observation scopes: one per theme"). The company, source, document type and form tags
+    stay on the item for filtering and are no consolidation boundary.
+
+    None for an item with no theme tag: no scopes are sent, and Hindsight's default applies
+    (an empty list would mean the same, by the docs; `[[]]` would be the untagged, global
+    scope, which no strict recall returns).
+    """
+    scopes = [[tag] for tag in tags if tag.startswith("theme:")]
+    return scopes or None
+
+
 def retain_item(
     version: SourceVersionInfo,
     parsed: str,
@@ -444,6 +458,7 @@ def retain_item(
         tags=tags,
         entities=entities or None,
         resolve_entities=False if entities else None,
+        observation_scopes=observation_scopes(tags),
     )
 
 

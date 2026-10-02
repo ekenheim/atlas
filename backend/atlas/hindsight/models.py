@@ -127,6 +127,9 @@ class RetainItem(BaseModel):
     # Given entities; with `resolve_entities` false Hindsight stores them as written.
     entities: list[RetainEntity] | None = None
     resolve_entities: bool | None = None
+    # The explicit observation scopes (each a tag set) the item's facts consolidate into.
+    # None: not sent, so Hindsight's default (`combined`: the item's full tag set) applies.
+    observation_scopes: list[list[str]] | None = None
 
 
 class MentalModelTrigger(BaseModel):

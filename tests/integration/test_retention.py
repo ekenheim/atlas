@@ -62,7 +62,8 @@ COHR_ITEM_5_HEADING = (
 TEN_Q_ANCHORS = ["cover", "part-i-item-1"]
 EIGHT_K_ANCHORS = ["cover", "item-2-02", "item-9-01"]
 # A retain item's fields and its metadata keys, in order: the provenance keys Atlas has always
-# sent, then the display keys (memory-quality ticket 04).
+# sent, then the display keys (memory-quality ticket 04); since ticket 06 with its observation
+# scopes (one per theme).
 RETAIN_ITEM_FIELDS = [
     "content",
     "document_id",
@@ -72,6 +73,7 @@ RETAIN_ITEM_FIELDS = [
     "tags",
     "entities",
     "resolve_entities",
+    "observation_scopes",
 ]
 PROVENANCE_METADATA_KEYS = [
     "source_version_id",
@@ -210,6 +212,7 @@ def test_one_batch_per_source_version_with_the_specified_ids_tags_metadata_and_t
                 "doctype:filing",
                 f"form:{form}",
             ]
+            assert item["observation_scopes"] == [["theme:photonics"]]
             assert item["metadata"] == {
                 "source_version_id": version["id"],
                 "section_anchor": anchor,
