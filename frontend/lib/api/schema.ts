@@ -2155,6 +2155,8 @@ export interface components {
             needs_review: boolean;
             /** Open Questions */
             open_questions: string[];
+            /** Grounded */
+            grounded?: boolean | null;
         };
         /**
          * CardQuery
@@ -7828,7 +7830,9 @@ export interface components {
         /**
          * UnsupportedFinding
          * @description A finding the Editor wrote that cites no accepted Claim of the investigation (or cites
-         *     something else): recorded, never shown as a finding.
+         *     something else), or whose statement says what its Claims don't even after it was asked
+         *     again (`reason` "ungrounded: <terms>", pilot-fixes ticket 21): recorded, never shown as a
+         *     finding.
          */
         UnsupportedFinding: {
             /** Statement */

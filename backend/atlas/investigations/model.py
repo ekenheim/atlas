@@ -276,6 +276,11 @@ class CardFinding(BaseModel):
     # Until every cited Assertion is corroborated, and while a contradiction stands against it.
     needs_review: bool
     open_questions: list[str]
+    # The grounding check (pilot-fixes ticket 21): every number, capitalised name and quoted
+    # phrase of the statement occurs in its cited Claims (an ungrounded finding is never a
+    # finding: it is listed under `unsupported_findings`). None: drawn before the check (or a
+    # Hypothesis's finding, which it doesn't apply to).
+    grounded: bool | None = None
 
 
 CounterevidenceOutcome = Literal["accepted", "rejected"]
@@ -377,7 +382,9 @@ class CardBearContext(BaseModel):
 
 class UnsupportedFinding(BaseModel):
     """A finding the Editor wrote that cites no accepted Claim of the investigation (or cites
-    something else): recorded, never shown as a finding."""
+    something else), or whose statement says what its Claims don't even after it was asked
+    again (`reason` "ungrounded: <terms>", pilot-fixes ticket 21): recorded, never shown as a
+    finding."""
 
     model_config = ConfigDict(frozen=True)
 

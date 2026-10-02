@@ -350,14 +350,18 @@ def editing(
     *,
     verdict: str = "answered",
     extra: list[dict[str, JsonValue]] | None = None,
+    statement: str = (
+        "Coherent supplies NVIDIA with advanced lasers under a multi-year supply agreement."
+    ),
 ) -> Callable[[dict[str, Any]], JsonValue]:
-    """An Editor answer with one finding citing every Claim it was sent, plus `extra`."""
+    """An Editor answer with one finding citing every Claim it was sent, plus `extra`. The
+    finding's `statement` must say only what those Claims say (pilot-fixes ticket 21): the
+    default is the supply Claim's."""
 
     def respond(body: dict[str, Any]) -> JsonValue:
         request = asked(body)["request"]
         finding: dict[str, JsonValue] = {
-            "statement": "Coherent supplies NVIDIA with advanced lasers under a multi-year"
-            " supply agreement.",
+            "statement": statement,
             "claim_refs": [claim["ref"] for claim in request["claims"]],
             "limitations": ["A company's own statement; no volumes or prices."],
             "open_questions": ["Does NVIDIA qualify a second laser source?"],
@@ -672,6 +676,14 @@ def test_scout_investigator_and_editor_run_in_one_run_to_an_answered_research_ca
     assert finding["counterevidence_ids"] == []
     assert (card["contradictions"], card["bear_context"]) == ([], [])
     assert finding["limitations"] == ["A company's own statement; no volumes or prices."]
+    # Every name in its statement is in its Claim: grounded, with no second Editor call.
+    assert finding["grounded"] is True
+    assert tasks(found)["editor"]["artifacts"]["grounding"] == {
+        "asked_again": 0,
+        "repaired": 0,
+        "role_call_id": None,
+        "failure": None,
+    }
     assert card["editor_role_call_id"] == calls["role_calls"][-1]["id"]
     # The event log tells the story in order, ending with the stop and its reason.
     log = events(atlas, started["id"])
@@ -1388,7 +1400,7 @@ def test_the_investigator_reads_the_window_memory_points_to_and_the_best_search_
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(allocation)),
-        ChatReply.answer(editing()),
+        ChatReply.answer(editing(statement="Lumentum's demand is outpacing its supply.")),
         REVIEWED,
     )
     script_searches(searxng)
@@ -1590,7 +1602,7 @@ def test_a_company_memory_points_to_gains_an_investigator_that_reads_where_memor
         # Coherent's Investigator and AXT's, in either order: each quotes what it was sent.
         ChatReply.answer(quoting(agreement)),
         ChatReply.answer(quoting(agreement)),
-        ChatReply.answer(editing()),
+        ChatReply.answer(editing(statement="AXT supplies Coherent with 6-inch InP substrates.")),
         REVIEWED,
     )
     script_searches(searxng)
@@ -2932,6 +2944,142 @@ def test_the_skeptic_searches_and_reads_on_its_own_and_its_counterevidence_reach
     assert [p["status"] for p in found["premises"]] == ["open", "open"]
 
 
+# --- a finding says only what its Claims say (pilot-fixes ticket 21) -----------------------------
+
+
+def test_a_finding_saying_what_its_claims_do_not_is_asked_again_once_then_kept_or_set_aside(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(investigator_max_passages=500, investigator_passages_per_call=500)
+    coherent = company_id(atlas, "coherent")
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    unretained = memory_documents(atlas, ten_q)
+    services.hindsight[0].report_zero_facts(lambda document_id: document_id in unretained)
+    started = seeded(atlas, "coherent")
+    # A share count only the Skeptic's bear context states (the 10-Q's balance sheet), and a
+    # place only a lead's title names ("... capacity in Beijing").
+    with_bear_figure = (
+        "Coherent supplies NVIDIA with advanced lasers and issued 212,340,736 shares."
+    )
+    with_lead_place = "Coherent supplies NVIDIA with advanced lasers made in Beijing."
+    # Grounded: the legal names stand for the display names, and the quoted phrase is the
+    # quote's, through the typographic fold (curly quotation marks, a non-breaking hyphen).
+    grounded = (
+        "Coherent Corp. entered into a \N{LEFT DOUBLE QUOTATION MARK}strategic"
+        " multi\N{NON-BREAKING HYPHEN}year supply agreement\N{RIGHT DOUBLE QUOTATION MARK}"
+        " with NVIDIA Corporation."
+    )
+
+    def finding(statement: str) -> dict[str, JsonValue]:
+        return {
+            "statement": statement,
+            "claim_refs": ["c1"],
+            "limitations": ["A company's own statement."],
+            "open_questions": [],
+        }
+
+    first: JsonValue = {
+        "findings": [finding(with_bear_figure), finding(with_lead_place), finding(grounded)],
+        "open_questions": ["Is the supply agreement exclusive?"],
+        "verdict": "answered",
+    }
+    repaired = "Coherent supplies NVIDIA with advanced lasers."
+    still_ungrounded = "Coherent supplies NVIDIA with advanced lasers made in Beijing, China."
+    again: JsonValue = {
+        "findings": [
+            {"finding": "f1", "statement": repaired},
+            {"finding": "f2", "statement": still_ungrounded},
+        ]
+    }
+    llm.script_role("financial_analyst", ANALYSED)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan((DILUTION, "dilution_financing")),
+        ChatReply.answer(
+            countering(counter(DILUTION_QUOTE, "dilution_financing", coherent, contradicts=False))
+        ),
+        ChatReply.json(first, tokens=(3000, 400)),
+        ChatReply.json(again, tokens=(800, 120)),
+        REVIEWED,
+    )
+    script_searches(searxng)
+    searxng.script(DILUTION, SearchReply.of("skeptic-dilution"))
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    # The Editor was asked once more, for the two ungrounded findings only, in one call.
+    assert roles(llm) == [
+        "scout",
+        "investigator",
+        "skeptic",
+        "skeptic",
+        "financial_analyst",
+        "editor",
+        "editor",
+        "reviewer",
+    ]
+    card_request, again_request = (asked(body) for body in requests(llm)[5:7])
+    # What it wrote came from what it was sent beside the Claim: the bear context's quote and
+    # the lead's title.
+    [bear] = card_request["request"]["bear_context"]
+    bear_quote = {each["id"]: each["text"] for each in card_request["retrieved_data"]}
+    assert "212,340,736" in bear_quote[bear["counterevidence_id"]]
+    assert any("Beijing" in lead["title"] for lead in card_request["request"]["leads"])
+    assert again_request["request"]["research_question"] == QUESTION
+    assert again_request["request"]["findings"] == [
+        {
+            "finding": "f1",
+            "statement": with_bear_figure,
+            "claim_refs": ["c1"],
+            "ungrounded": ["212,340,736"],
+        },
+        {
+            "finding": "f2",
+            "statement": with_lead_place,
+            "claim_refs": ["c1"],
+            "ungrounded": ["Beijing"],
+        },
+    ]
+    assert [c["ref"] for c in again_request["request"]["claims"]] == ["c1"]
+    # Only the cited Claims' quotes: no bear context, no lead.
+    assert [(q["id"], q["text"]) for q in again_request["retrieved_data"]] == [("c1", SUPPLY_QUOTE)]
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [(c["prompt_name"], c["prompt_version"]) for c in calls if c["role"] == "editor"] == [
+        ("editor", 7),
+        ("editor-reground", 1),
+    ]
+    # The repaired finding stands, the grounded one was never sent back; the one still
+    # ungrounded is set aside with its terms, and is no finding.
+    card = found["research_card"]
+    assert [(f["claim_text"], f["grounded"]) for f in card["findings"]] == [
+        (repaired, True),
+        (grounded, True),
+    ]
+    assert [f["limitations"] for f in card["findings"]] == [["A company's own statement."]] * 2
+    [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert card["unsupported_findings"] == [
+        {
+            "statement": still_ungrounded,
+            "claim_ids": [accepted["id"]],
+            "reason": "ungrounded: Beijing, China",
+        }
+    ]
+    assert (found["stop_reason"], found["stop_detail"]) == (
+        "needs_review",
+        "1 unsupported findings were dropped",
+    )
+    artifacts = tasks(found)["editor"]["artifacts"]
+    assert artifacts["unsupported_findings"] == 1
+    assert artifacts["grounding"] == {
+        "asked_again": 2,
+        "repaired": 1,
+        "role_call_id": calls[-1]["id"],
+        "failure": None,
+    }
+
+
 # --- the Skeptic reads by pointers (memory-directed reading, ticket 07) --------------------------
 
 ITEM_1A = "part-i-item-1a"
@@ -3714,7 +3862,7 @@ def test_one_contradiction_marks_one_finding_and_the_rest_is_bear_context_on_the
         assert quoted[item["id"]] == item["quote"]
     calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
     versions = {(c["prompt_name"], c["prompt_version"]) for c in calls}
-    assert {("skeptic", 3), ("editor", 6)} <= versions
+    assert {("skeptic", 3), ("editor", 7)} <= versions
     # Nothing but the contradiction can disprove a premise or needs an owner's eye.
     assert [p["status"] for p in found["premises"]] == ["open", "open"]
 

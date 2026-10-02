@@ -109,6 +109,7 @@ from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
 from atlas.investigations.coverage import coverage, not_read
+from atlas.investigations.grounding import check_findings
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
@@ -151,6 +152,8 @@ from atlas.roles import (
 )
 from atlas.roles.editor import (
     EDITOR,
+    EDITOR_REGROUND,
+    CardFindingDraft,
     EditorBearContext,
     EditorCardClaim,
     EditorContradiction,
@@ -159,7 +162,9 @@ from atlas.roles.editor import (
     EditorLead,
     EditorQuery,
     EditorReading,
+    EditorRegroundRequest,
     EditorRequest,
+    RegroundedFindings,
 )
 from atlas.roles.financial_analyst import FINANCIAL_ANALYST
 from atlas.runs import RunRecorder
@@ -424,6 +429,25 @@ class TaskRunner:
                 " ATLAS_LITELLM_API_KEY"
             )
         return caller
+
+    def _ask_editor_again(
+        self,
+        investigation: RowMapping,
+        run_id: uuid.UUID,
+        request: EditorRegroundRequest,
+        retrieved: list[QuotedText],
+    ) -> tuple[RegroundedFindings, uuid.UUID]:
+        """The Editor asked once more for its ungrounded findings (pilot-fixes ticket 21)."""
+        with self._caller(investigation) as caller:
+            return caller.call_recorded(
+                EDITOR_REGROUND, request, run_id=run_id, retrieved=retrieved
+            )
+
+    def _company_names(self) -> list[tuple[str, str]]:
+        """Each company's display and legal names: one name, for the grounding check."""
+        with self._engine.connect() as connection:
+            rows = connection.execute(text("SELECT display_name, legal_name FROM company")).all()
+        return [(row.display_name, row.legal_name) for row in rows]
 
     def _runs(self) -> RunRecorder:
         runs = RunRecorder.from_settings(self._settings, self._engine)
@@ -986,6 +1010,7 @@ class TaskRunner:
             )
         findings: list[CardFinding] = []
         unsupported: list[UnsupportedFinding] = []
+        citing: list[tuple[CardFindingDraft, list[str]]] = []
         for finding in draft.findings:
             cited = list(dict.fromkeys(finding.claim_refs))
             unknown = [each for each in cited if each not in refs]
@@ -1002,8 +1027,34 @@ class TaskRunner:
                     UnsupportedFinding(statement=finding.statement, claim_ids=named, reason=reason)
                 )
                 continue
+            citing.append((finding, cited))
+        # A finding says only what its Claims say (pilot-fixes ticket 21): checked by code,
+        # an ungrounded one asked again once, and set aside if it still is.
+        checked = check_findings(
+            citing,
+            refs,
+            investigation["question"],
+            self._company_names(),
+            lambda again, quotes: self._ask_editor_again(investigation, run_id, again, quotes),
+        )
+        for each in checked.findings:
+            if each.ungrounded:
+                unsupported.append(
+                    UnsupportedFinding(
+                        statement=each.draft.statement,
+                        claim_ids=[str(refs[ref]["id"]) for ref in each.cited],
+                        reason="ungrounded: " + ", ".join(each.ungrounded),
+                    )
+                )
+                continue
             findings.append(
-                card_finding(finding.statement, [refs[each] for each in cited], finding, by_claim)
+                card_finding(
+                    each.draft.statement,
+                    [refs[ref] for ref in each.cited],
+                    each.draft,
+                    by_claim,
+                    grounded=True,
+                )
             )
         contradicted = sum(1 for f in findings if f.counterevidence_ids)
         if not claims:
@@ -1052,6 +1103,14 @@ class TaskRunner:
                 "new_evidence_families": len(new_families),
                 "findings": len(findings),
                 "unsupported_findings": len(unsupported),
+                "grounding": {
+                    "asked_again": checked.asked_again,
+                    "repaired": checked.repaired,
+                    "role_call_id": (
+                        str(checked.role_call_id) if checked.role_call_id is not None else None
+                    ),
+                    "failure": checked.failure,
+                },
                 "contradictions": len(against),
                 "bear_context": sum(len(group.items) for group in context),
                 "contradicted_findings": contradicted,
@@ -1243,10 +1302,12 @@ def card_finding(
     cited: list[RowMapping],
     finding: Any,
     counterevidence: Mapping[uuid.UUID, list[uuid.UUID]] | None = None,
+    *,
+    grounded: bool | None = None,
 ) -> CardFinding:
     """A finding citing `cited` accepted Claims, with the independent contradictions
     (`counterevidence`: claim ID -> counterevidence IDs, atlas.investigations.skeptic) of any
-    of them."""
+    of them; `grounded` the grounding check's result (None: not checked)."""
     available: list[datetime] = [c["available_at"] for c in cited]
     against = list(
         dict.fromkeys(each for c in cited for each in (counterevidence or {}).get(c["id"], []))
@@ -1283,6 +1344,7 @@ def card_finding(
         needs_review=bool(against)
         or any(c["verification_status"] != "corroborated" for c in cited),
         open_questions=finding.open_questions,
+        grounded=grounded,
     )
 
 
