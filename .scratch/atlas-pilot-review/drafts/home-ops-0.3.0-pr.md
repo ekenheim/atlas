@@ -10,7 +10,7 @@
 
 ## Manifest changes
 
-- Image `0.2.5` → `0.3.0` in `deployment.yaml` and `ingest.yaml`.
+- The image is already `0.3.0`: Renovate's #7190 bumped `deployment.yaml` and `ingest.yaml` on 2026-10-02, and production reports `atlas_build_info{version="0.3.0"}` with every readiness check `ok`. This PR adds the settings the release was built to run with; until it merges, 0.3.0 runs with the 0.2.5 budgets and its retains wait on the Codex budget (104 queued on 2026-10-02 07:32 UTC).
 - `ATLAS_MINIMAX_BUDGET_TOKENS` 4,000,000 → 8,000,000 per rolling 5 h. The owner's plan allows about 1.7 billion M3 tokens a month (about 11.8M per window on average) and 3–4 concurrent agents.
 - `ATLAS_RUN_TOKEN_BUDGET` 1,000,000 → 2,000,000: an investigation may now run up to six Investigators.
 - `ATLAS_RETAIN_EXTRACTOR=minimax` (new). Atlas's retains then count against `ATLAS_RETAIN_BUDGET_OPERATIONS` (default 200 per window) instead of the Codex budget, which is left for reflect and mental-model refresh.
@@ -19,7 +19,7 @@
 ## Provenance for `ghcr.io/ekenheim/atlas:0.3.0`
 
 - **Source:** tag `v0.3.0` at commit `419d8a1` on `ekenheim/atlas` main.
-- **Release build:** https://github.com/ekenheim/atlas/actions/runs/36939346940 (RESULT_TO_CONFIRM).
+- **Release build:** https://github.com/ekenheim/atlas/actions/runs/36939346940 (success: `ci` 25m44s on the self-hosted runners, `publish` 1m33s).
 - **CI on the same commit:** https://github.com/ekenheim/atlas/actions/runs/36936870302 (success: 1,402 tests passed, the frontend gates, the API client check, the e2e 10 passed).
 - **Migrations:** nine, chained `0050 → 0051 → 0052 → 0053 → 0054 → 0055 → 0057 → 0058 → 0059 → 0060` (there is no `0056`), none destructive:
   - `0051` the insert-only `reading_pointer` table;
@@ -41,6 +41,6 @@
 
 ## How to check after merge
 
-`atlas_build_info{version="0.3.0"}`, `/health/ready` all `ok`, and `GET /api/v1/queue` listing a `hindsight_minimax` budget. After the first retain: `GET /api/v1/source-versions/{id}/memory` shows `extractor: minimax`.
+`GET /api/v1/queue` lists a `hindsight_minimax` budget and a `minimax` budget of 8,000,000, and the queued retains start to drain. After the first retain: `GET /api/v1/source-versions/{id}/memory` shows `extractor: minimax`.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

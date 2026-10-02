@@ -34,3 +34,9 @@ Next steps, in order:
 3. After the merge: production reports `atlas_build_info{version="0.3.0"}` and every readiness check `ok`; `GET /api/v1/queue` lists the `hindsight_minimax` budget; after the first retain, `GET /api/v1/source-versions/{id}/memory` shows `extractor: minimax`. Then resolve this ticket and pilot-review ticket 18.
 4. Ticket 15: run investigation 1 on 0.3.0 and review every accepted Claim with the `pilot-review` skill (the baseline script now drops near-duplicates). Then tickets 05 to 08, investigations 2 to 5.
 5. The owner's queue is unchanged: 15 edges to decide (ticket 09), 12 gold cases to adjudicate (ticket 10).
+
+**2026-10-02 (morning), the lead: released; the image is live, its settings are not yet.**
+- The release run 36939346940 succeeded (`ci` 25m44s on the runners, `publish` 1m33s): `ghcr.io/ekenheim/atlas:0.3.0`.
+- Renovate bumped the image in home-ops on its own (PR #7190, merged overnight). Production reports `atlas_build_info{version="0.3.0"}` and every readiness check `ok` (read 07:32 UTC), with the 0.2.5 settings: `minimax` 4,000,000 per window, 1,000,000 per run, no `hindsight_minimax` budget, 104 retains held by the Codex budget.
+- The settings went up as home-ops PR #7194 (rebased on #7190, so its diff is `deployment.yaml` only: `ATLAS_MINIMAX_BUDGET_TOKENS` 8,000,000, `ATLAS_RUN_TOKEN_BUDGET` 2,000,000, `ATLAS_RETAIN_EXTRACTOR=minimax`). **The owner merges.**
+- The pilot runs do not wait for it: each is started with `budgets.token_budget` 2,000,000 in the request (`.scratch/tools/pilot_runs.py`), which is what #7194 makes the default. What does wait: the `hindsight_minimax` check, `extractor: minimax` on a first retain, and so this ticket and ticket 18.
