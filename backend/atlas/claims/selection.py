@@ -274,14 +274,33 @@ def keeps_a_passage(
     a results call's transcript (the `tradingview` provider's "Call transcript")."""
     if provider == TRANSCRIPT_PROVIDER:
         return (document_type or "").strip().lower() in RESULTS_CALL_TYPES
+    return is_periodic_report(form_type, document_type) or is_results_release(
+        form_type, document_type, items
+    )
+
+
+def is_periodic_report(form_type: str | None, document_type: str | None) -> bool:
+    """Whether a document is a periodic report: the primary document of a 10-K, 10-Q, 20-F,
+    6-K or 40-F (or its amendment). An Investigator's document floor reads the latest one
+    (atlas.investigations.tasks)."""
     form = (form_type or "").upper().removesuffix("/A")
+    return form in PERIODIC_FORMS and _primary(form, document_type)
+
+
+def is_results_release(
+    form_type: str | None, document_type: str | None, items: Sequence[str] = ()
+) -> bool:
+    """Whether a document is a results release: an 8-K listing Item 2.02, its primary
+    document or its EX-99.1 or EX-99.2."""
+    form = (form_type or "").upper().removesuffix("/A")
+    if form != "8-K" or RESULTS_ITEM not in items:
+        return False
+    return _primary(form, document_type) or (document_type or "").upper() in RESULTS_EXHIBITS
+
+
+def _primary(form: str, document_type: str | None) -> bool:
     kind = (document_type or "").upper()
-    primary = bool(kind) and kind.removesuffix("/A") == form
-    if form in PERIODIC_FORMS:
-        return primary
-    if form == "8-K" and RESULTS_ITEM in items:
-        return primary or kind in RESULTS_EXHIBITS
-    return False
+    return bool(kind) and kind.removesuffix("/A") == form
 
 
 def candidates(

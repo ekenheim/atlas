@@ -3204,3 +3204,26 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The Skeptic's wiring is not tested at a seam: it reads no transcript today (ticket 25 changes that); its existing tests pass.
   - The speaker is recorded only on accepted Claims; a rejection's reason names the label.
 - **Next:** the lead re-chains `0070`, adds the sentence to `investigator.v9` with ticket 26, and runs the runners.
+
+## 2026-10-02: pilot-fix ticket 24, an Investigator reads its company's latest periodic report
+
+- **Why:** pilot investigation 1 on 0.3.1 (`452c3b9d-…`): Lumentum's and Coherent's Investigators read transcripts only (`documents_pointed` = `documents`), no 10-K, 10-Q or 8-K, because Memory points at what it holds most of and the share is about four documents.
+- **Files:**
+  - `backend/atlas/claims/selection.py`: `keeps_a_passage` split into `is_periodic_report` and `is_results_release` (same rule, now shared; selection's behaviour unchanged).
+  - `backend/atlas/investigations/companies.py`: `FloorCandidate`, `document_floor` (the latest periodic report, then the latest results release, EX-99.1 preferred within one 8-K) and `documents_in_order` (floor, pointed, latest; a share smaller than the floor plus one pointed document takes the periodic report and the best-pointed document first), both pure.
+  - `backend/atlas/investigations/tasks.py`: `_documents` takes the floor (`_document_floor`: the latest parsed version per Source Document as of, or the version a pointer names; one already read by the investigation is not read again), records `documents_floor` in the task's artifacts.
+  - `backend/atlas/investigations/model.py`, `coverage.py`: `CardDocumentRead.floor` on the card's `read`. `frontend/app/investigation/page.tsx`: "(the latest filing: document floor)" beside such a document. `frontend/lib/api/` regenerated.
+  - `docs/decisions.md` ("Multi-hop Investigators": the document floor), `AGENTS.md` (the multi-hop line), the ticket.
+- **Tests** (`tests/integration/test_investigations.py`, run in WSL through `.scratch/tools/wsl_checks.sh`):
+  - New: `test_an_investigator_reads_its_company_s_latest_periodic_report_and_results_release` (Lumentum's recorded 10-K, results 8-K with EX-99.1 and 10-Q, three hand-written transcripts holding every Memory fact; share 4: 10-K, EX-99.1 and the two best-pointed transcripts; `documents_floor` [10-K, EX-99.1]; the card marks them `floor`), `test_a_share_of_two_takes_the_periodic_report_and_the_best_pointed_document`, `test_a_company_with_no_periodic_report_takes_its_pointed_documents` (`documents_floor` []).
+  - Changed: `test_an_investigator_takes_the_documents_its_pointers_name_before_its_latest_ones` now has a share of 2 and a newer unpointed note: the 10-K (floor) and the pointed 10-Q are read, the note dropped. With a share of 1 it would now read the 10-K, not the pointed 10-Q (the decision recorded in `docs/decisions.md`).
+  - **Red seen:** all four failed before the code: the changed test and the share tests read the transcripts/note instead of the 10-K; the no-periodic-report test failed on `KeyError: 'documents_floor'`.
+  - **Results:** `tests/integration/test_investigations.py`, `test_investigation_follow_up.py`, `test_scenarios.py` and `tests/unit/test_passage_selection.py`: 106 passed. `ruff format --check`, `ruff check` (backend, tests, scripts) and strict `pyright`: clean. Frontend `lint`, `typecheck`, `test` (42 passed). API client regenerated with the script's two commands (`wsl_checks.sh client`).
+  - **Not run:** the full integration suite, the e2e, `scripts/ci.sh`, `scripts/gen_api_client.sh --check`, any live suite. No unit test of the pure `document_floor`/`documents_in_order` (tested through the investigation seam only).
+- **Fixture-only vs live:** nothing live. The recorded EDGAR fixtures (Coherent, Lumentum) and hand-written transcript stand-ins (`atlas sources import`, synthetic text, not production text); the recorded Hindsight fake, scripted LiteLLM and SearXNG.
+- **Readings of the ticket and deviations:**
+  - **A share of 1** takes the periodic report (the ticket names only the share of 2).
+  - **Exchange annual/interim reports and results announcements are not in the floor:** their Source Documents carry no form type, and the ticket asks to reuse selection's notion, which does not cover them; no second definition was added. Recorded as a limit in the decision.
+  - **Results-call transcripts** keep a passage in selection but are not in the document floor (the ticket's floor is filings).
+  - `documents_dropped` now counts distinct available documents not chosen (the floor, pointed and latest lists overlap).
+- **Next:** the pilot's re-run of investigation 1 should show `documents_floor` on each Investigator and a 10-K/10-Q and results release on the card's `read`.

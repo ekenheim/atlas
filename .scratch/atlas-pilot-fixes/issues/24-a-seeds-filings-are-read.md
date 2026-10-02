@@ -11,9 +11,11 @@ Evidence: production 0.3.1, investigation `452c3b9d-2e2f-4cc6-bc54-5130155b9aac`
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam: a company whose pointers all name transcripts, with a 10-K and an 8-K exhibit in the archive: the Investigator's documents include the 10-K and the exhibit and the best-pointed transcript, within its share; the artifacts name the floor.
-- [ ] A company with no periodic report (transcripts only) takes its pointed documents as today.
-- [ ] A share of 2 takes the periodic report and the best-pointed document.
-- [ ] Decision entry; `AGENTS.md` line.
+- [x] Integration test at the investigation seam: a company whose pointers all name transcripts, with a 10-K and an 8-K exhibit in the archive: the Investigator's documents include the 10-K and the exhibit and the best-pointed transcript, within its share; the artifacts name the floor.
+- [x] A company with no periodic report (transcripts only) takes its pointed documents as today.
+- [x] A share of 2 takes the periodic report and the best-pointed document.
+- [x] Decision entry; `AGENTS.md` line.
+
+Notes (implementer): exchange annual/interim reports are not in the floor (no form type in the ledger; selection's notion, reused as asked, does not cover them); a share of 1 takes the periodic report. See `docs/decisions.md`, "Multi-hop Investigators", "The document floor".

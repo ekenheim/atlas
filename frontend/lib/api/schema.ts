@@ -2124,6 +2124,11 @@ export interface components {
             };
             /** Selected By */
             selected_by?: ("pointer" | "plan" | "search" | "fallback") | null;
+            /**
+             * Floor
+             * @default false
+             */
+            floor: boolean;
         };
         /**
          * CardFinding

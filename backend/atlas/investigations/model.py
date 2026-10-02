@@ -486,6 +486,10 @@ class CardDocumentRead(BaseModel):
     # fix 06; ticket 07). `plan`: chosen by its plan call, on cards stored before ticket 07.
     # None for an Investigator's.
     selected_by: Literal["pointer", "plan", "search", "fallback"] | None = None
+    # An Investigator's document chosen by its document floor (its company's latest periodic
+    # report or results release; pilot fix 24). False for the Skeptic's, and on cards stored
+    # before it.
+    floor: bool = False
 
 
 class CardReading(BaseModel):
