@@ -5,9 +5,10 @@ consolidation and mental models) and MiniMax subscription (spent by Atlas's rese
 through LiteLLM) each renew in rolling windows (5 h by default). Each **provider** gets a
 budget per window, and the queue holds a provider's job kinds while its window is spent:
 
-- `codex`, counted in **Hindsight operations submitted** (retain and reprocess batches, and a
-  replay's retain batches and consolidation, one unit each): Atlas can't see Codex tokens,
-  only what it asked Hindsight to do.
+- `codex`, counted in **Hindsight operations submitted** (retain and reprocess batches, a
+  replay's retain batches and consolidation, and each consolidation of the research bank
+  the `consolidate` job requests, one unit each): Atlas can't see Codex tokens, only what it
+  asked Hindsight to do.
 - `hindsight_minimax`, counted in **Hindsight operations submitted** too: the retain and
   reprocess batches whose items asked the shared Hindsight for its MiniMax extractor
   (`ATLAS_RETAIN_EXTRACTOR=minimax`; Hindsight's metadata routing, docs/decisions.md,
@@ -75,6 +76,9 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "refresh_mental_model": "codex",
     "reflect": "codex",
     "replay": "codex",
+    # The research bank's consolidation, asked for by Atlas (memory-quality ticket 19); it
+    # runs on Hindsight's primary LLM whatever extractor the retains ask for.
+    "consolidate": "codex",
     "discover": "minimax",
     "extract_claims": "minimax",
     "review_relationships": "minimax",
@@ -98,6 +102,10 @@ _SWEEPS: dict[Provider, str] = {
         " UNION ALL SELECT r.operation_id, 1 FROM replay_operation r"
         " WHERE NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'codex' AND u.source_id = r.operation_id)"
+        # Each consolidation request Atlas submitted to the research bank (ticket 19).
+        " UNION ALL SELECT 'consolidation:' || c.id::text, 1 FROM memory_consolidation c"
+        " WHERE c.operation_id IS NOT NULL AND NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'codex' AND u.source_id = 'consolidation:' || c.id::text)"
     ),
     "hindsight_minimax": (
         "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"

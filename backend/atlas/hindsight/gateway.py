@@ -30,6 +30,7 @@ from atlas.hindsight.models import (
     BankConfig,
     BankDeleted,
     Budget,
+    ConsolidationSubmitted,
     EntityPage,
     KnowledgeNode,
     LlmRequestStats,
@@ -243,9 +244,9 @@ class HindsightGateway:
     def bank_config(self) -> BankConfig:
         return self._parse(BankConfig, self._get("/config"))
 
-    def consolidate(self) -> OperationSubmitted:
+    def consolidate(self) -> ConsolidationSubmitted:
         """Ask for consolidation now (`POST .../consolidate`); poll the operation it returns."""
-        return self._parse(OperationSubmitted, self._post("/consolidate", {}))
+        return self._parse(ConsolidationSubmitted, self._post("/consolidate", {}))
 
     def delete_bank(self) -> BankDeleted:
         """Delete the whole bank (`DELETE /banks/{id}`): only a replay bank, never another.

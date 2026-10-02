@@ -10,6 +10,12 @@ Every mental model must say `refresh_after_consolidation: false` explicitly (Hin
 default for an imported model is `true`, and upstream issue #4532 is a refresh loop), and
 give a `refresh_cron` and a positive `min_refresh_interval_seconds`, so no refresh can run
 away (spec Part B story 28). A template that doesn't is invalid and is never sent.
+
+The research bank's template must also say `enable_auto_consolidation: false` (memory-quality
+ticket 19): Atlas decides when Memory consolidates (the `consolidate` job,
+`atlas.retention.consolidation`), so Hindsight never consolidates by itself after a retain. A
+template that leaves it out, or turns it on, is invalid too. Replay and evaluation banks take
+the template without the field (`without_auto_consolidation_setting`), as before.
 """
 
 import hashlib
@@ -55,11 +61,20 @@ class TemplateMentalModel(BaseModel):
 
 
 _MENTAL_MODELS = TypeAdapter(list[TemplateMentalModel])
+AUTO_CONSOLIDATION = "enable_auto_consolidation"
+
+
+class _Bank(BaseModel):
+    """The research bank's settings: Hindsight never consolidates by itself."""
+
+    model_config = ConfigDict(extra="allow")
+    enable_auto_consolidation: Literal[False]  # required, and must be false
 
 
 class _Manifest(BaseModel):
     model_config = ConfigDict(extra="allow")
     version: str = Field(min_length=1)  # Hindsight's manifest schema version ("1")
+    bank: _Bank
     mental_models: list[TemplateMentalModel] = []
 
 
@@ -90,6 +105,15 @@ class BankTemplate(BaseModel):
 
     def mental_model(self, mental_model_id: str) -> TemplateMentalModel | None:
         return next((m for m in self.mental_models if m.id == mental_model_id), None)
+
+    def without_auto_consolidation_setting(self) -> "BankTemplate":
+        """This template with the bank's `enable_auto_consolidation` left to the server's
+        default, for a replay or evaluation bank, which consolidates as it did before."""
+        bank = self.manifest.get("bank")
+        if not isinstance(bank, dict):
+            return self
+        settings = {key: value for key, value in bank.items() if key != AUTO_CONSOLIDATION}
+        return self.model_copy(update={"manifest": {**self.manifest, "bank": settings}})
 
     @property
     def manifest_sha256(self) -> str:

@@ -1,10 +1,11 @@
 {
-  "template_version": "1.1.0",
+  "template_version": "1.4.0",
   "manifest": {
     "version": "1",
     "bank": {
       "retain_mission": "Extract economically material facts about capacity, supply agreements, customer dependencies, product specifications, manufacturing constraints, demand forecasts, capital expenditure and risk. Preserve the difference between what was explicitly stated and what was inferred. Keep figures, units and reporting periods exactly as stated.",
       "enable_observations": true,
+      "enable_auto_consolidation": false,
       "observations_mission": "Consolidate independently grounded industry developments while recording contradictions, conditionality and changed circumstances. Don't turn speculative language into certainty.",
       "reflect_mission": "Form source-grounded research syntheses. Distinguish factual statements, third-party claims, model assumptions and hypotheses. Seek disconfirmation.",
       "disposition_skepticism": 4,

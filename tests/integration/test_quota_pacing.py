@@ -28,9 +28,9 @@ from tests.fakes.serve import Served, serve
 from tests.harness import LITE_10K, QUOTA_ERROR, Atlas, Clock, Metrics, at, scrape_metrics
 
 FIVE_HOURS = timedelta(hours=5)
-CODEX_KINDS = ["reflect", "refresh_mental_model", "replay", "reprocess", "retain"]
+CODEX_KINDS = ["consolidate", "reflect", "refresh_mental_model", "replay", "reprocess", "retain"]
 # With ATLAS_RETAIN_EXTRACTOR set, retains leave the Codex budget for their own.
-CODEX_KINDS_WITHOUT_RETAINS = ["reflect", "refresh_mental_model", "replay"]
+CODEX_KINDS_WITHOUT_RETAINS = ["consolidate", "reflect", "refresh_mental_model", "replay"]
 ROUTED_RETAIN_KINDS = ["reprocess", "retain"]
 MINIMAX_KINDS = [
     "discover",

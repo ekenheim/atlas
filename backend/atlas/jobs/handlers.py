@@ -101,11 +101,16 @@ def builtin_registry(
         register_tradingview_handlers(registry, settings, clock)
         register_proposed_update_handlers(registry, settings)
         register_replay_handlers(registry, settings)
+        from atlas.retention.consolidation import register_consolidation_handlers
+
+        register_consolidation_handlers(registry, settings, clock)
     return registry
 
 
 def builtin_schedules(settings: "Settings", engine: "Engine") -> list[Schedule]:
-    """The schedules `atlas worker` runs: the daily mental model refreshes."""
+    """The schedules `atlas worker` runs: the daily mental model refreshes and the daily
+    consolidation of the research bank."""
     from atlas.mental_models import refresh_schedules
+    from atlas.retention.consolidation import consolidation_schedules
 
-    return refresh_schedules(settings, engine)
+    return refresh_schedules(settings, engine) + consolidation_schedules(settings, engine)

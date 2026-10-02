@@ -115,7 +115,9 @@ Derived by default (each is anchored to a request the real server was sent):
   importing mental models live queues their refreshes, i.e. LLM calls, so it wasn't
   re-recorded): an unrecorded `POST .../import` whose body differs from the recorded
   research-template request (`research_template/01-import-dry-run`, `02-import`) only in its
-  `mental_models` is served that recording's response with only `bank_id`,
+  `mental_models` (and, from template 1.4.0, the bank's `enable_auto_consolidation: false`, a
+  per-bank field of the recorded schema `bank_templates/01-schema`; memory-quality ticket 19)
+  is served that recording's response with only `bank_id`,
   `mental_models_created` (the request's mental-model IDs, as `bank_templates/03-import-dry-run`
   and `04-import` list the models they created) and, for the real import, `operation_ids` (one
   derived refresh operation per model, as `bank_templates/04-import` queued) changed. A real
@@ -1227,7 +1229,13 @@ class RecordedHindsight:
 
 
 def _without_mental_models(body: dict[str, JsonValue]) -> dict[str, JsonValue]:
-    return {key: value for key, value in body.items() if key != "mental_models"}
+    """The import body without its mental models and without the bank's
+    `enable_auto_consolidation: false` (template 1.4.0; see the module docstring)."""
+    stripped = {key: value for key, value in body.items() if key != "mental_models"}
+    bank = stripped.get("bank")
+    if isinstance(bank, dict) and bank.get("enable_auto_consolidation") is False:
+        stripped["bank"] = {k: v for k, v in bank.items() if k != "enable_auto_consolidation"}
+    return stripped
 
 
 def _iso(moment: datetime | None) -> str | None:

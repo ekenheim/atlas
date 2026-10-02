@@ -9606,6 +9606,142 @@
         ],
         "title": "CompanySections"
       },
+      "ConsolidationRecord": {
+        "properties": {
+          "last_requested": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsolidationRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_completed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsolidationRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sections_retained_since": {
+            "type": "integer",
+            "title": "Sections Retained Since",
+            "description": "sections retained since the last completed consolidation was requested"
+          }
+        },
+        "type": "object",
+        "required": [
+          "last_requested",
+          "last_completed",
+          "sections_retained_since"
+        ],
+        "title": "ConsolidationRecord"
+      },
+      "ConsolidationRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "operation_id": {
+            "type": "string",
+            "title": "Operation Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "description": "submitted: its operation is still running, as last polled"
+          },
+          "operation_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Status",
+            "description": "what Hindsight last reported"
+          },
+          "deduplicated": {
+            "type": "boolean",
+            "title": "Deduplicated",
+            "description": "Hindsight reused a pending consolidation for it"
+          },
+          "sections_retained": {
+            "type": "integer",
+            "title": "Sections Retained",
+            "description": "sections retained since the last completed consolidation when it was asked"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "job_id",
+          "operation_id",
+          "status",
+          "operation_status",
+          "deduplicated",
+          "sections_retained",
+          "error",
+          "requested_at",
+          "completed_at"
+        ],
+        "title": "ConsolidationRun",
+        "description": "A consolidation request Atlas submitted to the bank."
+      },
       "ContentLinks": {
         "properties": {
           "raw": {
@@ -15793,6 +15929,10 @@
           },
           "entities": {
             "$ref": "#/components/schemas/EntitiesHealth"
+          },
+          "consolidation": {
+            "$ref": "#/components/schemas/ConsolidationRecord",
+            "description": "the bank's last requested and last completed consolidation (ticket 19); for the whole bank, whatever company_id is"
           }
         },
         "type": "object",
@@ -15805,7 +15945,8 @@
           "failed_groups",
           "pending_by_age",
           "observation_scopes",
-          "entities"
+          "entities",
+          "consolidation"
         ],
         "title": "MemoryHealth"
       },
