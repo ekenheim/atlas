@@ -247,6 +247,20 @@ The two listings the memory-health read makes (memory-quality ticket 02), from t
 - `fail_listings(status)` (a failed listing was never recorded): both listings answer HTTP
   `status` with the **hand-written** body `{"detail": "listing failed (scripted by the test)"}`
   (only the status is relied on).
+- **The memory list by entity of derived facts** (memory-quality ticket 09, the entity hop;
+  and the conformance check's check 8): with `derive_memories` on,
+  `GET .../memories/list?entity_id=<id>&tags=<t,...>&tags_match=any_strict|all_strict&limit=N
+  [&offset=M]` serves `entity_memories/01-by-entity-and-tag` with only `items`, `total`,
+  `limit` and `offset` changed: the bank's derived world facts whose retained item gave, with
+  `resolve_entities: false`, an entity whose derived ID (a UUIDv5 of its name, as the entity
+  listing gives it) is `entity_id`, and whose tags match the scope the way a strict recall's
+  do; most recently mentioned first (as recorded), then in retain order. Each item is the
+  recorded first one with only `id`, `text`, `context`, `document_id`, `chunk_id`, `tags`,
+  `metadata`, `mentioned_at` and `date` (the fact's), `fact_type` (`world`), `entities` (the
+  item's given names, joined by `", "` into one string, as recorded) and `source_memory_ids`
+  (empty) changed. The listing's date filter (`entity_memories/02`) is not derived: a request
+  with it is unrecorded. `fail_entity_memories(status)` (never recorded) answers HTTP `status`
+  with the same **hand-written** body as `fail_listings` to every such request.
 """
 
 import copy
@@ -465,6 +479,7 @@ DERIVED_RECALL_CHUNKS = "recall_options/07-include-chunks"
 # Hindsight's default `retain_chunk_size` (characters; `bank_config/02-get-config` on 0.10.2).
 DEFAULT_CHUNK_SIZE = 3000
 _PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n")
+DERIVED_ENTITY_MEMORIES = "entity_memories/01-by-entity-and-tag"
 _TEMPLATE_TRIGGER_FIELDS = (
     "refresh_after_consolidation",
     "refresh_cron",
@@ -566,6 +581,7 @@ class RecordedHindsight:
     _chunk_texts: dict[str, dict[int, str]] = field(
         init=False, default_factory=dict[str, dict[int, str]]
     )
+    _entity_memories_failure: int | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self._replies = defaultdict(deque)
@@ -805,6 +821,10 @@ class RecordedHindsight:
         """Answer HTTP `status` to the scopes and entity listings (a hand-written body)."""
         self._listing_failure = status
 
+    def fail_entity_memories(self, status: int) -> None:
+        """Answer HTTP `status` to every memory listing by entity (a hand-written body)."""
+        self._entity_memories_failure = status
+
     def refreshes_requested(self) -> list[str]:
         """The mental-model IDs of every refresh request received, in order."""
         return [
@@ -1004,6 +1024,8 @@ class RecordedHindsight:
 
     def _derived_memory_list(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
         params = dict(request.url.params)
+        if "entity_id" in params and self._derive_memories:
+            return self._derived_entity_memories(bank, request)
         document_id = params.pop("document_id", None)
         offset = int(params.pop("offset", "0"))
         limit = params.pop("limit", None)
@@ -1020,6 +1042,55 @@ class RecordedHindsight:
         page: list[JsonValue] = list[JsonValue](facts[offset : offset + int(limit)])
         response |= {"items": page, "total": len(facts), "limit": int(limit), "offset": offset}
         self.served.append(f"{DERIVED_MEMORY_LIST} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _derived_entity_memories(
+        self, bank: str, request: httpx2.Request
+    ) -> httpx2.Response | None:
+        """The memory list by entity, of the bank's derived facts (see the module docstring)."""
+        params = dict(request.url.params)
+        entity_id = params.pop("entity_id")
+        tags = [tag for tag in params.pop("tags", "").split(",") if tag]
+        match = params.pop("tags_match", None)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if limit is None or params or not tags or match not in ("any_strict", "all_strict"):
+            return None
+        if self._entity_memories_failure is not None:
+            self.served.append("memories/list?entity_id (derived, hand-written body)")
+            body = {"detail": "listing failed (scripted by the test)"}
+            return httpx2.Response(self._entity_memories_failure, json=body)
+        documents = self._derived_documents.get(bank, {})
+        recording = self.recording(DERIVED_ENTITY_MEMORIES)
+        response = copy.deepcopy(recording.response_object())
+        first = cast(list[dict[str, JsonValue]], response["items"])[0]
+        facts: list[dict[str, JsonValue]] = []
+        for fact in self._facts(bank).values():
+            item = documents[str(fact["document_id"])]
+            if item.get("resolve_entities") is not False:
+                continue
+            given = cast(list[dict[str, JsonValue]], item.get("entities") or [])
+            names = list(dict.fromkeys(str(entity["text"]) for entity in given))
+            if entity_id not in {str(uuid.uuid5(_DERIVED_NAMESPACE, f"entity:{n}")) for n in names}:
+                continue
+            have = {str(tag) for tag in cast(list[JsonValue], fact["tags"])}
+            if not (have & set(tags) if match == "any_strict" else set(tags) <= have):
+                continue
+            facts.append(
+                copy.deepcopy(first)
+                | fact
+                | {
+                    "fact_type": "world",
+                    "date": fact["mentioned_at"],
+                    "entities": ", ".join(names),  # one comma-joined string, as recorded
+                    "source_memory_ids": [],
+                }
+            )
+        # The most recently mentioned first, as the recording lists them (stable otherwise).
+        facts.sort(key=lambda fact: str(fact.get("mentioned_at") or ""), reverse=True)
+        page: list[JsonValue] = list[JsonValue](facts[offset : offset + int(limit)])
+        response |= {"items": page, "total": len(facts), "limit": int(limit), "offset": offset}
+        self.served.append(f"{DERIVED_ENTITY_MEMORIES} (derived)")
         return httpx2.Response(recording.status, json=response)
 
     # --- derived memories, recall and reflect (see the module docstring) -----------------------

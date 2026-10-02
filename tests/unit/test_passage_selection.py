@@ -562,6 +562,54 @@ def test_the_ceiling_is_a_share_of_the_budget_and_at_least_one_passage() -> None
     assert ceiling(24, 1.0) == 24
 
 
+def hop(document: int, rank: int, start: int = 0) -> Candidate:
+    """A window an entity pointer chose (memory-quality ticket 09)."""
+    return Candidate(
+        document, "s", start, start + 10, (f"entity_pointer:{NVIDIA}",), entity_pointer=(rank, 1)
+    )
+
+
+def test_an_entity_pointer_chooses_its_window_and_is_tagged_with_the_company_it_was_found_for() -> (
+    None
+):
+    document = note(paragraph("We lease our facilities."), paragraph(ALLOCATION))
+    pointers = [
+        Pointer(document.id, "chunk-001", 2, 1, MEMORY, label=str(NVIDIA), entity=True),
+        Pointer(document.id, "chunk-001", 5, 3, MEMORY),
+    ]
+
+    [found] = candidates([document], reading=Reading(pointers=pointers))
+
+    assert document.text[found.start : found.end].startswith(ALLOCATION)
+    assert found.selected_by == ("pointer:3", f"entity_pointer:{NVIDIA}")
+    assert (found.pointer, found.entity_pointer) == ((5, 3), (2, 1))
+    assert selections(found.selected_by) == ["pointer", "entity_pointer"]
+
+
+def test_entity_pointer_windows_take_their_turn_but_never_crowd_out_the_recall_pointers() -> None:
+    # Every channel has more windows than the budget, each in a document of its own.
+    recalled = [pointed(0, rank=n + 1, start=n * 10) for n in range(12)]
+    hopped = [hop(1, rank=n + 1, start=n * 10) for n in range(12)]
+    found = [searched(2, 9.0 - n, start=n * 10) for n in range(12)]
+
+    dealt = deal([*recalled, *hopped, *found], floors=(), budget=9, ceiling=2)
+
+    # In turn, the entity pointer channel capped at the ceiling (2) under it; then what was
+    # passed over, in turn again.
+    assert [each.document for each in dealt[:6]] == [0, 1, 2, 0, 1, 2]
+    assert [each.document for each in dealt].count(1) <= [each.document for each in dealt].count(0)
+    assert [each for each in dealt if each.document == 1] == hopped[:3]
+
+
+def test_without_entity_pointers_the_dealing_is_as_before() -> None:
+    retained = [pointed(0, rank=n + 1, start=n * 10) for n in range(12)]
+    transcript = [searched(1, 9.0 - n, start=n * 10) for n in range(6)]
+
+    dealt = deal([*retained, *transcript], floors=(), budget=8, ceiling=8)
+
+    assert [each.document for each in dealt] == [0, 1, 0, 1, 0, 1, 0, 1]
+
+
 def test_the_kinds_of_selection_of_a_passage() -> None:
     assert selections(["pointer:0", "pointer:3", "search", f"entity:{NVIDIA}"]) == [
         "pointer",

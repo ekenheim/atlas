@@ -1,4 +1,4 @@
-"""What an investigation is, as the API shows it: its §7.2 request, budgets and usage, the plan
+"""What an investigation is, as the API shows it: its Â§7.2 request, budgets and usage, the plan
 (premises and role tasks), the leads and documents it took, its reading pointers (where
 Memory pointed) and the companies they name (which of them are read), the Skeptic's
 counterevidence, the Editor's research card, and the event log."""
@@ -52,13 +52,13 @@ DONE: frozenset[str] = frozenset(
 )
 PremiseStatus = Literal["open", "disproven"]
 
-# The §7.2 request's fixed parts: what an investigation's roles may read and use.
+# The Â§7.2 request's fixed parts: what an investigation's roles may read and use.
 ALLOWED_SOURCE_TIERS = ["A", "C"]  # Tier A archived sources as Evidence; Tier C only as leads
 APPROVED_TOOLS = ["searxng_search", "source_ledger_read", "hindsight_recall"]
 
 
 class Budgets(BaseModel):
-    """Per-run limits (spec §7.4)."""
+    """Per-run limits (spec Â§7.4)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -84,7 +84,7 @@ class Usage(BaseModel):
 
 
 class InvestigationRequest(BaseModel):
-    """The shared agent contract's request (spec §7.2), as every role of the run works to."""
+    """The shared agent contract's request (spec Â§7.2), as every role of the run works to."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -186,7 +186,11 @@ class ReadingPointer(BaseModel):
     id: uuid.UUID
     round: int
     task_key: str  # the task that asked: `scout` or `skeptic`
-    query_kind: Literal["scout", "bear_checklist"]
+    # `entity`: an entity pointer (memory-quality ticket 09; atlas.investigations.entity_hop):
+    # a fact carrying the entity of `query_company_id` (the company the hop was made for; its
+    # canonical name is `query`), from a document of another company, `company_id`. Its
+    # `query_index` is the company's place in the hop, its `rank` the pointer's among its own.
+    query_kind: Literal["scout", "bear_checklist", "entity"]
     # A Scout's: 0 for the round's question, n for its nth query. A Skeptic's: the query's
     # position among its task's queries, from 1 (companies in order, each in checklist order).
     query_index: int
@@ -224,6 +228,33 @@ class ReadingPointer(BaseModel):
     chunk_id: str | None = None
     chunk_char_start: int | None = None
     chunk_char_end: int | None = None
+    # An entity pointer's: the Hindsight entity its fact was listed by. None for the others.
+    entity_id: str | None = None
+
+
+class EntityHop(BaseModel):
+    """What the entity hop (memory-quality ticket 09) did for one company of a round: the
+    entity it found by the company's canonical name, the facts that carry it, and why each
+    made an entity pointer or not. `outcome`: `listed`; `no_entity` (no entity of exactly
+    that name in Memory); `listing_failed` (the memory listing failed: an event says why);
+    `entities_unavailable` (the entity listing failed, so no company was hopped)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    round: int
+    company_id: uuid.UUID
+    company_name: str
+    slug: str
+    entity_name: str  # the company's canonical name, which its documents send
+    entity_id: str | None
+    outcome: Literal["listed", "no_entity", "listing_failed", "entities_unavailable"]
+    facts_listed: int  # memories carrying the entity in the theme
+    pointers: int  # the entity pointers it made
+    own_documents: int  # facts from the company's own documents: no pointer
+    after_as_of: int  # facts from a Source Version available after the as-of time
+    already_pointed: int  # facts from a section a recall pointer of the round points at
+    unresolved: int  # memories that resolve to no section
+    beyond_limit: int  # sections past the per-company bound (ATLAS_ENTITY_HOP_MAX_FACTS)
 
 
 class PointedCompany(BaseModel):
@@ -239,11 +270,15 @@ class PointedCompany(BaseModel):
     company_id: uuid.UUID
     company_name: str
     slug: str
-    pointers: int  # how many of the round's Scout pointers name it
-    score: float
-    best_rank: int  # the best rank among them (1: the top of a recall)
+    pointers: int  # how many of the round's Scout recall pointers name it
+    score: float  # with its entity pointers' weight (memory-quality ticket 09)
+    # The best rank among its recall pointers (1: the top of a recall); None for a company
+    # only the entity hop reached.
+    best_rank: int | None
     outcome: PointedOutcome
     task_key: str | None  # its Investigator task; None when it was not read
+    # How many of the round's entity pointers name it (0 before memory-quality ticket 09).
+    entity_pointers: int = 0
 
 
 class SourceSpan(BaseModel):
@@ -268,7 +303,7 @@ class ValidityDates(BaseModel):
 
 
 class CardFinding(BaseModel):
-    """A research card finding in the §7.2 claim shape. The statement is the Editor's; every
+    """A research card finding in the Â§7.2 claim shape. The statement is the Editor's; every
     other field is filled in by code from the accepted Claims it cites."""
 
     model_config = ConfigDict(frozen=True)
@@ -433,7 +468,8 @@ class CardDocumentRead(BaseModel):
     # How many passages of it were sent (0 for a card stored before pilot fix 10).
     passages: int = 0
     # How its passages sent were selected, as passages per kind of selection (`pointer`,
-    # `search`, `entity`, `lead`; atlas.claims.selection; the Skeptic's have no `entity`). A
+    # `entity_pointer` (the entity hop's channel; memory-quality ticket 09), `search`,
+    # `entity`, `lead`; atlas.claims.selection; the Skeptic's have no `entity`). A
     # passage several kinds chose counts under each, so the counts can add up to more than
     # `passages`. Empty for a document none of whose passages was sent, and on cards stored
     # before memory-directed reading ticket 05 (the Skeptic's documents: before ticket 07).
@@ -485,10 +521,16 @@ class CardCompanyNotRead(BaseModel):
     round: int
     company_id: uuid.UUID
     company_name: str
-    pointers: int  # how many of the round's Scout pointers name it
-    score: float  # the sum of 1 / rank over them
-    best_rank: int
+    pointers: int  # how many of the round's Scout recall pointers name it
+    score: float  # the sum of 1 / rank over them, and its entity pointers' weight
+    best_rank: int | None  # None: only the entity hop reached it
     reason: str  # the company budget had no room, or its premise was disproven
+    # How many entity pointers name it, and the channels that reached it: `recall` (the
+    # Scout's recall pointers) and `entity` (the entity hop; memory-quality ticket 09).
+    entity_pointers: int = 0
+    channels: list[Literal["recall", "entity"]] = Field(
+        default_factory=list[Literal["recall", "entity"]]
+    )
 
 
 class CardClaimSummary(BaseModel):
@@ -517,7 +559,7 @@ class CardCompanyClaims(BaseModel):
 
 
 class ResearchCard(BaseModel):
-    """The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10).
+    """The Editor's structured research card: always a draft (spec Â§7.1, Â§7.3 step 10).
 
     When the Editor fails (its answer cut off at its output cap's bound, or quarantined), the
     card is code's alone: no finding, `editor_failure` saying why, the accepted Claims by
@@ -621,12 +663,17 @@ class Investigation(BaseModel):
     tasks: list[Task]
     leads: list[InvestigationLead]
     # Where Memory pointed, by round, asking task (the Scout, then the Skeptic), query and
-    # rank (Memory as an index, never Evidence).
+    # rank (Memory as an index, never Evidence). Recall pointers only: the entity hop's are
+    # `entity_pointers`.
     pointers: list[ReadingPointer]
-    # The companies those pointers name, by round and weight, and which of them are read: the
-    # seeds, the ones an Investigator was added for, the ones left out. Empty for a round
-    # until its Scout has succeeded.
+    # The companies those pointers and the entity pointers name, by round and weight, and
+    # which of them are read: the seeds, the ones an Investigator was added for, the ones left
+    # out. Empty for a round until its Scout has succeeded.
     pointed_companies: list[PointedCompany]
+    # The entity hop (memory-quality ticket 09): its pointers, by round, company hopped and
+    # rank (a reason to read, never an edge or Evidence), and what it did for each company.
+    entity_pointers: list[ReadingPointer] = Field(default_factory=list[ReadingPointer])
+    entity_hops: list[EntityHop] = Field(default_factory=list[EntityHop])
     documents: list[InvestigationDocument]
     counterevidence: list[Counterevidence]
     research_card: ResearchCard | None
@@ -726,7 +773,7 @@ def get_investigation(
                 " p.section_char_start, p.section_char_end, p.company_id,"
                 " c.display_name AS company_name, p.available_at, p.citation_state,"
                 " p.created_at, p.score, p.entity_names, p.placed_by, p.chunk_id,"
-                " p.chunk_char_start, p.chunk_char_end FROM reading_pointer p"
+                " p.chunk_char_start, p.chunk_char_end, p.entity_id FROM reading_pointer p"
                 " JOIN investigation_task t ON t.id = p.task_id"
                 " JOIN source_version v ON v.id = p.source_version_id"
                 " JOIN source_document d ON d.id = v.source_document_id"
@@ -863,6 +910,21 @@ def _pointed_companies(tasks: list[Task]) -> list[PointedCompany]:
     return pointed
 
 
+def _entity_hops(tasks: list[Task]) -> list[EntityHop]:
+    """Each round's entity hop, as its Scout task recorded it; rounds in order, the companies
+    in the order hopped."""
+    hops: list[EntityHop] = []
+    for task in tasks:
+        recorded = task.artifacts.get("entity_hop") if task.role == "scout" else None
+        if isinstance(recorded, list):
+            hops.extend(
+                EntityHop.model_validate({"round": task.round} | dict(each))
+                for each in recorded
+                if isinstance(each, dict)
+            )
+    return hops
+
+
 def _investigation(
     row: RowMapping, parts: _Parts, connection: Connection, queue_paused: bool
 ) -> Investigation:
@@ -917,8 +979,10 @@ def _investigation(
         premises=parts.premises,
         tasks=tasks,
         leads=parts.leads,
-        pointers=parts.pointers,
+        pointers=[p for p in parts.pointers if p.query_kind != "entity"],
         pointed_companies=_pointed_companies(tasks),
+        entity_pointers=[p for p in parts.pointers if p.query_kind == "entity"],
+        entity_hops=_entity_hops(tasks),
         documents=parts.documents,
         counterevidence=parts.counterevidence,
         research_card=None if card is None else ResearchCard.model_validate(card),

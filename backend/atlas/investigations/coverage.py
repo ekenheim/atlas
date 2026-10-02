@@ -19,7 +19,9 @@ Written by code, never the Editor, so a card with no finding still says, from th
   no Claim to challenge, the budget spent, nothing archived).
 - **not_read** (memory-directed reading ticket 06): the companies a round's reading pointers
   name that got no Investigator, with their pointers and why (the company budget had no
-  room, or the company's premise was disproven), so the next investigation can seed them.
+  room, or the company's premise was disproven), so the next investigation can seed them;
+  with the channels that reached each (`recall`, `entity`: the entity hop, memory-quality
+  ticket 09). A document's `selections` in `read` count `entity_pointer` passages apart.
 """
 
 import uuid
@@ -75,6 +77,12 @@ def not_read(connection: Connection, investigation_id: uuid.UUID) -> list[CardCo
                         score=each["score"],
                         best_rank=each["best_rank"],
                         reason=reason,
+                        # The channels that reached it (memory-quality ticket 09).
+                        entity_pointers=int(each.get("entity_pointers") or 0),
+                        channels=[
+                            *(["recall"] if each["pointers"] else []),
+                            *(["entity"] if each.get("entity_pointers") else []),
+                        ],
                     )
                 )
     return unread

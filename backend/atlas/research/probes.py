@@ -106,7 +106,7 @@ class RankedCompany(BaseModel):
     name: str | None
     pointers: int
     score: float
-    best_rank: int
+    best_rank: int | None  # never None here: a probe ranks recall pointers only
 
 
 class ProbeMeasure(BaseModel):

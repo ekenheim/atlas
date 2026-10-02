@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0065"
+    assert revision == "0064"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -602,6 +602,52 @@ def test_reading_pointers_recorded_before_0059_are_the_scout_s(empty_database_ur
     assert tuple(recorded) == ("scout", None, None)
     assert refused == ["2", "3", "4"]
     assert kinds == [("scout", None), ("bear_checklist", "inventory_cycle")]
+    assert still_insert_only
+
+
+def test_an_entity_pointer_names_the_company_it_was_found_for_and_its_entity(
+    empty_database_url: str,
+) -> None:
+    # 0064: the entity hop's pointers (memory-quality ticket 09) are a third kind, `entity`,
+    # with the company the hop was made for and the entity its facts were listed by; only an
+    # entity pointer has an entity, and it never collides with a recall pointer.
+    upgrade(empty_database_url)
+    engine = create_engine(empty_database_url)
+    parent = "00000000-0000-0000-0000-000000000001"
+    insert = text(
+        "INSERT INTO reading_pointer (id, investigation_id, round, task_id, query_index, query,"
+        " rank, memory_id, memory_type, memory_text, source_version_id, section_anchor,"
+        " section_char_start, section_char_end, available_at, citation_state, query_kind,"
+        " query_company_id, entity_id) VALUES (gen_random_uuid(), :parent, 1, :parent, 1,"
+        " 'Coherent Corp.', 1, 'm1', 'world', 'a fact', :parent, 'chunk-001', 0, 10, now(),"
+        " 'resolved', :kind, :company, :entity)"
+    )
+    attempts: list[dict[str, Any]] = [
+        {"kind": "entity", "company": parent, "entity": "e-1"},  # stored
+        {"kind": "scout", "company": None, "entity": None},  # a recall pointer beside it
+        {"kind": "entity", "company": None, "entity": "e-1"},  # no company it was found for
+        {"kind": "entity", "company": parent, "entity": None},  # no entity
+        {"kind": "scout", "company": None, "entity": "e-1"},  # a recall pointer's entity
+    ]
+    outcomes: list[str] = []
+    for attempt in attempts:
+        try:
+            with engine.begin() as connection:
+                connection.execute(text("SET LOCAL session_replication_role = replica"))
+                connection.execute(insert, attempt | {"parent": parent})
+            outcomes.append("stored")
+        except DBAPIError as error:
+            assert "reading_pointer_bear_checklist_query" in str(error)
+            outcomes.append("refused")
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE reading_pointer SET entity_id = 'e-2'"))
+    except DBAPIError as error:
+        still_insert_only = "insert-only" in str(error)
+    else:
+        still_insert_only = False
+    engine.dispose()
+    assert outcomes == ["stored", "stored", "refused", "refused", "refused"]
     assert still_insert_only
 
 

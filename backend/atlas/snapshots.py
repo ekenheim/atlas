@@ -22,7 +22,10 @@ version was built from, frozen in the transaction that publishes it.
   the model saw is in the Source Versions: `pointer_selections`, the Investigators'
   passages a reading pointer chose (their `selected_by` names the queries; memory-directed
   reading ticket 05); `skeptic_pointer_selections`, the Skeptic's (their `selected_by`
-  names the checklist items; absent from snapshots written before ticket 07); and
+  names the checklist items; absent from snapshots written before ticket 07);
+  `entity_pointer_selections`, the Investigators' passages an entity pointer chose (the
+  entity hop, memory-quality ticket 09, whose pointers are among `reading_pointers` with
+  `query_kind` `entity` and their `entity_id`; absent from snapshots written before it); and
   `recall_selections`, the passages of extractions made before ticket 05, whose own recall
   chose sections. `used` says whether any Memory reached the run at all.
 - `assertions`: the Assertions the findings, the counterevidence and the scenarios cite, with
@@ -304,6 +307,11 @@ def build_snapshot(
         for each in selected
         if any(str(tag).startswith("pointer:") for tag in each.get("selected_by", []))
     ]
+    entity_pointer_selections = [
+        each
+        for each in selected
+        if any(str(tag).startswith("entity_pointer:") for tag in each.get("selected_by", []))
+    ]
     skeptic_pointer_selections = [
         {"skeptic_search_id": search["id"]} | passage
         for search in _rows(
@@ -323,7 +331,7 @@ def build_snapshot(
         " p.section_heading, p.section_char_start, p.section_char_end, p.company_id,"
         " p.available_at, p.citation_state, p.created_at, p.query_kind, p.checklist_item,"
         " p.query_company_id, p.score, p.entity_names, p.placed_by, p.chunk_id,"
-        " p.chunk_char_start, p.chunk_char_end FROM reading_pointer p"
+        " p.chunk_char_start, p.chunk_char_end, p.entity_id FROM reading_pointer p"
         " JOIN investigation_task t ON t.id = p.task_id"
         " WHERE p.investigation_id = ANY(CAST(:ids AS uuid[]))"
         " ORDER BY p.round, t.position, p.query_index, p.rank, p.source_version_id,"
@@ -395,6 +403,7 @@ def build_snapshot(
             "items": memory_items,
             "recall_selections": recall_selections,
             "pointer_selections": pointer_selections,
+            "entity_pointer_selections": entity_pointer_selections,
             "skeptic_pointer_selections": skeptic_pointer_selections,
             "reading_pointers": reading_pointers,
         },
