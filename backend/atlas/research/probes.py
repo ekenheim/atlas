@@ -9,7 +9,9 @@ reading index before and after a change to Memory.
   JSON): memories returned, citations resolved, distinct sections and companies the resolved
   ones lead to, the share of observations, the **repeats** (memories whose text, case and
   whitespace folded, an earlier memory of the same answer already has: an observation beside
-  the fact under it, or one sentence in two quarters' filings) and the companies ranked by
+  the fact under it, or one sentence in two quarters' filings), the **superseded** (facts
+  returned beside an observation of the same answer that was built from them: the places
+  `prefer_observations` gives to other memories) and the companies ranked by
   **pointer weight** the way an investigation ranks them (`atlas.investigations.companies`:
   one pointer per resolved memory and distinct section, weighing 1 / its rank in the answer).
 
@@ -115,6 +117,7 @@ class ProbeMeasure(BaseModel):
     observations: int
     observation_share: float
     repeats: int
+    superseded: int
     ranking: list[RankedCompany]
 
 
@@ -161,6 +164,21 @@ def measure(answers: Sequence[Answer], names: Mapping[str, str] | None = None) -
             if folded in seen:
                 repeats += 1
             seen.add(folded)
+    # A fact returned beside an observation of the same answer that was built from it: the
+    # place `prefer_observations` would give to another memory.
+    superseded = 0
+    for answer in parsed:
+        sources = {
+            source.memory_id
+            for memory in answer.memories
+            if memory.type == "observation"
+            for source in memory.provenance.sources
+        }
+        superseded += sum(
+            1
+            for memory in answer.memories
+            if memory.type != "observation" and memory.memory_id in sources
+        )
     pointers = [pointer for answer in parsed for pointer in _pointers(answer)]
     ranks: dict[str, list[int]] = {}
     for rank, company, _ in pointers:
@@ -184,6 +202,7 @@ def measure(answers: Sequence[Answer], names: Mapping[str, str] | None = None) -
         observations=observations,
         observation_share=round(observations / len(memories), 4) if memories else 0.0,
         repeats=repeats,
+        superseded=superseded,
         ranking=ranking,
     )
 
@@ -223,25 +242,30 @@ def report(
 def summary(probe_report: ProbeReport, *, top: int = 10) -> str:
     """The report as Markdown: a table per recall, the totals, and the ranking."""
     lines = [
-        "| Probe | Recall | Memories | Resolved | Sections | Companies | Observations | Repeats |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Probe | Recall | Memories | Resolved | Sections | Companies | Observations | Repeats"
+        " | Superseded |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for row in probe_report.results:
         label = f"{row.recall.kind} {row.recall.index}"
         if row.measure is None:
-            lines.append(f"| {row.recall.probe_id} | {label} | failed: {row.error} | | | | | |")
+            lines.append(f"| {row.recall.probe_id} | {label} | failed: {row.error} | | | | | | |")
             continue
         m = row.measure
         lines.append(
             f"| {row.recall.probe_id} | {label} | {m.memories} | {m.resolved} | {m.sections}"
-            f" | {m.companies} | {m.observation_share:.0%} | {m.repeats} |"
+            f" | {m.companies} | {m.observation_share:.0%} | {m.repeats} | {m.superseded} |"
         )
-    lines += ["", "| Probe | Memories | Resolved | Sections | Companies | Observations | Repeats |"]
-    lines.append("|---|---|---|---|---|---|---|")
+    lines += [
+        "",
+        "| Probe | Memories | Resolved | Sections | Companies | Observations | Repeats"
+        " | Superseded |",
+    ]
+    lines.append("|---|---|---|---|---|---|---|---|")
     for probe, m in [*probe_report.by_probe.items(), ("total", probe_report.total)]:
         lines.append(
             f"| {probe} | {m.memories} | {m.resolved} | {m.sections} | {m.companies}"
-            f" | {m.observation_share:.0%} | {m.repeats} |"
+            f" | {m.observation_share:.0%} | {m.repeats} | {m.superseded} |"
         )
     lines += ["", f"Companies by pointer weight (all probes, top {top}):", ""]
     for place, company in enumerate(probe_report.total.ranking[:top], start=1):

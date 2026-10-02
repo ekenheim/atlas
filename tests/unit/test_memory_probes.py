@@ -117,6 +117,8 @@ def test_the_measures_of_one_recall_answer() -> None:
     assert measured.observation_share == 0.2857
     # The fact under the observation (rank 2), and Coherent's fact in other case (rank 5).
     assert measured.repeats == 2
+    # The first observation was built from the fact returned at rank 2.
+    assert measured.superseded == 1
     lumentum, coherent = measured.ranking
     # Lumentum: rank 1 (two sections) and rank 2: 1 + 1 + 1/2.
     assert (lumentum.company_id, lumentum.name) == (LUMENTUM, "lumentum")
@@ -144,6 +146,7 @@ def test_the_report_totals_count_sections_once_and_add_up_pointers() -> None:
     total = reported.total
     assert (total.memories, total.resolved, total.sections, total.companies) == (14, 10, 5, 2)
     assert total.repeats == 4  # repeats are counted within one answer
+    assert total.superseded == 2
     assert [(c.name, c.pointers, c.score) for c in total.ranking] == [
         ("lumentum", 6, 5.0),
         ("coherent", 4, 1.0667),
