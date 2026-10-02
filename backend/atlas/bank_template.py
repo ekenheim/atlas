@@ -8,8 +8,11 @@ template version from the bank's latest application.
 
 Every mental model must say `refresh_after_consolidation: false` explicitly (Hindsight's
 default for an imported model is `true`, and upstream issue #4532 is a refresh loop), and
-give a `refresh_cron` and a positive `min_refresh_interval_seconds`, so no refresh can run
-away (spec Part B story 28). A template that doesn't is invalid and is never sent.
+give a positive `min_refresh_interval_seconds`, so no refresh can run away (spec Part B story
+28). Since memory-quality ticket 10 Atlas's daily job is the only scheduler: every model
+says `refresh_cron: null` explicitly (Hindsight's own cron would refresh outside Atlas's
+budget, uncounted), and `exclude_mental_models: true` (no model reads another). A template
+that breaks any of these is invalid and is never sent.
 """
 
 import hashlib
@@ -23,25 +26,26 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, Valid
 from sqlalchemy import Connection, Engine, text
 
 from atlas import audit
-from atlas.hindsight import HindsightGateway, TemplateImportResult
+from atlas.hindsight import Budget, HindsightGateway, TemplateImportResult
 
 
 class InvalidTemplate(ValueError):
     """The template file is missing, isn't JSON, or lacks its version or manifest."""
 
 
-# A 5-field cron expression, as Hindsight's `refresh_cron` takes (UTC).
-_CRON = r"^\S+( \S+){4}$"
-
-
 class TemplateTrigger(BaseModel):
-    """A template mental model's trigger: never after consolidation, on a cron, rate-limited."""
+    """A template mental model's trigger: never refreshed by Hindsight on its own (not after
+    consolidation, no cron: Atlas's daily job refreshes it), rate-limited, and reading
+    memories only, never another mental model."""
 
     model_config = ConfigDict(extra="allow", frozen=True)
 
     refresh_after_consolidation: Literal[False]  # required, and must be false
-    refresh_cron: str = Field(pattern=_CRON)
+    refresh_cron: None  # required, and must be null: Atlas's job is the only scheduler
     min_refresh_interval_seconds: int = Field(gt=0)
+    exclude_mental_models: Literal[True]  # required, and must be true
+    budget: Budget | None = None  # Hindsight: null means `mid` for a refresh
+    keep_trace: bool = False
 
 
 class TemplateMentalModel(BaseModel):
@@ -50,6 +54,7 @@ class TemplateMentalModel(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]*$")
     name: str = Field(min_length=1)
     source_query: str = Field(min_length=1)
+    tags: list[str] = []  # the memories a refresh reads (Hindsight: all_strict when tagged)
     max_tokens: int | None = None
     trigger: TemplateTrigger
 

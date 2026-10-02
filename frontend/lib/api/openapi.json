@@ -8614,7 +8614,8 @@
         "enum": [
           "memory",
           "chunk",
-          "quote"
+          "quote",
+          "mental_model"
         ]
       },
       "CitationSource": {
@@ -15948,6 +15949,21 @@
             ],
             "title": "Skip Reason"
           },
+          "refreshed_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "atlas",
+                  "hindsight"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refreshed By"
+          },
           "operation_id": {
             "anyOf": [
               {
@@ -16071,6 +16087,7 @@
           "min_refresh_interval_seconds",
           "status",
           "skip_reason",
+          "refreshed_by",
           "operation_id",
           "run_id",
           "operation_status",
@@ -16144,6 +16161,13 @@
           "source_query": {
             "type": "string",
             "title": "Source Query"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
           },
           "trigger": {
             "$ref": "#/components/schemas/RefreshTrigger"
@@ -16249,6 +16273,7 @@
           "id",
           "name",
           "source_query",
+          "tags",
           "trigger",
           "bank_id",
           "in_bank",
@@ -18699,6 +18724,17 @@
             ],
             "title": "Response Schema",
             "description": "a JSON Schema object for structured output; union types are refused"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget",
+            "description": "how deep reflect searches (Hindsight's own default is low)",
+            "default": "mid"
+          },
+          "exclude_mental_models": {
+            "type": "boolean",
+            "title": "Exclude Mental Models",
+            "description": "keep the mental models out of the answer, so every citation can resolve to a section; false lets a scope that matches a model's tags read it (reported as a `mental_model` citation)",
+            "default": true
           }
         },
         "additionalProperties": false,
@@ -18716,22 +18752,56 @@
             "title": "Refresh After Consolidation"
           },
           "refresh_cron": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Refresh Cron"
           },
           "min_refresh_interval_seconds": {
             "type": "integer",
             "title": "Min Refresh Interval Seconds"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "mid",
+                  "high"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget"
+          },
+          "exclude_mental_models": {
+            "type": "boolean",
+            "title": "Exclude Mental Models"
+          },
+          "keep_trace": {
+            "type": "boolean",
+            "title": "Keep Trace"
           }
         },
         "type": "object",
         "required": [
           "refresh_after_consolidation",
           "refresh_cron",
-          "min_refresh_interval_seconds"
+          "min_refresh_interval_seconds",
+          "budget",
+          "exclude_mental_models",
+          "keep_trace"
         ],
         "title": "RefreshTrigger",
-        "description": "When the model is refreshed, as the bank template defines it."
+        "description": "When and how the model is refreshed, as the bank template defines it."
       },
       "Relationship": {
         "properties": {
@@ -20078,6 +20148,19 @@
             ],
             "title": "Response Schema"
           },
+          "budget": {
+            "type": "string",
+            "enum": [
+              "low",
+              "mid",
+              "high"
+            ],
+            "title": "Budget"
+          },
+          "exclude_mental_models": {
+            "type": "boolean",
+            "title": "Exclude Mental Models"
+          },
           "answer": {
             "anyOf": [
               {
@@ -20269,6 +20352,8 @@
           "question",
           "scope",
           "response_schema",
+          "budget",
+          "exclude_mental_models",
           "answer",
           "structured_output",
           "structured_output_error",
@@ -23899,6 +23984,7 @@
       "UnresolvedReason": {
         "type": "string",
         "enum": [
+          "mental_model",
           "no_memory_id",
           "memory_not_found",
           "source_memory_not_found",

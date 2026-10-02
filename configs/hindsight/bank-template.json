@@ -1,5 +1,5 @@
 {
-  "template_version": "1.1.0",
+  "template_version": "1.3.0",
   "manifest": {
     "version": "1",
     "bank": {
@@ -8,29 +8,39 @@
       "observations_mission": "Consolidate independently grounded industry developments while recording contradictions, conditionality and changed circumstances. Don't turn speculative language into certainty.",
       "reflect_mission": "Form source-grounded research syntheses. Distinguish factual statements, third-party claims, model assumptions and hypotheses. Seek disconfirmation.",
       "disposition_skepticism": 4,
-      "disposition_literalism": 4
+      "disposition_literalism": 4,
+      "recall_include_chunks": false,
+      "reflect_source_facts_max_tokens": 4096
     },
     "mental_models": [
       {
         "id": "theme-status",
         "name": "Theme status",
         "source_query": "What are the major documented developments in optical interconnect capacity for AI infrastructure (optical transceivers and modules, lasers, silicon photonics, indium phosphide and other photonics manufacturing), and what supporting and what opposing evidence does each rest on? Say when a development rests on a single company's own statement, and name what is missing.",
+        "tags": ["theme:photonics"],
         "max_tokens": 2048,
         "trigger": {
           "refresh_after_consolidation": false,
-          "refresh_cron": "0 6 * * *",
-          "min_refresh_interval_seconds": 43200
+          "refresh_cron": null,
+          "min_refresh_interval_seconds": 43200,
+          "budget": "mid",
+          "exclude_mental_models": true,
+          "keep_trace": true
         }
       },
       {
         "id": "bottlenecks",
         "name": "Bottlenecks",
         "source_query": "Which inputs, processes or capacities in optical interconnect supply are documented as Bottlenecks: unable to meet demand within the relevant timeframe because no qualified second source or substitute exists, giving their holder pricing power? For each one, cite the evidence on demand against capacity and its timeframe, on whether a qualified second source or substitute exists or is coming, and on pricing power, and cite the evidence against it. Demand growth alone does not make a Bottleneck: list a constraint whose second-source, substitute or pricing-power evidence is missing as unconfirmed, and name what is missing.",
+        "tags": ["theme:photonics"],
         "max_tokens": 2048,
         "trigger": {
           "refresh_after_consolidation": false,
-          "refresh_cron": "0 6 * * *",
-          "min_refresh_interval_seconds": 43200
+          "refresh_cron": null,
+          "min_refresh_interval_seconds": 43200,
+          "budget": "mid",
+          "exclude_mental_models": true,
+          "keep_trace": true
         }
       }
     ],

@@ -2345,7 +2345,7 @@ export interface components {
             passed: boolean;
         };
         /** @enum {string} */
-        CitationKind: "memory" | "chunk" | "quote";
+        CitationKind: "memory" | "chunk" | "quote" | "mental_model";
         /**
          * CitationSource
          * @description A world fact resolved to the Source Version section it was extracted from.
@@ -4909,6 +4909,8 @@ export interface components {
             status: "skipped" | "submitted" | "completed" | "failed";
             /** Skip Reason */
             skip_reason: ("min_interval" | "not_stale") | null;
+            /** Refreshed By */
+            refreshed_by: ("atlas" | "hindsight") | null;
             /** Operation Id */
             operation_id: string | null;
             /** Run Id */
@@ -4960,6 +4962,8 @@ export interface components {
             name: string;
             /** Source Query */
             source_query: string;
+            /** Tags */
+            tags: string[];
             trigger: components["schemas"]["RefreshTrigger"];
             /** Bank Id */
             bank_id: string;
@@ -5888,18 +5892,35 @@ export interface components {
             response_schema?: {
                 [key: string]: components["schemas"]["JsonValue"];
             } | null;
+            /**
+             * @description how deep reflect searches (Hindsight's own default is low)
+             * @default mid
+             */
+            budget: components["schemas"]["Budget"];
+            /**
+             * Exclude Mental Models
+             * @description keep the mental models out of the answer, so every citation can resolve to a section; false lets a scope that matches a model's tags read it (reported as a `mental_model` citation)
+             * @default true
+             */
+            exclude_mental_models: boolean;
         };
         /**
          * RefreshTrigger
-         * @description When the model is refreshed, as the bank template defines it.
+         * @description When and how the model is refreshed, as the bank template defines it.
          */
         RefreshTrigger: {
             /** Refresh After Consolidation */
             refresh_after_consolidation: boolean;
             /** Refresh Cron */
-            refresh_cron: string;
+            refresh_cron: string | null;
             /** Min Refresh Interval Seconds */
             min_refresh_interval_seconds: number;
+            /** Budget */
+            budget: ("low" | "mid" | "high") | null;
+            /** Exclude Mental Models */
+            exclude_mental_models: boolean;
+            /** Keep Trace */
+            keep_trace: boolean;
         };
         /** Relationship */
         Relationship: {
@@ -6349,6 +6370,13 @@ export interface components {
             response_schema: {
                 [key: string]: components["schemas"]["JsonValue"];
             } | null;
+            /**
+             * Budget
+             * @enum {string}
+             */
+            budget: "low" | "mid" | "high";
+            /** Exclude Mental Models */
+            exclude_mental_models: boolean;
             /** Answer */
             answer: string | null;
             /** Structured Output */
@@ -7788,7 +7816,7 @@ export interface components {
             effective: boolean;
         };
         /** @enum {string} */
-        UnresolvedReason: "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
+        UnresolvedReason: "mental_model" | "no_memory_id" | "memory_not_found" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
         /** UnresponsiveEngine */
         UnresponsiveEngine: {
             /** Engine */

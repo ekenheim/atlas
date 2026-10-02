@@ -87,15 +87,23 @@ Derived behaviours (each serves a recorded response with only the named fields c
   operation serves `observations/02-consolidate-final` with only `operation_id` changed (and
   any `hold_operation`, or `hold_consolidations(status, polls)` for every later one, applied).
   It derives no observations.
-- `script_reflect(text, cited, ...)` (a reflect answer is LLM output, and no recorded one can
-  cite an Atlas section): the next unrecorded reflect serves `reflect/01-provenance` with only
-  `text`, `based_on.memories`, `structured_output` and `structured_output_error` changed.
-  Each cited memory is the recorded first `based_on` entry with only `id`, `text`, `type` and
-  `context` changed; a `ChunkContent(document_id)` entry is content without memory identity
-  (`id: null`, `type: null`), its `text` the retained section's first 400 characters
-  (whitespace collapsed); a `BankFacts()` entry stands for every derived fact the answering
-  bank holds when the answer is served, in retain order. **The answer text is written by the
-  test**, so the quotes in it are the test's choice.
+- `script_reflect(text, cited, ..., mental_models=())` (a reflect answer is LLM output, and no
+  recorded one can cite an Atlas section): the next unrecorded reflect serves 0.10.2's
+  `reflect_options/02-exclude-mental-models` (memory-quality ticket 10; before it,
+  `reflect/01-provenance`) with only `text`, `based_on.memories`, `based_on.mental_models`,
+  `structured_output` and `structured_output_error` changed. Each cited memory is the
+  recorded first `based_on` entry of its type (`world` or `observation`) with only `id`,
+  `text`, `type`, `context`, `document_id`, `chunk_id`, `tags`, `metadata` and `mentioned_at`
+  changed: a derived fact's own (as a 0.10.2 answer cites a world fact, with its document);
+  an observation's ID, text and tags, the rest null or empty (as recorded for one); a fact
+  deleted since, its ID and `(deleted)`, the rest null or empty. A `ChunkContent(document_id)`
+  entry is content without memory identity (`id: null`, `type: null`, the rest null or
+  empty), its `text` the retained section's first 400 characters (whitespace collapsed); a
+  `BankFacts()` entry stands for every derived fact the answering bank holds when the answer
+  is served, in retain order. Each of `mental_models` (models imported through the fake) is
+  `reflect_options/01-budget-mid-tag-scoped`'s cited model with only `id` and `text`
+  (`"<name>: <content>"`, as recorded) changed. **The answer text is written by the test**,
+  so the quotes in it are the test's choice.
 
 Derived by default (each is anchored to a request the real server was sent):
 
@@ -103,7 +111,9 @@ Derived by default (each is anchored to a request the real server was sent):
   importing mental models live queues their refreshes, i.e. LLM calls, so it wasn't
   re-recorded): an unrecorded `POST .../import` whose body differs from the recorded
   research-template request (`research_template/01-import-dry-run`, `02-import`) only in its
-  `mental_models` is served that recording's response with only `bank_id`,
+  `mental_models` and its `bank` section's fields (each of them a field the recorded template
+  schema names, `bank_templates/01-schema`; memory-quality ticket 10 added two) is served
+  that recording's response with only `bank_id`,
   `mental_models_created` (the request's mental-model IDs, as `bank_templates/03-import-dry-run`
   and `04-import` list the models they created) and, for the real import, `operation_ids` (one
   derived refresh operation per model, as `bank_templates/04-import` queued) changed. A real
@@ -113,7 +123,8 @@ Derived by default (each is anchored to a request the real server was sent):
 - **mental models defined by a derived import**: `GET .../mental-models/<id>` serves
   `mental_models/03-get` with only `id`, `bank_id`, `name`, `source_query`, `max_tokens`,
   `tags`, the trigger's `refresh_after_consolidation`/`refresh_cron`/
-  `min_refresh_interval_seconds` (the template's), `content`, `reflect_response`,
+  `min_refresh_interval_seconds`/`exclude_mental_models`/`keep_trace` (the template's; 0.10.2
+  stores a trigger as sent, `tagged_mental_model/03-get`), `content`, `reflect_response`,
   `last_refreshed_at` and `is_stale` changed. Until its first refresh a model holds the
   placeholder content `mental_models/06-history` recorded before the first refresh
   (`"Generating content...\n"`), no `reflect_response` and no `last_refreshed_at` (the
@@ -278,6 +289,7 @@ class _ScriptedReflect:
     cited: "Sequence[str | ChunkContent | BankFacts]"
     structured_output: dict[str, JsonValue] | None
     structured_output_error: str | None
+    mental_models: Sequence[str] = ()
 
 
 @dataclass
@@ -337,7 +349,9 @@ DERIVED_FACT = "reflect/06-resolve-source-memory"
 DERIVED_OBSERVATION = "reflect/02-resolve-memory"
 DERIVED_RECALL = "tags/02-tags-any_strict"
 DERIVED_MEMORY_LIST = "observations/04-list-via-memories"
-DERIVED_REFLECT = "reflect/01-provenance"
+DERIVED_REFLECT = "reflect_options/02-exclude-mental-models"  # 0.10.2 (memory-quality 10)
+DERIVED_REFLECT_MENTAL_MODEL = "reflect_options/01-budget-mid-tag-scoped"
+TEMPLATE_SCHEMA = "bank_templates/01-schema"
 DERIVED_TEMPLATE_DRY_RUN = "research_template/01-import-dry-run"
 DERIVED_TEMPLATE_IMPORT = "research_template/02-import"
 DERIVED_MENTAL_MODEL = "mental_models/03-get"
@@ -350,6 +364,20 @@ _TEMPLATE_TRIGGER_FIELDS = (
     "refresh_after_consolidation",
     "refresh_cron",
     "min_refresh_interval_seconds",
+    "exclude_mental_models",
+    "keep_trace",
+)
+# The fields of a cited memory a derived reflect answer changes (see `script_reflect`).
+_CITED_FIELDS = (
+    "id",
+    "text",
+    "type",
+    "context",
+    "document_id",
+    "chunk_id",
+    "tags",
+    "metadata",
+    "mentioned_at",
 )
 FACT_TEXT_CHARS = 200
 CHUNK_TEXT_CHARS = 400
@@ -528,10 +556,14 @@ class RecordedHindsight:
         *,
         structured_output: dict[str, JsonValue] | None = None,
         structured_output_error: str | None = None,
+        mental_models: Sequence[str] = (),
     ) -> None:
-        """Answer the next unrecorded reflect with this text and these citations (derived)."""
+        """Answer the next unrecorded reflect with this text and these citations (derived);
+        `mental_models` are the IDs of imported models the answer read."""
+        for mental_model_id in mental_models:
+            self._mental_model(mental_model_id)
         self._reflects.append(
-            _ScriptedReflect(text, cited, structured_output, structured_output_error)
+            _ScriptedReflect(text, cited, structured_output, structured_output_error, mental_models)
         )
 
     def script_refresh(
@@ -885,7 +917,8 @@ class RecordedHindsight:
         recording = self.recording(DERIVED_REFLECT)
         response = copy.deepcopy(recording.response_object())
         based_on = cast(dict[str, JsonValue], response["based_on"])
-        entry = cast(list[dict[str, JsonValue]], based_on["memories"])[0]
+        recorded = cast(list[dict[str, JsonValue]], based_on["memories"])
+        entries = {kind: next(m for m in recorded if m["type"] == kind) for kind in _KINDS}
         memories: list[JsonValue] = []
         expanded: list[str | ChunkContent] = []
         for cited in scripted.cited:
@@ -895,11 +928,25 @@ class RecordedHindsight:
             if isinstance(cited, ChunkContent):
                 content = self._derived_documents[bank][cited.document_id]["content"]
                 text = _collapsed(content)[:CHUNK_TEXT_CHARS]
-                fields = {"id": None, "text": text, "type": None, "context": None}
+                fields = _no_identity(text)
             else:
-                fields = self._cited_fields(bank, cited)
+                fields = self._cited_answer_fields(bank, cited)
+            entry = entries["observation" if fields["type"] == "observation" else "world"]
             memories.append(copy.deepcopy(entry) | fields)
         based_on["memories"] = memories
+        model_entry = cast(
+            list[dict[str, JsonValue]],
+            cast(
+                dict[str, JsonValue],
+                self.recording(DERIVED_REFLECT_MENTAL_MODEL).response_object()["based_on"],
+            )["mental_models"],
+        )[0]
+        models: list[JsonValue] = []
+        for model_id in scripted.mental_models:
+            model = self._mental_model(model_id)
+            text = f"{model.definition['name']}: {model.content}"
+            models.append(copy.deepcopy(model_entry) | {"id": model_id, "text": text})
+        based_on["mental_models"] = models
         response |= {
             "text": scripted.text,
             "structured_output": scripted.structured_output,
@@ -919,6 +966,18 @@ class RecordedHindsight:
             return {"id": cited, "text": fact["text"], "type": "world", "context": fact["context"]}
         # cited, then deleted: the answer still carries the text it was given
         return {"id": cited, "text": "(deleted)", "type": "world", "context": None}
+
+    def _cited_answer_fields(self, bank: str, cited: str) -> dict[str, JsonValue]:
+        """A cited memory's fields in a 0.10.2 reflect answer: a world fact also carries its
+        document, chunk, tags, metadata and mention time; an observation none of them."""
+        facts = self._facts(bank)
+        if cited in facts:
+            fact = facts[cited]
+            return {key: fact[key] for key in _CITED_FIELDS if key != "type"} | {"type": "world"}
+        fields = _no_identity("") | self._cited_fields(bank, cited)
+        if self._in_bank(cited, bank):
+            fields["tags"] = self._observation(cited, bank)["tags"]
+        return fields
 
     # --- derived template import and mental models (see the module docstring) -----------------
 
@@ -1026,6 +1085,9 @@ class RecordedHindsight:
         recording = self.recording(name)
         if _without_mental_models(body) != _without_mental_models(recording.request_object()):
             return None
+        bank_section = body.get("bank")
+        if not isinstance(bank_section, dict) or not set(bank_section) <= _template_bank_fields():
+            return None
         models = cast(list[dict[str, JsonValue]], body.get("mental_models") or [])
         ids: list[JsonValue] = [str(model["id"]) for model in models]
         response = copy.deepcopy(recording.response_object())
@@ -1081,7 +1143,9 @@ class RecordedHindsight:
         trigger = cast(dict[str, JsonValue], response["trigger"])
         template_trigger = cast(dict[str, JsonValue], definition.get("trigger") or {})
         for key in _TEMPLATE_TRIGGER_FIELDS:
-            trigger[key] = template_trigger.get(key)
+            # Unset, the two boolean fields are Hindsight's default, false (as recorded).
+            unset = False if key in ("exclude_mental_models", "keep_trace") else None
+            trigger[key] = template_trigger.get(key, unset)
         response |= {
             "id": model_id,
             "bank_id": bank,
@@ -1173,8 +1237,38 @@ class RecordedHindsight:
         model.seen_writes = self._writes()
 
 
+_KINDS = ("world", "observation")
+
+
+def _no_identity(text: str) -> dict[str, JsonValue]:
+    """A cited entry with no memory identity and nothing that leads to a document."""
+    return {
+        "id": None,
+        "text": text,
+        "type": None,
+        "context": None,
+        "document_id": None,
+        "chunk_id": None,
+        "tags": [],
+        "metadata": {},
+        "mentioned_at": None,
+    }
+
+
 def _without_mental_models(body: dict[str, JsonValue]) -> dict[str, JsonValue]:
-    return {key: value for key, value in body.items() if key != "mental_models"}
+    """The import body without its mental models and its bank section's values: a derived
+    import may change those (each bank key must still be a field the recorded template
+    schema names; `_template_bank_fields`)."""
+    return {key: value for key, value in body.items() if key not in ("mental_models", "bank")}
+
+
+@functools.cache
+def _template_bank_fields() -> frozenset[str]:
+    """The bank fields of the recorded template schema (`bank_templates/01-schema`)."""
+    schema = load_recordings()[TEMPLATE_SCHEMA].response_object()
+    definitions = cast(dict[str, JsonValue], schema["$defs"])
+    config = cast(dict[str, JsonValue], definitions["BankTemplateConfig"])
+    return frozenset(cast(dict[str, JsonValue], config["properties"]))
 
 
 def _iso(moment: datetime | None) -> str | None:

@@ -23,7 +23,7 @@ from sqlalchemy.exc import DBAPIError
 
 from atlas.api.app import create_app
 from atlas.hindsight import HindsightGateway, RetainItem
-from tests.fakes.hindsight import ChunkContent, RecordedHindsight
+from tests.fakes.hindsight import DERIVED_REFLECT, ChunkContent, RecordedHindsight
 from tests.fakes.litellm import FakeLiteLLM
 from tests.fakes.serve import Served, serve
 from tests.harness import (
@@ -253,7 +253,12 @@ def test_reflect_runs_as_a_job_and_the_api_returns_the_stored_answer(
         "tags": ["theme:photonics"],
         "tags_match": "any_strict",
         "include": {"facts": {}},
+        # The defaults (memory-quality ticket 10): a real depth, and no mental model read,
+        # so every citation can resolve to a section.
+        "budget": "mid",
+        "exclude_mental_models": True,
     }
+    assert (answer["budget"], answer["exclude_mental_models"]) == ("mid", True)
     assert answer["status"] == "completed"
     assert answer["job_status"] == "succeeded"
     assert answer["question"] == "What are Lumentum's components?"
@@ -296,6 +301,52 @@ def test_reflect_runs_as_a_job_and_the_api_returns_the_stored_answer(
     assert run.kind == "reflect" and run.finished_at is not None
     verified = atlas.cli("audit", "verify")
     assert verified.returncode == 0, verified.stdout + verified.stderr
+
+
+def test_a_reflect_carries_its_depth_and_reports_a_mental_model_it_cites(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    section = atlas.section(LITE_10K, "lumentum")
+    fact = fake.derived_fact(section["document_id"])
+    fake.script_reflect("From the model and a fact.", [fact], mental_models=["theme-status"])
+
+    answer = atlas.reflect("What constrains optics?", budget="high", exclude_mental_models=False)
+
+    (sent,) = fake.requests("POST", "reflect")
+    assert (sent["budget"], sent["exclude_mental_models"]) == ("high", False)
+    assert (answer["budget"], answer["exclude_mental_models"]) == ("high", False)
+    memory, model = answer["citations"]
+    # The cited world fact carries its document and metadata (0.10.2), so it resolves in one
+    # hop: no memory is looked up.
+    assert (memory["kind"], memory["state"], memory["memory_id"]) == ("memory", "resolved", fact)
+    assert_source(memory["sources"][0], section, atlas.company("lumentum"))
+    looked_up = [
+        r for r in fake.calls if r.method == "GET" and r.url.path.endswith(f"/memories/{fact}")
+    ]
+    assert looked_up == []
+    # The model is reported as what it is, never resolved to a section.
+    assert (model["kind"], model["memory_id"], model["state"], model["reason"]) == (
+        "mental_model",
+        "theme-status",
+        "unverified",
+        "mental_model",
+    )
+    assert model["text"].startswith("Theme status: ")
+    assert model["sources"] == []
+    assert answer["counts"] == {"resolved": 1, "unverified": 1, "broken": 0}
+    assert [(e["source_version_id"], e["section_anchor"]) for e in answer["evidence"]] == [
+        (section["version"]["id"], ITEM_1)
+    ]
+
+
+def test_a_reflect_refuses_an_unknown_budget(atlas: Atlas, fake: RecordedHindsight) -> None:
+    response = atlas.api.post(
+        "/api/v1/memory/reflect",
+        json={"question": "q", "scope": {"theme_ids": ["photonics"]}, "budget": "max"},
+    )
+
+    assert response.status_code == 422
+    assert fake.requests("POST", "reflect") == []
 
 
 def test_quotes_are_validated_against_the_archived_text_and_a_paraphrase_is_unverified(
@@ -615,5 +666,5 @@ def test_metrics_report_recall_and_reflect_latency_and_llm_tokens(
     assert after[("atlas_recall_latency_seconds_sum", labels(outcome="ok"))] > 0
     assert after[reflects] == 1
     assert after[("atlas_reflect_latency_seconds_bucket", labels(le="+Inf"))] == 1
-    usage = cast(dict[str, int], fake.recording("reflect/01-provenance").response_object()["usage"])
+    usage = cast(dict[str, int], fake.recording(DERIVED_REFLECT).response_object()["usage"])
     assert (after[tokens_in], after[tokens_out]) == (usage["input_tokens"], usage["output_tokens"])
