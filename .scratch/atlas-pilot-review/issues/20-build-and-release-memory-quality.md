@@ -53,3 +53,13 @@ The answer records the release, the deploy, the before and after numbers, the co
 - "Superseded" is a fact returned beside an observation of the same answer that was built from it: 195 of 1,149 places (17%). The lead added the measure after the script's first run: its "repeats" only saw identical text and read 0. (The 34% above came from 91 other queries, most of them investigation 1's.)
 - Pointer weight by company over the 25 recalls: Coherent 90.2, Lumentum 78.1, Applied Optoelectronics 27.3, AXT 22.9, MACOM 6.9, Marvell 3.9, Ciena 3.4, Fabrinet 3.2, IQE 0.3, STMicroelectronics 0.02; Soitec and Innolight none. The dsp-drivers and coherent-demand questions are seeded with Marvell, MACOM and Ciena.
 - The memory-health read is not on production until this effort is deployed; its before-numbers are the metric's (695 completed, 22 zero-fact, 1,907 recorded failed of which the sampled ones are all the owner's cancellations, 59 pending, at 07:53 UTC).
+
+**2026-10-02 (11:03 UTC), the lead: the conformance check's known answers, before** (`scripts/memory-conformance.sh --only known-answers`, read-only on production 0.3.1, no LLM call; report in `.scratch/live-runs/20261002-conformance-known-answers-before/`). Each pilot question is recalled with its four Scout-style queries, as an investigation's pointer recalls are, and the sections the answers lead to are ranked.
+
+| | Answers | In the top 10 sections | In the top 50 | Ranked beyond 50 | Not pointed at |
+|---|---|---|---|---|---|
+| All five questions | 23 | 5 | 5 | 6 | 12 |
+
+- **It fails, as a before-measure should:** recall at 10 and at 50 are both 0.22 against the file's first thresholds of 0.25 and 0.5. By question: coherent-demand 2 of 3, inp-substrates 1 of 4, laser-chips 2 of 13, module-assembly 0 of 2, dsp-drivers 0 of 1. A recall returns about 45 memories, so each question's five recalls rank 135 to 209 sections, and twelve known answers are in none of them, among them Lumentum's allocation statement, whose section is in Memory.
+- **Two answers did not resolve** and are fixed in the file (version 2): the sentence from Coherent's 10-K was written whole, and the parse Memory was retained from has a page break in the middle of it ("manufacture 9 Table of Contents of transceivers"); the answer is now the part after the break. The five anchors the run found are written in.
+- The answers are few where the reviews were thin: dsp-drivers 1, module-assembly 2, no answer for the system hop or the share of the bill of materials. The reviews of investigations 2 to 5 will add theirs.

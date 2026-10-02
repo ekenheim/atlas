@@ -27,7 +27,7 @@
 # the recorded filings. The report shows that row empty, on purpose.
 #
 # Bump `version` on any change and say so in the implementation log.
-version: 1
+version: 2
 
 thresholds:
   # First settings, before any live run (2026-10-02). The lead revisits them after the first
@@ -126,7 +126,7 @@ answers:
     company: coherent
     document:
       url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000013/iivi-20260331.htm
-    section: null  # the fixture is truncated at the start of Item 1: to be filled by the first live run
+    section: part-i-item-2  # found by the first live run (2026-10-02)
     sentence: including expanding our indium phosphide capacity in Sherman, Texas, to address our increased customer demand and industry-wide shortage
     hop: chip
     test: demand_vs_capacity
@@ -139,7 +139,10 @@ answers:
     document:
       url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
     section: part-i-item-1
-    sentence: Our vertically integrated technology platform includes the in-house design and manufacture of transceivers and many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.
+    # The sentence begins "Our vertically integrated technology platform includes the in-house design and
+    # manufacture of transceivers"; the parse Memory was retained from has a page break in the middle of
+    # it, so the answer is the part after the break (the same words in every parse).
+    sentence: many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.
     hop: chip
     test: second_source
     basis: review_quote
@@ -151,7 +154,7 @@ answers:
     document:
       form: 8-K
       filed: 2026-03-02
-    section: null  # not in the fixtures: to be filled by the first live run
+    section: item-3-02  # found by the first live run (2026-10-02)
     sentence: NVIDIA’s investment will support research and development initiatives, future capacity expansion, and operational capabilities, as Coherent expands its U.S.-based manufacturing footprint
     hop: chip
     test: financing_dilution
@@ -165,7 +168,7 @@ answers:
       form: 8-K
       filed: 2026-03-02
       exhibit: EX-99.1
-    section: null  # not in the fixtures: to be filled by the first live run
+    section: chunk-001  # found by the first live run (2026-10-02)
     sentence: NVIDIA is investing $2 billion in Lumentum to support R&D, future capacity and operations as the company builds out its U.S.-based manufacturing capabilities in a new fab
     hop: chip
     test: financing_dilution
@@ -179,7 +182,7 @@ answers:
       form: 8-K
       filed: 2026-08-12
       exhibit: EX-99.2
-    section: null  # not in the fixtures: to be filled by the first live run
+    section: chunk-003  # found by the first live run (2026-10-02)
     sentence: On track to double internal InP output by year-end and more than double again by 2027
     hop: chip
     test: demand_vs_capacity
@@ -193,7 +196,7 @@ answers:
       form: 8-K
       filed: 2026-08-12
       exhibit: EX-99.2
-    section: null  # not in the fixtures: to be filled by the first live run
+    section: chunk-003  # found by the first live run (2026-10-02)
     sentence: 6-inch platform producing EMLs, CW lasers, and photodiodes, with higher yields than 3-inch lines
     hop: chip
     test: demand_vs_capacity
@@ -268,7 +271,10 @@ answers:
     document:
       url: https://www.sec.gov/Archives/edgar/data/820318/000082031826000020/iivi-20260630.htm
     section: part-i-item-1
-    sentence: Our vertically integrated technology platform includes the in-house design and manufacture of transceivers and many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.
+    # The sentence begins "Our vertically integrated technology platform includes the in-house design and
+    # manufacture of transceivers"; the parse Memory was retained from has a page break in the middle of
+    # it, so the answer is the part after the break (the same words in every parse).
+    sentence: many of their critical components, including lasers, detectors, ICs, passive optics, thermal solutions, and PICs.
     hop: module
     test: second_source
     basis: review_quote

@@ -79,6 +79,10 @@ def test_the_configured_file_holds_at_least_20_labelled_answers_over_the_five_qu
     assert sum(a.basis == "review_quote" for a in answers) >= 15
 
 
+# The 10-Q fixture is truncated at the start of Item 1.
+TRUNCATED_FIXTURE = "iivi-20260331.htm"
+
+
 def test_every_anchored_answer_quotes_its_section_of_the_recorded_document() -> None:
     """An answer with an anchor whose document is in the recorded fixtures quotes a sentence of
     exactly that section; the others leave the anchor to the first live run."""
@@ -92,6 +96,8 @@ def test_every_anchored_answer_quotes_its_section_of_the_recorded_document() -> 
         parsed = parse((EDGAR / company / relative).read_bytes(), "text/html")
         assert isinstance(parsed, ParsedText)
         span = find_sentence(parsed.text, answer.sentence)
+        if span is None and url.endswith(TRUNCATED_FIXTURE):
+            continue  # its anchor comes from the first live run, not from the fixture
         assert span is not None, answer.id
         holding = [
             s.anchor
@@ -104,12 +110,13 @@ def test_every_anchored_answer_quotes_its_section_of_the_recorded_document() -> 
 
 
 def test_an_answer_without_an_anchor_names_a_document_the_fixtures_do_not_hold_whole() -> None:
+    # The first live run (2026-10-02) filled the anchors version 1 left open; an answer added
+    # without one must still name a document the fixtures cannot anchor.
     unanchored = [a for a in load().answers if a.section is None]
 
-    assert unanchored  # to be filled by the first live run
     for answer in unanchored:
         assert answer.document.url not in FIXTURE_FORMS or answer.document.url.endswith(
-            "iivi-20260331.htm"  # the 10-Q fixture is truncated at the start of Item 1
+            TRUNCATED_FIXTURE
         )
 
 
