@@ -1,7 +1,7 @@
 # Investigation 1 on the memory-directed reading release
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 14
 
 ## Question
@@ -11,6 +11,25 @@ Run pilot investigation 1 a fourth time (the same question; seeds Coherent and L
 Against the 0.2.5 run (`ead2b86e-3556-42ba-9f3e-08660a938f98`): does the reading reach AXT (the 6-inch InP supply agreement with Coherent, the export-permit backlog), the allocation statement, the NVIDIA purchase commitments and the slides' capacity figures; which selection found each accepted Claim (pointer, search, entity, lead); what did recall cost (calls, memories, pointers); and is "contradicted" on the card now true?
 
 The answer points at the results section and lists new defect tickets.
+
+## Answer
+
+Resolved by the lead on 2026-10-02. Results: `.scratch/pilot/results.md`, "Investigation 1, fourth and fifth runs". The run on 0.3.0 ended with no card (the comment below); the run on 0.3.1, `452c3b9d-2e2f-4cc6-bc54-5130155b9aac`, is the one reviewed.
+
+**It does not meet the bar.** Two measures fail: the trust gate's second half (nine of eleven findings state something no cited Claim says; five misstate one) and latency (34 minutes 45 seconds against 20). The others hold: 182 of 182 quotes verbatim; Claim precision 154 of 182 (84.6%) strict, 161 of 182 (88.5%) lenient; nine findings with a correct on-question core; baseline coverage 5 of 10 strict, 10 of 10 lenient; the roles ran; 1,586,388 tokens.
+
+**The ticket's questions:**
+- *Does the reading reach AXT?* Yes. AXT was added from 159 pointers; its Investigator read its 10-Q of 2026-08-13, its 8-K of 2026-07-29, a results call and a conference, and 36 Claims were accepted: the Master Development and Supply Agreement with Coherent for 6-inch InP substrates, the Capacity Reservation Agreement with Lumentum, demand outpacing a tripling capacity. The export-permit backlog is not on the card: the Skeptic proposed its sentence and it was rejected on an offset (pilot-fix ticket 28).
+- *The allocation statement?* Not as the 10-K writes it: no filing of either seed was read (pilot-fix ticket 24). The calls say it more bluntly, and that is on the card: Lumentum "very much sold out in our high-powered laser fab"; its "indium phosphide wafer fab capacity remains at a premium, fully allocated" is the sentence before an accepted quote.
+- *The NVIDIA purchase commitments?* In part: Coherent's multi-year supply agreement with NVIDIA covering "multiple CPO-related products, including our high-power CW laser" and NVIDIA's $2 billion equity investment are accepted Claims, from the call. The commitments in the 8-Ks were not read.
+- *The slides' capacity figures?* No: the figures the baseline finds in slides and filings (the "3X InP capacity increase", 250 million InP lasers shipped) are covered only in substance.
+- *Which selection found each accepted Claim?* It cannot be told: the `search` tag is on every passage of every reading task (pointer 236 tags, search 182, entity 58 over 182 Claims). Pilot-fix ticket 28.
+- *What did recall cost?* No LLM token. 47 recalls (Scout 11, Skeptic 36), 2,089 memories, 4,121 pointers, about 5 minutes of the 35.
+- *Is "contradicted" on the card now true?* Yes, as far as it goes: the Skeptic accepted no contradiction and the card claims none. But it read documents of AXT and IQE only, so for the other four companies the card's silence means "not checked" (pilot-fix ticket 25).
+
+**New defect tickets** (`.scratch/atlas-pilot-fixes/issues/`): 21 a finding says more than its Claims (the trust gate; a blocker); 22 an analyst's words accepted as the company's; 23 plans, ramps and objects outside the quote; 24 a seed's filings go unread; 25 the Skeptic checks two of six companies; 26 the Investigator's answers carry extra fields (28.5% of the tokens are repairs); 27 role calls run one after another; 28 smaller ones.
+
+**How the review was done and how the reviewers held up:** fifteen Opus reviewers on files cut from the saved run; every Claim judged twice, blind (174 of 182 agree, kappa 0.81; the lead adjudicated the eight, confirmed the 21 both called wrong, and checked a sample of 18 both called right: all hold); the card, the baseline and the run by one reviewer each. One judge mistyped two Claim IDs, which the lead's audit caught and matched. The run reviewer said plainly what its file did not contain rather than inferring it.
 
 ## Comments
 

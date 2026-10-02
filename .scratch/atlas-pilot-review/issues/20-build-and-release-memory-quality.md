@@ -11,6 +11,7 @@ Build the spec `.scratch/atlas-memory-quality/spec.md` (sixteen tickets to build
 - Wave 1 (no blockers): 01 Hindsight 0.10.2 recorded, 02 Memory health and the probe set.
 - Out of band, at once: 16 The Editor's card fits a multi-hop investigation. A blocker (investigation 1 on 0.3.0 ended with no card), released by itself as 0.3.1 so investigation 1 can be run again.
 - Added from the cluster's consolidation log (2026-10-02): 19 Atlas decides when Memory consolidates (no blockers).
+- With this release, from investigation 1's review: pilot-fix tickets 21 (a finding says only what its Claims say), 22 (an analyst's words), 24 (a seed's filings are read) and 26 (the Investigator's answers fit the schema), in `.scratch/atlas-pilot-fixes/issues/`.
 - Not built: 17 and 18 (news stories through TradingView). Written on the owner's suggestion and dropped with the owner the same day: a news story makes no Claim and no edge.
 - Wave 2: 03 A section's outcome (no blocker since the cancellations were confirmed); 04 What a retained section says, 05 The bank template, 06 Observation scopes, 07 Recall as a reading index, 10 Reflect and the models (after 01); 14 The conformance check (after 01, 02).
 - Wave 3: 08 Chunk-exact pointers (after 07), 09 The entity hop (after 04, 07), 15 The embedding model (after 01, 14).
