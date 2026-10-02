@@ -1,11 +1,50 @@
 {
-  "template_version": "1.1.0",
+  "template_version": "1.2.0",
   "manifest": {
     "version": "1",
     "bank": {
-      "retain_mission": "Extract economically material facts about capacity, supply agreements, customer dependencies, product specifications, manufacturing constraints, demand forecasts, capital expenditure and risk. Preserve the difference between what was explicitly stated and what was inferred. Keep figures, units and reporting periods exactly as stated.",
+      "retain_mission": "Extract economically material facts about optical and AI-infrastructure supply chains: capacity and utilization, supply agreements and their terms, who supplies whom, customers and customer concentration, product specifications and qualifications, manufacturing sites and constraints, lead times and shortages, demand and its forecasts, pricing, capital expenditure, and risks that name a product, a counterparty, a site or a figure. Attribute each statement to who made it: the company whose document it is, a named executive, an analyst asking a question on a call, or a third party the document quotes; an analyst's question is not the company's statement. Preserve the difference between what was explicitly stated and what was inferred, and keep hedged and forward-looking statements hedged: a plan, an expectation or a risk is not something that happened. Keep figures, units, currencies and reporting periods exactly as stated. Ignore: safe-harbor and forward-looking-statement disclaimers; officer certifications and signature blocks; exhibit lists, exhibit indexes, tables of contents and cross-references to other parts of a filing; generic risk language that names no product, counterparty, site or figure (for example that the company may fail to compete, that the economy may weaken or that its systems may be attacked); legal and accounting boilerplate about the filing itself; and call logistics such as operator instructions, greetings and thanks.",
+      "entity_labels": [
+        {
+          "key": "layer",
+          "description": "The optical supply-chain layer or layers the fact concerns. Give every layer the fact is about, and none when it concerns none of them; a material named alone (indium phosphide, gallium arsenide, silicon photonics) is no layer.",
+          "type": "multi-values",
+          "optional": true,
+          "tag": true,
+          "values": [
+            {
+              "value": "substrate",
+              "description": "bare wafers and substrates (InP, GaAs, SOI)"
+            },
+            {
+              "value": "epi",
+              "description": "epitaxial wafers grown on substrates"
+            },
+            {
+              "value": "chip-laser",
+              "description": "laser and photonic chips: EML, DML, CW and VCSEL lasers, PICs, photodiodes"
+            },
+            {
+              "value": "dsp",
+              "description": "DSPs, drivers, TIAs and other electrical ICs for optics"
+            },
+            {
+              "value": "module",
+              "description": "optical transceivers and modules"
+            },
+            {
+              "value": "contract-manufacturing",
+              "description": "assembly, test and contract manufacturing of optics"
+            },
+            {
+              "value": "system",
+              "description": "systems built from modules: optical transport, switches, AI clusters"
+            }
+          ]
+        }
+      ],
       "enable_observations": true,
-      "observations_mission": "Consolidate independently grounded industry developments while recording contradictions, conditionality and changed circumstances. Don't turn speculative language into certainty.",
+      "observations_mission": "Observations are durable, specific statements about a company, or about the optical and AI-infrastructure industry, each grounded in the facts that support it. Keep one observation per company and subject (its capacity, a supply relationship, a customer dependency, a product, a constraint); make an industry-level observation only of what the facts of several companies show, and name those companies. Record who supplies or depends on whom, by name and in which direction. Keep every figure with its unit, its currency and the period it refers to. When a newer fact changes a figure, a plan or a relationship, record the change with both dates or periods (what was stated earlier and what is stated now) instead of overwriting the earlier statement. When facts contradict each other, keep both sides and say who stated each and when; never resolve a contradiction by choosing one. Keep who made each statement (the company, its executives, an analyst, a third party), and keep hedged and forward-looking statements hedged: a plan, an expectation or a risk is not an outcome. The same statement repeated in several filings, or by the same source, is one source and not corroboration: never present repetition as stronger evidence. Leave out ephemeral and generic material: boilerplate, greetings, and statements that name no company, product, counterparty or figure.",
       "reflect_mission": "Form source-grounded research syntheses. Distinguish factual statements, third-party claims, model assumptions and hypotheses. Seek disconfirmation.",
       "disposition_skepticism": 4,
       "disposition_literalism": 4

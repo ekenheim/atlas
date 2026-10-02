@@ -63,6 +63,15 @@ Derived behaviours (each serves a recorded response with only the named fields c
   world fact has `text`, **written by the test** (a paraphrase of a sentence of the section),
   instead of the section's first 200 characters, wherever the fact is served (read, listed,
   recalled, embedded in an observation). Nothing else about the fact changes.
+- `script_fact_labels(document_id, labels)` (memory-quality ticket 05; needs `derive_memories`;
+  which layer a fact concerns is the extractor's call): the `key:value` labels of the
+  document's derived world fact. A label of a group the bank's last derived template import
+  defines with `tag: true`, and with its value among the group's, is appended to the fact's
+  `tags` after the item's own, wherever the fact is served, so a strict recall by that tag
+  returns it; any other label is dropped, as the docs say of a value outside an enum group.
+  `entity_labels/04` and `05` recorded both (the item's tags, then `layer:<value>`; a recall
+  by `layer:chip-laser`, `any_strict`, returned only facts carrying it). The labels are not
+  added to the fact's entities.
 - `fail_recalls(where, status=..., times=...)` (needs `derive_memories`; a failed recall was
   never recorded): an unrecorded recall whose `query` matches answers HTTP `status` with a
   **hand-written** body `{"detail": "recall failed (scripted by the test)"}` (only the status
@@ -103,7 +112,10 @@ Derived by default (each is anchored to a request the real server was sent):
   importing mental models live queues their refreshes, i.e. LLM calls, so it wasn't
   re-recorded): an unrecorded `POST .../import` whose body differs from the recorded
   research-template request (`research_template/01-import-dry-run`, `02-import`) only in its
-  `mental_models` is served that recording's response with only `bank_id`,
+  `mental_models` and its `bank` config (memory-quality ticket 05: the missions and
+  `entity_labels`), and which the bank-template schema 0.10.2 served
+  (`rerun-0.10.2/bank_templates/01-schema.json`) takes with every `bank` field one it names,
+  is served that recording's response with only `bank_id`,
   `mental_models_created` (the request's mental-model IDs, as `bank_templates/03-import-dry-run`
   and `04-import` list the models they created) and, for the real import, `operation_ids` (one
   derived refresh operation per model, as `bank_templates/04-import` queued) changed. A real
@@ -168,9 +180,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx2
+from jsonschema.validators import validator_for
 from pydantic import JsonValue
 
 RECORDINGS_DIR = Path(__file__).resolve().parents[2] / "spikes" / "hindsight" / "recordings"
+# The bank-template schema 0.10.2 served (memory-quality ticket 01; kept out of `recordings/`).
+TEMPLATE_SCHEMA_0102 = RECORDINGS_DIR.parent / "rerun-0.10.2" / "bank_templates" / "01-schema.json"
 HANDWRITTEN_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "hindsight-handwritten"
 
 type QueryKey = tuple[tuple[str, str], ...]
@@ -390,6 +405,11 @@ class RecordedHindsight:
     deleted_banks: list[str] = field(init=False, default_factory=list[str])
     _forgotten: set[str] = field(init=False, default_factory=set[str])
     _fact_texts: dict[str, str] = field(init=False, default_factory=dict[str, str])
+    # document ID -> the `key:value` labels scripted for its fact; bank -> its imported groups
+    _fact_labels: dict[str, list[str]] = field(init=False, default_factory=dict[str, list[str]])
+    _entity_labels: dict[str, list[dict[str, JsonValue]]] = field(
+        init=False, default_factory=dict[str, list[dict[str, JsonValue]]]
+    )
     _recall_failures: list[_RecallFailure] = field(init=False, default_factory=list[_RecallFailure])
     _reflects: deque[_ScriptedReflect] = field(init=False, default_factory=deque[_ScriptedReflect])
     _mental_models: dict[str, _MentalModel] = field(
@@ -512,6 +532,12 @@ class RecordedHindsight:
         """The document's derived world fact reads `text` (the test's paraphrase) instead of
         the section's first characters (derived; see the module docstring)."""
         self._fact_texts[document_id] = text
+
+    def script_fact_labels(self, document_id: str, labels: Sequence[str]) -> None:
+        """The extractor labelled the document's derived world fact with these `key:value`
+        entity labels; those of a group the bank's imported template defines with `tag: true`
+        and the value among the group's are added to the fact's tags (derived; see above)."""
+        self._fact_labels[document_id] = list(labels)
 
     def fail_recalls(
         self, where: Callable[[str], bool], *, status: int, times: int | None = None
@@ -788,11 +814,24 @@ class RecordedHindsight:
                 "context": item.get("context"),
                 "document_id": document_id,
                 "chunk_id": f"{bank}_{document_id}_0",
-                "tags": item.get("tags", []),
+                "tags": self._fact_tags(bank, document_id, item),
                 "metadata": item.get("metadata", {}),
                 "mentioned_at": item.get("timestamp"),
             }
         return facts
+
+    def _fact_tags(self, bank: str, document_id: str, item: dict[str, JsonValue]) -> JsonValue:
+        """The item's tags, then the fact's scripted labels that are tags in this bank (as
+        `entity_labels/04` recorded: a `tag: true` group's labels follow the item's tags)."""
+        tags = cast(list[JsonValue], item.get("tags", []))
+        tagging = {
+            f"{group['key']}:{cast(dict[str, JsonValue], value)['value']}"
+            for group in self._entity_labels.get(bank, [])
+            if group.get("tag") is True
+            for value in cast(list[JsonValue], group.get("values") or [])
+        }
+        labels = [label for label in self._fact_labels.get(document_id, []) if label in tagging]
+        return [*tags, *(label for label in dict.fromkeys(labels) if label not in tags)]
 
     def _observation(self, observation_id: str, bank: str) -> dict[str, JsonValue]:
         facts = self._facts(bank)
@@ -1024,13 +1063,19 @@ class RecordedHindsight:
     ) -> httpx2.Response | None:
         name = DERIVED_TEMPLATE_DRY_RUN if dry_run else DERIVED_TEMPLATE_IMPORT
         recording = self.recording(name)
-        if _without_mental_models(body) != _without_mental_models(recording.request_object()):
+        if _without_models_and_bank(body) != _without_models_and_bank(recording.request_object()):
+            return None
+        if not _bank_config_accepted(body):
             return None
         models = cast(list[dict[str, JsonValue]], body.get("mental_models") or [])
         ids: list[JsonValue] = [str(model["id"]) for model in models]
         response = copy.deepcopy(recording.response_object())
         response |= {"bank_id": bank, "mental_models_created": ids}
         if not dry_run:
+            config = body.get("bank")
+            if isinstance(config, dict) and "entity_labels" in config:
+                groups = cast(list[dict[str, JsonValue]] | None, config["entity_labels"])
+                self._entity_labels[bank] = list(groups or [])
             response["operation_ids"] = [
                 str(uuid.uuid5(_DERIVED_NAMESPACE, f"import-refresh:{bank}:{i}")) for i in ids
             ]
@@ -1173,8 +1218,25 @@ class RecordedHindsight:
         model.seen_writes = self._writes()
 
 
-def _without_mental_models(body: dict[str, JsonValue]) -> dict[str, JsonValue]:
-    return {key: value for key, value in body.items() if key != "mental_models"}
+def _without_models_and_bank(body: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    return {key: value for key, value in body.items() if key not in ("mental_models", "bank")}
+
+
+@functools.cache
+def _template_schema_0102() -> dict[str, Any]:
+    recording = json.loads(TEMPLATE_SCHEMA_0102.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], recording["response"]["body"])
+
+
+def _bank_config_accepted(body: dict[str, JsonValue]) -> bool:
+    """Whether 0.10.2's recorded template schema takes the manifest, and its `bank` sets only
+    fields the schema names (the schema allows unknown ones, which Hindsight ignores)."""
+    schema = _template_schema_0102()
+    if next(validator_for(schema)(schema).iter_errors(body), None) is not None:
+        return False
+    bank = body.get("bank")
+    fields = cast(dict[str, Any], schema["$defs"]["BankTemplateConfig"]["properties"])
+    return not isinstance(bank, dict) or set(bank) <= set(fields)
 
 
 def _iso(moment: datetime | None) -> str | None:

@@ -42,6 +42,7 @@ from tests.harness import (
 )
 
 TEMPLATE_FILE: dict[str, Any] = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+TEMPLATE_VERSION = TEMPLATE_FILE["template_version"]
 MODELS = ["theme-status", "bottlenecks"]
 DAILY = {
     "refresh_after_consolidation": False,
@@ -141,7 +142,6 @@ def test_the_template_defines_both_models_refreshed_daily_never_after_consolidat
     manifest = TEMPLATE_FILE["manifest"]
     theme, bottlenecks = manifest["mental_models"]
 
-    assert TEMPLATE_FILE["template_version"] == "1.1.0"
     assert [(m["id"], m["name"]) for m in (theme, bottlenecks)] == [
         ("theme-status", "Theme status"),
         ("bottlenecks", "Bottlenecks"),
@@ -162,7 +162,7 @@ def test_the_template_defines_both_models_refreshed_daily_never_after_consolidat
     assert [body["mental_models"] for body in imports] == [manifest["mental_models"]] * 2
     # Each model is in the bank with the template's trigger, and nothing has refreshed it.
     listed = models.get("/api/v1/mental-models")
-    assert (listed["bank_id"], listed["template_version"]) == (BANK, "1.1.0")
+    assert (listed["bank_id"], listed["template_version"]) == (BANK, TEMPLATE_VERSION)
     assert [m["id"] for m in listed["mental_models"]] == MODELS
     for model in listed["mental_models"]:
         assert model["trigger"] == DAILY
@@ -228,7 +228,7 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
         ignored = ("id", "job_id", "operation_id", "run_id")
         assert {k: refresh[k] for k in refresh if k not in ignored} == {
             "scheduled_for": "2026-10-01",
-            "template_version": "1.1.0",
+            "template_version": TEMPLATE_VERSION,
             "min_refresh_interval_seconds": 43200,
             "status": "completed",
             "skip_reason": None,
@@ -247,7 +247,7 @@ def test_refreshes_run_daily_and_never_inside_the_minimum_interval(
         assert models.model(mental_model_id)["content"] == content
         # A submitted refresh is an LLM run: it records its run (stories 15 and 32).
         run = models.run(refresh["run_id"])
-        assert (run["kind"], run["template_version"]) == (REFRESH_KIND, "1.1.0")
+        assert (run["kind"], run["template_version"]) == (REFRESH_KIND, TEMPLATE_VERSION)
         assert run["hindsight_version"] == HINDSIGHT_VERSION
         assert run["routed_models"]["atlas-reflect"] == ROUTED_REFLECT
         assert run["finished_at"] is not None

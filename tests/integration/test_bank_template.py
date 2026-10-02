@@ -90,8 +90,8 @@ def test_the_template_is_dry_run_then_imported_and_its_version_recorded(
 
     served.raise_errors()
     assert result.returncode == 0, result.stderr
-    # Template 1.1.0 differs from the recorded 1.0.0 only in its mental models, so the fake
-    # derives both responses from the recordings (tests/fakes/hindsight.py).
+    # The template differs from the recorded 1.0.0 only in its mental models and its bank
+    # config, so the fake derives both responses from the recordings (tests/fakes/hindsight.py).
     assert fake.served == [f"{DRY_RUN} (derived)", f"{IMPORT} (derived)"]
     printed = json.loads(result.stdout)
     assert printed["bank_id"] == bank_id
