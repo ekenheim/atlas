@@ -20,8 +20,16 @@ Output: `docs/research/embedding-model.md`, the raw numbers under `.scratch/live
 
 **Blocked by:** 01, 14
 
-**Status:** ready-for-agent
+**Status:** done (partly measured; see the comment)
 
 - [ ] The note has the table per candidate, the threshold analysis, the cost of each change and one recommendation.
 - [ ] Every number says what it was measured on and what was live.
 - [ ] The owner's decision is recorded in `docs/decisions.md` and in ticket 11.
+
+## Comments
+
+**2026-10-02, the lead: measured as far as it could be, and decided.** `docs/research/retrieval-options.md` (a Sonnet researcher; 117 of 120 MiniMax requests on the local Hindsight).
+- **What it could not measure:** the live candidate pools. Every traced recall failed (HTTP 500) because the spike's reranker sidecar refuses a batch over 256 candidates (413) and the recall pre-filter sends 300; the cap left no room to retry. The pools were rebuilt offline from the semantic and term arms only, over a bank of 407 facts from one 10-K, with 11 known answers. So the comparison is weak: recall at 45 is 1.0 for every cross-encoder, and at 10 they differ by one answer.
+- **What it shows:** today's MiniLM is not clearly worse than bge-reranker-v2-m3 or Qwen3-Reranker-0.6B on this set; bge has the best tail (worst rank 16 against 36) but is 18 times slower on CPU and needs a GPU; Qwen3-Reranker is slower still with no gain. The Qwen3 query instruction is neutral (23 pairs better, 26 worse). Kev has no CPU path and is not a reranker by its own README; Jev was not measured (no key).
+- **Decision for the release:** no change to the reranker or the embedding prefix. Ticket 11's PR carries only `HINDSIGHT_API_FAIL_ON_EXTRACTION_ERRORS=true` and a reranker chain ending in `rrf`. The reranker question comes back only if the after-measure (the conformance check's known answers on production, after the backfill) still shows answers that are in Memory but lost in the ranking; then the pools are taken from production's own recalls, not rebuilt.
+- **Worth knowing for the cluster:** if the reranker sidecar is reached through the `litellm` provider with a batch limit of 256, a recall whose pre-filter keeps 300 candidates fails with 413. Production's recalls succeed today, so the cluster's path differs; ticket 11's PR checks the setting and caps `HINDSIGHT_API_RERANKER_MAX_CANDIDATES` if it is that path.
