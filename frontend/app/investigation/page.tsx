@@ -817,7 +817,9 @@ function Card({ card }: { card: ResearchCard | null }) {
             {card.unsupported_findings.length > 0 &&
               ` ${card.unsupported_findings.length} finding(s) citing no accepted Claim were dropped.`}
           </p>
-          {card.findings.length === 0 ? (
+          {card.editor_failure ? (
+            <EditorFailed card={card} reason={card.editor_failure} />
+          ) : card.findings.length === 0 ? (
             <p>
               No finding
               {card.claims_considered === 0 &&
@@ -871,6 +873,42 @@ function Card({ card }: { card: ResearchCard | null }) {
         </ul>
       )}
     </section>
+  );
+}
+
+function EditorFailed({ card, reason }: { card: ResearchCard; reason: string }) {
+  const companies = card.claims_by_company ?? [];
+  return (
+    <>
+      <p role="alert">
+        No finding: the Editor failed, so this card is Atlas&apos;s own and needs review. {reason}
+      </p>
+      <h3 id="claims-by-company">Accepted Claims by company</h3>
+      {companies.length === 0 ? (
+        <p>None.</p>
+      ) : (
+        companies.map((company) => (
+          <div key={company.company_id}>
+            <h4>
+              <Link href={routes.company(company.company_id)}>{company.company_name}</Link> (
+              {company.claims.length} Claim{company.claims.length === 1 ? "" : "s"})
+            </h4>
+            <ul>
+              {company.claims.map((claim) => (
+                <li key={claim.claim_id}>
+                  {claim.predicate} {claim.object}
+                  {claim.layer && ` (${claim.layer})`}{" "}
+                  <span className="muted-small">
+                    in{" "}
+                    <Link href={routes.version(claim.source_version_id)}>{claim.source_title}</Link>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+    </>
   );
 }
 

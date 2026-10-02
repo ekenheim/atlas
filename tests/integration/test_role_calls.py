@@ -31,6 +31,7 @@ from atlas.roles import (
     RoleCallFailed,
     RoleOutput,
     RoleOutputQuarantined,
+    RoleOutputTruncated,
     TokenBudgetExhausted,
 )
 from atlas.runs import Run, RunRecorder
@@ -259,6 +260,63 @@ def test_output_still_malformed_after_the_repair_is_quarantined_visible_and_neve
         ("answer",),
         ("confidence",),
     }
+
+
+CUT_OFF = '{"answer": "The filing names Sumitomo Electric as a supplier of InP sub'
+
+
+@pytest.mark.parametrize(
+    ("finish_reason", "tokens_out"),
+    [("length", 1999), ("stop", 2000)],
+    ids=["finish-reason-length", "tokens-at-the-cap"],
+)
+def test_an_answer_cut_off_at_the_output_cap_is_truncated_without_a_repair(
+    engine: Engine, tmp_path: Path, finish_reason: str, tokens_out: int
+) -> None:
+    run = start_run(engine, tmp_path)
+    litellm = FakeLiteLLM().script_chat(
+        ChatReply.text(CUT_OFF, tokens=(900, tokens_out), finish_reason=finish_reason)
+    )
+
+    with pytest.raises(RoleOutputTruncated) as raised:
+        caller(engine, tmp_path, litellm).call(EXAMPLE, QUESTION, run_id=run.id)
+
+    # No repair: it would be cut at the same cap. It is a kind of quarantine, so every
+    # role's failure path for a quarantined call handles it unchanged.
+    assert len(litellm.chat_requests()) == 1
+    assert isinstance(raised.value, RoleOutputQuarantined)
+    assert raised.value.max_tokens == 2000
+    [stored] = role_calls(engine, tmp_path, run.id)["role_calls"]
+    assert stored["id"] == str(raised.value.role_call_id)
+    assert (stored["status"], stored["output"]) == ("truncated", None)
+    assert stored["error"] == (
+        f"example output cut off at its 2000-token output cap (role call {stored['id']})"
+    )
+    [attempt] = stored["attempts"]
+    assert (attempt["content"], attempt["tokens_out"]) == (CUT_OFF, tokens_out)
+    assert attempt["validation_errors"]
+
+
+def test_a_complete_answer_at_the_cap_is_used_and_one_call_may_have_a_larger_cap(
+    engine: Engine, tmp_path: Path
+) -> None:
+    run = start_run(engine, tmp_path)
+    litellm = FakeLiteLLM().script_chat(
+        ChatReply.json(ANSWER, tokens=(900, 3000)), ChatReply.text("not json")
+    )
+    role_caller = caller(engine, tmp_path, litellm)
+
+    answer = role_caller.call_recorded(EXAMPLE, QUESTION, run_id=run.id, max_output_tokens=3000)
+
+    assert answer[0].model_dump() == ANSWER  # valid JSON is used, whatever the tokens
+    # A malformed answer short of the cap is a schema failure, as before: a repair is asked.
+    litellm.script_chat(ChatReply.text("still not json"))
+    with pytest.raises(RoleOutputQuarantined) as raised:
+        role_caller.call(EXAMPLE, QUESTION, run_id=run.id)
+    assert not isinstance(raised.value, RoleOutputTruncated)
+    assert [body["max_tokens"] for body in litellm.chat_requests()] == [3000, 2000, 2000]
+    statuses = [c["status"] for c in role_calls(engine, tmp_path, run.id)["role_calls"]]
+    assert statuses == ["accepted", "quarantined"]
 
 
 def test_usage_past_the_run_s_token_budget_raises_a_typed_budget_error(

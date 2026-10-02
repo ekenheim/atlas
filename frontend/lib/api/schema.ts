@@ -1973,6 +1973,47 @@ export interface components {
             reason: string | null;
         };
         /**
+         * CardClaimSummary
+         * @description An accepted Claim as the card lists it when the Editor failed: what it states and
+         *     where (its quote and span are in the Evidence tray).
+         */
+        CardClaimSummary: {
+            /**
+             * Claim Id
+             * Format: uuid
+             */
+            claim_id: string;
+            /** Predicate */
+            predicate: string;
+            /** Object */
+            object: string;
+            /** Layer */
+            layer: string | null;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Source Title */
+            source_title: string;
+        };
+        /**
+         * CardCompanyClaims
+         * @description A company's accepted Claims (as their subject), as the card lists them when the
+         *     Editor failed.
+         */
+        CardCompanyClaims: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Claims */
+            claims: components["schemas"]["CardClaimSummary"][];
+        };
+        /**
          * CardCompanyNotRead
          * @description A company a round's reading pointers name that got no Investigator, so the next
          *     investigation can seed it (atlas.investigations.companies).
@@ -6177,6 +6218,11 @@ export interface components {
         /**
          * ResearchCard
          * @description The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10).
+         *
+         *     When the Editor fails (its answer cut off at its output cap's bound, or quarantined), the
+         *     card is code's alone: no finding, `editor_failure` saying why, the accepted Claims by
+         *     company (`claims_by_company`) and, as on every card, the contradictions, bear context and
+         *     what was searched and read (memory-quality ticket 16).
          */
         ResearchCard: {
             /**
@@ -6218,6 +6264,10 @@ export interface components {
             read?: components["schemas"]["CardReading"][];
             /** Not Read */
             not_read?: components["schemas"]["CardCompanyNotRead"][];
+            /** Editor Failure */
+            editor_failure?: string | null;
+            /** Claims By Company */
+            claims_by_company?: components["schemas"]["CardCompanyClaims"][];
         };
         /** ResearchScope */
         ResearchScope: {
@@ -6423,8 +6473,8 @@ export interface components {
         ReviewState: "committed" | "pending" | "confirmed" | "rejected";
         /**
          * RoleCallRecord
-         * @description One call of a role. A quarantined call's outputs are visible in its attempts only;
-         *     `output` is set only for an accepted call.
+         * @description One call of a role. A quarantined or truncated call's outputs are visible in its
+         *     attempts only; `output` is set only for an accepted call.
          */
         RoleCallRecord: {
             /**
@@ -6452,7 +6502,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "running" | "accepted" | "quarantined" | "failed" | "budget_exhausted";
+            status: "running" | "accepted" | "quarantined" | "truncated" | "failed" | "budget_exhausted";
             /** Output */
             output: {
                 [key: string]: components["schemas"]["JsonValue"];

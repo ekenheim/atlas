@@ -67,7 +67,11 @@ One attempt:
      (atlas.roles.editor); bear context marks no finding and stops nothing. With no accepted
      Claim at all the card has no finding, only what was searched and read and the open
      questions for the next round, and the investigation stops
-     `no_new_independent_evidence` as before.
+     `no_new_independent_evidence` as before. The Editor cites each Claim by a short
+     reference (`c1`, `c2`, ...), which code maps back. An answer cut off at the output cap
+     is asked again once with the cap doubled, up to `editor_max_output_tokens`; if it is
+     cut off there too, or quarantined, the card is code's alone (no finding, the accepted
+     Claims by company, the reason) and the investigation stops `needs_review`.
 3. **Outcome.** Under the lock, the task's outcome is recorded and the plan advanced. When
    the run's token budget runs out, the task and the investigation stop `budget_exhausted`
    (resumable). An LLM quota or outage (a pausable failure) records `task_paused` and
@@ -108,6 +112,8 @@ from atlas.investigations.coverage import coverage, not_read
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
+    CardClaimSummary,
+    CardCompanyClaims,
     CardContradiction,
     CardFinding,
     ResearchCard,
@@ -135,11 +141,18 @@ from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import run_recorder
 from atlas.research.service import RecallRequest, Research, ResearchScope
-from atlas.roles import QuotedText, RoleCaller, RoleCallFailed, TokenBudgetExhausted
+from atlas.roles import (
+    QuotedText,
+    RoleCaller,
+    RoleCallFailed,
+    RoleOutputQuarantined,
+    RoleOutputTruncated,
+    TokenBudgetExhausted,
+)
 from atlas.roles.editor import (
     EDITOR,
     EditorBearContext,
-    EditorClaim,
+    EditorCardClaim,
     EditorContradiction,
     EditorCounterevidence,
     EditorDocumentRead,
@@ -836,13 +849,16 @@ class TaskRunner:
                 artifacts={"claims": len(claims), "new_evidence_families": 0},
             )
         theme = load_universe(self._settings.themes_config).themes.get(investigation["theme"])
+        # The Editor cites each Claim by a short reference, which code maps back to its ID.
+        refs = {f"c{index}": c for index, c in enumerate(claims, start=1)}
+        ref_of = {c["id"]: ref for ref, c in refs.items()}
         request = EditorRequest(
             theme_id=investigation["theme"],
             theme_title=theme.title if theme else investigation["theme"],
             research_question=investigation["question"],
             claims=[
-                EditorClaim(
-                    claim_id=str(c["id"]),
+                EditorCardClaim(
+                    ref=ref,
                     subject=c["subject_name"],
                     predicate=c["predicate"],
                     object=c["object_name"] or c["object_text"] or "",
@@ -852,13 +868,19 @@ class TaskRunner:
                     source_title=c["source_title"],
                     source_version_id=str(c["source_version_id"]),
                 )
-                for c in claims
+                for ref, c in refs.items()
             ],
             leads=[
                 EditorLead(lead_id=str(lead.id), title=lead.title, url=lead.url) for lead in leads
             ],
             contradictions=[
-                EditorContradiction(**each.model_dump(), how=found.how)
+                EditorContradiction(
+                    **each.model_dump(exclude={"contradicts_claim_ids"}),
+                    contradicts_refs=[
+                        ref_of[claim] for claim in found.contradicts_claim_ids if claim in ref_of
+                    ],
+                    how=found.how,
+                )
                 for each, found in zip(sent, against, strict=True)
             ],
             bear_context=context_sent,
@@ -891,11 +913,11 @@ class TaskRunner:
         retrieved = (
             [
                 QuotedText(
-                    id=str(c["id"]),
+                    id=ref,
                     source=f"{c['source_version_id']}#{c['span_start']}-{c['span_end']}",
                     text=c["quote"],
                 )
-                for c in claims
+                for ref, c in refs.items()
             ]
             + [
                 QuotedText(id=str(lead.id), source=lead.url, text=f"{lead.title}\n{lead.snippet}")
@@ -905,16 +927,68 @@ class TaskRunner:
             + context_quoted
         )
         by_claim = counterevidence_by_claim(against)
-        with self._caller(investigation) as caller:
-            draft, role_call_id = caller.call_recorded(
-                EDITOR, request, run_id=run_id, retrieved=retrieved
+        bound = self._settings.editor_max_output_tokens
+        cap = min(EDITOR.max_output_tokens, bound)
+        try:
+            with self._caller(investigation) as caller:
+                try:
+                    draft, role_call_id = caller.call_recorded(
+                        EDITOR, request, run_id=run_id, retrieved=retrieved, max_output_tokens=cap
+                    )
+                except RoleOutputTruncated:
+                    if cap >= bound:
+                        raise
+                    # Cut off at the cap: once more with the cap doubled, up to the bound.
+                    draft, role_call_id = caller.call_recorded(
+                        EDITOR,
+                        request,
+                        run_id=run_id,
+                        retrieved=retrieved,
+                        max_output_tokens=min(2 * cap, bound),
+                    )
+        except RoleOutputQuarantined as failure:
+            # The investigation never ends card-less: code writes the card without findings.
+            stop_reason = "needs_review" if claims else "no_new_independent_evidence"
+            stop_detail = f"the Editor failed, so the card has no finding: {failure}"
+            card = ResearchCard(
+                status="draft",
+                question=investigation["question"],
+                findings=[],
+                open_questions=[],
+                unsupported_findings=[],
+                editor_verdict="needs_review",
+                claims_considered=len(claims),
+                lead_ids=[lead.id for lead in leads],
+                disproven_premises=disproven,
+                editor_role_call_id=failure.role_call_id,
+                contradictions=against,
+                bear_context=context,
+                searched=searched,
+                read=read,
+                not_read=unread,
+                editor_failure=str(failure),
+                claims_by_company=claims_by_company(claims),
             )
-        by_id = {str(c["id"]): c for c in claims}
+            return _Outcome(
+                "succeeded",
+                artifacts={
+                    "role_call_id": str(failure.role_call_id),
+                    "claims": len(claims),
+                    "new_evidence_families": len(new_families),
+                    "findings": 0,
+                    "editor_failure": str(failure),
+                    "contradictions": len(against),
+                    "bear_context": sum(len(group.items) for group in context),
+                    "stop_reason": stop_reason,
+                    "stop_detail": stop_detail,
+                },
+                card=card,
+            )
         findings: list[CardFinding] = []
         unsupported: list[UnsupportedFinding] = []
         for finding in draft.findings:
-            cited = list(dict.fromkeys(finding.claim_ids))
-            unknown = [each for each in cited if each not in by_id]
+            cited = list(dict.fromkeys(finding.claim_refs))
+            unknown = [each for each in cited if each not in refs]
             if not cited or unknown:
                 reason = (
                     "cites no Claim"
@@ -922,14 +996,14 @@ class TaskRunner:
                     else "cites what isn't an accepted Claim of this investigation: "
                     + ", ".join(unknown)
                 )
+                # The Claims it does name by their IDs; what isn't a Claim's reference as written.
+                named = [str(refs[each]["id"]) if each in refs else each for each in cited]
                 unsupported.append(
-                    UnsupportedFinding(
-                        statement=finding.statement, claim_ids=finding.claim_ids, reason=reason
-                    )
+                    UnsupportedFinding(statement=finding.statement, claim_ids=named, reason=reason)
                 )
                 continue
             findings.append(
-                card_finding(finding.statement, [by_id[each] for each in cited], finding, by_claim)
+                card_finding(finding.statement, [refs[each] for each in cited], finding, by_claim)
             )
         contradicted = sum(1 for f in findings if f.counterevidence_ids)
         if not claims:
@@ -1130,6 +1204,32 @@ def accepted_claims(
             {"id": investigation_id, "run": run_id},
         ).mappings()
     )
+
+
+def claims_by_company(claims: Sequence[RowMapping]) -> list[CardCompanyClaims]:
+    """The accepted Claims grouped by their subject company, companies in order of their first
+    Claim, as the card lists them when the Editor failed."""
+    grouped: dict[uuid.UUID, list[RowMapping]] = {}
+    for claim in claims:
+        grouped.setdefault(claim["subject_company_id"], []).append(claim)
+    return [
+        CardCompanyClaims(
+            company_id=company,
+            company_name=held[0]["subject_name"],
+            claims=[
+                CardClaimSummary(
+                    claim_id=c["id"],
+                    predicate=c["predicate"],
+                    object=c["object_name"] or c["object_text"] or "",
+                    layer=c["layer"],
+                    source_version_id=c["source_version_id"],
+                    source_title=c["source_title"],
+                )
+                for c in held
+            ],
+        )
+        for company, held in grouped.items()
+    ]
 
 
 def _family(claim: RowMapping) -> str:

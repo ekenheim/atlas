@@ -431,7 +431,7 @@ def test_the_skeptic_s_filing_phrase_searches_edgar_and_reads_an_archived_filing
             "findings": [
                 {
                     "statement": "Coherent supplies NVIDIA with advanced lasers.",
-                    "claim_ids": [c["claim_id"] for c in request["claims"]],
+                    "claim_refs": [c["ref"] for c in request["claims"]],
                     "limitations": ["A company's own statement."],
                     "open_questions": [],
                 }

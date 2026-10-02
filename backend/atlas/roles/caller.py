@@ -17,7 +17,12 @@ One call of a role is:
    stripped, as the dev probe needed) is validated with the role's Pydantic model. If it
    fails, one repair is asked for in the same conversation, with the validation errors.
    If that fails too, the call is **quarantined**: its outputs stay visible in the record,
-   `RoleOutputQuarantined` is raised, and nothing is returned for use.
+   `RoleOutputQuarantined` is raised, and nothing is returned for use. An answer that fails
+   validation because the model stopped at the output cap (the completion's finish reason
+   is `length`, or the tokens it used reach the cap) is **truncated** instead: no repair is
+   asked for (it would be cut at the same cap), the call is recorded `truncated` and
+   `RoleOutputTruncated` (a kind of quarantine, so every role's failure path stays as it
+   was) is raised. A caller may give one call a larger cap (`max_output_tokens`).
 4. **Failures.** A quota failure (HTTP 429, LiteLLM's `budget_exceeded` for the key's
    maxBudget) or an outage (HTTP 502-504, a 5xx naming one, a connection failure) raises
    `TransientFailure`, which pauses the queue for a pausable job kind and requeues the job
@@ -61,6 +66,21 @@ class RoleOutputQuarantined(RoleCallFailed):
         )
 
 
+class RoleOutputTruncated(RoleOutputQuarantined):
+    """The model stopped at the output cap before its answer was complete; it is recorded
+    but never used, and no repair was asked for."""
+
+    def __init__(self, role_call_id: uuid.UUID, role: str, max_tokens: int) -> None:
+        self.role_call_id = role_call_id
+        self.role = role
+        self.max_tokens = max_tokens
+        RoleCallFailed.__init__(
+            self,
+            f"{role} output cut off at its {max_tokens}-token output cap"
+            f" (role call {role_call_id})",
+        )
+
+
 class TokenBudgetExhausted(Exception):
     """The run has spent its token budget; no further LLM call is made for it."""
 
@@ -79,6 +99,7 @@ class _Message(BaseModel):
 class _Choice(BaseModel):
     model_config = ConfigDict(extra="ignore")
     message: _Message
+    finish_reason: str | None = None
 
 
 class _Usage(BaseModel):
@@ -174,8 +195,13 @@ class RoleCaller:
         *,
         run_id: uuid.UUID,
         retrieved: Sequence[QuotedText] = (),
+        max_output_tokens: int | None = None,
     ) -> tuple[ResponseT, uuid.UUID]:
-        """`call`, also returning the ID of the `role_call` row that recorded it."""
+        """`call`, also returning the ID of the `role_call` row that recorded it. With
+        `max_output_tokens`, this call's output cap instead of the role's."""
+        cap = role.max_output_tokens if max_output_tokens is None else max_output_tokens
+        if cap <= 0:
+            raise ValueError("max_output_tokens must be positive")
         request_json = request.model_dump(mode="json")
         quoted = [each.model_dump(mode="json") for each in retrieved]
         role_call_id = self._open(role, run_id, request_json, quoted)
@@ -191,7 +217,7 @@ class RoleCaller:
                 error = TokenBudgetExhausted(run_id, spent, self._token_budget)
                 self._close(role_call_id, "budget_exhausted", error=str(error))
                 raise error
-            max_tokens = min(role.max_output_tokens, self._token_budget - spent)
+            max_tokens = min(cap, self._token_budget - spent)
             try:
                 completion, model_id = self._complete(role, messages, run_id, max_tokens)
             except (TransientFailure, RoleCallFailed) as error:
@@ -205,6 +231,10 @@ class RoleCaller:
             if output is not None:
                 self._close(role_call_id, "accepted", output=output.model_dump(mode="json"))
                 return output, role_call_id
+            if _cut_off(completion, max_tokens):
+                truncated = RoleOutputTruncated(role_call_id, role.name, max_tokens)
+                self._close(role_call_id, "truncated", error=str(truncated))
+                raise truncated
             messages = [
                 *messages,
                 {"role": "assistant", "content": content},
@@ -348,6 +378,14 @@ class RoleCaller:
                     "error": None if error is None else error[:_ERROR_TEXT_LIMIT],
                 },
             )
+
+
+def _cut_off(completion: _Completion, max_tokens: int) -> bool:
+    """Whether the model stopped at the output cap rather than at the end of its answer."""
+    return (
+        completion.choices[0].finish_reason == "length"
+        or completion.usage.completion_tokens >= max_tokens
+    )
 
 
 _FENCE = re.compile(r"^```[a-zA-Z]*\s*\n(?P<body>.*)\n\s*```$", re.DOTALL)

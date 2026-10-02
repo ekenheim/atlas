@@ -8,11 +8,15 @@ counterevidence in its two kinds, separately (`contradictions` of named Claims, 
 `bear_context` about a company, attached to no Claim), and what the investigation searched
 and read (the Scout's queries; each Investigator's documents, sections and extraction
 outcomes); each Claim's quote, each lead's snippet and each counterevidence quote go as
-quoted, low-trust `retrieved_data` (`id` = the claim, lead or counterevidence ID). The
-Editor answers with findings, each citing the Claims it rests on, open questions, and whether
-the Claims answer the question. Code, not the model, decides what a finding may cite: a
-finding citing no accepted Claim of the investigation is dropped as unsupported, and every
-cited Claim's quote, span and Source Version are filled in by code (atlas.investigations).
+quoted, low-trust `retrieved_data` (`id` = the Claim's short reference, the lead or the
+counterevidence ID). Each Claim goes by a short reference (`c1`, `c2`, ..., in the request's
+order), not its 36-character ID (v6: the IDs were most of the answer a multi-hop
+investigation's Editor was cut off in). The Editor answers with findings, each citing the
+references of the Claims it rests on, open questions, and whether the Claims answer the
+question. Code, not the model, decides what a finding may cite: it maps each reference back
+to its Claim; a finding citing no accepted Claim of the investigation (or a reference it
+wasn't sent) is dropped as unsupported, and every cited Claim's quote, span and Source
+Version are filled in by code (atlas.investigations).
 With no accepted Claim the Editor still writes the card: no finding, and open questions for
 the next round drawn from what was searched and read (the card's `searched` and `read`
 sections are code's, never the model's).
@@ -26,8 +30,9 @@ from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
 # v2: counterevidence (ticket 15); v3: the bottleneck method; v4: what was searched and read,
 # and a card with no accepted Claim (pilot fix 01); v5: contradictions and bear context,
-# separately (memory-directed reading, ticket 03)
-EDITOR_PROMPT_VERSION = 5
+# separately (memory-directed reading, ticket 03); v6: Claims by short reference (memory
+# quality, ticket 16)
+EDITOR_PROMPT_VERSION = 6
 
 
 class _Request(BaseModel):
@@ -35,7 +40,24 @@ class _Request(BaseModel):
 
 
 class EditorClaim(_Request):
+    """An accepted Claim as the Hypothesis Editor is sent it (by its ID)."""
+
     claim_id: str
+    subject: str  # the subject company's name
+    predicate: str
+    object: str  # the object company's name, or the product/material/technology named
+    product: str | None
+    layer: str | None  # null: the Claim's quote names no layer
+    epistemic_type: str
+    source_title: str
+    source_version_id: str
+
+
+class EditorCardClaim(_Request):
+    """An accepted Claim as the research card's Editor is sent it: by its short reference
+    (`c1`, `c2`, ...), which code maps back to the Claim's ID."""
+
+    ref: str
     subject: str  # the subject company's name
     predicate: str
     object: str  # the object company's name, or the product/material/technology named
@@ -65,9 +87,17 @@ class EditorCounterevidence(_Request):
     source_title: str
 
 
-class EditorContradiction(EditorCounterevidence):
-    """A contradiction as the research card's Editor is sent it: also how it contradicts."""
+class EditorContradiction(_Request):
+    """A contradiction as the research card's Editor is sent it: the Claims it names by their
+    short references, and how it contradicts them (its quote goes as retrieved data)."""
 
+    counterevidence_id: str
+    checklist_item: str
+    subject: str
+    statement: str
+    contradicts_refs: list[str]  # the Claims it names that the Editor is sent
+    independent: bool  # its Evidence Family is none of the supporting Claims'
+    source_title: str
     how: str | None  # denies, limits or dates the Claims' statement
 
 
@@ -116,7 +146,7 @@ class EditorRequest(_Request):
     theme_id: str
     theme_title: str
     research_question: str
-    claims: list[EditorClaim]
+    claims: list[EditorCardClaim]
     leads: list[EditorLead]
     contradictions: list[EditorContradiction]  # of the Claims each names
     bear_context: list[EditorBearContext]  # about a company; contradicts no Claim
@@ -126,24 +156,37 @@ class EditorRequest(_Request):
 
 
 class EditorFinding(RoleOutput):
+    """A finding of the Hypothesis draft (its Claims by ID)."""
+
     statement: str
     claim_ids: list[str]
     limitations: list[str]
     open_questions: list[str]
 
 
+class CardFindingDraft(RoleOutput):
+    """A finding of the research card's draft: its Claims by short reference."""
+
+    statement: str
+    claim_refs: list[str]
+    limitations: list[str]
+    open_questions: list[str]
+
+
 class ResearchCardDraft(RoleOutput):
-    findings: list[EditorFinding]
+    findings: list[CardFindingDraft]
     open_questions: list[str]
     verdict: Literal["answered", "needs_review"]
 
 
+# The first call's output cap; an answer cut off at it is asked again with the cap doubled, up
+# to `editor_max_output_tokens` (atlas.investigations.tasks).
 EDITOR = Role(
     name="editor",
     prompt=Prompt.load(PROMPTS_DIR, "editor", EDITOR_PROMPT_VERSION),
     request=EditorRequest,
     response=ResearchCardDraft,
-    max_output_tokens=4096,
+    max_output_tokens=8192,
 )
 
 

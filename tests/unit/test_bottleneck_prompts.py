@@ -189,9 +189,12 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         EDITOR,
         "editor",
         # v4: what was searched and read, and a card with no accepted Claim (pilot fix 01);
-        # v5: contradictions and bear context, separately (memory-directed reading, ticket 03)
-        5,
+        # v5: contradictions and bear context, separately (memory-directed reading, ticket 03);
+        # v6: Claims cited by short reference (memory-quality ticket 16)
+        6,
         (
+            "`claim_refs`",
+            "Cite only the `ref`s of the request's Claims",
             "in two separate lists",
             "`contradictions`",
             "`bear_context`",

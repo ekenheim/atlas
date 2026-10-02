@@ -2,8 +2,9 @@
 Financial Analyst, Editor) to call the LLM through LiteLLM, validated, budgeted and recorded.
 
 `contract` defines a role (versioned prompt, request and strict response models, the fixed
-directives); `caller` makes the call (strict schema, one repair, then quarantine; budget;
-queue pause on quota or outage); `records` reads what was asked, answered and spent.
+directives); `caller` makes the call (strict schema, one repair, then quarantine; an answer
+cut off at the output cap truncated; budget; queue pause on quota or outage); `records`
+reads what was asked, answered and spent.
 """
 
 from atlas.roles.caller import (
@@ -11,6 +12,7 @@ from atlas.roles.caller import (
     RoleCaller,
     RoleCallFailed,
     RoleOutputQuarantined,
+    RoleOutputTruncated,
     TokenBudgetExhausted,
 )
 from atlas.roles.contract import (
@@ -49,6 +51,7 @@ __all__ = [
     "RoleCaller",
     "RoleOutput",
     "RoleOutputQuarantined",
+    "RoleOutputTruncated",
     "RunRoleCalls",
     "RunUsage",
     "TokenBudgetExhausted",

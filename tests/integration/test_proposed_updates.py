@@ -212,15 +212,16 @@ def quoting(*claims: dict[str, JsonValue]) -> Callable[[dict[str, Any]], JsonVal
 
 
 def claim_ids(body: dict[str, Any]) -> list[str]:
-    """The Claims an Editor was sent."""
-    return [each["claim_id"] for each in asked(body)["request"]["claims"]]
+    """The Claims an Editor was sent, as it cites them: by ID (the Hypothesis Editor) or by
+    short reference (the research card's)."""
+    return [each.get("claim_id") or each["ref"] for each in asked(body)["request"]["claims"]]
 
 
 def card_editor(body: dict[str, Any]) -> JsonValue:
     findings: list[JsonValue] = [
         {
             "statement": SUPPLY_FINDING,
-            "claim_ids": [claim_id],
+            "claim_refs": [claim_id],
             "limitations": ["A company's own statement."],
             "open_questions": [],
         }

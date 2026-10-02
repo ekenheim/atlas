@@ -177,8 +177,9 @@ def asked(body: dict[str, Any]) -> dict[str, Any]:
 def claim_ids_by_quote(body: dict[str, Any]) -> dict[str, str]:
     """{quote: claim ID} of the Claims an Editor was sent (their quotes are retrieved data)."""
     sent = asked(body)
-    claim_ids = {each["claim_id"] for each in sent["request"]["claims"]}
-    return {each["text"]: each["id"] for each in sent["retrieved_data"] if each["id"] in claim_ids}
+    # The Hypothesis Editor cites a Claim by its ID, the research card's by its `ref`.
+    cited = {each.get("claim_id") or each["ref"] for each in sent["request"]["claims"]}
+    return {each["text"]: each["id"] for each in sent["retrieved_data"] if each["id"] in cited}
 
 
 def quoting(*claims: dict[str, JsonValue]) -> Callable[[dict[str, Any]], JsonValue]:
@@ -211,11 +212,11 @@ def statement(quote: str) -> str:
 
 
 def card_editor(body: dict[str, Any]) -> JsonValue:
-    """The research card: one finding per Claim it is sent."""
+    """The research card: one finding per Claim it is sent (cited by reference)."""
     findings: list[JsonValue] = [
         {
             "statement": statement(quote),
-            "claim_ids": [claim_id],
+            "claim_refs": [claim_id],
             "limitations": ["A company's own statement."],
             "open_questions": [],
         }
