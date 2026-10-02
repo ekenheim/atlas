@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0060"
+    assert revision == "0061"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -603,3 +603,110 @@ def test_reading_pointers_recorded_before_0059_are_the_scout_s(empty_database_ur
     assert refused == ["2", "3", "4"]
     assert kinds == [("scout", None), ("bear_checklist", "inventory_cycle")]
     assert still_insert_only
+
+
+def test_sections_failed_by_a_cancellation_before_0061_are_cancelled(
+    empty_database_url: str,
+) -> None:
+    # 0061: an owner's cancellation is not a failure. The sections recorded `failed` with
+    # exactly the cancellation's error move to `cancelled`; the other failed sections take the
+    # class their error shows; nothing else changes.
+    upgrade(empty_database_url, "0060")
+    engine = create_engine(empty_database_url)
+    cancelled = "Hindsight reported the operation cancelled with no error message"
+    missing = "document srcv:x:cover not found in Hindsight after its operation completed"
+    rows = [
+        ("a", "failed", cancelled, None),
+        ("b", "failed", "Hindsight reported the operation failed with no error message", None),
+        ("c", "failed", missing, None),
+        ("d", "failed", f"{cancelled} (and more)", None),
+        ("e", "completed", None, 3),
+    ]
+    insert = text(
+        "INSERT INTO memory_document (id, source_version_id, section_anchor, char_start,"
+        " char_end, sectioner_version, hindsight_document_id, bank_id, retain_state,"
+        " fact_count, template_version, error) VALUES (gen_random_uuid(), :version, :anchor,"
+        " 0, 10, 'sec-items-v1', :document, 'atlas', :state, :facts, '1.1.0', :error)"
+    )
+    operation = text(
+        "INSERT INTO hindsight_operation (id, bank_id, kind, status, source_version_id,"
+        " document_ids, error_class) VALUES (:id, 'atlas', 'retain', :status, :version,"
+        " '[]'::jsonb, :class)"
+    )
+    version = "00000000-0000-0000-0000-000000000001"
+    with engine.begin() as connection:
+        # The rows' Source Version is not what is migrated: foreign keys are off here.
+        connection.execute(text("SET LOCAL session_replication_role = replica"))
+        for anchor, state, error, facts in rows:
+            connection.execute(
+                insert,
+                {
+                    "version": version,
+                    "anchor": anchor,
+                    "document": f"srcv:{version}:{anchor}",
+                    "state": state,
+                    "facts": facts,
+                    "error": error,
+                },
+            )
+        connection.execute(
+            operation,
+            {"id": "op-cancelled", "status": "cancelled", "version": version}
+            | {"class": "permanent"},
+        )
+        connection.execute(
+            operation,
+            {"id": "op-failed", "status": "failed", "version": version} | {"class": "permanent"},
+        )
+
+    upgrade(empty_database_url)
+
+    with engine.connect() as connection:
+        sections = {
+            row.section_anchor: (row.retain_state, row.error_class, row.error)
+            for row in connection.execute(
+                text("SELECT section_anchor, retain_state, error_class, error FROM memory_document")
+            )
+        }
+        operations = dict(
+            connection.execute(text("SELECT id, error_class FROM hindsight_operation")).all()
+        )
+    refused: list[str] = []
+    for state, error_class, error in (
+        ("cancelled", None, cancelled),  # a cancelled section has its class
+        ("cancelled", "cancelled", None),  # and keeps an error
+        ("failed", None, "an error"),  # a failed one has a class
+        ("completed", "permanent", None),  # nothing else has one
+    ):
+        try:
+            with engine.begin() as connection:
+                connection.execute(text("SET LOCAL session_replication_role = replica"))
+                connection.execute(
+                    text(
+                        "INSERT INTO memory_document (id, source_version_id, section_anchor,"
+                        " char_start, char_end, sectioner_version, hindsight_document_id,"
+                        " bank_id, retain_state, fact_count, template_version, error,"
+                        " error_class) VALUES (gen_random_uuid(), :version, 'z', 0, 10,"
+                        " 'sec-items-v1', :document, 'atlas', :state, 1, '1.1.0', :error,"
+                        " :class)"
+                    ),
+                    {
+                        "version": version,
+                        "document": f"srcv:{version}:z-{len(refused)}-{state}",
+                        "state": state,
+                        "error": error,
+                        "class": error_class,
+                    },
+                )
+        except DBAPIError:
+            refused.append(state)
+    engine.dispose()
+    assert sections == {
+        "a": ("cancelled", "cancelled", cancelled),
+        "b": ("failed", "permanent", rows[1][2]),
+        "c": ("failed", "missing", missing),
+        "d": ("failed", "permanent", rows[3][2]),
+        "e": ("completed", None, None),
+    }
+    assert operations == {"op-cancelled": "cancelled", "op-failed": "permanent"}
+    assert refused == ["cancelled", "cancelled", "failed", "completed"]

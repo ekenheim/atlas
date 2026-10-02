@@ -305,10 +305,18 @@ def enqueue_ingest(
 
 
 def run_retry_failed(
-    settings: Settings, since: str | None, all_history: bool, backfill: bool
+    settings: Settings,
+    since: str | None,
+    all_history: bool,
+    backfill: bool,
+    *,
+    error_classes: list[str] | None = None,
+    company: str | None = None,
 ) -> None:
     import json
     from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import text
 
     from atlas.audit import Actor
     from atlas.db import create_engine
@@ -332,6 +340,15 @@ def run_retry_failed(
         cutoff = datetime.now(UTC) - timedelta(days=settings.ingest_lookback_days)
     engine = create_engine(settings)
     try:
+        company_id = None
+        if company is not None:
+            with engine.connect() as connection:
+                company_id = connection.execute(
+                    text("SELECT id FROM company WHERE slug = :slug"), {"slug": company}
+                ).scalar_one_or_none()
+            if company_id is None:
+                print(f"atlas: no company {company!r} (seed the universe first)", file=sys.stderr)
+                raise SystemExit(2)
         summary = retry_failed(
             engine,
             Actor.from_settings(settings),
@@ -339,10 +356,22 @@ def run_retry_failed(
             job_class="backfill" if backfill else "interactive",
             eight_k_items=settings.eight_k_items(),
             exhibits_only_items=settings.eight_k_exhibits_only_items(),
+            error_classes=error_classes,
+            company_id=company_id,
         )
     finally:
         engine.dispose()
-    print(json.dumps(summary | {"since": cutoff.isoformat() if cutoff else None}))
+    print(
+        json.dumps(
+            summary
+            | {
+                "since": cutoff.isoformat() if cutoff else None,
+                "job_class": "backfill" if backfill else "interactive",
+                "error_classes": error_classes,
+                "company": company,
+            }
+        )
+    )
 
 
 def run_triage_retry(settings: Settings, source_version: str | None, failed: bool) -> None:
@@ -910,7 +939,22 @@ def main(argv: list[str] | None = None) -> None:
     )
     retry.add_argument("--since", help="only versions available after this date")
     retry.add_argument("--all-history", action="store_true", help="every failed section")
-    retry.add_argument("--backfill", action="store_true", help="backfill class (see ingest)")
+    retry.add_argument(
+        "--backfill",
+        action="store_true",
+        help="backfill class (see ingest); the default since memory-quality ticket 03",
+    )
+    retry.add_argument(
+        "--interactive", action="store_true", help="enqueue as interactive class instead"
+    )
+    retry.add_argument(
+        "--error-class",
+        action="append",
+        dest="error_classes",
+        choices=["cancelled", "permanent", "transient", "missing"],
+        help="only sections of this class (repeatable; default: every failed or cancelled one)",
+    )
+    retry.add_argument("--company", help="only this company's Source Versions (its slug)")
     triage = commands.add_parser("triage", help="retention triage maintenance")
     triage_commands = triage.add_subparsers(dest="triage_command", required=True)
     triage_retry = triage_commands.add_parser(
@@ -1123,7 +1167,14 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "triage":
         run_triage_retry(settings, args.source_version, args.failed)
     elif args.command == "retention":
-        run_retry_failed(settings, args.since, args.all_history, args.backfill)
+        run_retry_failed(
+            settings,
+            args.since,
+            args.all_history,
+            not args.interactive,
+            error_classes=args.error_classes,
+            company=args.company,
+        )
     elif args.command == "companies" and args.companies_command == "resolve":
         raise SystemExit(resolve_companies(settings, args.slugs))
     elif args.command == "sources":

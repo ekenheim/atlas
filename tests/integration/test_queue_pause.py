@@ -81,6 +81,14 @@ RELAYED_OUTAGE = EXTRACTION_FAILED + (
     " 'litellm.ServiceUnavailableError: MinimaxException - Service Unavailable', 'type': None,"
     " 'param': None, 'code': '503'}}"
 )
+# A timeout and a relayed server error behind Hindsight (memory-quality ticket 03), in the
+# shape of the routed errors above; hand-written, not seen from a real Hindsight failure.
+RELAYED_TIMEOUT = EXTRACTION_FAILED + "APITimeoutError: Request timed out."
+RELAYED_SERVER_ERROR = EXTRACTION_FAILED + (
+    "InternalServerError: Error code: 500 - {'error': {'message':"
+    " 'litellm.InternalServerError: MinimaxException - internal error', 'type': None,"
+    " 'param': None, 'code': '500'}}"
+)
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
 
 
@@ -376,6 +384,67 @@ def test_a_pausable_job_failing_for_its_own_reason_is_retried_without_pausing(
 
 
 # --- interactive work first -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "error",
+    [RELAYED_TIMEOUT, RELAYED_SERVER_ERROR],
+    ids=["timeout", "relayed-500"],
+)
+def test_a_transient_failure_resubmits_its_sections_a_bounded_number_of_times_then_fails_them(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    clock: Clock,
+    error: str,
+) -> None:
+    # Every 10-K batch fails with a timeout or relayed 500 (derived), and stores nothing.
+    fake = hindsight[0]
+    fake.hold_retains("failed", where=is_10k_batch, error_message=error)
+    atlas = Atlas(
+        database_url, tmp_path, hindsight[1].url, backfill_window="", retain_transient_retries=1
+    )
+    atlas.apply_template()
+    paced = Paced(atlas, clock)
+    paced.ingest_10k()
+
+    paced.worker_pass()
+
+    # Not final: the sections wait, and the queue pauses with its backoff.
+    memory = paced.ten_k_memory()
+    assert memory["counts"]["pending"] == len(TEN_K_ANCHORS)
+    assert {d["transient_retries"] for d in memory["documents"]} == {1}
+    (operation,) = memory["operations"]
+    assert (operation["status"], operation["error_class"]) == ("failed", "transient")
+    pause = paced.pause()
+    assert (pause["paused"], pause["backoff_seconds"]) == (True, 60)
+    assert error in pause["reason"]
+    assert len(ten_k_batches(fake)) == 1
+
+    # After the backoff the same sections are resubmitted; past the bound (1) they fail.
+    clock.advance(seconds=60)
+    paced.worker_pass()
+
+    first, again = ten_k_batches(fake)
+    assert again == first
+    memory = paced.ten_k_memory()
+    assert memory["counts"]["failed"] == len(TEN_K_ANCHORS)
+    for document in memory["documents"]:
+        assert (document["error_class"], document["error"]) == ("transient", error)
+        assert document["transient_retries"] == 2
+    assert [(o["status"], o["error_class"]) for o in memory["operations"]] == [
+        ("failed", "transient"),
+        ("failed", "transient"),
+    ]
+    assert paced.queue()["pending"] == []
+    assert paced.pause()["pauses_total"] == 1  # the last failure didn't pause again
+    assert paced.metrics()[
+        (
+            "atlas_sections_not_in_memory",
+            frozenset({("state", "failed"), ("error_class", "transient")}),
+        )
+    ] == len(TEN_K_ANCHORS)
+    atlas.engine.dispose()
 
 
 def test_interactive_jobs_are_claimed_before_older_backfill_jobs(engine: Engine) -> None:

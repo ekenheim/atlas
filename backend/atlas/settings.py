@@ -135,6 +135,10 @@ class Settings(BaseSettings):
     retain_poll_timeout_seconds: float = Field(default=240.0, gt=0)
     retain_poll_interval_seconds: float = Field(default=5.0, gt=0)
     retain_poll_attempts: int = Field(default=5, ge=1)
+    # How many times a section whose retain operation ended with a transient error (a
+    # timeout, a relayed 5xx) is resubmitted, with the queue's backoff, before it is failed
+    # with the class `transient` (memory-quality ticket 03).
+    retain_transient_retries: int = Field(default=3, ge=0)
     # Retention triage (atlas.retention.triage): `on` reads each new Source Version section
     # by section (deterministic rules, then the Triage role through LiteLLM) and retains only
     # the sections worth retaining; `off` retains every section; `auto` (the default) is `on`
