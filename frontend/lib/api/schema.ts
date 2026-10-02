@@ -1788,7 +1788,7 @@ export interface components {
         };
         /**
          * Budgets
-         * @description Per-run limits (spec §7.4).
+         * @description Per-run limits (spec Â§7.4).
          */
         Budgets: {
             /** Max Rounds */
@@ -2050,9 +2050,16 @@ export interface components {
             /** Score */
             score: number;
             /** Best Rank */
-            best_rank: number;
+            best_rank: number | null;
             /** Reason */
             reason: string;
+            /**
+             * Entity Pointers
+             * @default 0
+             */
+            entity_pointers: number;
+            /** Channels */
+            channels?: ("recall" | "entity")[];
         };
         /**
          * CardContradiction
@@ -2132,7 +2139,7 @@ export interface components {
         };
         /**
          * CardFinding
-         * @description A research card finding in the §7.2 claim shape. The statement is the Editor's; every
+         * @description A research card finding in the Â§7.2 claim shape. The statement is the Editor's; every
          *     other field is filled in by code from the accepted Claims it cites.
          */
         CardFinding: {
@@ -3121,6 +3128,50 @@ export interface components {
              * @default []
              */
             listings: components["schemas"]["Listing"][];
+        };
+        /**
+         * EntityHop
+         * @description What the entity hop (memory-quality ticket 09) did for one company of a round: the
+         *     entity it found by the company's canonical name, the facts that carry it, and why each
+         *     made an entity pointer or not. `outcome`: `listed`; `no_entity` (no entity of exactly
+         *     that name in Memory); `listing_failed` (the memory listing failed: an event says why);
+         *     `entities_unavailable` (the entity listing failed, so no company was hopped).
+         */
+        EntityHop: {
+            /** Round */
+            round: number;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Slug */
+            slug: string;
+            /** Entity Name */
+            entity_name: string;
+            /** Entity Id */
+            entity_id: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "listed" | "no_entity" | "listing_failed" | "entities_unavailable";
+            /** Facts Listed */
+            facts_listed: number;
+            /** Pointers */
+            pointers: number;
+            /** Own Documents */
+            own_documents: number;
+            /** After As Of */
+            after_as_of: number;
+            /** Already Pointed */
+            already_pointed: number;
+            /** Unresolved */
+            unresolved: number;
+            /** Beyond Limit */
+            beyond_limit: number;
         };
         /** EntityMatch */
         EntityMatch: {
@@ -4381,6 +4432,10 @@ export interface components {
             pointers: components["schemas"]["ReadingPointer"][];
             /** Pointed Companies */
             pointed_companies: components["schemas"]["PointedCompany"][];
+            /** Entity Pointers */
+            entity_pointers?: components["schemas"]["ReadingPointer"][];
+            /** Entity Hops */
+            entity_hops?: components["schemas"]["EntityHop"][];
             /** Documents */
             documents: components["schemas"]["InvestigationDocument"][];
             /** Counterevidence */
@@ -4508,7 +4563,7 @@ export interface components {
         };
         /**
          * InvestigationRequest
-         * @description The shared agent contract's request (spec §7.2), as every role of the run works to.
+         * @description The shared agent contract's request (spec Â§7.2), as every role of the run works to.
          */
         InvestigationRequest: {
             /** Run Id */
@@ -5560,7 +5615,7 @@ export interface components {
             /** Score */
             score: number;
             /** Best Rank */
-            best_rank: number;
+            best_rank: number | null;
             /**
              * Outcome
              * @enum {string}
@@ -5568,6 +5623,11 @@ export interface components {
             outcome: "seed" | "added" | "no_room" | "premise_disproven";
             /** Task Key */
             task_key: string | null;
+            /**
+             * Entity Pointers
+             * @default 0
+             */
+            entity_pointers: number;
         };
         /** Premise */
         Premise: {
@@ -5883,7 +5943,7 @@ export interface components {
              * Query Kind
              * @enum {string}
              */
-            query_kind: "scout" | "bear_checklist";
+            query_kind: "scout" | "bear_checklist" | "entity";
             /** Query Index */
             query_index: number;
             /** Query */
@@ -5952,6 +6012,8 @@ export interface components {
             chunk_char_start?: number | null;
             /** Chunk Char End */
             chunk_char_end?: number | null;
+            /** Entity Id */
+            entity_id?: string | null;
         };
         /**
          * RecallRequest
@@ -6622,7 +6684,7 @@ export interface components {
         };
         /**
          * ResearchCard
-         * @description The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10).
+         * @description The Editor's structured research card: always a draft (spec Â§7.1, Â§7.3 step 10).
          *
          *     When the Editor fails (its answer cut off at its output cap's bound, or quarantined), the
          *     card is code's alone: no finding, `editor_failure` saying why, the accepted Claims by

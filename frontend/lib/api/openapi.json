@@ -7210,7 +7210,7 @@
           "token_budget"
         ],
         "title": "Budgets",
-        "description": "Per-run limits (spec §7.4)."
+        "description": "Per-run limits (spec Â§7.4)."
       },
       "Candidate": {
         "properties": {
@@ -7839,12 +7839,35 @@
             "title": "Score"
           },
           "best_rank": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Best Rank"
           },
           "reason": {
             "type": "string",
             "title": "Reason"
+          },
+          "entity_pointers": {
+            "type": "integer",
+            "title": "Entity Pointers",
+            "default": 0
+          },
+          "channels": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "recall",
+                "entity"
+              ]
+            },
+            "type": "array",
+            "title": "Channels"
           }
         },
         "type": "object",
@@ -8136,7 +8159,7 @@
           "open_questions"
         ],
         "title": "CardFinding",
-        "description": "A research card finding in the §7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
+        "description": "A research card finding in the Â§7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
       },
       "CardQuery": {
         "properties": {
@@ -10954,6 +10977,99 @@
           "name"
         ],
         "title": "Entity"
+      },
+      "EntityHop": {
+        "properties": {
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "listed",
+              "no_entity",
+              "listing_failed",
+              "entities_unavailable"
+            ],
+            "title": "Outcome"
+          },
+          "facts_listed": {
+            "type": "integer",
+            "title": "Facts Listed"
+          },
+          "pointers": {
+            "type": "integer",
+            "title": "Pointers"
+          },
+          "own_documents": {
+            "type": "integer",
+            "title": "Own Documents"
+          },
+          "after_as_of": {
+            "type": "integer",
+            "title": "After As Of"
+          },
+          "already_pointed": {
+            "type": "integer",
+            "title": "Already Pointed"
+          },
+          "unresolved": {
+            "type": "integer",
+            "title": "Unresolved"
+          },
+          "beyond_limit": {
+            "type": "integer",
+            "title": "Beyond Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "round",
+          "company_id",
+          "company_name",
+          "slug",
+          "entity_name",
+          "entity_id",
+          "outcome",
+          "facts_listed",
+          "pointers",
+          "own_documents",
+          "after_as_of",
+          "already_pointed",
+          "unresolved",
+          "beyond_limit"
+        ],
+        "title": "EntityHop",
+        "description": "What the entity hop (memory-quality ticket 09) did for one company of a round: the\nentity it found by the company's canonical name, the facts that carry it, and why each\nmade an entity pointer or not. `outcome`: `listed`; `no_entity` (no entity of exactly\nthat name in Memory); `listing_failed` (the memory listing failed: an event says why);\n`entities_unavailable` (the entity listing failed, so no company was hopped)."
       },
       "EntityMatch": {
         "properties": {
@@ -14231,6 +14347,20 @@
             "type": "array",
             "title": "Pointed Companies"
           },
+          "entity_pointers": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingPointer"
+            },
+            "type": "array",
+            "title": "Entity Pointers"
+          },
+          "entity_hops": {
+            "items": {
+              "$ref": "#/components/schemas/EntityHop"
+            },
+            "type": "array",
+            "title": "Entity Hops"
+          },
           "documents": {
             "items": {
               "$ref": "#/components/schemas/InvestigationDocument"
@@ -14669,7 +14799,7 @@
           "hypothesis_id"
         ],
         "title": "InvestigationRequest",
-        "description": "The shared agent contract's request (spec §7.2), as every role of the run works to."
+        "description": "The shared agent contract's request (spec Â§7.2), as every role of the run works to."
       },
       "InvestigationSummary": {
         "properties": {
@@ -17860,7 +17990,14 @@
             "title": "Score"
           },
           "best_rank": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Best Rank"
           },
           "outcome": {
@@ -17883,6 +18020,11 @@
               }
             ],
             "title": "Task Key"
+          },
+          "entity_pointers": {
+            "type": "integer",
+            "title": "Entity Pointers",
+            "default": 0
           }
         },
         "type": "object",
@@ -18706,7 +18848,8 @@
             "type": "string",
             "enum": [
               "scout",
-              "bear_checklist"
+              "bear_checklist",
+              "entity"
             ],
             "title": "Query Kind"
           },
@@ -18904,6 +19047,17 @@
               }
             ],
             "title": "Chunk Char End"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
           }
         },
         "type": "object",
@@ -21130,7 +21284,7 @@
           "editor_role_call_id"
         ],
         "title": "ResearchCard",
-        "description": "The Editor's structured research card: always a draft (spec §7.1, §7.3 step 10).\n\nWhen the Editor fails (its answer cut off at its output cap's bound, or quarantined), the\ncard is code's alone: no finding, `editor_failure` saying why, the accepted Claims by\ncompany (`claims_by_company`) and, as on every card, the contradictions, bear context and\nwhat was searched and read (memory-quality ticket 16)."
+        "description": "The Editor's structured research card: always a draft (spec Â§7.1, Â§7.3 step 10).\n\nWhen the Editor fails (its answer cut off at its output cap's bound, or quarantined), the\ncard is code's alone: no finding, `editor_failure` saying why, the accepted Claims by\ncompany (`claims_by_company`) and, as on every card, the contradictions, bear context and\nwhat was searched and read (memory-quality ticket 16)."
       },
       "ResearchScope": {
         "properties": {
