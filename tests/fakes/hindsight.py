@@ -136,6 +136,24 @@ Derived by default (each is anchored to a request the real server was sent):
   held at that status for good (`hold_operation`; a failed refresh's error was never
   recorded, see `hold_retains`), so it never applies. `apply_refresh(...)` applies a refresh
   the same way without a request: one Hindsight ran by itself (its `refresh_cron`).
+
+Hand-written, not recorded (memory-quality ticket 02; to be replaced by ticket 01's recordings
+on 0.10.2): the two listings the memory-health read makes were never recorded, so their
+responses are built from the documented examples in the pinned OpenAPI schema, kept in
+`tests/fixtures/hindsight-handwritten/`:
+
+- `script_observation_scopes(scopes)`: `GET .../observations/scopes?limit=N[&offset=M]` (any
+  bank) serves `observation-scopes.json` with only `scopes` (the scripted tag sets and counts,
+  in the order given), `total`, `limit` and `offset` changed.
+- `script_entities(entities)`: `GET .../entities?limit=N[&offset=M]` (any bank) serves
+  `entities.json` with only `items` (each the example item with `id` (a UUIDv5 of the name),
+  `canonical_name` and `mention_count` changed), `total`, `limit` and `offset` changed.
+- `fail_listings(status)`: both listings answer HTTP `status` with the hand-written body
+  `{"detail": "listing failed (scripted by the test)"}` (only the status is relied on).
+- `report_extraction_errors(where, count)` (needs `derive_retains`; a partial extraction was
+  never recorded): a derived retain operation whose batch's document IDs match reports
+  `result_metadata.extraction_errors_count` = `count` instead of the recorded 0, nothing else
+  changed.
 """
 
 import copy
@@ -153,6 +171,7 @@ import httpx2
 from pydantic import JsonValue
 
 RECORDINGS_DIR = Path(__file__).resolve().parents[2] / "spikes" / "hindsight" / "recordings"
+HANDWRITTEN_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "hindsight-handwritten"
 
 type QueryKey = tuple[tuple[str, str], ...]
 type RequestKey = tuple[str, str, QueryKey, str]
@@ -383,6 +402,14 @@ class RecordedHindsight:
     _refresh_operations: dict[str, _RefreshOperation] = field(
         init=False, default_factory=dict[str, _RefreshOperation]
     )
+    # Hand-written listings (see the module docstring): None until scripted.
+    _scopes: list[dict[str, JsonValue]] | None = field(init=False, default=None)
+    _entities: list[tuple[str, int]] | None = field(init=False, default=None)
+    _listing_failure: int | None = field(init=False, default=None)
+    _extraction_errors: list[tuple[Callable[[Sequence[str]], bool], int]] = field(
+        init=False, default_factory=list[tuple[Callable[[Sequence[str]], bool], int]]
+    )
+    _operation_errors: dict[str, int] = field(init=False, default_factory=dict[str, int])
 
     def __post_init__(self) -> None:
         self._replies = defaultdict(deque)
@@ -534,6 +561,24 @@ class RecordedHindsight:
         """A refresh Hindsight ran by itself (its `refresh_cron`), with no request (derived)."""
         self._apply(mental_model_id, _ScriptedRefresh(content, cited, _iso(refreshed_at)))
 
+    def script_observation_scopes(self, scopes: Sequence[tuple[Sequence[str], int]]) -> None:
+        """Serve these observation scopes (tag set, count) from the scopes listing
+        (hand-written; see the module docstring)."""
+        self._scopes = [{"tags": list(tags), "count": count} for tags, count in scopes]
+
+    def script_entities(self, entities: Sequence[tuple[str, int]]) -> None:
+        """Serve these entities (canonical name, mention count) from the entity listing, in
+        the order given (hand-written; see the module docstring)."""
+        self._entities = list(entities)
+
+    def fail_listings(self, status: int) -> None:
+        """Answer HTTP `status` to the scopes and entity listings (hand-written)."""
+        self._listing_failure = status
+
+    def report_extraction_errors(self, where: Callable[[Sequence[str]], bool], count: int) -> None:
+        """Later derived retains whose batch matches report `count` extraction errors."""
+        self._extraction_errors.append((where, count))
+
     def refreshes_requested(self) -> list[str]:
         """The mental-model IDs of every refresh request received, in order."""
         return [
@@ -671,6 +716,9 @@ class RecordedHindsight:
                 self.hold_operation(operation_id, hold.status, hold.polls, hold.error_message)
                 if hold.times is not None:
                     hold.times -= 1
+        for where, count in self._extraction_errors:
+            if where(document_ids):
+                self._operation_errors[operation_id] = count
         recording = self.recording(DERIVED_RETAIN)
         response = copy.deepcopy(recording.response_object())
         response |= {"bank_id": bank, "items_count": len(items), "operation_id": operation_id}
@@ -681,6 +729,9 @@ class RecordedHindsight:
         recording = self.recording(DERIVED_RETAIN_FINAL)
         response = copy.deepcopy(recording.response_object())
         response["operation_id"] = operation_id
+        if operation_id in self._operation_errors:
+            metadata = cast(dict[str, JsonValue], response["result_metadata"])
+            metadata["extraction_errors_count"] = self._operation_errors[operation_id]
         self.served.append(f"{DERIVED_RETAIN_FINAL} (derived)")
         return httpx2.Response(recording.status, json=self._apply_hold(response))
 
@@ -891,7 +942,54 @@ class RecordedHindsight:
                 return self._derived_consolidation_operation(route[1])
         if request.method == "POST" and route == ["consolidate"] and body == {}:
             return self._derived_consolidation(bank)
+        if request.method == "GET" and route in (["observations", "scopes"], ["entities"]):
+            return self._handwritten_listing(request, route)
         return None
+
+    # --- hand-written listings (see the module docstring) --------------------------------------
+
+    def _handwritten_listing(
+        self, request: httpx2.Request, route: list[str]
+    ) -> httpx2.Response | None:
+        scopes = route == ["observations", "scopes"]
+        if self._listing_failure is not None:
+            body = {"detail": "listing failed (scripted by the test)"}
+            return httpx2.Response(self._listing_failure, json=body)
+        if (self._scopes if scopes else self._entities) is None:
+            return None
+        params = dict(request.url.params)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if limit is None or params:
+            return None
+        name = "observation-scopes" if scopes else "entities"
+        handwritten = json.loads((HANDWRITTEN_DIR / f"{name}.json").read_text(encoding="utf-8"))
+        response = cast(dict[str, JsonValue], handwritten["response"]["body"])
+        if scopes:
+            assert self._scopes is not None
+            listed: list[JsonValue] = list[JsonValue](self._scopes)
+            key = "scopes"
+        else:
+            assert self._entities is not None
+            example = cast(list[dict[str, JsonValue]], response["items"])[0]
+            listed = [
+                example
+                | {
+                    "id": str(uuid.uuid5(_DERIVED_NAMESPACE, f"entity:{entity}")),
+                    "canonical_name": entity,
+                    "mention_count": mentions,
+                }
+                for entity, mentions in self._entities
+            ]
+            key = "items"
+        response |= {
+            key: listed[offset : offset + int(limit)],
+            "total": len(listed),
+            "limit": int(limit),
+            "offset": offset,
+        }
+        self.served.append(f"{name} (hand-written)")
+        return httpx2.Response(200, json=response)
 
     # --- derived consolidation and bank deletion (see the module docstring) --------------------
 

@@ -1,0 +1,21 @@
+{
+  "_source": "Hand-written, not recorded: the documented example of ObservationScopesResponse in the pinned OpenAPI schema (.agents/skills/hindsight-docs/references/openapi.json, GET /v1/default/banks/{bank_id}/observations/scopes, Hindsight 0.10.1). The fake changes only scopes, total, limit and offset. To be replaced by a recording (memory-quality ticket 01).",
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/{bank_id}/observations/scopes",
+    "query": {"limit": 100}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "limit": 100,
+      "offset": 0,
+      "scopes": [
+        {"count": 12, "tags": ["user:alice"]},
+        {"count": 4, "tags": ["user:alice", "project:apollo"]},
+        {"count": 2, "tags": []}
+      ],
+      "total": 3
+    }
+  }
+}

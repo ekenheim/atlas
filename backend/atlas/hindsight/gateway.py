@@ -30,6 +30,7 @@ from atlas.hindsight.models import (
     BankConfig,
     BankDeleted,
     Budget,
+    EntityPage,
     KnowledgeNode,
     LlmRequestStats,
     Memory,
@@ -38,6 +39,7 @@ from atlas.hindsight.models import (
     MentalModelRevision,
     MentalModelSubmitted,
     ObservationPage,
+    ObservationScopePage,
     Operation,
     OperationSubmitted,
     RecallResult,
@@ -202,6 +204,20 @@ class HindsightGateway:
     def get_document(self, document_id: str) -> RetainedDocument:
         """A retained document, with its memory count per fact type."""
         return self._parse(RetainedDocument, self._get(f"/documents/{_segment(document_id)}"))
+
+    def observation_scopes(self, *, limit: int = 1000, offset: int = 0) -> ObservationScopePage:
+        """One page of the bank's observation scopes (`GET .../observations/scopes`)."""
+        params: dict[str, str | int] = {"limit": limit}
+        if offset:
+            params["offset"] = offset
+        return self._parse(ObservationScopePage, self._get("/observations/scopes", params=params))
+
+    def entities(self, *, limit: int = 1000, offset: int = 0) -> EntityPage:
+        """One page of the bank's entities, most mentioned first (`GET .../entities`)."""
+        params: dict[str, str | int] = {"limit": limit}
+        if offset:
+            params["offset"] = offset
+        return self._parse(EntityPage, self._get("/entities", params=params))
 
     def knowledge_page_tree(self) -> list[KnowledgeNode]:
         # 0.10.1: GET /knowledge-base/pages is 405; the tree lists the pages.

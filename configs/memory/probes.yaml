@@ -1,0 +1,75 @@
+# The memory probe set (memory-quality ticket 02): fixed recalls that measure what the
+# reading index returns, run before and after each change to Memory by
+# `scripts/memory_probe.py` (no LLM call; `docs/runbooks.md`, "Memory health").
+#
+# Each probe is one of the five pilot questions, verbatim from `.scratch/pilot/pilot-plan.md`,
+# with four Scout-style queries (short, layer and product terms, as the Scout writes them)
+# and its scope: the theme slugs its recalls are scoped to, as an investigation's pointer
+# recalls are. Validated at load (`atlas.research.probes.load_probes`): every probe needs a
+# scope, and every theme must be in the universe config.
+#
+# Keep the probes fixed: a before-and-after measure needs the same questions both times. Bump
+# `version` on any change, and say so in the implementation log.
+version: 1
+
+probes:
+  - id: laser-chips
+    question: >-
+      For 800G/1.6T AI transceivers, who supplies the laser chips (EML, CW/DFB, VCSEL), who
+      is capacity- or allocation-constrained, and what feedstock or equipment (InP
+      substrates, MOCVD) limits them?
+    scope:
+      theme_ids: [photonics]
+    queries:
+      - EML laser chip supply for 800G and 1.6T transceivers
+      - CW DFB laser capacity for silicon photonics
+      - InP laser wafer fab capacity constraint
+      - MOCVD epitaxy capacity for indium phosphide lasers
+
+  - id: inp-substrates
+    question: >-
+      Is indium phosphide substrate supply a chokepoint for optical laser chips: who makes
+      it, how concentrated is it, and do export controls (gallium, germanium, indium) bind?
+    scope:
+      theme_ids: [photonics]
+    queries:
+      - indium phosphide substrate supply
+      - InP wafer capacity expansion
+      - gallium germanium export controls
+      - substrate supply agreement with laser maker
+
+  - id: module-assembly
+    question: >-
+      Where is transceiver module assembly constrained: contract manufacturing and module
+      capacity, customer concentration, and qualification cycles?
+    scope:
+      theme_ids: [photonics]
+    queries:
+      - optical transceiver contract manufacturing capacity
+      - 800G module production ramp
+      - customer concentration hyperscaler transceivers
+      - transceiver qualification cycle
+
+  - id: dsp-drivers
+    question: >-
+      Is the DSP/driver layer a chokepoint for 1.6T modules: who supplies, how many
+      qualified sources, and what are the technology transitions (LPO, CPO)?
+    scope:
+      theme_ids: [photonics]
+    queries:
+      - PAM4 DSP supply for 1.6T modules
+      - laser driver and TIA suppliers
+      - linear pluggable optics LPO
+      - co-packaged optics CPO transition
+
+  - id: coherent-demand
+    question: >-
+      How does coherent-optics and systems demand (DCI, 800ZR) pull on component supply,
+      and where does it bind?
+    scope:
+      theme_ids: [photonics]
+    queries:
+      - 800ZR coherent pluggable demand
+      - data center interconnect DCI orders
+      - coherent optical component lead times
+      - tunable laser supply for coherent modules
