@@ -1,7 +1,7 @@
 # Atlas's retains extracted on MiniMax, by Hindsight's metadata routing
 
 Type: prototype
-Status: claimed
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -40,3 +40,9 @@ Not verified: `openai-codex` as the primary of the chain (it can't run locally),
 Resolved when PR #7180 is merged, ticket 11 is released, the setting is on in production and a retained section's request shows MiniMax-M3 in Hindsight's log.
 
 **2026-10-01 (21:15 UTC), the lead: PR #7180 merged by the owner and checked on the cluster.** The shared Hindsight (0.10.2) restarted cleanly with `openai-codex` as the primary and MiniMax-M3 as member 1; its log shows the connection to `openai/MiniMax-M3` verified, so the release's existing LiteLLM key may call that model. In a scratch bank (deleted afterwards), through the shared server's API: an item with `extractor: minimax` was extracted by provider `openai`, model `MiniMax-M3` (3,492 tokens in, 781 out, 12 s); an item without the key by `openai-codex`, `gpt-5.6-luna`; the bank's consolidation ran on `gpt-5.6-luna`. This closes the prototype's open point (a chain whose primary is Codex). Atlas's readiness stayed `ok`. Still to do for this ticket: ticket 11 released and `ATLAS_RETAIN_EXTRACTOR=minimax` set in production.
+
+## Answer
+
+Resolved by the lead on 2026-10-02. Hindsight's `metadata` strategy sends Atlas's retains, and only those, to MiniMax-M3 on the shared server: home-ops #7180 (the second chain member and the strategy), Atlas 0.3.0 (memory-directed reading ticket 11: the `extractor` key on every retain item, the `hindsight_minimax` budget) and home-ops #7194 (`ATLAS_RETAIN_EXTRACTOR=minimax`). Checked on production on 2026-10-02 (08:30 UTC): `atlas_build_info{version="0.3.0"}`, every readiness check `ok`; `GET /api/v1/queue` lists `hindsight_minimax` (11 of 200 operations used) and `minimax` at 8,000,000; 30 sections completed since the settings merged carry `extractor: minimax` (for example Source Version `868d50a2-9526-48e3-83a6-fcd5efd2ed8d`, section `item-1-01`, 9 facts), and completed sections went from 695 to 722 with the Codex count unchanged at 27.
+
+What it does not change: consolidation, reflect and mental-model refresh stay on the Codex primary, so each retained section still costs the shared subscription its consolidation (`docs/research/hindsight-memory-use.md`, finding 7; memory-quality tickets 01 and 11 measure it and put a consolidation model of its own before the owner).

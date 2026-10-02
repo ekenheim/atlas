@@ -21,17 +21,21 @@ Studied on 2026-10-02 for pilot-review ticket 19, at the owner's request: how to
 
 ## Findings, ranked
 
-### 1. Three quarters of the retained sections are recorded as failed (observed)
+### 1. Three quarters of the retained sections are not in Memory: their retains were cancelled (observed)
 
 Production, 2026-10-02 07:53 UTC: `atlas_retained_sections_total` is 695 completed, 22 zero-fact, **1,907 failed**, with 59 pending. Memory can only point at what was retained.
 
-What the code shows (reader `atlas-usage`, quotes in its notes):
+**The cause is known, and it is not a defect:** the owner cancelled those retain operations early in the rollout (said 2026-10-02). A sample on the same day agrees: of the latest 425 Source Versions across the 12 universe companies, all 386 failed sections carry the one error "Hindsight reported the operation cancelled with no error message", from 78 cancelled operations; no other error text occurs. So the sections were never extracted; nothing was lost by Hindsight or by Atlas's code.
+
+What follows from it:
+- The 1,907 sections are a backlog, not an error class to fix. They can be enqueued again (`atlas retention retry-failed`), now under the MiniMax extractor's own budget. Doing it before the new retain profile (context, entities, scopes, labels) would extract them twice, and each retained section also costs consolidation on the shared Codex subscription, which is likely why they were cancelled. The backfill (spec ticket 12) takes them, after ticket 01 has measured what consolidation costs per section.
+- Atlas records an owner's cancellation as `failed`, the same as a real failure, so the metric cannot tell the two apart.
+
+What the code shows besides (reader `atlas-usage`; real by reading, not seen on production):
 - A Source Version's sections go to Hindsight as one operation. When it ends with an error that is not a quota or an outage, every pending section of the version is marked failed, without looking at which documents were in fact stored.
-- Only quota and outage texts count as transient. A timeout, a relayed 500 or a failure with no message is permanent, and a failed section is never retried without the owner's `retry_failed`.
+- Only quota and outage texts count as transient. A timeout, a relayed 500 or a failure with no message is permanent, and a failed section is never retried without the owner's `retry-failed`.
 - Hindsight reports `extraction_errors_count` on the operation; Atlas stores it and never reads it.
 - Hindsight's own default leaves a retain `completed` when some chunks failed extraction (`HINDSIGHT_API_FAIL_ON_EXTRACTION_ERRORS`, off on the cluster), so partial loss inside a long Item is invisible.
-
-Open: the error texts behind the 1,907. Nobody has grouped them yet.
 
 ### 2. Observations never cross a company, a form or a source (observed)
 
@@ -96,7 +100,8 @@ The same three findings (entities on retain, observation scopes, the bare recall
 
 ## Not settled
 
-- The error texts of the failed sections.
+(The error texts of the failed sections were open when this was first written; finding 1 now has the answer.)
+
 - Whether `reprocess` or a re-consolidation applies new scopes, context, entities and labels to documents already stored, or whether they must be retained again.
 - Whether a chunk's text is a verbatim slice of the retained content (needed for chunk-exact pointers).
 - What changed between 0.10.1 and 0.10.2.

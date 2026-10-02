@@ -1,7 +1,7 @@
 # Build and release memory-directed reading
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -15,6 +15,15 @@ Build the spec `.scratch/atlas-memory-directed-reading/spec.md` (eleven tickets 
 - Added with pilot-review ticket 18: 11 Atlas marks its retains for the MiniMax extractor (no blockers).
 
 Each ticket goes to one implementer agent in its own worktree (`docs/agents/implementer-brief.md`); the lead names the migration revisions, integrates, runs the runners and releases. The answer records the release, the deploy and what each ticket's tests showed.
+
+## Answer
+
+Resolved by the lead on 2026-10-02.
+
+- **Release:** `v0.3.0` at `419d8a1`; release run 36939346940 succeeded (`ci` 25m44s, `publish` 1m33s); image `ghcr.io/ekenheim/atlas:0.3.0`. All eleven tickets merged; runners: 1,402 tests, the frontend gates, the e2e (`docs/implementation-log.md`, "memory-directed reading integrated; release 0.3.0").
+- **Deploy:** the image by Renovate's home-ops #7190 (merged overnight); the settings by home-ops #7194, merged by the owner at 07:54 UTC (`ATLAS_MINIMAX_BUDGET_TOKENS` 8,000,000, `ATLAS_RUN_TOKEN_BUDGET` 2,000,000, `ATLAS_RETAIN_EXTRACTOR=minimax`).
+- **Live:** Checked on production on 2026-10-02 (08:30 UTC): `atlas_build_info{version="0.3.0"}`, every readiness check `ok`; `GET /api/v1/queue` lists `hindsight_minimax` (11 of 200 operations used) and `minimax` at 8,000,000; 30 sections completed since the settings merged carry `extractor: minimax` (for example Source Version `868d50a2-9526-48e3-83a6-fcd5efd2ed8d`, section `item-1-01`, 9 facts), and completed sections went from 695 to 722 with the Codex count unchanged at 27.
+- **What the first run on it showed:** memory-directed reading works (1,074 pointers, six Investigators from two seeds, 89 accepted Claims, every quote verbatim), and the Editor's answer no longer fits its output cap, so the run ended with no card: memory-quality ticket 16, released as 0.3.1 (pilot-review ticket 15).
 
 ## Comments
 
