@@ -211,6 +211,10 @@ class ReadingPointer(BaseModel):
     available_at: datetime  # the Source Version's, at or before the investigation's as-of time
     citation_state: Literal["resolved"]  # only resolved citations make pointers
     created_at: datetime
+    # The recall's final score (relative to its own recall only) and the entity names of the
+    # memory (memory-quality ticket 07); None for pointers recorded before it.
+    score: float | None = None
+    entity_names: list[str] | None = None
 
 
 class PointedCompany(BaseModel):
@@ -707,7 +711,7 @@ def get_investigation(
                 " d.title AS source_title, p.section_anchor, p.section_heading,"
                 " p.section_char_start, p.section_char_end, p.company_id,"
                 " c.display_name AS company_name, p.available_at, p.citation_state,"
-                " p.created_at FROM reading_pointer p"
+                " p.created_at, p.score, p.entity_names FROM reading_pointer p"
                 " JOIN investigation_task t ON t.id = p.task_id"
                 " JOIN source_version v ON v.id = p.source_version_id"
                 " JOIN source_document d ON d.id = v.source_document_id"

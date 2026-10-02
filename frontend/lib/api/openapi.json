@@ -11873,6 +11873,14 @@
         "title": "Fact",
         "description": "One external fact the resolution used: where it came from and when it was read."
       },
+      "FactType": {
+        "type": "string",
+        "enum": [
+          "world",
+          "experience",
+          "observation"
+        ]
+      },
       "FailedGroup": {
         "properties": {
           "error": {
@@ -18465,6 +18473,31 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "entity_names": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Names"
           }
         },
         "type": "object",
@@ -18511,6 +18544,67 @@
           "budget": {
             "$ref": "#/components/schemas/Budget",
             "default": "mid"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 65536.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens",
+            "description": "the results' text budget in tokens (Hindsight's default: 4096)"
+          },
+          "types": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FactType"
+                },
+                "type": "array",
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Types",
+            "description": "the fact types to recall (default: all)"
+          },
+          "prefer_observations": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prefer Observations",
+            "description": "an observation in the results replaces the facts it was built from"
+          },
+          "query_timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Timestamp",
+            "description": "recency is judged from this time (it ranks; it does not filter)"
+          },
+          "include_source_facts": {
+            "type": "boolean",
+            "title": "Include Source Facts",
+            "description": "each observation's source facts in the same answer, so its provenance needs no request per observation",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -18519,7 +18613,8 @@
           "query",
           "scope"
         ],
-        "title": "RecallRequest"
+        "title": "RecallRequest",
+        "description": "A scoped recall. The reading-index fields (memory-quality ticket 07; Hindsight 0.10.2)\nare optional: without them the recall is what it always was."
       },
       "RecallResponse": {
         "properties": {
@@ -18553,6 +18648,17 @@
             },
             "type": "array",
             "title": "Evidence"
+          },
+          "source_facts_truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Facts Truncated"
           }
         },
         "type": "object",
@@ -18564,6 +18670,83 @@
           "evidence"
         ],
         "title": "RecallResponse"
+      },
+      "RecallScores": {
+        "properties": {
+          "final": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final"
+          },
+          "reranker": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reranker"
+          },
+          "semantic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic"
+          },
+          "keyword": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keyword"
+          }
+        },
+        "type": "object",
+        "title": "RecallScores",
+        "description": "A recall result's per-stage scores (0.10.2). Relative within one recall only; `final`\ncan exceed 1, and an arm's score is None when that arm didn't surface the result."
+      },
+      "RecalledEntity": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "entity_id"
+        ],
+        "title": "RecalledEntity",
+        "description": "An entity a recalled memory names: its canonical name, and its ID when the answer's\nentity map has it."
       },
       "RecalledMemory": {
         "properties": {
@@ -18635,6 +18818,34 @@
           },
           "provenance": {
             "$ref": "#/components/schemas/atlas__research__provenance__Citation"
+          },
+          "scores": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecallScores"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/RecalledEntity"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
           }
         },
         "type": "object",
@@ -19838,6 +20049,34 @@
           },
           "provenance": {
             "$ref": "#/components/schemas/atlas__research__provenance__Citation"
+          },
+          "scores": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecallScores"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/RecalledEntity"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
           },
           "document_id": {
             "anyOf": [

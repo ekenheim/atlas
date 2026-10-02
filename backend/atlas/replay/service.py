@@ -62,6 +62,7 @@ from atlas.hindsight import (
     HindsightNotFound,
     Memory,
     OperationTimeout,
+    RecallResult,
     TagScope,
 )
 from atlas.jobs.budget import RetainExtractor
@@ -70,7 +71,7 @@ from atlas.jobs.queue import Artifacts, Job, JobQueue, job_id_for
 from atlas.replay.questions import QuestionSet, ReplayQuestion
 from atlas.replay.reads import ReplayRecalledMemory
 from atlas.research.provenance import Citation, ProvenanceResolver, SectionLookup
-from atlas.research.service import SCOPE_MATCH, AppliedScope
+from atlas.research.service import SCOPE_MATCH, AppliedScope, recalled_memory
 from atlas.retention.service import (
     RETAINABLE_LANGUAGES,
     RETAINABLE_PARSES,
@@ -670,8 +671,10 @@ class Replays:
         resolver = ProvenanceResolver(
             self._engine, self._archive, gateway, sections=replay_sections(replay_id)
         )
-        recalled = gateway.recall(question.question, scope=tag_scope)
-        memories = [_recalled(memory, resolver) for memory in recalled.memories]
+        # Recency is judged from the cutoff, as a researcher then would have had it
+        # (memory-quality ticket 07).
+        recalled = gateway.recall(question.question, scope=tag_scope, query_timestamp=row["cutoff"])
+        memories = [_recalled(memory, recalled, resolver) for memory in recalled.memories]
         reflected = gateway.reflect(question.question, scope=tag_scope, include_facts=True)
         citations = resolver.resolve_answer(reflected.text, reflected.memories)
         leaked_recall = [m for m in memories if _named_versions(m) - visible]
@@ -900,17 +903,11 @@ def replay_sections(replay_id: uuid.UUID) -> SectionLookup:
     return lookup
 
 
-def _recalled(memory: Memory, resolver: ProvenanceResolver) -> ReplayRecalledMemory:
+def _recalled(
+    memory: Memory, answer: RecallResult, resolver: ProvenanceResolver
+) -> ReplayRecalledMemory:
     return ReplayRecalledMemory(
-        memory_id=memory.id,
-        type=memory.type,
-        text=memory.text,
-        context=memory.context,
-        tags=memory.tags,
-        occurred_start=memory.occurred_start,
-        occurred_end=memory.occurred_end,
-        mentioned_at=memory.mentioned_at,
-        provenance=resolver.resolve_recalled(memory),
+        **dict(recalled_memory(memory, answer, resolver)),
         document_id=memory.document_id,
         source_version_id=memory.metadata.get("source_version_id"),
     )

@@ -58,6 +58,18 @@ Derived behaviours (each serves a recorded response with only the named fields c
   scope the way the recorded strict modes did (untagged and non-matching memories excluded).
   Each result is the recorded result of the same type (its first observation, its first world
   fact) with only the fields above changed; the scores stay as recorded.
+- **`include.source_facts` on a derived recall** (memory-quality ticket 07): when the recall's
+  body asks for source facts, each derived observation in the results has `source_fact_ids`
+  set to all its source facts (a deleted one too: the docs say the list always names every
+  source), and the response's `source_facts` map holds each source fact that exists, keyed by
+  its ID, deduplicated, in result order. Each entry is the first entry of
+  `recall_options/06-include-source-facts`'s map with only `id`, `text`, `context`,
+  `document_id`, `chunk_id`, `tags`, `metadata` and `mentioned_at` changed (the derived
+  fact's). `source_facts_truncated` is false, or true after `truncate_source_facts(keep)`
+  when the map was cut to its first `keep` facts (the budget's doing, by the docs). The other
+  0.10.2 recall fields (`max_tokens`, `types`, `prefer_observations`, `query_timestamp`) are
+  accepted and change nothing in a derived recall; its `scores` and `entities` stay as
+  recorded.
 - `script_fact_text(document_id, text)` (needs `derive_memories`; Hindsight writes a fact in
   its own words, and no recorded fact is about an Atlas section): that document's derived
   world fact has `text`, **written by the test** (a paraphrase of a sentence of the section),
@@ -336,6 +348,7 @@ DERIVED_DOCUMENT = "upsert/09-get-document"
 DERIVED_FACT = "reflect/06-resolve-source-memory"
 DERIVED_OBSERVATION = "reflect/02-resolve-memory"
 DERIVED_RECALL = "tags/02-tags-any_strict"
+DERIVED_SOURCE_FACTS = "recall_options/06-include-source-facts"
 DERIVED_MEMORY_LIST = "observations/04-list-via-memories"
 DERIVED_REFLECT = "reflect/01-provenance"
 DERIVED_TEMPLATE_DRY_RUN = "research_template/01-import-dry-run"
@@ -391,6 +404,8 @@ class RecordedHindsight:
     _forgotten: set[str] = field(init=False, default_factory=set[str])
     _fact_texts: dict[str, str] = field(init=False, default_factory=dict[str, str])
     _recall_failures: list[_RecallFailure] = field(init=False, default_factory=list[_RecallFailure])
+    # How many source facts a derived recall's `source_facts` map keeps (None: every one).
+    _source_facts_kept: int | None = field(init=False, default=None)
     _reflects: deque[_ScriptedReflect] = field(init=False, default_factory=deque[_ScriptedReflect])
     _mental_models: dict[str, _MentalModel] = field(
         init=False, default_factory=dict[str, _MentalModel]
@@ -520,6 +535,11 @@ class RecordedHindsight:
         first `times`, if given), with a hand-written body (derived; see the module
         docstring)."""
         self._recall_failures.append(_RecallFailure(where, status, times))
+
+    def truncate_source_facts(self, keep: int) -> None:
+        """Derived recalls asked for source facts keep only the first `keep` of them in their
+        `source_facts` map and say `source_facts_truncated: true` (derived; see above)."""
+        self._source_facts_kept = keep
 
     def script_reflect(
         self,
@@ -877,8 +897,35 @@ class RecordedHindsight:
             if in_scope(fact["tags"])
         )
         response["results"] = results
+        include = body.get("include")
+        if isinstance(include, dict) and "source_facts" in include:
+            self._attach_source_facts(bank, response)
         self.served.append(f"{DERIVED_RECALL} (derived)")
         return httpx2.Response(recording.status, json=response)
+
+    def _attach_source_facts(self, bank: str, response: dict[str, JsonValue]) -> None:
+        """`include.source_facts` on a derived recall (see the module docstring): each
+        observation lists all its sources; the map holds the ones that exist, in result
+        order, up to `truncate_source_facts`'s count."""
+        recorded = self.recording(DERIVED_SOURCE_FACTS).response_object()
+        entry = next(iter(cast(dict[str, JsonValue], recorded["source_facts"]).values()))
+        facts = self._facts(bank)
+        listed: dict[str, JsonValue] = {}
+        truncated = False
+        for result in cast(list[dict[str, JsonValue]], response["results"]):
+            if result["type"] != "observation":
+                continue
+            sources = self._observations[str(result["id"])][1]
+            result["source_fact_ids"] = list[JsonValue](sources)
+            for source in sources:
+                if source not in facts or source in listed:
+                    continue
+                if self._source_facts_kept is not None and len(listed) >= self._source_facts_kept:
+                    truncated = True
+                    continue
+                listed[source] = copy.deepcopy(cast(dict[str, JsonValue], entry)) | facts[source]
+        response["source_facts"] = listed
+        response["source_facts_truncated"] = truncated
 
     def _derived_reflect(self, bank: str) -> httpx2.Response:
         scripted = self._reflects.popleft()

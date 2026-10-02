@@ -3509,6 +3509,8 @@ export interface components {
             /** Statement */
             statement: string;
         };
+        /** @enum {string} */
+        FactType: "world" | "experience" | "observation";
         /** FailedGroup */
         FailedGroup: {
             /**
@@ -5822,14 +5824,48 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Score */
+            score?: number | null;
+            /** Entity Names */
+            entity_names?: string[] | null;
         };
-        /** RecallRequest */
+        /**
+         * RecallRequest
+         * @description A scoped recall. The reading-index fields (memory-quality ticket 07; Hindsight 0.10.2)
+         *     are optional: without them the recall is what it always was.
+         */
         RecallRequest: {
             /** Query */
             query: string;
             scope: components["schemas"]["ResearchScope"];
             /** @default mid */
             budget: components["schemas"]["Budget"];
+            /**
+             * Max Tokens
+             * @description the results' text budget in tokens (Hindsight's default: 4096)
+             */
+            max_tokens?: number | null;
+            /**
+             * Types
+             * @description the fact types to recall (default: all)
+             */
+            types?: components["schemas"]["FactType"][] | null;
+            /**
+             * Prefer Observations
+             * @description an observation in the results replaces the facts it was built from
+             */
+            prefer_observations?: boolean | null;
+            /**
+             * Query Timestamp
+             * @description recency is judged from this time (it ranks; it does not filter)
+             */
+            query_timestamp?: string | null;
+            /**
+             * Include Source Facts
+             * @description each observation's source facts in the same answer, so its provenance needs no request per observation
+             * @default false
+             */
+            include_source_facts: boolean;
         };
         /** RecallResponse */
         RecallResponse: {
@@ -5844,6 +5880,34 @@ export interface components {
             };
             /** Evidence */
             evidence: components["schemas"]["Evidence"][];
+            /** Source Facts Truncated */
+            source_facts_truncated?: boolean | null;
+        };
+        /**
+         * RecallScores
+         * @description A recall result's per-stage scores (0.10.2). Relative within one recall only; `final`
+         *     can exceed 1, and an arm's score is None when that arm didn't surface the result.
+         */
+        RecallScores: {
+            /** Final */
+            final?: number | null;
+            /** Reranker */
+            reranker?: number | null;
+            /** Semantic */
+            semantic?: number | null;
+            /** Keyword */
+            keyword?: number | null;
+        };
+        /**
+         * RecalledEntity
+         * @description An entity a recalled memory names: its canonical name, and its ID when the answer's
+         *     entity map has it.
+         */
+        RecalledEntity: {
+            /** Name */
+            name: string;
+            /** Entity Id */
+            entity_id: string | null;
         };
         /** RecalledMemory */
         RecalledMemory: {
@@ -5864,6 +5928,11 @@ export interface components {
             /** Mentioned At */
             mentioned_at: string | null;
             provenance: components["schemas"]["atlas__research__provenance__Citation"];
+            scores?: components["schemas"]["RecallScores"] | null;
+            /** Entities */
+            entities?: components["schemas"]["RecalledEntity"][];
+            /** Chunk Id */
+            chunk_id?: string | null;
         };
         /** ReflectAccepted */
         ReflectAccepted: {
@@ -6267,6 +6336,11 @@ export interface components {
             /** Mentioned At */
             mentioned_at: string | null;
             provenance: components["schemas"]["atlas__research__provenance__Citation"];
+            scores?: components["schemas"]["RecallScores"] | null;
+            /** Entities */
+            entities?: components["schemas"]["RecalledEntity"][];
+            /** Chunk Id */
+            chunk_id?: string | null;
             /** Document Id */
             document_id: string | null;
             /** Source Version Id */

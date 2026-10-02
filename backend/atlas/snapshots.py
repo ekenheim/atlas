@@ -14,7 +14,9 @@ version was built from, frozen in the transaction that publishes it.
   The investigation's **reading pointers** (`reading_pointers`; snapshots written before
   memory-directed reading have none) are what Memory returned to the Scout's recalls and to
   the Skeptic's (`query_kind` `bear_checklist`, with the checklist item and the company
-  asked about; ticket 07), each memory's text as returned with the section it resolved to:
+  asked about; ticket 07), each memory's text as returned with the section it resolved to,
+  the recall's final score and the memory's entity names (memory-quality ticket 07; null in
+  pointers recorded before it):
   an index of where to read, sent to no role. Memory only chose which windows of Source
   Versions the Investigators and the Skeptic read, so those choices are listed and the text
   the model saw is in the Source Versions: `pointer_selections`, the Investigators'
@@ -320,7 +322,7 @@ def build_snapshot(
         " p.memory_id, p.memory_type, p.memory_text, p.source_version_id, p.section_anchor,"
         " p.section_heading, p.section_char_start, p.section_char_end, p.company_id,"
         " p.available_at, p.citation_state, p.created_at, p.query_kind, p.checklist_item,"
-        " p.query_company_id FROM reading_pointer p"
+        " p.query_company_id, p.score, p.entity_names FROM reading_pointer p"
         " JOIN investigation_task t ON t.id = p.task_id"
         " WHERE p.investigation_id = ANY(CAST(:ids AS uuid[]))"
         " ORDER BY p.round, t.position, p.query_index, p.rank, p.source_version_id,"

@@ -17,10 +17,10 @@ Migration revision `0063` (down: main's head).
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the investigation seam: the Scout's recalls are sent with the setting's `max_tokens`, `budget` high, `prefer_observations` and the as-of time as `query_timestamp`; the pointers carry score and entities; the read returns them.
-- [ ] An observation in a recall resolves to its sections without a per-memory request when its sources are in the answer, and with one when the answer was truncated (the fake counts requests).
-- [ ] The public recall with no new field behaves as before (existing tests unchanged); with them, the request and the answer carry them.
-- [ ] The pointer table still refuses UPDATE and DELETE; the snapshot test covers the new fields.
-- [ ] API client regenerated; decision entry; `AGENTS.md` line.
+- [x] Integration test at the investigation seam: the Scout's recalls are sent with the setting's `max_tokens`, `budget` high, `prefer_observations` and the as-of time as `query_timestamp`; the pointers carry score and entities; the read returns them.
+- [x] An observation in a recall resolves to its sections without a per-memory request when its sources are in the answer, and with one when the answer was truncated (the fake counts requests).
+- [x] The public recall with no new field behaves as before (existing tests unchanged); with them, the request and the answer carry them.
+- [x] The pointer table still refuses UPDATE and DELETE; the snapshot test covers the new fields.
+- [x] API client regenerated; decision entry; `AGENTS.md` line.

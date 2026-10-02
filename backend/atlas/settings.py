@@ -133,6 +133,9 @@ class Settings(BaseSettings):
     # took, pointer and search windows in turn (atlas.claims.selection); the standalone
     # `extract_claims` job and the Skeptic use investigator_max_passages.
     investigation_max_passages: int = Field(default=24, gt=0)
+    # The text budget, in tokens, of each pointer recall (the Scout's and the Skeptic's; memory-
+    # quality ticket 07): more distinct sections per recall than Hindsight's default 4096.
+    pointer_recall_max_tokens: int = Field(default=8192, ge=1, le=65536)
     # Retention: how long one poll job waits for a retain operation to reach a terminal
     # status (keep it below job_lease_seconds), and how often it asks. A poll that times out
     # fails its attempt and is retried, up to retain_poll_attempts.

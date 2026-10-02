@@ -5,7 +5,10 @@ by hop, to a section of an archived Source Version:
 
 - an **observation** is followed through its `source_memory_ids` to the facts it was
   consolidated from (Hindsight 0.10.1 gives observations no `document_id`; the feature
-  matrix's two-hop path)
+  matrix's two-hop path). A recall asked with `include.source_facts` (0.10.2) carries an
+  observation's source IDs and its source facts in the same answer, and they are used
+  as they are; a source the answer lists but leaves out is asked for, so the states are
+  the same either way (memory-quality ticket 07)
 - a **world fact** maps via its `document_id` (`srcv:<source_version_uuid>:<anchor>`,
   ADR-0001) to the ledger's `memory_document` row, and its `metadata.source_version_id` (and
   `metadata.section_anchor`) must agree with that row
@@ -34,7 +37,7 @@ from pydantic import BaseModel
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive
-from atlas.hindsight import CitedMemory, HindsightGateway, HindsightNotFound, Memory
+from atlas.hindsight import CitedMemory, HindsightGateway, HindsightNotFound, Memory, RecallResult
 from atlas.research.quotes import extract_quotes, find_quote
 
 type CitationState = Literal["resolved", "unverified", "broken"]
@@ -207,8 +210,17 @@ class ProvenanceResolver:
         self._parsed: dict[uuid.UUID, str | None] = {}
         self._uris: dict[uuid.UUID, str | None] = {}
 
-    def resolve_recalled(self, memory: Memory) -> Citation:
-        """A recalled memory's provenance (the recall result carries a fact's document)."""
+    def resolve_recalled(self, memory: Memory, answer: RecallResult | None = None) -> Citation:
+        """A recalled memory's provenance (the recall result carries a fact's document).
+
+        With `answer`, the recall it came from: an observation's sources that the answer
+        carries (`include.source_facts`) are taken from it, so the observation resolves with
+        no request of its own; a source it lists but leaves out (the answer's
+        `source_facts_truncated`, or a source that no longer exists) is asked for as before,
+        so every citation state is the one the per-memory requests would give."""
+        if answer is not None:
+            for fact_id, fact in answer.source_facts.items():
+                self._memories.setdefault(fact_id, fact)
         outcome = self._resolve(memory, depth=0)
         return _citation("memory", outcome, memory.id, memory.type, memory.text)
 

@@ -21,7 +21,7 @@ from typing import Any, Self
 
 from jsonschema.exceptions import SchemaError, ValidationError
 from jsonschema.validators import validator_for
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, model_validator
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive
@@ -29,8 +29,12 @@ from atlas.audit import Actor, AuditEvent, content_hash, record
 from atlas.companies import Universe
 from atlas.hindsight import (
     Budget,
+    FactType,
     HindsightGateway,
     HindsightRuleViolation,
+    Memory,
+    RecallResult,
+    RecallScores,
     ReflectAnswer,
     TagMatch,
     TagScope,
@@ -86,11 +90,44 @@ class AppliedScope(BaseModel):
 
 
 class RecallRequest(BaseModel):
+    """A scoped recall. The reading-index fields (memory-quality ticket 07; Hindsight 0.10.2)
+    are optional: without them the recall is what it always was."""
+
     model_config = ConfigDict(extra="forbid")
 
     query: str = Field(min_length=1, max_length=4000)
     scope: ResearchScope
     budget: Budget = "mid"
+    max_tokens: int | None = Field(
+        default=None,
+        ge=1,
+        le=65536,
+        description="the results' text budget in tokens (Hindsight's default: 4096)",
+    )
+    types: list[FactType] | None = Field(
+        default=None, min_length=1, description="the fact types to recall (default: all)"
+    )
+    prefer_observations: bool | None = Field(
+        default=None,
+        description="an observation in the results replaces the facts it was built from",
+    )
+    query_timestamp: AwareDatetime | None = Field(
+        default=None,
+        description="recency is judged from this time (it ranks; it does not filter)",
+    )
+    include_source_facts: bool = Field(
+        default=False,
+        description="each observation's source facts in the same answer, so its provenance"
+        " needs no request per observation",
+    )
+
+
+class RecalledEntity(BaseModel):
+    """An entity a recalled memory names: its canonical name, and its ID when the answer's
+    entity map has it."""
+
+    name: str
+    entity_id: str | None
 
 
 class RecalledMemory(BaseModel):
@@ -103,6 +140,11 @@ class RecalledMemory(BaseModel):
     occurred_end: datetime | None
     mentioned_at: datetime | None
     provenance: Citation
+    # How Hindsight ranked it in this recall (relative to this recall only), the entities it
+    # names and the chunk it was extracted from (memory-quality ticket 07).
+    scores: RecallScores | None = None
+    entities: list[RecalledEntity] = Field(default_factory=list[RecalledEntity])
+    chunk_id: str | None = None
 
 
 class RecallResponse(BaseModel):
@@ -111,6 +153,31 @@ class RecallResponse(BaseModel):
     memories: list[RecalledMemory]
     counts: dict[CitationState, int]  # memories by provenance state
     evidence: list[Evidence]  # the sections behind resolved memories only
+    # Asked for source facts: whether Hindsight's budget cut them short (the observations
+    # whose sources were left out were resolved by asking for them); None otherwise.
+    source_facts_truncated: bool | None = None
+
+
+def recalled_memory(
+    memory: Memory, answer: RecallResult, resolver: ProvenanceResolver
+) -> RecalledMemory:
+    """A memory of a recall answer, its provenance resolved with the answer's source facts."""
+    return RecalledMemory(
+        memory_id=memory.id,
+        type=memory.type,
+        text=memory.text,
+        context=memory.context,
+        tags=memory.tags,
+        occurred_start=memory.occurred_start,
+        occurred_end=memory.occurred_end,
+        mentioned_at=memory.mentioned_at,
+        provenance=resolver.resolve_recalled(memory, answer),
+        scores=memory.scores,
+        entities=[
+            RecalledEntity(name=name, entity_id=answer.entity_id(name)) for name in memory.entities
+        ],
+        chunk_id=memory.chunk_id,
+    )
 
 
 class ReflectRequest(BaseModel):
@@ -179,23 +246,17 @@ class Research:
     def recall(self, request: RecallRequest) -> RecallResponse:
         scope = self.apply_scope(request.scope)
         result = self._gateway.recall(
-            request.query, scope=TagScope(scope.tags, scope.tags_match), budget=request.budget
+            request.query,
+            scope=TagScope(scope.tags, scope.tags_match),
+            budget=request.budget,
+            max_tokens=request.max_tokens,
+            types=request.types,
+            prefer_observations=request.prefer_observations,
+            query_timestamp=request.query_timestamp,
+            include_source_facts=request.include_source_facts,
         )
         resolver = ProvenanceResolver(self._engine, self._archive, self._gateway)
-        memories = [
-            RecalledMemory(
-                memory_id=memory.id,
-                type=memory.type,
-                text=memory.text,
-                context=memory.context,
-                tags=memory.tags,
-                occurred_start=memory.occurred_start,
-                occurred_end=memory.occurred_end,
-                mentioned_at=memory.mentioned_at,
-                provenance=resolver.resolve_recalled(memory),
-            )
-            for memory in result.memories
-        ]
+        memories = [recalled_memory(memory, result, resolver) for memory in result.memories]
         provenance = [memory.provenance for memory in memories]
         return RecallResponse(
             query=request.query,
@@ -203,6 +264,7 @@ class Research:
             memories=memories,
             counts=state_counts(provenance),
             evidence=evidence_from(provenance),
+            source_facts_truncated=result.source_facts_truncated,
         )
 
     # --- reflect -------------------------------------------------------------------------------
