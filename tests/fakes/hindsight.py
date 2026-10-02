@@ -42,6 +42,18 @@ Derived behaviours (each serves a recorded response with only the named fields c
   OpenAI-style error LiteLLM returns for a 429 or 503, as quoted in Atlas's tests; it has not
   been checked against a real Hindsight failure. `times` limits a retain hold to the first
   matching batches, so a resubmitted batch is served as recorded.
+- **Per-document states after a failed or cancelled retain** (memory-quality ticket 03; what
+  a real failed or cancelled operation leaves stored was never recorded): a batch held
+  `failed` or `cancelled` stores only the documents `hold_retains(..., stored=...)` matches
+  (default none). A document it did not store, and no earlier batch stored, is absent:
+  reading it answers HTTP 404 with a **hand-written** body `{"detail": "Document not found"}`
+  (only the status is relied on), and it has no fact. A document an earlier batch stored
+  stays as it was. A `cancelled` hold serves the recorded final status with only `status`
+  changed to `cancelled` (and `error_message` if given), as any held status.
+- `report_extraction_errors(count, where=..., times=...)` (an extraction error was never
+  recorded): a matching derived retain operation's final status serves
+  `retain/05-batch-final` with only `result_metadata.extraction_errors_count` (recorded `0`)
+  also changed, to `count`. Its documents are stored as usual.
 - `derive_memories` (implies `derive_retains`): the recorded memories belong to the synthetic
   documents, so none can point at an Atlas section. With it on, each derived document (except
   zero-fact ones) holds one **world fact**, `derived_fact(document_id)`. Reading it serves
@@ -150,10 +162,6 @@ responses are built from the documented examples in the pinned OpenAPI schema, k
   `canonical_name` and `mention_count` changed), `total`, `limit` and `offset` changed.
 - `fail_listings(status)`: both listings answer HTTP `status` with the hand-written body
   `{"detail": "listing failed (scripted by the test)"}` (only the status is relied on).
-- `report_extraction_errors(where, count)` (needs `derive_retains`; a partial extraction was
-  never recorded): a derived retain operation whose batch's document IDs match reports
-  `result_metadata.extraction_errors_count` = `count` instead of the recorded 0, nothing else
-  changed.
 """
 
 import copy
@@ -320,6 +328,19 @@ class _RetainHold:
     where: Callable[[Sequence[str]], bool]
     error_message: str | None = None
     times: int | None = None  # None: every matching batch
+    # For a batch held `failed` or `cancelled`: the documents it stored anyway (None: none).
+    stored: Callable[[str], bool] | None = None
+
+
+@dataclass
+class _ExtractionErrors:
+    count: int
+    where: Callable[[Sequence[str]], bool]
+    times: int | None = None  # None: every matching batch
+
+
+# Held statuses under which a derived batch stores only the documents its hold names.
+_UNSTORED_STATUSES = frozenset({"failed", "cancelled"})
 
 
 @dataclass
@@ -378,6 +399,13 @@ class RecordedHindsight:
     )
     _zero_facts: Callable[[str], bool] = field(init=False, default_factory=lambda: _never)
     _retain_holds: list[_RetainHold] = field(init=False, default_factory=list[_RetainHold])
+    # bank -> the derived documents a failed or cancelled batch did not store (they answer 404)
+    _absent: dict[str, set[str]] = field(init=False, default_factory=dict[str, set[str]])
+    _extraction_errors: list[_ExtractionErrors] = field(
+        init=False, default_factory=list[_ExtractionErrors]
+    )
+    # derived operation ID -> its extraction_errors_count
+    _operation_errors: dict[str, int] = field(init=False, default_factory=dict[str, int])
     _submissions: dict[str, int] = field(init=False, default_factory=dict[str, int])
     _derive_memories: bool = field(init=False, default=False)
     # observation ID -> (its bank, its source fact IDs)
@@ -406,10 +434,6 @@ class RecordedHindsight:
     _scopes: list[dict[str, JsonValue]] | None = field(init=False, default=None)
     _entities: list[tuple[str, int]] | None = field(init=False, default=None)
     _listing_failure: int | None = field(init=False, default=None)
-    _extraction_errors: list[tuple[Callable[[Sequence[str]], bool], int]] = field(
-        init=False, default_factory=list[tuple[Callable[[Sequence[str]], bool], int]]
-    )
-    _operation_errors: dict[str, int] = field(init=False, default_factory=dict[str, int])
 
     def __post_init__(self) -> None:
         self._replies = defaultdict(deque)
@@ -456,10 +480,19 @@ class RecordedHindsight:
         polls: int | None = None,
         error_message: str | None = None,
         times: int | None = None,
+        stored: Callable[[str], bool] | None = None,
     ) -> None:
         """`hold_operation` for each later derived retain whose batch's document IDs match
-        (only the first `times` such batches, if given)."""
-        self._retain_holds.append(_RetainHold(status, polls, where, error_message, times))
+        (only the first `times` such batches, if given). A batch held `failed` or `cancelled`
+        stores only the documents `stored` matches (None: none); the others answer 404."""
+        self._retain_holds.append(_RetainHold(status, polls, where, error_message, times, stored))
+
+    def report_extraction_errors(
+        self, count: int, *, where: Callable[[Sequence[str]], bool], times: int | None = None
+    ) -> None:
+        """Each later derived retain operation whose batch's document IDs match (only the first
+        `times`, if given) reports `extraction_errors_count` = `count` (derived)."""
+        self._extraction_errors.append(_ExtractionErrors(count, where, times))
 
     def derive_memories(self) -> None:
         """One world fact per derived document, observations, and strict recalls (derived)."""
@@ -484,7 +517,8 @@ class RecordedHindsight:
 
     def bank_documents(self, bank: str) -> list[str]:
         """The document IDs retained into `bank` through the fake (none once it's deleted)."""
-        return list(self._derived_documents.get(bank, {}))
+        absent = self._absent.get(bank, set())
+        return [d for d in self._derived_documents.get(bank, {}) if d not in absent]
 
     def bank_facts(self, bank: str) -> list[str]:
         """The IDs of the derived world facts that exist in `bank` now, in retain order."""
@@ -574,10 +608,6 @@ class RecordedHindsight:
     def fail_listings(self, status: int) -> None:
         """Answer HTTP `status` to the scopes and entity listings (hand-written)."""
         self._listing_failure = status
-
-    def report_extraction_errors(self, where: Callable[[Sequence[str]], bool], count: int) -> None:
-        """Later derived retains whose batch matches report `count` extraction errors."""
-        self._extraction_errors.append((where, count))
 
     def refreshes_requested(self) -> list[str]:
         """The mental-model IDs of every refresh request received, in order."""
@@ -703,22 +733,40 @@ class RecordedHindsight:
         repeat = self._submissions.get(key, 0)
         self._submissions[key] = repeat + 1
         operation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, key if not repeat else f"{key}#{repeat}"))
-        document_ids: list[str] = []
-        for item in cast(list[dict[str, JsonValue]], items):
-            document_id = str(item["document_id"])
-            document_ids.append(document_id)
-            self._derived_documents.setdefault(bank, {})[document_id] = item
-            self._known_memories.add(_fact_id(bank, document_id))
-            self._memory_writes += 1
-        self._derived_operations.add(operation_id)
+        batch = cast(list[dict[str, JsonValue]], items)
+        document_ids = [str(item["document_id"]) for item in batch]
+        held: _RetainHold | None = None
         for hold in self._retain_holds:
             if hold.times != 0 and hold.where(document_ids):
                 self.hold_operation(operation_id, hold.status, hold.polls, hold.error_message)
+                held = hold
                 if hold.times is not None:
                     hold.times -= 1
-        for where, count in self._extraction_errors:
-            if where(document_ids):
-                self._operation_errors[operation_id] = count
+        for errors in self._extraction_errors:
+            if errors.times != 0 and errors.where(document_ids):
+                self._operation_errors[operation_id] = errors.count
+                if errors.times is not None:
+                    errors.times -= 1
+        documents = self._derived_documents.setdefault(bank, {})
+        absent = self._absent.setdefault(bank, set())
+        for document_id, item in zip(document_ids, batch, strict=True):
+            unstored = (
+                held is not None
+                and held.status in _UNSTORED_STATUSES
+                and not (held.stored is not None and held.stored(document_id))
+            )
+            if unstored:
+                # A failed or cancelled batch leaves a document an earlier batch stored as it
+                # was; one it never stored is absent.
+                if document_id not in documents or document_id in absent:
+                    documents[document_id] = item
+                    absent.add(document_id)
+                continue
+            documents[document_id] = item
+            absent.discard(document_id)
+            self._known_memories.add(_fact_id(bank, document_id))
+            self._memory_writes += 1
+        self._derived_operations.add(operation_id)
         recording = self.recording(DERIVED_RETAIN)
         response = copy.deepcopy(recording.response_object())
         response |= {"bank_id": bank, "items_count": len(items), "operation_id": operation_id}
@@ -736,6 +784,9 @@ class RecordedHindsight:
         return httpx2.Response(recording.status, json=self._apply_hold(response))
 
     def _derived_document(self, bank: str, document_id: str) -> httpx2.Response:
+        if document_id in self._absent.get(bank, set()):
+            self.served.append("documents/<id> 404 (derived, hand-written body)")
+            return httpx2.Response(404, json={"detail": "Document not found"})
         item = self._derived_documents[bank][document_id]
         recording = self.recording(DERIVED_DOCUMENT)
         response = copy.deepcopy(recording.response_object())
@@ -777,9 +828,10 @@ class RecordedHindsight:
     def _facts(self, bank: str) -> dict[str, dict[str, JsonValue]]:
         """The derived world facts that exist now, by ID, in retain order."""
         facts: dict[str, dict[str, JsonValue]] = {}
+        absent = self._absent.get(bank, set())
         for document_id, item in self._derived_documents.get(bank, {}).items():
             fact_id = _fact_id(bank, document_id)
-            if self._zero_facts(document_id) or fact_id in self._forgotten:
+            if self._zero_facts(document_id) or fact_id in self._forgotten or document_id in absent:
                 continue
             facts[fact_id] = {
                 "id": fact_id,
@@ -1011,7 +1063,8 @@ class RecordedHindsight:
         return httpx2.Response(recording.status, json=self._apply_hold(response))
 
     def _deleted_bank(self, bank: str) -> httpx2.Response:
-        documents = self._derived_documents.pop(bank, {})
+        absent = self._absent.pop(bank, set())
+        documents = [d for d in self._derived_documents.pop(bank, {}) if d not in absent]
         for observation_id in [o for o in self._observations if self._in_bank(o, bank)]:
             del self._observations[observation_id]
         self.deleted_banks.append(bank)

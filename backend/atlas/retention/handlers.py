@@ -121,6 +121,7 @@ def _retention(settings: Settings) -> Generator[Retention]:
                 poll_timeout=settings.retain_poll_timeout_seconds,
                 poll_interval=settings.retain_poll_interval_seconds,
                 poll_attempts=settings.retain_poll_attempts,
+                transient_retries=settings.retain_transient_retries,
             ),
             triage=settings.triage_enabled(),
             extractor=settings.retain_extractor,

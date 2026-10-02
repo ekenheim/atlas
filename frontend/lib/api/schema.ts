@@ -4792,7 +4792,7 @@ export interface components {
              * Retain State
              * @enum {string}
              */
-            retain_state: "pending" | "completed" | "failed" | "zero_fact" | "linked";
+            retain_state: "pending" | "completed" | "failed" | "zero_fact" | "linked" | "cancelled";
             /** Fact Count */
             fact_count: number | null;
             /** Memory Ids */
@@ -4809,6 +4809,14 @@ export interface components {
             linked_to_source_version_id: string | null;
             /** Error */
             error: string | null;
+            /** Error Class */
+            error_class: ("cancelled" | "permanent" | "transient" | "missing") | null;
+            /** Transient Retries */
+            transient_retries: number;
+            /** Extraction Errors */
+            extraction_errors: number | null;
+            /** Partial */
+            partial: boolean;
             /**
              * Created At
              * Format: date-time
@@ -4855,7 +4863,7 @@ export interface components {
             /** Error Message */
             error_message: string | null;
             /** Error Class */
-            error_class: ("quota" | "unavailable" | "permanent") | null;
+            error_class: ("quota" | "unavailable" | "transient" | "cancelled" | "permanent") | null;
             /** Retry Count */
             retry_count: number;
             /** Document Ids */
@@ -7254,6 +7262,8 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+            /** Partial */
+            partial: number;
             /** Fact Count */
             fact_count: number;
             /** Documents */

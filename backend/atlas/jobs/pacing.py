@@ -104,6 +104,22 @@ def classify_error_text(text: str | None) -> FailureClass | None:
     return None
 
 
+# Error text that marks a transient failure inside a retain operation (memory-quality ticket
+# 03): a timeout, or a server error relayed from LiteLLM or the model (HTTP 5xx, "internal
+# server error"). It says nothing certain about the sections, so they are resubmitted a
+# bounded number of times; quota and outage texts are matched first (`classify_error_text`).
+_TRANSIENT = re.compile(
+    r"time[ _-]?d?[ _-]?out|(?:error code|status(?: code)?|http)\W{0,3}5\d\d\b"
+    r"|internal[ _-]?server[ _-]?error|server[ _-]?error",
+    re.IGNORECASE,
+)
+
+
+def is_transient_error_text(text: str | None) -> bool:
+    """A timeout or a relayed server error (not a quota or an outage: see `classify_error_text`)."""
+    return bool(text) and _TRANSIENT.search(text or "") is not None
+
+
 def classify_status(status_code: int) -> FailureClass | None:
     if status_code == 429:
         return "quota"

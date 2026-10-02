@@ -27,8 +27,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from atlas.jobs import JobQueue
 from atlas.retention.triage import LATEST_TRIAGE_JOBS
 
-# Final retain states of a section: they never change again.
-_FINAL_SECTION_STATES = ("completed", "zero_fact", "failed", "linked")
+# Final retain states of a section: they change again only by the owner's `retry-failed`
+# (failed and cancelled sections). `cancelled` is not a failure (memory-quality ticket 03).
+_FINAL_SECTION_STATES = ("completed", "zero_fact", "failed", "cancelled", "linked")
 _FETCH_OUTCOMES = ("new_version", "unchanged", "not_modified")
 _PARSE_STATUSES = ("parsed", "incomplete", "failed", "unsupported", "not_applicable")
 # Seconds; a reflect is a job, so its latency includes the wait in the queue.
@@ -359,6 +360,32 @@ class StateCollector(Collector):
         )
         pending.add_metric([], counts.get("pending", 0))
         yield pending
+        # Memory-quality ticket 03: why sections are not in memory, and partial extractions.
+        not_in_memory = GaugeMetricFamily(
+            "atlas_sections_not_in_memory",
+            "Failed and cancelled sections, by retain state and error class",
+            labels=["state", "error_class"],
+        )
+        partial = 0
+        for state, error_class, errors, count in connection.execute(
+            text(
+                "SELECT retain_state, coalesce(error_class, 'none'),"
+                " coalesce(extraction_errors, 0) > 0, count(*) FROM memory_document"
+                " WHERE retain_state IN ('failed', 'cancelled', 'completed')"
+                " GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"
+            )
+        ).all():
+            if state == "completed":
+                partial += count if errors else 0
+            else:
+                not_in_memory.add_metric([state, error_class], count)
+        yield not_in_memory
+        partial_sections = GaugeMetricFamily(
+            "atlas_partial_sections",
+            "Completed sections whose extraction still reported errors after their one retry",
+        )
+        partial_sections.add_metric([], partial)
+        yield partial_sections
 
     def _triage(self, connection: Connection) -> Iterator[Metric]:
         """Retention triage (ticket 30): sections by effective decision and value category,

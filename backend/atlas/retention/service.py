@@ -14,17 +14,26 @@ Three jobs carry a Source Version into the research bank:
    decided yet is handed to a `triage` job first, and only the sections decided `retain`
    are recorded and submitted; a section retained on demand later is recorded and
    submitted by the next retain (triage on or off). With triage off, every section is.
-2. `poll_operation` (`{"operation_id"}`) waits for the operation's `status` (the only basis
-   for an outcome) with a timeout. A timeout fails the attempt, so it is retried. A failed
-   operation's error is classified (`error_class`): a `permanent` one marks its sections
-   `failed` with the error; a `quota` or `unavailable` one (a 429 or outage behind Hindsight)
-   leaves them `pending` and raises `TransientFailure`, so the queue pauses and this job is
-   requeued; once the pause lifts, its next attempt resubmits the same sections as a new
-   batch under the same document IDs (never another model). On completion it counts each
-   section's memories and records their IDs (the memory list, by document): sections with
-   facts are `completed`; a zero-fact section that was never reprocessed gets a `reprocess`
-   job; one that was is `zero_fact`.
-3. `reprocess` (`{"operation_id"}`) re-retains that operation's zero-fact sections once, as
+2. `poll_operation` (`{"operation_id"}`) waits for the operation to end, with a timeout. A
+   timeout fails the attempt, so it is retried. Once it has ended, **whatever its status**,
+   each pending section's outcome is read from its own Hindsight document (memory-quality
+   ticket 03): stored with facts is `completed` (its memory IDs listed and recorded), stored
+   with none gets a `reprocess` job and is `zero_fact` after it, and absent depends on the
+   operation (`retain_error_class`):
+   - completed: `failed`, class `missing`;
+   - `cancelled` (the owner cancelled it): `cancelled`, a state of its own, not a failure;
+   - `permanent`: `failed` with the error, class `permanent`;
+   - `quota` or `unavailable` (a 429 or outage behind Hindsight): left `pending`, and the job
+     raises `TransientFailure`, so the queue pauses and this job is requeued; once the pause
+     lifts, its next attempt resubmits the same sections as a new batch under the same
+     document IDs (never another model);
+   - `transient` (a timeout or a relayed server error): the same, but a section is
+     resubmitted at most `transient_retries` times, then `failed` with class `transient`.
+   A section stored with facts whose operation reported extraction errors
+   (`result_metadata.extraction_errors_count`) is retried once, as a reprocess; if the
+   errors persist it is completed with the count kept: **partial**.
+3. `reprocess` (`{"operation_id"}`) re-retains that operation's zero-fact sections (and the
+   sections with extraction errors) once, as
    one batch under the same document IDs, and polls the new operation. Hindsight 0.10.1 has a
    `documents/{id}/reprocess` route, but no interaction with it is recorded, so Atlas re-retains
    (re-retaining an ID replaces only that document's own, empty, extraction).
@@ -39,7 +48,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal, cast
+from typing import Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
@@ -56,9 +65,16 @@ from atlas.hindsight import (
     RetainItem,
 )
 from atlas.jobs.budget import RetainExtractor
-from atlas.jobs.pacing import FailureClass, JobClass, TransientFailure, classify_error_text
+from atlas.jobs.pacing import (
+    FailureClass,
+    JobClass,
+    TransientFailure,
+    classify_error_text,
+    is_transient_error_text,
+)
 from atlas.jobs.queue import Artifacts, JobQueue
 from atlas.retention.decisions import effective_decisions
+from atlas.retention.reads import SectionErrorClass
 from atlas.retention.sections import SECTIONER_VERSION, Section, split_sections
 from atlas.sources import keep_8k_document
 
@@ -95,6 +111,8 @@ class RetainTimings:
     poll_timeout: float
     poll_interval: float
     poll_attempts: int
+    # Resubmissions of a section after transient failures before it is failed (ticket 03).
+    transient_retries: int = 3
 
 
 def enqueue_retains(
@@ -178,21 +196,26 @@ def retry_failed(
     job_class: JobClass = "interactive",
     eight_k_items: Sequence[str] | None = None,
     exhibits_only_items: Sequence[str] = (),
+    error_classes: Sequence[str] | None = None,
+    company_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """Reset the failed sections of Source Versions available after `since` (None: all) to
-    `pending`, and enqueue a new retain for each such version, which resubmits them.
+    """Reset the failed and cancelled sections of Source Versions available after `since`
+    (None: all) to `pending`, and enqueue a new retain for each such version, which
+    resubmits them.
 
-    The ingest's 8-K selection applies here too (`keep_8k_document`), so documents a current
-    ingest would not fetch are not resubmitted. A failed operation stays recorded; each
-    section's reset is audited. Resubmitting the same content under the same document ID is
-    allowed (ADR-0001, amendment).
+    `error_classes` (None: every class) keeps only the sections of those classes
+    (`SECTION_ERROR_CLASSES`: a cancelled section's class is `cancelled`); `company_id` only
+    that company's Source Versions. The ingest's 8-K selection applies here too
+    (`keep_8k_document`), so documents a current ingest would not fetch are not resubmitted.
+    A failed operation stays recorded; each section's reset is audited. Resubmitting the same
+    content under the same document ID is allowed (ADR-0001, amendment).
     """
     stamp = datetime.now().astimezone().strftime("%Y%m%dT%H%M%S%f")
     with engine.begin() as connection:
         failed = (
             connection.execute(
                 text(
-                    "SELECT m.id, m.source_version_id, m.hindsight_document_id,"
+                    "SELECT m.id, m.source_version_id, m.hindsight_document_id, m.error_class,"
                     " v.metadata, d.document_type, d.form_type, d.accession,"
                     " EXISTS (SELECT 1 FROM source_document x WHERE x.accession = d.accession"
                     "   AND x.document_type LIKE 'EX-%') AS has_exhibits"
@@ -200,10 +223,18 @@ def retry_failed(
                     " JOIN source_version v ON v.id = m.source_version_id"
                     " JOIN source_version_availability a ON a.source_version_id = v.id"
                     " JOIN source_document d ON d.id = v.source_document_id"
-                    " WHERE m.retain_state = 'failed'"
+                    " WHERE m.retain_state IN ('failed', 'cancelled')"
                     " AND (CAST(:since AS timestamptz) IS NULL OR a.available_at >= :since)"
+                    " AND (CAST(:classes AS text[]) IS NULL"
+                    "   OR m.error_class = ANY(CAST(:classes AS text[])))"
+                    " AND (CAST(:company AS uuid) IS NULL OR d.company_id = :company)"
+                    " ORDER BY a.available_at, m.source_version_id, m.char_start"
                 ),
-                {"since": since},
+                {
+                    "since": since,
+                    "classes": list(error_classes) if error_classes is not None else None,
+                    "company": company_id,
+                },
             )
             .mappings()
             .all()
@@ -228,7 +259,9 @@ def retry_failed(
             connection.execute(
                 text(
                     "UPDATE memory_document SET retain_state = 'pending', operation_id = NULL,"
-                    " error = NULL WHERE id = :id AND retain_state = 'failed'"
+                    " error = NULL, error_class = NULL, transient_retries = 0,"
+                    " updated_at = now()"
+                    " WHERE id = :id AND retain_state IN ('failed', 'cancelled')"
                 ),
                 {"id": row["id"]},
             )
@@ -246,8 +279,12 @@ def retry_failed(
     jobs = enqueue_retains(
         engine, versions, job_class=job_class, actor=actor, key_suffix=f":retry:{stamp}"
     )
+    by_class: dict[str, int] = {}
+    for row in chosen:
+        by_class[row["error_class"]] = by_class.get(row["error_class"], 0) + 1
     return {
         "sections": len(chosen),
+        "by_error_class": dict(sorted(by_class.items())),
         "source_versions": len(versions),
         "skipped_by_selection": skipped,
         "retain_jobs": jobs,
@@ -546,7 +583,7 @@ class Retention:
                 " JOIN source_version v ON v.id = m.source_version_id"
                 " WHERE v.raw_sha256 = :sha AND m.bank_id = :bank AND v.id <> :version"
                 " GROUP BY m.source_version_id"
-                " HAVING bool_and(m.retain_state NOT IN ('linked', 'failed'))"
+                " HAVING bool_and(m.retain_state NOT IN ('linked', 'failed', 'cancelled'))"
                 " ORDER BY min(m.created_at), m.source_version_id LIMIT 1"
             ),
             {"sha": version.raw_sha256, "bank": self.bank_id, "version": version.id},
@@ -734,7 +771,7 @@ class Retention:
                     connection,
                     row["id"],
                     "operation_id = :operation, reprocess_count = :reprocess, fact_count = NULL,"
-                    " memory_ids = NULL, extractor = :extractor",
+                    " memory_ids = NULL, extraction_errors = NULL, extractor = :extractor",
                     {
                         "operation": operation_id,
                         "reprocess": row["reprocess_count"] + bump,
@@ -794,7 +831,10 @@ class Retention:
             return base | self._resubmit(recorded)
         if recorded["completed_at"] is not None:
             # Recorded by an earlier attempt; make sure its zero-fact sections were handed on.
-            awaiting = [row for row in self._pending_rows(operation_id) if row["fact_count"] == 0]
+            # (zero-fact sections, and sections with facts awaiting their extraction-error retry)
+            awaiting = [
+                row for row in self._pending_rows(operation_id) if row["fact_count"] is not None
+            ]
             reprocess_job = self._enqueue_reprocess(operation_id) if awaiting else None
             return base | {
                 "outcome": "already_recorded",
@@ -819,85 +859,186 @@ class Retention:
             raise
 
         rows = self._pending_rows(operation_id)
-        if not operation.succeeded:
-            error = operation.error_message or (
-                f"Hindsight reported the operation {operation.status} with no error message"
-            )
-            error_class = operation_error_class(operation)
-            if error_class != "permanent":
-                with self._engine.begin() as connection:
-                    self._record_terminal(connection, operation, error_class)
-                raise TransientFailure(
-                    error_class,
-                    f"Hindsight operation {operation_id} {operation.status}"
-                    f" ({error_class}): {error}",
-                )
-            with self._engine.begin() as connection:
-                self._record_terminal(connection, operation, error_class)
-                for row in rows:
-                    self._change(
-                        connection,
-                        row["id"],
-                        "retain_state = 'failed', error = :error",
-                        {"error": error},
-                        expect="retain_state = 'pending' AND operation_id = :operation",
-                        expect_params={"operation": operation_id},
-                        action="memory_document.failed",
-                    )
-            return base | {"outcome": operation.status, "error": error, "failed": len(rows)}
-
-        counts: dict[uuid.UUID, int | None] = {}
-        memory_ids: dict[uuid.UUID, list[str]] = {}
-        for row in rows:
-            document = row["hindsight_document_id"]
-            try:
-                counts[row["id"]] = self._gateway.get_document(document).memory_unit_count
-            except HindsightNotFound:
-                counts[row["id"]] = None
-                continue
-            # The memories returned for the section (story 10), so provenance never depends
-            # on Hindsight alone.
-            memory_ids[row["id"]] = (
-                [memory.id for memory in self._gateway.document_memories(document)]
-                if counts[row["id"]]
-                else []
-            )
-        tally = {"completed": 0, "reprocess": 0, "zero_fact": 0, "failed": 0}
+        error_class = None if operation.succeeded else retain_error_class(operation)
+        # Whatever the operation's end state, each pending section's outcome is read from its
+        # own document: an operation that failed may still have stored some of them.
+        stored = self._read_documents(rows)
+        error = operation.error_message or (
+            f"Hindsight reported the operation {operation.status} with no error message"
+        )
+        if error_class == "quota" or error_class == "unavailable" or error_class == "transient":
+            return base | self._settle_transient(operation, rows, stored, error_class, error)
+        extraction_errors = _extraction_errors(operation)
+        tally = {"completed": 0, "reprocess": 0, "zero_fact": 0, "failed": 0, "cancelled": 0}
         with self._engine.begin() as connection:
-            self._record_terminal(connection, operation)
+            self._record_terminal(connection, operation, error_class)
             for row in rows:
-                count = counts[row["id"]]
-                if count is None:
-                    state, assignments = "failed", "retain_state = 'failed', error = :error"
-                    params: dict[str, Any] = {
-                        "error": f"document {row['hindsight_document_id']} not found in"
-                        " Hindsight after its operation completed"
-                    }
-                elif count > 0:
-                    state, assignments = "completed", "retain_state = 'completed'"
-                    params = {}
-                elif row["reprocess_count"] == 0:
-                    state, assignments = "reprocess", "retain_state = 'pending'"
-                    params = {}
+                found = stored.get(row["id"])
+                if found is not None:
+                    state = self._record_stored(
+                        connection, operation_id, row, found, extraction_errors
+                    )
+                    tally[state] += 1
+                    continue
+                absent_class: SectionErrorClass
+                if error_class is None:
+                    absent_class = "missing"
+                    absent_error = (
+                        f"document {row['hindsight_document_id']} not found in Hindsight"
+                        " after its operation completed"
+                    )
                 else:
-                    state, assignments = "zero_fact", "retain_state = 'zero_fact'"
-                    params = {}
-                if count is not None:
-                    assignments += ", fact_count = :count, memory_ids = CAST(:memory_ids AS jsonb)"
-                    params["count"] = count
-                    params["memory_ids"] = json.dumps(memory_ids[row["id"]])
+                    absent_class, absent_error = error_class, error
+                state = "cancelled" if absent_class == "cancelled" else "failed"
                 tally[state] += 1
                 self._change(
                     connection,
                     row["id"],
-                    assignments,
-                    params,
+                    f"retain_state = '{state}', error = :error, error_class = :error_class",
+                    {"error": absent_error, "error_class": absent_class},
                     expect="retain_state = 'pending' AND operation_id = :operation",
                     expect_params={"operation": operation_id},
-                    action=f"memory_document.{'zero_facts' if state == 'reprocess' else state}",
+                    action=f"memory_document.{state}",
                 )
         reprocess_job = self._enqueue_reprocess(operation_id) if tally["reprocess"] else None
-        return base | {"outcome": "completed", **tally, "reprocess_job": reprocess_job}
+        result: Artifacts = {"outcome": operation.status, **tally, "reprocess_job": reprocess_job}
+        if error_class is not None:
+            result |= {"error": error, "error_class": error_class}
+        return base | result
+
+    def _read_documents(self, rows: Sequence[RowMapping]) -> dict[uuid.UUID, "_Stored"]:
+        """Each section Hindsight stored, by row: its fact count and memory IDs (the memories
+        returned for the section, story 10, so provenance never depends on Hindsight alone).
+        A section whose document is absent is not in the result."""
+        stored: dict[uuid.UUID, _Stored] = {}
+        for row in rows:
+            document = row["hindsight_document_id"]
+            try:
+                count = self._gateway.get_document(document).memory_unit_count
+            except HindsightNotFound:
+                continue
+            memory_ids = (
+                [memory.id for memory in self._gateway.document_memories(document)] if count else []
+            )
+            stored[row["id"]] = _Stored(count, memory_ids)
+        return stored
+
+    def _record_stored(
+        self,
+        connection: Connection,
+        operation_id: str,
+        row: RowMapping,
+        stored: "_Stored",
+        extraction_errors: int | None,
+    ) -> Literal["completed", "reprocess", "zero_fact"]:
+        """Record a stored section: completed with facts, unless its operation reported
+        extraction errors and it was never retried (then it waits for its one retry, a
+        `reprocess`, and after it is partial if the errors persist); without facts, a
+        reprocess first, then `zero_fact`."""
+        retried = row["reprocess_count"] > 0
+        state: Literal["completed", "reprocess", "zero_fact"]
+        if stored.count > 0 and (retried or not extraction_errors):
+            state, assignments, action = "completed", "retain_state = 'completed'", "completed"
+        elif stored.count > 0:
+            # Facts, but the extraction lost something: its one retry, then partial if it persists.
+            state, assignments = "reprocess", "retain_state = 'pending'"
+            action = "extraction_errors"
+        elif not retried:
+            state, assignments, action = "reprocess", "retain_state = 'pending'", "zero_facts"
+        else:
+            state, assignments, action = "zero_fact", "retain_state = 'zero_fact'", "zero_fact"
+        self._change(
+            connection,
+            row["id"],
+            f"{assignments}, fact_count = :count, memory_ids = CAST(:memory_ids AS jsonb),"
+            " extraction_errors = :extraction_errors",
+            {
+                "count": stored.count,
+                "memory_ids": json.dumps(stored.memory_ids),
+                "extraction_errors": extraction_errors,
+            },
+            expect="retain_state = 'pending' AND operation_id = :operation",
+            expect_params={"operation": operation_id},
+            action=f"memory_document.{action}",
+        )
+        return state
+
+    def _settle_transient(
+        self,
+        operation: Operation,
+        rows: Sequence[RowMapping],
+        stored: dict[uuid.UUID, "_Stored"],
+        error_class: "TransientClass",
+        error: str,
+    ) -> Artifacts:
+        """A quota, outage or transient failure: the sections Hindsight stored with facts are
+        completed; the rest stay pending and are resubmitted once the queue's pause lifts.
+
+        Quota and outage say nothing about the sections and are never bounded. A transient
+        error (a timeout, a relayed 5xx) could be the section's own, so a section is
+        resubmitted at most `transient_retries` times, then failed with the class `transient`.
+        """
+        operation_id = operation.operation_id
+        tally = {"completed": 0, "waiting": 0, "failed": 0}
+        with self._engine.begin() as connection:
+            self._record_terminal(connection, operation, error_class)
+            for row in rows:
+                found = stored.get(row["id"])
+                if found is not None and found.count > 0:
+                    self._change(
+                        connection,
+                        row["id"],
+                        "retain_state = 'completed', fact_count = :count,"
+                        " memory_ids = CAST(:memory_ids AS jsonb),"
+                        " extraction_errors = :extraction_errors",
+                        {
+                            "count": found.count,
+                            "memory_ids": json.dumps(found.memory_ids),
+                            "extraction_errors": _extraction_errors(operation),
+                        },
+                        expect="retain_state = 'pending' AND operation_id = :operation",
+                        expect_params={"operation": operation_id},
+                        action="memory_document.completed",
+                    )
+                    tally["completed"] += 1
+                    continue
+                if error_class != "transient":
+                    tally["waiting"] += 1
+                    continue
+                retries = row["transient_retries"] + 1
+                if retries > self._timings.transient_retries:
+                    assignments = (
+                        "retain_state = 'failed', error = :error, error_class = 'transient',"
+                        " transient_retries = :retries"
+                    )
+                    action = "memory_document.failed"
+                    tally["failed"] += 1
+                else:
+                    assignments = "transient_retries = :retries"
+                    action = "memory_document.transient_failure"
+                    tally["waiting"] += 1
+                self._change(
+                    connection,
+                    row["id"],
+                    assignments,
+                    {"error": error, "retries": retries},
+                    expect="retain_state = 'pending' AND operation_id = :operation",
+                    expect_params={"operation": operation_id},
+                    action=action,
+                )
+        if tally["waiting"]:
+            # A transient error pauses the queue as an outage does (the queue's backoff), so
+            # the resubmission waits; the operation keeps its own class.
+            raise TransientFailure(
+                "unavailable" if error_class == "transient" else error_class,
+                f"Hindsight operation {operation_id} {operation.status} ({error_class}): {error}",
+            )
+        result: Artifacts = {
+            "outcome": operation.status,
+            "error": error,
+            "error_class": error_class,
+        }
+        return result | tally
 
     def _enqueue_reprocess(self, operation_id: str) -> str:
         """Enqueue the reprocess, in the class (backfill or not) of the job that submitted."""
@@ -995,7 +1136,7 @@ class Retention:
         rows = [
             row
             for row in self._pending_rows(operation_id)
-            if row["reprocess_count"] == 0 and row["fact_count"] == 0
+            if row["reprocess_count"] == 0 and row["fact_count"] is not None
         ]
         if not rows:
             return {"operation_id": operation_id, "outcome": "nothing_to_reprocess"}
@@ -1077,7 +1218,20 @@ def document_id(source_version_id: uuid.UUID, section: Section) -> str:
     return f"srcv:{source_version_id}:{section.anchor}"
 
 
-TRANSIENT: tuple[FailureClass, ...] = ("quota", "unavailable")
+# Operation error classes whose unstored sections stay pending and are resubmitted.
+TRANSIENT: tuple[str, ...] = ("quota", "unavailable", "transient")
+TransientClass = Literal["quota", "unavailable", "transient"]
+OperationErrorClass = Literal["quota", "unavailable", "transient", "cancelled", "permanent"]
+# Why a section is not in memory (`memory_document.error_class`).
+SECTION_ERROR_CLASSES: tuple[SectionErrorClass, ...] = get_args(SectionErrorClass)
+
+
+@dataclass(frozen=True)
+class _Stored:
+    """A section's document as Hindsight stored it: its fact count and memory IDs."""
+
+    count: int
+    memory_ids: list[str]
 
 
 def operation_error_class(operation: Operation) -> FailureClass | Literal["permanent"]:
@@ -1085,15 +1239,41 @@ def operation_error_class(operation: Operation) -> FailureClass | Literal["perma
 
     `quota` (429, rate limit, insufficient quota) and `unavailable` (503, connection
     failures) are the model provider or LiteLLM failing, not the sections; anything else,
-    including a failure with no message, is `permanent`.
+    including a failure with no message, is `permanent`. (Mental-model refreshes and replays
+    classify by this; a retain operation by `retain_error_class`.)
     """
-    messages = [operation.error_message, *(c.error_message for c in operation.child_operations)]
-    found = {classify_error_text(message) for message in messages} - {None}
+    found = {classify_error_text(message) for message in _messages(operation)} - {None}
     if "quota" in found:
         return "quota"
     if "unavailable" in found:
         return "unavailable"
     return "permanent"
+
+
+def retain_error_class(operation: Operation) -> OperationErrorClass:
+    """An unsuccessful retain operation's error class (memory-quality ticket 03).
+
+    `cancelled`: Hindsight reports the operation cancelled (the owner cancelled it), whatever
+    its message. Then `quota` and `unavailable` as `operation_error_class`; `transient` is a
+    timeout or a relayed server error (`is_transient_error_text`); anything else, including a
+    failure with no message, is `permanent`.
+    """
+    if operation.status == "cancelled":
+        return "cancelled"
+    found = operation_error_class(operation)
+    if found == "permanent" and any(is_transient_error_text(m) for m in _messages(operation)):
+        return "transient"
+    return found
+
+
+def _messages(operation: Operation) -> list[str | None]:
+    return [operation.error_message, *(c.error_message for c in operation.child_operations)]
+
+
+def _extraction_errors(operation: Operation) -> int | None:
+    """The operation's `extraction_errors_count` (None when Hindsight reported none)."""
+    value = operation.result_metadata.get("extraction_errors_count")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def _retainable(row: RowMapping) -> bool:

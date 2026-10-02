@@ -418,6 +418,22 @@ GET /api/v1/relationships/layer-duplicates
 
 Each group has its subject, predicate, object, the layers and the edges, oldest first, with their review state, reasons and Evidence counts. Nothing needs doing for Atlas to work: new Evidence joins the edge of its layer, else the oldest (and sends it to the exceptions queue with `layer_conflict` when it brings a layer the group doesn't have). To settle a group, reject the edges whose layer the quote doesn't support (`POST /api/v1/relationships/{id}/review` with `{"review_state": "rejected", "note": "..."}`; audited; an edge is never deleted and its layer never changed). `GET /api/v1/relationships?layer=none` lists the edges with no layer. The downgrade of `0055` refuses once a Claim or Relationship without a layer, or a review answered per check, exists.
 
+## Retrying sections by class (after deploying migration `0068`)
+
+From `0068` a section that is not in memory says why (`docs/decisions.md`, "A section's outcome comes from its own document"): `cancelled` (its operation was cancelled; a retain state of its own, not a failure), or `failed` with the class `permanent` (an error of no other class), `transient` (a timeout or relayed 5xx, resubmitted `ATLAS_RETAIN_TRANSIENT_RETRIES` times, default 3) or `missing` (its document was absent after its operation completed). The migration moves the sections recorded `failed` with "Hindsight reported the operation cancelled with no error message" to `cancelled`.
+
+To see them: `atlas_retained_sections_total{outcome="cancelled"|"failed"}`, `atlas_sections_not_in_memory{state,error_class}` and `atlas_partial_sections` on `/metrics`; per Source Version, `GET /api/v1/source-versions/{id}/memory` (`counts`, `partial`, each document's `error_class`, `transient_retries`, `extraction_errors` and `partial`).
+
+To enqueue them again (backfill class by default, so they run in the backfill window if one is set and never use a budget's interactive reserve; each section's reset is audited):
+
+```
+uv run atlas retention retry-failed --all-history --error-class cancelled --company lumentum
+uv run atlas retention retry-failed --since 2026-01-01 --error-class transient --error-class missing
+uv run atlas retention retry-failed --interactive   # every failed or cancelled one in the lookback, now
+```
+
+The command prints the sections reset (`by_error_class`), the Source Versions and the retain jobs. The 8-K selection still applies. Each retained section costs extraction (on the routed extractor's budget with `ATLAS_RETAIN_EXTRACTOR=minimax`) and consolidation on the shared server, so take the cancelled backlog a company at a time (the rollout below), after the retain profile of memory-quality tickets 04–06 if it should be extracted once.
+
 ## Universe rollout and quota budgets (ticket 27)
 
 The owner's ChatGPT/Codex subscription (spent by the shared Hindsight's retain, consolidation and mental models) and MiniMax subscription (spent by Atlas's roles through LiteLLM) each renew in rolling 5-hour windows. The queue rations both (`atlas.jobs.budget`; rules in `docs/decisions.md`, "Quota-window pacing"), so the ten companies not yet ingested come in **one company per window**, never in one bootstrap like the 2026-09 incident (1,397 operations, ~1.27M Codex tokens in minutes).

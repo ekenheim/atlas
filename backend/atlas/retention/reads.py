@@ -7,8 +7,12 @@ from typing import Literal, get_args
 from pydantic import BaseModel
 from sqlalchemy import Connection, text
 
-RetainState = Literal["pending", "completed", "failed", "zero_fact", "linked"]
+# `cancelled`: the section's operation was cancelled (by the owner) before Hindsight stored
+# it; not a failure, and `atlas retention retry-failed` enqueues it again (ticket 03).
+RetainState = Literal["pending", "completed", "failed", "zero_fact", "linked", "cancelled"]
 RETAIN_STATES: tuple[RetainState, ...] = get_args(RetainState)
+# Why a failed or cancelled section is not in memory.
+SectionErrorClass = Literal["cancelled", "permanent", "transient", "missing"]
 
 
 class MemoryOperation(BaseModel):
@@ -18,8 +22,10 @@ class MemoryOperation(BaseModel):
     kind: str
     status: str
     error_message: str | None
-    # A failure's class: quota/unavailable paused the queue and resubmit; permanent fails.
-    error_class: Literal["quota", "unavailable", "permanent"] | None
+    # A failure's class: quota/unavailable/transient paused the queue and resubmit (transient
+    # a bounded number of times); permanent fails the sections it did not store; cancelled
+    # leaves them cancelled.
+    error_class: Literal["quota", "unavailable", "transient", "cancelled", "permanent"] | None
     retry_count: int
     document_ids: list[str]
     # The extractor its items asked Hindsight for (ATLAS_RETAIN_EXTRACTOR when it was
@@ -54,6 +60,17 @@ class MemoryDocument(BaseModel):
     operation_id: str | None
     linked_to_source_version_id: uuid.UUID | None
     error: str | None
+    # Why a failed or cancelled section is not in memory (None for every other state):
+    # cancelled, permanent, transient (retried past the bound) or missing (its document is
+    # absent after its operation completed).
+    error_class: SectionErrorClass | None
+    # How many times its operation ended with a transient error since it was last reset.
+    transient_retries: int
+    # The extraction_errors_count Hindsight reported on the operation that stored the section
+    # (None: none read). A completed section with a count above zero is partial: its
+    # extraction lost something even after its one retry.
+    extraction_errors: int | None
+    partial: bool
     created_at: datetime
     updated_at: datetime
 
@@ -64,6 +81,7 @@ class SourceVersionMemory(BaseModel):
     retained: bool  # any memory documents recorded (retained or linked)
     linked_to_source_version_id: uuid.UUID | None
     counts: dict[RetainState, int]  # memory documents by retain state
+    partial: int  # completed sections whose extraction reported errors after their retry
     fact_count: int  # memories counted across the version's completed sections
     documents: list[MemoryDocument]
     operations: list[MemoryOperation]
@@ -79,7 +97,14 @@ def source_version_memory(
     if exists is None:
         return None
     documents = [
-        MemoryDocument.model_validate({**row, "document_id": row["hindsight_document_id"]})
+        MemoryDocument.model_validate(
+            {
+                **row,
+                "document_id": row["hindsight_document_id"],
+                "partial": row["retain_state"] == "completed"
+                and (row["extraction_errors"] or 0) > 0,
+            }
+        )
         for row in connection.execute(
             text(
                 "SELECT * FROM memory_document WHERE source_version_id = :id AND bank_id = :bank"
@@ -108,6 +133,7 @@ def source_version_memory(
         retained=bool(documents),
         linked_to_source_version_id=next(iter(linked_to)) if len(linked_to) == 1 else None,
         counts=counts,
+        partial=sum(1 for d in documents if d.partial),
         fact_count=sum(d.fact_count or 0 for d in documents if d.retain_state == "completed"),
         documents=documents,
         operations=operations,

@@ -15,16 +15,16 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("Intake that doesn't lose section
 - If the error grouping shows long Items failing by size, say so in the log and stop there: splitting an Item changes section identity and is its own ticket (the spec's decision).
 - `docs/decisions.md`: the outcome rule and the failure classes; `docs/runbooks.md`: retrying by class.
 
-Migration revision `0061` (down: main's head).
+Migration revision `0068`, after `0061` (the lead renumbered it at integration: ticket 16's migration took `0061`).
 
 **Blocked by:** None (can start immediately; the error grouping it waited for is above)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An operation that ends cancelled leaves its sections `cancelled`; the metric and the memory read show them apart from failed; `retry-failed` enqueues them; the migration moves the existing rows (migration test).
-- [ ] Integration test at the worker seam with the Hindsight fake: an operation of three sections ends failed with one document stored with facts, one stored empty and one absent; the three sections end completed, zero-fact (after one reprocess) and failed.
-- [ ] A timeout error leaves its sections pending and resubmits them; after the bound they are failed with the class; a quota error still pauses the queue as today.
-- [ ] A completed operation with extraction errors marks its sections partial and retries once.
-- [ ] `retry-failed --error-class … --company …` re-enqueues only those sections, as backfill class (CLI test).
-- [ ] The health read of ticket 02 shows partial and the classes (or the log says what to add when 02 merges first).
-- [ ] Decision and runbook entries; `AGENTS.md` line.
+- [x] An operation that ends cancelled leaves its sections `cancelled`; the metric and the memory read show them apart from failed; `retry-failed` enqueues them; the migration moves the existing rows (migration test).
+- [x] Integration test at the worker seam with the Hindsight fake: an operation of three sections ends failed with one document stored with facts, one stored empty and one absent; the three sections end completed, zero-fact (after one reprocess) and failed.
+- [x] A timeout error leaves its sections pending and resubmits them; after the bound they are failed with the class; a quota error still pauses the queue as today.
+- [x] A completed operation with extraction errors marks its sections partial and retries once.
+- [x] `retry-failed --error-class … --company …` re-enqueues only those sections, as backfill class (CLI test).
+- [x] The health read of ticket 02 shows partial and the classes (or the log says what to add when 02 merges first). (The log says what to add; the health read is ticket 02's.)
+- [x] Decision and runbook entries; `AGENTS.md` line.

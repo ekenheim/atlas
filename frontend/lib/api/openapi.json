@@ -15564,7 +15564,8 @@
               "completed",
               "failed",
               "zero_fact",
-              "linked"
+              "linked",
+              "cancelled"
             ],
             "title": "Retain State"
           },
@@ -15646,6 +15647,42 @@
             ],
             "title": "Error"
           },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "cancelled",
+                  "permanent",
+                  "transient",
+                  "missing"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Class"
+          },
+          "transient_retries": {
+            "type": "integer",
+            "title": "Transient Retries"
+          },
+          "extraction_errors": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Errors"
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -15674,6 +15711,10 @@
           "operation_id",
           "linked_to_source_version_id",
           "error",
+          "error_class",
+          "transient_retries",
+          "extraction_errors",
+          "partial",
           "created_at",
           "updated_at"
         ],
@@ -15780,6 +15821,8 @@
                 "enum": [
                   "quota",
                   "unavailable",
+                  "transient",
+                  "cancelled",
                   "permanent"
                 ]
               },
@@ -22487,11 +22530,16 @@
                 "completed",
                 "failed",
                 "zero_fact",
-                "linked"
+                "linked",
+                "cancelled"
               ]
             },
             "type": "object",
             "title": "Counts"
+          },
+          "partial": {
+            "type": "integer",
+            "title": "Partial"
           },
           "fact_count": {
             "type": "integer",
@@ -22519,6 +22567,7 @@
           "retained",
           "linked_to_source_version_id",
           "counts",
+          "partial",
           "fact_count",
           "documents",
           "operations"

@@ -5,12 +5,14 @@ One read, two sources:
 
 - **Atlas's own records** (`memory_document`, `hindsight_operation`): the bank's sections by
   retain state, for the bank and per company (the filer of the section's Source Document);
-  `partial`, the completed sections whose operation reported extraction errors
-  (`result_metadata.extraction_errors_count` > 0: some chunk's extraction failed and Hindsight
-  still completed it); the failed sections grouped by their **normalized error** (IDs, UUIDs,
-  hex and numbers of four or more digits replaced by placeholders, whitespace collapsed), each
-  group with its count, its latest raw example, the first and last time a section of it was
-  marked failed and its companies; and the pending sections by how long they have waited
+  `partial`, the completed sections whose extraction still reported errors after their one
+  retry (`memory_document.extraction_errors` > 0, ticket 03: some chunk's extraction failed
+  and Hindsight still completed it); the sections not in memory (`failed`, and `cancelled`:
+  an operation the owner cancelled, which is not a failure) grouped by their state, their
+  error class (`cancelled`, `permanent`, `transient`, `missing`) and their **normalized
+  error** (IDs, UUIDs, hex and numbers of four or more digits replaced by placeholders,
+  whitespace collapsed), each group with its count, its latest raw example, the first and
+  last time a section of it was marked and its companies; and the pending sections by how long they have waited
   since their last submission.
 - **Hindsight, read-only** (no LLM call): the observation scopes (`GET .../observations/scopes`)
   and, for each universe company, the entities whose name matches it (`GET .../entities`,
@@ -83,10 +85,12 @@ class SectionCounts(BaseModel):
     pending: int = 0
     completed: int = 0
     failed: int = 0
+    cancelled: int = Field(default=0, description="the operation was cancelled; not a failure")
     zero_fact: int = 0
     linked: int = 0
     partial: int = Field(
-        default=0, description="completed sections whose operation reported extraction errors"
+        default=0,
+        description="completed sections whose extraction reported errors after their one retry",
     )
     fact_count: int = Field(default=0, description="memories counted across completed sections")
 
@@ -100,6 +104,12 @@ class CompanySections(BaseModel):
 
 
 class FailedGroup(BaseModel):
+    """Sections not in memory that share a state, an error class and a normalized error."""
+
+    state: str = Field(description="failed or cancelled")
+    error_class: str | None = Field(
+        description="cancelled, permanent, transient or missing (null: recorded before classes)"
+    )
     error: str = Field(description="the normalized error text")
     count: int
     example: str = Field(description="the latest failed section's error, as recorded")
@@ -251,11 +261,7 @@ _FROM = (
     " JOIN source_document d ON d.id = v.source_document_id"
     " LEFT JOIN company c ON c.id = d.company_id"
 )
-_PARTIAL = (
-    "m.retain_state = 'completed'"
-    " AND jsonb_typeof(o.result_metadata -> 'extraction_errors_count') = 'number'"
-    " AND (o.result_metadata ->> 'extraction_errors_count')::numeric > 0"
-)
+_PARTIAL = "m.retain_state = 'completed' AND m.extraction_errors > 0"
 
 
 def _section_counts(
@@ -267,8 +273,7 @@ def _section_counts(
             f" count(*) FILTER (WHERE {_PARTIAL}) AS partial,"
             " coalesce(sum(m.fact_count) FILTER (WHERE m.retain_state = 'completed'), 0)"
             " AS facts"
-            f"{_FROM} LEFT JOIN hindsight_operation o ON o.id = m.operation_id"
-            f" WHERE {where} GROUP BY 1, 2"
+            f"{_FROM} WHERE {where} GROUP BY 1, 2"
         ),
         params,
     ).mappings()
@@ -289,11 +294,12 @@ def _section_counts(
 def _failed_groups(
     connection: Connection, where: str, params: Mapping[str, Any]
 ) -> list[FailedGroup]:
-    groups: dict[str, _Group] = {}
+    groups: dict[tuple[str, str | None, str], _Group] = {}
     for row in connection.execute(
         text(
-            "SELECT m.error, m.updated_at, m.hindsight_document_id, c.slug"
-            f"{_FROM} WHERE {where} AND m.retain_state = 'failed'"
+            "SELECT m.retain_state, m.error_class, m.error, m.updated_at,"
+            " m.hindsight_document_id, c.slug"
+            f"{_FROM} WHERE {where} AND m.retain_state IN ('failed', 'cancelled')"
             " ORDER BY m.updated_at, m.hindsight_document_id"
         ),
         params,
@@ -301,16 +307,21 @@ def _failed_groups(
         error: str = row["error"] or ""
         at: datetime = row["updated_at"]
         # Rows come oldest first: the first of a group is its first, the last its example.
-        group = groups.setdefault(normalize_error(error), _Group(first_at=at, last_at=at))
+        key = (row["retain_state"], row["error_class"], normalize_error(error))
+        group = groups.setdefault(key, _Group(first_at=at, last_at=at))
         group.count += 1
         group.last_at = at
         group.example = error
         group.example_document_id = row["hindsight_document_id"]
         company = row["slug"] or UNATTRIBUTED
         group.companies[company] = group.companies.get(company, 0) + 1
-    ordered = sorted(groups.items(), key=lambda item: (-item[1].count, item[0]))
+    ordered = sorted(
+        groups.items(), key=lambda item: (-item[1].count, item[0][0], item[0][1] or "", item[0][2])
+    )
     return [
         FailedGroup(
+            state=state,
+            error_class=error_class,
             error=error,
             count=group.count,
             example=group.example,
@@ -319,7 +330,7 @@ def _failed_groups(
             last_at=group.last_at,
             companies=dict(sorted(group.companies.items())),
         )
-        for error, group in ordered
+        for (state, error_class, error), group in ordered
     ]
 
 

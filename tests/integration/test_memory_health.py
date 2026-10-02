@@ -69,7 +69,7 @@ def ingested(atlas: Atlas, fake: RecordedHindsight) -> Atlas:
     still processing (pending)."""
     fake.hold_retains("failed", where=is_10k, error_message=CRASHED_10K, times=1)
     fake.hold_retains("failed", where=is_8k, error_message=CRASHED_8K, times=1)
-    fake.report_extraction_errors(is_10q, 2)
+    fake.report_extraction_errors(2, where=is_10q)
     fake.report_zero_facts(lambda document_id: document_id.endswith(":chunk-003"))
     atlas.ingest("lumentum")
     fake.hold_retains("failed", where=is_10k, error_message=TOO_LONG, times=1)
@@ -96,6 +96,7 @@ def counts(
         "pending": pending,
         "completed": completed,
         "failed": failed,
+        "cancelled": 0,
         "zero_fact": zero_fact,
         "linked": 0,
         "partial": partial,
@@ -194,6 +195,27 @@ def test_the_health_read_counts_sections_per_company_and_groups_failures_by_erro
     assert named["coherent"]["one_entity"] is True
     assert named["axt"]["entities"] == []
     assert named["axt"]["one_entity"] is False
+
+
+def test_a_cancelled_operation_s_sections_are_cancelled_not_failed_in_the_health_read(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # The owner cancels the 10-K's retain operation (ticket 03): its sections are `cancelled`,
+    # a state of their own, and their group says so; the 8-K's failure stays a failure.
+    fake.hold_retains("cancelled", where=is_10k, times=1)
+    fake.hold_retains("failed", where=is_8k, error_message=CRASHED_8K, times=1)
+    atlas.ingest("lumentum")
+    fake.script_observation_scopes([])
+    fake.script_entities([])
+
+    health = atlas.get("/api/v1/memory/health")
+
+    assert health["sections"]["cancelled"] == TEN_K
+    assert health["sections"]["failed"] == 3
+    groups = {(g["state"], g["error_class"]): g for g in health["failed_groups"]}
+    assert set(groups) == {("cancelled", "cancelled"), ("failed", "permanent")}
+    assert groups[("cancelled", "cancelled")]["count"] == TEN_K
+    assert groups[("failed", "permanent")]["error"] == CRASHED_GROUP
 
 
 def test_the_health_read_of_one_company_narrows_every_part_to_it(

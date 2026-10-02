@@ -25,7 +25,15 @@ from atlas.audit import Actor
 from atlas.retention import retry_failed
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.serve import Served
-from tests.harness import BANK, EDGAR_FIXTURES, LITE_10K, TEMPLATE, TEN_K_ANCHORS, Atlas
+from tests.harness import (
+    BANK,
+    EDGAR_FIXTURES,
+    LITE_10K,
+    TEMPLATE,
+    TEN_K_ANCHORS,
+    Atlas,
+    scrape_metrics,
+)
 
 TEMPLATE_VERSION = json.loads(TEMPLATE.read_text())["template_version"]
 # What the recorded document (`upsert/09-get-document`) reports: one memory unit.
@@ -111,7 +119,9 @@ def test_each_new_source_version_is_retained_section_by_section_and_tracked_to_c
         "failed": 0,
         "zero_fact": 0,
         "linked": 0,
+        "cancelled": 0,
     }
+    assert memory["partial"] == 0
     assert memory["fact_count"] == RECORDED_FACT_COUNT * len(TEN_K_ANCHORS)
     (operation,) = memory["operations"]
     assert operation["kind"] == "retain"
@@ -496,6 +506,7 @@ def test_a_failed_retain_operation_stays_visible_with_its_error(
         assert document["error"] == (
             "Hindsight reported the operation failed with no error message"
         )
+        assert document["error_class"] == "permanent"
     # Only that version's retain failed.
     assert atlas.memory(atlas.version(LITE_10Q)["id"])["counts"]["completed"] == 2
 
@@ -676,3 +687,187 @@ def test_retry_failed_applies_the_8k_selection_to_what_it_resubmits(
     assert atlas.memory(exhibit)["counts"]["failed"] == 0
     assert atlas.memory(exhibit)["counts"]["pending"] > 0
     assert summary["skipped_by_selection"] > 0
+
+
+# --- a section's outcome comes from its own document (memory-quality ticket 03) ---
+
+CANCELLED_ERROR = "Hindsight reported the operation cancelled with no error message"
+PERMANENT_ERROR = "ValueError: document exceeds the extraction schema's maximum length"
+
+
+def is_10k_batch(document_ids: Any) -> bool:
+    return any(str(i).endswith(":part-i-item-1a") for i in document_ids)
+
+
+def is_8k_batch(document_ids: Any) -> bool:
+    return any(str(i).endswith(":item-2-02") for i in document_ids)
+
+
+def is_10q_batch(document_ids: Any) -> bool:
+    ids = [str(i) for i in document_ids]
+    return any(i.endswith(":part-i-item-1") for i in ids) and not is_10k_batch(ids)
+
+
+def metric(atlas: Atlas, name: str, **labels: str) -> float:
+    return scrape_metrics(atlas.api).get((name, frozenset(labels.items())), 0)
+
+
+def test_a_cancelled_operation_leaves_its_sections_cancelled_not_failed_and_retry_enqueues_them(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # The owner cancels the 10-K's retain operation before Hindsight stored anything (derived:
+    # no cancelled operation was recorded); a resubmitted batch is served as recorded.
+    fake.hold_retains("cancelled", where=is_10k_batch, times=1)
+
+    job = atlas.ingest("lumentum")
+
+    assert job["status"] == "succeeded", job["failures"]
+    version_id = atlas.version(LITE_10K)["id"]
+    memory = atlas.memory(version_id)
+    assert memory["counts"]["cancelled"] == len(TEN_K_ANCHORS)
+    assert memory["counts"]["failed"] == 0
+    (operation,) = memory["operations"]
+    assert (operation["status"], operation["error_class"]) == ("cancelled", "cancelled")
+    for document in memory["documents"]:
+        assert document["retain_state"] == "cancelled"
+        assert document["error_class"] == "cancelled"
+        assert document["error"] == CANCELLED_ERROR
+        assert document["fact_count"] is None
+    # The metric shows them apart from failed sections.
+    sections = len(TEN_K_ANCHORS)
+    assert metric(atlas, "atlas_retained_sections_total", outcome="cancelled") == sections
+    assert metric(atlas, "atlas_retained_sections_total", outcome="failed") == 0
+    assert (
+        metric(atlas, "atlas_sections_not_in_memory", state="cancelled", error_class="cancelled")
+        == sections
+    )
+
+    retried = atlas.cli("retention", "retry-failed", "--all-history")
+    assert retried.returncode == 0, retried.stderr
+    summary = json.loads(retried.stdout)
+    assert summary["sections"] == sections
+    assert summary["by_error_class"] == {"cancelled": sections}
+    assert summary["job_class"] == "backfill"
+    (retain_job,) = summary["retain_jobs"]
+    assert atlas.get(f"/api/v1/jobs/{retain_job}")["job_class"] == "backfill"
+    while atlas.worker_pass():
+        pass
+
+    memory = atlas.memory(version_id)
+    assert memory["counts"]["cancelled"] == 0
+    assert memory["counts"]["completed"] == sections
+    assert all(d["error_class"] is None for d in memory["documents"])
+    assert [o["status"] for o in memory["operations"]] == ["cancelled", "completed"]
+
+
+def test_a_failed_operation_s_sections_each_take_the_outcome_of_their_own_document(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # The 8-K's three sections go to Hindsight as one operation, which fails (derived): it had
+    # stored the cover with facts and Item 2.02 with none, and never stored Item 9.01.
+    fake.hold_retains(
+        "failed",
+        where=is_8k_batch,
+        error_message=PERMANENT_ERROR,
+        times=1,
+        stored=lambda document_id: not document_id.endswith(":item-9-01"),
+    )
+    fake.report_zero_facts(lambda document_id: document_id.endswith(":item-2-02"))
+
+    job = atlas.ingest("lumentum")
+
+    assert job["status"] == "succeeded", job["failures"]
+    memory = atlas.memory(atlas.version(LITE_8K)["id"])
+    sections = by_anchor(memory)
+    assert list(sections) == EIGHT_K_ANCHORS
+    cover, item_2_02, item_9_01 = (sections[anchor] for anchor in EIGHT_K_ANCHORS)
+    assert (cover["retain_state"], cover["fact_count"]) == ("completed", RECORDED_FACT_COUNT)
+    assert cover["memory_ids"] == [fake.derived_fact(cover["document_id"])]
+    assert (cover["error"], cover["error_class"]) == (None, None)
+    # Stored with no fact: its one reprocess, then zero-fact.
+    assert (item_2_02["retain_state"], item_2_02["reprocess_count"]) == ("zero_fact", 1)
+    # Absent: failed with the operation's error.
+    assert item_9_01["retain_state"] == "failed"
+    assert (item_9_01["error"], item_9_01["error_class"]) == (PERMANENT_ERROR, "permanent")
+    retain, reprocess = memory["operations"]
+    assert (retain["status"], retain["error_class"]) == ("failed", "permanent")
+    assert (reprocess["status"], reprocess["document_ids"]) == (
+        "completed",
+        [item_2_02["document_id"]],
+    )
+
+
+def test_a_completed_operation_with_extraction_errors_retries_its_sections_once(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # Derived: Hindsight reports extraction errors on every 10-Q operation (so its sections
+    # are partial after their retry), and on the 10-K's first operation only.
+    fake.report_extraction_errors(2, where=is_10q_batch)
+    fake.report_extraction_errors(1, where=is_10k_batch, times=1)
+
+    atlas.ingest("lumentum")
+
+    ten_q = atlas.memory(atlas.version(LITE_10Q)["id"])
+    assert ten_q["counts"]["completed"] == len(TEN_Q_ANCHORS)
+    assert ten_q["partial"] == len(TEN_Q_ANCHORS)
+    for document in ten_q["documents"]:
+        assert (document["reprocess_count"], document["extraction_errors"]) == (1, 2)
+        assert document["partial"] is True
+        assert document["fact_count"] == RECORDED_FACT_COUNT
+    assert [o["kind"] for o in ten_q["operations"]] == ["retain", "reprocess"]
+
+    ten_k = atlas.memory(atlas.version(LITE_10K)["id"])
+    assert ten_k["counts"]["completed"] == len(TEN_K_ANCHORS)
+    assert ten_k["partial"] == 0
+    for document in ten_k["documents"]:
+        assert (document["reprocess_count"], document["extraction_errors"]) == (1, 0)
+        assert document["partial"] is False
+    retain, reprocess = ten_k["operations"]
+    assert (retain["kind"], reprocess["kind"]) == ("retain", "reprocess")
+    assert reprocess["document_ids"] == retain["document_ids"]
+    assert metric(atlas, "atlas_partial_sections") == len(TEN_Q_ANCHORS)
+
+
+def test_retry_failed_by_error_class_and_company_resubmits_only_those_as_backfill(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    # Lumentum: the 10-K's operation is cancelled, the 8-K's fails for good. Coherent: every
+    # operation is cancelled.
+    fake.hold_retains("cancelled", where=is_10k_batch, times=1)
+    fake.hold_retains("failed", where=is_8k_batch, error_message=PERMANENT_ERROR, times=1)
+    atlas.ingest("lumentum")
+    coherent = {"on": True}
+    fake.hold_retains("cancelled", where=lambda _: coherent["on"])
+    atlas.ingest("coherent", "coherent")
+    coherent["on"] = False
+    lite_10k, lite_8k = atlas.version(LITE_10K)["id"], atlas.version(LITE_8K)["id"]
+    cohr_10k = atlas.version(COHR_10K, "coherent")["id"]
+    assert atlas.memory(cohr_10k)["counts"]["cancelled"] > 0
+    assert atlas.memory(lite_8k)["counts"]["failed"] == len(EIGHT_K_ANCHORS)
+
+    retried = atlas.cli(
+        "retention",
+        "retry-failed",
+        "--all-history",
+        "--error-class",
+        "cancelled",
+        "--company",
+        "lumentum",
+    )
+
+    assert retried.returncode == 0, retried.stderr
+    summary = json.loads(retried.stdout)
+    assert summary["sections"] == len(TEN_K_ANCHORS)
+    assert summary["by_error_class"] == {"cancelled": len(TEN_K_ANCHORS)}
+    assert summary["source_versions"] == 1
+    (retain_job,) = summary["retain_jobs"]
+    assert atlas.get(f"/api/v1/jobs/{retain_job}")["job_class"] == "backfill"
+    assert atlas.memory(lite_10k)["counts"]["pending"] == len(TEN_K_ANCHORS)
+    # The other class and the other company are left as they were.
+    assert atlas.memory(lite_8k)["counts"]["failed"] == len(EIGHT_K_ANCHORS)
+    assert atlas.memory(cohr_10k)["counts"]["pending"] == 0
+    assert atlas.memory(cohr_10k)["counts"]["cancelled"] > 0
+
+    unknown = atlas.cli("retention", "retry-failed", "--company", "no-such-company")
+    assert unknown.returncode == 2
+    assert "no company 'no-such-company'" in unknown.stderr
