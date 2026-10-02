@@ -206,6 +206,44 @@ def test_a_template_with_a_union_type_mental_model_schema_is_rejected_before_the
     assert fake.calls == []
 
 
+def test_a_conformance_bank_can_be_deleted_too() -> None:
+    fake = RecordedHindsight()
+
+    deleted = gateway(fake, bank_id="atlas-conformance-1a2b").delete_bank()
+
+    assert deleted.success is True
+    assert fake.deleted_banks == ["atlas-conformance-1a2b"]
+
+
+def test_a_documents_chunks_are_listed_in_index_order() -> None:
+    fake = RecordedHindsight()
+    recorded = fake.recording("chunks/03-list-chunks")
+
+    chunks = gateway(fake, bank_id=recorded.bank_id).document_chunks("doc-chunked")
+
+    assert [c.chunk_id for c in chunks] == [
+        f"{recorded.bank_id}_doc-chunked_0",
+        f"{recorded.bank_id}_doc-chunked_1",
+    ]
+    assert chunks[0].chunk_text.startswith("Item 1A. Risk Factors")
+    assert fake.served == ["chunks/03-list-chunks"]
+
+
+def test_the_memories_carrying_an_entity_are_listed_strictly_scoped() -> None:
+    fake = RecordedHindsight()
+    recorded = fake.recording("entity_memories/01-by-entity-and-tag")
+    query = cast(dict[str, Any], recorded.query)
+
+    memories = gateway(fake, bank_id=recorded.bank_id).entity_memories(
+        str(query["entity_id"]), scope=TagScope(["company:aurora"], "any_strict")
+    )
+
+    assert len(memories) == 7
+    assert "doc-entities" in {m.document_id for m in memories}
+    assert all("company:aurora" in m.tags for m in memories)
+    assert fake.served == ["entity_memories/01-by-entity-and-tag"]
+
+
 def test_only_a_replay_bank_can_be_deleted() -> None:
     fake = RecordedHindsight()
 

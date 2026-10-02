@@ -11,11 +11,12 @@ from atlas.hindsight.errors import (
     HindsightUnavailable,
     OperationTimeout,
 )
-from atlas.hindsight.gateway import REPLAY_BANK_PREFIX, HindsightGateway
+from atlas.hindsight.gateway import CONFORMANCE_BANK_PREFIX, REPLAY_BANK_PREFIX, HindsightGateway
 from atlas.hindsight.models import (
     BankConfig,
     BankDeleted,
     Budget,
+    Chunk,
     CitedMemory,
     CitedMentalModel,
     EntityPage,
@@ -48,11 +49,13 @@ from atlas.hindsight.models import (
 )
 
 __all__ = [
+    "CONFORMANCE_BANK_PREFIX",
     "HINDSIGHT_NOT_CONFIGURED",
     "REPLAY_BANK_PREFIX",
     "BankConfig",
     "BankDeleted",
     "Budget",
+    "Chunk",
     "CitedMemory",
     "CitedMentalModel",
     "EntityPage",

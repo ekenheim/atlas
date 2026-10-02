@@ -267,6 +267,8 @@ The validator's checks, as built (`atlas.evaluation.validate_gold`), are all of 
 
 ## 10. Running: `atlas evaluate`
 
+**Precondition: Memory conforms.** A live evaluation, a benchmark of Atlas or a pilot investigation run measures the system on top of Memory, so it is run only after the memory conformance check has passed on the same Hindsight and settings (`scripts/memory-conformance.sh`, memory-quality ticket 14; `docs/runbooks.md`, "Memory conformance"): the known answers recalled on the live bank at or above the file's thresholds, and every behaviour check passed (`--strict` before a release, where a pending check also fails). A benchmark whose run came after a failed or missing conformance report measures a broken memory as much as Atlas, and is recorded as such. The fake mode below needs no such run: it never touches Memory.
+
 `atlas evaluate [--case ID]... [--live]` runs the active cases (or the ones named) and stores the run (§8); `GET /api/v1/evaluations` lists runs and `GET /api/v1/evaluations/{id}` shows one. It prints one line per case (stderr) and the run as JSON (stdout), and exits 0 when every case passed, 1 when one failed, 2 when it was refused. The gold set is `ATLAS_EVALUATION_GOLD_DIR` (default `tests/evaluation/gold`).
 
 Each case runs in isolation, through production code:

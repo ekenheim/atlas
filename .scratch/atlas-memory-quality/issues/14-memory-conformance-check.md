@@ -27,10 +27,10 @@ Two halves, one report (`.scratch/live-runs/<stamp>-memory-conformance/`, JSON a
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The rehearsal passes in CI: each check either passes against the fake or reports `pending` with its ticket; `--strict` fails while any is pending.
-- [ ] The known-answers file validates at load (every section it names is checked to exist when run against an Atlas; an unknown one is an error, not a miss), holds at least 20 answers, and each quotes its sentence.
-- [ ] The report lists, per check, the promise tested, the evidence (IDs, counts) and the verdict.
-- [ ] The caps abort a run that exceeds them; the throwaway bank is deleted on success, failure and interrupt.
-- [ ] Runbook entry; the methodology's precondition; `AGENTS.md` line.
+- [x] The rehearsal passes in CI: each check either passes against the fake or reports `pending` with its ticket; `--strict` fails while any is pending.
+- [x] The known-answers file validates at load (every section it names is checked to exist when run against an Atlas; an unknown one is an error, not a miss), holds at least 20 answers, and each quotes its sentence.
+- [x] The report lists, per check, the promise tested, the evidence (IDs, counts) and the verdict.
+- [x] The caps abort a run that exceeds them; the throwaway bank is deleted on success, failure and interrupt.
+- [x] Runbook entry; the methodology's precondition; `AGENTS.md` line.
