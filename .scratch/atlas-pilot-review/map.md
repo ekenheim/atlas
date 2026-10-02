@@ -39,7 +39,7 @@ The pilot's verdict, in two artifacts:
 
 ## Not yet specified
 
-- **Two companies Memory cannot be filled for by retaining** (the before-measure, ticket 20). Innolight: nothing in Memory, because HKEXnews may not be fetched; it needs the owner's manual imports (`atlas sources import`) or a licence. Soitec: 2 sections, because its AMF documents are French and French is archived, not retained; whether to retain French (Hindsight's docs describe multilingual banks) or to import its English releases is undecided.
+- **News beyond leads.** Memory-quality tickets 17 and 18 bring TradingView's news stories into the archive and into Memory as leads (the owner, 2026-10-02: "We can use tradingview for news"), which is how Innolight is covered; Soitec is covered by its English call transcripts. Not decided: whether a news story may ever support a `third_party_report` Claim that goes to the owner's queue. Today Tier C makes no Claim (spec §4.1), and the lead kept it so.
 - **A third fix round before the verdict.** Whether one is needed depends on what investigations 2–5 show; the focus rule says no unless a blocker appears.
 - **What Hindsight adds.** The baseline and the live evaluation both bear on whether recall and reflect improve a card over reading the archive directly; the question can't be phrased sharply until the baseline is defined.
 - **Cost at scale.** Tokens per investigation against the MiniMax and Codex budgets when the universe and the number of questions grow; needs the five runs' numbers.

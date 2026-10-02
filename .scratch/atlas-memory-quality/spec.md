@@ -125,6 +125,9 @@ Memory stays an index. Nothing here lets a memory's text be quoted, serve as a w
 **The embedding model.**
 - The owner offered a different embedding model (2026-10-02). The choice is measured, not assumed: the current model as served, the same with its query instruction, the model Hindsight's thresholds are calibrated for, and at most two further candidates, each on the known answers and against the five similarity thresholds, with the cost of each change stated (a query prefix re-embeds nothing; a new model re-embeds every bank; another dimension needs an empty store). The owner decides; the backfill runs after the decision.
 
+**News through TradingView, as leads.**
+- The owner widened the TradingView override to news story text (2026-10-02). A story is a Tier C Source Version; Memory holds it apart (its own tags and observation scopes), recall leaves it out unless asked, and an investigation uses it only for lead pointers and a list of news leads on the card. A story makes no Assertion, no Claim and no contradiction (product spec §4.1). This is how a company with no fetchable primary source, Innolight today, is present at all.
+
 **The backfill.**
 - A backfill-class job per company re-retains the sections whose retain profile is older than the current one (same document ID, so Hindsight replaces the document's memories), re-enqueues failed sections, and then asks for consolidation. It runs under the retain budget on the MiniMax extractor and in the backfill window, newest documents first, resumable.
 - Its completion criterion is the health read: every non-skipped section of the pilot's companies completed, zero-fact or failed with a recorded reason, at the current profile.
