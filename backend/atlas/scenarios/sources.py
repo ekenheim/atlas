@@ -7,7 +7,8 @@ A `sourced` input stands only if its source does:
   restated), may source only an input an XBRL fact can measure (a currency amount or a share
   count), must be in the table's currency (or `shares`), since currencies are never mixed
   without an FX basis, and must equal the input's value in every case.
-- **An Assertion** must exist, be available at `as_of` (its Source Version's `available_at`)
+- **An Assertion** must exist, be available at `as_of` (its Source Version's corrected
+  availability, `source_version_availability`)
   and not be rejected or superseded.
 
 `allowed_*` narrows what may be cited further (the Financial Analyst may cite only what it
@@ -184,8 +185,9 @@ def _assertion(connection: Connection, assertion_id: uuid.UUID) -> ResolvedAsser
         connection.execute(
             text(
                 "SELECT a.id AS assertion_id, a.source_version_id, a.quote, a.span_start,"
-                " a.span_end, a.verification_status, v.available_at FROM assertion a"
-                " JOIN source_version v ON v.id = a.source_version_id WHERE a.id = :id"
+                " a.span_end, a.verification_status, av.available_at FROM assertion a"
+                " JOIN source_version_availability av ON av.source_version_id = a.source_version_id"
+                " WHERE a.id = :id"
             ),
             {"id": assertion_id},
         )

@@ -876,6 +876,44 @@ def test_scenarios_recompute_byte_identically(
     assert actions == ["scenario.created"] * 3
 
 
+def test_an_assertion_whose_filing_the_corrected_availability_puts_after_the_cutoff_is_refused(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot-fix 29: the Assertion's Source Version recorded itself available before the cutoff,
+    # but a recorded correction makes it public after it, so it can't source an input.
+    hypothesis = drafted(atlas, llm, searxng)
+    with atlas.engine.begin() as connection:
+        assertion = connection.execute(
+            text("SELECT id, source_version_id FROM assertion ORDER BY id LIMIT 1")
+        ).one()
+        connection.execute(
+            text(
+                "INSERT INTO source_version_availability_correction (id, source_version_id,"
+                " available_at, available_at_basis, reason)"
+                " VALUES (gen_random_uuid(), :id, '2026-09-02T00:00:00Z', 'sec_dissemination',"
+                " 'test')"
+            ),
+            {"id": assertion.source_version_id},
+        )
+    table = researcher_table(
+        atlas,
+        company_share={
+            "kind": "sourced",
+            "source": {"type": "assertion", "assertion_id": str(assertion.id)},
+            "low": "0.2",
+            "base": "0.25",
+            "high": "0.3",
+        },
+    )
+
+    response = create(atlas, hypothesis["id"], version=1, assumptions=table)
+
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["code"] == "invalid_scenario"
+    assert f"Assertion {assertion.id}'s source wasn't available at 2026-09-01" in error["message"]
+
+
 def test_no_source_free_financial_figure_passes_validation(
     atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:

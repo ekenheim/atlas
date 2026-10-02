@@ -11,8 +11,8 @@ Evidence: an external review by Codex (the owner shared it on 2026-10-02); the l
 
 **Blocked by:** None
 
-**Status:** ready-for-agent (ships with the memory-quality release: it is the temporal-integrity rule, which the trust gate rests on)
+**Status:** done (ships with the memory-quality release: it is the temporal-integrity rule, which the trust gate rests on)
 
-- [ ] The investigation seam test above; the same for a scenario's Assertion source.
-- [ ] The lint-style unit test, with its allow-list and a reason for each entry.
-- [ ] Decision entry; `AGENTS.md` line if a command or setting changes.
+- [x] The investigation seam test above; the same for a scenario's Assertion source.
+- [x] The lint-style unit test, with its allow-list and a reason for each entry.
+- [x] Decision entry; `AGENTS.md` line if a command or setting changes (no command or setting changed).

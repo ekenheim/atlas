@@ -704,17 +704,18 @@ class TaskRunner:
                     text(
                         "SELECT id, source_document_id FROM (SELECT DISTINCT ON"
                         " (v.source_document_id) v.id, v.source_document_id,"
-                        " p.rank, p.query_index, v.available_at FROM reading_pointer p"
+                        " p.rank, p.query_index, a.available_at FROM reading_pointer p"
                         " JOIN investigation_task t ON t.id = p.task_id AND t.role = 'scout'"
                         " JOIN source_version v ON v.id = p.source_version_id"
+                        " JOIN source_version_availability a ON a.source_version_id = v.id"
                         " JOIN source_document d ON d.id = v.source_document_id"
                         " WHERE p.investigation_id = :id AND p.round = :round"
-                        " AND d.company_id = :company AND v.available_at <= :as_of"
+                        " AND d.company_id = :company AND a.available_at <= :as_of"
                         " AND v.parse_status IN ('parsed', 'incomplete')"
                         " AND v.parsed_object_uri IS NOT NULL"
                         " AND NOT EXISTS (SELECT FROM investigation_document r"
                         "  WHERE r.investigation_id = :id AND r.source_version_id = v.id)"
-                        " ORDER BY v.source_document_id, v.available_at DESC, v.id, p.rank,"
+                        " ORDER BY v.source_document_id, a.available_at DESC, v.id, p.rank,"
                         " p.query_index) best"
                         " ORDER BY rank, query_index, available_at DESC, id"
                     ),
@@ -730,14 +731,15 @@ class TaskRunner:
                 connection.execute(
                     text(
                         "SELECT id FROM (SELECT DISTINCT ON (v.source_document_id) v.id,"
-                        " v.available_at FROM source_version v"
+                        " a.available_at FROM source_version v"
+                        " JOIN source_version_availability a ON a.source_version_id = v.id"
                         " JOIN source_document d ON d.id = v.source_document_id"
-                        " WHERE d.company_id = :company AND v.available_at <= :as_of"
+                        " WHERE d.company_id = :company AND a.available_at <= :as_of"
                         " AND v.parse_status IN ('parsed', 'incomplete')"
                         " AND v.parsed_object_uri IS NOT NULL"
                         " AND v.source_document_id NOT IN (SELECT source_document_id"
                         "  FROM source_version WHERE id = ANY(:pointed))"
-                        " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
+                        " ORDER BY v.source_document_id, a.available_at DESC, v.id) latest"
                         # An earlier round's (or another task's) reading isn't repeated.
                         " WHERE NOT EXISTS (SELECT FROM investigation_document r"
                         "  WHERE r.investigation_id = :id AND r.source_version_id = latest.id)"
@@ -1191,12 +1193,13 @@ def _document_floor(
     rows = connection.execute(
         text(
             "SELECT DISTINCT ON (v.source_document_id) v.id, v.source_document_id,"
-            " v.available_at, d.form_type, d.document_type, v.metadata -> 'items' AS filing_items"
+            " a.available_at, d.form_type, d.document_type, v.metadata -> 'items' AS filing_items"
             " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
-            " WHERE d.company_id = :company AND v.available_at <= :as_of"
+            " JOIN source_version_availability a ON a.source_version_id = v.id"
+            " WHERE d.company_id = :company AND a.available_at <= :as_of"
             " AND v.parse_status IN ('parsed', 'incomplete')"
             " AND v.parsed_object_uri IS NOT NULL"
-            " ORDER BY v.source_document_id, v.available_at DESC, v.id"
+            " ORDER BY v.source_document_id, a.available_at DESC, v.id"
         ),
         dict(where),
     ).all()

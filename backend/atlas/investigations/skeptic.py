@@ -424,11 +424,12 @@ class Skeptic:
                     "SELECT * FROM (SELECT DISTINCT ON (v.source_document_id)"  # noqa: S608 (constant SQL)
                     f" {_VERSION_COLUMNS}"
                     " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
+                    " JOIN source_version_availability a ON a.source_version_id = v.id"
                     " LEFT JOIN company c ON c.id = d.company_id"
                     " WHERE d.company_id = ANY(:companies) AND d.source_tier = :tier"
-                    " AND v.available_at <= :as_of AND v.parse_status IN ('parsed', 'incomplete')"
+                    " AND a.available_at <= :as_of AND v.parse_status IN ('parsed', 'incomplete')"
                     " AND v.parsed_object_uri IS NOT NULL"
-                    " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
+                    " ORDER BY v.source_document_id, a.available_at DESC, v.id) latest"
                     " ORDER BY available_at DESC, id LIMIT :limit"
                 ),
                 {
@@ -1486,12 +1487,13 @@ def _fallback(
     rows = connection.execute(
         text(
             "SELECT * FROM (SELECT DISTINCT ON (v.source_document_id) v.id, d.company_id,"
-            " d.form_type, d.document_type, v.available_at"
+            " d.form_type, d.document_type, a.available_at"
             " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
+            " JOIN source_version_availability a ON a.source_version_id = v.id"
             " WHERE d.company_id = ANY(:companies) AND d.source_tier = :tier"
-            " AND d.source_type <> 'xbrl_companyfacts' AND v.available_at <= :as_of"
+            " AND d.source_type <> 'xbrl_companyfacts' AND a.available_at <= :as_of"
             " AND v.parse_status IN ('parsed', 'incomplete') AND v.parsed_object_uri IS NOT NULL"
-            " ORDER BY v.source_document_id, v.available_at DESC, v.id) latest"
+            " ORDER BY v.source_document_id, a.available_at DESC, v.id) latest"
             " ORDER BY available_at DESC, id"
         ),
         {"companies": wanted, "tier": _WITNESS_TIER, "as_of": investigation["as_of"]},
