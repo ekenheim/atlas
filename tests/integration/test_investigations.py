@@ -3580,6 +3580,9 @@ NVIDIA_SECOND_SOURCE_QUERY = (
 )
 
 
+ALLOCATION_FINDING = "Lumentum says its customers' demand is outpacing its current supply."
+
+
 def allocation_claim(atlas: Atlas) -> dict[str, JsonValue]:
     """Lumentum's allocation statement (its recorded 10-K's Item 1) as a company-level
     Claim."""
@@ -3805,7 +3808,8 @@ def test_a_pointer_reads_the_window_its_fact_s_chunk_lies_in_not_the_best_matchi
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(allocation_claim(atlas))),
-        ChatReply.answer(editing()),
+        # The finding says only what the allocation Claim says (pilot-fixes ticket 21).
+        ChatReply.answer(editing(statement=ALLOCATION_FINDING)),
         REVIEWED,
     )
     script_searches(searxng)
@@ -3885,7 +3889,8 @@ def test_a_chunk_that_is_not_in_its_section_leaves_the_pointer_on_the_best_match
     llm.script_chat(
         scout_reply(),
         ChatReply.answer(quoting(allocation_claim(atlas))),
-        ChatReply.answer(editing()),
+        # The finding says only what the allocation Claim says (pilot-fixes ticket 21).
+        ChatReply.answer(editing(statement=ALLOCATION_FINDING)),
         REVIEWED,
     )
     script_searches(searxng)
