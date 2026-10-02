@@ -21,7 +21,7 @@ A researcher's question reaches a Memory that holds the archive it should, knows
 1. **Measure first.** A memory-health read shows, per company and for the bank, what is retained, failed (grouped by error), empty, consolidated and how; a fixed set of probe recalls shows what the reading index returns. Both are run before and after this effort.
 2. **Intake tells a cancellation from a failure and loses nothing.** A cancelled retain is recorded as cancelled and can be enqueued again; a section's outcome is decided from its own document in Hindsight, a timeout is retried, partial extraction is noticed; and the cancelled sections of the corpus are retained by the backfill.
 3. **Each retained section says what it is.** The context names the company, the document, its period and who is speaking; the item names the companies Atlas knows are in it; the bank's missions say what to extract, what to ignore and what an observation is; the extractor labels each fact with its supply-chain layer.
-4. **Observations consolidate across a company's documents and across the theme.**
+4. **Observations consolidate across the theme: every company's documents, of every kind.**
 5. **Recall is asked like a reading index:** more results, no duplicates, the as-of time, the sources of an observation in the same answer, scores and entities kept on each reading pointer.
 6. **Two new ways to point:** the exact chunk a fact came from, and every fact in the theme that names a company (the company-to-company hop).
 7. **Reflect and the mental models are grounded:** a real search depth, no model reading another, citations that resolve, and their cost counted.
@@ -93,7 +93,7 @@ Memory stays an index. Nothing here lets a memory's text be quoted, serve as a w
 - Mental-model triggers gain `exclude_mental_models: true` and `keep_trace: true`; reflect's own recall is set to return no raw chunks and to include the facts behind observations.
 
 **Observation scopes.**
-- Each retain item sends explicit scopes: one for its company, one for each of its themes. Source, document type and form stay as tags for filtering and are no longer consolidation boundaries.
+- Each retain item sends explicit scopes: one for each of its themes. Company, source, document type and form stay as tags for filtering and are no longer consolidation boundaries. A company scope beside the theme's was dropped after ticket 01 measured the cost: one consolidation request per scope touched, on the shared Codex subscription. One scope per theme costs what the default costs today and draws on everything a company scope would.
 - The health read shows the scopes; the backfill ticket re-consolidates what is stored.
 
 **Recall as a reading index.**
@@ -126,7 +126,7 @@ Memory stays an index. Nothing here lets a memory's text be quoted, serve as a w
 - The owner offered a different embedding model (2026-10-02). The choice is measured, not assumed: the current model as served, the same with its query instruction, the model Hindsight's thresholds are calibrated for, and at most two further candidates, each on the known answers and against the five similarity thresholds, with the cost of each change stated (a query prefix re-embeds nothing; a new model re-embeds every bank; another dimension needs an empty store). The owner decides; the backfill runs after the decision.
 
 **The backfill.**
-- A backfill-class job per company re-retains the sections whose retain profile is older than the current one (same document ID, so Hindsight replaces the document's memories), re-enqueues failed sections, and then asks for consolidation. It runs under the retain budget on the MiniMax extractor and in the backfill window, newest documents first, resumable.
+- A backfill-class job per company re-extracts the sections whose retain profile is older than the current one (it deletes the Hindsight document and retains it again: ticket 01 showed that a retain of unchanged content under the same ID re-extracts nothing), re-enqueues failed sections, and then asks for consolidation. It runs under the retain budget on the MiniMax extractor and in the backfill window, newest documents first, resumable.
 - Its completion criterion is the health read: every non-skipped section of the pilot's companies completed, zero-fact or failed with a recorded reason, at the current profile.
 
 ## Testing Decisions

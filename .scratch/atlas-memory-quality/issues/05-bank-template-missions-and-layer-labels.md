@@ -11,6 +11,8 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("The bank template"). Study: find
 - Before fixing the texts, compare the old and the new missions on three recorded sections (a 10-K Item, an 8-K exhibit, a transcript part) with `dry-run-extract` on the local Hindsight: the lead runs it with the owner's go-ahead for ticket 01; the comparison goes into `docs/research/` and the texts are adjusted once from it.
 - `docs/decisions.md`: the missions' reasoning and the label group.
 
+**From ticket 01 (recordings `entity_labels/`, `dry_run_extract/`, `reprocess/03`):** a label group with `tag: true` writes its values as tags and a recall filtered by the tag returns only those facts; `reprocess` applies labels configured after the retain, without a new context. 0.10.2 also has consolidation strategies (a mission per scope), not exercised: leave them out.
+
 **Blocked by:** 01
 
 **Status:** ready-for-agent

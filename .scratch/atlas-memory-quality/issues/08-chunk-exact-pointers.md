@@ -12,6 +12,8 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("Chunk-exact pointers"). Recordin
 
 Migration revision `0065` (down: main's head).
 
+**From ticket 01 (the matrix's answer (b); recordings `chunks/`):** a chunk's text is a verbatim slice of the retained content, so this ticket is built. The API gives no offsets: a chunk is placed by finding its text in the pointed section, searching in `chunk_index` order, each search starting where the previous chunk ended; the separators between chunks belong to no chunk. A chunk ID is `<bank>_<document>_<index>`.
+
 **Blocked by:** 07
 
 **Status:** ready-for-agent

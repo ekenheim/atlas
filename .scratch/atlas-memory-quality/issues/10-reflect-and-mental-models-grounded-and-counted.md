@@ -13,6 +13,8 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("Reflect and the mental models", 
 
 Migration revision `0066` (down: main's head), only if a record needs it.
 
+**From ticket 01 (the matrix's answer (d); recordings `reflect_options/`, `tagged_mental_model/`):** on 0.10.2 a reflect's cited world fact carries `document_id`, `chunk_id`, `metadata` and `tags`, so it resolves to its section in one hop; a cited observation still needs the hop through its sources. A mental-model trigger takes `budget`. Build to the recordings, and simplify the resolver's reflect path where the new fields allow it.
+
 **Blocked by:** 01
 
 **Status:** ready-for-agent

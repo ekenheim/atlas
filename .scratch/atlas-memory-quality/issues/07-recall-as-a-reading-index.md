@@ -13,6 +13,8 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("Recall as a reading index"). Stu
 
 Migration revision `0063` (down: main's head).
 
+**From ticket 01 (`docs/hindsight-feature-matrix.md`, "0.10.2: the memory-quality features" and "The study's four questions, answered"; recordings `recall_options/`):** an observation's `source_fact_ids` is null unless `include.source_facts` is sent; with it the answer carries the source facts with their `document_id`, `metadata` and `chunk_id`. `prefer_observations`, `max_tokens`, `types`, `query_timestamp` and per-result `scores` behave as the docs say on 0.10.2. Build to the recordings.
+
 **Blocked by:** 01
 
 **Status:** ready-for-agent

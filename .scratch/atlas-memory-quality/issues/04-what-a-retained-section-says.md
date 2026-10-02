@@ -13,6 +13,8 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("What a retained section says"). 
 
 Migration revision `0062` (down: main's head).
 
+**From ticket 01 (the matrix's answer (a); recordings `reprocess/`):** a new context or new entities reach stored facts only through a new extraction. Retaining the same content again under the same `document_id` re-extracts nothing (Hindsight skips unchanged chunks) and `reprocess` replays the stored parameters. So this ticket changes what new retains send and records the profile; bringing stored sections to it is the backfill's work (ticket 12), which must delete and retain.
+
 **Blocked by:** 01
 
 **Status:** ready-for-agent

@@ -23,6 +23,8 @@ Two halves, one report (`.scratch/live-runs/<stamp>-memory-conformance/`, JSON a
 - `scripts/memory-conformance.sh [--rehearse] [--only known-answers|behaviours] [--strict]`: the live suite's two locks; hard caps on retain operations and LLM requests enforced by the counting proxies; the bank is always deleted. `--rehearse` runs every check against the fakes and is what CI runs.
 - `docs/runbooks.md`: "Memory conformance"; `docs/evaluation-methodology.md` names it as the precondition of a benchmark run.
 
+**From tickets 01 and 02:** ticket 02's listings of observation scopes and entities are hand-written fixtures (`tests/fixtures/hindsight-handwritten/`); ticket 01 recorded both (`observation_scopes/09-list-scopes.json`, `entities/03-list-entities.json`) and their shapes agree. This ticket replaces the hand-written fixtures with the recordings in the fake and deletes the folder. The health read and the probe report (`atlas.retention.health`, `atlas.research.probes`) are there to build on.
+
 **Blocked by:** 01, 02
 
 **Status:** ready-for-agent

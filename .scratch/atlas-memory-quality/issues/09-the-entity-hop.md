@@ -13,6 +13,8 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("The entity hop"). Study: finding
 
 Migration revision `0064` (down: main's head).
 
+**From ticket 01 (recordings `entities/`, `entity_memories/`):** names sent with `resolve_entities` false are attached to every fact of the item as written, but the extractor's own short forms are not merged into them ("Aurora" and "Aurora Optics" stay two entities). So the hop lists facts by the canonical entity Atlas sends (ticket 04), found by exact name; a fact retained before ticket 04's profile does not carry it until the backfill has re-extracted its section. The listing by `entity_id` with a tag filter is verified; its date filter is only partly verified (no fact fell outside the window), so the as-of bound is also applied in Atlas from each fact's Source Version.
+
 **Blocked by:** 04, 07
 
 **Status:** ready-for-agent
