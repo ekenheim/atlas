@@ -24,14 +24,17 @@ Every citation gets one state:
 
 - **resolved**: every hop reached a Source Version section (and a quote matched in one)
 - **unverified**: content without memory identity (a raw chunk), a memory whose document is
-  not an Atlas section or disagrees with the ledger, an observation with no sources, or a
-  quote that matches no cited section
+  not an Atlas section or disagrees with the ledger, an observation with no sources, a
+  quote that matches no cited section, or a memory a backfill **replaced** (`memory_replaced`:
+  Hindsight no longer has it because its section's document was deleted and retained again
+  under the current retain profile; `memory_replacement` records it, memory-quality ticket 12)
 - **broken**: the memory, or one of an observation's source memories, is gone
 
 An observation takes its worst hop's state (broken, then unverified). Only resolved
 citations are presented as `Evidence`.
 """
 
+import json
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -58,6 +61,7 @@ type UnresolvedReason = Literal[
     "mental_model",
     "no_memory_id",
     "memory_not_found",
+    "memory_replaced",
     "source_memory_not_found",
     "no_source_memories",
     "not_an_atlas_document",
@@ -261,10 +265,7 @@ class ProvenanceResolver:
             else:
                 found = self._memory(memory.id)
                 if found is None:
-                    outcome = _Outcome(
-                        "broken", "memory_not_found", "the cited memory no longer exists"
-                    )
-                    outcome.missing.append(memory.id)
+                    outcome = self._gone(memory.id, "memory_not_found", "the cited memory")
                 else:
                     outcome = self._resolve(found, depth=0)
             citations.append(_citation("memory", outcome, memory.id, memory.type, memory.text))
@@ -288,6 +289,34 @@ class ProvenanceResolver:
                 self._memories[memory_id] = None
         return self._memories[memory_id]
 
+    def _gone(self, memory_id: str, reason: UnresolvedReason, what: str) -> _Outcome:
+        """The outcome for a memory Hindsight no longer has: `unverified` with the reason
+        `memory_replaced` when a backfill deleted its document to retain the section again
+        under the current profile (memory-quality ticket 12: the section is still in Memory,
+        its facts have new IDs), else `broken`."""
+        document = self._replacement(memory_id)
+        if document is not None:
+            return _Outcome(
+                "unverified",
+                "memory_replaced",
+                f"{what} was replaced when document {document} was retained again under a newer"
+                " retain profile; its section is still in Memory under new memory IDs",
+            )
+        outcome = _Outcome("broken", reason, f"{what} no longer exists")
+        outcome.missing.append(memory_id)
+        return outcome
+
+    def _replacement(self, memory_id: str) -> str | None:
+        with self._engine.connect() as connection:
+            return connection.execute(
+                text(
+                    "SELECT hindsight_document_id FROM memory_replacement"
+                    " WHERE bank_id = :bank AND replaced_memory_ids @> CAST(:memory AS jsonb)"
+                    " ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"bank": self._gateway.bank_id, "memory": json.dumps([memory_id])},
+            ).scalar_one_or_none()
+
     def _resolve(self, memory: Memory, *, depth: int) -> _Outcome:
         if memory.type == "observation":
             return self._resolve_observation(memory, depth=depth)
@@ -309,12 +338,11 @@ class ProvenanceResolver:
         for source_id in source_ids:
             source = self._memory(source_id)
             if source is None:
-                hop = _Outcome(
-                    "broken",
+                hop = self._gone(
+                    source_id,
                     "source_memory_not_found",
-                    "a memory the observation was consolidated from no longer exists",
+                    "a memory the observation was consolidated from",
                 )
-                hop.missing.append(source_id)
             else:
                 hop = self._resolve(source, depth=depth + 1)
             combined.sources.extend(hop.sources)

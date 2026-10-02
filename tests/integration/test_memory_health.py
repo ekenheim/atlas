@@ -90,6 +90,7 @@ def counts(
     zero_fact: int = 0,
     pending: int = 0,
     partial: int = 0,
+    at_profile: int = 0,
 ) -> dict[str, int]:
     return {
         "total": total,
@@ -101,10 +102,15 @@ def counts(
         "linked": 0,
         "partial": partial,
         "fact_count": completed * RECORDED_FACT_COUNT,
+        # Sections retained now are under the current retain profile; none is below it.
+        "at_profile": at_profile,
+        "below_profile": 0,
     }
 
 
-LUMENTUM = counts(total=TEN_K + 3 + 2 + 3, completed=4, failed=TEN_K + 3, zero_fact=1, partial=2)
+LUMENTUM = counts(
+    total=TEN_K + 3 + 2 + 3, completed=4, failed=TEN_K + 3, zero_fact=1, partial=2, at_profile=5
+)
 COHERENT = counts(total=TEN_K + 2, failed=TEN_K, pending=2)
 
 

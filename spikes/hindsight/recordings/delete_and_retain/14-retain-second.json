@@ -1,0 +1,49 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/default/banks/atlas-q12-1790944925/memories",
+    "query": null,
+    "body": {
+      "items": [
+        {
+          "content": "Aurora Optics Inc. said its Tucson indium phosphide fab ran at full utilization in fiscal 2026. Halcyon Networks accounted for 38% of Aurora's revenue and will take most of its 3.2T laser output in fiscal 2027, which Aurora called its binding capacity constraint.",
+          "document_id": "doc-delete-retain",
+          "timestamp": "2026-08-01T00:00:00Z",
+          "context": "Aurora Optics Inc. annual report (10-K), fiscal 2026, Item 1. Business. The filer, Aurora Optics Inc., is speaking.",
+          "metadata": {
+            "fixture": "delete-and-retain"
+          },
+          "tags": [
+            "company:aurora",
+            "form:10-K"
+          ],
+          "entities": [
+            {
+              "text": "Aurora Optics Inc.",
+              "type": "ORG"
+            },
+            {
+              "text": "Halcyon Networks",
+              "type": "ORG"
+            }
+          ],
+          "resolve_entities": false
+        }
+      ],
+      "async": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.02,
+    "body": {
+      "success": true,
+      "bank_id": "atlas-q12-1790944925",
+      "items_count": 1,
+      "async": true,
+      "operation_id": "4f70013a-7ddb-40cc-86b2-80010061faf4",
+      "operation_ids": null,
+      "usage": null
+    }
+  }
+}

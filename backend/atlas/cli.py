@@ -198,6 +198,79 @@ def enqueue_consolidate(settings: Settings, key: str | None, *, backfill: bool) 
     _print_enqueued(enqueued)
 
 
+def run_memory_backfill(
+    settings: Settings,
+    companies: list[str] | None,
+    theme: str | None,
+    max_sections: int | None,
+    key: str | None,
+) -> None:
+    """`atlas memory backfill`: one `memory_backfill` job per company with sections below the
+    current retain profile (or failed or cancelled), in the order the backfill runs them."""
+    import json
+    import uuid
+
+    from sqlalchemy import text
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.jobs import JobQueue
+    from atlas.retention.backfill import enqueue_backfills
+
+    if not settings.hindsight_url:
+        print("atlas: the backfill needs ATLAS_HINDSIGHT_URL", file=sys.stderr)
+        raise SystemExit(2)
+    if (companies is None) == (theme is None):
+        print("atlas: name --company (one or more) or --theme, not both", file=sys.stderr)
+        raise SystemExit(2)
+    universe = _universe(settings)
+    if theme is not None:
+        if theme not in universe.themes:
+            print(f"atlas: no theme {theme!r} in the theme config", file=sys.stderr)
+            raise SystemExit(2)
+        slugs = list(universe.themes[theme].companies)
+    else:
+        slugs = list(dict.fromkeys(companies or []))
+    engine = create_engine(settings)
+    try:
+        with engine.connect() as connection:
+            ids = {
+                row["slug"]: row["id"]
+                for row in connection.execute(
+                    text("SELECT id, slug FROM company WHERE slug = ANY(:slugs)"),
+                    {"slugs": slugs},
+                ).mappings()
+            }
+        unknown = [slug for slug in slugs if slug not in ids]
+        if unknown and theme is None:
+            print(f"atlas: no company {unknown[0]!r} (seed the universe first)", file=sys.stderr)
+            raise SystemExit(2)
+        run = key or f"backfill:{uuid.uuid4()}"
+        plan = enqueue_backfills(
+            engine,
+            JobQueue(engine, actor=Actor.from_settings(settings)),
+            settings.hindsight_bank_id,
+            [ids[slug] for slug in slugs if slug in ids],
+            max_sections=max_sections,
+            run=run,
+            # --theme: the seeds of the pilot's investigations first, thinnest first; the
+            # companies the owner names are run in the order named.
+            ordered=theme is not None,
+        )
+    finally:
+        engine.dispose()
+    by_id = {str(value): slug for slug, value in ids.items()}
+    print(
+        json.dumps(
+            {
+                "run": run,
+                "max_sections": max_sections,
+                "companies": [{"company": by_id[p["company_id"]]} | p for p in plan],
+            }
+        )
+    )
+
+
 def _print_enqueued(enqueued: "Enqueued") -> None:
     import json
 
@@ -1121,6 +1194,22 @@ def main(argv: list[str] | None = None) -> None:
     )
     consolidate.add_argument("--key", help="idempotency key (default: a new request each time)")
     consolidate.add_argument("--backfill", action="store_true", help="backfill class")
+    backfill = memory_commands.add_parser(
+        "backfill",
+        help="bring the retained sections to the current retain profile and retry the failed"
+        " and cancelled ones: delete each Hindsight document and retain it again (backfill"
+        " class, the retain budget), then consolidate; one job per company",
+    )
+    backfill.add_argument(
+        "--company", action="append", dest="companies", help="a company slug (repeatable)"
+    )
+    backfill.add_argument(
+        "--theme", help="every company of the theme, seeds of the pilot's investigations first"
+    )
+    backfill.add_argument(
+        "--max-sections", type=int, help="take at most N sections in this run (a rerun: the next)"
+    )
+    backfill.add_argument("--key", help="the run's key (default: a new run each time)")
     evaluate = commands.add_parser(
         "evaluate",
         help="run the gold evaluation cases and store the results (GET /api/v1/evaluations)",
@@ -1225,6 +1314,8 @@ def main(argv: list[str] | None = None) -> None:
         seed_companies(settings)
     elif args.command == "evaluate":
         raise SystemExit(run_evaluate(settings, args.cases, live=args.live))
+    elif args.command == "memory" and args.memory_command == "backfill":
+        run_memory_backfill(settings, args.companies, args.theme, args.max_sections, args.key)
     elif args.command == "memory":
         enqueue_consolidate(settings, args.key, backfill=args.backfill)
     else:

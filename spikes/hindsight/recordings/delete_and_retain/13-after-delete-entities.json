@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/default/banks/atlas-q12-1790944925/entities",
+    "query": {
+      "limit": 200
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.01,
+    "body": {
+      "items": [],
+      "total": 0,
+      "limit": 200,
+      "offset": 0
+    }
+  }
+}

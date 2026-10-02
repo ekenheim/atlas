@@ -604,6 +604,16 @@ class ServerVersion(_Result):
     features: dict[str, bool] = {}
 
 
+class DocumentDeleted(_Result):
+    """`DELETE /banks/{id}/documents/{document_id}`: the document and its memories are gone
+    (recorded 0.10.2, `recordings/delete_and_retain/09-delete-document`)."""
+
+    success: bool
+    message: str | None = None
+    document_id: str | None = None
+    memory_units_deleted: int | None = None
+
+
 class BankDeleted(_Result):
     """`DELETE /banks/{id}`'s `DeleteResponse` (never recorded; the documented shape)."""
 

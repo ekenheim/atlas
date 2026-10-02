@@ -34,6 +34,7 @@ from atlas.hindsight.models import (
     Chunk,
     ChunkPage,
     ConsolidationSubmitted,
+    DocumentDeleted,
     EntityPage,
     FactType,
     KnowledgeNode,
@@ -335,6 +336,17 @@ class HindsightGateway:
     def consolidate(self) -> ConsolidationSubmitted:
         """Ask for consolidation now (`POST .../consolidate`); poll the operation it returns."""
         return self._parse(ConsolidationSubmitted, self._post("/consolidate", {}))
+
+    def delete_document(self, document_id: str) -> DocumentDeleted:
+        """Delete one document and its memories (`DELETE .../documents/{id}`), so a retain
+        under the same ID extracts it again (memory-quality ticket 12; recorded on 0.10.2:
+        `recordings/delete_and_retain/`). The observations built only from its facts go with
+        it; the document's new facts, once retained, have new IDs.
+
+        Raises `HindsightNotFound` when the bank holds no such document.
+        """
+        data = self._request("DELETE", f"/documents/{_segment(document_id)}")
+        return self._parse(DocumentDeleted, data)
 
     def delete_bank(self) -> BankDeleted:
         """Delete the whole bank (`DELETE /banks/{id}`): only a replay bank or a conformance

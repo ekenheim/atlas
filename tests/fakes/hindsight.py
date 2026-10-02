@@ -133,6 +133,13 @@ Derived behaviours (each serves a recorded response with only the named fields c
   document ID (`derived_fact(document_id, bank=None)`: None means the one bank holding it).
   Reading a derived memory from a bank that doesn't hold it (another bank's, or a deleted
   bank's) answers HTTP 404 with the same hand-written body as `forget`.
+- **Document deletion** (memory-quality ticket 12; `DELETE .../documents/<id>`, recorded on
+  0.10.2 in `delete_and_retain/`): the derived document, its fact and the observations built
+  only from it are gone (the old fact's ID reads 404, as a deleted memory does); retaining the
+  same ID again stores the document anew with a **new** fact ID, as the recording showed (the
+  fake's IDs are UUIDv5 of the bank, the document and how many times it was deleted). An absent
+  document answers 404 (the hand-written body of the absent documents). The response is the
+  recorded one with only `document_id`, `memory_units_deleted` and `message` changed.
 - **Bank deletion** (`DELETE /v1/default/banks/<bank>`; never recorded, feature matrix "Not
   verified here"): answers 200 with a **hand-written** body in the documented `DeleteResponse`
   shape (`{"success": true, "message": null, "deleted_count": <documents dropped>}`; only the
@@ -423,6 +430,7 @@ class _RecallFailure:
 DERIVED_RETAIN = "retain/04-batch"
 DERIVED_RETAIN_FINAL = "retain/05-batch-final"
 DERIVED_DOCUMENT = "upsert/09-get-document"
+DERIVED_DOCUMENT_DELETE = "delete_and_retain/09-delete-document"
 DERIVED_FACT = "reflect/06-resolve-source-memory"
 DERIVED_OBSERVATION = "reflect/02-resolve-memory"
 DERIVED_RECALL = "tags/02-tags-any_strict"
@@ -506,6 +514,10 @@ class RecordedHindsight:
         init=False, default_factory=dict[str, list[str]]
     )
     _known_memories: set[str] = field(init=False, default_factory=set[str])
+    # (bank, document ID) -> how many times the document was deleted: its next facts have new IDs
+    _generations: dict[tuple[str, str], int] = field(
+        init=False, default_factory=dict[tuple[str, str], int]
+    )
     _consolidations: set[str] = field(init=False, default_factory=set[str])
     _consolidation_holds: list[_Hold] = field(init=False, default_factory=list[_Hold])
     deleted_banks: list[str] = field(init=False, default_factory=list[str])
@@ -607,7 +619,7 @@ class RecordedHindsight:
     def derived_fact(self, document_id: str, bank: str | None = None) -> str:
         """The ID of the derived world fact extracted from a retained document (in `bank`;
         None: the one bank that holds the document)."""
-        return _fact_id(self._holding_bank(document_id, bank), document_id)
+        return self._fid(self._holding_bank(document_id, bank), document_id)
 
     def derive_observation(
         self,
@@ -842,6 +854,8 @@ class RecordedHindsight:
         derived = self._derived_by_default(request, bank, route, body)
         if derived is not None or not self._derive:
             return derived
+        if request.method == "DELETE" and len(route) == 2 and route[0] == "documents":
+            return self._deleted_document(bank, route[1])
         if request.method == "POST" and route == ["memories"] and isinstance(body, dict):
             return self._derived_retain(bank, body)
         if request.method == "GET" and len(route) == 2 and route[0] == "operations":
@@ -903,7 +917,7 @@ class RecordedHindsight:
                 continue
             documents[document_id] = item
             absent.discard(document_id)
-            self._known_memories.add(_fact_id(bank, document_id))
+            self._known_memories.add(self._fid(bank, document_id))
             self._memory_writes += 1
         self._derived_operations.add(operation_id)
         recording = self.recording(DERIVED_RETAIN)
@@ -969,7 +983,7 @@ class RecordedHindsight:
         facts: dict[str, dict[str, JsonValue]] = {}
         absent = self._absent.get(bank, set())
         for document_id, item in self._derived_documents.get(bank, {}).items():
-            fact_id = _fact_id(bank, document_id)
+            fact_id = self._fid(bank, document_id)
             if self._zero_facts(document_id) or fact_id in self._forgotten or document_id in absent:
                 continue
             facts[fact_id] = {
@@ -1389,6 +1403,38 @@ class RecordedHindsight:
         self.served.append(f"{DERIVED_CONSOLIDATE_FINAL} (derived)")
         return httpx2.Response(recording.status, json=self._apply_hold(response))
 
+    def _fid(self, bank: str, document_id: str) -> str:
+        return _fact_id(bank, document_id, self._generations.get((bank, document_id), 0))
+
+    def _deleted_document(self, bank: str, document_id: str) -> httpx2.Response:
+        """`DELETE .../documents/<id>` (memory-quality ticket 12; recorded on 0.10.2,
+        `delete_and_retain/09-delete-document` to `13`): the document, its facts and the
+        observations built only from them are gone; a retain under the same ID extracts a new
+        fact with a new ID. An absent document answers 404 with the hand-written body the
+        absent documents use. The recorded response with only `document_id` and
+        `memory_units_deleted` (the document's facts: none for a zero-fact one) changed."""
+        documents = self._derived_documents.get(bank, {})
+        if document_id not in documents or document_id in self._absent.get(bank, set()):
+            self.served.append("documents/<id> DELETE 404 (derived, hand-written body)")
+            return httpx2.Response(404, json={"detail": "Document not found"})
+        fact_id = self._fid(bank, document_id)
+        units = 0 if self._zero_facts(document_id) else 1
+        del documents[document_id]
+        self._generations[(bank, document_id)] = self._generations.get((bank, document_id), 0) + 1
+        for observation_id, (observed_bank, sources) in list(self._observations.items()):
+            if observed_bank == bank and fact_id in sources and set(sources) <= {fact_id}:
+                del self._observations[observation_id]
+        recording = self.recording(DERIVED_DOCUMENT_DELETE)
+        response = copy.deepcopy(recording.response_object())
+        response |= {
+            "document_id": document_id,
+            "memory_units_deleted": units,
+            "message": f"Document '{document_id}' and {units} associated memory units deleted"
+            " successfully",
+        }
+        self.served.append(f"{DERIVED_DOCUMENT_DELETE} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
     def _deleted_bank(self, bank: str) -> httpx2.Response:
         absent = self._absent.pop(bank, set())
         documents = [d for d in self._derived_documents.pop(bank, {}) if d not in absent]
@@ -1604,8 +1650,9 @@ def _iso(moment: datetime | None) -> str | None:
     return None if moment is None else moment.isoformat()
 
 
-def _fact_id(bank: str, document_id: str) -> str:
-    return str(uuid.uuid5(_DERIVED_NAMESPACE, f"world:{bank}:{document_id}"))
+def _fact_id(bank: str, document_id: str, generation: int = 0) -> str:
+    suffix = f"#{generation}" if generation else ""
+    return str(uuid.uuid5(_DERIVED_NAMESPACE, f"world:{bank}:{document_id}{suffix}"))
 
 
 def _collapsed(content: JsonValue) -> str:

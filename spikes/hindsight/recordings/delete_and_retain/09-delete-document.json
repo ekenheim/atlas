@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "DELETE",
+    "path": "/v1/default/banks/atlas-q12-1790944925/documents/doc-delete-retain",
+    "query": null,
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "seconds": 0.04,
+    "body": {
+      "success": true,
+      "message": "Document 'doc-delete-retain' and 2 associated memory units deleted successfully",
+      "document_id": "doc-delete-retain",
+      "memory_units_deleted": 2
+    }
+  }
+}
