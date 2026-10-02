@@ -62,6 +62,9 @@ RETAIN_SUBMITS = [
     "upsert/03-v2-same-document-id",
     "upsert/05-v1-own-id",
     "upsert/07-v2-own-id",
+    # the gateway sends an item's explicit observation scopes (memory-quality ticket 06)
+    "observation_scopes/01-retain-one-scope",
+    "observation_scopes/05-retain-two-scopes",
 ]
 
 

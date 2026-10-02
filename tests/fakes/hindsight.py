@@ -53,6 +53,17 @@ Derived behaviours (each serves a recorded response with only the named fields c
   first source fact's), `tags` (the union of its sources'), `source_memory_ids` and
   `source_memories` changed (each embedded source is the recorded first one, with only `id`,
   `text`, `context` and `mentioned_at` changed).
+  `derive_observation(document_ids, scope=tags)` (memory-quality ticket 06) is the observation
+  consolidated in that explicit observation scope instead: its `tags` are the scope's tags
+  alone, as `observation_scopes/05` to `08` showed (one observation per scope, carrying only that
+  scope's tags), and every source document's retained item must have sent that scope in its
+  `observation_scopes` (the fake raises otherwise, so a test can't derive an observation the
+  item's scopes wouldn't produce). Without `scope`, the tags stay the union of its sources'
+  (the `combined` default of an item sent without scopes).
+  With `derive_memories` on and no scopes scripted, `GET .../observations/scopes` serves
+  `observation_scopes/09-list-scopes` with only `scopes` (each derived observation's tag set
+  in the bank with its count, most populous first, then in first-derived order), `total`,
+  `limit` and `offset` changed.
   An unrecorded strict-tag recall (`any_strict`/`all_strict`) serves `tags/02-tags-any_strict`
   with its `results` replaced by the derived observations, then facts, whose tags match the
   scope the way the recorded strict modes did (untagged and non-matching memories excluded).
@@ -346,6 +357,7 @@ DERIVED_MENTAL_MODEL_REFRESH_FINAL = "mental_models/05-refresh-final"
 DERIVED_MENTAL_MODEL_HISTORY = "mental_models/06-history"
 DERIVED_CONSOLIDATE = "observations/01-consolidate"
 DERIVED_CONSOLIDATE_FINAL = "observations/02-consolidate-final"
+DERIVED_SCOPES = "observation_scopes/09-list-scopes"
 _TEMPLATE_TRIGGER_FIELDS = (
     "refresh_after_consolidation",
     "refresh_cron",
@@ -383,6 +395,10 @@ class RecordedHindsight:
     # observation ID -> (its bank, its source fact IDs)
     _observations: dict[str, tuple[str, list[str]]] = field(
         init=False, default_factory=dict[str, tuple[str, list[str]]]
+    )
+    # observation ID -> the explicit observation scope it was consolidated in (ticket 06)
+    _observation_scopes: dict[str, list[str]] = field(
+        init=False, default_factory=dict[str, list[str]]
     )
     _known_memories: set[str] = field(init=False, default_factory=set[str])
     _consolidations: set[str] = field(init=False, default_factory=set[str])
@@ -471,13 +487,32 @@ class RecordedHindsight:
         None: the one bank that holds the document)."""
         return _fact_id(self._holding_bank(document_id, bank), document_id)
 
-    def derive_observation(self, document_ids: Sequence[str], bank: str | None = None) -> str:
+    def derive_observation(
+        self,
+        document_ids: Sequence[str],
+        bank: str | None = None,
+        scope: Sequence[str] | None = None,
+    ) -> str:
         """An observation consolidated from these documents' facts (in `bank`; None: the one
-        bank that holds the first document); returns its ID."""
+        bank that holds the first document); returns its ID. With `scope`, it is the
+        observation of that explicit observation scope, which each document must have sent."""
         bank = self._holding_bank(document_ids[0], bank)
         sources = [self.derived_fact(document_id, bank) for document_id in document_ids]
-        observation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, "observation:" + "|".join(sources)))
+        key = "observation:" + "|".join(sources)
+        if scope is not None:
+            for document_id in document_ids:
+                item = self._derived_documents[bank][document_id]
+                sent = cast(list[list[str]], item.get("observation_scopes") or [])
+                if not any(set(s) == set(scope) for s in sent):
+                    raise AssertionError(
+                        f"{document_id} was retained with observation_scopes {sent}, "
+                        f"not with {list(scope)}"
+                    )
+            key += "#scope:" + "|".join(scope)
+        observation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, key))
         self._observations[observation_id] = (bank, sources)
+        if scope is not None:
+            self._observation_scopes[observation_id] = list(scope)
         self._known_memories.add(observation_id)
         self._memory_writes += 1
         return observation_id
@@ -798,8 +833,11 @@ class RecordedHindsight:
         facts = self._facts(bank)
         present = [facts[s] for s in self._observations[observation_id][1] if s in facts]
         tags: list[JsonValue] = []
-        for fact in present:
-            tags.extend(t for t in cast(list[JsonValue], fact["tags"]) if t not in tags)
+        if observation_id in self._observation_scopes:
+            tags.extend(self._observation_scopes[observation_id])  # the scope's tags alone
+        else:
+            for fact in present:
+                tags.extend(t for t in cast(list[JsonValue], fact["tags"]) if t not in tags)
         return {
             "id": observation_id,
             "text": present[0]["text"] if present else "",
@@ -943,8 +981,36 @@ class RecordedHindsight:
         if request.method == "POST" and route == ["consolidate"] and body == {}:
             return self._derived_consolidation(bank)
         if request.method == "GET" and route in (["observations", "scopes"], ["entities"]):
+            if route[0] == "observations" and self._scopes is None and self._derive_memories:
+                return self._derived_scopes(bank, request)
             return self._handwritten_listing(request, route)
         return None
+
+    def _derived_scopes(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
+        if self._listing_failure is not None:
+            return self._handwritten_listing(request, ["observations", "scopes"])
+        params = dict(request.url.params)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if limit is None or params:
+            return None
+        counts: dict[tuple[str, ...], int] = {}
+        for observation_id in self._observations:
+            if self._in_bank(observation_id, bank) and observation_id not in self._forgotten:
+                tags = cast(list[str], self._observation(observation_id, bank)["tags"])
+                counts[tuple(tags)] = counts.get(tuple(tags), 0) + 1
+        ranked = sorted(counts.items(), key=lambda entry: -entry[1])  # stable: first-derived
+        listed: list[JsonValue] = [{"tags": list(tags), "count": n} for tags, n in ranked]
+        recording = self.recording(DERIVED_SCOPES)
+        response = copy.deepcopy(recording.response_object())
+        response |= {
+            "scopes": listed[offset : offset + int(limit)],
+            "total": len(listed),
+            "limit": int(limit),
+            "offset": offset,
+        }
+        self.served.append(f"{DERIVED_SCOPES} (derived)")
+        return httpx2.Response(recording.status, json=response)
 
     # --- hand-written listings (see the module docstring) --------------------------------------
 

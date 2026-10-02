@@ -345,6 +345,25 @@ def test_a_replays_retains_ask_for_the_configured_extractor_and_stay_on_the_code
     atlas.engine.dispose()
 
 
+def test_a_replays_retains_send_the_same_observation_scopes_as_the_research_banks(
+    atlas: Atlas, fake: RecordedHindsight
+) -> None:
+    import_documents(atlas, "early", "mid")
+    fake.script_reflect("An answer.", [BankFacts()])
+    fake.script_reflect("An answer.", [BankFacts()])
+
+    requested = request_replay(atlas)
+    atlas.worker_pass()
+
+    research = [item for batch in fake.retained(BANK) for item in batch]
+    replayed = [item for batch in fake.retained(requested["bank_id"]) for item in batch]
+    assert research and replayed
+    # Lumentum is in one theme: one scope, the theme's (memory-quality ticket 06).
+    assert {json.dumps(item["observation_scopes"]) for item in research + replayed} == {
+        json.dumps([["theme:photonics"]])
+    }
+
+
 def test_replays_are_listed_newest_first(atlas: Atlas) -> None:
     import_documents(atlas, "early")
     first = request_replay(atlas)

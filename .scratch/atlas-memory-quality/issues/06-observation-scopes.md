@@ -14,9 +14,9 @@ Spec: `.scratch/atlas-memory-quality/spec.md` ("Observation scopes"). Study: fin
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Integration test at the worker seam: the retain request for a section of a company in one theme carries that one scope; a company in two themes carries two.
-- [ ] With the fake deriving observations per scope: a theme-scoped recall returns an observation whose sources are sections of two companies, each resolved; a company-scoped recall returns that company's facts and no observation.
-- [ ] Replay and evaluation retains carry the scopes.
-- [ ] Decision entry; `AGENTS.md` line.
+- [x] Integration test at the worker seam: the retain request for a section of a company in one theme carries that one scope; a company in two themes carries two.
+- [x] With the fake deriving observations per scope: a theme-scoped recall returns an observation whose sources are sections of two companies, each resolved; a company-scoped recall returns that company's facts and no observation.
+- [x] Replay and evaluation retains carry the scopes. (Replay: tested in `test_replay.py`. Evaluation: only `--live` retains, through the same `retain` jobs and `retain_item` the worker-seam test covers; no test drives a live evaluation, so that path is covered by the shared code, not by a test of its own.)
+- [x] Decision entry; `AGENTS.md` line.

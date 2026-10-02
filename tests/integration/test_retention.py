@@ -48,8 +48,17 @@ COHR_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000820318.json"
 # 8-K's Items 2.02 and 9.01 (the 10-Ks' are `TEN_K_ANCHORS`).
 TEN_Q_ANCHORS = ["cover", "part-i-item-1"]
 EIGHT_K_ANCHORS = ["cover", "item-2-02", "item-9-01"]
-# A retain item as Atlas has always sent it: its fields and its metadata keys, in order.
-RETAIN_ITEM_FIELDS = ["content", "document_id", "timestamp", "context", "metadata", "tags"]
+# A retain item as Atlas has always sent it: its fields and its metadata keys, in order;
+# since memory-quality ticket 06 with its observation scopes (one per theme).
+RETAIN_ITEM_FIELDS = [
+    "content",
+    "document_id",
+    "timestamp",
+    "context",
+    "metadata",
+    "tags",
+    "observation_scopes",
+]
 RETAIN_METADATA_KEYS = [
     "source_version_id",
     "section_anchor",
@@ -179,6 +188,7 @@ def test_one_batch_per_source_version_with_the_specified_ids_tags_metadata_and_t
                 "doctype:filing",
                 f"form:{form}",
             ]
+            assert item["observation_scopes"] == [["theme:photonics"]]
             assert item["metadata"] == {
                 "source_version_id": version["id"],
                 "section_anchor": anchor,

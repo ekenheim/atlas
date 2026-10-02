@@ -115,6 +115,9 @@ class RetainItem(BaseModel):
     context: str | None = None
     metadata: dict[str, str] | None = None
     tags: list[str] | None = None
+    # The explicit observation scopes (each a tag set) the item's facts consolidate into.
+    # None: not sent, so Hindsight's default (`combined`: the item's full tag set) applies.
+    observation_scopes: list[list[str]] | None = None
 
 
 class MentalModelTrigger(BaseModel):
