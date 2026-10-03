@@ -1,6 +1,7 @@
 # Atlas alert rules (spec Part B story 35), for the Prometheus Operator in home-ops.
-# Not deployed from this repo: the atlas Kustomization in home-ops
-# (kubernetes/apps/datasci/atlas/) is expected to include this file. The metrics come from the
+# Deployed by home-ops as a copy: kubernetes/apps/development/atlas/app/prometheusrule.yaml
+# (with servicemonitor.yaml, which makes Prometheus scrape Atlas; both since 0.4.5, home-ops-upgrade
+# PR #7216). A change here is copied there in the release's home-ops PR. The metrics come from the
 # API's /metrics, read from the database at scrape time (backend/atlas/metrics.py).
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
