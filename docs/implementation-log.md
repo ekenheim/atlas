@@ -3360,3 +3360,10 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 
 - **Released:** `v0.4.3` at `97cd21f` (main fast-forwarded): memory-quality ticket 20 (a consolidation followed to its end and counted by rounds; migration `0075`, additive), with the lead's audit fix (a run still going is followed every `ATLAS_CONSOLIDATE_FOLLOW_SECONDS`, 300, by the `ConsolidationFollow` schedule, not at the hourly try), and the corrected conformance checks. CI on `integrate/consolidation-rounds` (run 37138874211) green; release run 37140916515.
 - **How the implementer held up:** the ticket's five boxes were met with tests at the worker seam; the lead's audit found one defect the ticket had not spelled out (rounds unwatched between hourly tries, and after the day's tries), fixed on the same branch with two tests red first. Deviations accepted: the skip reason `other_consolidation_running`; a budget of N gives N−1 whole rounds and one cut short; the follow-up through a worker schedule rather than a delayed enqueue (the queue has none).
+
+## 2026-10-03: shorter releases: the suite runs once per commit
+
+- **Built:** `release.yml` gains a `verified` job (GitHub's API: has `ci.yml` passed on the tagged commit, on any branch?); the `ci` job runs only when it has not, and `publish` needs the commit to have passed CI there or here (fails closed: a failed `verified` publishes nothing). `ci.yml` skips pushes that change only `.scratch/**` (except `.scratch/pilot/pilot-plan.md`, which `tests/unit/test_memory_probes.py` reads) or `docs/implementation-log.md`. `docs/deployment.md` describes both.
+- **Why:** a release ran the 30-minute suite twice for one commit (the integration branch, then the tag: 0.4.2's took 32 minutes before a 1.5-minute publish), and every tracker comment pushed to main started a full run on the owner's runners.
+- **Tests:** none local (workflow files; YAML parsed). The first check is the next release: its `verified` job must find the integration branch's green run and skip `ci`.
+- **Next:** parallel tests (pytest-xdist), on a branch.

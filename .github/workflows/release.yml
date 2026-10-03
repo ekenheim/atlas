@@ -1,14 +1,17 @@
 name: release
 
 # Pushing a tag vX.Y.Z publishes ghcr.io/ekenheim/atlas:X.Y.Z (plus a
-# sha-<commit> tag) after the same CI gates as every other run. See
-# docs/deployment.md for the release process.
+# sha-<commit> tag) after the same CI gates as every other run: when the tagged commit
+# already has a successful `ci` run (it normally has: the release is cut from a green
+# integration branch), that run is the gate and the suite is not run again; otherwise it
+# runs here. See docs/deployment.md for the release process.
 on:
   push:
     tags: ["v*.*.*"]
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -18,7 +21,25 @@ env:
   IMAGE: ghcr.io/ekenheim/atlas
 
 jobs:
+  verified:
+    # Whether ci.yml already passed on this exact commit (any branch). Fails closed: an API
+    # error fails this job, and then nothing is published.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      green: ${{ steps.check.outputs.green }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${{ github.sha }}&status=success&per_page=1" --jq '.total_count')
+          echo "successful ci runs of ${{ github.sha }}: $runs"
+          if [ "$runs" -gt 0 ]; then echo "green=true" >> "$GITHUB_OUTPUT"; else echo "green=false" >> "$GITHUB_OUTPUT"; fi
+
   ci:
+    needs: verified
+    if: needs.verified.outputs.green != 'true'
     # The same self-hosted scale set as ci.yml: on GitHub's hosted runners the suite
     # outgrew the 30-minute limit (v0.2.2's release was cancelled at 30 minutes with the
     # tests passed and the e2e still to run).
@@ -48,7 +69,11 @@ jobs:
       - run: scripts/ci.sh --no-image
 
   publish:
-    needs: ci
+    needs: [verified, ci]
+    # The gate: a green ci run of this commit already existed, or the suite passed here.
+    if: >-
+      always() && needs.verified.result == 'success' &&
+      (needs.verified.outputs.green == 'true' || needs.ci.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
