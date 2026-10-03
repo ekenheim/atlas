@@ -165,10 +165,13 @@ def test_every_gold_case_passes_in_fake_mode_and_the_run_is_stored_and_served(
     ]
 
     # Each case ran in its own database, dropped afterwards; the results stay in Atlas's.
+    # The run's databases are named after its ID; other runs may share the server meanwhile.
+    prefix = f"atlas_eval_{uuid.UUID(summary['evaluation_run_id']).hex[:12]}_"
     engine = create_engine(database_url)
     with engine.connect() as connection:
         left = connection.execute(
-            text("SELECT count(*) FROM pg_database WHERE datname LIKE 'atlas_eval_%'")
+            text("SELECT count(*) FROM pg_database WHERE starts_with(datname, :prefix)"),
+            {"prefix": prefix},
         ).scalar_one()
         assert connection.execute(text("SELECT count(*) FROM company")).scalar_one() == 0
     engine.dispose()

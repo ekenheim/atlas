@@ -2,7 +2,8 @@
 
 import os
 import uuid
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 
 import boto3
 import pytest
@@ -29,13 +30,16 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             item.add_marker(pytest.mark.allow_hosts(LOCAL_HOSTS))
 
 
-@pytest.fixture
-def empty_database_url() -> Iterator[str]:
-    """A freshly created, empty database, dropped after the test."""
-    name = f"atlas_test_{uuid.uuid4().hex[:12]}"
+@contextmanager
+def _fresh_database(name: str, template: str | None = None) -> Generator[str]:
+    """Create the database `name` (empty, or a copy of `template`); drop it on exit.
+
+    Every name is unique (a random suffix), so tests in parallel processes (pytest-xdist)
+    never share a database."""
+    clause = f' TEMPLATE "{template}"' if template else ""
     admin = create_engine(ADMIN_DATABASE_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as connection:
-        connection.execute(text(f'CREATE DATABASE "{name}"'))
+        connection.execute(text(f'CREATE DATABASE "{name}"{clause}'))
     try:
         yield make_url(ADMIN_DATABASE_URL).set(database=name).render_as_string(hide_password=False)
     finally:
@@ -45,10 +49,29 @@ def empty_database_url() -> Iterator[str]:
 
 
 @pytest.fixture
-def database_url(empty_database_url: str) -> str:
-    """A fresh database, migrated to the latest revision."""
-    upgrade(empty_database_url)
-    return empty_database_url
+def empty_database_url() -> Iterator[str]:
+    """A freshly created, empty database, dropped after the test."""
+    with _fresh_database(f"atlas_test_{uuid.uuid4().hex[:12]}") as url:
+        yield url
+
+
+@pytest.fixture(scope="session")
+def migrated_template() -> Iterator[str]:
+    """A database migrated to the latest revision once per test process (each xdist worker
+    has its own), which `database_url` copies instead of migrating every test's database.
+    Nothing but that copy connects to it (`upgrade` holds no connection afterwards)."""
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    with _fresh_database(f"atlas_test_template_{worker}_{uuid.uuid4().hex[:8]}") as url:
+        upgrade(url)
+        yield make_url(url).database or ""
+
+
+@pytest.fixture
+def database_url(migrated_template: str) -> Iterator[str]:
+    """A fresh database at the latest revision: a copy of the migrated template, dropped
+    after the test. (Migrating from empty is `test_migrations`' and `empty_database_url`'s.)"""
+    with _fresh_database(f"atlas_test_{uuid.uuid4().hex[:12]}", migrated_template) as url:
+        yield url
 
 
 @pytest.fixture
