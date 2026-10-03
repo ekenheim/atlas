@@ -3325,3 +3325,8 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Tests (WSL; actual results):** new `test_a_retain_waiting_its_turn_does_not_hold_a_consolidation_one_in_flight_does` (a backfill-class retain queued outside a closed window: the consolidation completes; a `poll_operation` claimed by another worker: skipped `retains_pending`). Red against the old rule (`assert 'skipped' == 'completed'`), then green. `test_consolidation` + `test_memory_backfill`: 16 passed. `test_evaluations` + the gold and scoring unit tests: 16 passed (all 12 active cases pass in fake mode). Static clean.
 - **Live vs fixture:** fixtures only. On production, consolidation stays off until the home-ops PR sets `ATLAS_CONSOLIDATION_ENABLED=true`; the first run's throughput (memories per LLM call) is read from Hindsight's log then.
 - **Next:** none.
+
+## 2026-10-03: release 0.4.2
+
+- **Released:** `v0.4.2` at `abbebb6` (main fast-forwarded; no integration merge, no migration, no API change). CI on `integrate/consolidation-042` (run 37115308733) and the release run (37118084373: `ci` and `publish` success); image `ghcr.io/ekenheim/atlas:0.4.2`. Contents: the narrowed consolidation skip rule and ticket 10's gold supersessions (above).
+- **Deploy:** home-ops-upgrade PR #7209 bumps the image and sets `ATLAS_CONSOLIDATION_ENABLED: "true"` (the owner's decision, 2026-10-03); the owner merges.
