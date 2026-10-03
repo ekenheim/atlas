@@ -3390,3 +3390,8 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Live vs fixture:** fixture only (recorded Hindsight fake's delete-and-retain derivation); the stuck state is arranged in the database. Nothing live called; the production 58 sections are the lead's to backfill after deploy.
 - **Deviations:** none. The health `stuck` count uses the same threshold as the backfill (so it says what a run would take now), not only "pending in an older profile, not in flight".
 - **Next:** after deploy, `atlas memory backfill --company coherent --company lumentum` takes the 58 sections; check `sections.stuck` is 0 and the next consolidation's observations carry the theme scope.
+
+## 2026-10-03: release 0.4.4
+
+- **Released:** `v0.4.4` at `39de170`: memory-quality ticket 21 (the backfill takes sections stuck `pending` in an old profile; no migration). CI on `integrate/stuck-pending` (run 37150036022) green in about 8 minutes; release run 37150611051: `verified` found that run, `ci` skipped, `publish` succeeded: **1 min 37 s from tag to image**, the first release under the gate. Deploy: home-ops-upgrade PR #7214 (the owner merges).
+- **How the implementer held up:** the three boxes met with tests at the worker seam (red 7, then green 15), the 404 case covered; one addition beyond the ticket (a pending section is reset only if unchanged since chosen), accepted.
