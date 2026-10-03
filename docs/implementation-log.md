@@ -3377,3 +3377,7 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Live vs fixture:** no live service involved.
 - **Deviations / open:** the S3 tests' parallel behaviour was not exercised here (Silo down); their names are random per test or module, so no clash is expected. `-n auto` on a runner pod with no CPU limit starts one worker per node CPU; Postgres's default `max_connections` (100) has room for roughly a dozen or more workers at a few connections each, not measured; if the runner shows "too many clients", cap it with `--maxprocesses`.
 - **Next:** the lead runs the branch on the runners and reads the test phase's time.
+
+## 2026-10-03: the suite in parallel, on the runners
+
+- CI run 37145568748 (`integrate/parallel-tests`, `pytest -n auto --maxprocesses 8 --dist load`): 8 workers, **1,643 passed in 316 s** (5 min 16 s; the serial suite took 1,807 s on 0.4.3's run), the S3 tests included; the whole CI job 7 min 45 s. The lead capped the workers at 8 (the pod has no CPU limit; Postgres allows 100 connections). With the release gate, a release is now one CI run (~8 min) and the publish (~1.5 min).
