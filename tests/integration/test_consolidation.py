@@ -67,6 +67,7 @@ class Consolidating(Atlas):
             # consolidation unless a test schedules it (`schedule_daily`).
             mental_model_refresh_at="",
             consolidate_at="",
+            reconcile_at="",  # the nightly reconciliation (ticket 22) too
         )
         self.clock = clock
         self.api = TestClient(create_app(self.settings(), clock=clock))

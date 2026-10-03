@@ -83,15 +83,21 @@ class BackfillPayload(BaseModel):
 # running. Its outcome was never recorded, though Hindsight may hold its document under the old
 # profile; with `:profile` (the current one) and `:stuck_after` bound. Also counted by the
 # health read (`atlas.retention.health`).
-STUCK = (
-    "(m.retain_state = 'pending' AND m.retain_profile IS DISTINCT FROM :profile"  # noqa: S608
-    " AND m.updated_at < now() - make_interval(secs => CAST(:stuck_after AS double precision))"
-    " AND NOT EXISTS (SELECT FROM job j WHERE j.status IN ('queued', 'running') AND ("
+# A retain of the section's Source Version is in flight: a `retain` of it, or a `poll_operation`
+# or `reprocess` of one of its operations, queued or running. Also used by the reconciliation
+# (`atlas.retention.reconciliation`, ticket 22).
+IN_FLIGHT = (
+    "EXISTS (SELECT FROM job j WHERE j.status IN ('queued', 'running') AND ("  # noqa: S608
     f"   (j.kind = '{RETAIN_KIND}'"
     "     AND j.payload ->> 'source_version_id' = CAST(m.source_version_id AS text))"
     f"   OR (j.kind IN ('{POLL_KIND}', '{REPROCESS_KIND}')"
     "     AND j.payload ->> 'operation_id' IN (SELECT o.id FROM hindsight_operation o"
-    "       WHERE o.source_version_id = m.source_version_id)))))"
+    "       WHERE o.source_version_id = m.source_version_id))))"
+)
+STUCK = (
+    "(m.retain_state = 'pending' AND m.retain_profile IS DISTINCT FROM :profile"
+    " AND m.updated_at < now() - make_interval(secs => CAST(:stuck_after AS double precision))"
+    f" AND NOT {IN_FLIGHT})"
 )
 _BELOW = (
     "m.hindsight_document_id IS NOT NULL AND ("  # noqa: S608 (constant fragments)

@@ -1556,6 +1556,119 @@
         }
       }
     },
+    "/api/v1/memory/reconciliations": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Reconciliations",
+        "operationId": "reconciliations_api_v1_memory_reconciliations_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ReconciliationSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/memory/reconciliations/{reconciliation_id}": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Reconciliation",
+        "operationId": "reconciliation_api_v1_memory_reconciliations__reconciliation_id__get",
+        "parameters": [
+          {
+            "name": "reconciliation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Reconciliation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationRun"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/triage": {
       "get": {
         "tags": [
@@ -16374,6 +16487,17 @@
           "consolidation": {
             "$ref": "#/components/schemas/ConsolidationRecord",
             "description": "the bank's last requested and last completed consolidation (ticket 19); for the whole bank, whatever company_id is"
+          },
+          "reconciliation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReconciliationSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the bank's last reconciliation of Atlas's records with Memory (ticket 22): its status, differences by kind and when; for the whole bank, whatever company_id is"
           }
         },
         "type": "object",
@@ -16387,7 +16511,8 @@
           "pending_by_age",
           "observation_scopes",
           "entities",
-          "consolidation"
+          "consolidation",
+          "reconciliation"
         ],
         "title": "MemoryHealth"
       },
@@ -17782,6 +17907,37 @@
           "offset"
         ],
         "title": "Page[ProposedUpdate]"
+      },
+      "Page_ReconciliationSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ReconciliationSummary]"
       },
       "Page_Relationship_": {
         "properties": {
@@ -19616,6 +19772,270 @@
           "provenance"
         ],
         "title": "RecalledMemory"
+      },
+      "ReconciliationRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReconciliationStatus",
+            "description": "clean: no difference; drift: at least one; failed: a listing or read failed (see error) and nothing was counted"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts",
+            "description": "differences by kind (none when failed)"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          },
+          "samples": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Samples",
+            "description": "up to 20 IDs per kind: Hindsight document IDs (section_missing, document_unrecorded, profile_mismatch), scopes' tags joined by commas (observation_scope_outside), setting names (config_drift), operation IDs or `run:<id>` (consolidation_untracked)"
+          },
+          "details": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Details",
+            "description": "a kind's count broken down (document_unrecorded by Atlas's state or `unknown`; profile_mismatch by what is lacking; consolidation_untracked by case)"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReconciliationUsage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "report only, never drift; none when failed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bank_id",
+          "job_id",
+          "status",
+          "error",
+          "counts",
+          "started_at",
+          "ended_at",
+          "samples",
+          "details",
+          "usage"
+        ],
+        "title": "ReconciliationRun"
+      },
+      "ReconciliationStatus": {
+        "type": "string",
+        "enum": [
+          "clean",
+          "drift",
+          "failed"
+        ]
+      },
+      "ReconciliationSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bank_id": {
+            "type": "string",
+            "title": "Bank Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReconciliationStatus",
+            "description": "clean: no difference; drift: at least one; failed: a listing or read failed (see error) and nothing was counted"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts",
+            "description": "differences by kind (none when failed)"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bank_id",
+          "job_id",
+          "status",
+          "error",
+          "counts",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "ReconciliationSummary"
+      },
+      "ReconciliationUsage": {
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Since"
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Until"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "description": "false: more calls than were read"
+          },
+          "hindsight": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationUsageRow"
+            },
+            "type": "array",
+            "title": "Hindsight",
+            "description": "by operation, most calls first"
+          },
+          "atlas_counted": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Atlas Counted",
+            "description": "units Atlas's budgets counted in the same window, by provider (codex and hindsight_minimax: operations submitted; hindsight_consolidation: rounds)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "since",
+          "until",
+          "complete",
+          "hindsight",
+          "atlas_counted"
+        ],
+        "title": "ReconciliationUsage",
+        "description": "Hindsight's traced LLM calls of the bank in the window, beside Atlas's budgets."
+      },
+      "ReconciliationUsageRow": {
+        "properties": {
+          "operation": {
+            "type": "string",
+            "title": "Operation",
+            "description": "Hindsight's operation: retain, consolidation, reflect, …"
+          },
+          "requests": {
+            "type": "integer",
+            "title": "Requests"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors",
+            "description": "calls whose status was not success"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operation",
+          "requests",
+          "errors",
+          "input_tokens",
+          "output_tokens"
+        ],
+        "title": "ReconciliationUsageRow"
       },
       "ReflectAccepted": {
         "properties": {

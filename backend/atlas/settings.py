@@ -211,6 +211,13 @@ class Settings(BaseSettings):
     # (a follow-up job: not a daily try, never a new request), so at most one interval's
     # rounds run unwatched (Hindsight chains about 8 an hour).
     consolidate_follow_seconds: float = Field(default=300.0, gt=0)
+    # The nightly reconciliation of Atlas's records with the research bank (memory-quality
+    # ticket 22): the worker enqueues one read-only `reconcile_memory` job a day from this UTC
+    # time of day on (HH:MM; empty: never scheduled; `atlas memory reconcile` asks by hand).
+    # Default after the backfill's night has begun and before the 04:30 consolidation. It
+    # calls no LLM, so no budget or quota pause holds it, and it runs while consolidation is
+    # off.
+    reconcile_at: str = Field(default="03:30", pattern=r"^$|^([01]\d|2[0-3]):[0-5]\d$")
     # Replay banks (atlas.replay, §9.2): the **local** Hindsight a replay creates its
     # `atlas-replay-<id>` bank on (never the shared server; without it replays are refused),
     # the fixed question sets, how many Source Versions one replay retains at most (the

@@ -36,9 +36,11 @@ from atlas.hindsight.models import (
     ChunkPage,
     ConsolidationSubmitted,
     DocumentDeleted,
+    DocumentPage,
     EntityPage,
     FactType,
     KnowledgeNode,
+    LlmRequestPage,
     LlmRequestStats,
     Memory,
     MentalModel,
@@ -273,6 +275,26 @@ class HindsightGateway:
         if offset:
             params["offset"] = offset
         return self._parse(ObservationScopePage, self._get("/observations/scopes", params=params))
+
+    def documents(self, *, limit: int = 500, offset: int = 0) -> DocumentPage:
+        """One page of the bank's documents with what each was retained with (`GET
+        .../documents`; memory-quality ticket 22, the reconciliation)."""
+        params: dict[str, str | int] = {"limit": limit, "offset": offset}
+        return self._parse(DocumentPage, self._get("/documents", params=params))
+
+    def llm_requests(
+        self, *, start_date: datetime, limit: int = 500, offset: int = 0
+    ) -> LlmRequestPage:
+        """One page of the bank's traced LLM calls since `start_date` (`GET .../llm-requests`;
+        Hindsight keeps them a day by default). Each call's prompt and answer are dropped."""
+        if start_date.tzinfo is None:
+            raise HindsightRuleViolation("an llm-requests start_date needs a time zone")
+        params: dict[str, str | int] = {
+            "start_date": start_date.astimezone(UTC).isoformat(),
+            "limit": limit,
+            "offset": offset,
+        }
+        return self._parse(LlmRequestPage, self._get("/llm-requests", params=params))
 
     def entities(self, *, limit: int = 1000, offset: int = 0) -> EntityPage:
         """One page of the bank's entities, most mentioned first (`GET .../entities`)."""

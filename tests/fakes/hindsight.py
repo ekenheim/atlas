@@ -196,6 +196,38 @@ Derived behaviours (each serves a recorded response with only the named fields c
   `BankStatsResponse` shape whose `pending_consolidation` is the bank's pending count,
   `total_observations` its derived observations and `last_consolidated_at` its last completed
   round (the other counters zero or empty; none is relied on).
+- **The reconciliation's listings** (memory-quality ticket 22; built to the live shapes the lead
+  read from Hindsight 0.10.2 on 2026-10-03, never recorded; the bodies are **hand-written**):
+  - `GET .../documents?limit=N[&offset=M]` (needs `derive_retains`): the bank's derived
+    documents still stored, in retain order (the real default order, by `updated_at`, was not
+    checked), each `{id, bank_id, content_hash (sha256 of the content), created_at,
+    updated_at (when the fake stored it, `llm_clock`), text_length, memory_unit_count (1, 0
+    for a zero-fact one), retain_params: {context, metadata, event_date (the item's
+    timestamp), entities and observation_scopes (only when the item sent them)},
+    document_metadata, tags}`, with `{items, total, limit, offset}`.
+    `script_retain_params(document_id, without=[...])` leaves those `retain_params` fields
+    out (a document retained before the item sent them); `fail_document_listing(status)`
+    answers HTTP `status` with `{"detail": "listing failed (scripted by the test)"}`. A
+    document deleted through the fake and not retained again reads 404 (the absent
+    documents' body).
+  - `GET .../config` of a bank the fake imported a template into (derived ahead of the same
+    bank's recording): `research_template/03-imported-config` with only `bank_id`, `config`
+    (the recorded config updated by the import's `bank` settings and any
+    `change_bank_config(bank, **settings)`, the owner's live change) and `overrides` (those
+    settings) changed.
+  - `GET .../llm-requests?start_date=&limit=N[&offset=M]` (any bank, by default): the bank's
+    traced LLM calls since `start_date`, newest first, `{bank_id, total, limit, offset,
+    items}`, each in the live entry shape (`id, operation, scope, trace_id, provider, model,
+    status, started_at, ended_at, duration_ms, input_tokens, output_tokens, cached_tokens,
+    thoughts_tokens, total_tokens, input, output`). Derived: one `retain` call per stored item
+    of a derived retain (input: a token per four characters of its content; output: 40 per
+    derived fact), one `consolidation` call per consolidation round that completes (300
+    tokens per memory processed, at least one; output a quarter of it), one `reflect` call
+    per derived reflect (2,000 in; the answer's tokens out), each stamped with `llm_clock()`
+    (real time by default); `script_llm_request(bank, operation, ...)` adds one the test
+    dates. `input` and `output` are fixed marker texts (`DERIVED_LLM_INPUT`/`_OUTPUT`) so a
+    test can check Atlas never keeps them. How many calls a real retain or round makes, and
+    their tokens, is not derived.
 - `script_reflect(text, cited, ..., mental_models=())` (a reflect answer is LLM output, and no
   recorded one can cite an Atlas section): the next unrecorded reflect serves 0.10.2's
   `reflect_options/02-exclude-mental-models` (memory-quality ticket 10; before it,
@@ -299,6 +331,7 @@ The two listings the memory-health read makes (memory-quality ticket 02), from t
 
 import copy
 import functools
+import hashlib
 import json
 import re
 import uuid
@@ -531,6 +564,14 @@ DERIVED_RECALL_CHUNKS = "recall_options/07-include-chunks"
 DEFAULT_CHUNK_SIZE = 3000
 _PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n")
 DERIVED_ENTITY_MEMORIES = "entity_memories/01-by-entity-and-tag"
+# The reconciliation's derivations (memory-quality ticket 22).
+DERIVED_CONFIG = "research_template/03-imported-config"
+RETAIN_OUTPUT_TOKENS_PER_FACT = 40
+CONSOLIDATION_TOKENS_PER_MEMORY = 300
+REFLECT_INPUT_TOKENS = 2000
+# A derived LLM call's prompt and answer, standing for memory text: never to be kept by Atlas.
+DERIVED_LLM_INPUT = "derived prompt: the section text and the extraction instructions"
+DERIVED_LLM_OUTPUT = "derived answer: the facts the model extracted"
 _TEMPLATE_TRIGGER_FIELDS = (
     "refresh_after_consolidation",
     "refresh_cron",
@@ -555,6 +596,10 @@ CHUNK_TEXT_CHARS = 400
 CHARS_PER_TOKEN = 4  # a derived recall's `max_tokens` budget (see `_tokens`)
 _DERIVED_NAMESPACE = uuid.UUID("0f4c9a53-7d1e-4b8e-9c3a-2e6f1d5b8a70")
 _EMBEDDED_SOURCE_FIELDS = ("id", "text", "context", "mentioned_at")
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 def _never(_: str) -> bool:
@@ -643,6 +688,26 @@ class RecordedHindsight:
         init=False, default_factory=dict[str, dict[int, str]]
     )
     _entity_memories_failure: int | None = field(init=False, default=None)
+    # The reconciliation's derivations (memory-quality ticket 22; see the module docstring).
+    # bank -> the `bank` settings of its last derived template import, and the owner's changes
+    _bank_settings: dict[str, dict[str, JsonValue]] = field(
+        init=False, default_factory=dict[str, dict[str, JsonValue]]
+    )
+    _config_changes: dict[str, dict[str, JsonValue]] = field(
+        init=False, default_factory=dict[str, dict[str, JsonValue]]
+    )
+    # document ID -> the retain_params fields its listing leaves out
+    _params_without: dict[str, set[str]] = field(init=False, default_factory=dict[str, set[str]])
+    # (bank, document ID) -> when the fake last stored it
+    _stored_at: dict[tuple[str, str], datetime] = field(
+        init=False, default_factory=dict[tuple[str, str], datetime]
+    )
+    _document_listing_failure: int | None = field(init=False, default=None)
+    # The bank's traced LLM calls, oldest first (bank, entry); `llm_clock` stamps derived ones.
+    _llm_requests: list[tuple[str, dict[str, JsonValue]]] = field(
+        init=False, default_factory=list[tuple[str, dict[str, JsonValue]]]
+    )
+    llm_clock: Callable[[], datetime] = field(default=_utc_now)
 
     def __post_init__(self) -> None:
         self._replies = defaultdict(deque)
@@ -812,6 +877,7 @@ class RecordedHindsight:
         self._pending_consolidation[bank] = pending - operation.processed
         operation.status = "completed"
         operation.updated_at = self._consolidation_tick()
+        self._trace_consolidation(bank, running, operation.processed)
         if self._pending_consolidation[bank] > 0:
             return self._start_consolidation(bank)
         return None
@@ -928,6 +994,38 @@ class RecordedHindsight:
         """Answer HTTP `status` to every memory listing by entity (a hand-written body)."""
         self._entity_memories_failure = status
 
+    def change_bank_config(self, bank: str, **settings: Any) -> None:
+        """The owner changed these settings of the bank live (`PATCH .../config`, never through
+        Atlas): `GET .../config` serves them from now on (derived; see the module docstring)."""
+        self._config_changes.setdefault(bank, {}).update(settings)
+
+    def script_retain_params(self, document_id: str, *, without: Sequence[str]) -> None:
+        """The document's listing shows it retained without these `retain_params` fields
+        (e.g. `observation_scopes`): retained before the item sent them (derived)."""
+        self._params_without.setdefault(document_id, set()).update(without)
+
+    def fail_document_listing(self, status: int) -> None:
+        """Answer HTTP `status` to the document listing (a hand-written body)."""
+        self._document_listing_failure = status
+
+    def script_llm_request(
+        self,
+        bank: str,
+        operation: str,
+        *,
+        input_tokens: int,
+        output_tokens: int,
+        started_at: datetime,
+        status: str = "success",
+    ) -> None:
+        """A traced LLM call of the bank that no derived request made (e.g. one older than a
+        day, or a reflect of the owner's), listed by `GET .../llm-requests` (derived)."""
+        self._trace(bank, operation, input_tokens, output_tokens, started_at, status=status)
+
+    def llm_requests(self, bank: str) -> list[dict[str, JsonValue]]:
+        """The bank's traced LLM calls, oldest first, as `GET .../llm-requests` lists them."""
+        return [copy.deepcopy(entry) for b, entry in self._llm_requests if b == bank]
+
     def refreshes_requested(self) -> list[str]:
         """The mental-model IDs of every refresh request received, in order."""
         return [
@@ -968,6 +1066,9 @@ class RecordedHindsight:
             _query_key(list(request.url.params.multi_items())),
             _body_key(body),
         )
+        imported = self._imported_config(request)
+        if imported is not None:  # a derived import changed the config the recording shows
+            return imported
         queue = self._replies.get(key)
         if not queue:
             derived = self._derived(request, body)
@@ -1032,6 +1133,11 @@ class RecordedHindsight:
         if request.method == "GET" and len(route) == 2 and route[0] == "documents":
             if route[1] in self._derived_documents.get(bank, {}):
                 return self._derived_document(bank, route[1])
+            if (bank, route[1]) in self._generations:  # deleted through the fake, not retained
+                self.served.append("documents/<id> 404 (derived, hand-written body)")
+                return httpx2.Response(404, json={"detail": "Document not found"})
+        if request.method == "GET" and route == ["documents"]:
+            return self._derived_document_list(bank, request)
         if request.method == "GET" and len(route) == 3 and route[::2] == ["documents", "chunks"]:
             if route[1] in self._derived_documents.get(bank, {}):
                 return self._derived_chunk_list(bank, route[1], request)
@@ -1090,6 +1196,16 @@ class RecordedHindsight:
             absent.discard(document_id)
             self._known_memories.add(self._fid(bank, document_id))
             self._memory_writes += 1
+            self._stored_at[(bank, document_id)] = self.llm_clock()
+            facts = 0 if self._zero_facts(document_id) else 1
+            content = str(item.get("content", ""))
+            self._trace(
+                bank,
+                "retain",
+                _tokens(content),
+                RETAIN_OUTPUT_TOKENS_PER_FACT * facts,
+                trace=operation_id,
+            )
         self._derived_operations.add(operation_id)
         recording = self.recording(DERIVED_RETAIN)
         response = copy.deepcopy(recording.response_object())
@@ -1473,6 +1589,7 @@ class RecordedHindsight:
 
     def _derived_reflect(self, bank: str) -> httpx2.Response:
         scripted = self._reflects.popleft()
+        self._trace(bank, "reflect", REFLECT_INPUT_TOKENS, _tokens(scripted.text))
         recording = self.recording(DERIVED_REFLECT)
         response = copy.deepcopy(recording.response_object())
         based_on = cast(dict[str, JsonValue], response["based_on"])
@@ -1568,6 +1685,8 @@ class RecordedHindsight:
                 return self._derived_consolidation_list(bank, request)
         if request.method == "GET" and route == ["stats"]:
             return self._derived_stats(bank)
+        if request.method == "GET" and route == ["llm-requests"]:
+            return self._derived_llm_requests(bank, request)
         if request.method == "GET" and route in (["observations", "scopes"], ["entities"]):
             if route[0] == "observations" and self._scopes is None and self._derive_memories:
                 return self._derived_scopes(bank, request)
@@ -1710,7 +1829,14 @@ class RecordedHindsight:
         )
         for hold in self._consolidation_holds:
             self.hold_operation(operation_id, hold.status, hold.polls)
+        if not pending:
+            self._trace_consolidation(bank, operation_id, 0)
         return operation_id
+
+    def _trace_consolidation(self, bank: str, operation_id: str, processed: int) -> None:
+        """A consolidation round's LLM call (one per round; see the module docstring)."""
+        tokens = CONSOLIDATION_TOKENS_PER_MEMORY * max(processed, 1)
+        self._trace(bank, "consolidation", tokens, tokens // 4, trace=operation_id)
 
     def _consolidation_status(self, operation_id: str) -> str:
         """What a listing shows: a hold on the operation, peeked without using it up."""
@@ -1836,6 +1962,140 @@ class RecordedHindsight:
         self.served.append("stats (derived, hand-written body)")
         return httpx2.Response(200, json=body)
 
+    # --- the reconciliation's listings (memory-quality ticket 22; see the module docstring) ----
+
+    def _trace(
+        self,
+        bank: str,
+        operation: str,
+        input_tokens: int,
+        output_tokens: int,
+        started_at: datetime | None = None,
+        *,
+        trace: str | None = None,
+        status: str = "success",
+    ) -> None:
+        started = started_at or self.llm_clock()
+        index = len(self._llm_requests) + 1
+        entry: dict[str, JsonValue] = {
+            "id": str(uuid.uuid5(_DERIVED_NAMESPACE, f"llm-request:{bank}:{index}")),
+            "bank_id": bank,
+            "operation": operation,
+            "scope": operation,
+            "trace_id": trace or str(uuid.uuid5(_DERIVED_NAMESPACE, f"trace:{bank}:{index}")),
+            "span_id": None,
+            "parent_span_id": None,
+            "provider": "openai",
+            "model": "derived-model",
+            "status": status,
+            "started_at": _iso(started),
+            "ended_at": _iso(started + timedelta(seconds=1)),
+            "duration_ms": 1000,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cached_tokens": 0,
+            "thoughts_tokens": 0,
+            "total_tokens": input_tokens + output_tokens,
+            "input": DERIVED_LLM_INPUT,
+            "output": DERIVED_LLM_OUTPUT,
+        }
+        self._llm_requests.append((bank, entry))
+
+    def _derived_llm_requests(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
+        params = dict(request.url.params)
+        start = params.pop("start_date", None)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if limit is None or params:
+            return None
+        since = datetime.fromisoformat(start) if start is not None else None
+        listed = [
+            entry
+            for b, entry in reversed(self._llm_requests)  # newest first
+            if b == bank
+            and (since is None or datetime.fromisoformat(str(entry["started_at"])) >= since)
+        ]
+        body: dict[str, JsonValue] = {
+            "bank_id": bank,
+            "total": len(listed),
+            "limit": int(limit),
+            "offset": offset,
+            "items": list[JsonValue](listed[offset : offset + int(limit)]),
+        }
+        self.served.append("llm-requests (derived, hand-written body)")
+        return httpx2.Response(200, json=body)
+
+    def _derived_document_list(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
+        if self._document_listing_failure is not None:
+            self.served.append("documents listing failure (derived, hand-written body)")
+            failed = {"detail": "listing failed (scripted by the test)"}
+            return httpx2.Response(self._document_listing_failure, json=failed)
+        params = dict(request.url.params)
+        offset = int(params.pop("offset", "0"))
+        limit = params.pop("limit", None)
+        if limit is None or params:
+            return None
+        absent = self._absent.get(bank, set())
+        listed: list[JsonValue] = []
+        for document_id, item in self._derived_documents.get(bank, {}).items():
+            if document_id in absent:
+                continue
+            stored = _iso(self._stored_at.get((bank, document_id)))
+            content = str(item.get("content", ""))
+            sent: dict[str, JsonValue] = {
+                "context": item.get("context"),
+                "metadata": item.get("metadata", {}),
+                "event_date": item.get("timestamp"),
+            }
+            for optional in ("entities", "observation_scopes"):
+                if item.get(optional) is not None:
+                    sent[optional] = item[optional]
+            for dropped in self._params_without.get(document_id, set()):
+                sent.pop(dropped, None)
+            listed.append(
+                {
+                    "id": document_id,
+                    "bank_id": bank,
+                    "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                    "created_at": stored,
+                    "updated_at": stored,
+                    "text_length": len(content),
+                    "memory_unit_count": 0 if self._zero_facts(document_id) else 1,
+                    "retain_params": sent,
+                    "document_metadata": item.get("metadata", {}),
+                    "tags": item.get("tags", []),
+                }
+            )
+        body: dict[str, JsonValue] = {
+            "items": listed[offset : offset + int(limit)],
+            "total": len(listed),
+            "limit": int(limit),
+            "offset": offset,
+        }
+        self.served.append("documents listing (derived, hand-written body)")
+        return httpx2.Response(200, json=body)
+
+    def _imported_config(self, request: httpx2.Request) -> httpx2.Response | None:
+        parts = request.url.path.split("/")  # ["", "v1", "default", "banks", bank, "config"]
+        if request.method != "GET" or len(parts) != 6 or parts[1:4] != ["v1", "default", "banks"]:
+            return None
+        if parts[5] != "config" or parts[4] not in self._bank_settings:
+            return None
+        return self._derived_config(parts[4])
+
+    def _derived_config(self, bank: str) -> httpx2.Response:
+        recording = self.recording(DERIVED_CONFIG)
+        response = copy.deepcopy(recording.response_object())
+        settings = self._bank_settings[bank] | self._config_changes.get(bank, {})
+        config = cast(dict[str, JsonValue], response["config"])
+        response |= {
+            "bank_id": bank,
+            "config": config | copy.deepcopy(settings),
+            "overrides": copy.deepcopy(settings),
+        }
+        self.served.append(f"{DERIVED_CONFIG} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
     def _fid(self, bank: str, document_id: str) -> str:
         return _fact_id(bank, document_id, self._generations.get((bank, document_id), 0))
 
@@ -1893,6 +2153,8 @@ class RecordedHindsight:
         response |= {"bank_id": bank, "mental_models_created": ids}
         if not dry_run:
             config = body.get("bank")
+            if isinstance(config, dict):
+                self._bank_settings[bank] = copy.deepcopy(config)
             if isinstance(config, dict) and "entity_labels" in config:
                 groups = cast(list[dict[str, JsonValue]] | None, config["entity_labels"])
                 self._entity_labels[bank] = list(groups or [])

@@ -25,6 +25,7 @@ from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from atlas.jobs import JobQueue
+from atlas.retention.reconciliation import DRIFT_KINDS
 from atlas.retention.triage import LATEST_TRIAGE_JOBS
 
 # Final retain states of a section: they change again only by the owner's `retry-failed`
@@ -108,6 +109,7 @@ class StateCollector(Collector):
             yield from self._jobs(connection)
             yield from self._operations(connection)
             yield from self._consolidations(connection)
+            yield from self._reconciliations(connection)
             yield from self._sections(connection)
             yield from self._triage(connection)
             yield from self._research(connection)
@@ -377,6 +379,45 @@ class StateCollector(Collector):
             ).scalar_one(),
         )
         yield rounds
+
+    def _reconciliations(self, connection: Connection) -> Iterator[Metric]:
+        """The last reconciliation of Atlas's records with Memory (memory-quality ticket 22)."""
+        drift = GaugeMetricFamily(
+            "atlas_memory_drift",
+            "Differences between Atlas's records and the research bank, by kind, in the last"
+            " reconciliation that read everything (clean or drift; a failed one is skipped); 0"
+            " before the first",
+            labels=["kind"],
+        )
+        last = connection.execute(
+            text(
+                "SELECT counts, extract(epoch FROM ended_at) FROM memory_reconciliation"
+                " WHERE status <> 'failed' ORDER BY started_at DESC, recorded_at DESC LIMIT 1"
+            )
+        ).one_or_none()
+        counts: dict[str, int] = dict(last[0]) if last is not None else {}
+        for kind in DRIFT_KINDS:
+            drift.add_metric([kind], int(counts.get(kind, 0)))
+        yield drift
+        success = GaugeMetricFamily(
+            "atlas_memory_reconciliation_last_success_timestamp_seconds",
+            "When the last reconciliation that read everything ended (Unix seconds; 0: none yet)",
+        )
+        success.add_metric([], float(last[1]) if last is not None else 0.0)
+        yield success
+        runs = CounterMetricFamily(
+            "atlas_memory_reconciliations",
+            "Reconciliations of Atlas's records with the research bank, by status",
+            labels=["status"],
+        )
+        by_status = dict.fromkeys(("clean", "drift", "failed"), 0)
+        for status, count in connection.execute(
+            text("SELECT status, count(*) FROM memory_reconciliation GROUP BY 1")
+        ).all():
+            by_status[status] = count
+        for status, count in by_status.items():
+            runs.add_metric([status], count)
+        yield runs
 
     def _sections(self, connection: Connection) -> Iterator[Metric]:
         counts: dict[str, int] = {
