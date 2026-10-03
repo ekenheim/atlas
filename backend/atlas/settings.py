@@ -203,6 +203,10 @@ class Settings(BaseSettings):
     # consolidates a run in rounds, each its own operation; a run whose rounds reach the
     # window's limit is cancelled and recorded `stopped_at_budget`, and the next try picks up.
     consolidate_budget_rounds: int = Field(default=40, ge=1)
+    # While a run is still going, the worker follows it again this long after the last look
+    # (a follow-up job: not a daily try, never a new request), so at most one interval's
+    # rounds run unwatched (Hindsight chains about 8 an hour).
+    consolidate_follow_seconds: float = Field(default=300.0, gt=0)
     # Replay banks (atlas.replay, §9.2): the **local** Hindsight a replay creates its
     # `atlas-replay-<id>` bank on (never the shared server; without it replays are refused),
     # the fixed question sets, how many Source Versions one replay retains at most (the

@@ -657,3 +657,89 @@ def test_a_consolidation_atlas_did_not_request_is_neither_counted_nor_cancelled(
         "completed": 1,
         "skipped_other_consolidation_running": 1,
     }
+
+
+# --- follow-ups (ticket 20, the lead's audit) ----------------------------------------------------
+
+
+def test_a_run_still_going_is_followed_every_interval_past_the_daily_tries_until_it_ends(
+    atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served], clock: Clock
+) -> None:
+    fake, _ = hindsight
+    atlas.schedule_daily()
+    atlas.overrides["consolidate_max_tries"] = 1  # the day's one try is the run's request
+    atlas.ingest_company("lumentum")
+    fake.script_pending_consolidation(atlas.bank, 400)  # four rounds
+    clock.now = clock.now.replace(hour=4, minute=30, second=0)
+    start = clock.now
+
+    assert atlas.scheduled_pass() == 1
+    (requested,) = atlas.consolidate_jobs()
+    assert requested["artifacts"]["outcome"] == "running"
+    run_id = requested["artifacts"]["consolidation_id"]
+
+    clock.advance(seconds=299)  # not yet an interval (ATLAS_CONSOLIDATE_FOLLOW_SECONDS, 300)
+    assert atlas.scheduled_pass() == 0
+
+    for round_number in (2, 3, 4):
+        fake.end_consolidation_round(atlas.bank)  # Hindsight chains the next round itself
+        clock.advance(seconds=2 if round_number == 2 else 301)
+        assert atlas.scheduled_pass() == 1
+        follow = atlas.consolidate_jobs()[-1]
+        assert follow["job_class"] == "backfill"  # the run's class
+        assert follow["payload"]["follow"] == run_id
+        assert follow["artifacts"]["follow"] is True
+        assert (follow["artifacts"]["outcome"], follow["artifacts"]["rounds"]) == (
+            "running",
+            round_number,
+        )
+
+    assert fake.end_consolidation_round(atlas.bank) is None
+    clock.advance(seconds=301)
+    assert atlas.scheduled_pass() == 1
+    done = atlas.consolidate_jobs()[-1]
+    assert (done["artifacts"]["outcome"], done["artifacts"]["rounds"]) == ("completed", 4)
+    assert clock.now - start < timedelta(hours=1)  # every few minutes, not hourly
+
+    # The run has ended: no more follow-ups, and no daily try is left for the day.
+    clock.advance(hours=2)
+    assert atlas.scheduled_pass() == 0
+    jobs = atlas.consolidate_jobs()
+    assert [j["payload"].get("follow") for j in jobs] == [None] + [run_id] * 4
+    assert [j["idempotency_key"] for j in jobs[1:]] == [
+        f"consolidate:{atlas.bank}:follow:{run_id}:{n}" for n in range(4)
+    ]
+    assert consolidations(fake) == 1  # a follow-up never asks again
+    assert atlas.rounds_budget()["used"] == 4
+    assert atlas.consolidation()["last_completed"]["id"] == run_id
+
+
+def test_a_chain_longer_than_the_budget_is_cancelled_within_one_follow_interval(
+    atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served], clock: Clock
+) -> None:
+    fake, _ = hindsight
+    atlas.with_rounds_budget(3)
+    atlas.ingest_company("lumentum")
+    fake.script_pending_consolidation(atlas.bank, 1000)  # ten rounds
+
+    first = atlas.by_hand("a-long-chain")
+    assert (first["artifacts"]["outcome"], first["artifacts"]["rounds"]) == ("running", 1)
+
+    # Two rounds end unwatched within one interval; the third is running at the next look.
+    fake.end_consolidation_round(atlas.bank)
+    round_3 = fake.end_consolidation_round(atlas.bank)
+    clock.advance(seconds=301)
+    assert atlas.scheduled_pass() == 1
+
+    follow = atlas.consolidate_jobs()[-1]
+    assert follow["job_class"] == "interactive"  # the run's class
+    assert follow["artifacts"]["outcome"] == "stopped_at_budget"
+    assert follow["artifacts"]["rounds"] == 3
+    assert fake.cancelled_operations() == [round_3]
+    assert fake.consolidation_operations(atlas.bank)[-1] == round_3  # no round after it
+    assert atlas.consolidation()["last_requested"]["status"] == "stopped_at_budget"
+    assert atlas.rounds_budget()["used"] == 3
+
+    clock.advance(seconds=301)  # the run has ended: nothing more follows it
+    assert atlas.scheduled_pass() == 0
+    assert consolidations(fake) == 1

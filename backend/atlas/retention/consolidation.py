@@ -35,6 +35,10 @@ The research bank's template turns Hindsight's automatic consolidation off
   or window for days don't hold it (0.4.2). Nor is anything submitted when no
   section was retained since the last completed consolidation (`nothing_retained`). The
   database allows one `submitted` row per bank.
+- **Followed every few minutes.** While a run is still going, the worker enqueues a
+  follow-up job `ATLAS_CONSOLIDATE_FOLLOW_SECONDS` after the last consolidate job decided
+  (`ConsolidationFollow`): it only follows the run, counts no daily try and ends with the run,
+  so the rounds Hindsight runs unwatched between two looks are at most one interval's.
 - **When.** The worker's schedule enqueues one backfill-class job a day from
   `ATLAS_CONSOLIDATE_AT` (UTC; before the mental models' refresh), keyed by the bank, the day
   and the try; a try that waited for retains, or found a run still going, is followed by the
@@ -107,6 +111,13 @@ class ConsolidatePayload(BaseModel):
 
     scheduled_for: date | None = None  # the day a scheduled try is for; None: by hand
     attempt: int = Field(default=0, ge=0)  # the day's try, from 0
+    # A follow-up of this run (`ConsolidationFollow`): it only follows, never submits.
+    follow: uuid.UUID | None = None
+
+
+def follow_key(bank_id: str, consolidation_id: uuid.UUID, count: int) -> str:
+    """The idempotency key of a run's `count`-th follow-up (from 0)."""
+    return f"{CONSOLIDATE_KIND}:{bank_id}:follow:{consolidation_id}:{count}"
 
 
 def consolidate_key(bank_id: str, day: date, attempt: int) -> str:
@@ -190,6 +201,54 @@ def _decided_at(job: Job) -> datetime:
     return job.finished_at or job.updated_at
 
 
+class ConsolidationFollow:
+    """While a run of the bank is still going (`submitted`), enqueues a follow-up
+    `consolidate` job `every` after the last consolidate job decided, so the run's rounds are
+    seen (counted, and cancelled at the budget) within one interval, not at the next hourly
+    try (memory-quality ticket 20). A follow-up only follows the run; it has the class of the
+    job that requested the run, is keyed by the run and a counter, and is no daily try (it
+    counts against no `ATLAS_CONSOLIDATE_MAX_TRIES` and is bound to no day). None is enqueued
+    while a consolidate job is queued or running (that one follows the run itself)."""
+
+    def __init__(self, engine: Engine, bank_id: str, every: timedelta) -> None:
+        self._engine = engine
+        self._bank_id = bank_id
+        self._every = every
+
+    def __call__(self, now: datetime) -> list[Enqueued]:
+        with self._engine.connect() as connection:
+            run = (
+                connection.execute(
+                    text(
+                        "SELECT c.id, coalesce(j.job_class, 'backfill') AS job_class"
+                        " FROM memory_consolidation c LEFT JOIN job j ON j.id = c.job_id"
+                        " WHERE c.bank_id = :bank AND c.status = 'submitted'"
+                    ),
+                    {"bank": self._bank_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if run is None:
+                return []
+            looked = connection.execute(
+                text(
+                    "SELECT bool_or(status IN ('queued', 'running')) AS busy,"
+                    " max(CAST(coalesce(artifacts->>'looked_at', artifacts->>'decided_at')"
+                    "   AS timestamptz)) AS looked_at,"
+                    " count(*) FILTER (WHERE payload->>'follow' = :run) AS follows"
+                    " FROM job WHERE kind = :kind"
+                ),
+                {"kind": CONSOLIDATE_KIND, "run": str(run["id"])},
+            ).one()
+        if looked.busy or (looked.looked_at is not None and now < looked.looked_at + self._every):
+            return []
+        queue = JobQueue(self._engine)  # audited as the system actor's: Atlas follows it
+        key = follow_key(self._bank_id, run["id"], int(looked.follows))
+        payload = ConsolidatePayload(follow=run["id"])
+        return [enqueue_consolidation(queue, key, job_class=run["job_class"], payload=payload)]
+
+
 class Consolidation:
     """The `consolidate` job for the research bank."""
 
@@ -221,8 +280,15 @@ class Consolidation:
         return self._gateway.bank_id
 
     def run(self, payload: ConsolidatePayload, job: Job) -> Artifacts:
+        artifacts = self._run(payload, job)
+        # When this job last looked at the run: its follow-up is timed from here.
+        return artifacts | {"looked_at": self._clock().isoformat()}
+
+    def _run(self, payload: ConsolidatePayload, job: Job) -> Artifacts:
         decided_at = self._clock()
         base: Artifacts = {"decided_at": decided_at.isoformat()}
+        if payload.follow is not None:
+            return base | self._follow_up(payload.follow, job)
         latest = self._latest_for_job(job.id)
         if latest is not None and latest["status"] == "submitted":
             return base | self._follow(latest, job)  # an earlier attempt submitted it
@@ -335,6 +401,25 @@ class Consolidation:
             .mappings()
             .one()
         )
+
+    def _follow_up(self, consolidation_id: uuid.UUID, job: Job) -> Artifacts:
+        """A follow-up: follow the run while it is still going; never submit."""
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text("SELECT * FROM memory_consolidation WHERE id = :id"),
+                    {"id": consolidation_id},
+                )
+                .mappings()
+                .one()
+            )
+        if row["status"] != "submitted":
+            return {
+                "outcome": "follow_ended",
+                "consolidation_id": str(row["id"]),
+                "run_status": row["status"],
+            }
+        return {"follow": True} | self._follow(row, job)
 
     # --- following the run -----------------------------------------------------------------------
 
@@ -656,17 +741,23 @@ def register_consolidation_handlers(
 
 
 def consolidation_schedules(settings: Settings, engine: Engine) -> list[Schedule]:
-    """The daily consolidation, or none when Hindsight or the schedule is off."""
-    if not settings.hindsight_url or not settings.consolidate_at:
+    """The follow-ups of a run still going, and the daily consolidation (unless its
+    schedule is empty); none when Hindsight or consolidation is off."""
+    if not settings.hindsight_url or not settings.consolidation_enabled:
         return []
-    if not settings.consolidation_enabled:
-        return []
-    hour, minute = (int(part) for part in settings.consolidate_at.split(":"))
-    return [
-        ConsolidationSchedule(
-            engine, settings.hindsight_bank_id, time(hour, minute), settings.consolidate_max_tries
+    every = timedelta(seconds=settings.consolidate_follow_seconds)
+    schedules: list[Schedule] = [ConsolidationFollow(engine, settings.hindsight_bank_id, every)]
+    if settings.consolidate_at:
+        hour, minute = (int(part) for part in settings.consolidate_at.split(":"))
+        schedules.append(
+            ConsolidationSchedule(
+                engine,
+                settings.hindsight_bank_id,
+                time(hour, minute),
+                settings.consolidate_max_tries,
+            )
         )
-    ]
+    return schedules
 
 
 # --- the health read ---------------------------------------------------------------------------
