@@ -19,6 +19,14 @@ ticket 19): Atlas decides when Memory consolidates (the `consolidate` job,
 `atlas.retention.consolidation`), so Hindsight never consolidates by itself after a retain. A
 template that leaves it out, or turns it on, is invalid too. Replay and evaluation banks take
 the template without the field (`without_auto_consolidation_setting`), as before.
+
+It must also pin the server defaults Atlas's memory relies on (memory-quality ticket 23,
+template 1.5.0): the temporal, graph, keyword and rerank arms of recall, the stored document
+text, free-form entities, the extraction mode, the chunk size and a consolidation round's
+size are each set explicitly, so a change of the server's defaults (by the owner or a
+Hindsight upgrade) cannot change Atlas's memory silently. A template that leaves one out, or
+sets it to null (the server's default), is invalid. Replay and evaluation banks take them as
+the template sets them.
 """
 
 import hashlib
@@ -70,10 +78,21 @@ AUTO_CONSOLIDATION = "enable_auto_consolidation"
 
 
 class _Bank(BaseModel):
-    """The research bank's settings: Hindsight never consolidates by itself."""
+    """The research bank's settings: Hindsight never consolidates by itself, and the server
+    defaults Atlas's memory relies on are set explicitly (memory-quality ticket 23)."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", strict=True)
     enable_auto_consolidation: Literal[False]  # required, and must be false
+    # Pinned: required and never null, so no server default decides them (template 1.5.0).
+    enable_temporal_retrieval: bool
+    enable_graph_retrieval: bool
+    enable_text_search: bool
+    enable_reranking: bool
+    store_document_text: bool
+    entities_allow_free_form: bool
+    retain_extraction_mode: str = Field(min_length=1)
+    retain_chunk_size: int = Field(gt=0)
+    consolidation_max_memories_per_round: int = Field(gt=0)
 
 
 class _Manifest(BaseModel):
