@@ -59,7 +59,11 @@
       "entities_allow_free_form": true,
       "retain_extraction_mode": "concise",
       "retain_chunk_size": 3000,
-      "consolidation_max_memories_per_round": 100
+      "consolidation_max_memories_per_round": 100,
+      "consolidation_llm_batch_size": 8,
+      "consolidation_source_facts_max_tokens": 4096,
+      "consolidation_source_facts_max_tokens_per_observation": 256,
+      "max_observations_per_scope": -1
     },
     "mental_models": [
       {

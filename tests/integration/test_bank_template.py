@@ -28,8 +28,9 @@ IMPORT = "research_template/02-import"
 SCHEMA = cast(
     dict[str, Any], RecordedHindsight().recording("bank_templates/01-schema").response_object()
 )
-# Memory-quality ticket 23: the server defaults Atlas's memory relies on, pinned at the values
-# the research bank ran with on 2026-10-03 (docs/research/hindsight-bank-settings.md).
+# Memory-quality ticket 23: the server defaults Atlas's memory relies on, and the overrides set
+# on the bank outside the template, pinned at the values the research bank ran with on
+# 2026-10-03 (docs/research/hindsight-bank-settings.md).
 PINNED: dict[str, Any] = {
     "enable_temporal_retrieval": True,
     "enable_graph_retrieval": True,
@@ -40,6 +41,11 @@ PINNED: dict[str, Any] = {
     "retain_extraction_mode": "concise",
     "retain_chunk_size": 3000,
     "consolidation_max_memories_per_round": 100,
+    # Overrides the live bank had been given outside the template, now the template's.
+    "consolidation_llm_batch_size": 8,
+    "consolidation_source_facts_max_tokens": 4096,
+    "consolidation_source_facts_max_tokens_per_observation": 256,
+    "max_observations_per_scope": -1,
 }
 
 
@@ -263,7 +269,11 @@ def test_the_template_pins_the_settings_atlas_relies_on_and_imports_them(
 
 @pytest.mark.parametrize(
     ("name", "value"),
-    [*((name, "left out") for name in PINNED), ("enable_temporal_retrieval", None)],
+    [
+        *((name, "left out") for name in PINNED),
+        ("enable_temporal_retrieval", None),
+        ("max_observations_per_scope", None),
+    ],
 )
 def test_a_template_that_leaves_a_pinned_setting_to_the_server_is_refused_before_any_call(
     database_url: str,
