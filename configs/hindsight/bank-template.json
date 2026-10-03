@@ -1,5 +1,5 @@
 {
-  "template_version": "1.4.0",
+  "template_version": "1.5.0",
   "manifest": {
     "version": "1",
     "bank": {
@@ -50,7 +50,20 @@
       "disposition_skepticism": 4,
       "disposition_literalism": 4,
       "recall_include_chunks": false,
-      "reflect_source_facts_max_tokens": 4096
+      "reflect_source_facts_max_tokens": 4096,
+      "enable_temporal_retrieval": true,
+      "enable_graph_retrieval": true,
+      "enable_text_search": true,
+      "enable_reranking": true,
+      "store_document_text": true,
+      "entities_allow_free_form": true,
+      "retain_extraction_mode": "concise",
+      "retain_chunk_size": 3000,
+      "consolidation_max_memories_per_round": 100,
+      "consolidation_llm_batch_size": 8,
+      "consolidation_source_facts_max_tokens": 4096,
+      "consolidation_source_facts_max_tokens_per_observation": 256,
+      "max_observations_per_scope": -1
     },
     "mental_models": [
       {

@@ -12,7 +12,7 @@ Decided by the lead:
 
 **Blocked by:** None.
 
-**Status:** open
+**Status:** done
 
-- [ ] The template validates against the recorded schema and imports through the fake with the pinned values; a research template missing any pinned field is refused by a test.
-- [ ] Decision note ("The bank template pins what Atlas relies on"), `AGENTS.md` (the template line), and `docs/research/hindsight-bank-settings.md` updated to say they are pinned.
+- [x] The template validates against the recorded schema and imports through the fake with the pinned values; a research template missing any pinned field is refused by a test.
+- [x] Decision note ("The bank template pins what Atlas relies on"), `AGENTS.md` (the template line), and `docs/research/hindsight-bank-settings.md` updated to say they are pinned.

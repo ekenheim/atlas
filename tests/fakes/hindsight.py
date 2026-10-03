@@ -222,7 +222,9 @@ Derived by default (each is anchored to a request the real server was sent):
   research-template request (`research_template/01-import-dry-run`, `02-import`) only in its
   `mental_models` and its `bank` config (memory-quality ticket 05: the missions and
   `entity_labels`; ticket 10: two reflect fields of the bank, and the models' tags and
-  trigger fields; ticket 19: `enable_auto_consolidation`), and which the bank-template
+  trigger fields; ticket 19: `enable_auto_consolidation`; ticket 23: the pinned server
+  defaults, recall's arms, `store_document_text`, free-form entities, the extraction mode,
+  the chunk size and a consolidation round's size), and which the bank-template
   schema 0.10.2 served (`rerun-0.10.2/bank_templates/01-schema.json`) takes with every
   `bank` field one it names,
   is served that recording's response with only `bank_id`,
