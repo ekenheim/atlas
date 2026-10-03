@@ -1,0 +1,28 @@
+# 20: A consolidation is followed to its end and counted by rounds
+
+**What to build:** Atlas follows a consolidation of the research bank until Hindsight has nothing left to consolidate, counts every round it costs against a budget of its own, and stops the chain when that budget is spent; the next try picks it up. Released as 0.4.3; consolidation stays off on production until it is deployed.
+
+Evidence (production, 2026-10-03, read by the lead from Hindsight 0.10.2's API; ticket 20 of the pilot review has the comments):
+- Hindsight consolidates in **rounds**: one consolidation operation processes at most `consolidation_max_memories_per_round` (100 on the research bank) memories, and when it ends with memories still pending, Hindsight itself submits the next consolidation operation. Atlas's one `POST …/consolidate` at 11:44 UTC (operation `90e7b8d1`) ended at 11:53 with `progress: {processed: 100, total: 39975}`; operations of type `consolidation` then followed, one every 6 to 9 minutes, each its own operation ID, with nobody asking, until the lead cancelled the running one at 14:05.
+- Atlas 0.4.2 recorded the run `completed` (its follow-up job saw `90e7b8d1` completed) and counted **one** `codex` unit for what was about 20 rounds. At Hindsight's pace (about 8 rounds an hour, 4 LLM calls in parallel) a full backlog is hundreds of rounds: the rebuild ahead is about 470 rounds now and about 350 more as the backfill ends.
+- Read-only shapes the lead saw (no recording yet; build the fake to these and say so in the log):
+  - `GET /v1/default/banks/{bank}/stats` → `{..., "pending_consolidation": 41910, "failed_consolidation": 0, "total_observations": 535, "last_consolidated_at": "...", "operations_by_status": {...}}`
+  - `GET /v1/default/banks/{bank}/operations?type=consolidation&limit=10` and `?status=processing` (both filters work live) → `{"total": 196, "operations": [{"id", "operation_type": "consolidation", "created_at", "updated_at", "status": "processing"|"completed"|"cancelled"|"failed", "progress": {"stage": "consolidating", "processed": 78, "total": 41766, "detail": {"observations_created": 41, "observations_updated": 33, "observations_deleted": 0, "observations_merged": 0, "memories_failed": 0}}}, ...]}`, newest first.
+  - `DELETE /v1/default/banks/{bank}/operations/{id}` → `{"success": true, "message": "Operation … cancelled", "operation_id": "…"}`; the operation then reads `cancelled` and no further round follows it.
+
+Decided by the lead with the owner (2026-10-03):
+- **A budget of its own.** A new provider `hindsight_consolidation`, unit **rounds**, `ATLAS_CONSOLIDATE_BUDGET_ROUNDS` (default 40) per the usual 5 h window, with the usual backfill limit; `consolidate` leaves `codex`, which keeps reflect, the mental models' refresh and replay. A round is one consolidation operation of the bank that Atlas's run requested or that Hindsight chained after it; each is counted once (`provider_usage`, source the operation ID), when Atlas first sees it.
+- **Followed to its end.** A run is `completed` only when no consolidation operation of the bank is pending or processing and the last one ended `completed`; then record the bank's `pending_consolidation` at that moment (the backfill may have added facts since: those are the next run's). The job keeps polling as today (bounded per attempt, `ATLAS_CONSOLIDATE_POLL_TIMEOUT_SECONDS`), and the next job follows the same run (`joined`) while it is still going, counting the rounds it finds.
+- **Stopped at the budget.** When the rounds counted in the window reach the limit the job's class may use, the job cancels the bank's running consolidation operation (Atlas cancels only a chain it requested, never one it did not) and records the run `stopped_at_budget` (a new status, with the rounds and `pending_consolidation`). The next try (the hourly retry of the day, or the next day's run) submits a new request once the window allows; consolidation is incremental, so nothing is lost. A round Hindsight had already started when Atlas cancels is counted.
+- **The record.** `memory_consolidation` gains the rounds counted, the last operation followed and `pending_consolidation` (migration revision `0075`, down `0074`). `GET /api/v1/memory/health` → `consolidation` shows them; `atlas_consolidations_total{outcome}` gains `stopped_at_budget`; a gauge `atlas_consolidation_rounds_total` or the provider budget in `GET /api/v1/queue` shows the rounds.
+- Unchanged: the skip rules (`consolidation_off`, `retains_pending` as narrowed in 0.4.2, `nothing_retained`), the daily schedule, the advisory lock, one `submitted` row per bank.
+
+**Blocked by:** None.
+
+**Status:** open
+
+- [ ] Integration test at the worker seam, with the Hindsight fake chaining rounds: a run of three rounds is followed across job attempts to `completed`, three `hindsight_consolidation` units are counted (not one, and none in `codex`), and the record holds the rounds and `pending_consolidation`.
+- [ ] A run whose rounds reach the budget is cancelled on Hindsight (the fake sees the `DELETE`), recorded `stopped_at_budget`, and the next try after the window frees submits again and completes.
+- [ ] A consolidation chain Atlas did not request is neither counted nor cancelled.
+- [ ] The queue read shows the new provider with its kinds; `codex` no longer lists `consolidate`; the health read and the metric show the new fields and outcome.
+- [ ] Decision ("Atlas decides when Memory consolidates": the 0.4.3 note), runbook ("Consolidation"), `AGENTS.md` line, settings documented; the API client regenerated if the schema changed.
