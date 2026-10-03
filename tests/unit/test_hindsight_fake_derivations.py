@@ -602,3 +602,39 @@ def test_a_derived_consolidation_changes_only_its_operation_id() -> None:
     assert operation.operation_type == recorded["operation_type"]
     assert client.operation(held.operation_id).status == "processing"
     assert client.operation(held.operation_id).status == "completed"
+
+
+def test_derived_consolidation_rounds_chain_list_cancel_and_count() -> None:
+    # Memory-quality ticket 20: built to the shapes the lead read live, never recorded.
+    fake = RecordedHindsight()
+    client = gateway(fake)
+    fake.script_pending_consolidation(BANK, 250)
+
+    first = client.consolidate().operation_id
+    assert client.operation(first).status == "processing"
+    second = fake.end_consolidation_round(BANK)  # Hindsight chains the next round itself
+    assert second is not None
+    listing = client.consolidation_operations()
+    assert [(o.id, o.operation_type, o.status) for o in listing.operations] == [
+        (second, "consolidation", "processing"),
+        (first, "consolidation", "completed"),
+    ]
+    assert listing.total == 2
+    newest, oldest = (o.created_at for o in listing.operations)
+    assert newest is not None and oldest is not None and newest > oldest
+    running = client.consolidation_operations(status="processing")
+    assert [o.id for o in running.operations] == [second]
+    assert client.bank_stats().pending_consolidation == 150
+
+    cancelled = client.cancel_operation(second)
+
+    assert (cancelled.success, cancelled.operation_id) == (True, second)
+    assert cancelled.message == f"Operation {second} cancelled"
+    assert client.operation(second).status == "cancelled"
+    assert client.consolidation_operations(status="processing").operations == []
+    assert fake.consolidation_operations(BANK) == [first, second]  # no round followed it
+    assert client.bank_stats().pending_consolidation == 150
+    with pytest.raises(HindsightHTTPError) as ended:
+        client.cancel_operation(first)
+    assert ended.value.status_code == 409
+    assert fake.cancelled_operations() == [second, first]

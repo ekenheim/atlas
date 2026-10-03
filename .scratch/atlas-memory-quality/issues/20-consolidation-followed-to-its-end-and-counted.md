@@ -19,10 +19,10 @@ Decided by the lead with the owner (2026-10-03):
 
 **Blocked by:** None.
 
-**Status:** open
+**Status:** done
 
-- [ ] Integration test at the worker seam, with the Hindsight fake chaining rounds: a run of three rounds is followed across job attempts to `completed`, three `hindsight_consolidation` units are counted (not one, and none in `codex`), and the record holds the rounds and `pending_consolidation`.
-- [ ] A run whose rounds reach the budget is cancelled on Hindsight (the fake sees the `DELETE`), recorded `stopped_at_budget`, and the next try after the window frees submits again and completes.
-- [ ] A consolidation chain Atlas did not request is neither counted nor cancelled.
-- [ ] The queue read shows the new provider with its kinds; `codex` no longer lists `consolidate`; the health read and the metric show the new fields and outcome.
-- [ ] Decision ("Atlas decides when Memory consolidates": the 0.4.3 note), runbook ("Consolidation"), `AGENTS.md` line, settings documented; the API client regenerated if the schema changed.
+- [x] Integration test at the worker seam, with the Hindsight fake chaining rounds: a run of three rounds is followed across job attempts to `completed`, three `hindsight_consolidation` units are counted (not one, and none in `codex`), and the record holds the rounds and `pending_consolidation`.
+- [x] A run whose rounds reach the budget is cancelled on Hindsight (the fake sees the `DELETE`), recorded `stopped_at_budget`, and the next try after the window frees submits again and completes.
+- [x] A consolidation chain Atlas did not request is neither counted nor cancelled.
+- [x] The queue read shows the new provider with its kinds; `codex` no longer lists `consolidate`; the health read and the metric show the new fields and outcome.
+- [x] Decision ("Atlas decides when Memory consolidates": the 0.4.3 note), runbook ("Consolidation"), `AGENTS.md` line, settings documented; the API client regenerated if the schema changed.

@@ -170,9 +170,32 @@ Derived behaviours (each serves a recorded response with only the named fields c
   bank to `deleted_banks`.
 - **Consolidation in any bank** (on by default): an unrecorded `POST .../consolidate` with
   body `{}` serves `observations/01-consolidate` with only `operation_id` changed; polling that
-  operation serves `observations/02-consolidate-final` with only `operation_id` changed (and
-  any `hold_operation`, or `hold_consolidations(status, polls)` for every later one, applied).
-  It derives no observations.
+  operation serves `observations/02-consolidate-final` with only `operation_id`, `status`,
+  `created_at`, `updated_at` and `completed_at` changed (the fake's own clock, a minute per
+  event from 2026-10-03T11:44Z; and any `hold_operation`, or `hold_consolidations(status,
+  polls)` for every later one, applied). It derives no observations.
+- **Consolidation rounds** (memory-quality ticket 20; built to the live shapes the lead read
+  from Hindsight 0.10.2 on 2026-10-03, never recorded): `script_pending_consolidation(bank,
+  count, round_size=100)` gives the bank memories pending consolidation. A consolidation
+  request then starts a **chain**: its operation is one round, `processing` until the test
+  calls `end_consolidation_round(bank)`, which completes it having consolidated at most
+  `round_size` memories and, while memories are still pending, submits the next round as a new
+  `processing` operation by itself, as Hindsight does (`request_consolidation_elsewhere(bank)`
+  starts a chain nobody in the test's Atlas asked for). With nothing pending a request is one
+  operation that reads completed, as before. `GET .../operations?type=consolidation[&status=]
+  [&limit=][&offset=]` lists the bank's derived consolidation operations newest first, each
+  `operations/01-list`'s recorded consolidation entry with only `id`, `operation_id`,
+  `operation_type`, `created_at`, `updated_at`, `status` and `progress` (`stage`
+  `consolidating`, `processed`, `total`, `detail`) changed, a `hold_operation` on it peeked
+  without being used up; `total`, `limit` and `offset` follow the filter. `DELETE
+  .../operations/<id>` of a pending or processing one answers the documented
+  `CancelOperationResponse` (`{"success": true, "message": "Operation <id> cancelled",
+  "operation_id": <id>}`, as the lead saw live; **hand-written**), after which it reads
+  `cancelled` and no round follows it; an ended one answers 409 with a hand-written body (the
+  documented status). `GET .../stats` answers a **hand-written** body in the documented
+  `BankStatsResponse` shape whose `pending_consolidation` is the bank's pending count,
+  `total_observations` its derived observations and `last_consolidated_at` its last completed
+  round (the other counters zero or empty; none is relied on).
 - `script_reflect(text, cited, ..., mental_models=())` (a reflect answer is LLM output, and no
   recorded one can cite an Atlas section): the next unrecorded reflect serves 0.10.2's
   `reflect_options/02-exclude-mental-models` (memory-quality ticket 10; before it,
@@ -282,7 +305,7 @@ import uuid
 from collections import defaultdict, deque
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -453,6 +476,18 @@ class _ExtractionErrors:
     times: int | None = None  # None: every matching batch
 
 
+@dataclass
+class _Consolidation:
+    """A derived consolidation operation: one round (memory-quality ticket 20)."""
+
+    bank: str
+    created_at: datetime
+    status: str  # completed for a request with nothing pending; a round is processing
+    total: int = 0  # the memories pending when the round started
+    processed: int = 0
+    updated_at: datetime | None = None
+
+
 # Held statuses under which a derived batch stores only the documents its hold names.
 _UNSTORED_STATUSES = frozenset({"failed", "cancelled"})
 
@@ -484,6 +519,10 @@ DERIVED_MENTAL_MODEL_REFRESH_FINAL = "mental_models/05-refresh-final"
 DERIVED_MENTAL_MODEL_HISTORY = "mental_models/06-history"
 DERIVED_CONSOLIDATE = "observations/01-consolidate"
 DERIVED_CONSOLIDATE_FINAL = "observations/02-consolidate-final"
+DERIVED_OPERATIONS_LIST = "operations/01-list"  # its first entry is a consolidation
+# The derived consolidations' clock (memory-quality ticket 20): a minute per event.
+_CONSOLIDATION_EPOCH = datetime(2026, 10, 3, 11, 44, tzinfo=UTC)
+_RUNNING = frozenset({"pending", "processing"})
 DERIVED_SCOPES = "observation_scopes/09-list-scopes"
 DERIVED_ENTITIES = "entities/03-list-entities"
 DERIVED_CHUNKS = "chunks/03-list-chunks"  # memory-quality ticket 08
@@ -562,7 +601,13 @@ class RecordedHindsight:
     _generations: dict[tuple[str, str], int] = field(
         init=False, default_factory=dict[tuple[str, str], int]
     )
-    _consolidations: set[str] = field(init=False, default_factory=set[str])
+    _consolidations: dict[str, _Consolidation] = field(
+        init=False, default_factory=dict[str, _Consolidation]
+    )
+    # bank -> memories pending consolidation, and how many one round consolidates
+    _pending_consolidation: dict[str, int] = field(init=False, default_factory=dict[str, int])
+    _round_sizes: dict[str, int] = field(init=False, default_factory=dict[str, int])
+    _consolidation_events: int = field(init=False, default=0)
     _consolidation_holds: list[_Hold] = field(init=False, default_factory=list[_Hold])
     deleted_banks: list[str] = field(init=False, default_factory=list[str])
     _forgotten: set[str] = field(init=False, default_factory=set[str])
@@ -740,6 +785,48 @@ class RecordedHindsight:
     def hold_consolidations(self, status: str, polls: int | None = None) -> None:
         """`hold_operation` for each later derived consolidation operation."""
         self._consolidation_holds.append(_Hold(status, polls))
+
+    def script_pending_consolidation(self, bank: str, count: int, round_size: int = 100) -> None:
+        """The bank has `count` memories pending consolidation, `round_size` a round."""
+        self._pending_consolidation[bank] = count
+        self._round_sizes[bank] = round_size
+
+    def pending_consolidation(self, bank: str) -> int:
+        return self._pending_consolidation.get(bank, 0)
+
+    def request_consolidation_elsewhere(self, bank: str) -> str:
+        """A consolidation of the bank somebody else asked for: its chain's first round."""
+        return self._start_consolidation(bank)
+
+    def end_consolidation_round(self, bank: str) -> str | None:
+        """Complete the bank's processing round; the next round's operation ID, if Hindsight
+        submitted one because memories are still pending."""
+        (running,) = [
+            operation_id
+            for operation_id, operation in self._consolidations.items()
+            if operation.bank == bank and operation.status in _RUNNING
+        ]
+        operation = self._consolidations[running]
+        pending = self.pending_consolidation(bank)
+        operation.processed = min(pending, self._round_sizes.get(bank, 100))
+        self._pending_consolidation[bank] = pending - operation.processed
+        operation.status = "completed"
+        operation.updated_at = self._consolidation_tick()
+        if self._pending_consolidation[bank] > 0:
+            return self._start_consolidation(bank)
+        return None
+
+    def consolidation_operations(self, bank: str) -> list[str]:
+        """The bank's derived consolidation operations, oldest first."""
+        return [o for o, operation in self._consolidations.items() if operation.bank == bank]
+
+    def cancelled_operations(self) -> list[str]:
+        """The operation IDs of every `DELETE .../operations/<id>` received, in order."""
+        return [
+            request.url.path.split("/")[-1]
+            for request in self.calls
+            if request.method == "DELETE" and "/operations/" in request.url.path
+        ]
 
     def _holding_bank(self, document_id: str, bank: str | None) -> str:
         holders = [b for b, docs in self._derived_documents.items() if document_id in docs]
@@ -1473,6 +1560,14 @@ class RecordedHindsight:
                 return self._derived_consolidation_operation(route[1])
         if request.method == "POST" and route == ["consolidate"] and body == {}:
             return self._derived_consolidation(bank)
+        if request.method == "DELETE" and len(route) == 2 and route[0] == "operations":
+            if route[1] in self._consolidations:
+                return self._cancelled_consolidation(route[1])
+        if request.method == "GET" and route == ["operations"]:
+            if request.url.params.get("type") == "consolidation":
+                return self._derived_consolidation_list(bank, request)
+        if request.method == "GET" and route == ["stats"]:
+            return self._derived_stats(bank)
         if request.method == "GET" and route in (["observations", "scopes"], ["entities"]):
             if route[0] == "observations" and self._scopes is None and self._derive_memories:
                 return self._derived_scopes(bank, request)
@@ -1595,22 +1690,151 @@ class RecordedHindsight:
 
     # --- derived consolidation and bank deletion (see the module docstring) --------------------
 
-    def _derived_consolidation(self, bank: str) -> httpx2.Response:
-        count = len(self._consolidations) + 1
-        operation_id = str(uuid.uuid5(_DERIVED_NAMESPACE, f"consolidate:{bank}:{count}"))
-        self._consolidations.add(operation_id)
+    def _consolidation_tick(self) -> datetime:
+        self._consolidation_events += 1
+        return _CONSOLIDATION_EPOCH + timedelta(minutes=self._consolidation_events)
+
+    def _start_consolidation(self, bank: str) -> str:
+        """A new consolidation operation of the bank: a round when memories are pending."""
+        operation_id = str(
+            uuid.uuid5(_DERIVED_NAMESPACE, f"consolidate:{bank}:{len(self._consolidations) + 1}")
+        )
+        pending = self.pending_consolidation(bank)
+        created = self._consolidation_tick()
+        self._consolidations[operation_id] = _Consolidation(
+            bank=bank,
+            created_at=created,
+            status="processing" if pending else "completed",
+            total=pending,
+            updated_at=created,
+        )
         for hold in self._consolidation_holds:
             self.hold_operation(operation_id, hold.status, hold.polls)
+        return operation_id
+
+    def _consolidation_status(self, operation_id: str) -> str:
+        """What a listing shows: a hold on the operation, peeked without using it up."""
+        hold = self._holds.get(operation_id)
+        if hold is not None and hold.polls != 0:
+            return hold.status
+        return self._consolidations[operation_id].status
+
+    def _derived_consolidation(self, bank: str) -> httpx2.Response:
+        operation_id = self._start_consolidation(bank)
         recording = self.recording(DERIVED_CONSOLIDATE)
         response = copy.deepcopy(recording.response_object()) | {"operation_id": operation_id}
         self.served.append(f"{DERIVED_CONSOLIDATE} (derived)")
         return httpx2.Response(recording.status, json=response)
 
     def _derived_consolidation_operation(self, operation_id: str) -> httpx2.Response:
+        operation = self._consolidations[operation_id]
         recording = self.recording(DERIVED_CONSOLIDATE_FINAL)
-        response = copy.deepcopy(recording.response_object()) | {"operation_id": operation_id}
+        response = copy.deepcopy(recording.response_object())
+        ended = operation.status not in _RUNNING
+        response |= {
+            "operation_id": operation_id,
+            "status": operation.status,
+            "created_at": _iso(operation.created_at),
+            "updated_at": _iso(operation.updated_at),
+            "completed_at": _iso(operation.updated_at) if ended else None,
+        }
         self.served.append(f"{DERIVED_CONSOLIDATE_FINAL} (derived)")
         return httpx2.Response(recording.status, json=self._apply_hold(response))
+
+    def _derived_consolidation_list(self, bank: str, request: httpx2.Request) -> httpx2.Response:
+        recording = self.recording(DERIVED_OPERATIONS_LIST)
+        recorded = recording.response_object()
+        template = cast(dict[str, JsonValue], cast(list[JsonValue], recorded["operations"])[0])
+        assert template["task_type"] == "consolidation"
+        status = request.url.params.get("status")
+        limit = int(request.url.params.get("limit", "20"))
+        offset = int(request.url.params.get("offset", "0"))
+        listed = [
+            (operation_id, operation)
+            for operation_id, operation in reversed(self._consolidations.items())
+            if operation.bank == bank
+            and (status is None or self._consolidation_status(operation_id) == status)
+        ]
+        entries: list[JsonValue] = []
+        for operation_id, operation in listed[offset : offset + limit]:
+            entry = copy.deepcopy(template)
+            entry |= {
+                "id": operation_id,
+                "operation_id": operation_id,
+                "operation_type": "consolidation",
+                "created_at": _iso(operation.created_at),
+                "updated_at": _iso(operation.updated_at),
+                "status": self._consolidation_status(operation_id),
+                "progress": {
+                    "stage": "consolidating",
+                    "at": _iso(operation.updated_at),
+                    "processed": operation.processed,
+                    "total": operation.total,
+                    "detail": {
+                        "observations_created": operation.processed,
+                        "observations_updated": 0,
+                        "observations_deleted": 0,
+                        "observations_merged": 0,
+                        "memories_failed": 0,
+                    },
+                },
+            }
+            entries.append(entry)
+        response = copy.deepcopy(recorded) | {
+            "bank_id": bank,
+            "total": len(listed),
+            "limit": limit,
+            "offset": offset,
+            "operations": entries,
+        }
+        self.served.append(f"{DERIVED_OPERATIONS_LIST} (derived)")
+        return httpx2.Response(recording.status, json=response)
+
+    def _cancelled_consolidation(self, operation_id: str) -> httpx2.Response:
+        if self._consolidation_status(operation_id) not in _RUNNING:
+            self.served.append("operations/<id> DELETE 409 (derived, hand-written body)")
+            body = {"detail": f"Operation {operation_id} has already ended"}
+            return httpx2.Response(409, json=body)
+        operation = self._consolidations[operation_id]
+        operation.status = "cancelled"
+        operation.updated_at = self._consolidation_tick()
+        self._holds.pop(operation_id, None)
+        self.served.append("operations/<id> DELETE (derived, hand-written body)")
+        body = {
+            "success": True,
+            "message": f"Operation {operation_id} cancelled",
+            "operation_id": operation_id,
+        }
+        return httpx2.Response(200, json=body)
+
+    def _derived_stats(self, bank: str) -> httpx2.Response:
+        operations = [o for o in self._consolidations.values() if o.bank == bank]
+        completed = [o.updated_at for o in operations if o.status == "completed" and o.updated_at]
+        by_status: dict[str, JsonValue] = {}
+        for operation in operations:
+            by_status[operation.status] = cast(int, by_status.get(operation.status, 0)) + 1
+        absent = self._absent.get(bank, set())
+        documents = [d for d in self._derived_documents.get(bank, {}) if d not in absent]
+        body: dict[str, JsonValue] = {
+            "bank_id": bank,
+            "total_nodes": 0,
+            "total_links": 0,
+            "total_documents": len(documents),
+            "nodes_by_fact_type": {},
+            "links_by_link_type": {},
+            "links_by_fact_type": {},
+            "links_breakdown": {},
+            "pending_operations": sum(cast(int, by_status.get(s, 0)) for s in _RUNNING),
+            "failed_operations": cast(int, by_status.get("failed", 0)),
+            "operations_by_status": by_status,
+            "last_consolidated_at": _iso(max(completed)) if completed else None,
+            "last_memory_write_at": None,
+            "pending_consolidation": self.pending_consolidation(bank),
+            "failed_consolidation": 0,
+            "total_observations": len([o for o in self._observations if self._in_bank(o, bank)]),
+        }
+        self.served.append("stats (derived, hand-written body)")
+        return httpx2.Response(200, json=body)
 
     def _fid(self, bank: str, document_id: str) -> str:
         return _fact_id(bank, document_id, self._generations.get((bank, document_id), 0))

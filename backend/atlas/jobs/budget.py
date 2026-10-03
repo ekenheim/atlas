@@ -9,9 +9,13 @@ budget per window, and the queue holds a provider's job kinds while its window i
   replay's retain batches and consolidation, one unit each; and since memory-quality ticket
   10 each reflect and each mental-model refresh Atlas submits, one unit each: a research
   answer's reflect, every attempt; a refresh Atlas's `refresh_mental_model` job submitted; a
-  replay's reflect; and since memory-quality ticket 19 each consolidation of the research
-  bank the `consolidate` job requests, one unit): Atlas can't see Codex tokens, only what it
-  asked Hindsight to do.
+  replay's reflect): Atlas can't see Codex tokens, only what it asked Hindsight to do.
+- `hindsight_consolidation`, counted in **consolidation rounds** of the research bank
+  (memory-quality ticket 20; `ATLAS_CONSOLIDATE_BUDGET_ROUNDS`): each consolidation operation
+  of a run the `consolidate` job requested, and each round Hindsight chained after it by
+  itself, one unit each, counted once (source the operation ID) when Atlas first sees it. Its
+  one kind is `consolidate`, which left `codex` (where ticket 19 counted one unit per request,
+  however many rounds it cost); the requests counted there before stay counted.
 - `hindsight_minimax`, counted in **Hindsight operations submitted** too: the retain and
   reprocess batches whose items asked the shared Hindsight for its MiniMax extractor
   (`ATLAS_RETAIN_EXTRACTOR=minimax`; Hindsight's metadata routing, docs/decisions.md,
@@ -53,11 +57,20 @@ if TYPE_CHECKING:
     from atlas.jobs.pacing import JobClass
     from atlas.settings import Settings
 
-Provider = Literal["codex", "hindsight_minimax", "minimax", "tradingview"]
-PROVIDERS: tuple[Provider, ...] = ("codex", "hindsight_minimax", "minimax", "tradingview")
-BudgetUnit = Literal["operations", "tokens", "requests"]
+Provider = Literal[
+    "codex", "hindsight_consolidation", "hindsight_minimax", "minimax", "tradingview"
+]
+PROVIDERS: tuple[Provider, ...] = (
+    "codex",
+    "hindsight_consolidation",
+    "hindsight_minimax",
+    "minimax",
+    "tradingview",
+)
+BudgetUnit = Literal["operations", "rounds", "tokens", "requests"]
 UNITS: dict[Provider, BudgetUnit] = {
     "codex": "operations",
+    "hindsight_consolidation": "rounds",
     "hindsight_minimax": "operations",
     "minimax": "tokens",
     "tradingview": "requests",
@@ -79,9 +92,10 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "refresh_mental_model": "codex",
     "reflect": "codex",
     "replay": "codex",
-    # The research bank's consolidation, asked for by Atlas (memory-quality ticket 19); it
-    # runs on Hindsight's primary LLM whatever extractor the retains ask for.
-    "consolidate": "codex",
+    # The research bank's consolidation, asked for by Atlas (memory-quality ticket 19) and
+    # counted by rounds in a budget of its own (ticket 20); it runs on Hindsight's primary
+    # LLM whatever extractor the retains ask for.
+    "consolidate": "hindsight_consolidation",
     "discover": "minimax",
     "extract_claims": "minimax",
     "review_relationships": "minimax",
@@ -117,10 +131,12 @@ _SWEEPS: dict[Provider, str] = {
         " 1 FROM replay_answer a WHERE NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'codex' AND u.source_id = 'replay_answer:'"
         "     || a.replay_job_id::text || ':' || a.position::text)"
-        # Each consolidation request Atlas submitted to the research bank (ticket 19).
-        " UNION ALL SELECT 'consolidation:' || c.id::text, 1 FROM memory_consolidation c"
-        " WHERE c.operation_id IS NOT NULL AND NOT EXISTS (SELECT FROM provider_usage u"
-        "   WHERE u.provider = 'codex' AND u.source_id = 'consolidation:' || c.id::text)"
+    ),
+    # Each round of a consolidation run Atlas followed (memory-quality ticket 20).
+    "hindsight_consolidation": (
+        "SELECT r.operation_id AS source_id, 1 AS units FROM memory_consolidation_round r"
+        " WHERE NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'hindsight_consolidation' AND u.source_id = r.operation_id)"
     ),
     "hindsight_minimax": (
         "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"
@@ -175,6 +191,7 @@ class Budgets:
     codex_operations: int = 40
     minimax_tokens: int = 400_000
     tradingview_requests: int = 200
+    consolidation_rounds: int = 40
     interactive_reserve: float = 0.3  # the share of each budget backfill may not use
     # The extractor Atlas's retains ask for (None: the primary, and the retain kinds are
     # `codex` kinds), and the routed retains' own budget, in force only with an extractor.
@@ -189,6 +206,7 @@ class Budgets:
             self.minimax_tokens,
             self.tradingview_requests,
             self.retain_operations,
+            self.consolidation_rounds,
         )
         if min(budgets) < 1:
             raise ValueError("each provider's budget must be at least 1")
@@ -202,6 +220,7 @@ class Budgets:
             codex_operations=settings.codex_budget_operations,
             minimax_tokens=settings.minimax_budget_tokens,
             tradingview_requests=settings.tradingview_budget_requests,
+            consolidation_rounds=settings.consolidate_budget_rounds,
             interactive_reserve=settings.budget_interactive_reserve,
             retain_extractor=settings.retain_extractor,
             retain_operations=settings.retain_budget_operations,
@@ -225,6 +244,7 @@ class Budgets:
     def budget(self, provider: Provider) -> int:
         return {
             "codex": self.codex_operations,
+            "hindsight_consolidation": self.consolidation_rounds,
             "hindsight_minimax": self.retain_operations,
             "minimax": self.minimax_tokens,
             "tradingview": self.tradingview_requests,

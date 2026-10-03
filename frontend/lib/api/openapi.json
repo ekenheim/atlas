@@ -9876,17 +9876,19 @@
           },
           "operation_id": {
             "type": "string",
-            "title": "Operation Id"
+            "title": "Operation Id",
+            "description": "the consolidation operation Atlas requested"
           },
           "status": {
             "type": "string",
             "enum": [
               "submitted",
               "completed",
-              "failed"
+              "failed",
+              "stopped_at_budget"
             ],
             "title": "Status",
-            "description": "submitted: its operation is still running, as last polled"
+            "description": "submitted: a round of the run is still running, as last seen; stopped_at_budget: its rounds reached the window's limit and Atlas cancelled it"
           },
           "operation_status": {
             "anyOf": [
@@ -9898,7 +9900,36 @@
               }
             ],
             "title": "Operation Status",
-            "description": "what Hindsight last reported"
+            "description": "what Hindsight last reported for the run's last round"
+          },
+          "rounds": {
+            "type": "integer",
+            "title": "Rounds",
+            "description": "the run's rounds counted so far: the operation Atlas requested and each consolidation operation Hindsight chained after it (memory-quality ticket 20)"
+          },
+          "last_operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Operation Id",
+            "description": "the newest round followed"
+          },
+          "pending_consolidation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Consolidation",
+            "description": "the bank's memories still pending consolidation when the run ended (completed or stopped); None while it runs and for runs before ticket 20"
           },
           "deduplicated": {
             "type": "boolean",
@@ -9946,6 +9977,9 @@
           "operation_id",
           "status",
           "operation_status",
+          "rounds",
+          "last_operation_id",
+          "pending_consolidation",
           "deduplicated",
           "sections_retained",
           "error",
@@ -18498,6 +18532,7 @@
             "type": "string",
             "enum": [
               "codex",
+              "hindsight_consolidation",
               "hindsight_minimax",
               "minimax",
               "tradingview"
@@ -18508,6 +18543,7 @@
             "type": "string",
             "enum": [
               "operations",
+              "rounds",
               "tokens",
               "requests"
             ],

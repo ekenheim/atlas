@@ -2775,19 +2775,37 @@ export interface components {
             id: string;
             /** Job Id */
             job_id: string | null;
-            /** Operation Id */
+            /**
+             * Operation Id
+             * @description the consolidation operation Atlas requested
+             */
             operation_id: string;
             /**
              * Status
-             * @description submitted: its operation is still running, as last polled
+             * @description submitted: a round of the run is still running, as last seen; stopped_at_budget: its rounds reached the window's limit and Atlas cancelled it
              * @enum {string}
              */
-            status: "submitted" | "completed" | "failed";
+            status: "submitted" | "completed" | "failed" | "stopped_at_budget";
             /**
              * Operation Status
-             * @description what Hindsight last reported
+             * @description what Hindsight last reported for the run's last round
              */
             operation_status: string | null;
+            /**
+             * Rounds
+             * @description the run's rounds counted so far: the operation Atlas requested and each consolidation operation Hindsight chained after it (memory-quality ticket 20)
+             */
+            rounds: number;
+            /**
+             * Last Operation Id
+             * @description the newest round followed
+             */
+            last_operation_id: string | null;
+            /**
+             * Pending Consolidation
+             * @description the bank's memories still pending consolidation when the run ended (completed or stopped); None while it runs and for runs before ticket 20
+             */
+            pending_consolidation: number | null;
             /**
              * Deduplicated
              * @description Hindsight reused a pending consolidation for it
@@ -5818,12 +5836,12 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "codex" | "hindsight_minimax" | "minimax" | "tradingview";
+            provider: "codex" | "hindsight_consolidation" | "hindsight_minimax" | "minimax" | "tradingview";
             /**
              * Unit
              * @enum {string}
              */
-            unit: "operations" | "tokens" | "requests";
+            unit: "operations" | "rounds" | "tokens" | "requests";
             /** Window Seconds */
             window_seconds: number;
             /** Used */

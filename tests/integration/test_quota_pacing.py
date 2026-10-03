@@ -28,9 +28,10 @@ from tests.fakes.serve import Served, serve
 from tests.harness import LITE_10K, QUOTA_ERROR, Atlas, Clock, Metrics, at, scrape_metrics
 
 FIVE_HOURS = timedelta(hours=5)
-CODEX_KINDS = ["consolidate", "reflect", "refresh_mental_model", "replay", "reprocess", "retain"]
+# `consolidate` has a budget of its own, counted by rounds (memory-quality ticket 20).
+CODEX_KINDS = ["reflect", "refresh_mental_model", "replay", "reprocess", "retain"]
 # With ATLAS_RETAIN_EXTRACTOR set, retains leave the Codex budget for their own.
-CODEX_KINDS_WITHOUT_RETAINS = ["consolidate", "reflect", "refresh_mental_model", "replay"]
+CODEX_KINDS_WITHOUT_RETAINS = ["reflect", "refresh_mental_model", "replay"]
 ROUTED_RETAIN_KINDS = ["reprocess", "retain"]
 MINIMAX_KINDS = [
     "discover",
@@ -304,7 +305,8 @@ def test_with_the_extractor_set_retains_spend_their_own_budget_and_reflect_stays
     before = Paced(atlas, clock)
     atlas.enqueue("ingest", "--company", "coherent", "--key", "cohr", "--forms", "10-K")
     before.worker_pass()
-    assert before.providers() == ["codex", "minimax", "tradingview"]  # as before the setting
+    # As before the setting (the consolidation rounds' budget is always there: ticket 20).
+    assert before.providers() == ["codex", "hindsight_consolidation", "minimax", "tradingview"]
     codex = before.budget("codex")
     assert (codex["used"], codex["interactive_held"], codex["kinds"]) == (1, True, CODEX_KINDS)
 
@@ -327,7 +329,13 @@ def test_with_the_extractor_set_retains_spend_their_own_budget_and_reflect_stays
     assert paced.statuses(retains) == ["queued", "queued", "succeeded", "succeeded"]
     assert len(fake.retained()) == 3
     assert paced.job(reflect)["status"] == "queued"
-    assert paced.providers() == ["codex", "hindsight_minimax", "minimax", "tradingview"]
+    assert paced.providers() == [
+        "codex",
+        "hindsight_consolidation",
+        "hindsight_minimax",
+        "minimax",
+        "tradingview",
+    ]
     routed = paced.budget("hindsight_minimax")
     assert routed == {
         "provider": "hindsight_minimax",
@@ -466,7 +474,7 @@ def test_switched_back_a_reprocess_runs_on_codex_and_records_no_extractor(
     assert first["metadata"]["extractor"] == "minimax"
     assert "extractor" not in again["metadata"]
     # Each operation counts once, against the budget of the extractor it asked for.
-    assert unrouted.providers() == ["codex", "minimax", "tradingview"]
+    assert unrouted.providers() == ["codex", "hindsight_consolidation", "minimax", "tradingview"]
     codex = unrouted.budget("codex")
     assert (codex["used"], codex["kinds"]) == (1, CODEX_KINDS)
     metrics = unrouted.metrics()

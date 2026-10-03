@@ -246,6 +246,60 @@ class Operation(_Result):
         return self.status == "completed"
 
 
+class OperationProgress(_Result):
+    """An operation's last progress snapshot (`stage`, `processed` of `total`)."""
+
+    stage: str | None = None
+    processed: int | None = None
+    total: int | None = None
+
+
+class ListedOperation(_Result):
+    """One entry of `GET .../operations` (memory-quality ticket 20). The listing names an
+    operation `id` and `task_type` (0.10.1, `operations/01-list`); 0.10.2 adds the names the
+    single-operation read uses, `operation_id` and `operation_type`. Either is read."""
+
+    id: str = Field(validation_alias=AliasChoices("id", "operation_id"))
+    operation_type: str | None = Field(
+        default=None, validation_alias=AliasChoices("operation_type", "task_type")
+    )
+    status: OperationStatus
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    progress: OperationProgress | None = None
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.status in TERMINAL_STATUSES
+
+
+class OperationPage(_Result):
+    """`GET .../operations`: newest first."""
+
+    total: int
+    operations: list[ListedOperation] = []
+
+    null_lists = field_validator("operations", mode="before")(_none_to_empty_list)
+
+
+class OperationCancelled(_Result):
+    """`DELETE .../operations/{id}`: the operation reads `cancelled` from then on."""
+
+    success: bool
+    message: str | None = None
+    operation_id: str | None = None
+
+
+class BankStats(_Result):
+    """`GET .../stats`, the fields Atlas reads: `pending_consolidation` is the bank's source
+    memories still queued for consolidation (it drains to 0 when the consolidator catches up)."""
+
+    pending_consolidation: int = 0
+    failed_consolidation: int = 0
+    total_observations: int = 0
+    last_consolidated_at: datetime | None = None
+
+
 class SourceMemory(_Result):
     """A memory an observation was consolidated from (as embedded in a memory lookup)."""
 

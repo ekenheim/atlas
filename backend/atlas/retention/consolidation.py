@@ -1,19 +1,34 @@
 """Atlas decides when Memory consolidates (memory-quality ticket 19; `docs/decisions.md`, "Atlas
-decides when Memory consolidates").
+decides when Memory consolidates"), and follows each run to its end, counted by rounds (ticket
+20).
 
 The research bank's template turns Hindsight's automatic consolidation off
 (`enable_auto_consolidation: false`), so observations are formed only when Atlas asks:
 
-- **The job.** `consolidate` (pausable; provider `codex`, one unit per request Atlas
-  submits) decides, then asks Hindsight to consolidate the research bank
-  (`POST .../consolidate`), records the operation and polls it to its end, bounded by
+- **The job.** `consolidate` (pausable; provider `hindsight_consolidation`, one unit per
+  round) decides, then asks Hindsight to consolidate the research bank
+  (`POST .../consolidate`), records the operation and follows the run to its end, bounded by
   `ATLAS_CONSOLIDATE_POLL_TIMEOUT_SECONDS`. A run still going at the bound stays recorded as
   running (`submitted`); the job ends with outcome `running`, and the next job follows that
-  operation instead of submitting another.
+  run instead of submitting another.
+- **Rounds.** Hindsight consolidates a run in rounds: one operation consolidates at most a
+  round's memories, and when it ends with memories still pending Hindsight submits the next
+  round as a new operation by itself. A run's rounds are the operation Atlas requested and
+  every consolidation operation of the bank created after it (`GET .../operations?type=
+  consolidation`), each recorded once (`memory_consolidation_round`) and counted once against
+  the `hindsight_consolidation` budget when Atlas first sees it. A run is `completed` only
+  when none of its rounds is pending or processing and the last one ended `completed`; the
+  bank's `pending_consolidation` (`GET .../stats`) is recorded then.
+- **Stopped at the budget.** While a round of the run is pending or processing and the rounds
+  counted in the window reach the limit the job's class may use, Atlas cancels it
+  (`DELETE .../operations/{id}`; no round follows a cancelled one) and records the run
+  `stopped_at_budget`; the next try asks again once the window allows (consolidation is
+  incremental).
 - **Never twice for the same work.** The decision is taken under a per-bank advisory lock:
-  a consolidation of the bank still running (Atlas's own record: the recorded API has no
-  filtered listing of the bank's running operations, and auto-consolidation is off, so the
-  only consolidation running is one Atlas asked for) is followed, not resubmitted (`joined`);
+  a run of the bank still `submitted` in Atlas's record is followed, not resubmitted
+  (`joined`); a consolidation of the bank Atlas did not request, pending or processing, is
+  left alone (`other_consolidation_running`: neither counted nor cancelled, and nothing is
+  submitted beside it, so the rounds after Atlas's request are its own);
   nothing is submitted while a retain's operation may be in Hindsight: a `retain` or
   `reprocess` job running, or a `poll_operation` job queued or running (`retains_pending`).
   A retain still queued has sent nothing, so a backfill's retains waiting behind their budget
@@ -26,25 +41,35 @@ The research bank's template turns Hindsight's automatic consolidation off
   next an hour after it decided, at most `ATLAS_CONSOLIDATE_MAX_TRIES` a day. By hand:
   `atlas memory consolidate [--key K]`.
 - **The record.** Every decision is a `memory_consolidation` row (skipped, submitted,
-  completed, failed); a submitted request and its end are audited. `GET /api/v1/memory/health`
-  shows the last requested and last completed run and the sections retained since
-  (`consolidation_record`).
+  completed, failed, stopped_at_budget, with its rounds, the last round followed and the
+  bank's `pending_consolidation` at its end); a submitted request and its end are audited.
+  `GET /api/v1/memory/health` shows the last requested and last completed run and the
+  sections retained since (`consolidation_record`).
 
 Replay and evaluation banks are unchanged: they keep the server's default and the replay asks
 for consolidation itself (`atlas.replay`).
 """
 
 import json
+import time as _time
 import uuid
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
-from atlas.hindsight import HindsightGateway, HindsightNotFound, OperationTimeout
+from atlas.hindsight import (
+    HindsightGateway,
+    HindsightHTTPError,
+    HindsightNotFound,
+    ListedOperation,
+    Operation,
+)
+from atlas.jobs.budget import Budgets, Provider, window_usage
 from atlas.jobs.handlers import HandlerRegistry, Schedule
 from atlas.jobs.pacing import Clock, JobClass, TransientFailure, utc_now
 from atlas.jobs.queue import Artifacts, Enqueued, Job, JobQueue, job_id_for
@@ -55,12 +80,26 @@ from atlas.settings import Settings
 CONSOLIDATE_KIND = "consolidate"
 # The jobs that submit retains into the bank: while one is running, no consolidation.
 SUBMITTING_KINDS = (RETAIN_KIND, REPROCESS_KIND)
-# A scheduled try with one of these outcomes is followed by another, an hour later.
-RETRY_OUTCOMES = frozenset({"retains_pending", "running"})
+# A scheduled try with one of these outcomes is followed by another, an hour later (one
+# stopped at the budget waits in the queue until the window allows it).
+RETRY_OUTCOMES = frozenset(
+    {"retains_pending", "running", "stopped_at_budget", "other_consolidation_running"}
+)
 RETRY_AFTER = timedelta(hours=1)
+# The budget a run's rounds count against (memory-quality ticket 20).
+ROUNDS_PROVIDER: Provider = "hindsight_consolidation"
+# The bank's consolidation operations are listed a page at a time, newest first, until the
+# run's first round is reached.
+LISTING_PAGE = 100
+LISTING_MAX_PAGES = 20
+_RUNNING = frozenset({"pending", "processing"})
 
-type ConsolidationStatus = Literal["skipped", "submitted", "completed", "failed"]
-type SkipReason = Literal["nothing_retained", "retains_pending", "consolidation_off"]
+type ConsolidationStatus = Literal[
+    "skipped", "submitted", "completed", "failed", "stopped_at_budget"
+]
+type SkipReason = Literal[
+    "nothing_retained", "retains_pending", "consolidation_off", "other_consolidation_running"
+]
 
 
 class ConsolidatePayload(BaseModel):
@@ -163,6 +202,9 @@ class Consolidation:
         clock: Clock = utc_now,
         timings: ConsolidationTimings | None = None,
         enabled: bool = True,
+        budgets: Budgets | None = None,
+        monotonic: Callable[[], float] = _time.monotonic,
+        sleep: Callable[[float], None] = _time.sleep,
     ) -> None:
         self._enabled = enabled
         self._engine = engine
@@ -170,6 +212,9 @@ class Consolidation:
         self._actor = actor
         self._clock = clock
         self._timings = timings or ConsolidationTimings()
+        self._budgets = budgets  # None: no rounds budget stops a run
+        self._monotonic = monotonic
+        self._sleep = sleep
 
     @property
     def bank_id(self) -> str:
@@ -180,9 +225,10 @@ class Consolidation:
         base: Artifacts = {"decided_at": decided_at.isoformat()}
         latest = self._latest_for_job(job.id)
         if latest is not None and latest["status"] == "submitted":
-            return base | self._await(latest)  # an earlier attempt submitted it
+            return base | self._follow(latest, job)  # an earlier attempt submitted it
         if latest is not None and (
-            latest["status"] in ("skipped", "completed") or latest["error_class"] == "permanent"
+            latest["status"] in ("skipped", "completed", "stopped_at_budget")
+            or latest["error_class"] == "permanent"
         ):
             return base | {
                 "outcome": f"already_{latest['status']}",
@@ -198,7 +244,7 @@ class Consolidation:
                 "consolidation_id": str(row["id"]),
                 "sections_retained": row["sections_retained"],
             }
-        return base | {"joined": joined} | self._await(row)
+        return base | {"joined": joined} | self._follow(row, job)
 
     # --- deciding ------------------------------------------------------------------------------
 
@@ -236,6 +282,8 @@ class Consolidation:
                 reason = "retains_pending"
             elif since == 0:
                 reason = "nothing_retained"
+            elif self._other_running():
+                reason = "other_consolidation_running"
             if reason is not None:
                 skipped = self._insert(connection, fields | {"status": "skipped", "reason": reason})
                 return skipped, False
@@ -252,6 +300,14 @@ class Consolidation:
             )
             self._audit(connection, "memory_consolidation.submitted", None, row)
             return row, False
+
+    def _other_running(self) -> bool:
+        """A consolidation of the bank is pending or processing that Atlas did not request
+        (no run of Atlas's is `submitted`): someone else's chain, left alone."""
+        return any(
+            self._gateway.consolidation_operations(status=status, limit=1).operations
+            for status in ("processing", "pending")
+        )
 
     def _insert(self, connection: Connection, fields: dict[str, object]) -> RowMapping:
         skipped = fields["status"] == "skipped"
@@ -280,41 +336,187 @@ class Consolidation:
             .one()
         )
 
-    # --- following the operation ---------------------------------------------------------------
+    # --- following the run -----------------------------------------------------------------------
 
-    def _await(self, row: RowMapping) -> Artifacts:
+    def _follow(self, row: RowMapping, job: Job) -> Artifacts:
+        """Follow the run's rounds until none is pending or processing, bounded per attempt;
+        stop it when the window's rounds are spent."""
         operation_id: str = row["operation_id"]
         base: Artifacts = {"consolidation_id": str(row["id"]), "operation_id": operation_id}
-        try:
-            operation = self._gateway.wait_for_operation(
-                operation_id,
-                timeout=self._timings.poll_timeout,
-                poll_interval=self._timings.poll_interval,
+        deadline = self._monotonic() + self._timings.poll_timeout
+        while True:
+            try:
+                rounds = self._rounds(row)
+            except HindsightNotFound as error:
+                # Pruned or never known to the server: nothing is running any more.
+                message = f"Hindsight has no operation {operation_id}: {error}"
+                self._update(
+                    row,
+                    "status = 'failed', error = :error, error_class = 'permanent',"
+                    " completed_at = now()",
+                    {"error": message[:2000]},
+                    action="memory_consolidation.failed",
+                )
+                return base | {"outcome": "failed", "error": message}
+            counted = self._record_rounds(row, rounds)
+            last = rounds[-1]
+            followed: Artifacts = base | {"rounds": counted, "last_operation_id": last.id}
+            running = [r for r in rounds if r.status in _RUNNING]
+            if running:
+                if self._rounds_spent(job):
+                    return followed | self._stop(row, running)
+                remaining = deadline - self._monotonic()
+                if remaining <= 0:
+                    # Bounded: the run stays recorded as running and the next job follows it.
+                    return followed | {"outcome": "running", "operation_status": last.status}
+                self._sleep(min(self._timings.poll_interval, remaining))
+                continue
+            if last.status == "completed":
+                pending = self._gateway.bank_stats().pending_consolidation
+                self._update(
+                    row,
+                    "status = 'completed', operation_status = :status,"
+                    " pending_consolidation = :pending, completed_at = now()",
+                    {"status": last.status, "pending": pending},
+                    action="memory_consolidation.completed",
+                )
+                return followed | {"outcome": "completed", "pending_consolidation": pending}
+            try:
+                operation = self._gateway.operation(last.id)
+            except HindsightNotFound as error:
+                operation = Operation(
+                    operation_id=last.id, status=last.status, error_message=str(error)
+                )
+            return followed | self._failed(row, operation)
+
+    def _rounds(self, row: RowMapping) -> list[ListedOperation]:
+        """The run's rounds, oldest first: the operation Atlas requested and every
+        consolidation operation of the bank Hindsight created after it.
+
+        Raises `HindsightNotFound` when Hindsight knows the requested operation no more."""
+        requested: str = row["operation_id"]
+        seen: list[ListedOperation] = []
+        anchor: ListedOperation | None = None
+        for page in range(LISTING_MAX_PAGES):
+            listing = self._gateway.consolidation_operations(
+                limit=LISTING_PAGE, offset=page * LISTING_PAGE
             )
-        except OperationTimeout as timeout:
-            # Bounded: the run stays recorded as running and the next job follows it.
-            self._update(row, "operation_status = :status", {"status": timeout.last_status})
-            return base | {"outcome": "running", "operation_status": timeout.last_status}
-        except HindsightNotFound as error:
-            # Pruned or never known to the server: nothing is running any more.
-            message = f"Hindsight has no operation {operation_id}: {error}"
-            self._update(
-                row,
-                "status = 'failed', error = :error, error_class = 'permanent',"
-                " completed_at = now()",
-                {"error": message[:2000]},
-                action="memory_consolidation.failed",
+            seen += listing.operations
+            anchor = next((o for o in listing.operations if o.id == requested), None)
+            if anchor is not None or len(listing.operations) < LISTING_PAGE:
+                break
+        if anchor is None:  # not listed (pruned from the listing, or beyond it): read it
+            found = self._gateway.operation(requested)
+            anchor = ListedOperation.model_validate(
+                {
+                    "id": found.operation_id,
+                    "operation_type": found.operation_type,
+                    "status": found.status,
+                    "created_at": found.created_at,
+                    "updated_at": found.updated_at,
+                }
             )
-            return base | {"outcome": "failed", "error": message}
-        if operation.succeeded:
-            self._update(
-                row,
-                "status = 'completed', operation_status = :status,"
-                " result_metadata = CAST(:metadata AS jsonb), completed_at = now()",
-                {"status": operation.status, "metadata": json.dumps(operation.result_metadata)},
-                action="memory_consolidation.completed",
+        start = anchor.created_at
+        chained = [
+            o
+            for o in seen
+            if o.id != requested
+            and o.created_at is not None
+            and start is not None
+            and o.created_at > start
+        ]
+        return [anchor, *sorted(chained, key=lambda o: (o.created_at, o.id))]
+
+    def _record_rounds(self, row: RowMapping, rounds: Sequence[ListedOperation]) -> int:
+        """Record each round once (its first sighting counts it against the budget) and its
+        last status; the run's round count."""
+        seen_at = self._clock()
+        with self._engine.begin() as connection:
+            for found in rounds:
+                connection.execute(
+                    text(
+                        "INSERT INTO memory_consolidation_round (operation_id, consolidation_id,"
+                        " status, created_at, first_seen_at) VALUES (:operation, :run, :status,"
+                        " :created, :seen) ON CONFLICT (operation_id) DO UPDATE"
+                        " SET status = EXCLUDED.status, updated_at = now()"
+                        " WHERE memory_consolidation_round.consolidation_id"
+                        "   = EXCLUDED.consolidation_id"
+                    ),
+                    {
+                        "operation": found.id,
+                        "run": row["id"],
+                        "status": found.status,
+                        "created": found.created_at,
+                        "seen": seen_at,
+                    },
+                )
+            counted = int(
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM memory_consolidation_round"
+                        " WHERE consolidation_id = :id"
+                    ),
+                    {"id": row["id"]},
+                ).scalar_one()
             )
-            return base | {"outcome": "completed"}
+            connection.execute(
+                text(
+                    "UPDATE memory_consolidation SET rounds = :rounds, last_operation_id = :last,"
+                    " operation_status = :status, updated_at = now()"
+                    " WHERE id = :id AND status = 'submitted'"
+                ),
+                {
+                    "id": row["id"],
+                    "rounds": counted,
+                    "last": rounds[-1].id,
+                    "status": rounds[-1].status,
+                },
+            )
+            return counted
+
+    def _rounds_spent(self, job: Job) -> bool:
+        """The rounds counted in the window reached the limit `job`'s class may use."""
+        if self._budgets is None:
+            return False
+        with self._engine.connect() as connection:
+            usage = window_usage(connection, self._budgets, self._clock())[ROUNDS_PROVIDER]
+        return usage.used >= self._budgets.limit(ROUNDS_PROVIDER, job.job_class)
+
+    def _stop(self, row: RowMapping, running: Sequence[ListedOperation]) -> Artifacts:
+        """Cancel the run's running rounds on Hindsight and record it stopped at the budget."""
+        cancelled: list[str] = []
+        for found in running:
+            try:
+                self._gateway.cancel_operation(found.id)
+            except HindsightHTTPError as error:
+                if error.status_code != 409:  # 409: it ended meanwhile
+                    raise
+            cancelled.append(found.id)
+        pending = self._gateway.bank_stats().pending_consolidation
+        with self._engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE memory_consolidation_round SET status = 'cancelled',"
+                    " updated_at = now() WHERE operation_id = ANY(:cancelled)"
+                    " AND consolidation_id = :run"
+                ),
+                {"cancelled": cancelled, "run": row["id"]},
+            )
+        self._update(
+            row,
+            "status = 'stopped_at_budget', operation_status = 'cancelled',"
+            " pending_consolidation = :pending, completed_at = now()",
+            {"pending": pending},
+            action="memory_consolidation.stopped_at_budget",
+        )
+        return {
+            "outcome": "stopped_at_budget",
+            "cancelled": list[JsonValue](cancelled),
+            "pending_consolidation": pending,
+        }
+
+    def _failed(self, row: RowMapping, operation: Operation) -> Artifacts:
+        """The run's last round ended failed or cancelled."""
         error = operation.error_message or (
             f"Hindsight reported the consolidation {operation.status} with no error message"
         )
@@ -335,10 +537,10 @@ class Consolidation:
         if error_class != "permanent":
             raise TransientFailure(
                 error_class,
-                f"Hindsight consolidation {operation_id} {operation.status} ({error_class}):"
-                f" {error}",
+                f"Hindsight consolidation {operation.operation_id} {operation.status}"
+                f" ({error_class}): {error}",
             )
-        return base | {"outcome": "failed", "error": error}
+        return {"outcome": "failed", "error": error}
 
     # --- rows ----------------------------------------------------------------------------------
 
@@ -445,6 +647,7 @@ def register_consolidation_handlers(
                     poll_interval=settings.consolidate_poll_interval_seconds,
                 ),
                 enabled=settings.consolidation_enabled,
+                budgets=Budgets.from_settings(settings),
             ).run(payload, job)
 
     # Pausable: consolidation is an LLM run on Hindsight's primary model, so quota and
@@ -474,11 +677,23 @@ class ConsolidationRun(BaseModel):
 
     id: uuid.UUID
     job_id: uuid.UUID | None
-    operation_id: str
-    status: Literal["submitted", "completed", "failed"] = Field(
-        description="submitted: its operation is still running, as last polled"
+    operation_id: str = Field(description="the consolidation operation Atlas requested")
+    status: Literal["submitted", "completed", "failed", "stopped_at_budget"] = Field(
+        description="submitted: a round of the run is still running, as last seen;"
+        " stopped_at_budget: its rounds reached the window's limit and Atlas cancelled it"
     )
-    operation_status: str | None = Field(description="what Hindsight last reported")
+    operation_status: str | None = Field(
+        description="what Hindsight last reported for the run's last round"
+    )
+    rounds: int = Field(
+        description="the run's rounds counted so far: the operation Atlas requested and each"
+        " consolidation operation Hindsight chained after it (memory-quality ticket 20)"
+    )
+    last_operation_id: str | None = Field(description="the newest round followed")
+    pending_consolidation: int | None = Field(
+        description="the bank's memories still pending consolidation when the run ended"
+        " (completed or stopped); None while it runs and for runs before ticket 20"
+    )
     deduplicated: bool = Field(description="Hindsight reused a pending consolidation for it")
     sections_retained: int = Field(
         description="sections retained since the last completed consolidation when it was asked"

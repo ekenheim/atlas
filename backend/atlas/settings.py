@@ -199,6 +199,10 @@ class Settings(BaseSettings):
     consolidate_max_tries: int = Field(default=6, ge=1, le=24)
     consolidate_poll_timeout_seconds: float = Field(default=240.0, gt=0)
     consolidate_poll_interval_seconds: float = Field(default=5.0, gt=0)
+    # Consolidation rounds per rolling budget window (memory-quality ticket 20): Hindsight
+    # consolidates a run in rounds, each its own operation; a run whose rounds reach the
+    # window's limit is cancelled and recorded `stopped_at_budget`, and the next try picks up.
+    consolidate_budget_rounds: int = Field(default=40, ge=1)
     # Replay banks (atlas.replay, §9.2): the **local** Hindsight a replay creates its
     # `atlas-replay-<id>` bank on (never the shared server; without it replays are refused),
     # the fixed question sets, how many Source Versions one replay retains at most (the

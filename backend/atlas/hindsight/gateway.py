@@ -30,6 +30,7 @@ from atlas.hindsight.errors import (
 from atlas.hindsight.models import (
     BankConfig,
     BankDeleted,
+    BankStats,
     Budget,
     Chunk,
     ChunkPage,
@@ -47,6 +48,8 @@ from atlas.hindsight.models import (
     ObservationPage,
     ObservationScopePage,
     Operation,
+    OperationCancelled,
+    OperationPage,
     OperationSubmitted,
     RecallResult,
     ReflectAnswer,
@@ -338,6 +341,29 @@ class HindsightGateway:
     def consolidate(self) -> ConsolidationSubmitted:
         """Ask for consolidation now (`POST .../consolidate`); poll the operation it returns."""
         return self._parse(ConsolidationSubmitted, self._post("/consolidate", {}))
+
+    def consolidation_operations(
+        self, *, status: str | None = None, limit: int = 100, offset: int = 0
+    ) -> OperationPage:
+        """The bank's consolidation operations, newest first (`GET .../operations?type=
+        consolidation`; memory-quality ticket 20). Hindsight consolidates in rounds: a round
+        that ends with memories still pending is followed by a new consolidation operation it
+        submits itself, so one request becomes several operations."""
+        params: dict[str, str | int] = {"type": "consolidation", "limit": limit, "offset": offset}
+        if status is not None:
+            params["status"] = status
+        return self._parse(OperationPage, self._get("/operations", params=params))
+
+    def cancel_operation(self, operation_id: str) -> OperationCancelled:
+        """Cancel a pending or running operation (`DELETE .../operations/{id}`): a pending one
+        never starts, a running one stops at its next checkpoint, and no further consolidation
+        round follows it. Raises `HindsightHTTPError` (409) for one already ended."""
+        data = self._request("DELETE", f"/operations/{_segment(operation_id)}")
+        return self._parse(OperationCancelled, data)
+
+    def bank_stats(self) -> BankStats:
+        """`GET .../stats`: the bank's counters, `pending_consolidation` among them."""
+        return self._parse(BankStats, self._get("/stats"))
 
     def delete_document(self, document_id: str) -> DocumentDeleted:
         """Delete one document and its memories (`DELETE .../documents/{id}`), so a retain

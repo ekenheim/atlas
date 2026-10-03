@@ -1,15 +1,22 @@
-"""Atlas decides when Memory consolidates (memory-quality ticket 19).
+"""Atlas decides when Memory consolidates (memory-quality ticket 19), follows a run to its
+end and counts it by rounds (ticket 20).
 
 The research bank's template turns Hindsight's automatic consolidation off; a `consolidate`
 job asks for it instead: by hand (`atlas memory consolidate`), or once a day from
 `ATLAS_CONSOLIDATE_AT`, skipped when nothing was retained since the last completed run and
-tried again an hour later while a retain of the bank is queued or running.
+tried again an hour later while a retain of the bank is queued or running. Hindsight
+consolidates in rounds, each its own operation, and chains the next round by itself while
+memories are pending: Atlas follows the chain across jobs, counts each round against the
+`hindsight_consolidation` budget and cancels its run's round when the window's rounds are
+spent.
 
 Seams: the `atlas` CLI (template, ingest, `memory consolidate`), single worker passes (with
 the worker's schedules, on a controllable clock) and `/api/v1` (`memory/health`, `queue`,
 `jobs`, `/metrics`), and the requests the recorded Hindsight fake received. Consolidation is
 the fake's documented derivation (`observations/01-consolidate`, `02-consolidate-final`;
-`hold_consolidations`), and so is the template import with `enable_auto_consolidation`
+`hold_consolidations`), and so are its rounds, the operations listing, the cancel and the
+bank's stats (`script_pending_consolidation`, `end_consolidation_round`; built to the shapes
+the lead read live, not recorded) and the template import with `enable_auto_consolidation`
 (tests/fakes/hindsight.py). Nothing live is called.
 """
 
@@ -36,10 +43,14 @@ SCHEMA = cast(
 OUTCOMES = (
     "completed",
     "failed",
+    "stopped_at_budget",
     "skipped_nothing_retained",
     "skipped_retains_pending",
     "skipped_consolidation_off",
+    "skipped_other_consolidation_running",
 )
+NO_OUTCOMES = dict.fromkeys(OUTCOMES, 0)
+ROUNDS = ("atlas_consolidation_rounds_total", frozenset[tuple[str, str]]())
 
 
 class Consolidating(Atlas):
@@ -84,8 +95,28 @@ class Consolidating(Atlas):
         return self.get("/api/v1/memory/health")["consolidation"]
 
     def codex(self) -> dict[str, Any]:
+        return self.budget("codex")
+
+    def rounds_budget(self) -> dict[str, Any]:
+        return self.budget("hindsight_consolidation")
+
+    def budget(self, provider: str) -> dict[str, Any]:
         budgets = self.get("/api/v1/queue")["budgets"]
-        return next(b for b in budgets if b["provider"] == "codex")
+        return next(b for b in budgets if b["provider"] == provider)
+
+    def with_rounds_budget(self, rounds: int) -> None:
+        self.overrides["consolidate_budget_rounds"] = rounds
+        self.api = TestClient(create_app(self.settings(), clock=self.clock))
+
+    def by_hand(self, key: str) -> dict[str, Any]:
+        """Ask for a consolidation by hand, run one worker pass, and read the job."""
+        enqueued = self.consolidate("--key", key)
+        self.scheduled_pass()
+        return self.get(f"/api/v1/jobs/{enqueued['id']}")
+
+    @property
+    def bank(self) -> str:
+        return self.settings().hindsight_bank_id
 
     def consolidate_jobs(self) -> list[dict[str, Any]]:
         with self.engine.connect() as connection:
@@ -194,6 +225,7 @@ def test_retains_request_no_consolidation_until_the_job_asks_once_and_counts_it(
         "sections_retained_since": retained,
     }
     before = atlas.codex()["used"]
+    rounds_before = atlas.rounds_budget()["used"]
 
     enqueued = atlas.consolidate("--key", "by-hand")
     assert (enqueued["kind"], enqueued["job_class"], enqueued["created"]) == (
@@ -215,18 +247,13 @@ def test_retains_request_no_consolidation_until_the_job_asks_once_and_counts_it(
     assert (requested["status"], requested["operation_status"]) == ("completed", "completed")
     assert requested["sections_retained"] == retained
     assert requested["job_id"] == enqueued["id"]
+    assert (requested["rounds"], requested["last_operation_id"]) == (1, requested["operation_id"])
+    assert requested["pending_consolidation"] == 0
     assert record["sections_retained_since"] == 0
-    # One unit of the Codex budget: the request Atlas submitted.
-    codex = atlas.codex()
-    assert codex["used"] == before + 1
-    assert "consolidate" in codex["kinds"]
-    assert outcomes(atlas.metrics()) == {
-        "completed": 1,
-        "failed": 0,
-        "skipped_nothing_retained": 0,
-        "skipped_retains_pending": 0,
-        "skipped_consolidation_off": 0,
-    }
+    # One round of the consolidation budget (ticket 20), none of the Codex budget.
+    assert atlas.rounds_budget()["used"] == rounds_before + 1
+    assert atlas.codex()["used"] == before
+    assert outcomes(atlas.metrics()) == NO_OUTCOMES | {"completed": 1}
 
     # Asked again with nothing retained since: skipped, no request.
     again = atlas.consolidate("--key", "again")
@@ -237,35 +264,29 @@ def test_retains_request_no_consolidation_until_the_job_asks_once_and_counts_it(
         "nothing_retained",
     )
     assert consolidations(fake) == 1
-    assert atlas.codex()["used"] == before + 1
+    assert atlas.rounds_budget()["used"] == rounds_before + 1
     assert outcomes(atlas.metrics())["skipped_nothing_retained"] == 1
 
 
-def test_a_spent_codex_window_holds_the_job_like_the_other_codex_kinds(
+def test_a_spent_codex_window_no_longer_holds_the_job(
     atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served], clock: Clock
 ) -> None:
+    # Ticket 20: `consolidate` left the Codex budget for its own, counted by rounds.
     fake, _ = hindsight
     atlas.ingest_company("lumentum")
     used = atlas.codex()["used"]
     atlas.overrides["codex_budget_operations"] = used  # the retains spent the window
     atlas.api = TestClient(create_app(atlas.settings(), clock=clock))
-
-    enqueued = atlas.consolidate("--key", "held")
-    atlas.scheduled_pass()
-
-    assert atlas.get(f"/api/v1/jobs/{enqueued['id']}")["status"] == "queued"
-    assert consolidations(fake) == 0
     codex = atlas.codex()
-    assert (codex["used"], codex["interactive_held"]) == (used, True)
-    pending = atlas.get("/api/v1/queue")["pending"]
-    (consolidate,) = [p for p in pending if p["kind"] == "consolidate"]
-    assert (consolidate["queued"], consolidate["budget_held"]) == (1, 1)
+    assert (codex["interactive_held"], "consolidate" in codex["kinds"]) == (True, False)
+    rounds = atlas.rounds_budget()
+    assert (rounds["unit"], rounds["kinds"], rounds["budget"]) == ("rounds", ["consolidate"], 40)
 
-    clock.advance(hours=5, seconds=1)  # the retains leave the window
-    atlas.scheduled_pass()
+    job = atlas.by_hand("beside-a-spent-codex-window")
 
-    assert atlas.get(f"/api/v1/jobs/{enqueued['id']}")["artifacts"]["outcome"] == "completed"
+    assert job["artifacts"]["outcome"] == "completed"
     assert consolidations(fake) == 1
+    assert atlas.codex()["used"] == used
 
 
 def test_a_second_request_while_one_is_running_submits_nothing_and_follows_it(
@@ -362,12 +383,10 @@ def test_the_daily_run_waits_for_retains_then_skips_a_day_with_nothing_new(
         "nothing_retained",
     )
     assert consolidations(fake) == 1
-    assert outcomes(atlas.metrics()) == {
+    assert outcomes(atlas.metrics()) == NO_OUTCOMES | {
         "completed": 1,
-        "failed": 0,
         "skipped_nothing_retained": 1,
         "skipped_retains_pending": 1,
-        "skipped_consolidation_off": 0,
     }
 
 
@@ -447,7 +466,7 @@ def test_with_consolidation_off_no_request_is_made_by_any_path(
     atlas.overrides["consolidation_enabled"] = False
     atlas.schedule_daily()
     atlas.ingest_company("lumentum")
-    before = atlas.codex()["used"]
+    before = atlas.rounds_budget()["used"]
 
     enqueued = atlas.consolidate("--key", "by-hand-while-off")
     atlas.scheduled_pass()
@@ -459,7 +478,182 @@ def test_with_consolidation_off_no_request_is_made_by_any_path(
         "consolidation_off",
     )
     assert consolidations(fake) == 0
-    assert atlas.codex()["used"] == before
+    assert atlas.rounds_budget()["used"] == before
     assert outcomes(atlas.metrics())["skipped_consolidation_off"] == 1
     # The daily schedule enqueues nothing while consolidation is off.
     assert [j["id"] for j in atlas.consolidate_jobs()] == [enqueued["id"]]
+
+
+# --- rounds (ticket 20) ------------------------------------------------------------------------
+
+
+def test_a_run_of_three_rounds_is_followed_across_jobs_and_counted_by_rounds(
+    atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served]
+) -> None:
+    fake, _ = hindsight
+    atlas.ingest_company("lumentum")
+    fake.script_pending_consolidation(atlas.bank, 300)  # three rounds of 100
+    codex_before = atlas.codex()["used"]
+
+    first = atlas.by_hand("round-1")
+
+    (round_1,) = fake.consolidation_operations(atlas.bank)
+    assert first["status"] == "succeeded", first["failures"]
+    assert first["artifacts"]["outcome"] == "running"
+    assert (first["artifacts"]["operation_id"], first["artifacts"]["rounds"]) == (round_1, 1)
+    running = atlas.consolidation()["last_requested"]
+    assert (running["status"], running["operation_status"]) == ("submitted", "processing")
+    assert (running["rounds"], running["last_operation_id"]) == (1, round_1)
+    assert running["pending_consolidation"] is None
+    assert atlas.rounds_budget()["used"] == 1
+
+    # Hindsight ends the round with memories still pending and submits the next by itself.
+    round_2 = fake.end_consolidation_round(atlas.bank)
+    second = atlas.by_hand("round-2")
+
+    assert (second["artifacts"]["outcome"], second["artifacts"]["joined"]) == ("running", True)
+    assert second["artifacts"]["rounds"] == 2
+    assert atlas.consolidation()["last_requested"]["last_operation_id"] == round_2
+    assert atlas.rounds_budget()["used"] == 2
+
+    round_3 = fake.end_consolidation_round(atlas.bank)
+    third = atlas.by_hand("round-3")
+
+    assert (third["artifacts"]["outcome"], third["artifacts"]["rounds"]) == ("running", 3)
+    assert atlas.consolidation()["last_completed"] is None
+
+    assert fake.end_consolidation_round(atlas.bank) is None  # nothing pending: the chain ends
+    fake.script_pending_consolidation(atlas.bank, 7)  # retained since, the next run's
+    fourth = atlas.by_hand("after-the-last-round")
+
+    assert (fourth["artifacts"]["outcome"], fourth["artifacts"]["joined"]) == ("completed", True)
+    assert fourth["artifacts"]["pending_consolidation"] == 7
+    assert consolidations(fake) == 1  # one request, three rounds
+    assert fake.consolidation_operations(atlas.bank) == [round_1, round_2, round_3]
+    record = atlas.consolidation()
+    completed = record["last_completed"]
+    assert completed == record["last_requested"]
+    assert (completed["operation_id"], completed["job_id"]) == (round_1, first["id"])
+    assert (completed["status"], completed["operation_status"]) == ("completed", "completed")
+    assert (completed["rounds"], completed["last_operation_id"]) == (3, round_3)
+    assert completed["pending_consolidation"] == 7
+    # Three units of the rounds budget, none of the Codex budget.
+    rounds = atlas.rounds_budget()
+    assert (rounds["used"], rounds["unit"], rounds["kinds"]) == (3, "rounds", ["consolidate"])
+    codex = atlas.codex()
+    assert codex["used"] == codex_before
+    assert "consolidate" not in codex["kinds"]
+    metrics = atlas.metrics()
+    assert metrics[ROUNDS] == 3
+    assert outcomes(metrics) == NO_OUTCOMES | {"completed": 1}
+    assert fake.cancelled_operations() == []
+
+
+def test_a_run_that_reaches_the_rounds_budget_is_cancelled_and_the_next_try_completes_it(
+    atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served], clock: Clock
+) -> None:
+    fake, _ = hindsight
+    atlas.with_rounds_budget(3)
+    atlas.ingest_company("lumentum")
+    fake.script_pending_consolidation(atlas.bank, 400)  # four rounds of 100
+
+    assert atlas.by_hand("round-1")["artifacts"]["outcome"] == "running"
+    fake.end_consolidation_round(atlas.bank)
+    assert atlas.by_hand("round-2")["artifacts"]["outcome"] == "running"
+    round_3 = fake.end_consolidation_round(atlas.bank)
+    stopped = atlas.by_hand("round-3")
+
+    # The third round reaches the budget: Atlas cancels it on Hindsight, and it is counted.
+    assert stopped["status"] == "succeeded", stopped["failures"]
+    assert stopped["artifacts"]["outcome"] == "stopped_at_budget"
+    assert stopped["artifacts"]["rounds"] == 3
+    assert stopped["artifacts"]["pending_consolidation"] == 200
+    assert fake.cancelled_operations() == [round_3]
+    record = atlas.consolidation()
+    run = record["last_requested"]
+    assert (run["status"], run["operation_status"]) == ("stopped_at_budget", "cancelled")
+    assert (run["rounds"], run["last_operation_id"], run["pending_consolidation"]) == (
+        3,
+        round_3,
+        200,
+    )
+    assert run["completed_at"] is not None
+    assert record["last_completed"] is None
+    rounds = atlas.rounds_budget()
+    assert (rounds["used"], rounds["interactive_held"]) == (3, True)
+    assert outcomes(atlas.metrics()) == NO_OUTCOMES | {"stopped_at_budget": 1}
+
+    # The next try waits for the window, then asks again and completes the rest.
+    retry = atlas.consolidate("--key", "after-the-window")
+    assert atlas.scheduled_pass() == 0
+    assert atlas.get(f"/api/v1/jobs/{retry['id']}")["status"] == "queued"
+    assert consolidations(fake) == 1
+    pending = atlas.get("/api/v1/queue")["pending"]
+    (consolidate,) = [p for p in pending if p["kind"] == "consolidate"]
+    assert (consolidate["queued"], consolidate["budget_held"]) == (1, 1)
+
+    clock.advance(hours=5, seconds=1)  # the first run's rounds leave the window
+    atlas.scheduled_pass()
+
+    asked = atlas.get(f"/api/v1/jobs/{retry['id']}")
+    assert (asked["artifacts"]["outcome"], asked["artifacts"]["joined"]) == ("running", False)
+    assert consolidations(fake) == 2
+    assert fake.end_consolidation_round(atlas.bank) is not None
+    assert atlas.by_hand("the-rest-round-2")["artifacts"]["outcome"] == "running"
+    assert fake.end_consolidation_round(atlas.bank) is None
+    done = atlas.by_hand("the-rest-done")
+
+    assert done["artifacts"]["outcome"] == "completed"
+    completed = atlas.consolidation()["last_completed"]
+    assert completed["job_id"] == retry["id"]
+    assert (completed["rounds"], completed["pending_consolidation"]) == (2, 0)
+    assert fake.cancelled_operations() == [round_3]
+    assert atlas.rounds_budget()["used"] == 2  # this window's: the second run's rounds
+    metrics = atlas.metrics()
+    assert metrics[ROUNDS] == 5
+    assert outcomes(metrics) == NO_OUTCOMES | {"stopped_at_budget": 1, "completed": 1}
+
+
+def test_a_consolidation_atlas_did_not_request_is_neither_counted_nor_cancelled(
+    atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served]
+) -> None:
+    fake, _ = hindsight
+    # Two rounds would spend the budget, so had Atlas counted the other chain's two rounds it
+    # would cancel its own first round.
+    atlas.with_rounds_budget(2)
+    atlas.ingest_company("lumentum")
+    fake.script_pending_consolidation(atlas.bank, 200)
+    elsewhere_1 = fake.request_consolidation_elsewhere(atlas.bank)  # the owner's, say
+
+    skipped = atlas.by_hand("beside-another-chain")
+
+    assert (skipped["artifacts"]["outcome"], skipped["artifacts"]["reason"]) == (
+        "skipped",
+        "other_consolidation_running",
+    )
+    assert consolidations(fake) == 0
+    assert fake.cancelled_operations() == []
+    assert atlas.rounds_budget()["used"] == 0
+
+    elsewhere_2 = fake.end_consolidation_round(atlas.bank)  # its chain goes on by itself
+    assert fake.end_consolidation_round(atlas.bank) is None
+    fake.script_pending_consolidation(atlas.bank, 100)  # retained since
+    asked = atlas.by_hand("after-the-other-chain")
+
+    assert asked["artifacts"]["outcome"] == "running"
+    own = asked["artifacts"]["operation_id"]
+    assert fake.consolidation_operations(atlas.bank) == [elsewhere_1, elsewhere_2, own]
+    assert fake.end_consolidation_round(atlas.bank) is None
+    done = atlas.by_hand("its-own-round-done")
+
+    assert done["artifacts"]["outcome"] == "completed"
+    completed = atlas.consolidation()["last_completed"]
+    assert (completed["rounds"], completed["last_operation_id"]) == (1, own)
+    assert atlas.rounds_budget()["used"] == 1
+    assert fake.cancelled_operations() == []
+    metrics = atlas.metrics()
+    assert metrics[ROUNDS] == 1
+    assert outcomes(metrics) == NO_OUTCOMES | {
+        "completed": 1,
+        "skipped_other_consolidation_running": 1,
+    }

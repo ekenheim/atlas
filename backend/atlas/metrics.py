@@ -34,9 +34,11 @@ _FETCH_OUTCOMES = ("new_version", "unchanged", "not_modified")
 _CONSOLIDATION_OUTCOMES = (
     "completed",
     "failed",
+    "stopped_at_budget",
     "skipped_nothing_retained",
     "skipped_retains_pending",
     "skipped_consolidation_off",
+    "skipped_other_consolidation_running",
 )
 _PARSE_STATUSES = ("parsed", "incomplete", "failed", "unsupported", "not_applicable")
 # Seconds; a reflect is a job, so its latency includes the wait in the queue.
@@ -178,7 +180,8 @@ class StateCollector(Collector):
         used = GaugeMetricFamily(
             "atlas_budget_used",
             "Units spent in the provider's current rolling window (codex: Hindsight"
-            " operations submitted; hindsight_minimax: retain operations routed to Hindsight's"
+            " operations submitted; hindsight_consolidation: consolidation rounds of the"
+            " research bank; hindsight_minimax: retain operations routed to Hindsight's"
             " MiniMax extractor, only with ATLAS_RETAIN_EXTRACTOR; minimax: LLM tokens)",
             labels=["provider", "unit"],
         )
@@ -346,7 +349,8 @@ class StateCollector(Collector):
         consolidations = CounterMetricFamily(
             "atlas_consolidations",
             "Decisions of the consolidate job that reached their end (memory-quality ticket 19):"
-            " requests completed or failed, and skips by reason",
+            " runs completed, failed or stopped at the rounds budget (ticket 20), and skips by"
+            " reason",
             labels=["outcome"],
         )
         counts = {outcome: 0 for outcome in _CONSOLIDATION_OUTCOMES}
@@ -361,6 +365,18 @@ class StateCollector(Collector):
         for outcome, count in counts.items():
             consolidations.add_metric([outcome], count)
         yield consolidations
+        rounds = CounterMetricFamily(
+            "atlas_consolidation_rounds",
+            "Consolidation rounds of the research bank Atlas followed and counted, each one"
+            " operation (memory-quality ticket 20)",
+        )
+        rounds.add_metric(
+            [],
+            connection.execute(
+                text("SELECT count(*) FROM memory_consolidation_round")
+            ).scalar_one(),
+        )
+        yield rounds
 
     def _sections(self, connection: Connection) -> Iterator[Metric]:
         counts: dict[str, int] = {
