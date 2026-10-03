@@ -89,6 +89,7 @@ def main():
                     "limitations": finding.get("limitations"),
                     "open_questions": finding.get("open_questions"),
                     "needs_review": finding.get("needs_review"),
+                    "grounded": finding.get("grounded"),  # pilot fix 21
                     "counterevidence_ids": finding.get("counterevidence_ids"),
                     "claims": [
                         {
@@ -109,6 +110,9 @@ def main():
             "open_questions": card.get("open_questions"),
             "unsupported_findings": card.get("unsupported_findings"),
             "not_read": card.get("not_read"),
+            # Which companies the Skeptic checked (pilot fix 25, the disclosure part).
+            "skeptic_coverage": card.get("skeptic_coverage"),
+            "grounding_limit": card.get("grounding_limit"),
             "claims_cited_by_some_finding": len({c for f in card.get("findings", []) for c in f["claim_ids"]}),
             "accepted_claims": len(context),
         },
