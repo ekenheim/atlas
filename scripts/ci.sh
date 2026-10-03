@@ -33,7 +33,8 @@ docker compose up -d --wait postgres-app silo
 step "tests: unit + integration (includes migrations from empty)"
 # In parallel (pytest-xdist): every test has its own database, bucket, archive and localhost
 # ports, so tests are dealt out one by one (`load`); plain `uv run pytest` still runs serially.
-uv run pytest -n auto --dist load
+# At most 8 workers: the runner pod has no CPU limit, and Postgres allows 100 connections.
+uv run pytest -n auto --maxprocesses 8 --dist load
 
 step "e2e: Playwright tests of the source viewer and Assertions (fixture-seeded API + static export)"
 # Installs chromium (with its OS deps in CI). Locally it skips, saying why, if chromium
