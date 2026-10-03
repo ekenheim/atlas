@@ -26,6 +26,8 @@ def memory_router(
     bank_id: str,
     gateway: HindsightGateway | None = None,
     universe: Callable[[], Universe] | None = None,
+    *,
+    stuck_after_hours: float,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["memory"])
 
@@ -50,7 +52,14 @@ def memory_router(
                 if configured is not None
                 else Universe(version=1, name="none", companies={})
             )
-            found = memory_health(connection, bank_id, gateway, companies, company_id)
+            found = memory_health(
+                connection,
+                bank_id,
+                gateway,
+                companies,
+                company_id,
+                stuck_after_hours=stuck_after_hours,
+            )
         return found if found is not None else not_found("company")
 
     return router

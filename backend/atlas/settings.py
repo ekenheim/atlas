@@ -154,6 +154,10 @@ class Settings(BaseSettings):
     # timeout, a relayed 5xx) is resubmitted, with the queue's backoff, before it is failed
     # with the class `transient` (memory-quality ticket 03).
     retain_transient_retries: int = Field(default=3, ge=0)
+    # The memory backfill (memory-quality ticket 21) also takes a section stuck `pending`
+    # under an older retain profile: its row not updated for this many hours and no retain,
+    # poll or reprocess job of its Source Version queued or running.
+    backfill_stuck_after_hours: float = Field(default=24.0, gt=0)
     # Retention triage (atlas.retention.triage): `on` reads each new Source Version section
     # by section (deterministic rules, then the Triage role through LiteLLM) and retains only
     # the sections worth retaining; `off` retains every section; `auto` (the default) is `on`

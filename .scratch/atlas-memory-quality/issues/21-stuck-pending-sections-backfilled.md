@@ -15,8 +15,8 @@ Decided by the lead:
 
 **Blocked by:** None.
 
-**Status:** open
+**Status:** done
 
-- [ ] Integration test at the worker seam: a section left `pending` under `retain-v1` with its document in the fake (retained, no job in flight, older than the threshold) is taken by `atlas memory backfill`: its document is deleted, it is retained again and completes under the current profile; a `pending` section with a retain in flight, or updated within the threshold, is not taken.
-- [ ] The health read shows `stuck` per company and for the bank.
-- [ ] Decision note ("A backfill replaces a section's document": the stuck case), runbook ("Memory backfill"), `AGENTS.md`, the setting documented; API client regenerated if the schema changed.
+- [x] Integration test at the worker seam: a section left `pending` under `retain-v1` with its document in the fake (retained, no job in flight, older than the threshold) is taken by `atlas memory backfill`: its document is deleted, it is retained again and completes under the current profile; a `pending` section with a retain in flight, or updated within the threshold, is not taken.
+- [x] The health read shows `stuck` per company and for the bank.
+- [x] Decision note ("A backfill replaces a section's document": the stuck case), runbook ("Memory backfill"), `AGENTS.md`, the setting documented; API client regenerated if the schema changed.

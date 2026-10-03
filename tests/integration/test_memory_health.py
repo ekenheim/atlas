@@ -105,6 +105,8 @@ def counts(
         # Sections retained now are under the current retain profile; none is below it.
         "at_profile": at_profile,
         "below_profile": 0,
+        # Pending sections here were submitted under the current profile: none is stuck.
+        "stuck": 0,
     }
 
 

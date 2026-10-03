@@ -7356,10 +7356,16 @@ export interface components {
             at_profile: number;
             /**
              * Below Profile
-             * @description completed and zero-fact sections retained under an older profile: what a `atlas memory backfill` re-extracts (with the failed and cancelled ones)
+             * @description completed and zero-fact sections retained under an older profile: what a `atlas memory backfill` re-extracts (with the failed, cancelled and stuck ones)
              * @default 0
              */
             below_profile: number;
+            /**
+             * Stuck
+             * @description pending sections under an older retain profile, not updated for ATLAS_BACKFILL_STUCK_AFTER_HOURS and with no retain, poll or reprocess job of their Source Version queued or running: what `atlas memory backfill` deletes and retains again (memory-quality ticket 21); a subset of `pending`
+             * @default 0
+             */
+            stuck: number;
         };
         /** Security */
         Security: {

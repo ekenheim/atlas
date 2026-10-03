@@ -253,6 +253,7 @@ def run_memory_backfill(
             [ids[slug] for slug in slugs if slug in ids],
             max_sections=max_sections,
             run=run,
+            stuck_after_hours=settings.backfill_stuck_after_hours,
             # --theme: the seeds of the pilot's investigations first, thinnest first; the
             # companies the owner names are run in the order named.
             ordered=theme is not None,
@@ -1196,8 +1197,8 @@ def main(argv: list[str] | None = None) -> None:
     consolidate.add_argument("--backfill", action="store_true", help="backfill class")
     backfill = memory_commands.add_parser(
         "backfill",
-        help="bring the retained sections to the current retain profile and retry the failed"
-        " and cancelled ones: delete each Hindsight document and retain it again (backfill"
+        help="bring the retained sections to the current retain profile and retry the failed,"
+        " cancelled and stuck ones: delete each Hindsight document and retain it again (backfill"
         " class, the retain budget), then consolidate; one job per company",
     )
     backfill.add_argument(

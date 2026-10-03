@@ -14,11 +14,12 @@ under `retain-v1` can no longer be produced.
 """
 
 import json
+import urllib.request
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 import pytest
 from fastapi.testclient import TestClient
@@ -28,7 +29,7 @@ from atlas.api.app import create_app
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.serve import Served
-from tests.harness import LITE_10K, QUOTA_ERROR, TEN_K_ANCHORS, Atlas, Clock
+from tests.harness import BANK, LITE_10K, QUOTA_ERROR, TEN_K_ANCHORS, Atlas, Clock
 
 LITE = "https://www.sec.gov/Archives/edgar/data/1633978"
 LITE_10Q = f"{LITE}/000162828026030777/lite-20260328.htm"
@@ -85,6 +86,22 @@ class Backfilling(Atlas):
             error=error,
             error_class=error_class,
             anchor=anchor,
+        )
+
+    def stick(self, url: str, anchors: list[str] | None = None, *, hours_ago: float) -> None:
+        """The sections were submitted under `retain-v1` and their outcome never recorded: they
+        are `pending` under the old profile (their documents stay in Hindsight), last updated
+        `hours_ago` (production, 2026-10-03: 58 sections since 2026-09-30)."""
+        self.age(url, anchors)
+        version = self.version(url)["id"]
+        self.sql(
+            "UPDATE memory_document SET retain_state = 'pending', fact_count = NULL,"
+            " memory_ids = NULL, updated_at = now() - make_interval(secs => :seconds)"
+            " WHERE source_version_id = :version"
+            " AND (CAST(:anchors AS text[]) IS NULL OR section_anchor = ANY(:anchors))",
+            version=version,
+            anchors=anchors,
+            seconds=hours_ago * 3600,
         )
 
     def documents(self, url: str) -> dict[str, dict[str, Any]]:
@@ -294,6 +311,99 @@ def test_a_quota_pause_holds_the_backfill_and_it_resumes(
     assert consolidations(fake) == consolidations_before + 1
     # It took each section once: the resubmission after the pause is not a second backfill.
     assert sorted(deleted(fake)) == sorted(ids)
+
+
+# --- sections stuck pending in an old profile (ticket 21) -------------------------------------
+
+
+def test_a_section_stuck_pending_in_an_old_profile_is_deleted_and_retained_again(
+    atlas: Backfilling, fake: RecordedHindsight
+) -> None:
+    atlas.stick(LITE_10Q, hours_ago=72)  # stuck: Hindsight holds both documents
+    atlas.stick(LITE_10K, ["part-i-item-1a"], hours_ago=1)  # updated within the threshold
+    ten_q_before = atlas.documents(LITE_10Q)
+    ten_k_before = atlas.documents(LITE_10K)
+    stuck = {d["document_id"] for d in ten_q_before.values()}
+    assert stuck <= set(fake.bank_documents(BANK))
+    old_facts = {fake.derived_fact(document_id) for document_id in stuck}
+    # The health read counts them, per company and for the bank; the recent one is not stuck.
+    assert atlas.company_counts()["stuck"] == len(stuck)
+    assert atlas.health()["sections"]["stuck"] == len(stuck)
+    assert atlas.company_counts()["pending"] == len(stuck) + 1
+    batches_before = len(fake.retained())
+
+    plan = atlas.backfill("--company", "lumentum", "--key", "run-1")
+    atlas.worker_pass()
+
+    assert plan["companies"][0]["sections_below"] == len(stuck)
+    # Their documents were deleted, then retained again under the same IDs with the current
+    # profile's context, and they completed under it with new facts.
+    assert set(deleted(fake)) == stuck
+    sent = [item for batch in fake.retained()[batches_before:] for item in batch]
+    assert {item["document_id"] for item in sent} == stuck
+    for item in sent:
+        assert "Lumentum is speaking" in item["context"]
+        assert item["entities"]
+    for document in atlas.documents(LITE_10Q).values():
+        assert document["retain_state"] == "completed"
+        assert document["retain_profile"] == RETAIN_PROFILE
+        assert document["memory_ids"] == [fake.derived_fact(document["document_id"])]
+        assert document["memory_ids"][0] not in old_facts
+    # The section updated within the threshold is left as it was.
+    assert atlas.documents(LITE_10K)["part-i-item-1a"] == ten_k_before["part-i-item-1a"]
+    (job,) = [j for j in jobs(atlas, "memory_backfill") if j["artifacts"]["step"] == "take"]
+    assert job["artifacts"]["taken_by_state"] == {"pending": len(stuck)}
+    assert job["artifacts"]["documents_deleted"] == len(stuck)
+    assert job["artifacts"]["counts_before"]["stuck"] == len(stuck)
+    assert atlas.company_counts()["stuck"] == 0
+    assert atlas.health()["sections"]["stuck"] == 0
+
+
+def test_a_stuck_section_whose_document_hindsight_lacks_is_retained_again(
+    atlas: Backfilling, fake: RecordedHindsight
+) -> None:
+    atlas.stick(LITE_10Q, ["cover"], hours_ago=72)
+    document_id = atlas.documents(LITE_10Q)["cover"]["document_id"]
+    # Hindsight no longer holds its document (nothing was stored).
+    request = urllib.request.Request(
+        f"{atlas.hindsight_url}/v1/default/banks/{BANK}/documents/{quote(document_id, safe='')}",
+        method="DELETE",
+    )
+    with urllib.request.urlopen(request) as response:
+        assert response.status == 200
+    assert document_id not in fake.bank_documents(BANK)
+
+    atlas.backfill("--company", "lumentum", "--key", "run-1")
+    atlas.worker_pass()
+
+    assert deleted(fake) == [document_id, document_id]  # the second answered 404: no error
+    (job,) = [j for j in jobs(atlas, "memory_backfill") if j["artifacts"]["step"] == "take"]
+    assert (job["artifacts"]["documents_deleted"], job["artifacts"]["documents_absent"]) == (0, 1)
+    cover = atlas.documents(LITE_10Q)["cover"]
+    assert (cover["retain_state"], cover["retain_profile"]) == ("completed", RETAIN_PROFILE)
+    assert cover["memory_ids"] == [fake.derived_fact(document_id)]
+
+
+def test_a_pending_section_with_a_retain_in_flight_is_not_stuck(
+    atlas: Backfilling, fake: RecordedHindsight
+) -> None:
+    atlas.stick(LITE_10Q, hours_ago=72)
+    atlas.stick(LITE_10K, ["part-i-item-1a"], hours_ago=72)
+    ten_q = atlas.version(LITE_10Q)["id"]
+    operation = atlas.documents(LITE_10K)["part-i-item-1a"]["operation_id"]
+    assert operation is not None
+    queue = JobQueue(atlas.engine)
+    # A retain of the 10-Q held by another worker, and a poll of the 10-K's operation queued.
+    queue.enqueue("retain", f"retain:{ten_q}:elsewhere", {"source_version_id": ten_q})
+    held = queue.claim("another-worker", timedelta(hours=1))
+    assert held is not None and held.kind == "retain"
+    queue.enqueue("poll_operation", f"poll:{operation}:elsewhere", {"operation_id": operation})
+
+    assert atlas.company_counts()["stuck"] == 0
+    assert atlas.company_counts()["pending"] == 3
+    plan = atlas.backfill("--company", "lumentum", "--key", "run-1")
+    assert (plan["companies"][0]["sections_below"], plan["companies"][0]["job"]) == (0, None)
+    assert deleted(fake) == []
 
 
 # --- what an older memory reads as ------------------------------------------------------------
