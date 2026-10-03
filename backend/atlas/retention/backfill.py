@@ -14,13 +14,17 @@ again with the new context, tags and entities, giving the facts new IDs (recorde
 
 - **The job.** `memory_backfill` (backfill class, pausable; no LLM of its own) is one company's.
   Its first step takes at most `max_sections` of the company's sections still to bring up:
-  those in state `failed` or `cancelled`, then call transcripts, then the rest, newest
-  documents first. For each it deletes the Hindsight document (a document Hindsight no longer
-  has is no error), then in one transaction resets the section to `pending`, records a
-  `memory_replacement` row (the memories the deleted document held, so a citation of one reads
-  as replaced, not broken) and enqueues a backfill-class `retain` for its Source Version, which
-  submits the pending sections through the existing retain path, under the retain budget and
-  the backfill window, never using the interactive reserve. Sections triage skipped are not
+  those in state `failed` or `cancelled`, and those **stuck** `pending` under an older profile
+  (ticket 21: not updated for `ATLAS_BACKFILL_STUCK_AFTER_HOURS` and no retain, poll or
+  reprocess job of their Source Version queued or running; Hindsight may hold their document
+  under the old profile, and a plain retain of unchanged content would extract nothing), then
+  call transcripts, then the rest, newest documents first. For each it deletes the Hindsight
+  document (a document Hindsight no longer has is no error), then in one transaction resets
+  the section to `pending`, records a `memory_replacement` row (the memories the deleted
+  document held, so a citation of one reads as replaced, not broken) and enqueues a
+  backfill-class `retain` for its Source Version, which submits the pending sections through
+  the existing retain path, under the retain budget and the backfill window, never using the
+  interactive reserve. Sections triage skipped are not
   in `memory_document` and stay skipped; a section retained on demand is one like any other.
   A permanently failed section a backfill already took is not taken again.
 - **Done.** The job then follows itself with a `finish` step that waits (by enqueueing itself
@@ -74,14 +78,37 @@ class BackfillPayload(BaseModel):
 
 # --- what is left to bring up ---------------------------------------------------------------
 
+# A section stuck `pending` under an older profile (ticket 21): its row not updated for
+# `:stuck_after` seconds and no retain, poll or reprocess job of its Source Version queued or
+# running. Its outcome was never recorded, though Hindsight may hold its document under the old
+# profile; with `:profile` (the current one) and `:stuck_after` bound. Also counted by the
+# health read (`atlas.retention.health`).
+STUCK = (
+    "(m.retain_state = 'pending' AND m.retain_profile IS DISTINCT FROM :profile"  # noqa: S608
+    " AND m.updated_at < now() - make_interval(secs => CAST(:stuck_after AS double precision))"
+    " AND NOT EXISTS (SELECT FROM job j WHERE j.status IN ('queued', 'running') AND ("
+    f"   (j.kind = '{RETAIN_KIND}'"
+    "     AND j.payload ->> 'source_version_id' = CAST(m.source_version_id AS text))"
+    f"   OR (j.kind IN ('{POLL_KIND}', '{REPROCESS_KIND}')"
+    "     AND j.payload ->> 'operation_id' IN (SELECT o.id FROM hindsight_operation o"
+    "       WHERE o.source_version_id = m.source_version_id)))))"
+)
 _BELOW = (
-    "m.hindsight_document_id IS NOT NULL AND ("
+    "m.hindsight_document_id IS NOT NULL AND ("  # noqa: S608 (constant fragments)
     "(m.retain_state = 'failed' AND NOT (m.error_class = 'permanent' AND EXISTS ("
     "   SELECT FROM memory_replacement r WHERE r.memory_document_id = m.id)))"
     " OR m.retain_state = 'cancelled'"
     " OR (m.retain_state IN ('completed', 'zero_fact')"
-    "   AND m.retain_profile IS DISTINCT FROM :profile))"
+    "   AND m.retain_profile IS DISTINCT FROM :profile)"
+    f" OR {STUCK})"
 )
+
+
+def stuck_params(stuck_after_hours: float) -> dict[str, Any]:
+    """The bound values of `STUCK`."""
+    return {"profile": RETAIN_PROFILE, "stuck_after": stuck_after_hours * 3600.0}
+
+
 _FROM = (
     " FROM memory_document m"
     " JOIN source_version v ON v.id = m.source_version_id"
@@ -91,32 +118,39 @@ _FROM = (
 
 
 def candidates(
-    connection: Connection, bank_id: str, company_id: uuid.UUID, limit: int | None = None
+    connection: Connection,
+    bank_id: str,
+    company_id: uuid.UUID,
+    limit: int | None = None,
+    *,
+    stuck_after_hours: float,
 ) -> list[RowMapping]:
-    """The company's sections a backfill takes now, in the order it takes them: failed and
-    cancelled first, then call transcripts, then the rest; newest documents first."""
+    """The company's sections a backfill takes now, in the order it takes them: failed,
+    cancelled and stuck first, then call transcripts, then the rest; newest documents first."""
     return list(
         connection.execute(
             text(
                 "SELECT m.id, m.source_version_id, m.hindsight_document_id, m.retain_state,"
-                " m.retain_profile, m.memory_ids"
+                " m.retain_profile, m.memory_ids, m.updated_at"
                 f"{_FROM} WHERE m.bank_id = :bank AND d.company_id = :company AND {_BELOW}"
-                " ORDER BY (CASE WHEN m.retain_state IN ('failed', 'cancelled') THEN 0"
-                "   WHEN d.provider = 'tradingview' THEN 1 ELSE 2 END),"
+                " ORDER BY (CASE WHEN m.retain_state IN ('failed', 'cancelled', 'pending')"
+                "   THEN 0 WHEN d.provider = 'tradingview' THEN 1 ELSE 2 END),"
                 " a.available_at DESC, m.source_version_id, m.char_start, m.id"
                 " LIMIT :limit"
             ),
             {
                 "bank": bank_id,
                 "company": company_id,
-                "profile": RETAIN_PROFILE,
                 "limit": limit,
+                **stuck_params(stuck_after_hours),
             },
         ).mappings()
     )
 
 
-def remaining(connection: Connection, bank_id: str, company_id: uuid.UUID) -> int:
+def remaining(
+    connection: Connection, bank_id: str, company_id: uuid.UUID, *, stuck_after_hours: float
+) -> int:
     """How many of the company's sections a backfill would take now."""
     return int(
         connection.execute(
@@ -124,16 +158,17 @@ def remaining(connection: Connection, bank_id: str, company_id: uuid.UUID) -> in
                 f"SELECT count(*){_FROM} WHERE m.bank_id = :bank AND d.company_id = :company"
                 f" AND {_BELOW}"
             ),
-            {"bank": bank_id, "company": company_id, "profile": RETAIN_PROFILE},
+            {"bank": bank_id, "company": company_id, **stuck_params(stuck_after_hours)},
         ).scalar_one()
     )
 
 
 def profile_counts(
-    connection: Connection, bank_id: str, company_id: uuid.UUID
+    connection: Connection, bank_id: str, company_id: uuid.UUID, *, stuck_after_hours: float
 ) -> dict[str, JsonValue]:
-    """The company's sections at the current profile, below it, failed (and cancelled) and
-    pending (what the job's artifacts and the health read show)."""
+    """The company's sections at the current profile, below it, failed (and cancelled),
+    pending, and stuck (pending under an older profile, not in flight; what the job's artifacts
+    and the health read show)."""
     row = (
         connection.execute(
             text(
@@ -143,10 +178,11 @@ def profile_counts(
                 " count(*) FILTER (WHERE m.retain_state IN ('completed', 'zero_fact')"
                 "   AND m.retain_profile IS DISTINCT FROM :profile) AS below_profile,"
                 " count(*) FILTER (WHERE m.retain_state IN ('failed', 'cancelled')) AS failed,"
-                " count(*) FILTER (WHERE m.retain_state = 'pending') AS pending"
+                " count(*) FILTER (WHERE m.retain_state = 'pending') AS pending,"
+                f" count(*) FILTER (WHERE {STUCK}) AS stuck"
                 f"{_FROM} WHERE m.bank_id = :bank AND d.company_id = :company"
             ),
-            {"bank": bank_id, "company": company_id, "profile": RETAIN_PROFILE},
+            {"bank": bank_id, "company": company_id, **stuck_params(stuck_after_hours)},
         )
         .mappings()
         .one()
@@ -185,6 +221,7 @@ def enqueue_backfills(
     *,
     max_sections: int | None,
     run: str,
+    stuck_after_hours: float,
     ordered: bool = True,
 ) -> list[dict[str, Any]]:
     """Enqueue one backfill job per company that has sections to bring up, in order
@@ -198,7 +235,7 @@ def enqueue_backfills(
         )
         budget = max_sections
         for company_id in companies:
-            left = remaining(connection, bank_id, company_id)
+            left = remaining(connection, bank_id, company_id, stuck_after_hours=stuck_after_hours)
             allotted = left if budget is None else min(left, budget)
             if budget is not None:
                 budget -= allotted
@@ -238,10 +275,13 @@ class Backfill:
         engine: Engine,
         gateway: HindsightGateway,
         actor: Actor,
+        *,
+        stuck_after_hours: float,
     ) -> None:
         self._engine = engine
         self._gateway = gateway
         self._actor = actor
+        self._stuck_after_hours = stuck_after_hours
         self._queue = JobQueue(engine, actor=actor)
 
     @property
@@ -270,12 +310,21 @@ class Backfill:
                 ).scalar_one()
             )
             limit = None if payload.max_sections is None else max(payload.max_sections - already, 0)
+            stuck_after = self._stuck_after_hours
             rows = (
                 []
                 if limit == 0
-                else candidates(connection, self.bank_id, payload.company_id, limit)
+                else candidates(
+                    connection,
+                    self.bank_id,
+                    payload.company_id,
+                    limit,
+                    stuck_after_hours=stuck_after,
+                )
             )
-            before = profile_counts(connection, self.bank_id, payload.company_id)
+            before = profile_counts(
+                connection, self.bank_id, payload.company_id, stuck_after_hours=stuck_after
+            )
         by_version: dict[uuid.UUID, list[RowMapping]] = {}
         for row in rows:
             by_version.setdefault(row["source_version_id"], []).append(row)
@@ -288,7 +337,9 @@ class Backfill:
                     self._gateway.delete_document(section["hindsight_document_id"])
                     deleted += 1
                 except HindsightNotFound:
-                    absent += 1  # Hindsight no longer has it (a failed or cancelled section)
+                    # Hindsight has no such document (a failed or cancelled section, or a
+                    # stuck one whose retain stored nothing).
+                    absent += 1
             with self._engine.begin() as connection:
                 for section in sections:
                     self._reset(connection, section, payload.run)
@@ -305,8 +356,12 @@ class Backfill:
             by_state[row["retain_state"]] = by_state.get(row["retain_state"], 0) + 1
         finish = self._follow(payload, step=1)
         with self._engine.connect() as connection:
-            after = profile_counts(connection, self.bank_id, payload.company_id)
-            left = remaining(connection, self.bank_id, payload.company_id)
+            after = profile_counts(
+                connection, self.bank_id, payload.company_id, stuck_after_hours=stuck_after
+            )
+            left = remaining(
+                connection, self.bank_id, payload.company_id, stuck_after_hours=stuck_after
+            )
         return {
             "bank_id": self.bank_id,
             "company_id": str(payload.company_id),
@@ -326,13 +381,20 @@ class Backfill:
 
     def _reset(self, connection: Connection, section: RowMapping, run: str) -> None:
         """The section is `pending` again, its replaced memories recorded, in one transaction."""
+        # A stuck section is still the one chosen only if nothing touched it since (a retain
+        # submitting it meanwhile would have updated it).
+        unchanged = " AND updated_at = :updated" if section["retain_state"] == "pending" else ""
         old = (
             connection.execute(
                 text(
-                    "SELECT * FROM memory_document WHERE id = :id AND retain_state = :state"
-                    " FOR UPDATE"
+                    "SELECT * FROM memory_document WHERE id = :id"  # noqa: S608 (constant fragments)
+                    f" AND retain_state = :state{unchanged} FOR UPDATE"
                 ),
-                {"id": section["id"], "state": section["retain_state"]},
+                {
+                    "id": section["id"],
+                    "state": section["retain_state"],
+                    "updated": section["updated_at"],
+                },
             )
             .mappings()
             .one_or_none()
@@ -410,8 +472,13 @@ class Backfill:
                     {"kinds": list(RETAIN_JOB_KINDS)},
                 ).scalar_one()
             )
-            counts = profile_counts(connection, self.bank_id, payload.company_id)
-            left = remaining(connection, self.bank_id, payload.company_id)
+            stuck_after = self._stuck_after_hours
+            counts = profile_counts(
+                connection, self.bank_id, payload.company_id, stuck_after_hours=stuck_after
+            )
+            left = remaining(
+                connection, self.bank_id, payload.company_id, stuck_after_hours=stuck_after
+            )
         if retaining:
             if payload.step >= MAX_WAIT_STEPS:
                 return {**base, "outcome": "still_retaining", "counts": counts}

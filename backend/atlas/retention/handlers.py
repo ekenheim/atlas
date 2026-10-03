@@ -47,7 +47,12 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
     def backfill(job: Job) -> Artifacts:
         payload = BackfillPayload.model_validate(job.payload)
         with hindsight_resources(settings) as (gateway, engine):
-            return Backfill(engine, gateway, Actor.from_settings(settings)).run(payload, job)
+            return Backfill(
+                engine,
+                gateway,
+                Actor.from_settings(settings),
+                stuck_after_hours=settings.backfill_stuck_after_hours,
+            ).run(payload, job)
 
     def triage(job: Job) -> Artifacts:
         payload = RetainPayload.model_validate(job.payload)

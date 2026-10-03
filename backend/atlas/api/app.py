@@ -106,6 +106,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
             settings.hindsight_bank_id,
             hindsight,
             lambda: load_universe(settings.themes_config),
+            stuck_after_hours=settings.backfill_stuck_after_hours,
         )
     )
     app.include_router(

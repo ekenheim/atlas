@@ -13,7 +13,9 @@ One read, two sources:
   error** (IDs, UUIDs, hex and numbers of four or more digits replaced by placeholders,
   whitespace collapsed), each group with its count, its latest raw example, the first and
   last time a section of it was marked and its companies; and the pending sections by how
-  long they have waited since their last submission.
+  long they have waited since their last submission. `stuck` counts the pending sections
+  under an older retain profile that nothing is retaining (ticket 21: the backfill's
+  `STUCK`), which `atlas memory backfill` takes.
 - **Hindsight, read-only** (no LLM call): the observation scopes (`GET .../observations/scopes`)
   and, for each universe company, the entities whose name matches it (`GET .../entities`,
   paged). An entity matches a company when its normalized name (`atlas.identity.normalize`)
@@ -42,8 +44,8 @@ from sqlalchemy import Connection, text
 from atlas.companies import CompanyConfig, Universe
 from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightGateway
 from atlas.identity.normalize import normalize_name
+from atlas.retention.backfill import STUCK, stuck_params
 from atlas.retention.consolidation import ConsolidationRecord, consolidation_record
-from atlas.retention.context import RETAIN_PROFILE
 from atlas.retention.reads import RETAIN_STATES
 
 PartStatus = Literal["ok", "unavailable"]
@@ -107,7 +109,14 @@ class SectionCounts(BaseModel):
     below_profile: int = Field(
         default=0,
         description="completed and zero-fact sections retained under an older profile: what a"
-        " `atlas memory backfill` re-extracts (with the failed and cancelled ones)",
+        " `atlas memory backfill` re-extracts (with the failed, cancelled and stuck ones)",
+    )
+    stuck: int = Field(
+        default=0,
+        description="pending sections under an older retain profile, not updated for"
+        " ATLAS_BACKFILL_STUCK_AFTER_HOURS and with no retain, poll or reprocess job of their"
+        " Source Version queued or running: what `atlas memory backfill` deletes and retains"
+        " again (memory-quality ticket 21); a subset of `pending`",
     )
 
 
@@ -213,8 +222,11 @@ def memory_health(
     gateway: HindsightGateway | None,
     universe: Universe,
     company_id: uuid.UUID | None = None,
+    *,
+    stuck_after_hours: float,
 ) -> MemoryHealth | None:
-    """The health read; None when `company_id` names no company."""
+    """The health read; None when `company_id` names no company. `stuck_after_hours`: how long
+    a pending section under an older profile waits before it counts as stuck."""
     companies = {
         row["id"]: row
         for row in connection.execute(
@@ -225,7 +237,7 @@ def memory_health(
         return None
     now: datetime = connection.execute(text("SELECT now()")).scalar_one()
     where, params = _filter(bank_id, company_id)
-    total, per_company = _section_counts(connection, where, params)
+    total, per_company = _section_counts(connection, where, params, stuck_after_hours)
     if company_id is not None:
         per_company.setdefault(company_id, SectionCounts())
     listed = [
@@ -286,7 +298,7 @@ _PARTIAL = "m.retain_state = 'completed' AND m.extraction_errors > 0"
 
 
 def _section_counts(
-    connection: Connection, where: str, params: Mapping[str, Any]
+    connection: Connection, where: str, params: Mapping[str, Any], stuck_after_hours: float
 ) -> tuple[SectionCounts, dict[uuid.UUID | None, SectionCounts]]:
     rows = connection.execute(
         text(
@@ -295,10 +307,11 @@ def _section_counts(
             " coalesce(sum(m.fact_count) FILTER (WHERE m.retain_state = 'completed'), 0)"
             " AS facts,"
             " count(*) FILTER (WHERE m.retain_state IN ('completed', 'zero_fact')"
-            "   AND m.retain_profile = :profile) AS at_profile"
+            "   AND m.retain_profile = :profile) AS at_profile,"
+            f" count(*) FILTER (WHERE {STUCK}) AS stuck"
             f"{_FROM} WHERE {where} GROUP BY 1, 2"
         ),
-        {**params, "profile": RETAIN_PROFILE},
+        {**params, **stuck_params(stuck_after_hours)},
     ).mappings()
     total = SectionCounts()
     per_company: dict[uuid.UUID | None, SectionCounts] = {}
@@ -312,6 +325,7 @@ def _section_counts(
             counts.partial += row["partial"]
             counts.fact_count += int(row["facts"])
             counts.at_profile += row["at_profile"]
+            counts.stuck += row["stuck"]
             if state in ("completed", "zero_fact"):
                 counts.below_profile += row["sections"] - row["at_profile"]
     return total, per_company
