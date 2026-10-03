@@ -31,7 +31,9 @@ step "services: postgres + s3"
 docker compose up -d --wait postgres-app silo
 
 step "tests: unit + integration (includes migrations from empty)"
-uv run pytest
+# In parallel (pytest-xdist): every test has its own database, bucket, archive and localhost
+# ports, so tests are dealt out one by one (`load`); plain `uv run pytest` still runs serially.
+uv run pytest -n auto --dist load
 
 step "e2e: Playwright tests of the source viewer and Assertions (fixture-seeded API + static export)"
 # Installs chromium (with its OS deps in CI). Locally it skips, saying why, if chromium
