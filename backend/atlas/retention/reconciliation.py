@@ -26,10 +26,11 @@ every difference:
    no `submitted` run of Atlas follows (a run follows its requested operation and every one
    created after it, as `atlas.retention.consolidation` counts rounds), or a `submitted` run
    whose last round has ended in Hindsight with no round of it still running.
-7. `usage` (report only, never drift): Hindsight's traced LLM calls of the bank over the last
-   24 h (`GET .../llm-requests`) by operation, with their input and output tokens, beside the
-   units Atlas's budgets counted in the same window. A call's prompt and answer are never
-   read into Atlas's models.
+7. `usage` (report only, never drift, errors included): Hindsight's LLM calls of the bank
+   over its last day (`GET .../llm-requests/stats?period=1d`, one read per operation, retain,
+   consolidation and reflect, and one for the total; the day buckets summed) with calls,
+   errors and input, output and cached tokens, beside the units Atlas's budgets counted in the
+   same window. The per-call listing is never read (each row carries the prompt and answer).
 
 Each run is one insert-only `memory_reconciliation` row: the counts by kind, up to 20 sample
 IDs each, the usage table and its `status`: `clean`, `drift`, or `failed` with the error
@@ -41,7 +42,7 @@ The job is not pausable (no LLM) and no budget holds it; the worker enqueues one
 import json
 import uuid
 from collections.abc import Mapping
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -83,7 +84,10 @@ DRIFT_KINDS: tuple[DriftKind, ...] = (
 )
 type ReconciliationStatus = Literal["clean", "drift", "failed"]
 MAX_SAMPLES = 20
-USAGE_WINDOW = timedelta(hours=24)
+# The usage table's operations (`GET .../llm-requests/stats?period=1d&operation=`), one read
+# each, and one without an operation for the bank's total.
+USAGE_PERIOD = "1d"
+USAGE_OPERATIONS = ("retain", "consolidation", "reflect")
 # Atlas's documents are `srcv:<source version>:<anchor>`; others in the bank are not its.
 ATLAS_DOCUMENT_PREFIX = "srcv:"
 # Listing pages, and bounds on how much is read (a listing longer than its bound fails the
@@ -94,8 +98,6 @@ SCOPE_PAGE = 1000
 MAX_SCOPE_PAGES = 20
 OPERATION_PAGE = 100
 MAX_OPERATION_PAGES = 20
-LLM_REQUEST_PAGE = 500
-MAX_LLM_REQUEST_PAGES = 200
 # The budgets whose units are Hindsight's work (`atlas.jobs.budget`): what usage sets beside it.
 HINDSIGHT_PROVIDERS = ("codex", "hindsight_consolidation", "hindsight_minimax")
 _RUNNING = frozenset({"pending", "processing"})
@@ -130,23 +132,29 @@ class IncompleteListing(Exception):
 
 
 class ReconciliationUsageRow(BaseModel):
-    operation: str = Field(description="Hindsight's operation: retain, consolidation, reflect, …")
-    requests: int
-    errors: int = Field(description="calls whose status was not success")
+    operation: str = Field(
+        description="Hindsight's operation (retain, consolidation, reflect), or `total`: every"
+        " call of the bank, these and the others"
+    )
+    calls: int
+    errors: int = Field(description="calls whose status was not success (reported, never drift)")
     input_tokens: int
     output_tokens: int
+    cached_tokens: int
 
 
 class ReconciliationUsage(BaseModel):
-    """Hindsight's traced LLM calls of the bank in the window, beside Atlas's budgets."""
+    """Hindsight's LLM calls of the bank over the last day (`GET .../llm-requests/stats?
+    period=1d`, its buckets summed), beside what Atlas's budgets counted."""
 
-    since: datetime
+    since: datetime = Field(description="the start of Hindsight's period (the total's)")
     until: datetime
-    complete: bool = Field(description="false: more calls than were read")
-    hindsight: list[ReconciliationUsageRow] = Field(description="by operation, most calls first")
+    hindsight: list[ReconciliationUsageRow] = Field(
+        description="retain, consolidation, reflect, then the total"
+    )
     atlas_counted: dict[str, int] = Field(
-        description="units Atlas's budgets counted in the same window, by provider (codex and"
-        " hindsight_minimax: operations submitted; hindsight_consolidation: rounds)"
+        description="units Atlas's budgets counted from `since` to `until`, by provider (codex"
+        " and hindsight_minimax: operations submitted; hindsight_consolidation: rounds)"
     )
 
 
@@ -440,42 +448,33 @@ class Reconciliation:
     # --- usage ----------------------------------------------------------------------------------
 
     def _usage(self, until: datetime) -> ReconciliationUsage:
-        since = until - USAGE_WINDOW
-        rows: dict[str, ReconciliationUsageRow] = {}
-        seen: set[str] = set()
-        complete = False
-        for page in range(MAX_LLM_REQUEST_PAGES):
-            listing = self._gateway.llm_requests(
-                start_date=since, limit=LLM_REQUEST_PAGE, offset=page * LLM_REQUEST_PAGE
+        """One stats read per operation and one for the total: counts and token sums only, so
+        no call's prompt or answer is ever read."""
+        rows: list[ReconciliationUsageRow] = []
+        since = until
+        for operation in (*USAGE_OPERATIONS, None):
+            stats = self._gateway.llm_request_stats(period=USAGE_PERIOD, operation=operation)
+            buckets = stats.buckets
+            rows.append(
+                ReconciliationUsageRow(
+                    operation=operation or "total",
+                    calls=sum(b.total for b in buckets),
+                    errors=sum(
+                        n
+                        for b in buckets
+                        for status, n in b.statuses.items()
+                        if status != "success"
+                    ),
+                    input_tokens=sum(b.tokens.input for b in buckets),
+                    output_tokens=sum(b.tokens.output for b in buckets),
+                    cached_tokens=sum(b.tokens.cached for b in buckets),
+                )
             )
-            for call in listing.items:
-                if call.id in seen:  # a page boundary that moved while reading
-                    continue
-                seen.add(call.id)
-                operation = call.operation or "unknown"
-                row = rows.get(operation) or ReconciliationUsageRow(
-                    operation=operation, requests=0, errors=0, input_tokens=0, output_tokens=0
-                )
-                rows[operation] = row.model_copy(
-                    update={
-                        "requests": row.requests + 1,
-                        "errors": row.errors + (call.status not in (None, "success")),
-                        "input_tokens": row.input_tokens + (call.input_tokens or 0),
-                        "output_tokens": row.output_tokens + (call.output_tokens or 0),
-                    }
-                )
-            if not listing.items or (page + 1) * LLM_REQUEST_PAGE >= listing.total:
-                complete = True
-                break
+            if operation is None:
+                since = stats.start
         with self._engine.connect() as connection:
             counted = _counted(connection, since, until)
-        return ReconciliationUsage(
-            since=since,
-            until=until,
-            complete=complete,
-            hindsight=sorted(rows.values(), key=lambda r: (-r.requests, r.operation)),
-            atlas_counted=counted,
-        )
+        return ReconciliationUsage(since=since, until=until, hindsight=rows, atlas_counted=counted)
 
 
 def _normalized(value: object) -> object:

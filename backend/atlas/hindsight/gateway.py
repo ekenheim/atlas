@@ -40,7 +40,6 @@ from atlas.hindsight.models import (
     EntityPage,
     FactType,
     KnowledgeNode,
-    LlmRequestPage,
     LlmRequestStats,
     Memory,
     MentalModel,
@@ -282,20 +281,6 @@ class HindsightGateway:
         params: dict[str, str | int] = {"limit": limit, "offset": offset}
         return self._parse(DocumentPage, self._get("/documents", params=params))
 
-    def llm_requests(
-        self, *, start_date: datetime, limit: int = 500, offset: int = 0
-    ) -> LlmRequestPage:
-        """One page of the bank's traced LLM calls since `start_date` (`GET .../llm-requests`;
-        Hindsight keeps them a day by default). Each call's prompt and answer are dropped."""
-        if start_date.tzinfo is None:
-            raise HindsightRuleViolation("an llm-requests start_date needs a time zone")
-        params: dict[str, str | int] = {
-            "start_date": start_date.astimezone(UTC).isoformat(),
-            "limit": limit,
-            "offset": offset,
-        }
-        return self._parse(LlmRequestPage, self._get("/llm-requests", params=params))
-
     def entities(self, *, limit: int = 1000, offset: int = 0) -> EntityPage:
         """One page of the bank's entities, most mentioned first (`GET .../entities`)."""
         params: dict[str, str | int] = {"limit": limit}
@@ -446,11 +431,16 @@ class HindsightGateway:
     # --- LLM request log -----------------------------------------------------------------------
 
     def llm_request_stats(
-        self, *, period: Literal["1d", "7d", "30d"] | None = None
+        self, *, period: Literal["1d", "7d", "30d"] | None = None, operation: str | None = None
     ) -> LlmRequestStats:
-        """The bank's LLM request counts and tokens (server default period: 7d)."""
-        params = {"period": period} if period else None
-        return self._parse(LlmRequestStats, self._get("/llm-requests/stats", params=params))
+        """The bank's LLM request counts and tokens (server default period: 7d), of one
+        operation (`retain`, `consolidation`, `reflect`, ...) when given."""
+        params: dict[str, str | int] = {}
+        if period:
+            params["period"] = period
+        if operation:
+            params["operation"] = operation
+        return self._parse(LlmRequestStats, self._get("/llm-requests/stats", params=params or None))
 
     # --- transport -----------------------------------------------------------------------------
 

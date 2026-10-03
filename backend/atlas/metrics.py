@@ -405,6 +405,21 @@ class StateCollector(Collector):
         )
         success.add_metric([], float(last[1]) if last is not None else 0.0)
         yield success
+        latest = connection.execute(
+            text(
+                "SELECT status FROM memory_reconciliation"
+                " ORDER BY started_at DESC, recorded_at DESC LIMIT 1"
+            )
+        ).scalar_one_or_none()
+        status = GaugeMetricFamily(
+            "atlas_memory_reconciliation_status",
+            "The last reconciliation's status: 1 for it, 0 for the others (all 0 before the"
+            " first); failed: a Hindsight listing or read failed and nothing was counted",
+            labels=["status"],
+        )
+        for value in ("clean", "drift", "failed"):
+            status.add_metric([value], 1 if latest == value else 0)
+        yield status
         runs = CounterMetricFamily(
             "atlas_memory_reconciliations",
             "Reconciliations of Atlas's records with the research bank, by status",

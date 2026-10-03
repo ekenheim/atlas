@@ -58,6 +58,19 @@ spec:
               differences, and the one before found some too. GET /api/v1/memory/reconciliations
               lists the runs with their samples; docs/runbooks.md, "Memory reconciliation", says
               what each kind means and what to do.
+        # The last reconciliation failed: a Hindsight listing or read failed, so it counted
+        # nothing and the drift gauges still show the run before it.
+        - alert: AtlasMemoryReconciliationFailed
+          expr: atlas_memory_reconciliation_status{status="failed"} == 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "The last reconciliation of Atlas's records with Memory failed"
+            description: >-
+              Its error is in GET /api/v1/memory/reconciliations (newest first). Nothing was
+              counted; fix the cause and run `atlas memory reconcile --wait` (docs/runbooks.md,
+              "Memory reconciliation").
         # No reconciliation has read everything for 36 hours: the nightly run failed (a listing
         # Hindsight could not answer) or stopped running.
         - alert: AtlasMemoryReconciliationStale

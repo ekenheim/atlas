@@ -6342,12 +6342,14 @@ export interface components {
         };
         /**
          * ReconciliationUsage
-         * @description Hindsight's traced LLM calls of the bank in the window, beside Atlas's budgets.
+         * @description Hindsight's LLM calls of the bank over the last day (`GET .../llm-requests/stats?
+         *     period=1d`, its buckets summed), beside what Atlas's budgets counted.
          */
         ReconciliationUsage: {
             /**
              * Since
              * Format: date-time
+             * @description the start of Hindsight's period (the total's)
              */
             since: string;
             /**
@@ -6356,18 +6358,13 @@ export interface components {
              */
             until: string;
             /**
-             * Complete
-             * @description false: more calls than were read
-             */
-            complete: boolean;
-            /**
              * Hindsight
-             * @description by operation, most calls first
+             * @description retain, consolidation, reflect, then the total
              */
             hindsight: components["schemas"]["ReconciliationUsageRow"][];
             /**
              * Atlas Counted
-             * @description units Atlas's budgets counted in the same window, by provider (codex and hindsight_minimax: operations submitted; hindsight_consolidation: rounds)
+             * @description units Atlas's budgets counted from `since` to `until`, by provider (codex and hindsight_minimax: operations submitted; hindsight_consolidation: rounds)
              */
             atlas_counted: {
                 [key: string]: number;
@@ -6377,20 +6374,22 @@ export interface components {
         ReconciliationUsageRow: {
             /**
              * Operation
-             * @description Hindsight's operation: retain, consolidation, reflect, …
+             * @description Hindsight's operation (retain, consolidation, reflect), or `total`: every call of the bank, these and the others
              */
             operation: string;
-            /** Requests */
-            requests: number;
+            /** Calls */
+            calls: number;
             /**
              * Errors
-             * @description calls whose status was not success
+             * @description calls whose status was not success (reported, never drift)
              */
             errors: number;
             /** Input Tokens */
             input_tokens: number;
             /** Output Tokens */
             output_tokens: number;
+            /** Cached Tokens */
+            cached_tokens: number;
         };
         /** ReflectAccepted */
         ReflectAccepted: {

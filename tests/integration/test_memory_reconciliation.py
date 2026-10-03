@@ -8,7 +8,7 @@ the gauge `atlas_memory_drift{kind}` and the alert rules.
 Seams: the `atlas` CLI (`memory reconcile`, `ingest`, `memory consolidate`), single worker
 passes with the worker's schedules on a controllable clock, `/api/v1` and `/metrics`, and the
 requests the recorded Hindsight fake received. The fake derives the document listing, the bank
-config after a template import, the traced LLM calls (`GET .../llm-requests`) and a live
+config after a template import, the LLM request stats (`GET .../llm-requests/stats`) and a live
 config change, built to the shapes the lead read from Hindsight 0.10.2 on 2026-10-03 (not
 recorded; tests/fakes/hindsight.py, "The reconciliation's listings"); the rest are its earlier
 derivations. Nothing live is called; an old profile and a stuck section are arranged in the
@@ -32,7 +32,7 @@ from sqlalchemy import text
 from atlas.api.app import create_app
 from atlas.hindsight import HindsightGateway, RetainItem
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry, builtin_schedules
-from tests.fakes.hindsight import DERIVED_LLM_INPUT, DERIVED_LLM_OUTPUT, RecordedHindsight
+from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.serve import Served
 from tests.harness import (
     BANK,
@@ -144,6 +144,14 @@ def drift(metrics: Metrics) -> dict[str, float]:
     return {kind: metrics[("atlas_memory_drift", frozenset({("kind", kind)}))] for kind in KINDS}
 
 
+def status(metrics: Metrics) -> dict[str, float]:
+    """The last run's status gauge: 1 for its status, 0 for the others."""
+    return {
+        s: metrics[("atlas_memory_reconciliation_status", frozenset({("status", s)}))]
+        for s in ("clean", "drift", "failed")
+    }
+
+
 @pytest.fixture
 def clock() -> Clock:
     # Real time, so the database's lease clock and the pacing clock start together.
@@ -180,8 +188,11 @@ def test_a_bank_that_matches_atlas_s_records_reconciles_clean(
     assert run["bank_id"] == BANK
     # Read-only: Hindsight received no request but reads.
     assert [r for r in fake.calls if r.method != "GET"] == writes
-    paths = {r.url.path.rsplit("/", 1)[-1] for r in fake.calls if r.method == "GET"}
-    assert {"documents", "config", "scopes", "operations", "llm-requests"} <= paths
+    paths = {r.url.path.split(f"/{BANK}/", 1)[-1] for r in fake.calls if r.method == "GET"}
+    expected = {"documents", "config", "observations/scopes", "operations", "llm-requests/stats"}
+    assert expected <= paths
+    # The per-call listing (each row carries a prompt and an answer) is never read.
+    assert "llm-requests" not in paths
     # Visible: the health read, the list, the gauge and the last success.
     health = atlas.get("/api/v1/memory/health")["reconciliation"]
     assert (health["id"], health["status"], health["counts"]) == (run["id"], "clean", NO_DRIFT)
@@ -189,6 +200,10 @@ def test_a_bank_that_matches_atlas_s_records_reconciles_clean(
     assert listed["total"] == 1 and [r["id"] for r in listed["items"]] == [run["id"]]
     metrics = atlas.metrics()
     assert drift(metrics) == NO_DRIFT
+    assert status(metrics) == {"clean": 1, "drift": 0, "failed": 0}
+    # Template 1.5.0 (ticket 23) pins 23 bank settings; each was compared, generically.
+    template = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+    assert (template["template_version"], len(template["manifest"]["bank"])) == ("1.5.0", 23)
     ended = datetime.fromisoformat(run["ended_at"]).timestamp()
     last = (
         "atlas_memory_reconciliation_last_success_timestamp_seconds",
@@ -323,20 +338,30 @@ def test_a_failed_listing_makes_the_run_failed_never_clean(
     )
     assert metrics[last] == pytest.approx(datetime.fromisoformat(first["ended_at"]).timestamp())
     assert metrics[("atlas_memory_reconciliations_total", frozenset({("status", "failed")}))] == 1
+    # The last run's status is its own gauge, so a failed night is visible (and alerted).
+    assert status(metrics) == {"clean": 0, "drift": 0, "failed": 1}
 
 
 # --- usage --------------------------------------------------------------------------------------
 
 
-def test_usage_reads_the_day_s_llm_calls_beside_atlas_s_budgets_and_is_never_drift(
+def test_usage_reads_the_day_s_llm_stats_beside_atlas_s_budgets_and_is_never_drift(
     atlas: Reconciling, fake: RecordedHindsight
 ) -> None:
     sections = atlas.get("/api/v1/memory/health")["sections"]
     retained = sections["completed"] + sections["zero_fact"]
     now = datetime.now(UTC)
-    # The owner's reflect today, and one two days ago (older than the window).
+    # The owner's reflects today, one of them an error, and one two days ago (outside the day).
     fake.script_llm_request(
         BANK, "reflect", input_tokens=1500, output_tokens=400, started_at=now - timedelta(hours=2)
+    )
+    fake.script_llm_request(
+        BANK,
+        "reflect",
+        input_tokens=700,
+        output_tokens=0,
+        started_at=now - timedelta(hours=1),
+        status="error",
     )
     fake.script_llm_request(
         BANK, "reflect", input_tokens=9000, output_tokens=900, started_at=now - timedelta(days=2)
@@ -347,33 +372,43 @@ def test_usage_reads_the_day_s_llm_calls_beside_atlas_s_budgets_and_is_never_dri
 
     run = atlas.reconciled()
 
-    assert run["status"] == "clean"  # usage is a report, never drift
+    assert run["status"] == "clean"  # usage, errors included, is a report, never drift
     usage = run["usage"]
-    assert usage["complete"] is True
     rows = {row["operation"]: row for row in usage["hindsight"]}
-    assert set(rows) == {"retain", "reflect", "consolidation"}
-    assert rows["retain"]["requests"] == retained  # one extraction call per section
+    assert [row["operation"] for row in usage["hindsight"]] == [
+        "retain",
+        "consolidation",
+        "reflect",
+        "total",
+    ]
+    assert rows["retain"]["calls"] == retained  # one extraction call per section
     assert rows["retain"]["input_tokens"] > 0 and rows["retain"]["errors"] == 0
     reflect = rows["reflect"]
-    assert (reflect["requests"], reflect["input_tokens"], reflect["output_tokens"]) == (
-        1,
-        1500,
-        400,
-    )
-    assert rows["consolidation"]["requests"] == 1
-    # Beside it, what Atlas's budgets counted in the window.
+    assert (
+        reflect["calls"],
+        reflect["errors"],
+        reflect["input_tokens"],
+        reflect["output_tokens"],
+        reflect["cached_tokens"],
+    ) == (2, 1, 2200, 400, 0)
+    assert rows["consolidation"]["calls"] == 1
+    total = rows["total"]
+    for field in ("calls", "errors", "input_tokens", "output_tokens"):
+        assert total[field] == sum(rows[op][field] for op in ("retain", "consolidation", "reflect"))
+    # Beside it, what Atlas's budgets counted in the same window.
     queue = {b["provider"]: b["used"] for b in atlas.get("/api/v1/queue")["budgets"]}
     assert usage["atlas_counted"]["codex"] == queue["codex"] > 0
     assert usage["atlas_counted"]["hindsight_consolidation"] == 1
-    assert datetime.fromisoformat(usage["until"]) - datetime.fromisoformat(
-        usage["since"]
-    ) == timedelta(hours=24)
-    # A call's prompt and answer are never kept.
-    with atlas.engine.connect() as connection:
-        stored = connection.execute(text("SELECT usage::text FROM memory_reconciliation")).all()
-    for (row,) in stored:
-        assert DERIVED_LLM_INPUT not in row and DERIVED_LLM_OUTPUT not in row
-    assert DERIVED_LLM_INPUT not in json.dumps(run)
+    window = datetime.fromisoformat(usage["until"]) - datetime.fromisoformat(usage["since"])
+    assert timedelta(hours=23, minutes=59) < window <= timedelta(hours=24)
+    # One stats read per operation and one for the total; never the per-call listing.
+    stats = [
+        r.url.params.get("operation")
+        for r in fake.calls
+        if r.url.path.endswith("/llm-requests/stats")
+    ]
+    assert stats == ["retain", "consolidation", "reflect", None]
+    assert not [r for r in fake.calls if r.url.path.endswith("/llm-requests")]
 
 
 # --- the routes, the CLI and the schedule -------------------------------------------------------

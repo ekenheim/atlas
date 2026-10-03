@@ -656,33 +656,6 @@ class DocumentPage(_Result):
     offset: int
 
 
-class LlmRequest(_Result):
-    """One traced LLM call of the bank (`GET .../llm-requests`; memory-quality ticket 22, the
-    live shape, not recorded). The call's `input` and `output` (prompt and answer, memory text
-    among them) are deliberately not modelled, so they are never kept."""
-
-    id: str
-    operation: str | None = None
-    scope: str | None = None
-    trace_id: str | None = None
-    provider: str | None = None
-    model: str | None = None
-    status: str | None = None
-    started_at: datetime | None = None
-    ended_at: datetime | None = None
-    duration_ms: float | None = None
-    input_tokens: int | None = None
-    output_tokens: int | None = None
-    cached_tokens: int | None = None
-    thoughts_tokens: int | None = None
-    total_tokens: int | None = None
-
-
-class LlmRequestPage(_Result):
-    total: int
-    items: list[LlmRequest]
-
-
 class TemplateImportResult(_Result):
     bank_id: str
     config_applied: bool

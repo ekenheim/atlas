@@ -215,19 +215,19 @@ Derived behaviours (each serves a recorded response with only the named fields c
     (the recorded config updated by the import's `bank` settings and any
     `change_bank_config(bank, **settings)`, the owner's live change) and `overrides` (those
     settings) changed.
-  - `GET .../llm-requests?start_date=&limit=N[&offset=M]` (any bank, by default): the bank's
-    traced LLM calls since `start_date`, newest first, `{bank_id, total, limit, offset,
-    items}`, each in the live entry shape (`id, operation, scope, trace_id, provider, model,
-    status, started_at, ended_at, duration_ms, input_tokens, output_tokens, cached_tokens,
-    thoughts_tokens, total_tokens, input, output`). Derived: one `retain` call per stored item
-    of a derived retain (input: a token per four characters of its content; output: 40 per
-    derived fact), one `consolidation` call per consolidation round that completes (300
-    tokens per memory processed, at least one; output a quarter of it), one `reflect` call
-    per derived reflect (2,000 in; the answer's tokens out), each stamped with `llm_clock()`
-    (real time by default); `script_llm_request(bank, operation, ...)` adds one the test
-    dates. `input` and `output` are fixed marker texts (`DERIVED_LLM_INPUT`/`_OUTPUT`) so a
-    test can check Atlas never keeps them. How many calls a real retain or round makes, and
-    their tokens, is not derived.
+  - `GET .../llm-requests/stats?period=1d|7d|30d[&operation=]` (any bank without a matching
+    recording, by default): `llm_requests_0102/01-stats-main` with only `bank_id`, `period`,
+    `start` (the fake's `llm_clock()` less the period) and `buckets` changed: one bucket per
+    UTC day of the bank's traced LLM calls since `start` (of that operation, if given), each
+    `{time, statuses: {success, error}, total, tokens: {input, output, cached, thoughts: 0,
+    total}}`, oldest first, as the lead read live. The traced calls are derived: one `retain`
+    call per stored item of a derived retain (input: a token per four characters of its
+    content; output: 40 per derived fact), one `consolidation` call per consolidation round
+    that completes (300 tokens per memory processed, at least one; output a quarter of it),
+    one `reflect` call per derived reflect (2,000 in; the answer's tokens out), each stamped
+    with `llm_clock()` (real time by default); `script_llm_request(bank, operation, ...,
+    status=)` adds one the test dates. How many calls a real retain or round makes, and their
+    tokens, is not derived.
 - `script_reflect(text, cited, ..., mental_models=())` (a reflect answer is LLM output, and no
   recorded one can cite an Atlas section): the next unrecorded reflect serves 0.10.2's
   `reflect_options/02-exclude-mental-models` (memory-quality ticket 10; before it,
@@ -571,9 +571,8 @@ DERIVED_CONFIG = "research_template/03-imported-config"
 RETAIN_OUTPUT_TOKENS_PER_FACT = 40
 CONSOLIDATION_TOKENS_PER_MEMORY = 300
 REFLECT_INPUT_TOKENS = 2000
-# A derived LLM call's prompt and answer, standing for memory text: never to be kept by Atlas.
-DERIVED_LLM_INPUT = "derived prompt: the section text and the extraction instructions"
-DERIVED_LLM_OUTPUT = "derived answer: the facts the model extracted"
+DERIVED_LLM_STATS = "llm_requests_0102/01-stats-main"
+_STATS_PERIODS = {"1d": timedelta(days=1), "7d": timedelta(days=7), "30d": timedelta(days=30)}
 _TEMPLATE_TRIGGER_FIELDS = (
     "refresh_after_consolidation",
     "refresh_cron",
@@ -1021,12 +1020,8 @@ class RecordedHindsight:
         status: str = "success",
     ) -> None:
         """A traced LLM call of the bank that no derived request made (e.g. one older than a
-        day, or a reflect of the owner's), listed by `GET .../llm-requests` (derived)."""
+        day, or a reflect of the owner's), counted by `GET .../llm-requests/stats` (derived)."""
         self._trace(bank, operation, input_tokens, output_tokens, started_at, status=status)
-
-    def llm_requests(self, bank: str) -> list[dict[str, JsonValue]]:
-        """The bank's traced LLM calls, oldest first, as `GET .../llm-requests` lists them."""
-        return [copy.deepcopy(entry) for b, entry in self._llm_requests if b == bank]
 
     def refreshes_requested(self) -> list[str]:
         """The mental-model IDs of every refresh request received, in order."""
@@ -1687,8 +1682,8 @@ class RecordedHindsight:
                 return self._derived_consolidation_list(bank, request)
         if request.method == "GET" and route == ["stats"]:
             return self._derived_stats(bank)
-        if request.method == "GET" and route == ["llm-requests"]:
-            return self._derived_llm_requests(bank, request)
+        if request.method == "GET" and route == ["llm-requests", "stats"]:
+            return self._derived_llm_stats(bank, request)
         if request.method == "GET" and route in (["observations", "scopes"], ["entities"]):
             if route[0] == "observations" and self._scopes is None and self._derive_memories:
                 return self._derived_scopes(bank, request)
@@ -1998,34 +1993,51 @@ class RecordedHindsight:
             "cached_tokens": 0,
             "thoughts_tokens": 0,
             "total_tokens": input_tokens + output_tokens,
-            "input": DERIVED_LLM_INPUT,
-            "output": DERIVED_LLM_OUTPUT,
         }
         self._llm_requests.append((bank, entry))
 
-    def _derived_llm_requests(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
+    def _derived_llm_stats(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
         params = dict(request.url.params)
-        start = params.pop("start_date", None)
-        offset = int(params.pop("offset", "0"))
-        limit = params.pop("limit", None)
-        if limit is None or params:
+        period = params.pop("period", "7d")
+        operation = params.pop("operation", None)
+        if params or period not in _STATS_PERIODS:
             return None
-        since = datetime.fromisoformat(start) if start is not None else None
-        listed = [
-            entry
-            for b, entry in reversed(self._llm_requests)  # newest first
-            if b == bank
-            and (since is None or datetime.fromisoformat(str(entry["started_at"])) >= since)
-        ]
-        body: dict[str, JsonValue] = {
+        start = self.llm_clock() - _STATS_PERIODS[period]
+        buckets: dict[str, dict[str, Any]] = {}
+        for b, entry in self._llm_requests:
+            started = datetime.fromisoformat(str(entry["started_at"]))
+            if b != bank or started < start:
+                continue
+            if operation is not None and entry["operation"] != operation:
+                continue
+            day = started.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+            bucket = buckets.setdefault(
+                day.isoformat(),
+                {
+                    "time": day.isoformat(),
+                    "statuses": {},
+                    "total": 0,
+                    "tokens": {"input": 0, "output": 0, "cached": 0, "thoughts": 0, "total": 0},
+                },
+            )
+            status = "success" if entry["status"] == "success" else "error"
+            bucket["statuses"][status] = bucket["statuses"].get(status, 0) + 1
+            bucket["total"] += 1
+            tokens = bucket["tokens"]
+            tokens["input"] += cast(int, entry["input_tokens"])
+            tokens["output"] += cast(int, entry["output_tokens"])
+            tokens["cached"] += cast(int, entry["cached_tokens"])
+            tokens["total"] += cast(int, entry["total_tokens"])
+        recording = self.recording(DERIVED_LLM_STATS)
+        response = copy.deepcopy(recording.response_object())
+        response |= {
             "bank_id": bank,
-            "total": len(listed),
-            "limit": int(limit),
-            "offset": offset,
-            "items": list[JsonValue](listed[offset : offset + int(limit)]),
+            "period": period,
+            "start": _iso(start),
+            "buckets": [buckets[day] for day in sorted(buckets)],
         }
-        self.served.append("llm-requests (derived, hand-written body)")
-        return httpx2.Response(200, json=body)
+        self.served.append(f"{DERIVED_LLM_STATS} (derived)")
+        return httpx2.Response(recording.status, json=response)
 
     def _derived_document_list(self, bank: str, request: httpx2.Request) -> httpx2.Response | None:
         if self._document_listing_failure is not None:
