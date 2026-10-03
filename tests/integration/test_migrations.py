@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0075"
+    assert revision == "0076"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -834,3 +834,34 @@ def test_chat_completions_recorded_before_0072_ignored_no_field(empty_database_u
     engine.dispose()
     assert row.ignored_fields == []
     assert row.validation_errors[0]["type"] == "extra_forbidden"
+
+
+def test_reconciliations_from_0076_are_insert_only(empty_database_url: str) -> None:
+    # 0076: one row per run of the nightly reconciliation (memory-quality ticket 22), never
+    # changed or removed; a failed run carries its error and only a failed one does.
+    upgrade(empty_database_url)
+    engine = create_engine(empty_database_url)
+    insert = (
+        "INSERT INTO memory_reconciliation (id, bank_id, started_at, ended_at, status, error)"
+        " VALUES (gen_random_uuid(), 'atlas-research', now(), now(), :status, :error)"
+    )
+    with engine.begin() as connection:
+        connection.execute(text(insert), {"status": "clean", "error": None})
+    refused: list[str] = []
+    for statement, params in (
+        ("UPDATE memory_reconciliation SET status = 'drift'", {}),
+        ("DELETE FROM memory_reconciliation", {}),
+        ("TRUNCATE memory_reconciliation", {}),
+        (insert, {"status": "failed", "error": None}),
+        (insert, {"status": "clean", "error": "a listing failed"}),
+    ):
+        try:
+            with engine.begin() as connection:
+                connection.execute(text(statement), params)
+        except DBAPIError as error:
+            refused.append(str(error.orig).splitlines()[0])
+    with engine.connect() as connection:
+        rows = connection.execute(text("SELECT status FROM memory_reconciliation")).scalars().all()
+    engine.dispose()
+    assert len(refused) == 5, refused
+    assert rows == ["clean"]

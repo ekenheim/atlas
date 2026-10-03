@@ -28,7 +28,8 @@ reason; the rest of the read still answers.
 
 `consolidation` (ticket 19) is Atlas's record of the bank's consolidations: the last requested
 and the last completed run, their operations, and the sections retained since the last
-completed one (`atlas.retention.consolidation`).
+completed one (`atlas.retention.consolidation`). `reconciliation` (ticket 22) is the bank's
+last reconciliation of Atlas's records with Memory (`atlas.retention.reconciliation`).
 """
 
 import re
@@ -47,6 +48,7 @@ from atlas.identity.normalize import normalize_name
 from atlas.retention.backfill import STUCK, stuck_params
 from atlas.retention.consolidation import ConsolidationRecord, consolidation_record
 from atlas.retention.reads import RETAIN_STATES
+from atlas.retention.reconciliation import ReconciliationSummary, last_reconciliation
 
 PartStatus = Literal["ok", "unavailable"]
 PendingAge = Literal["under_1h", "1h_to_24h", "1d_to_7d", "over_7d"]
@@ -204,6 +206,10 @@ class MemoryHealth(BaseModel):
         description="the bank's last requested and last completed consolidation (ticket 19);"
         " for the whole bank, whatever company_id is"
     )
+    reconciliation: ReconciliationSummary | None = Field(
+        description="the bank's last reconciliation of Atlas's records with Memory (ticket 22):"
+        " its status, differences by kind and when; for the whole bank, whatever company_id is"
+    )
 
 
 @dataclass
@@ -276,6 +282,7 @@ def memory_health(
         observation_scopes=_scopes(gateway, company_id),
         entities=_entities(gateway, universe, companies, company_id),
         consolidation=consolidation_record(connection, bank_id),
+        reconciliation=last_reconciliation(connection, bank_id),
     )
 
 

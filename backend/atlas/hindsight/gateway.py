@@ -36,6 +36,7 @@ from atlas.hindsight.models import (
     ChunkPage,
     ConsolidationSubmitted,
     DocumentDeleted,
+    DocumentPage,
     EntityPage,
     FactType,
     KnowledgeNode,
@@ -274,6 +275,12 @@ class HindsightGateway:
             params["offset"] = offset
         return self._parse(ObservationScopePage, self._get("/observations/scopes", params=params))
 
+    def documents(self, *, limit: int = 500, offset: int = 0) -> DocumentPage:
+        """One page of the bank's documents with what each was retained with (`GET
+        .../documents`; memory-quality ticket 22, the reconciliation)."""
+        params: dict[str, str | int] = {"limit": limit, "offset": offset}
+        return self._parse(DocumentPage, self._get("/documents", params=params))
+
     def entities(self, *, limit: int = 1000, offset: int = 0) -> EntityPage:
         """One page of the bank's entities, most mentioned first (`GET .../entities`)."""
         params: dict[str, str | int] = {"limit": limit}
@@ -424,11 +431,16 @@ class HindsightGateway:
     # --- LLM request log -----------------------------------------------------------------------
 
     def llm_request_stats(
-        self, *, period: Literal["1d", "7d", "30d"] | None = None
+        self, *, period: Literal["1d", "7d", "30d"] | None = None, operation: str | None = None
     ) -> LlmRequestStats:
-        """The bank's LLM request counts and tokens (server default period: 7d)."""
-        params = {"period": period} if period else None
-        return self._parse(LlmRequestStats, self._get("/llm-requests/stats", params=params))
+        """The bank's LLM request counts and tokens (server default period: 7d), of one
+        operation (`retain`, `consolidation`, `reflect`, ...) when given."""
+        params: dict[str, str | int] = {}
+        if period:
+            params["period"] = period
+        if operation:
+            params["operation"] = operation
+        return self._parse(LlmRequestStats, self._get("/llm-requests/stats", params=params or None))
 
     # --- transport -----------------------------------------------------------------------------
 

@@ -84,8 +84,10 @@ class Models(Atlas):
             litellm,
             mental_model_poll_timeout_seconds=0.3,
             mental_model_poll_interval_seconds=0.01,
-            # The daily consolidation (ticket 19) stays out of these passes.
+            # The daily consolidation (ticket 19) and reconciliation (ticket 22) stay out of
+            # these passes.
             consolidate_at="",
+            reconcile_at="",
         )
         self.api = TestClient(create_app(self.settings(), clock=self.clock))
 

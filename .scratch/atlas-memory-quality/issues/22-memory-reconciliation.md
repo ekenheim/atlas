@@ -19,9 +19,9 @@ Decided by the lead:
 
 **Blocked by:** None.
 
-**Status:** open
+**Status:** done
 
-- [ ] Integration tests at the worker seam against the Hindsight fake: a clean bank reconciles `clean`; each of kinds 1 to 6 seeded once (a completed section whose document the fake lacks; a stuck pending section and an orphan document; a document retained without scopes; a template setting changed live; a consolidation operation nobody follows) is found with its sample; a failed listing makes the run `failed`, not clean.
-- [ ] The usage table is read from `llm-requests` (the fake derives it) and never counts as drift.
-- [ ] The health read, the two routes, the gauge and the alert rule; the CLI (`--wait` prints the summary).
-- [ ] Decision note, runbook ("Memory reconciliation": what each kind means and what to do), `AGENTS.md` line, settings documented, API client regenerated.
+- [x] Integration tests at the worker seam against the Hindsight fake: a clean bank reconciles `clean`; each of kinds 1 to 6 seeded once (a completed section whose document the fake lacks; a stuck pending section and an orphan document; a document retained without scopes; a template setting changed live; a consolidation operation nobody follows) is found with its sample; a failed listing makes the run `failed`, not clean.
+- [x] The usage table is read from `llm-requests` (the fake derives it) and never counts as drift.
+- [x] The health read, the two routes, the gauge and the alert rule; the CLI (`--wait` prints the summary).
+- [x] Decision note, runbook ("Memory reconciliation": what each kind means and what to do), `AGENTS.md` line, settings documented, API client regenerated.

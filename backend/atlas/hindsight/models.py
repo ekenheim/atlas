@@ -606,6 +606,56 @@ class RetainedDocument(_Result):
     null_lists = field_validator("tags", mode="before")(_none_to_empty_list)
 
 
+class RetainParams(_Result):
+    """What a listed document was last retained with (memory-quality ticket 22: built to the
+    shape the lead read from Hindsight 0.10.2 on 2026-10-03, not recorded). `entities` and
+    `observation_scopes` are absent when the item sent none."""
+
+    context: str | None = None
+    metadata: dict[str, JsonValue] = {}
+    event_date: datetime | None = None
+    entities: list[JsonValue] | None = None
+    observation_scopes: list[list[str]] | None = None
+
+    null_dicts = field_validator("metadata", mode="before")(_none_to_empty_dict)
+
+    def entity_names(self) -> set[str]:
+        """The names of the entities the item gave (each as `{text, ...}` or a plain name)."""
+        names: set[str] = set()
+        for entity in self.entities or []:
+            if isinstance(entity, dict) and isinstance(entity.get("text"), str):
+                names.add(str(entity["text"]))
+            elif isinstance(entity, str):
+                names.add(entity)
+        return names
+
+
+class ListedDocument(_Result):
+    """One document of `GET .../documents` (memory-quality ticket 22; the live shape, not
+    recorded)."""
+
+    id: str
+    bank_id: str | None = None
+    content_hash: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    text_length: int | None = None
+    memory_unit_count: int | None = None
+    retain_params: RetainParams | None = None
+    document_metadata: dict[str, JsonValue] = {}
+    tags: list[str] = []
+
+    null_dicts = field_validator("document_metadata", mode="before")(_none_to_empty_dict)
+    null_lists = field_validator("tags", mode="before")(_none_to_empty_list)
+
+
+class DocumentPage(_Result):
+    items: list[ListedDocument]
+    total: int
+    limit: int
+    offset: int
+
+
 class TemplateImportResult(_Result):
     bank_id: str
     config_applied: bool

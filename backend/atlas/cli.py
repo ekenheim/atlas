@@ -198,6 +198,71 @@ def enqueue_consolidate(settings: Settings, key: str | None, *, backfill: bool) 
     _print_enqueued(enqueued)
 
 
+def run_memory_reconcile(
+    settings: Settings, key: str | None, *, wait: bool, timeout: float, poll_seconds: float
+) -> int:
+    """`atlas memory reconcile`: one `reconcile_memory` job for the research bank. With
+    `wait`, poll until the worker has run it and print the run (stdout) and a one-line summary
+    (stderr).
+
+    0 when enqueued (or, waiting, the run is clean), 1 when the run found drift or failed, its
+    job failed or the wait timed out, 2 without Hindsight.
+    """
+    import json
+    import time
+    import uuid
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.jobs import JobQueue
+    from atlas.retention.reconciliation import enqueue_reconciliation, get_reconciliation
+
+    if not settings.hindsight_url:
+        print("atlas: the reconciliation needs ATLAS_HINDSIGHT_URL", file=sys.stderr)
+        return 2
+    engine = create_engine(settings)
+    try:
+        queue = JobQueue(engine, actor=Actor.from_settings(settings))
+        enqueued = enqueue_reconciliation(queue, key or f"reconcile_memory:{uuid.uuid4()}")
+        if not wait:
+            _print_enqueued(enqueued)
+            return 0
+        job_id = enqueued.job.id
+        print(f"atlas: reconciliation job {job_id}: waiting for the worker", file=sys.stderr)
+        deadline = time.monotonic() + timeout
+        while True:
+            job = queue.get(job_id)
+            assert job is not None
+            if job.status == "failed":
+                print(f"atlas: the reconciliation job {job_id} failed", file=sys.stderr)
+                return 1
+            if job.status == "succeeded":
+                break
+            if time.monotonic() >= deadline:
+                print(
+                    f"atlas: timed out after {timeout:g} s; the job is {job.status}",
+                    file=sys.stderr,
+                )
+                return 1
+            time.sleep(poll_seconds)
+        with engine.connect() as connection:
+            found = get_reconciliation(
+                connection, uuid.UUID(str(job.artifacts["reconciliation_id"]))
+            )
+    finally:
+        engine.dispose()
+    assert found is not None
+    drift = ", ".join(f"{kind} {count}" for kind, count in found.counts.items() if count)
+    reading = {
+        "clean": "clean: Atlas's records match Memory",
+        "drift": f"drift: {drift}",
+        "failed": f"failed: {found.error}",
+    }[found.status]
+    print(f"atlas: reconciliation {found.id} {reading}", file=sys.stderr)
+    print(json.dumps(found.model_dump(mode="json")))
+    return 0 if found.status == "clean" else 1
+
+
 def run_memory_backfill(
     settings: Settings,
     companies: list[str] | None,
@@ -1195,6 +1260,21 @@ def main(argv: list[str] | None = None) -> None:
     )
     consolidate.add_argument("--key", help="idempotency key (default: a new request each time)")
     consolidate.add_argument("--backfill", action="store_true", help="backfill class")
+    reconcile = memory_commands.add_parser(
+        "reconcile",
+        help="compare Atlas's records with what the research bank holds (read-only, no LLM)"
+        " and record every difference; the worker runs one a day from ATLAS_RECONCILE_AT",
+    )
+    reconcile.add_argument("--key", help="idempotency key (default: a new run each time)")
+    reconcile.add_argument(
+        "--wait", action="store_true", help="wait for the worker to run it, then print the run"
+    )
+    reconcile.add_argument(
+        "--timeout", type=float, default=1800.0, help="how long --wait waits (seconds)"
+    )
+    reconcile.add_argument(
+        "--poll-seconds", type=float, default=2.0, help="how often --wait looks (seconds)"
+    )
     backfill = memory_commands.add_parser(
         "backfill",
         help="bring the retained sections to the current retain profile and retry the failed,"
@@ -1315,6 +1395,16 @@ def main(argv: list[str] | None = None) -> None:
         seed_companies(settings)
     elif args.command == "evaluate":
         raise SystemExit(run_evaluate(settings, args.cases, live=args.live))
+    elif args.command == "memory" and args.memory_command == "reconcile":
+        raise SystemExit(
+            run_memory_reconcile(
+                settings,
+                args.key,
+                wait=args.wait,
+                timeout=args.timeout,
+                poll_seconds=args.poll_seconds,
+            )
+        )
     elif args.command == "memory" and args.memory_command == "backfill":
         run_memory_backfill(settings, args.companies, args.theme, args.max_sections, args.key)
     elif args.command == "memory":

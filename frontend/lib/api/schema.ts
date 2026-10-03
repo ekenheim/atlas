@@ -413,6 +413,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/memory/reconciliations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reconciliations */
+        get: operations["reconciliations_api_v1_memory_reconciliations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/memory/reconciliations/{reconciliation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reconciliation */
+        get: operations["reconciliation_api_v1_memory_reconciliations__reconciliation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/triage": {
         parameters: {
             query?: never;
@@ -5078,6 +5112,8 @@ export interface components {
             entities: components["schemas"]["EntitiesHealth"];
             /** @description the bank's last requested and last completed consolidation (ticket 19); for the whole bank, whatever company_id is */
             consolidation: components["schemas"]["ConsolidationRecord"];
+            /** @description the bank's last reconciliation of Atlas's records with Memory (ticket 22): its status, differences by kind and when; for the whole bank, whatever company_id is */
+            reconciliation: components["schemas"]["ReconciliationSummary"] | null;
         };
         /**
          * MemoryOperation
@@ -5529,6 +5565,17 @@ export interface components {
         Page_ProposedUpdate_: {
             /** Items */
             items: components["schemas"]["ProposedUpdate"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[ReconciliationSummary] */
+        Page_ReconciliationSummary_: {
+            /** Items */
+            items: components["schemas"]["ReconciliationSummary"][];
             /** Total */
             total: number;
             /** Limit */
@@ -6206,6 +6253,143 @@ export interface components {
             entities?: components["schemas"]["RecalledEntity"][];
             /** Chunk Id */
             chunk_id?: string | null;
+        };
+        /** ReconciliationRun */
+        ReconciliationRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Job Id */
+            job_id: string | null;
+            /** @description clean: no difference; drift: at least one; failed: a listing or read failed (see error) and nothing was counted */
+            status: components["schemas"]["ReconciliationStatus"];
+            /** Error */
+            error: string | null;
+            /**
+             * Counts
+             * @description differences by kind (none when failed)
+             */
+            counts: {
+                [key: string]: number;
+            };
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Ended At
+             * Format: date-time
+             */
+            ended_at: string;
+            /**
+             * Samples
+             * @description up to 20 IDs per kind: Hindsight document IDs (section_missing, document_unrecorded, profile_mismatch), scopes' tags joined by commas (observation_scope_outside), setting names (config_drift), operation IDs or `run:<id>` (consolidation_untracked)
+             */
+            samples: {
+                [key: string]: string[];
+            };
+            /**
+             * Details
+             * @description a kind's count broken down (document_unrecorded by Atlas's state or `unknown`; profile_mismatch by what is lacking; consolidation_untracked by case)
+             */
+            details: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** @description report only, never drift; none when failed */
+            usage: components["schemas"]["ReconciliationUsage"] | null;
+        };
+        /** @enum {string} */
+        ReconciliationStatus: "clean" | "drift" | "failed";
+        /** ReconciliationSummary */
+        ReconciliationSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Job Id */
+            job_id: string | null;
+            /** @description clean: no difference; drift: at least one; failed: a listing or read failed (see error) and nothing was counted */
+            status: components["schemas"]["ReconciliationStatus"];
+            /** Error */
+            error: string | null;
+            /**
+             * Counts
+             * @description differences by kind (none when failed)
+             */
+            counts: {
+                [key: string]: number;
+            };
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Ended At
+             * Format: date-time
+             */
+            ended_at: string;
+        };
+        /**
+         * ReconciliationUsage
+         * @description Hindsight's LLM calls of the bank over the last day (`GET .../llm-requests/stats?
+         *     period=1d`, its buckets summed), beside what Atlas's budgets counted.
+         */
+        ReconciliationUsage: {
+            /**
+             * Since
+             * Format: date-time
+             * @description the start of Hindsight's period (the total's)
+             */
+            since: string;
+            /**
+             * Until
+             * Format: date-time
+             */
+            until: string;
+            /**
+             * Hindsight
+             * @description retain, consolidation, reflect, then the total
+             */
+            hindsight: components["schemas"]["ReconciliationUsageRow"][];
+            /**
+             * Atlas Counted
+             * @description units Atlas's budgets counted from `since` to `until`, by provider (codex and hindsight_minimax: operations submitted; hindsight_consolidation: rounds)
+             */
+            atlas_counted: {
+                [key: string]: number;
+            };
+        };
+        /** ReconciliationUsageRow */
+        ReconciliationUsageRow: {
+            /**
+             * Operation
+             * @description Hindsight's operation (retain, consolidation, reflect), or `total`: every call of the bank, these and the others
+             */
+            operation: string;
+            /** Calls */
+            calls: number;
+            /**
+             * Errors
+             * @description calls whose status was not success (reported, never drift)
+             */
+            errors: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cached Tokens */
+            cached_tokens: number;
         };
         /** ReflectAccepted */
         ReflectAccepted: {
@@ -9340,6 +9524,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemoryHealth"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconciliations_api_v1_memory_reconciliations_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ReconciliationSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconciliation_api_v1_memory_reconciliations__reconciliation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reconciliation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationRun"];
                 };
             };
             /** @description Not Found */

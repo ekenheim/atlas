@@ -44,6 +44,48 @@ spec:
             description: >-
               {{ $value | humanize }} sections were flagged zero_fact in the last 6 hours, which
               suggests the extraction model or the bank template is misbehaving.
+        # Atlas's records and the research bank disagree (memory-quality ticket 22): a drift
+        # kind above 0 in the nightly reconciliation, and still there a day later.
+        - alert: AtlasMemoryDrift
+          expr: max by (kind) (atlas_memory_drift) > 0
+          for: 24h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Atlas's records and Memory disagree: {{ $labels.kind }}"
+            description: >-
+              The last reconciliation found {{ $value | humanize }} {{ $labels.kind }}
+              differences, and the one before found some too. GET /api/v1/memory/reconciliations
+              lists the runs with their samples; docs/runbooks.md, "Memory reconciliation", says
+              what each kind means and what to do.
+        # The last reconciliation failed: a Hindsight listing or read failed, so it counted
+        # nothing and the drift gauges still show the run before it.
+        - alert: AtlasMemoryReconciliationFailed
+          expr: atlas_memory_reconciliation_status{status="failed"} == 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "The last reconciliation of Atlas's records with Memory failed"
+            description: >-
+              Its error is in GET /api/v1/memory/reconciliations (newest first). Nothing was
+              counted; fix the cause and run `atlas memory reconcile --wait` (docs/runbooks.md,
+              "Memory reconciliation").
+        # No reconciliation has read everything for 36 hours: the nightly run failed (a listing
+        # Hindsight could not answer) or stopped running.
+        - alert: AtlasMemoryReconciliationStale
+          expr: >-
+            (time() - atlas_memory_reconciliation_last_success_timestamp_seconds > 129600)
+            and atlas_memory_reconciliation_last_success_timestamp_seconds > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "No reconciliation of Atlas's records with Memory for 36 hours"
+            description: >-
+              The last reconciliation that read everything ended {{ $value | humanizeDuration }}
+              ago. A failed run records its error (GET /api/v1/memory/reconciliations); check
+              ATLAS_RECONCILE_AT and the worker.
     - name: atlas.financials
       rules:
         # A companyfacts document that couldn't be normalized: its ingest succeeded, so
