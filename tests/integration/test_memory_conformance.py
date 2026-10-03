@@ -353,3 +353,31 @@ def test_check_1_runs_against_the_fake_once_its_behaviour_is_present(
     evidence = result.evidence
     assert evidence["by_state"] == {"completed": evidence["sections"]}
     assert evidence["unaccounted"] == []
+
+
+def test_check_5_fails_an_observation_outside_the_theme_scope(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    tradingview: Served,
+) -> None:
+    """Production on 2026-10-03: observations consolidated before the theme scope (tagged with
+    the union of their facts' company, form and source tags) outlived the backfill and kept
+    taking in new facts. Beside the theme's observation, one such observation fails check 5."""
+    fake = hindsight[0]
+    scopes = CHECKS[4]
+    with ExitStack() as stack:
+        rehearsal = Rehearsal(stack, database_url, tmp_path, hindsight[1], tradingview)
+
+        def stale_observation(bank: BehaviourBank) -> None:
+            stand_in_for_hindsight_s_llm(fake, bank)
+            (item, *_) = [item for batch in fake.retained(bank.bank_id) for item in batch]
+            fake.derive_observation([str(item["document_id"])], bank=bank.bank_id)
+
+        report = rehearsal.run(during=stale_observation, checks=[scopes])
+
+    (result,) = report.behaviours or []
+    assert result.verdict == "failed", (result.reason, result.evidence)
+    assert result.reason == "1 observations outside the scope [theme:photonics]"
+    assert result.evidence["observations_in_theme_scope"] == 1
+    assert report.bank_deleted is True
