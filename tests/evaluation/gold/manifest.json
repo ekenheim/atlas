@@ -7,7 +7,11 @@
       "case_sha256": "c3b851c154474c6d58971b7f59004de2e3c0b820f947c17bfda84ab82bac7c5b",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-SUP-002",
@@ -15,7 +19,11 @@
       "case_sha256": "b6bfe30375ca195e031ca6949cee472dd86b74a0e0f5c3d78fa8394bd23db5b6",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-DIR-001",
@@ -23,7 +31,11 @@
       "case_sha256": "300e38132d186e7f09d5c9133311c2aebc0e94bde88d5a4c31b1c3131502fe28",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-COM-001",
@@ -31,7 +43,11 @@
       "case_sha256": "7b7cbc5598cb7bdcd82cc7215c7dcb4df7b3b611f70ac2e8213dea3b84a19b29",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-COM-002",
@@ -39,7 +55,11 @@
       "case_sha256": "cbe9ca08158e826fb4c17984bd64c2099b0252fee984bb2e9a22b35b79ac79f9",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-INF-001",
@@ -47,7 +67,11 @@
       "case_sha256": "fe7177ed9a30fe84aa4758b725af42c7f13d2d107fb4612dec89cb3510bae3e3",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-LAY-001",
@@ -55,14 +79,18 @@
       "case_sha256": "443ef1f8474ddb6a90f993b5185ab51b702188c4895090e4459f2a2710e2d024",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-SYN-001",
       "category": "SYN",
       "case_sha256": "f393140f73a04015b0afff3551de1146f9cee1ecc43d0d3bd3ae73b153d6d76a",
-      "status": "active",
-      "superseded_by": null,
+      "status": "superseded",
+      "superseded_by": "EV-SYN-002",
       "added_at": "2026-09-30"
     },
     {
@@ -71,7 +99,11 @@
       "case_sha256": "ac57fb1de9004ecd7f01b221a0f78464110bb7109d1aabf58c58c53dee517f04",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-FUT-001",
@@ -79,23 +111,51 @@
       "case_sha256": "7e04530e091dce3228fd47a2fdf58fb634d2e8131cfab8bdf120a42725d5b7a3",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-09-30",
+      "adjudicated": {
+        "by": "atlas-lead (delegated by the owner)",
+        "at": "2026-10-03"
+      }
     },
     {
       "case_id": "EV-CON-001",
       "category": "CON",
       "case_sha256": "a86036e56639dcfb0e153790772f32653563c25d3f010ec39b3fedc33942ef71",
-      "status": "active",
-      "superseded_by": null,
+      "status": "superseded",
+      "superseded_by": "EV-CON-002",
       "added_at": "2026-09-30"
     },
     {
       "case_id": "EV-RST-001",
       "category": "RST",
       "case_sha256": "00915600437c8642bb023ddc4c0a0f30f0201af19a89571680bbd621abafa06a",
+      "status": "superseded",
+      "superseded_by": "EV-RST-002",
+      "added_at": "2026-09-30"
+    },
+    {
+      "case_id": "EV-CON-002",
+      "category": "CON",
+      "case_sha256": "c063d3effd7dcf2c89baa2a1748e3be28e10c8c66462f811ec448deecea88593",
       "status": "active",
       "superseded_by": null,
-      "added_at": "2026-09-30"
+      "added_at": "2026-10-03"
+    },
+    {
+      "case_id": "EV-RST-002",
+      "category": "RST",
+      "case_sha256": "60f36cf0639755a825369e7c426c2e8e4ac17d1a593b2463098c89ede4c2d26b",
+      "status": "active",
+      "superseded_by": null,
+      "added_at": "2026-10-03"
+    },
+    {
+      "case_id": "EV-SYN-002",
+      "category": "SYN",
+      "case_sha256": "3b779886715be6f608e6b2888a74715be7124438305cda6cb69afd5a13f9abbe",
+      "status": "active",
+      "superseded_by": null,
+      "added_at": "2026-10-03"
     }
   ]
 }

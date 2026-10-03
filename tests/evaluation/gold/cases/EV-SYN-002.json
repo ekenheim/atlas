@@ -1,0 +1,309 @@
+{
+  "schema_version": 1,
+  "case_id": "EV-SYN-002",
+  "category": "SYN",
+  "title": "One announcement mirrored by ten sites is one Evidence Family",
+  "created_at": "2026-10-03",
+  "supersedes": "EV-SYN-001",
+  "question": "How many independent sources report Ember Lasers' second EML fab?",
+  "scope": {
+    "companies": [
+      "ember"
+    ],
+    "themes": [
+      "photonics"
+    ]
+  },
+  "entities": [
+    {
+      "key": "ember",
+      "legal_name": "Ember Lasers Inc.",
+      "display_name": "Ember Lasers",
+      "country": "US",
+      "cik": "0999900005",
+      "layer": "chip-laser",
+      "fictional": true
+    }
+  ],
+  "sources": [
+    {
+      "key": "s0",
+      "sha256": "292c2331ed3480a0beb74f3be3002519ff2a413a48ec3f3141adc52a68586fcb",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers press release: second EML fab",
+      "company": "ember",
+      "origin_url": "https://ir.ember-lasers.example/news/2025-05-06-second-fab.htm",
+      "clocks": {
+        "published_at": "2025-05-06T12:00:00+00:00",
+        "available_at": "2025-05-06T12:00:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s1",
+      "sha256": "944ec47016a8a38e90cd6974eb096d5e10909d22bd539e35cb1aa309b5a7a543",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (wire)",
+      "company": "ember",
+      "origin_url": "https://newswire.example/news/2025/05/06/ember-lasers-second-fab",
+      "clocks": {
+        "published_at": "2025-05-06T12:07:00+00:00",
+        "available_at": "2025-05-06T12:07:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s2",
+      "sha256": "32f99976586c6e33db6875c80cc9cd7aaa16ea104f59b3a4507fabacd28abb75",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (photonics-daily)",
+      "company": "ember",
+      "origin_url": "https://photonics-daily.example/2025/05/ember-lasers-tucson-fab",
+      "clocks": {
+        "published_at": "2025-05-06T12:14:00+00:00",
+        "available_at": "2025-05-06T12:14:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s3",
+      "sha256": "79d1edc9cd7fd5cd7f5cbd4f15f0a88b5b725bbb18e3b040ff19e7e88403297a",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (optics-trade)",
+      "company": "ember",
+      "origin_url": "https://optics-trade.example/articles/ember-second-eml-fab",
+      "clocks": {
+        "published_at": "2025-05-06T13:21:00+00:00",
+        "available_at": "2025-05-06T13:21:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s4",
+      "sha256": "54b291b8c3b55e64bb47b4aaa1061c61e19b76af35614631582aec309f3c45d2",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (markets-feed)",
+      "company": "ember",
+      "origin_url": "https://markets-feed.example/story/ember-lasers-opens-second-fab",
+      "clocks": {
+        "published_at": "2025-05-06T13:28:00+00:00",
+        "available_at": "2025-05-06T13:28:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s5",
+      "sha256": "3e46071563adb9b8beef3b2c81d5d72ddefd0b276eb2b18ac31c6bfad9333211",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (chip-journal)",
+      "company": "ember",
+      "origin_url": "https://chip-journal.example/news/ember-eml-fab-tucson",
+      "clocks": {
+        "published_at": "2025-05-06T13:35:00+00:00",
+        "available_at": "2025-05-06T13:35:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s6",
+      "sha256": "e914cc4e2dcb8f0e9b06b17f2d56e47afbfa23ce7f84eba8d34dcd18dbc1b8fb",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (ai-infra-news)",
+      "company": "ember",
+      "origin_url": "https://ai-infra-news.example/ember-lasers-fab",
+      "clocks": {
+        "published_at": "2025-05-06T14:42:00+00:00",
+        "available_at": "2025-05-06T14:42:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s7",
+      "sha256": "7aab90999f8a46644c5d0d4970d97bbb7852373d971efd7eee46ce454d1334e3",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (az-business)",
+      "company": "ember",
+      "origin_url": "https://az-business.example/tucson/ember-lasers-second-fab",
+      "clocks": {
+        "published_at": "2025-05-06T14:49:00+00:00",
+        "available_at": "2025-05-06T14:49:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s8",
+      "sha256": "58bf1af4193e21178a7b9b9a1f5d3d82c24dd4357fd5323223f4e9bb42ea6138",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (lightwave-wire)",
+      "company": "ember",
+      "origin_url": "https://lightwave-wire.example/2025/ember-lasers-fab-two",
+      "clocks": {
+        "published_at": "2025-05-06T14:56:00+00:00",
+        "available_at": "2025-05-06T14:56:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s9",
+      "sha256": "cc4e6a3ea064a6a8e5d43a9f8a81f4bce1911cb675f20933b9472bb411c76561",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (semi-digest)",
+      "company": "ember",
+      "origin_url": "https://semi-digest.example/digest/2025-05-06/ember",
+      "clocks": {
+        "published_at": "2025-05-06T15:03:00+00:00",
+        "available_at": "2025-05-06T15:03:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s10",
+      "sha256": "02c9ca3b541e836c82a528895dac214cb6f71d908c0dac522c53adc02bce3393",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "C",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers opens second EML laser fab in Tucson (investor-brief)",
+      "company": "ember",
+      "origin_url": "https://investor-brief.example/briefs/ember-lasers-fab",
+      "clocks": {
+        "published_at": "2025-05-06T15:10:00+00:00",
+        "available_at": "2025-05-06T15:10:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-fab"
+    },
+    {
+      "key": "s11",
+      "sha256": "24b18b4db48cafe126e320df625827698c26707237f59c932c57d230af30875d",
+      "kind": "document",
+      "media_type": "text/html",
+      "provenance": "synthetic",
+      "license_class": "synthetic_fixture",
+      "licence_basis": "fictional company, written for this case",
+      "source_tier": "A",
+      "source_type": "manual_import",
+      "form_type": null,
+      "title": "Ember Lasers Q1 2025 results",
+      "company": "ember",
+      "origin_url": "https://ir.ember-lasers.example/news/2025-04-29-q1-results.htm",
+      "clocks": {
+        "published_at": "2025-04-29T20:05:00+00:00",
+        "available_at": "2025-04-29T20:05:00+00:00",
+        "available_at_basis": "publisher_timestamp"
+      },
+      "evidence_family": "ember-q1"
+    }
+  ],
+  "pipeline": {
+    "kind": "families"
+  },
+  "script": {},
+  "gold": {
+    "evidence_families": {
+      "count": 2
+    }
+  },
+  "adjudication": {
+    "labeler": "atlas-lead (delegated by the owner, 2026-10-02; reviewed by an independent agent)",
+    "adjudicated_at": "2026-10-03",
+    "method": "agent_draft_reviewed",
+    "disagreements": [
+      {
+        "party": "independent reviewer",
+        "label": "EV-SYN-001 metadata",
+        "resolution": "corrected in this case",
+        "note": "The ten mirrors were Tier A; they are newswire and news-site copies (spec 4.1, Tier C), which is what the case is about. s0 and s11 are press releases on the IR news page, not 8-K filings. Gold unchanged; the runner records every document as a manual import, so scoring is unaffected."
+      }
+    ]
+  },
+  "metrics": [
+    "independent_families"
+  ],
+  "earliest_phase": "3",
+  "notes": "s0 is the release and s1-s10 its mirrors (re-marked-up, some with a source line), one witness; s11 is an unrelated release, a second family, so the count also shows families aren't merged indiscriminately."
+}
