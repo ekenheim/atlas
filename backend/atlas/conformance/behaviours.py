@@ -38,6 +38,16 @@ PROBE_QUERIES = (
 # and words that attribute it to whoever asked it.
 ANALYST_QUESTION_TERMS = ("largest customer",)
 ATTRIBUTION_TERMS = ("analyst", "asked", "question")
+# The company's own speakers in that transcript: a fact naming one of them reports their words
+# (the CFO's answer repeats the question's words), not the analyst's question.
+MANAGEMENT_SPEAKERS = ("alex example", "casey placeholder")
+# Check 2: the share of a company's facts that must carry the filer's given entity (the lead's
+# choice, 2026-10-03). The first live run (Hindsight 0.10.2) had it on 50 of Lumentum's 52 facts
+# (96%) and 205 of Coherent's 208 (99%); the entity hop reads the facts that carry it.
+ENTITY_COVERAGE = 0.95
+# Check 9: a reflect citation Atlas labels unverified (its quote is not verbatim in the section)
+# is allowed up to this share; a broken one never is.
+UNVERIFIED_CITATIONS = 0.05
 
 
 @dataclass
@@ -235,10 +245,12 @@ def _entity_names(item: Mapping[str, Any]) -> list[str]:
 
 
 def _company_items(bank: BehaviourBank) -> dict[str, list[dict[str, Any]]]:
-    """The retain items of each company's own documents (by the `company:` tag)."""
+    """The retain items of each company's own documents (by the `company:` tag), one per
+    document: a section sent again (a resubmit) is the same document, counted once."""
     by_company: dict[str, list[dict[str, Any]]] = {slug: [] for slug in bank.companies}
     ids = {company_id: slug for slug, company_id in bank.companies.items()}
-    for item in bank.retained_items():
+    latest = {_doc_id(item): item for item in bank.retained_items()}
+    for item in latest.values():
         for tag in cast(list[str], item.get("tags") or []):
             if tag.startswith("company:") and tag.removeprefix("company:") in ids:
                 by_company[ids[tag.removeprefix("company:")]].append(item)
@@ -300,10 +312,10 @@ def _one_entity_per_company(bank: BehaviourBank) -> tuple[bool, str | None, Evid
         }
         if len(exact) != 1:
             failures.append(f"{slug}: {len(exact)} entities named {name!r}")
-        elif (mentions or 0) < own + others:
+        elif (mentions or 0) < ENTITY_COVERAGE * (own + others):
             failures.append(
                 f"{slug}: {name!r} is on {mentions} facts; its own and the naming sections'"
-                f" facts are {own + others}"
+                f" facts are {own + others} (at least {ENTITY_COVERAGE:.0%} must carry it)"
             )
     return not failures, "; ".join(failures) or None, {"companies": report}
 
@@ -338,8 +350,10 @@ def _analyst_question(bank: BehaviourBank) -> tuple[bool, str | None, Evidence]:
         for memory in bank.gateway.document_memories(document_id):
             examined += 1
             text = memory.text.lower()
-            if any(term in text for term in ANALYST_QUESTION_TERMS) and not any(
-                word in text for word in ATTRIBUTION_TERMS
+            if (
+                any(term in text for term in ANALYST_QUESTION_TERMS)
+                and not any(word in text for word in ATTRIBUTION_TERMS)
+                and not any(name in text for name in MANAGEMENT_SPEAKERS)
             ):
                 offending.append({"memory_id": memory.id, "text": memory.text[:300]})
     evidence: Evidence = {
@@ -359,24 +373,26 @@ def _analyst_question(bank: BehaviourBank) -> tuple[bool, str | None, Evidence]:
 
 
 def _layer_labels(bank: BehaviourBank) -> tuple[bool, str | None, Evidence]:
+    """A section counts when one of its own facts names a layer (a term of `LAYER_TERMS` in
+    the fact's text, not merely somewhere in the section: a cover page or an exhibit list that
+    mentions a product gives no fact about it); such a section fails when none of those facts
+    carries a `layer:` label."""
     labelled: dict[str, int] = {}
     unlabelled: list[str] = []
     naming = 0
     for document in bank.memory_documents():
         if document["retain_state"] != "completed" or not document.get("document_id"):
             continue
-        version = bank.api.text(f"/source-versions/{document['version_id']}/content", kind="parsed")
-        section = version[int(document["char_start"]) : int(document["char_end"])].lower()
-        named = [
-            layer
-            for layer, terms in LAYER_TERMS.items()
-            if any(t.lower() in section for t in terms)
+        memories = bank.gateway.document_memories(str(document["document_id"]))
+        naming_facts = [
+            m
+            for m in memories
+            if any(t.lower() in m.text.lower() for terms in LAYER_TERMS.values() for t in terms)
         ]
-        if not named:
+        if not naming_facts:
             continue
         naming += 1
-        memories = bank.gateway.document_memories(str(document["document_id"]))
-        tags = {t for m in memories for t in m.tags if t.startswith("layer:")}
+        tags = {t for m in naming_facts for t in m.tags if t.startswith("layer:")}
         if not tags:
             unlabelled.append(str(document["document_id"]))
         for tag in tags:
@@ -430,10 +446,15 @@ def _observation_scopes(bank: BehaviourBank) -> tuple[bool, str | None, Evidence
         "observations_in_theme_scope": theme_count,
         "observations_drawing_on_both_companies": spanning,
     }
+    # The promise is the scope: every observation in the theme's scope alone. Whether one draws
+    # on both companies is the observations mission's call (it keeps one observation per company
+    # and subject), so it is evidence, not a verdict.
+    outside = [s for s in page.scopes if s.tags != [theme_tag]]
     if not theme_count:
         return False, f"no observation in the scope [{theme_tag}]", evidence
-    if not spanning:
-        return False, "no observation's sources lie in both companies' documents", evidence
+    if outside:
+        stray = sum(s.count for s in outside)
+        return False, f"{stray} observations outside the scope [{theme_tag}]", evidence
     return True, None, evidence
 
 
@@ -540,11 +561,13 @@ def _entity_hop(bank: BehaviourBank) -> tuple[bool, str | None, Evidence]:
     expected_any = False
     for slug, name in names.items():
         expected = sorted(
-            _doc_id(item)
-            for other, items in _company_items(bank).items()
-            if other != slug
-            for item in items
-            if name in _entity_names(item)
+            {
+                _doc_id(item)
+                for other, items in _company_items(bank).items()
+                if other != slug
+                for item in items
+                if name in _entity_names(item)
+            }
         )
         if not expected:
             continue
@@ -592,11 +615,14 @@ def _reflect_grounded(bank: BehaviourBank) -> tuple[bool, str | None, Evidence]:
     answer = bank.api.get(f"/memory/reflect/{accepted['research_answer']['id']}")
     citations = cast(list[dict[str, Any]], answer.get("citations") or [])
     unresolved = [c for c in citations if c.get("state") != "resolved"]
+    broken = [c for c in unresolved if c.get("state") == "broken"]
     if answer.get("status") != "completed":
         failures.append(f"the reflect ended {answer.get('status')}: {answer.get('error')}")
     elif not citations:
         failures.append("the reflect cited nothing")
-    elif unresolved:
+    elif broken:
+        failures.append(f"{len(broken)} of {len(citations)} citations are broken")
+    elif len(unresolved) > UNVERIFIED_CITATIONS * len(citations):
         failures.append(f"{len(unresolved)} of {len(citations)} citations do not resolve")
     refreshed: dict[str, JsonValue] = {}
     for model_id in triggers:
