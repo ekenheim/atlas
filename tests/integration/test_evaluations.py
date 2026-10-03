@@ -28,16 +28,21 @@ from atlas.api.app import create_app
 from tests.harness import REPO, SITES, TEMPLATE, make_settings
 
 GOLD = REPO / "tests" / "evaluation" / "gold"
-CASES = [e["case_id"] for e in json.loads((GOLD / "manifest.json").read_text("utf-8"))["cases"]]
+# The active cases, in manifest order (a superseded case is not run by default).
+CASES = [
+    e["case_id"]
+    for e in json.loads((GOLD / "manifest.json").read_text("utf-8"))["cases"]
+    if e["status"] == "active"
+]
 # The metric each category's checks feed (methodology §7).
 # Every case whose pipeline produces edges also feeds `relationship_precision` through the
 # `relationships.unexpected` check (no verified edge the gold doesn't name).
 METRICS = {
     "EV-SUP-001": {"relationship_recall", "citation_correctness", "relationship_precision"},
     "EV-COM-001": {"relationship_precision"},
-    "EV-SYN-001": {"independent_families"},
+    "EV-SYN-002": {"independent_families"},
     "EV-FUT-001": {"as_of_isolation", "contradiction_discovery", "relationship_precision"},
-    "EV-RST-001": {"as_of_isolation"},
+    "EV-RST-002": {"as_of_isolation"},
 }
 
 
@@ -147,13 +152,13 @@ def test_every_gold_case_passes_in_fake_mode_and_the_run_is_stored_and_served(
     )
     future = results["EV-FUT-001"]["predicted"]["investigation"]
     assert (future["documents"], future["stop_reason"]) == (["s1"], "no_new_independent_evidence")
-    skeptic = results["EV-CON-001"]["predicted"]["investigation"]
+    skeptic = results["EV-CON-002"]["predicted"]["investigation"]
     assert skeptic["stop_reason"] == "needs_review"
     assert skeptic["contradictions"] == [{"independent": True, "source": "s2"}]
-    families = results["EV-SYN-001"]["predicted"]["families"]
+    families = results["EV-SYN-002"]["predicted"]["families"]
     assert len({families[f"s{i}"] for i in range(11)}) == 1
     assert families["s11"] != families["s0"]
-    restated = results["EV-RST-001"]["predicted"]["financials"]
+    restated = results["EV-RST-002"]["predicted"]["financials"]
     assert [(f["value"], f["linkage"]) for f in restated] == [
         ("22258000000", "first"),
         ("21138000000", "restates"),
@@ -243,7 +248,7 @@ def test_a_live_evaluation_needs_both_locks_and_the_model(
 
 
 def test_stored_results_are_insert_only(database_url: str, tmp_path: Path) -> None:
-    ran = evaluate(database_url, tmp_path, "--case", "EV-SYN-001")
+    ran = evaluate(database_url, tmp_path, "--case", "EV-SYN-002")
     assert ran.returncode == 0, ran.stderr
 
     engine = create_engine(database_url)

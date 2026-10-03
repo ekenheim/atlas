@@ -14,8 +14,10 @@ The research bank's template turns Hindsight's automatic consolidation off
   a consolidation of the bank still running (Atlas's own record: the recorded API has no
   filtered listing of the bank's running operations, and auto-consolidation is off, so the
   only consolidation running is one Atlas asked for) is followed, not resubmitted (`joined`);
-  nothing is submitted while a `retain`, `poll_operation` or `reprocess` job is queued or
-  running (`retains_pending`: consolidating half a filing is the waste this ends), nor when no
+  nothing is submitted while a retain's operation may be in Hindsight: a `retain` or
+  `reprocess` job running, or a `poll_operation` job queued or running (`retains_pending`).
+  A retain still queued has sent nothing, so a backfill's retains waiting behind their budget
+  or window for days don't hold it (0.4.2). Nor is anything submitted when no
   section was retained since the last completed consolidation (`nothing_retained`). The
   database allows one `submitted` row per bank.
 - **When.** The worker's schedule enqueues one backfill-class job a day from
@@ -51,8 +53,8 @@ from atlas.retention.service import POLL_KIND, REPROCESS_KIND, RETAIN_KIND, oper
 from atlas.settings import Settings
 
 CONSOLIDATE_KIND = "consolidate"
-# The jobs that retain into the bank: while one is queued or running, no consolidation.
-RETAIN_JOB_KINDS = (RETAIN_KIND, POLL_KIND, REPROCESS_KIND)
+# The jobs that submit retains into the bank: while one is running, no consolidation.
+SUBMITTING_KINDS = (RETAIN_KIND, REPROCESS_KIND)
 # A scheduled try with one of these outcomes is followed by another, an hour later.
 RETRY_OUTCOMES = frozenset({"retains_pending", "running"})
 RETRY_AFTER = timedelta(hours=1)
@@ -393,15 +395,17 @@ class Consolidation:
 
 
 def _retains_pending(connection: Connection) -> bool:
-    """A retain, a retain poll or a reprocess is queued or running (the bank's: Atlas retains
-    into the one research bank)."""
+    """A retain's operation may be in Hindsight (the bank's: Atlas retains into the one
+    research bank): a retain or reprocess is running, or a poll of its operation is queued or
+    running. A queued retain or reprocess has submitted nothing yet."""
     return bool(
         connection.execute(
             text(
-                "SELECT EXISTS (SELECT FROM job WHERE kind = ANY(:kinds)"
-                " AND status IN ('queued', 'running'))"
+                "SELECT EXISTS (SELECT FROM job WHERE"
+                " (kind = ANY(:submitting) AND status = 'running')"
+                " OR (kind = :poll AND status IN ('queued', 'running')))"
             ),
-            {"kinds": list(RETAIN_JOB_KINDS)},
+            {"submitting": list(SUBMITTING_KINDS), "poll": POLL_KIND},
         ).scalar_one()
     )
 

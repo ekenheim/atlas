@@ -371,6 +371,48 @@ def test_the_daily_run_waits_for_retains_then_skips_a_day_with_nothing_new(
     }
 
 
+def test_a_retain_waiting_its_turn_does_not_hold_a_consolidation_one_in_flight_does(
+    atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served], clock: Clock
+) -> None:
+    # A backfill keeps hundreds of retains queued behind its budget or window for days; they
+    # have sent nothing to Hindsight, so they don't hold the bank's consolidation. A retain's
+    # operation still being polled does: it is half in the bank.
+    fake, _ = hindsight
+    atlas.ingest_company("lumentum")
+    opens = (clock.now + timedelta(hours=6)).replace(minute=0)
+    atlas.overrides["backfill_window"] = f"{opens:%H:%M}-{opens + timedelta(hours=1):%H:%M}"
+    version = atlas.version("https://data.sec.gov/api/xbrl/companyfacts/CIK0001633978.json")
+    queue = JobQueue(atlas.engine)
+    queue.enqueue(
+        "retain", "waiting-retain", {"source_version_id": version["id"]}, job_class="backfill"
+    )
+
+    first = atlas.consolidate("--key", "beside-a-waiting-retain")
+    atlas.scheduled_pass()
+
+    job = atlas.get(f"/api/v1/jobs/{first['id']}")
+    assert job["artifacts"]["outcome"] == "completed"
+    assert consolidations(fake) == 1
+    with atlas.engine.connect() as connection:
+        waiting = connection.exec_driver_sql(
+            "SELECT status FROM job WHERE kind = 'retain' AND job_class = 'backfill'"
+        ).scalar_one()
+    assert waiting == "queued"
+
+    queue.enqueue("poll_operation", "in-flight", {"source_version_id": version["id"]})
+    in_flight = queue.claim("another-worker", timedelta(hours=1))
+    assert in_flight is not None and in_flight.kind == "poll_operation"
+    second = atlas.consolidate("--key", "beside-an-operation-in-flight")
+    atlas.scheduled_pass()
+
+    job = atlas.get(f"/api/v1/jobs/{second['id']}")
+    assert (job["artifacts"]["outcome"], job["artifacts"]["reason"]) == (
+        "skipped",
+        "retains_pending",
+    )
+    assert consolidations(fake) == 1
+
+
 def test_the_daily_run_tries_a_bounded_number_of_times(
     atlas: Consolidating, hindsight: tuple[RecordedHindsight, Served], clock: Clock
 ) -> None:

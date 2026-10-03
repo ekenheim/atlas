@@ -51,14 +51,16 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 from atlas.audit import Actor, content_hash, record
 from atlas.hindsight import HindsightGateway, HindsightNotFound
 from atlas.jobs.queue import Artifacts, Enqueued, Job, JobQueue
-from atlas.retention.consolidation import RETAIN_JOB_KINDS, enqueue_consolidation
+from atlas.retention.consolidation import enqueue_consolidation
 from atlas.retention.context import RETAIN_PROFILE
-from atlas.retention.service import RETAIN_KIND, retain_payload
+from atlas.retention.service import POLL_KIND, REPROCESS_KIND, RETAIN_KIND, retain_payload
 
 BACKFILL_KIND = "memory_backfill"
 # Waiting passes of the finish step before a run gives up waiting (it ends `still_retaining`;
 # a rerun asks for the consolidation then).
 MAX_WAIT_STEPS = 20
+# The jobs that retain into the bank: a company's backfill is done when none is left.
+RETAIN_JOB_KINDS = (RETAIN_KIND, POLL_KIND, REPROCESS_KIND)
 
 
 class BackfillPayload(BaseModel):
