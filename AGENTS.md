@@ -4,6 +4,8 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 
 **Current effort:** the pilot review. Orient at its map, `.scratch/atlas-pilot-review/map.md`, before choosing work: take the first open, unblocked ticket, and put new work in the map, not in a log entry's "Next" line.
 
+**Roadmap planning:** when revisiting priorities or specifying the post-pilot effort, read [the 4 October roadmap proposal](docs/research/proposed-roadmap-2026-10-04.md), preserved at the owner's request. It proposes sequencing changes; the pilot map remains the execution authority until accepted changes are recorded there.
+
 ## Commands
 
 - `scripts/ci.sh`: the one CI entrypoint (GitHub Actions runs exactly this). `--no-image` skips the image build.
