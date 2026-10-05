@@ -61,3 +61,13 @@ qwen3.8-flash on worker4 was stopped unscored: ~90 facts in 60 minutes per run, 
 - LiteLLM: `local-pool-chat` and `fast` sent `reasoning_effort: none`, which qwen3.8's template rejects (fixed in home-ops #7221); a non-streaming call to `chatgpt` is answered by a fallback model although the configmap lists none for it ("Fallbacks are configured for: chatgpt"): a DB-stored fallback, the owner's to check.
 
 **Next.** Watch the backlog to completion (`GET /api/v1/memory/health` → `consolidation`); then test finding (2) on production's observations and specify the setup change.
+
+### 2026-10-05: MiniMax-M3 first again, the 5090 second
+
+**The stop on 2026-10-04, 22:10 UTC.** Not the GPU: the Kubernetes API server timed out, Patroni demoted the Postgres primary, and Hindsight's round 101 of that run died on `the database system is shutting down`; Ollama had answered every call until then. The Atlas worker crash-looped on the read-only database, and Atlas kept following the dead round (the gap noted above). A new run was requested at 23:19 UTC.
+
+**Decision (the owner, 2026-10-05).** The weekly MiniMax allowance has reset: home-ops #7239 (merged, live 07:19 UTC) makes `hindsight-consolidation` an ordered pool, MiniMax-M3 first and the 5090 when MiniMax caps out or fails. 50,534 memories were pending at the switch. The observations are therefore mixed: qwen3.8 27B from 2026-10-04 11:13 to 2026-10-05 07:19 UTC, MiniMax-M3 after, the 5090 again whenever MiniMax is capped. The pilot report must say so.
+
+**Found on the way.** On the `openai/` route LiteLLM's `drop_params` drops the top-level `thinking` Hindsight sends, so M3 consolidated with thinking on: the first call spent 14.7k thinking tokens and 137 s (a 5090 call takes 15–20 s). Home-ops #7242 turns it off with `extra_body` on the rung (merged, live 07:25 UTC; calls since take 3–28 s with no thinking tokens). The old `MiniMax-M3-chat` fallback had the same fault unnoticed.
+
+**Open.** The backlog is about 500 rounds, around 200M tokens at the 360k input tokens a round measured on 2026-10-03, more than a week's MiniMax allowance took last week (70–100M to 98%). When it caps, retains, triage and the research roles are capped with it.
