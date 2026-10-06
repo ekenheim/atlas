@@ -18,4 +18,4 @@ Accepted restyle: `thead th` is 0.8rem on every table, following variant D, a si
 
 Review fixes: the hover fill only on mouse devices, none on sortable headers; a disabled button loses its strong border; `--focus` is `--accent`.
 
-Not done here: the e2e (`scripts/e2e.py`, needs postgres-app and a browser) was not run, and before/after screenshots were not taken; both remain for the lead. The landing page's CLI hint (`app/page.tsx`) is left for ticket 06.
+Checked by the lead on production data through a local read-only preview: `/memory/`, `/relationships/` and `/company/` render dark and readable, structure unchanged. No before/after screenshot set was kept. The full e2e against the seeded databases is the runners' (`scripts/e2e.py` crashes on Windows before seeding). The landing page's CLI hint (`app/page.tsx`) is left for ticket 06.

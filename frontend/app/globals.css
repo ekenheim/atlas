@@ -392,7 +392,14 @@ button.sort:hover:not(:disabled) {
 
 .mem-row th[scope="row"] {
   min-width: 9rem;
-  white-space: normal;
+  white-space: nowrap;
+}
+
+/* On a phone a long name wraps rather than widening the sticky column. */
+@media (max-width: 52rem) {
+  .mem-row th[scope="row"] {
+    white-space: normal;
+  }
 }
 
 .mem-scroll th:first-child {
@@ -462,8 +469,10 @@ button.sort:hover:not(:disabled) {
   height: 0.5rem;
 }
 
+/* The count first, right-aligned in a fixed width, so the bar starts at one edge for every row. */
 .mem-depth .num {
-  margin-left: auto;
+  min-width: 4.5rem;
+  order: -1;
 }
 
 .mem-foot {

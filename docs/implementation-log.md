@@ -3466,5 +3466,12 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Review fixes:** the Facts bar is drawn to one scale (`depth`, 5 rem for the largest company); a company with facts but no version in the window is a warning, not "Nothing ingested"; the share in memory rounds down; the version bar sizes by flex with a 3 px minimum, and a company with no versions shows an outlined gap bar; the skeleton has the final heading, sort group and column heads; phone width keeps numbers whole and the Company column sticky; open items keep a second condition in their detail and name drift with its count; singular counts.
 - **UX laws that decided each block:** Von Restorff (the gap is the one red thing, even when rare), Doherty (the skeleton is the final layout), Tesler (arithmetic lives in the tested lib), Hick (one open list before the table).
 - **Recorded choice:** a reconciliation never run is amber, not red (nothing is known to be wrong); the in-memory segment is the accent colour, the one exception to "colour only for gaps and warnings".
-- **E2E seed:** the Memory e2e uses the workbench seed, which answers the map's "e2e seed for Memory" fog item.
-- **Checks:** `npm --prefix frontend run lint`, `typecheck`, `test` (76 passed) and `build` pass; the Playwright e2e was not re-run here.
+- **E2E seed:** the Memory e2e targets the workbench database (Coherent retained into the Hindsight fake; the first database has nothing retained, so its rows tie on facts and the sort can't be seen). Chosen from reading `scripts/e2e.py`, not observed: `scripts/e2e.py` crashed on Windows before seeding (`npx` resolved without a shell, WinError 2), an existing portability gap.
+- **Lead's audit:** two layout fixes on production data (company names kept on one line at desktop width; the fact count before its bar). The spec run against production data through a local read-only preview (built export, `GET /api/*` forwarded): 2 passed, the 390 px width included. Not yet run against the seeded databases: the runners do.
+- **Checks:** `npm --prefix frontend run lint`, `typecheck`, `test` (76 passed) and `build` pass.
+
+## Frontend ticket 07: Atlas in one dark theme
+
+- **Files:** `frontend/app/globals.css` only: tokens on `:root` from the Memory prototype's variant D, `color-scheme: dark`, every existing rule on the tokens; no page's structure changed.
+- **Contrast:** every text token passes WCAG AA on the three backgrounds (ratios in the ticket's answer).
+- **Checked by eye** on production data through the preview: `/memory/`, `/relationships/`, `/company/` (Lumentum). The e2e against the seeded databases is the runners'.

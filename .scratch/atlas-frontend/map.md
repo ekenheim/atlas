@@ -36,6 +36,8 @@ Three pages merged on main, green on `npm --prefix frontend run lint | typecheck
 - Charting grilling (2026-10-06): execution in the map; order Memory → dossier/source → landing; `/` becomes status-and-links and the Companies table moves to `/companies/`; tokens, no chart library; dossier gets a Memory block from `memory/health?company_id=`, a source-type filter, per-version memory only on the version page; API gaps ship as "not available yet".
 - [How fast memory/health and the dossier answer on production](issues/01-memory-health-latency-measured.md): health 0.65 s median (0.91 worst), so one request and a skeleton; the dossier's Memory block is its own parallel request (the dossier is 1 MB). Innolight's zero versions must show as a gap.
 - [What the Memory & coverage page shows and in what order](issues/02-memory-page-prototype.md): variant D, dark and terse: five figures, the open items, a 7-column company table with a Facts sort, a one-line footer; no commands. Prototype on `prototype/memory-page`.
+- [Atlas in one dark theme](issues/07-dark-theme-for-atlas.md): tokens on `:root` from variant D, every page dark, structure unchanged; all text passes WCAG AA.
+- [Build the Memory & coverage page](issues/03-build-memory-page.md): `/memory/` built as variant D, with tested derivations in `lib/memory.ts` and a shared version bar for the dossier and landing page to reuse; the e2e passed on production data, the seeded run is the runners'.
 
 ## Not yet specified
 
@@ -44,7 +46,7 @@ Three pages merged on main, green on `npm --prefix frontend run lint | typecheck
 - **Queue and budgets beyond the landing signal.** `GET /api/v1/queue` (pause, window, budgets, pending by kind) may deserve its own block on the Memory page or its own page once the landing page shows how often it is read.
 - **Reconciliation history and triage audits.** `GET /api/v1/memory/reconciliations` and `GET /api/v1/triage/audits` are stable; ticket 02 left them off the Memory page. A page of their own if the lead reads them often.
 - **Entity split as a Memory-quality signal.** No company resolves to one entity in Memory (Coherent 48). The page shows it; whether it is a defect is the lead's, raised with the hand-off.
-- **The e2e seed for Memory.** `scripts/e2e.py` seeds from the Lumentum fixtures with the Hindsight fake; whether it yields a meaningful `memory/health` (several companies, a gap, a retired section) or needs more seeding is found in ticket 03.
+- **The e2e seed for Memory.** The spec targets the workbench database (Coherent retained); confirmed only when the runners run it. `scripts/e2e.py` crashes on Windows before seeding (`npx` without a shell): a portability gap for the lead, not this map.
 
 ## Out of scope
 
