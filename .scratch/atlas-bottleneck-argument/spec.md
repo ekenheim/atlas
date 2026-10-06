@@ -13,6 +13,7 @@ This file is where feedback about what Atlas lacks as an investment research pro
 | 2026-10-02 | Codex, first review | Sound architecture (archive, Assertions and Memory kept apart); real progress on investigation 1 (precision 60% to 84.6%, coverage 20% to 50%, AXT found) at ten times the tokens; the synthesis can exceed its evidence; disconfirmation coverage incomplete; the research advantage needs broader proof. Three engineering defects. | Pilot-fix tickets 29 (ships with the memory-quality release), 30, 31; ticket 25's disclosure into the release |
 | 2026-10-02 | Codex, second review ("what are we lacking") | Organise the research around proving or disproving a bottleneck and who captures its economics: a structured argument; the next action chosen by the most consequential uncertainty; meaning checked where a finding becomes a conclusion; economic capture; disconfirmation per premise; a prospective learning loop. | This spec |
 | 2026-10-04 | Codex, roadmap review; the owner asked to commit it for Claude's later planning | Separate backlog completion from product preparation; prototype one dossier during consolidation; move scenario metric/period correctness forward; retain the frozen five-case verdict; then deliver the argument, economic capture/market expectations and prospective predictions. These sequencing changes remain proposed. | [Preserved roadmap and ticket dispositions](../../docs/research/proposed-roadmap-2026-10-04.md); reconcile with the pilot map when planning resumes |
+| 2026-10-06 | The owner (frontend session) | "Atlas's job is to help with finding bottlenecks: come up with a thesis and then provide evidence for the thesis. The website is where we present this. We want this as automated as we can with LLMs on the Atlas side; on the frontend we present findings to an end user who wants to understand and consume the thesis." On the Company dossier as built: "a nightmare to navigate and understand"; the end user looks for the direction the research found and the evidence for Atlas's assessment, not raw data. The glossary's term stays: a Hypothesis, headed by its Thesis Statement. | Solution item 7; User Stories (the reader); open question: how much of the publish gate stays manual; the reader page is prototyped in `.scratch/atlas-frontend/` (ticket 08) as this spec's design input |
 
 ## Problem Statement
 
@@ -29,6 +30,8 @@ For one bottleneck, Atlas produces a short, defensible answer to: **what must be
 5. **Disconfirmation per step,** on the same companies and horizon as the support: new entrants, qualification progress, substitutes, inventory, cancellations, capacity additions; each step shows what was challenged, which sources were examined and what remains unchecked. (Codex 2, 5; Codex 1)
 6. **A prospective loop:** predictions with a measure, a deadline, an expected range and a source that settles them, operational first (capacity online, qualification, lead times, margins, financing); rejected Hypotheses recorded too. (Codex 2, 6; product spec §9)
 
+7. **The website presents the argument to a reader** who wants to understand and consume the thesis: the Thesis Statement first, then the steps with their status, evidence and counterevidence, records one click deeper; producing it is automated on Atlas's side as far as possible. Open question for this effort: how much of the publish gate (the owner's approval of every edge a version rests on) stays manual. (The owner, 2026-10-06)
+
 The steps of the argument (Codex 2, 1; the Serenity method's bottleneck test, `docs/research/serenity-skills-alignment.md` on its branch, M1 to M6):
 - what is constrained, in what units, over what period;
 - the evidence that demand exceeds qualified supply;
@@ -39,7 +42,8 @@ The steps of the argument (Codex 2, 1; the Serenity method's bottleneck test, `d
 
 ## User Stories
 
-To be written by `/to-spec` after the verdict, from the workflow the verdict names.
+To be written by `/to-spec` after the verdict, from the workflow the verdict names. One is given already (the owner, 2026-10-06):
+- As a reader of Atlas's research, I want to open a Hypothesis and understand its thesis, the argument's steps with the evidence and counterevidence behind each, and how sure Atlas is, without reading raw records, so that I can judge the thesis myself. The records (spans, sources, memory) are one click deeper, never the first thing shown. **Design input:** the reader page the owner chose on 2026-10-06, `.scratch/atlas-frontend/issues/08-hypothesis-reader-prototype.md` (variant A, the argument as rows; code on the branch `prototype/thesis-reader`), with what the data must give it. **Exposures:** after the argument, the page shows who is positioned: each Exposure (`CONTEXT.md`) tested on the Serenity method's six company tests, evidence for, against or unknown, ordered by an evidence count that is not a rating, and a closing line naming tests no company has evidence for (`.scratch/atlas-frontend/issues/11-who-is-positioned.md`). This is item 4 (economic capture) as a reader sees it. **Review state for a reader** (the owner asked, 2026-10-06, who "Awaiting review" waits on: the lead's review loop, not the owner): the reader page should say "Not yet verified" rather than name a queue, and whether that review stays manual is the publish-gate question above.
 
 ## Implementation Decisions
 

@@ -64,6 +64,10 @@ _Avoid_: Candidate (a Candidate is under investigation), universe company, exter
 A versioned, falsifiable research object: statement, mechanism, predictions, catalysts, falsifiers and alternative explanations. A published version is immutable; a correction is a new version.
 _Avoid_: Thesis (as a standalone noun), idea, call
 
+**Exposure**:
+A company's position relative to a Hypothesis's Bottleneck (it holds the scarce capacity, supplies it, or depends on it), with the Evidence of how well it can capture the scarcity: whether second sources or qualified substitutes exist, whether customers have qualified it, pricing power rather than volume, its share of the downstream bill of materials, and its financing (dilution counts against it). A Hypothesis lists its Exposures; each is shown as evidence per test, never as a rating or a recommendation.
+_Avoid_: Pick, beneficiary, play, conviction
+
 **Thesis Statement**:
 The one-sentence claim at the head of a Hypothesis. It is a field of a Hypothesis, not a separate object.
 _Avoid_: Thesis

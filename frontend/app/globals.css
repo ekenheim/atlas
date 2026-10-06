@@ -1,23 +1,41 @@
-/* Plain, readable defaults; no design system. */
+/* One dark theme, no toggle: every colour is a token here. */
 :root {
-  color-scheme: light dark;
+  --bg: #0e1014;
+  --surface: #161920;
+  --raise: #1c2029;
+  --text: #d9dde3;
+  --muted: #8a93a3;
+  --line: #262b35;
+  --edge: #6b7587; /* a control's border: 3:1 against the surfaces */
+  --accent: #9db7e8; /* links, the in-memory bar, focus */
+  --ok: #5fbf8a;
+  --warn: #e3a94b;
+  --gap: #f2685c;
+  --focus: var(--accent);
+  color-scheme: dark;
   font-family: system-ui, sans-serif;
   line-height: 1.5;
 }
 
 body {
+  background: var(--bg);
+  color: var(--text);
   margin: 0 auto;
   max-width: 72rem;
   padding: 0 1rem 3rem;
 }
 
+a {
+  color: var(--accent);
+}
+
 header {
-  border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-bottom: 1px solid var(--line);
   padding: 0.75rem 0;
 }
 
 :focus-visible {
-  outline: 3px solid Highlight;
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -31,9 +49,14 @@ header {
   top: 0.5rem;
 }
 
+/* Tables as on the Memory page: separate borders, surface cells, a raised muted header. */
 table {
-  border-collapse: collapse;
+  border: 1px solid var(--line);
+  border-collapse: separate;
+  border-radius: 8px;
+  border-spacing: 0;
   margin: 0.5rem 0 1.5rem;
+  overflow: hidden;
   width: 100%;
 }
 
@@ -45,10 +68,19 @@ caption {
 
 th,
 td {
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: var(--surface);
+  border: 0;
+  border-top: 1px solid var(--line);
   padding: 0.3rem 0.5rem;
   text-align: left;
   vertical-align: top;
+}
+
+thead th {
+  background: var(--raise);
+  border-top: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 th[scope="row"] {
@@ -60,6 +92,49 @@ td {
   overflow-wrap: anywhere;
 }
 
+input,
+select,
+textarea,
+button {
+  background: var(--raise);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  padding: 0.2rem 0.4rem;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+button {
+  cursor: pointer;
+  padding: 0.2rem 0.7rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled) {
+    background: var(--line);
+  }
+}
+
+button:disabled {
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: default;
+}
+
+::placeholder {
+  color: var(--muted);
+}
+
 .ident,
 time {
   font-family: ui-monospace, monospace;
@@ -67,7 +142,7 @@ time {
 }
 
 .muted {
-  opacity: 0.7;
+  color: var(--muted);
   font-style: italic;
 }
 
@@ -81,7 +156,9 @@ ol.pages {
 }
 
 pre.document {
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   max-height: 70vh;
   overflow: auto;
   padding: 0.75rem;
@@ -94,7 +171,7 @@ pre.document {
 }
 
 blockquote.quote {
-  border-left: 3px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-left: 3px solid var(--edge);
   margin: 0.5rem 0;
   padding: 0.25rem 0.75rem;
 }
@@ -122,8 +199,8 @@ td .field {
 }
 
 .muted-small {
+  color: var(--muted);
   font-size: 0.9em;
-  opacity: 0.8;
 }
 
 .crumbs {
@@ -132,7 +209,9 @@ td .field {
 
 /* An Assertion's span, highlighted in the parsed text (an edge's Evidence links to it). */
 mark.span {
-  outline: 2px solid currentColor;
+  background: color-mix(in srgb, var(--warn) 30%, transparent);
+  color: var(--text);
+  outline: 2px solid var(--warn);
   scroll-margin: 4rem;
 }
 
@@ -145,6 +224,8 @@ ul.choices {
 }
 
 fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
   margin: 0.5rem 0 1rem;
 }
 
@@ -166,4 +247,625 @@ button.sort {
   font-weight: 700;
   padding: 0;
   text-align: left;
+}
+
+button.sort:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+
+/* The Memory page: figures, open items, the company table and the version-state bar. */
+.mem-figures {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 1.5rem;
+  overflow: hidden;
+}
+
+.mem-figure {
+  background: var(--surface);
+  flex: 1 1 10rem;
+  padding: 0.6rem 0.9rem;
+}
+
+.mem-label,
+.mem-sub {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.mem-value {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.mem-value.gap,
+.mem-tag.gap {
+  color: var(--gap);
+}
+
+.mem-value.warn,
+.mem-tag.warn {
+  color: var(--warn);
+}
+
+.mem-open {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.mem-open li {
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
+  padding: 0.35rem 0;
+}
+
+.mem-dot {
+  background: var(--muted);
+  border-radius: 50%;
+  flex: none;
+  height: 0.55rem;
+  width: 0.55rem;
+}
+
+.mem-dot.gap {
+  background: var(--gap);
+}
+
+.mem-dot.warn {
+  background: var(--warn);
+}
+
+.mem-tag {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.mem-detail,
+.mem-of {
+  color: var(--muted);
+}
+
+.mem-head {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.mem-sort {
+  display: inline-flex;
+}
+
+.mem-sort button {
+  border-radius: 0;
+}
+
+.mem-sort button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.mem-sort button:last-child {
+  border-left: 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.mem-sort button[aria-pressed="true"] {
+  background: var(--line);
+  color: var(--accent);
+}
+
+.mem-scroll {
+  overflow-x: auto;
+}
+
+.mem-scroll table {
+  min-width: 44rem;
+}
+
+.mem-scroll .num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mem-row {
+  cursor: pointer;
+}
+
+.mem-row th,
+.mem-row td {
+  vertical-align: middle;
+}
+
+.mem-scroll td.num,
+.mem-depth .num,
+.mem-tag {
+  white-space: nowrap;
+}
+
+.mem-row th[scope="row"] {
+  min-width: 9rem;
+  white-space: nowrap;
+}
+
+/* On a phone a long name wraps rather than widening the sticky column. */
+@media (max-width: 52rem) {
+  .mem-row th[scope="row"] {
+    white-space: normal;
+  }
+}
+
+.mem-scroll th:first-child {
+  left: 0;
+  position: sticky;
+  z-index: 1;
+}
+
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mem-row:hover th,
+  .mem-row:hover td {
+    background: var(--raise);
+  }
+}
+
+.mem-toggle {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  margin-right: 0.25rem;
+  min-height: 1.75rem;
+  min-width: 1.75rem;
+  padding: 0;
+}
+
+.mem-expand td {
+  animation: mem-fade 150ms ease-out;
+  background: var(--raise);
+  color: var(--muted);
+}
+
+@keyframes mem-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mem-expand td {
+    animation: none;
+  }
+}
+
+.mem-depth {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mem-depth > span:first-child {
+  background: var(--edge);
+  border-radius: 2px;
+  display: inline-block;
+  flex: none;
+  height: 0.5rem;
+}
+
+/* The count first, right-aligned in a fixed width, so the bar starts at one edge for every row. */
+.mem-depth .num {
+  min-width: 4.5rem;
+  order: -1;
+}
+
+.mem-foot {
+  color: var(--muted);
+  margin-top: 1rem;
+}
+
+.vbar {
+  background: var(--line);
+  border-radius: 2px;
+  display: flex;
+  height: 0.6rem;
+  min-width: 6rem;
+  overflow: hidden;
+}
+
+.vbar > span {
+  min-width: 3px;
+}
+
+.vbar-none {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--gap);
+}
+
+/* The one colour on a healthy state: the bar's bulk, accent rather than a signal colour. */
+.vseg-in_memory {
+  background: var(--accent);
+}
+
+.vseg-in_flight {
+  background: var(--edge);
+}
+
+.vseg-retired {
+  background: repeating-linear-gradient(45deg, var(--edge) 0 2px, transparent 2px 4px);
+}
+
+.vseg-all_skipped {
+  background: var(--muted);
+  opacity: 0.45;
+}
+
+.vseg-gap {
+  background: var(--gap);
+}
+
+.vlegend {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  gap: 0.25rem 1rem;
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.vswatch {
+  border-radius: 2px;
+  display: inline-block;
+  height: 0.6rem;
+  margin-right: 0.35rem;
+  width: 1rem;
+}
+
+.ph {
+  background: var(--line);
+  border-radius: 3px;
+  display: block;
+  height: 0.8rem;
+}
+
+.ph-label {
+  width: 50%;
+}
+
+.ph-value {
+  height: 1.5rem;
+  margin: 0.3rem 0;
+  width: 35%;
+}
+
+.ph-sub {
+  width: 70%;
+}
+
+/* Site nav: the reader's items first, the Operations group after it, smaller and muted. */
+nav[aria-label="Site"] {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 2rem;
+}
+
+nav[aria-label="Site"] ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-reader {
+  font-weight: 600;
+}
+
+nav[aria-label="Site"] .nav-ops {
+  border-left: 1px solid var(--line);
+  font-size: 0.85rem;
+  padding-left: 1.25rem;
+}
+
+.nav-ops a {
+  color: var(--muted);
+}
+
+@media (max-width: 40rem) {
+  nav[aria-label="Site"] .nav-ops {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
+
+/* The reader's visual language (ticket 08): a calm, spacious single column. */
+
+/* A single column about 52rem wide, centred; wraps a reader page. */
+.reader {
+  margin: 0 auto;
+  max-width: 52rem;
+  padding-bottom: 4rem;
+}
+
+/* Small uppercase line above a headline: what kind of page or thing this is. */
+.reader-kicker {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* The page's headline: the conclusion, large. */
+.reader-headline {
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  margin: 0.5rem 0 0.9rem;
+  text-wrap: balance;
+}
+
+/* A line of muted facts under the headline (dates, counts), wrapping on a phone. */
+.reader-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  gap: 0.4rem 1.25rem;
+}
+
+/* A section label: uppercase, small, muted. */
+.reader-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin: 2rem 0 0.75rem;
+  text-transform: uppercase;
+}
+
+/* A status pill: outlined, coloured by one of the state classes below. */
+.reader-pill {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.05rem 0.55rem;
+  white-space: nowrap;
+}
+
+/* Pill states: supported (green), disputed or in review (amber), unknown (grey). */
+.reader-supported {
+  color: var(--ok);
+}
+.reader-disputed,
+.reader-review {
+  color: var(--warn);
+}
+.reader-unknown {
+  color: var(--muted);
+}
+
+/* A bordered list of rows on the surface colour, one row per li. */
+.reader-rows {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.reader-rows > li {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.reader-rows > li:first-child {
+  border-top: 0;
+}
+
+/* A row's layout: main text and a muted line on the left, a pill on the right; stacks on a phone. */
+.reader-row {
+  align-items: center;
+  display: grid;
+  gap: 0.25rem 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0.85rem 1rem;
+}
+
+/* On a phone the pill is a grid item: keep it its own width, not the row's. */
+.reader-row > .reader-pill {
+  justify-self: start;
+}
+
+@media (max-width: 40rem) {
+  .reader-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A row's title, and the muted line under it. */
+.reader-row-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.reader-row-sub {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* A quote card: the words, then who · source · date · Source link in the figcaption. */
+.reader-quote {
+  background: var(--bg);
+  border-left: 3px solid var(--ok);
+  border-radius: 6px;
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+}
+
+/* A quote card for evidence against: amber edge. */
+.reader-quote.reader-against {
+  border-left-color: var(--warn);
+}
+
+.reader-quote blockquote {
+  border: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+.reader-quote blockquote::before {
+  content: "\201C";
+}
+.reader-quote blockquote::after {
+  content: "\201D";
+}
+
+.reader-quote figcaption {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.35rem;
+}
+
+/* The last line of a reader page: records one click deeper, muted. */
+.reader-records {
+  border-top: 1px solid var(--line);
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+}
+.reader-records > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.reader-records > summary span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+  margin-left: 0.5rem;
+}
+.records-title {
+  display: inline;
+  font-size: inherit;
+  margin: 0;
+}
+
+/* The dossier's findings: a group heading, then a row per finding that opens its quote. */
+.finding-group h3 {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+/* A finding's line: the sentence and its review pill, the whole row a button. */
+.finding-line {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 1rem;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.finding-line > span:first-child {
+  overflow-wrap: anywhere;
+}
+.finding-line:focus-visible {
+  outline-offset: -3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .finding-line:hover {
+    background: var(--raise);
+  }
+}
+
+.finding-quote {
+  padding: 0 1rem 0.25rem;
+}
+
+/* The dossier's Records body: wide tables scroll inside it, not the page. */
+.records-body {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+/* Filter chips with a count, one pressed. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.chips button {
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+}
+
+.chips button span {
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+
+.chips button[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+
+/* The dossier's Memory strip: the version bar, counts and status on one wrapping line. */
+.mem-strip {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+}
+
+.mem-strip .vbar {
+  width: 12rem;
+}
+
+/* The version page's Memory line. */
+.mem-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.mem-line button {
+  margin: 0;
 }

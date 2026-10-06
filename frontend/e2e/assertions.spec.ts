@@ -40,7 +40,9 @@ function sha256(data: string): string {
 /** Open version 1 of Lumentum's Q4 FY26 press release by clicking through the viewer. */
 async function openPressRelease(page: Page): Promise<Locator> {
   await page.goto("/");
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Companies" }).click();
   await page.getByRole("link", { name: "Lumentum" }).click();
+  await page.locator("summary", { hasText: "Records" }).click();
   await page
     .getByRole("row")
     .filter({ hasText: ACCESSION_8K })
