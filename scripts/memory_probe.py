@@ -25,7 +25,17 @@ from typing import Any
 import httpx2
 
 from atlas.companies import load_universe
-from atlas.research.probes import ProbeConfigError, ProbeRecall, load_probes, report, summary
+from atlas.research.probes import (
+    DEFAULT_WINDOW_DAYS,
+    ProbeConfigError,
+    ProbeRecall,
+    balance,
+    balance_summary,
+    load_probes,
+    pointed_versions,
+    report,
+    summary,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 PAUSE_SECONDS = 0.2  # between recalls: the API and Hindsight are shared
@@ -41,6 +51,7 @@ def main() -> int:
         return 2
     client = httpx2.Client(base_url=args.base_url.rstrip("/") + "/api/v1", timeout=120.0)
     names = _company_names(client)
+    researched = _company_names(client, role="researched")
     answers: list[tuple[ProbeRecall, dict[str, Any] | str]] = []
     for recall in probes.recalls():
         time.sleep(PAUSE_SECONDS)
@@ -52,6 +63,14 @@ def main() -> int:
             answers.append((recall, f"HTTP {response.status_code}: {response.text[:300]}"))
         print(f"{recall.probe_id} {recall.kind} {recall.index}: HTTP {response.status_code}")
     probe_report = report(answers, names)
+    good = [answer for _, answer in answers if not isinstance(answer, str)]
+    bank_balance = balance(
+        good,
+        researched,
+        _availability(client, pointed_versions(good)),
+        now=datetime.now(UTC),
+        window_days=args.window_days,
+    )
     out = Path(args.out) if args.out else _default_out()
     out.mkdir(parents=True, exist_ok=True)
     results = {
@@ -60,6 +79,7 @@ def main() -> int:
         "probe_set_version": probes.version,
         "run_at": datetime.now(UTC).isoformat(),
         "report": probe_report.model_dump(mode="json"),
+        "balance": bank_balance.model_dump(mode="json"),
         "answers": [
             {"recall": recall.model_dump(mode="json"), "answer": answer}
             for recall, answer in answers
@@ -70,16 +90,31 @@ def main() -> int:
         f"# Memory probe, {results['run_at']}\n\n"
         f"Against {args.base_url}, probe set version {probes.version}.\n\n"
     )
-    (out / "summary.md").write_text(header + summary(probe_report), encoding="utf-8")
+    (out / "summary.md").write_text(
+        header + balance_summary(bank_balance) + "\n" + summary(probe_report), encoding="utf-8"
+    )
     print(f"report: {out}")
     return 1 if any(row.error for row in probe_report.results) else 0
 
 
-def _company_names(client: httpx2.Client) -> dict[str, str]:
+def _availability(client: httpx2.Client, version_ids: list[str]) -> dict[str, datetime]:
+    """Each pointed Source Version's `available_at`, one GET each (once per version)."""
+    found: dict[str, datetime] = {}
+    for version_id in version_ids:
+        response = client.get(f"/source-versions/{version_id}")
+        if response.is_success:
+            found[version_id] = datetime.fromisoformat(response.json()["available_at"])
+    return found
+
+
+def _company_names(client: httpx2.Client, role: str | None = None) -> dict[str, str]:
     names: dict[str, str] = {}
     offset = 0
     while True:
-        response = client.get("/companies", params={"limit": PAGE, "offset": offset})
+        params: dict[str, str | int] = {"limit": PAGE, "offset": offset}
+        if role:
+            params["role"] = role
+        response = client.get("/companies", params=params)
         response.raise_for_status()
         page = response.json()
         names.update({item["id"]: item["slug"] for item in page["items"]})
@@ -100,6 +135,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument(
         "--themes", default=str(REPO / "configs" / "themes" / "ai-infrastructure.yaml")
     )
+    parser.add_argument("--window-days", type=int, default=DEFAULT_WINDOW_DAYS)
     parser.add_argument("--out")
     return parser.parse_args()
 
