@@ -1,7 +1,7 @@
 # Build the Memory & coverage page
 
 Type: build
-Status: open
+Status: claimed
 Blocked by: 01, 02, 07
 
 ## Question

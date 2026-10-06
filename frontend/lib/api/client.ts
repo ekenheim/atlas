@@ -32,6 +32,12 @@ export type ThemeCompany = Schemas["ThemeCompany"];
 export type Bottlenecks = Schemas["Bottlenecks"];
 export type Candidate = Schemas["Candidate"];
 export type CompanyDossier = Schemas["CompanyDossier"];
+export type MemoryHealth = Schemas["MemoryHealth"];
+export type CompanySections = Schemas["CompanySections"];
+export type SectionCounts = Schemas["SectionCounts"];
+export type VersionCounts = Schemas["VersionCounts"];
+export type ConsolidationRun = Schemas["ConsolidationRun"];
+export type ReconciliationSummary = Schemas["ReconciliationSummary"];
 export type FinancialFigure = Schemas["FinancialFigure"];
 export type EpistemicType = Assertion["epistemic_type"];
 export type Investigation = Schemas["Investigation"];
@@ -175,6 +181,9 @@ export const api = {
   /** A company's dossier: identity, reviews, themes, sources, edges, financials as of now. */
   dossier: (id: string) =>
     get("/api/v1/companies/{company_id}/dossier", { path: { company_id: id }, query: {} }),
+  /** What the research bank holds and lacks; with a company, its own counts (the bank-wide blocks stay whole). */
+  memoryHealth: (companyId?: string) =>
+    get("/api/v1/memory/health", { query: companyId ? { company_id: companyId } : {} }),
   /** Every theme with its coverage. */
   themes: () => get("/api/v1/themes", {}),
   /** One theme's map: companies by layer, Relationships between them, Candidates, gaps. */
