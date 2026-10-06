@@ -16236,7 +16236,8 @@
               "failed",
               "zero_fact",
               "linked",
-              "cancelled"
+              "cancelled",
+              "retired"
             ],
             "title": "Retain State"
           },
@@ -23108,6 +23109,12 @@
             "title": "Linked",
             "default": 0
           },
+          "retired": {
+            "type": "integer",
+            "title": "Retired",
+            "description": "sections retired from Memory: their Source Version is before the intake window (pilot-review ticket 23)",
+            "default": 0
+          },
           "partial": {
             "type": "integer",
             "title": "Partial",
@@ -24028,7 +24035,8 @@
                 "failed",
                 "zero_fact",
                 "linked",
-                "cancelled"
+                "cancelled",
+                "retired"
               ]
             },
             "type": "object",
@@ -25450,6 +25458,7 @@
           "no_memory_id",
           "memory_not_found",
           "memory_replaced",
+          "memory_retired",
           "source_memory_not_found",
           "no_source_memories",
           "not_an_atlas_document",

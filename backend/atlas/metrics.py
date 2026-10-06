@@ -30,7 +30,7 @@ from atlas.retention.triage import LATEST_TRIAGE_JOBS
 
 # Final retain states of a section: they change again only by the owner's `retry-failed`
 # (failed and cancelled sections). `cancelled` is not a failure (memory-quality ticket 03).
-_FINAL_SECTION_STATES = ("completed", "zero_fact", "failed", "cancelled", "linked")
+_FINAL_SECTION_STATES = ("completed", "zero_fact", "failed", "cancelled", "linked", "retired")
 _FETCH_OUTCOMES = ("new_version", "unchanged", "not_modified")
 _CONSOLIDATION_OUTCOMES = (
     "completed",

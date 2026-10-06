@@ -143,6 +143,7 @@ def test_each_new_source_version_is_retained_section_by_section_and_tracked_to_c
         "zero_fact": 0,
         "linked": 0,
         "cancelled": 0,
+        "retired": 0,
     }
     assert memory["partial"] == 0
     assert memory["fact_count"] == RECORDED_FACT_COUNT * len(TEN_K_ANCHORS)

@@ -98,6 +98,11 @@ class SectionCounts(BaseModel):
     cancelled: int = Field(default=0, description="the operation was cancelled; not a failure")
     zero_fact: int = 0
     linked: int = 0
+    retired: int = Field(
+        default=0,
+        description="sections retired from Memory: their Source Version is before the intake"
+        " window (pilot-review ticket 23)",
+    )
     partial: int = Field(
         default=0,
         description="completed sections whose extraction reported errors after their one retry",

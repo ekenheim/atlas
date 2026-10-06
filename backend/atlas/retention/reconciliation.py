@@ -342,7 +342,9 @@ class Reconciliation:
             state: str = section["retain_state"]
             stuck = state == "pending" and section["stuck"]
             lost = state in ("failed", "cancelled") and not section["in_flight"]
-            if stuck or lost:
+            # A retired section's document should be gone: one still listed is a delete
+            # that did not take.
+            if stuck or lost or state == "retired":
                 found.add("document_unrecorded", document_id, detail=state)
 
     def _profiles(

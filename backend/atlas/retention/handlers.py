@@ -1,5 +1,5 @@
 """The retention job handlers: `retain`, `poll_operation`, `reprocess`, `memory_backfill`,
-`triage` and `triage_audit`."""
+`memory_retire`, `triage` and `triage_audit`."""
 
 import uuid
 from collections.abc import Callable, Generator
@@ -13,6 +13,7 @@ from atlas.jobs.queue import Artifacts, Job
 from atlas.jobs.resources import hindsight_resources, run_recorder
 from atlas.retention.audit import AUDIT_KIND, TriageAuditor
 from atlas.retention.backfill import BACKFILL_KIND, Backfill, BackfillPayload
+from atlas.retention.retire import RETIRE_KIND, Retire, RetirePayload
 from atlas.retention.service import (
     POLL_KIND,
     REPROCESS_KIND,
@@ -53,6 +54,11 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
                 Actor.from_settings(settings),
                 stuck_after_hours=settings.backfill_stuck_after_hours,
             ).run(payload, job)
+
+    def retire(job: Job) -> Artifacts:
+        payload = RetirePayload.model_validate(job.payload)
+        with hindsight_resources(settings) as (gateway, engine):
+            return Retire(engine, gateway, Actor.from_settings(settings)).run(payload, job)
 
     def triage(job: Job) -> Artifacts:
         payload = RetainPayload.model_validate(job.payload)
@@ -107,6 +113,7 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
         POLL_KIND: poll,
         REPROCESS_KIND: reprocess,
         BACKFILL_KIND: backfill,
+        RETIRE_KIND: retire,
         TRIAGE_KIND: triage,
         AUDIT_KIND: triage_audit,
     }

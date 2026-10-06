@@ -337,6 +337,79 @@ def run_memory_backfill(
     )
 
 
+def run_memory_retire(
+    settings: Settings,
+    before: str,
+    companies: list[str] | None,
+    max_sections: int | None,
+    key: str | None,
+) -> None:
+    """`atlas memory retire`: one `memory_retire` job per company with sections of Source
+    Versions available before `before`; `--max-sections 0` counts and deletes nothing."""
+    import json
+    import uuid
+    from datetime import UTC, datetime
+
+    from sqlalchemy import text
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.jobs import JobQueue
+    from atlas.retention.retire import enqueue_retirements
+
+    if not settings.hindsight_url:
+        print("atlas: retiring needs ATLAS_HINDSIGHT_URL", file=sys.stderr)
+        raise SystemExit(2)
+    try:
+        bound = datetime.fromisoformat(before)
+    except ValueError:
+        print(f"atlas: --before {before!r} is not an ISO date or time", file=sys.stderr)
+        raise SystemExit(2) from None
+    if bound.tzinfo is None:
+        bound = bound.replace(tzinfo=UTC)
+    if max_sections is not None and max_sections < 0:
+        print("atlas: --max-sections must be 0 or more", file=sys.stderr)
+        raise SystemExit(2)
+    engine = create_engine(settings)
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(text("SELECT id, slug FROM company ORDER BY slug"))
+                .mappings()
+                .all()
+            )
+        ids = {row["slug"]: row["id"] for row in rows}
+        slugs = list(dict.fromkeys(companies)) if companies else list(ids)
+        unknown = [slug for slug in slugs if slug not in ids]
+        if unknown:
+            print(f"atlas: no company {unknown[0]!r} (seed the universe first)", file=sys.stderr)
+            raise SystemExit(2)
+        run = key or f"retire:{uuid.uuid4()}"
+        plan = enqueue_retirements(
+            engine,
+            JobQueue(engine, actor=Actor.from_settings(settings)),
+            settings.hindsight_bank_id,
+            [ids[slug] for slug in slugs],
+            before=bound,
+            max_sections=max_sections,
+            run=run,
+        )
+    finally:
+        engine.dispose()
+    by_id = {str(value): slug for slug, value in ids.items()}
+    print(
+        json.dumps(
+            {
+                "run": run,
+                "before": bound.isoformat(),
+                "max_sections": max_sections,
+                "dry_count": max_sections == 0,
+                "companies": [{"company": by_id[p["company_id"]]} | p for p in plan],
+            }
+        )
+    )
+
+
 def _print_enqueued(enqueued: "Enqueued") -> None:
     import json
 
@@ -1291,6 +1364,22 @@ def main(argv: list[str] | None = None) -> None:
         "--max-sections", type=int, help="take at most N sections in this run (a rerun: the next)"
     )
     backfill.add_argument("--key", help="the run's key (default: a new run each time)")
+    retire = memory_commands.add_parser(
+        "retire",
+        help="retire the sections of Source Versions available before a date from the research"
+        " bank (delete each Hindsight document; the Source Versions stay in the ledger), then"
+        " consolidate; one job per company; --max-sections 0 only counts",
+    )
+    retire.add_argument("--before", required=True, help="ISO date or time (UTC when no offset)")
+    retire.add_argument(
+        "--company", action="append", dest="companies", help="a company slug (repeatable)"
+    )
+    retire.add_argument(
+        "--max-sections",
+        type=int,
+        help="retire at most N sections in this run (a rerun: the next); 0: count only",
+    )
+    retire.add_argument("--key", help="the run's key (default: a new run each time)")
     evaluate = commands.add_parser(
         "evaluate",
         help="run the gold evaluation cases and store the results (GET /api/v1/evaluations)",
@@ -1407,6 +1496,8 @@ def main(argv: list[str] | None = None) -> None:
         )
     elif args.command == "memory" and args.memory_command == "backfill":
         run_memory_backfill(settings, args.companies, args.theme, args.max_sections, args.key)
+    elif args.command == "memory" and args.memory_command == "retire":
+        run_memory_retire(settings, args.before, args.companies, args.max_sections, args.key)
     elif args.command == "memory":
         enqueue_consolidate(settings, args.key, backfill=args.backfill)
     else:
