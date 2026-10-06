@@ -68,6 +68,9 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
   const facts = [company.country, listing?.exchange_mic].filter((part) => part);
   const findings = companyFindings(dossier.relationships_out, dossier.relationships_in);
   const edgeCount = dossier.relationships_out.length + dossier.relationships_in.length;
+  // Records render only once opened: a company's financials alone can be ~15,000 nodes,
+  // which a closed <details> would still build on every visit.
+  const [recordsOpen, setRecordsOpen] = useState(false);
   return (
     <div className="reader">
       <header>
@@ -104,7 +107,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
         )}
       </section>
 
-      <details className="reader-records">
+      <details className="reader-records" onToggle={(event) => setRecordsOpen(event.currentTarget.open)}>
         <summary>
           <h2 className="records-title">Records</h2>{" "}
           <span>
@@ -112,7 +115,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
             {plural(dossier.source_total, "source")} · memory
           </span>
         </summary>
-        <div className="records-body">
+        {recordsOpen && (<div className="records-body">
           <MemoryStrip companyId={company.id} />
 
           <h3>Identity</h3>
@@ -298,7 +301,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
               </tbody>
             </table>
           )}
-        </div>
+        </div>)}
       </details>
     </div>
   );

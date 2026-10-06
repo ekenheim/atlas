@@ -45,6 +45,8 @@ Redrawn 2026-10-06 (the owner): **the website is where Atlas presents its Hypoth
 - [What a reader sees when opening a Hypothesis](issues/08-hypothesis-reader-prototype.md): variant A, the argument as rows: the Thesis Statement as headline, confidence and tally, six steps with status and for/against counts, each expanding to its quotes; open questions; records last. Linked from the bottleneck-argument spec as its design input; prototype on `prototype/thesis-reader`.
 - [What the dossier says first: what Atlas found about the company](issues/10-assessment-first-dossier-prototype.md): findings first (Atlas's one-line view, the Hypotheses it appears in, its Relationships as plain sentences with review state), records folded below; on `prototype/reader-dossier`.
 - [Who is positioned: the Exposures on the reader page](issues/11-who-is-positioned.md): the thesis is primary; after it, each exposed company tested six ways (the Serenity company test), evidence for/against/unknown, ordered by an evidence count that is not a rating, and the tests no company passes named; `CONTEXT.md` gains **Exposure**.
+- [The reader's way in: nav and the theme index](issues/09-reader-nav-and-theme-index.md): reader nav first, Operations apart; `/` lists each theme's research questions (a Hypothesis's Thesis Statement leads once one exists); Companies at `/companies/`.
+- [Build the dossier and version page additions](issues/05-build-dossier-and-version-additions.md): `/company/` findings first, records folded and rendered on opening; the version page's Memory section.
 
 ## Not yet specified
 
