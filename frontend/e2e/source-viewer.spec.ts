@@ -45,6 +45,7 @@ test("a Source Version shows its provenance and parsed text", async ({ page }) =
   expect(ACCEPTED_AT).toBeDefined();
 
   await page.goto("/");
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Companies" }).click();
   await page.getByRole("link", { name: "Lumentum" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
