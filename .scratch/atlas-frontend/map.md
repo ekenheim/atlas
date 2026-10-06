@@ -33,10 +33,12 @@ Three pages merged on main, green on `npm --prefix frontend run lint | typecheck
 ## Decisions so far
 
 - Charting grilling (2026-10-06): execution in the map; order Memory → dossier/source → landing; `/` becomes status-and-links and the Companies table moves to `/companies/`; tokens, no chart library; dossier gets a Memory block from `memory/health?company_id=`, a source-type filter, per-version memory only on the version page; API gaps ship as "not available yet".
+- [How fast memory/health and the dossier answer on production](issues/01-memory-health-latency-measured.md): health 0.65 s median (0.91 worst), so one request and a skeleton; the dossier's Memory block is its own parallel request (the dossier is 1 MB). Innolight's zero versions must show as a gap.
 
 ## Not yet specified
 
 - **The probe report on a page.** `scripts/memory_probe.py` writes to `.scratch/live-runs/` and no API serves it. A page needs an endpoint: an API gap for the lead's map, not for this one.
+- **The dossier's 1 MB payload.** `GET /companies/{id}/dossier` returns 963 KB of financials for Lumentum; a leaner read would be an API change, so it goes to the lead if the dossier ticket finds the page slow.
 - **Queue and budgets beyond the landing signal.** `GET /api/v1/queue` (pause, window, budgets, pending by kind) may deserve its own block on the Memory page or its own page once the landing page shows how often it is read.
 - **Reconciliation history and triage audits.** `GET /api/v1/memory/reconciliations` and `GET /api/v1/triage/audits` are stable; whether they belong on the Memory page or under it waits on ticket 02's layout.
 - **The e2e seed for Memory.** `scripts/e2e.py` seeds from the Lumentum fixtures with the Hindsight fake; whether it yields a meaningful `memory/health` (several companies, a gap, a retired section) or needs more seeding is found in ticket 03.
