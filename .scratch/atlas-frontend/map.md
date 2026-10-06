@@ -15,15 +15,16 @@ Three pages merged on main, green on `npm --prefix frontend run lint | typecheck
 - **This map carries execution.** Decision tickets (`prototype`, `task`) come first, then one `build` ticket per page.
 - **Branch:** `frontend/memory-coverage` (off main). Use the generated client (`frontend/lib/api/schema.ts`), never edited by hand; new calls go in `lib/api/client.ts`. Pure logic in `frontend/lib/*.ts` with unit tests in `frontend/unit/`; the page through the e2e.
 - **Audience and form:** the lead and the owner, checking Memory before a verdict run, at a desk. Desktop-first and dense (an ops console, not a landing page for strangers), readable at phone width with no horizontal scroll. The current pages' look is kept (Jakob's law within Atlas). No chart or animation library (Occam's razor): a CSS stacked bar per company carries the shape, the table the numbers.
-- **Colour:** a minimal token set in `globals.css` (`--ok`, `--warn`, `--gap`, `--muted`, light and dark). Colour is spent only on gaps and drift, so they stand out (Von Restorff); healthy is quiet.
+- **Colour:** all of Atlas in one dark theme, no toggle (the owner, 2026-10-06; ticket 07), tokens on `:root`. Colour is spent only on gaps (red) and warnings (amber), so they stand out (Von Restorff); healthy is quiet grey.
+- **Words and actions (the owner, 2026-10-06):** terse: labels, figures and a few words, no prose paragraphs. **Never a CLI command or runbook text on a page**: Atlas runs on k8s and the owner does not run commands from the web. A page says what is wrong and links to where to look; an action appears only where an API endpoint performs it.
 - **Skills each build ticket uses:** `emil-design-eng` (end with its Before/After review table), `break-ui` (a worst-case pass: zero companies, a 40-char name, 100k facts, every listing `unavailable`), `mobile-native` basics; `animate`/`review-animations` only for expand/collapse and state changes, honouring reduced motion (the default answer for a data tool is not to animate). `tdd` for the pure modules.
 - **UX checklist** (each build ticket records which law decided what):
   - **Hick / Miller:** at most 7 columns or signals in a view before a row expands; one primary action per block.
   - **Fitts / minimize target distance:** whole rows are links; filters sit beside what they filter.
   - **Proximity / similarity / uniform connectedness / Prägnanz:** a company's counts, bar and gap badge in one row; the same bar and state names everywhere (Memory page, dossier, landing); related counts in one bordered group.
-  - **Serial position / peak-end:** gaps first, the next step (the runbook command) last; the page ends on what to do.
+  - **Serial position / peak-end:** open items first; the page ends on a one-line verdict ("9 of 12 companies complete").
   - **Zeigarnik:** an explicit count of open gaps, so the unfinished stays visible.
-  - **Doherty:** first content under 400 ms; slow parts render as they arrive (ticket 01 measures).
+  - **Doherty:** first content under 400 ms; slow parts render as they arrive (ticket 01 measured: one request and a skeleton).
   - **Tesler:** the page computes shares, ages and totals; the reader never adds.
   - **Postel:** tolerate `unavailable` sub-blocks, nulls and unknown states; render what is there.
   - **Parkinson / Pareto:** each build ticket is one session; build the 20% that answers "is Memory complete and balanced?" first.
@@ -34,13 +35,15 @@ Three pages merged on main, green on `npm --prefix frontend run lint | typecheck
 
 - Charting grilling (2026-10-06): execution in the map; order Memory → dossier/source → landing; `/` becomes status-and-links and the Companies table moves to `/companies/`; tokens, no chart library; dossier gets a Memory block from `memory/health?company_id=`, a source-type filter, per-version memory only on the version page; API gaps ship as "not available yet".
 - [How fast memory/health and the dossier answer on production](issues/01-memory-health-latency-measured.md): health 0.65 s median (0.91 worst), so one request and a skeleton; the dossier's Memory block is its own parallel request (the dossier is 1 MB). Innolight's zero versions must show as a gap.
+- [What the Memory & coverage page shows and in what order](issues/02-memory-page-prototype.md): variant D, dark and terse: five figures, the open items, a 7-column company table with a Facts sort, a one-line footer; no commands. Prototype on `prototype/memory-page`.
 
 ## Not yet specified
 
 - **The probe report on a page.** `scripts/memory_probe.py` writes to `.scratch/live-runs/` and no API serves it. A page needs an endpoint: an API gap for the lead's map, not for this one.
 - **The dossier's 1 MB payload.** `GET /companies/{id}/dossier` returns 963 KB of financials for Lumentum; a leaner read would be an API change, so it goes to the lead if the dossier ticket finds the page slow.
 - **Queue and budgets beyond the landing signal.** `GET /api/v1/queue` (pause, window, budgets, pending by kind) may deserve its own block on the Memory page or its own page once the landing page shows how often it is read.
-- **Reconciliation history and triage audits.** `GET /api/v1/memory/reconciliations` and `GET /api/v1/triage/audits` are stable; whether they belong on the Memory page or under it waits on ticket 02's layout.
+- **Reconciliation history and triage audits.** `GET /api/v1/memory/reconciliations` and `GET /api/v1/triage/audits` are stable; ticket 02 left them off the Memory page. A page of their own if the lead reads them often.
+- **Entity split as a Memory-quality signal.** No company resolves to one entity in Memory (Coherent 48). The page shows it; whether it is a defect is the lead's, raised with the hand-off.
 - **The e2e seed for Memory.** `scripts/e2e.py` seeds from the Lumentum fixtures with the Hindsight fake; whether it yields a meaningful `memory/health` (several companies, a gap, a retired section) or needs more seeding is found in ticket 03.
 
 ## Out of scope
