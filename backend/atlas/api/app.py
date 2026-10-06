@@ -72,7 +72,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     Info("atlas_build", "Atlas build information", registry=registry).info(
         {"version": build_version}
     )
-    registry.register(StateCollector(engine, queue))
+    registry.register(StateCollector(engine, queue, settings.hindsight_bank_id))
 
     @app.get("/health/live")
     def live() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]

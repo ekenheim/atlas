@@ -2786,6 +2786,8 @@ export interface components {
             /** Role */
             role: string | null;
             sections: components["schemas"]["SectionCounts"];
+            /** @description the company's parsed, retainable Source Versions by what became of them (pilot-review ticket 22) */
+            versions?: components["schemas"]["VersionCounts"];
         };
         /** ConsolidationRecord */
         ConsolidationRecord: {
@@ -5102,6 +5104,8 @@ export interface components {
              */
             generated_at: string;
             sections: components["schemas"]["SectionCounts"];
+            /** @description the parsed, retainable Source Versions Memory should hold, by what became of them (pilot-review ticket 22): in memory, all skipped by triage, triage failed, in flight, or never submitted; samples of the last two. Sections alone show none of the gaps: a version nothing submitted has no section */
+            versions?: components["schemas"]["VersionCounts"];
             /** Companies */
             companies: components["schemas"]["CompanySections"][];
             /** Failed Groups */
@@ -6288,7 +6292,7 @@ export interface components {
             ended_at: string;
             /**
              * Samples
-             * @description up to 20 IDs per kind: Hindsight document IDs (section_missing, document_unrecorded, profile_mismatch), scopes' tags joined by commas (observation_scope_outside), setting names (config_drift), operation IDs or `run:<id>` (consolidation_untracked)
+             * @description up to 20 IDs per kind: Hindsight document IDs (section_missing, document_unrecorded, profile_mismatch), scopes' tags joined by commas (observation_scope_outside), setting names (config_drift), operation IDs or `run:<id>` (consolidation_untracked), `<version id>:<reason>` (version_not_in_memory)
              */
             samples: {
                 [key: string]: string[];
@@ -8453,6 +8457,57 @@ export interface components {
             valid_until: string | null;
         };
         /**
+         * VersionCounts
+         * @description The parsed, retainable Source Versions Memory should hold, by what became of them.
+         */
+        VersionCounts: {
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * In Memory
+             * @description the bank holds a memory document of it
+             * @default 0
+             */
+            in_memory: number;
+            /**
+             * All Skipped
+             * @description triage decided it and every effective decision is `skip`
+             * @default 0
+             */
+            all_skipped: number;
+            /**
+             * Triage Failed
+             * @description its latest triage job failed after its attempts
+             * @default 0
+             */
+            triage_failed: number;
+            /**
+             * In Flight
+             * @description a triage, retain, poll or reprocess of it is queued or running
+             * @default 0
+             */
+            in_flight: number;
+            /**
+             * Not Submitted
+             * @description none of these: nothing of it was offered to Memory
+             * @default 0
+             */
+            not_submitted: number;
+            /**
+             * Not Submitted Samples
+             * @description up to 20, newest first
+             */
+            not_submitted_samples?: components["schemas"]["VersionSample"][];
+            /**
+             * Triage Failed Samples
+             * @description up to 20, newest first
+             */
+            triage_failed_samples?: components["schemas"]["VersionSample"][];
+        };
+        /**
          * VersionCreate
          * @description A correction: the fields given replace the latest version's; the rest are kept.
          */
@@ -8504,6 +8559,21 @@ export interface components {
             draft_run_id: string | null;
             /** Editor Role Call Id */
             editor_role_call_id: string | null;
+        };
+        /** VersionSample */
+        VersionSample: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
         };
         /** XbrlSource */
         XbrlSource: {

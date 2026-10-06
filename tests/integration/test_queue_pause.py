@@ -91,6 +91,12 @@ RELAYED_SERVER_ERROR = EXTRACTION_FAILED + (
     " 'litellm.InternalServerError: MinimaxException - internal error', 'type': None,"
     " 'param': None, 'code': '500'}}"
 )
+RELAYED_OVERLOADED = EXTRACTION_FAILED + (
+    "APIError: litellm.APIError: MinimaxException - "
+    '{"type":"error","error":{"type":"overloaded_error","message":"The server cluster is'
+    " currently under high load. Please retry after a short wait and thank you for your"
+    ' patience. (2064)","http_code":"529"}}'
+)
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
 
 
@@ -255,8 +261,9 @@ def test_a_429_failed_operation_pauses_the_queue_then_resumes_and_resubmits(
         (RELAYED_RATE_LIMIT, "quota"),
         (RELAYED_NO_DEPLOYMENT, "unavailable"),
         (RELAYED_OUTAGE, "unavailable"),
+        (RELAYED_OVERLOADED, "unavailable"),
     ],
-    ids=["rate-limit", "no-healthy-deployments", "service-unavailable"],
+    ids=["rate-limit", "no-healthy-deployments", "service-unavailable", "overloaded"],
 )
 def test_a_routed_retain_whose_member_fails_pauses_the_queue_and_is_resubmitted(
     database_url: str,

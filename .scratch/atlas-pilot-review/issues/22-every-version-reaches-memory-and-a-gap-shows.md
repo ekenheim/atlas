@@ -1,7 +1,7 @@
 # Every parsed Source Version reaches Memory, and a gap shows
 
 Type: build + ops
-Status: open
+Status: code done; ops and live boxes open
 Blocked by: none
 Blocks: 05–08 (the verdict runs read the bank this fixes)
 
@@ -40,7 +40,7 @@ Then the API sweep again (`scratchpad/sweep.py`-style: every English parsed vers
 
 ## Done when
 
-- [ ] 529 / `overloaded_error` pauses the queue (tests above), released.
-- [ ] Memory health's `versions` block, the reconciliation kind, the metric and the alert, released.
+- [x] 529 / `overloaded_error` pauses the queue (tests above); to be released.
+- [x] Memory health's `versions` block, the reconciliation kind, the metric and the alert; to be released.
 - [ ] On production: 0 versions `not_submitted` or `triage_failed` (health, and the reconciliation `clean`).
 - [ ] The memory probe rerun; STMicro, Soitec and IQE's pointer weight recorded here before and after.

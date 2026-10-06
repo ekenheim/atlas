@@ -2,7 +2,8 @@
 
 **Failure classes.** A job attempt that fails because Hindsight or LiteLLM is out of quota
 (`quota`: HTTP 429, a rate-limit or insufficient-quota message) or out of service
-(`unavailable`: HTTP 502/503/504, a connection failure) says nothing about the job itself, so
+(`unavailable`: HTTP 502/503/504, 529 (the provider is overloaded: MiniMax's
+`overloaded_error`), a connection failure) says nothing about the job itself, so
 the job is requeued without using up an attempt and the queue **pauses**: the pausable job
 kinds (those that depend on Hindsight or LiteLLM) aren't claimed until the backoff has passed.
 Each pause entered since the last success doubles the backoff (60 s, 120 s, ... capped at
@@ -86,8 +87,8 @@ _QUOTA = re.compile(
 # error a retain routed to a failing chain member ends with (pilot-review ticket 18), and it
 # says nothing about the sections.
 _UNAVAILABLE = re.compile(
-    r"\b50[234]\b|service[ _-]?unavailable|bad gateway|gateway[ _-]?time-?out"
-    r"|connection (?:refused|reset|error|aborted)|APIConnectionError|\boverloaded\b"
+    r"\b(?:50[234]|529)\b|service[ _-]?unavailable|bad gateway|gateway[ _-]?time-?out"
+    r"|connection (?:refused|reset|error|aborted)|APIConnectionError|overloaded"
     r"|no healthy deployments|no deployments available",
     re.IGNORECASE,
 )
@@ -123,7 +124,7 @@ def is_transient_error_text(text: str | None) -> bool:
 def classify_status(status_code: int) -> FailureClass | None:
     if status_code == 429:
         return "quota"
-    if status_code in (502, 503, 504):
+    if status_code in (502, 503, 504, 529):
         return "unavailable"
     return None
 

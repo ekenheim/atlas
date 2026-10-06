@@ -27,6 +27,16 @@ again with the new context, tags and entities, giving the facts new IDs (recorde
   interactive reserve. Sections triage skipped are not
   in `memory_document` and stay skipped; a section retained on demand is one like any other.
   A permanently failed section a backfill already took is not taken again.
+- **Versions never retained** (pilot-review ticket 22; `atlas.retention.coverage`). Besides
+  the sections it takes the company's **gap** versions: parsed English Source Versions the
+  bank holds nothing of that nothing is retaining, newest first. A `not_submitted` one gets a
+  backfill-class `retain` (which triages first when triage is on); a `triage_failed` one its
+  triage again, as `atlas triage retry` does (`retry_failed_triage`). They are taken before
+  the sections, since a company with versions never offered to Memory is the larger gap;
+  `max_sections` bounds both: a gap version counts as the retain-decided sections it has once
+  triaged and as one before, and is taken whole, so the last may overshoot. The job's
+  artifacts count them (`versions_taken`, `version_retain_jobs`, `version_triage_jobs`,
+  `versions_left`).
 - **Done.** The job then follows itself with a `finish` step that waits (by enqueueing itself
   behind the retain and poll jobs) until none of the bank's retains is queued or running,
   and asks for a consolidation (`consolidate`, backfill class) when the company's sections
@@ -57,7 +67,9 @@ from atlas.hindsight import HindsightGateway, HindsightNotFound
 from atlas.jobs.queue import Artifacts, Enqueued, Job, JobQueue
 from atlas.retention.consolidation import enqueue_consolidation
 from atlas.retention.context import RETAIN_PROFILE
+from atlas.retention.coverage import VersionRow, gaps, version_states
 from atlas.retention.service import POLL_KIND, REPROCESS_KIND, RETAIN_KIND, retain_payload
+from atlas.retention.triage import TriageRetryRefused, retry_failed_triage
 
 BACKFILL_KIND = "memory_backfill"
 # Waiting passes of the finish step before a run gives up waiting (it ends `still_retaining`;
@@ -169,6 +181,37 @@ def remaining(
     )
 
 
+def gap_costs(connection: Connection, rows: Sequence[VersionRow]) -> dict[uuid.UUID, int]:
+    """What each gap version counts against `max_sections`: the sections triage decided to
+    retain once it has decided (a `not_submitted` version), else one."""
+    decided = {
+        row["source_version_id"]: int(row["sections"])
+        for row in connection.execute(
+            text(
+                "SELECT t.source_version_id, count(*) AS sections FROM triage_decision t"
+                " WHERE t.source_version_id = ANY(:ids) AND t.decision = 'retain'"
+                " AND NOT EXISTS (SELECT FROM triage_decision later"
+                "   WHERE later.source_version_id = t.source_version_id"
+                "   AND later.section_anchor = t.section_anchor AND later.seq > t.seq)"
+                " GROUP BY 1"
+            ),
+            {"ids": [row.source_version_id for row in rows]},
+        ).mappings()
+    }
+    return {
+        row.source_version_id: max(decided.get(row.source_version_id, 1), 1)
+        if row.state == "not_submitted"
+        else 1
+        for row in rows
+    }
+
+
+def gap_units(connection: Connection, bank_id: str, company_id: uuid.UUID) -> int:
+    """What the company's gap versions count against `max_sections` in all."""
+    rows = gaps(version_states(connection, bank_id, company_id))
+    return sum(gap_costs(connection, rows).values())
+
+
 def profile_counts(
     connection: Connection, bank_id: str, company_id: uuid.UUID, *, stuck_after_hours: float
 ) -> dict[str, JsonValue]:
@@ -233,7 +276,8 @@ def enqueue_backfills(
     """Enqueue one backfill job per company that has sections to bring up, in order
     (`order_companies`, unless `ordered` is false: the owner's own order). `max_sections`
     bounds the whole run: each company is allotted what is left of it, and a company that gets
-    nothing is left for the next run. Returns each company's plan."""
+    nothing is left for the next run. A company's work is its sections below the profile and
+    its gap versions (`gap_units`; `versions_below` in its plan). Returns each company's plan."""
     plan: list[dict[str, Any]] = []
     with engine.connect() as connection:
         companies = (
@@ -241,14 +285,18 @@ def enqueue_backfills(
         )
         budget = max_sections
         for company_id in companies:
-            left = remaining(connection, bank_id, company_id, stuck_after_hours=stuck_after_hours)
+            versions = gap_units(connection, bank_id, company_id)
+            left = versions + remaining(
+                connection, bank_id, company_id, stuck_after_hours=stuck_after_hours
+            )
             allotted = left if budget is None else min(left, budget)
             if budget is not None:
                 budget -= allotted
             plan.append(
                 {
                     "company_id": str(company_id),
-                    "sections_below": left,
+                    "sections_below": left - versions,
+                    "versions_below": versions,
                     "allotted": allotted,
                     "job": None,
                 }
@@ -317,6 +365,22 @@ class Backfill:
             )
             limit = None if payload.max_sections is None else max(payload.max_sections - already, 0)
             stuck_after = self._stuck_after_hours
+            # Versions Memory was never given come first; the sections get what is left.
+            gap_rows = (
+                []
+                if limit == 0
+                else gaps(version_states(connection, self.bank_id, payload.company_id))
+            )
+            costs = gap_costs(connection, gap_rows)
+            chosen: list[VersionRow] = []
+            spent = 0
+            for gap in gap_rows:
+                if limit is not None and spent >= limit:
+                    break
+                chosen.append(gap)
+                spent += costs[gap.source_version_id]
+            if limit is not None:
+                limit = max(limit - spent, 0)
             rows = (
                 []
                 if limit == 0
@@ -331,6 +395,7 @@ class Backfill:
             before = profile_counts(
                 connection, self.bank_id, payload.company_id, stuck_after_hours=stuck_after
             )
+        version_retains, version_triages = self._take_versions(chosen, payload.run)
         by_version: dict[uuid.UUID, list[RowMapping]] = {}
         for row in rows:
             by_version.setdefault(row["source_version_id"], []).append(row)
@@ -367,12 +432,17 @@ class Backfill:
             )
             left = remaining(
                 connection, self.bank_id, payload.company_id, stuck_after_hours=stuck_after
-            )
+            ) + gap_units(connection, self.bank_id, payload.company_id)
+            versions_left = len(gaps(version_states(connection, self.bank_id, payload.company_id)))
         return {
             "bank_id": self.bank_id,
             "company_id": str(payload.company_id),
             "run": payload.run,
             "step": "take",
+            "versions_taken": len(chosen),
+            "version_retain_jobs": version_retains,
+            "version_triage_jobs": version_triages,
+            "versions_left": versions_left,
             "sections_taken": len(rows),
             "taken_by_state": dict(sorted(by_state.items())),
             "documents_deleted": deleted,
@@ -384,6 +454,32 @@ class Backfill:
             "counts_after": after,
             "next_job": str(finish.job.id),
         }
+
+    def _take_versions(
+        self, chosen: Sequence[VersionRow], run: str
+    ) -> tuple[list[JsonValue], list[JsonValue]]:
+        """Offer the gap versions to Memory: a retain (backfill class) of each `not_submitted`
+        one, a new triage (`retry_failed_triage`) of each `triage_failed` one."""
+        retains: list[JsonValue] = []
+        triages: list[JsonValue] = []
+        for gap in chosen:
+            if gap.state == "not_submitted":
+                enqueued = self._queue.enqueue(
+                    RETAIN_KIND,
+                    f"retain:{gap.source_version_id}:backfill:{run}",
+                    retain_payload(gap.source_version_id),
+                    job_class="backfill",
+                )
+                retains.append(str(enqueued.job.id))
+                continue
+            try:
+                triages.extend(
+                    str(job.id)
+                    for job in retry_failed_triage(self._engine, self._actor, gap.source_version_id)
+                )
+            except TriageRetryRefused:
+                continue  # its triage was retried since it was listed
+        return retains, triages
 
     def _reset(self, connection: Connection, section: RowMapping, run: str) -> None:
         """The section is `pending` again, its replaced memories recorded, in one transaction."""

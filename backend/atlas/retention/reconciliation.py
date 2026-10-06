@@ -26,7 +26,12 @@ every difference:
    no `submitted` run of Atlas follows (a run follows its requested operation and every one
    created after it, as `atlas.retention.consolidation` counts rounds), or a `submitted` run
    whose last round has ended in Hindsight with no round of it still running.
-7. `usage` (report only, never drift, errors included): Hindsight's LLM calls of the bank
+7. `version_not_in_memory` (pilot-review ticket 22; `atlas.retention.coverage`): a parsed,
+   retainable Source Version (English; companyfacts excluded) the bank has no memory document
+   of, with no triage, retain, poll or reprocess of it in flight and not every section skipped
+   by triage: never submitted (`not_submitted`) or its triage failed after its attempts
+   (`triage_failed`). Sampled as `<version id>:<reason>`.
+8. `usage` (report only, never drift, errors included): Hindsight's LLM calls of the bank
    over its last day (`GET .../llm-requests/stats?period=1d`, one read per operation, retain,
    consolidation and reflect, and one for the total; the day buckets summed) with calls,
    errors and input, output and cached tokens, beside the units Atlas's budgets counted in the
@@ -63,6 +68,7 @@ from atlas.jobs.queue import Artifacts, Enqueued, Job, JobQueue
 from atlas.jobs.resources import hindsight_resources
 from atlas.retention.backfill import IN_FLIGHT, STUCK, stuck_params
 from atlas.retention.context import RETAIN_PROFILE
+from atlas.retention.coverage import gaps, version_states
 from atlas.settings import Settings
 
 RECONCILE_KIND = "reconcile_memory"
@@ -73,6 +79,7 @@ type DriftKind = Literal[
     "observation_scope_outside",
     "config_drift",
     "consolidation_untracked",
+    "version_not_in_memory",
 ]
 DRIFT_KINDS: tuple[DriftKind, ...] = (
     "section_missing",
@@ -81,6 +88,7 @@ DRIFT_KINDS: tuple[DriftKind, ...] = (
     "observation_scope_outside",
     "config_drift",
     "consolidation_untracked",
+    "version_not_in_memory",
 )
 type ReconciliationStatus = Literal["clean", "drift", "failed"]
 MAX_SAMPLES = 20
@@ -177,7 +185,7 @@ class ReconciliationRun(ReconciliationSummary):
         description="up to 20 IDs per kind: Hindsight document IDs (section_missing,"
         " document_unrecorded, profile_mismatch), scopes' tags joined by commas"
         " (observation_scope_outside), setting names (config_drift), operation IDs or"
-        " `run:<id>` (consolidation_untracked)"
+        " `run:<id>` (consolidation_untracked), `<version id>:<reason>` (version_not_in_memory)"
     )
     details: dict[str, dict[str, int]] = Field(
         description="a kind's count broken down (document_unrecorded by Atlas's state or"
@@ -295,12 +303,19 @@ class Reconciliation:
         with self._engine.connect() as connection:
             sections = _sections(connection, self.bank_id, self._stuck_after_hours)
             run = _submitted_run(connection, self.bank_id)
+            versions = gaps(version_states(connection, self.bank_id))
         self._missing(found, documents, sections)
         self._unrecorded(found, documents, sections)
         self._profiles(found, documents, sections)
         self._scopes(found)
         self._config(found, template)
         self._consolidations(found, run)
+        for gap in versions:
+            found.add(
+                "version_not_in_memory",
+                f"{gap.source_version_id}:{gap.state}",
+                detail=gap.state,
+            )
         return found
 
     def _documents(self) -> dict[str, ListedDocument]:
