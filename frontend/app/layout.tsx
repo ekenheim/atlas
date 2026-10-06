@@ -24,6 +24,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <span aria-hidden="true"> · </span>
             <Link href="/">Companies</Link>
             <span aria-hidden="true"> · </span>
+            <Link href="/memory/">Memory</Link>
+            <span aria-hidden="true"> · </span>
             <Link href="/relationships/">Relationships</Link>
             <span aria-hidden="true"> · </span>
             <Link href="/exceptions/">Exceptions queue</Link>
