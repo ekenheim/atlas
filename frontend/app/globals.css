@@ -11,7 +11,7 @@
   --ok: #5fbf8a;
   --warn: #e3a94b;
   --gap: #f2685c;
-  --focus: #9db7e8;
+  --focus: var(--accent);
   color-scheme: dark;
   font-family: system-ui, sans-serif;
   line-height: 1.5;
@@ -119,11 +119,14 @@ button {
   padding: 0.2rem 0.7rem;
 }
 
-button:hover:not(:disabled) {
-  background: var(--line);
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled) {
+    background: var(--line);
+  }
 }
 
 button:disabled {
+  border-color: var(--line);
   color: var(--muted);
   cursor: default;
 }
@@ -244,4 +247,9 @@ button.sort {
   font-weight: 700;
   padding: 0;
   text-align: left;
+}
+
+button.sort:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
 }
