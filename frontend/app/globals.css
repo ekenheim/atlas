@@ -559,3 +559,196 @@ button.sort:hover:not(:disabled) {
 .ph-sub {
   width: 70%;
 }
+
+/* Site nav: the reader's items first, the Operations group after it, smaller and muted. */
+nav[aria-label="Site"] {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 2rem;
+}
+
+nav[aria-label="Site"] ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-reader {
+  font-weight: 600;
+}
+
+.nav-ops {
+  border-left: 1px solid var(--line);
+  font-size: 0.85rem;
+  padding-left: 1.25rem !important;
+}
+
+.nav-ops a {
+  color: var(--muted);
+}
+
+@media (max-width: 40rem) {
+  .nav-ops {
+    border-left: 0;
+    padding-left: 0 !important;
+  }
+}
+
+/* The reader's visual language (ticket 08): a calm, spacious single column. */
+
+/* A single column about 52rem wide, centred; wraps a reader page. */
+.reader {
+  margin: 0 auto;
+  max-width: 52rem;
+  padding-bottom: 4rem;
+}
+
+/* Small uppercase line above a headline: what kind of page or thing this is. */
+.reader-kicker {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* The page's headline: the conclusion, large. */
+.reader-headline {
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  margin: 0.5rem 0 0.9rem;
+  text-wrap: balance;
+}
+
+/* A line of muted facts under the headline (dates, counts), wrapping on a phone. */
+.reader-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  gap: 0.4rem 1.25rem;
+}
+
+/* A section label: uppercase, small, muted. */
+.reader-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin: 2rem 0 0.75rem;
+  text-transform: uppercase;
+}
+
+/* A status pill: outlined, coloured by one of the state classes below. */
+.reader-pill {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.05rem 0.55rem;
+  white-space: nowrap;
+}
+
+/* Pill states: supported (green), disputed or in review (amber), unknown (grey). */
+.reader-supported {
+  color: var(--ok);
+}
+.reader-disputed,
+.reader-review {
+  color: var(--warn);
+}
+.reader-unknown {
+  color: var(--muted);
+}
+
+/* A bordered list of rows on the surface colour, one row per li. */
+.reader-rows {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.reader-rows > li {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.reader-rows > li:first-child {
+  border-top: 0;
+}
+
+/* A row's layout: main text and a muted line on the left, a pill on the right; stacks on a phone. */
+.reader-row {
+  align-items: center;
+  display: grid;
+  gap: 0.25rem 1rem;
+  grid-template-columns: 1fr auto;
+  padding: 0.85rem 1rem;
+}
+
+@media (max-width: 40rem) {
+  .reader-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A row's title, and the muted line under it. */
+.reader-row-title {
+  font-weight: 600;
+}
+.reader-row-sub {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* A quote card: the words, then who · source · date · Source link in the figcaption. */
+.reader-quote {
+  background: var(--bg);
+  border-left: 3px solid var(--ok);
+  border-radius: 6px;
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+}
+
+/* A quote card for evidence against: amber edge. */
+.reader-quote.reader-against {
+  border-left-color: var(--warn);
+}
+
+.reader-quote blockquote {
+  border: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+.reader-quote blockquote::before {
+  content: "\201C";
+}
+.reader-quote blockquote::after {
+  content: "\201D";
+}
+
+.reader-quote figcaption {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.35rem;
+}
+
+/* The last line of a reader page: records one click deeper, muted. */
+.reader-records {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+}

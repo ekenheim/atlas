@@ -2,7 +2,9 @@
 const withId = (page: string) => (id: string) => `/${page}/?id=${encodeURIComponent(id)}`;
 
 export const routes = {
-  companies: "/",
+  /** The reader's way in: each theme's research questions. */
+  home: "/",
+  companies: "/companies/",
   company: withId("company"),
   source: withId("source"),
   version: withId("version"),

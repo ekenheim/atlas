@@ -1,7 +1,7 @@
 # The reader's way in: nav and the theme index
 
 Type: build
-Status: open
+Status: claimed
 Blocked by: 08
 
 ## Question
