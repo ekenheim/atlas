@@ -17,14 +17,20 @@ export function VersionBar({
   scale?: number;
 }) {
   const segments = versionSegments(counts, scale);
-  const label = segments.map((s) => `${VERSION_STATE_NAMES[s.state]} ${formatCount(s.count)}`).join(", ");
+  const shown = segments.filter((s) => s.count > 0);
+  const label = shown.length
+    ? shown.map((s) => `${VERSION_STATE_NAMES[s.state]} ${formatCount(s.count)}`).join(", ")
+    : "No versions";
+  // No versions at all is a gap of its own, unless the bar is drawn to someone else's scale.
+  if (!shown.length && scale === undefined) return <span className="vbar vbar-none" role="img" aria-label={label} />;
+  const rest = 1 - segments.reduce((n, s) => n + s.share, 0);
+  // Flex, not width, so a rare segment keeps its minimum and the larger ones give way.
   return (
     <span className="vbar" role="img" aria-label={label}>
-      {segments.map((s) =>
-        s.count > 0 ? (
-          <span key={s.state} className={`vseg-${s.state}`} style={{ width: `${100 * s.share}%` }} />
-        ) : null,
-      )}
+      {shown.map((s) => (
+        <span key={s.state} className={`vseg-${s.state}`} style={{ flex: `${s.share} 0 0` }} />
+      ))}
+      {scale !== undefined && rest > 0 && <span style={{ flex: `${rest} 0 0` }} />}
     </span>
   );
 }

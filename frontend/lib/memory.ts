@@ -8,6 +8,7 @@ import type {
   SectionCounts,
   VersionCounts,
 } from "./api/client";
+import { routes } from "./routes";
 
 /** A company is thin when its facts are under this share of the median researched company's. */
 export const THIN_SHARE = 0.4;
@@ -36,7 +37,10 @@ export type CompanyRow = {
   failing: number;
   /** Entities Memory holds for it; null when the listing is unavailable. */
   entityCount: number | null;
-  mentionCount: number | null;
+  /** Facts per version in memory; null when none is. */
+  factsPerVersion: number | null;
+  /** Facts as a share of the largest company's, 0..1: the depth bar's scale. */
+  depth: number;
   status: CompanyStatus;
 };
 
@@ -69,7 +73,7 @@ function sectionsOf(s: Partial<SectionCounts> | null | undefined): SectionCounts
     at_profile: num(s?.at_profile),
     below_profile: num(s?.below_profile),
     stuck: num(s?.stuck),
-  } as SectionCounts;
+  };
 }
 
 /** The median of the positive values (the upper one of two); 0 for none. */
@@ -88,9 +92,12 @@ function researched(health: MemoryHealth): CompanySections[] {
 }
 
 function statusOf(v: Versions, s: SectionCounts, notInMemory: number, failing: number, median: number): CompanyStatus {
-  if (v.total === 0) return { severity: "gap", label: "Nothing ingested" };
+  if (v.total === 0)
+    return s.fact_count > 0
+      ? { severity: "warn", label: "No version in window" }
+      : { severity: "gap", label: "Nothing ingested" };
   if (notInMemory > 0) return { severity: "gap", label: `${notInMemory} not in memory` };
-  if (failing > 0) return { severity: "gap", label: `${failing} sections failing` };
+  if (failing > 0) return { severity: "gap", label: `${plural(failing, "section")} failing` };
   if (s.fact_count < THIN_SHARE * median) return { severity: "warn", label: "Thin" };
   return { severity: "ok", label: "Complete" };
 }
@@ -98,6 +105,7 @@ function statusOf(v: Versions, s: SectionCounts, notInMemory: number, failing: n
 /** The researched companies as table rows, in the response's order. */
 export function companyRows(health: MemoryHealth): CompanyRow[] {
   const median = medianFacts(health);
+  const maxFacts = Math.max(1, ...researched(health).map((c) => num(c.sections?.fact_count)));
   const listing = health.entities?.status === "ok" ? (health.entities.companies ?? []) : null;
   return researched(health).map((c, index) => {
     const versions = versionsOf(c.versions);
@@ -111,13 +119,14 @@ export function companyRows(health: MemoryHealth): CompanyRow[] {
       key: c.company_id ?? c.slug ?? `row-${index}`,
       slug: c.slug,
       name,
-      href: c.company_id ? `/company/?id=${encodeURIComponent(c.company_id)}` : null,
+      href: c.company_id ? routes.company(c.company_id) : null,
       versions,
       sections,
       notInMemory,
       failing,
       entityCount: listing ? entities.length : null,
-      mentionCount: listing ? entities.reduce((n, e) => n + e.mention_count, 0) : null,
+      factsPerVersion: versions.in_memory ? Math.round(sections.fact_count / versions.in_memory) : null,
+      depth: sections.fact_count / maxFacts,
       status: statusOf(versions, sections, notInMemory, failing, median),
     };
   });
@@ -127,6 +136,9 @@ export function companyRows(health: MemoryHealth): CompanyRow[] {
 export function formatCount(n: number): string {
   return n.toLocaleString("en-GB");
 }
+
+/** "1 section", "2 sections". */
+export const plural = (n: number, one: string, many = `${one}s`) => `${formatCount(n)} ${n === 1 ? one : many}`;
 
 /** How long before `now` (epoch ms) an ISO time was: "5 min", "38 h", "3 days". */
 export function formatAge(iso: string, now: number): string {
@@ -168,11 +180,17 @@ export function openItems(health: MemoryHealth, now: number): OpenItem[] {
   const items: OpenItem[] = [];
   for (const r of rows) {
     if (r.status.severity === "ok") continue;
+    // The status shows the first condition; the failing sections it hid go in the detail.
+    const hidden =
+      r.notInMemory > 0 && r.failing > 0 && r.versions.total > 0 ? `${plural(r.failing, "section")} failing` : "";
     items.push({
       severity: r.status.severity,
       what: r.name,
       status: r.status.label,
-      detail: r.status.label === "Thin" ? `${formatCount(r.sections.fact_count)} facts · median ${formatCount(median)}` : "",
+      detail:
+        r.status.label === "Thin"
+          ? `${formatCount(r.sections.fact_count)} facts · median ${formatCount(median)}`
+          : hidden,
       href: r.href,
     });
   }
@@ -182,13 +200,22 @@ export function openItems(health: MemoryHealth, now: number): OpenItem[] {
       severity: "warn",
       what: "Consolidation",
       status: `Running ${formatAge(run.requested_at, now)}`,
-      detail: `${run.rounds} rounds`,
+      detail: plural(run.rounds, "round"),
       href: null,
     });
   const rec = health.reconciliation;
   if (!rec) items.push({ severity: "warn", what: "Reconciliation", status: "Never reconciled", detail: "", href: null });
   else if (rec.status !== "clean")
-    items.push({ severity: "gap", what: "Reconciliation", status: rec.status, detail: "", href: null });
+    items.push({
+      severity: "gap",
+      what: "Reconciliation",
+      status: rec.status === "drift" ? "Drift" : rec.status === "failed" ? "Failed" : rec.status,
+      detail:
+        rec.status === "drift"
+          ? `${plural(Object.values(rec.counts).reduce((n, c) => n + c, 0), "difference")} · ${formatAge(rec.started_at, now)} ago`
+          : `${formatAge(rec.started_at, now)} ago`,
+      href: null,
+    });
   const split = rows
     .filter((r) => (r.entityCount ?? 0) > 1)
     .sort((a, b) => (b.entityCount ?? 0) - (a.entityCount ?? 0));
@@ -227,7 +254,7 @@ export function figures(health: MemoryHealth, now: number): Figures {
   return {
     open: { count: items.length, gaps: items.filter((i) => i.severity === "gap").length },
     inMemory: {
-      percent: inWindow === 0 ? null : Math.round((100 * v.in_memory) / inWindow),
+      percent: inWindow === 0 ? null : Math.floor((100 * v.in_memory) / inWindow),
       inMemory: v.in_memory,
       inWindow,
     },

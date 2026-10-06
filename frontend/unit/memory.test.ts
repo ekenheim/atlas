@@ -9,7 +9,9 @@ import {
   companyRows,
   figures,
   formatAge,
+  formatCount,
   openItems,
+  plural,
   sortRows,
   versionSegments,
 } from "../lib/memory";
@@ -54,7 +56,7 @@ test("production's twelve companies: Innolight has nothing, IQE and Soitec are t
   expect(by("soitec").status).toMatchObject({ severity: "warn", label: "Thin" });
   expect(rows.filter((r) => r.status.severity === "ok")).toHaveLength(9);
   expect(by("coherent").entityCount).toBe(48);
-  expect(by("coherent").mentionCount).toBe(15388);
+  expect(by("coherent").depth).toBeGreaterThan(0);
 });
 
 test("a counterparty is not a row", () => {
@@ -110,7 +112,7 @@ test("a company exactly at the thin line is not thin", () => {
 
 test("missing version fields count as 0 and a missing versions block as no versions", () => {
   const [row] = companyRows(
-    withCompanies([{ ...company("a", 10, {}), versions: undefined }]),
+    withCompanies([{ ...company("a", 0, {}), versions: undefined }]),
   );
   expect(row!.versions).toMatchObject({ total: 0, in_memory: 0, not_submitted: 0 });
   expect(row!.status.label).toBe("Nothing ingested");
@@ -198,7 +200,7 @@ test("a consolidation under 24 hours is not an item, and a finished one never is
 test("a reconciliation that found drift is a gap, and one never run a warning", () => {
   const drift = bank({ reconciliation: { ...sample.reconciliation!, status: "drift" } });
   expect(openItems(drift, NOW).map((i) => [i.severity, i.what, i.status])).toEqual([
-    ["gap", "Reconciliation", "drift"],
+    ["gap", "Reconciliation", "Drift"],
   ]);
   expect(openItems(bank({ reconciliation: null }), NOW).map((i) => [i.severity, i.status])).toEqual([
     ["warn", "Never reconciled"],
@@ -270,4 +272,51 @@ test("rows sort by status then facts, or by facts alone, without changing the in
   expect(sortRows(rows, "status").map((r) => r.slug).slice(0, 4)).toEqual(["innolight", "iqe", "soitec", "lumentum"]);
   expect(sortRows(rows, "facts").map((r) => r.slug).slice(0, 2)).toEqual(["lumentum", "coherent"]);
   expect(rows.map((r) => r.slug)).toEqual(before);
+});
+
+test("the largest company's depth is 1 and one at half its facts is 0.5", () => {
+  const rows = companyRows(
+    withCompanies([
+      company("a", 1000, { total: 2, in_memory: 2 }),
+      company("b", 500, { total: 2, in_memory: 2 }),
+      company("c", 0, { total: 0 }),
+    ]),
+  );
+  expect(rows.map((r) => r.depth)).toEqual([1, 0.5, 0]);
+  expect(rows[0]!.factsPerVersion).toBe(500);
+  expect(rows[2]!.factsPerVersion).toBeNull();
+});
+
+test("no version in the window but facts held is a warning, not nothing ingested", () => {
+  const rows = companyRows(withCompanies([company("a", 500, { total: 0 }), company("b", 0, { total: 0 })]));
+  expect(rows[0]!.status).toEqual({ severity: "warn", label: "No version in window" });
+  expect(rows[1]!.status).toEqual({ severity: "gap", label: "Nothing ingested" });
+});
+
+test("the share of versions in memory rounds down, so one missing never reads 100%", () => {
+  const pct = (in_memory: number, total: number) =>
+    figures(bank({ versions: { total, in_memory } }), NOW).inMemory.percent;
+  expect(pct(752, 753)).toBe(99);
+  expect(pct(0, 10)).toBe(0);
+});
+
+test("failing sections hidden by a versions gap show in the item's detail", () => {
+  const health = withCompanies([
+    company("a", 100, { total: 5, in_memory: 3, not_submitted: 2 }, { sections: sections(100, { failed: 4 }) }),
+  ]);
+  expect(openItems(health, NOW)[0]).toMatchObject({ status: "2 not in memory", detail: "4 sections failing" });
+});
+
+test("counts are singular at one and grouped past a thousand", () => {
+  expect(plural(1, "section")).toBe("1 section");
+  expect(plural(2, "section")).toBe("2 sections");
+  expect(formatCount(123456)).toBe("123,456");
+  const [row] = companyRows(
+    withCompanies([company("a", 100, { total: 1, in_memory: 1 }, { sections: sections(100, { failed: 1 }) })]),
+  );
+  expect(row!.status.label).toBe("1 section failing");
+});
+
+test("a bank with no consolidation block is idle", () => {
+  expect(figures(bank({ consolidation: null }), NOW).consolidation.running).toBe(false);
 });

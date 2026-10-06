@@ -37,7 +37,6 @@ export type CompanySections = Schemas["CompanySections"];
 export type SectionCounts = Schemas["SectionCounts"];
 export type VersionCounts = Schemas["VersionCounts"];
 export type ConsolidationRun = Schemas["ConsolidationRun"];
-export type ReconciliationSummary = Schemas["ReconciliationSummary"];
 export type FinancialFigure = Schemas["FinancialFigure"];
 export type EpistemicType = Assertion["epistemic_type"];
 export type Investigation = Schemas["Investigation"];

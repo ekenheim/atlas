@@ -3,8 +3,6 @@ const withId = (page: string) => (id: string) => `/${page}/?id=${encodeURICompon
 
 export const routes = {
   companies: "/",
-  /** What the research bank holds and lacks, per company. */
-  memory: "/memory/",
   company: withId("company"),
   source: withId("source"),
   version: withId("version"),

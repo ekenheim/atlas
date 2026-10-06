@@ -3459,3 +3459,12 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Ops before the release (0.4.5 commands):** `atlas triage retry --failed` (9 enqueued, 9 succeeded) and `atlas ingest --backfill --max-retains 100` for STMicro, AAOI and Marvell: 67, 17 and 5 retains enqueued, nothing fetched again (all `not_modified`), exactly the sweep's counts.
 - **Deploy:** home-ops PR https://github.com/ekenheim/home-ops-upgrade/pull/7265 (image bump only; no new setting). **The owner merges.**
 - **Next:** after the deploy, `atlas memory retire --before 2024-10-06 --company coherent --company lumentum` (count, then 50, then the rest; ticket 23), the consolidation that rebuilds the invalidated observations, then the memory probe's after-measure in ticket 22.
+
+## Frontend ticket 03: the Memory page
+
+- **Files:** `frontend/app/memory/page.tsx`, `frontend/lib/memory.ts` (derivations: rows, depth to scale, facts per version, open items, figures), `frontend/components/version-bar.tsx`, `frontend/app/globals.css`, `frontend/unit/memory.test.ts`, the Memory e2e.
+- **Review fixes:** the Facts bar is drawn to one scale (`depth`, 5 rem for the largest company); a company with facts but no version in the window is a warning, not "Nothing ingested"; the share in memory rounds down; the version bar sizes by flex with a 3 px minimum, and a company with no versions shows an outlined gap bar; the skeleton has the final heading, sort group and column heads; phone width keeps numbers whole and the Company column sticky; open items keep a second condition in their detail and name drift with its count; singular counts.
+- **UX laws that decided each block:** Von Restorff (the gap is the one red thing, even when rare), Doherty (the skeleton is the final layout), Tesler (arithmetic lives in the tested lib), Hick (one open list before the table).
+- **Recorded choice:** a reconciliation never run is amber, not red (nothing is known to be wrong); the in-memory segment is the accent colour, the one exception to "colour only for gaps and warnings".
+- **E2E seed:** the Memory e2e uses the workbench seed, which answers the map's "e2e seed for Memory" fog item.
+- **Checks:** `npm --prefix frontend run lint`, `typecheck`, `test` (76 passed) and `build` pass; the Playwright e2e was not re-run here.

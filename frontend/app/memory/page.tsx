@@ -11,12 +11,20 @@ import {
   formatAge,
   formatCount,
   openItems,
+  plural,
   sortRows,
 } from "../../lib/memory";
-import { routes } from "../../lib/routes";
 import { useApi } from "../../lib/use-api";
 
-const COLUMNS = 7;
+const HEADERS = [
+  { name: "Company", num: false },
+  { name: "Versions", num: false },
+  { name: "In memory", num: true },
+  { name: "Facts", num: false },
+  { name: "Retired", num: true },
+  { name: "Skipped", num: true },
+  { name: "Status", num: false },
+];
 
 const loadHealth = () => api.memoryHealth();
 
@@ -39,7 +47,8 @@ export default function MemoryPage() {
 /** The final layout in muted placeholders: the call takes about 0.65 s. */
 function Skeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading memory health">
+    <div aria-busy="true" role="status">
+      <span className="sr-only">Loading</span>
       <div className="mem-figures">
         {[0, 1, 2, 3, 4].map((i) => (
           <div key={i} className="mem-figure">
@@ -49,14 +58,19 @@ function Skeleton() {
           </div>
         ))}
       </div>
+      <div className="mem-head">
+        <h2>Companies</h2>
+        <SortToggle order="status" onChange={() => {}} disabled />
+      </div>
       <div className="mem-scroll">
         <table>
+          <ColumnHeads />
           <tbody>
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <tr key={i}>
-                {Array.from({ length: COLUMNS }, (_, c) => (
-                  <td key={c}>
-                    <span className="ph ph-cell" />
+                {HEADERS.map((h) => (
+                  <td key={h.name}>
+                    <span className="ph" />
                   </td>
                 ))}
               </tr>
@@ -64,6 +78,41 @@ function Skeleton() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function ColumnHeads() {
+  return (
+    <thead>
+      <tr>
+        {HEADERS.map((h) => (
+          <th key={h.name} scope="col" className={h.num ? "num" : undefined}>
+            {h.name}
+          </th>
+        ))}
+      </tr>
+    </thead>
+  );
+}
+
+function SortToggle({
+  order,
+  onChange,
+  disabled = false,
+}: {
+  order: "status" | "facts";
+  onChange: (order: "status" | "facts") => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mem-sort" role="group" aria-label="Sort companies">
+      <button type="button" disabled={disabled} aria-pressed={order === "status"} onClick={() => onChange("status")}>
+        Status
+      </button>
+      <button type="button" disabled={disabled} aria-pressed={order === "facts"} onClick={() => onChange("facts")}>
+        Facts
+      </button>
     </div>
   );
 }
@@ -76,7 +125,6 @@ function Health({ health }: { health: MemoryHealth }) {
   const fig = figures(health, now);
   const items = openItems(health, now);
   const rows = sortRows(companyRows(health), order);
-  const maxFacts = Math.max(1, ...rows.map((r) => r.sections.fact_count));
   const tone = (severity: string) => (severity === "ok" ? "" : severity);
 
   return (
@@ -86,7 +134,7 @@ function Health({ health }: { health: MemoryHealth }) {
           label="Open"
           value={String(fig.open.count)}
           tone={fig.open.gaps ? "gap" : fig.open.count ? "warn" : ""}
-          sub={`${fig.open.gaps} ${fig.open.gaps === 1 ? "gap" : "gaps"}`}
+          sub={plural(fig.open.gaps, "gap")}
         />
         <Figure
           label="Versions in memory"
@@ -106,7 +154,7 @@ function Health({ health }: { health: MemoryHealth }) {
           label="Consolidation"
           value={fig.consolidation.running ? (fig.consolidation.age ?? "") : "idle"}
           tone={tone(fig.consolidation.severity)}
-          sub={fig.consolidation.rounds === null ? "" : `${fig.consolidation.rounds} rounds`}
+          sub={fig.consolidation.rounds === null ? "" : plural(fig.consolidation.rounds, "round")}
         />
         <Figure
           label="Reconciliation"
@@ -120,8 +168,8 @@ function Health({ health }: { health: MemoryHealth }) {
         <section aria-labelledby="mem-open">
           <h2 id="mem-open">Open</h2>
           <ul className="mem-open">
-            {items.map((item) => (
-              <li key={`${item.what}:${item.status}`}>
+            {items.map((item, index) => (
+              <li key={`${item.href ?? item.what}:${item.status}:${index}`}>
                 <span className={`mem-dot ${item.severity}`} aria-hidden="true" />
                 <span className="mem-what">
                   {item.href ? <Link href={item.href}>{item.what}</Link> : item.what}
@@ -136,37 +184,14 @@ function Health({ health }: { health: MemoryHealth }) {
 
       <div className="mem-head">
         <h2>Companies</h2>
-        <div className="mem-sort" role="group" aria-label="Sort companies">
-          <button type="button" aria-pressed={order === "status"} onClick={() => setOrder("status")}>
-            Status
-          </button>
-          <button type="button" aria-pressed={order === "facts"} onClick={() => setOrder("facts")}>
-            Facts
-          </button>
-        </div>
+        {rows.length > 0 && <SortToggle order={order} onChange={setOrder} />}
       </div>
       {rows.length === 0 ? (
         <p className="muted">No companies.</p>
       ) : (
         <div className="mem-scroll">
           <table>
-            <thead>
-              <tr>
-                <th scope="col">Company</th>
-                <th scope="col">Versions</th>
-                <th scope="col" className="num">
-                  In memory
-                </th>
-                <th scope="col">Facts</th>
-                <th scope="col" className="num">
-                  Retired
-                </th>
-                <th scope="col" className="num">
-                  Skipped
-                </th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
+            <ColumnHeads />
             <tbody>
               {rows.map((r) => {
                 const open = expanded === r.key;
@@ -185,7 +210,7 @@ function Health({ health }: { health: MemoryHealth }) {
                           <span aria-hidden="true">{open ? "▾" : "▸"}</span>
                         </button>
                         {r.href ? (
-                          <Link href={routes.company(r.key)} onClick={(e) => e.stopPropagation()}>
+                          <Link href={r.href} onClick={(e) => e.stopPropagation()}>
                             {r.name}
                           </Link>
                         ) : (
@@ -201,7 +226,7 @@ function Health({ health }: { health: MemoryHealth }) {
                       </td>
                       <td>
                         <span className="mem-depth">
-                          <span style={{ width: `${(100 * r.sections.fact_count) / maxFacts}%` }} />
+                          <span style={{ width: `${5 * r.depth}rem` }} />
                           <span className="num">{formatCount(r.sections.fact_count)}</span>
                         </span>
                       </td>
@@ -213,19 +238,17 @@ function Health({ health }: { health: MemoryHealth }) {
                     </tr>
                     {open && (
                       <tr className="mem-expand" id={detailId}>
-                        <td colSpan={COLUMNS}>
+                        <td colSpan={HEADERS.length}>
                           Sections {formatCount(r.sections.total)} · zero-fact{" "}
                           {formatCount(r.sections.zero_fact)} · below profile{" "}
                           {formatCount(r.sections.below_profile)} · stuck {formatCount(r.sections.stuck)} ·
                           facts per version{" "}
-                          {r.versions.in_memory
-                            ? formatCount(Math.round(r.sections.fact_count / r.versions.in_memory))
-                            : "–"}{" "}
+                          {r.factsPerVersion === null ? "–" : formatCount(r.factsPerVersion)}{" "}
                           · entities {r.entityCount === null ? "unavailable" : formatCount(r.entityCount)}
                           {r.href && (
                             <>
                               {" · "}
-                              <Link href={routes.company(r.key)}>Dossier</Link>
+                              <Link href={r.href}>Dossier</Link>
                             </>
                           )}
                         </td>
@@ -238,7 +261,7 @@ function Health({ health }: { health: MemoryHealth }) {
           </table>
         </div>
       )}
-      <VersionLegend />
+      {rows.length > 0 && <VersionLegend />}
       <p className="mem-foot">
         {fig.complete.complete} of {fig.complete.total} companies complete
         {health.generated_at ? ` · checked ${formatAge(health.generated_at, now)} ago` : ""}
