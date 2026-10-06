@@ -44,3 +44,11 @@ Then the API sweep again (`scratchpad/sweep.py`-style: every English parsed vers
 - [ ] Memory health's `versions` block, the reconciliation kind, the metric and the alert, released.
 - [ ] On production: 0 versions `not_submitted` or `triage_failed` (health, and the reconciliation `clean`).
 - [ ] The memory probe rerun; STMicro, Soitec and IQE's pointer weight recorded here before and after.
+
+## Comments
+
+### 2026-10-06: the before-measure (production 0.4.5, read-only)
+
+Memory probe (25 recalls, probe set 1), companies by pointer weight: applied-optoelectronics 53.85 (352 pointers), lumentum 49.23 (340), coherent 31.43 (398), axt 27.26 (195), macom 24.98 (181), ciena 16.19 (94), marvell 10.33 (76), fabrinet 7.14 (64), iqe 0.49 (4), stmicroelectronics 0.03 (1), soitec absent, innolight absent (no sources). Pointers to versions before 2024-10-06: 785 of 3,491 (22%); coherent 599 of 731 (82%), lumentum 186 of 753 (25%).
+
+Versions per company (English, parsed, companyfacts excluded): in Memory / all sections skipped / never triaged / triaged retain but not in Memory: AAOI 52/1/17/0, AXT 41/2/0/0, Ciena 42/6/0/0, Coherent 354/0/0/0, Fabrinet 31/2/0/0, IQE 54/114/1/0, Lumentum 225/0/0/0, MACOM 26/4/0/0, Marvell 49/13/5/0, Soitec 8/14/2/6, STMicro 36/24/67/0. The 9 failed triage jobs (job IDs `uuid5(ns, ["triage","triage:<version>"])`, read through `GET /api/v1/jobs/{id}`): Soitec's eight transcripts and IQE's H2 2025 call, each 3 attempts, each `HTTP 529 … overloaded_error … (2064)`.
