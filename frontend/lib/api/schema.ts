@@ -8479,6 +8479,12 @@ export interface components {
              */
             in_memory: number;
             /**
+             * Retired
+             * @description its sections were retired (`atlas memory retire`): not a gap
+             * @default 0
+             */
+            retired: number;
+            /**
              * All Skipped
              * @description triage decided it and every effective decision is `skip`
              * @default 0

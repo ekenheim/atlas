@@ -206,9 +206,15 @@ def gap_costs(connection: Connection, rows: Sequence[VersionRow]) -> dict[uuid.U
     }
 
 
-def gap_units(connection: Connection, bank_id: str, company_id: uuid.UUID) -> int:
+def gap_units(
+    connection: Connection,
+    bank_id: str,
+    company_id: uuid.UUID,
+    *,
+    window_days: int | None = None,
+) -> int:
     """What the company's gap versions count against `max_sections` in all."""
-    rows = gaps(version_states(connection, bank_id, company_id))
+    rows = gaps(version_states(connection, bank_id, company_id, window_days=window_days))
     return sum(gap_costs(connection, rows).values())
 
 
@@ -272,6 +278,7 @@ def enqueue_backfills(
     run: str,
     stuck_after_hours: float,
     ordered: bool = True,
+    window_days: int | None = None,
 ) -> list[dict[str, Any]]:
     """Enqueue one backfill job per company that has sections to bring up, in order
     (`order_companies`, unless `ordered` is false: the owner's own order). `max_sections`
@@ -285,7 +292,7 @@ def enqueue_backfills(
         )
         budget = max_sections
         for company_id in companies:
-            versions = gap_units(connection, bank_id, company_id)
+            versions = gap_units(connection, bank_id, company_id, window_days=window_days)
             left = versions + remaining(
                 connection, bank_id, company_id, stuck_after_hours=stuck_after_hours
             )
@@ -331,11 +338,13 @@ class Backfill:
         actor: Actor,
         *,
         stuck_after_hours: float,
+        window_days: int | None = None,
     ) -> None:
         self._engine = engine
         self._gateway = gateway
         self._actor = actor
         self._stuck_after_hours = stuck_after_hours
+        self._window_days = window_days  # the intake window: older versions are no gap
         self._queue = JobQueue(engine, actor=actor)
 
     @property
@@ -369,7 +378,14 @@ class Backfill:
             gap_rows = (
                 []
                 if limit == 0
-                else gaps(version_states(connection, self.bank_id, payload.company_id))
+                else gaps(
+                    version_states(
+                        connection,
+                        self.bank_id,
+                        payload.company_id,
+                        window_days=self._window_days,
+                    )
+                )
             )
             costs = gap_costs(connection, gap_rows)
             chosen: list[VersionRow] = []
@@ -432,8 +448,19 @@ class Backfill:
             )
             left = remaining(
                 connection, self.bank_id, payload.company_id, stuck_after_hours=stuck_after
-            ) + gap_units(connection, self.bank_id, payload.company_id)
-            versions_left = len(gaps(version_states(connection, self.bank_id, payload.company_id)))
+            ) + gap_units(
+                connection, self.bank_id, payload.company_id, window_days=self._window_days
+            )
+            versions_left = len(
+                gaps(
+                    version_states(
+                        connection,
+                        self.bank_id,
+                        payload.company_id,
+                        window_days=self._window_days,
+                    )
+                )
+            )
         return {
             "bank_id": self.bank_id,
             "company_id": str(payload.company_id),

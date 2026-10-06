@@ -40,6 +40,7 @@ def memory_router(
     universe: Callable[[], Universe] | None = None,
     *,
     stuck_after_hours: float,
+    window_days: int | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["memory"])
 
@@ -71,6 +72,7 @@ def memory_router(
                 companies,
                 company_id,
                 stuck_after_hours=stuck_after_hours,
+                window_days=window_days,
             )
         return found if found is not None else not_found("company")
 

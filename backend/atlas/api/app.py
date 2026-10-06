@@ -72,7 +72,14 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     Info("atlas_build", "Atlas build information", registry=registry).info(
         {"version": build_version}
     )
-    registry.register(StateCollector(engine, queue, settings.hindsight_bank_id))
+    registry.register(
+        StateCollector(
+            engine,
+            queue,
+            settings.hindsight_bank_id,
+            window_days=settings.ingest_lookback_days,
+        )
+    )
 
     @app.get("/health/live")
     def live() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
@@ -107,6 +114,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
             hindsight,
             lambda: load_universe(settings.themes_config),
             stuck_after_hours=settings.backfill_stuck_after_hours,
+            window_days=settings.ingest_lookback_days,
         )
     )
     app.include_router(

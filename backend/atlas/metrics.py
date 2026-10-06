@@ -85,10 +85,18 @@ def recall_latency(registry: CollectorRegistry) -> Histogram:
 
 
 class StateCollector(Collector):
-    def __init__(self, engine: Engine, queue: JobQueue, bank_id: str | None = None) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        queue: JobQueue,
+        bank_id: str | None = None,
+        *,
+        window_days: int | None = None,
+    ) -> None:
         self._engine = engine
         self._queue = queue
         self._bank_id = bank_id
+        self._window_days = window_days  # the intake window: older versions are no gap
 
     def collect(self) -> Iterator[Metric]:
         up = GaugeMetricFamily(
@@ -504,7 +512,7 @@ class StateCollector(Collector):
         )
         slugs = connection.execute(text("SELECT slug FROM company ORDER BY slug")).scalars()
         counts = {(slug, reason): 0 for slug in slugs for reason in GAP_REASONS}
-        for row in version_states(connection, self._bank_id):
+        for row in version_states(connection, self._bank_id, window_days=self._window_days):
             if row.state in GAP_REASONS:
                 key = (row.company_slug or "unattributed", row.state)
                 counts[key] = counts.get(key, 0) + 1

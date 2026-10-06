@@ -53,6 +53,7 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
                 gateway,
                 Actor.from_settings(settings),
                 stuck_after_hours=settings.backfill_stuck_after_hours,
+                window_days=settings.ingest_lookback_days,
             ).run(payload, job)
 
     def retire(job: Job) -> Artifacts:

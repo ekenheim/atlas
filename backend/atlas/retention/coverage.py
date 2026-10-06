@@ -36,7 +36,7 @@ from atlas.retention.service import RETAINABLE_LANGUAGES, RETAINABLE_PARSES
 
 MAX_SAMPLES = 20
 type VersionState = Literal[
-    "in_memory", "in_flight", "triage_failed", "all_skipped", "not_submitted"
+    "in_memory", "retired", "in_flight", "triage_failed", "all_skipped", "not_submitted"
 ]
 type GapReason = Literal["not_submitted", "triage_failed"]
 GAP_REASONS: tuple[GapReason, ...] = ("not_submitted", "triage_failed")
@@ -48,7 +48,9 @@ GAP_REASONS: tuple[GapReason, ...] = ("not_submitted", "triage_failed")
 # judged by the retry (`latest_triage`).
 _FACTS = (
     "WITH mem AS (SELECT DISTINCT source_version_id AS id FROM memory_document"
-    "   WHERE bank_id = :bank),"
+    "   WHERE bank_id = :bank AND retain_state <> 'retired'),"
+    " retired AS (SELECT DISTINCT source_version_id AS id FROM memory_document"
+    "   WHERE bank_id = :bank AND retain_state = 'retired'),"
     " flight AS ("
     "   SELECT DISTINCT j.payload ->> 'source_version_id' AS id FROM job j"
     "    WHERE j.status IN ('queued', 'running') AND j.kind IN ('triage', 'retain')"
@@ -68,6 +70,7 @@ _FACTS = (
 )
 _STATE = (
     "CASE WHEN mem.id IS NOT NULL THEN 'in_memory'"
+    " WHEN retired.id IS NOT NULL THEN 'retired'"
     " WHEN flight.id IS NOT NULL THEN 'in_flight'"
     " WHEN latest_triage.status = 'failed' THEN 'triage_failed'"
     " WHEN decided.id IS NOT NULL AND NOT decided.has_retain THEN 'all_skipped'"
@@ -86,6 +89,9 @@ class VersionCounts(BaseModel):
 
     total: int = 0
     in_memory: int = Field(default=0, description="the bank holds a memory document of it")
+    retired: int = Field(
+        default=0, description="its sections were retired (`atlas memory retire`): not a gap"
+    )
     all_skipped: int = Field(
         default=0, description="triage decided it and every effective decision is `skip`"
     )
@@ -116,10 +122,17 @@ class VersionRow(BaseModel):
 
 
 def version_states(
-    connection: Connection, bank_id: str, company_id: uuid.UUID | None = None
+    connection: Connection,
+    bank_id: str,
+    company_id: uuid.UUID | None = None,
+    *,
+    window_days: int | None = None,
 ) -> list[VersionRow]:
     """Every parsed Source Version Memory should hold (of one company, or all), newest first by
-    availability, with its state."""
+    availability, with its state. With `window_days` (the intake window,
+    `ATLAS_INGEST_LOOKBACK_DAYS`), a version available before the window is Memory's only while
+    it is still there or was retired from it: one never retained is not a gap (Memory holds the
+    intake window; `docs/decisions.md`)."""
     rows = connection.execute(
         text(
             f"{_FACTS}"  # noqa: S608 (constant fragments)
@@ -130,6 +143,7 @@ def version_states(
             " JOIN source_document d ON d.id = v.source_document_id"
             " LEFT JOIN company c ON c.id = d.company_id"
             " LEFT JOIN mem ON mem.id = v.id"
+            " LEFT JOIN retired ON retired.id = v.id"
             " LEFT JOIN flight ON flight.id = CAST(v.id AS text)"
             " LEFT JOIN latest_triage ON latest_triage.id = CAST(v.id AS text)"
             " LEFT JOIN decided ON decided.id = v.id"
@@ -137,11 +151,14 @@ def version_states(
             # Only a document's current version: a superseded one is not a gap.
             " AND NOT EXISTS (SELECT FROM source_version n WHERE n.supersedes_version_id = v.id)"
             " AND (CAST(:company AS uuid) IS NULL OR d.company_id = :company)"
+            " AND (CAST(:window AS integer) IS NULL OR mem.id IS NOT NULL OR retired.id IS NOT NULL"
+            "   OR a.available_at >= now() - make_interval(days => CAST(:window AS integer)))"
             " ORDER BY a.available_at DESC, v.id"
         ),
         {
             "bank": bank_id,
             "company": company_id,
+            "window": window_days,
             "parses": list(RETAINABLE_PARSES),
             "languages": list(RETAINABLE_LANGUAGES),
         },

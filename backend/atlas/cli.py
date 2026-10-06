@@ -319,6 +319,7 @@ def run_memory_backfill(
             max_sections=max_sections,
             run=run,
             stuck_after_hours=settings.backfill_stuck_after_hours,
+            window_days=settings.ingest_lookback_days,
             # --theme: the seeds of the pilot's investigations first, thinnest first; the
             # companies the owner names are run in the order named.
             ordered=theme is not None,

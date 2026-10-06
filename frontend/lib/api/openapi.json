@@ -25648,6 +25648,12 @@
             "description": "the bank holds a memory document of it",
             "default": 0
           },
+          "retired": {
+            "type": "integer",
+            "title": "Retired",
+            "description": "its sections were retired (`atlas memory retire`): not a gap",
+            "default": 0
+          },
           "all_skipped": {
             "type": "integer",
             "title": "All Skipped",

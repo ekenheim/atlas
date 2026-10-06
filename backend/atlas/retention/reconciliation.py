@@ -231,12 +231,14 @@ class Reconciliation:
         *,
         clock: Clock = utc_now,
         stuck_after_hours: float,
+        window_days: int | None = None,
     ) -> None:
         self._engine = engine
         self._gateway = gateway
         self._template_path = template_path
         self._clock = clock
         self._stuck_after_hours = stuck_after_hours
+        self._window_days = window_days  # the intake window: older versions are no gap
 
     @property
     def bank_id(self) -> str:
@@ -303,7 +305,7 @@ class Reconciliation:
         with self._engine.connect() as connection:
             sections = _sections(connection, self.bank_id, self._stuck_after_hours)
             run = _submitted_run(connection, self.bank_id)
-            versions = gaps(version_states(connection, self.bank_id))
+            versions = gaps(version_states(connection, self.bank_id, window_days=self._window_days))
         self._missing(found, documents, sections)
         self._unrecorded(found, documents, sections)
         self._profiles(found, documents, sections)
@@ -648,6 +650,7 @@ def register_reconciliation_handlers(
                 settings.hindsight_template_path,
                 clock=clock,
                 stuck_after_hours=settings.backfill_stuck_after_hours,
+                window_days=settings.ingest_lookback_days,
             ).run(job)
         return {
             "reconciliation_id": str(found.id),

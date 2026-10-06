@@ -258,6 +258,7 @@ def memory_health(
     company_id: uuid.UUID | None = None,
     *,
     stuck_after_hours: float,
+    window_days: int | None = None,
 ) -> MemoryHealth | None:
     """The health read; None when `company_id` names no company. `stuck_after_hours`: how long
     a pending section under an older profile waits before it counts as stuck."""
@@ -272,7 +273,7 @@ def memory_health(
     now: datetime = connection.execute(text("SELECT now()")).scalar_one()
     where, params = _filter(bank_id, company_id)
     total, per_company = _section_counts(connection, where, params, stuck_after_hours)
-    version_rows = version_states(connection, bank_id, company_id)
+    version_rows = version_states(connection, bank_id, company_id, window_days=window_days)
     versions = counts_by_company(version_rows)
     if company_id is not None:
         per_company.setdefault(company_id, SectionCounts())

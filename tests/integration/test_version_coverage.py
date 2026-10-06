@@ -251,6 +251,7 @@ def test_health_counts_versions_by_what_became_of_them_and_samples_the_gaps(
     assert {k: lumentum[k] for k in lumentum if not k.endswith("samples")} == {
         "total": 6,
         "in_memory": 1,
+        "retired": 0,
         "all_skipped": 1,
         "triage_failed": 1,
         "in_flight": 1,
@@ -290,6 +291,35 @@ def test_only_a_document_s_current_version_counts(atlas: Coverage) -> None:
     # v1 never reached Memory but was superseded by v2, which did: no gap.
     assert (versions["total"], versions["in_memory"], versions["not_submitted"]) == (1, 1, 0)
     assert versions["not_submitted_samples"] == []
+
+
+def test_memory_holds_the_intake_window_and_a_retired_version_is_no_gap(
+    atlas: Coverage,
+) -> None:
+    # The harness keeps the default intake window, 730 days.
+    atlas.add_version("lumentum", "8-K of 2022, never retained", days_ago=1200)
+    still_in = atlas.add_version("lumentum", "10-K FY2022", days_ago=1100)
+    atlas.memory_document(still_in)
+    retired = atlas.add_version("lumentum", "10-K FY2021", days_ago=1500)
+    atlas.memory_document(retired, "retired")
+    recent = atlas.add_version("lumentum", "10-Q Q1", days_ago=10)
+
+    versions = atlas.company_versions("lumentum")
+
+    # Before the window, a version is Memory's only while it is there (or was retired from
+    # it); one never retained is not a gap. Inside the window, one never offered is.
+    assert {k: versions[k] for k in versions if not k.endswith("samples")} == {
+        "total": 3,
+        "in_memory": 1,
+        "retired": 1,
+        "all_skipped": 0,
+        "triage_failed": 0,
+        "in_flight": 0,
+        "not_submitted": 1,
+    }
+    assert [s["source_version_id"] for s in versions["not_submitted_samples"]] == [recent]
+    labels = frozenset({("company", "lumentum"), ("reason", "not_submitted")})
+    assert atlas.metrics()[("atlas_versions_not_in_memory", labels)] == 1
 
 
 def test_samples_are_bounded_at_twenty(atlas: Coverage) -> None:
