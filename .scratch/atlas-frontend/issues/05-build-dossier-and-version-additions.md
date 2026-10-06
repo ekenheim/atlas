@@ -1,7 +1,7 @@
 # Build the dossier and version page additions
 
 Type: build
-Status: open
+Status: claimed
 Blocked by: 04, 10
 
 ## Question

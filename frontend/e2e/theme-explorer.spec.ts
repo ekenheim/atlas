@@ -75,6 +75,8 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   // The dossier: identity, listings, Relationships, financials, sources.
   await chips.getByRole("link", { name: "Lumentum" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
+  // The reader's page folds the records away; open them.
+  await page.locator("summary", { hasText: "Records" }).click();
   const identity = page.getByRole("table", { name: "Identity" });
   await expect(identity.getByRole("row", { name: /^CIK/ }).getByRole("cell")).toHaveText(
     "0001633978",

@@ -9,7 +9,9 @@ import { SourceDocumentRows } from "../../components/source-document";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { api, type Assertion, type SourceVersionDetail } from "../../lib/api/client";
 import { domPosition, splitAtSpan, utf16Index } from "../../lib/offsets";
+import { formatCount } from "../../lib/memory";
 import { routes } from "../../lib/routes";
+import { versionMemory } from "../../lib/version-memory";
 import { useApi, useIdParam, type Loaded } from "../../lib/use-api";
 
 export default function VersionPage() {
@@ -42,6 +44,7 @@ function SourceVersion() {
             {version.source_document.title}, version {version.version_number}
           </h1>
           <Provenance version={version} />
+          <Memory versionId={version.id} />
           <Fetches version={version} />
           <Content version={version} />
         </>
@@ -163,6 +166,70 @@ function Provenance({ version }: { version: SourceVersionDetail }) {
         <summary>Source metadata</summary>
         <pre>{JSON.stringify(version.metadata, null, 2)}</pre>
       </details>
+    </section>
+  );
+}
+
+/** What Memory holds of this version: one line, and the sections behind a toggle. */
+function Memory({ versionId }: { versionId: string }) {
+  const memory = useApi(versionId, api.sourceVersionMemory);
+  const [open, setOpen] = useState(false);
+  if (memory.state === "loading") {
+    return (
+      <section aria-labelledby="memory">
+        <h2 id="memory">Memory</h2>
+        <p className="muted" role="status">
+          Loading memory…
+        </p>
+      </section>
+    );
+  }
+  // A 404 or any error: nothing of this version is in memory.
+  const held = memory.state === "ready" ? memory.data : null;
+  const state = versionMemory(held);
+  return (
+    <section aria-labelledby="memory">
+      <h2 id="memory">Memory</h2>
+      <p className="mem-line">
+        <span className={`mem-tag ${state.severity}`}>{state.label}</span>
+        {held && (
+          <>
+            <span>{state.sections} sections</span>
+            <span>{formatCount(state.facts)} facts</span>
+            <span className={state.below ? "mem-tag warn" : "muted"}>
+              {state.below ? `${state.below} below ${state.profile}` : state.profile}
+            </span>
+            {state.sections > 0 && (
+              <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
+                {open ? "Hide sections" : "Sections"}
+              </button>
+            )}
+          </>
+        )}
+      </p>
+      {held && open && (
+        <table>
+          <caption>Sections in memory</caption>
+          <thead>
+            <tr>
+              <th scope="col">Section</th>
+              <th scope="col">State</th>
+              <th scope="col">Facts</th>
+              <th scope="col">Profile</th>
+            </tr>
+          </thead>
+          <tbody>
+            {held.documents.map((d) => (
+              <tr key={d.section_anchor}>
+                <th scope="row">{d.section_heading ?? d.section_anchor}</th>
+                <td>{d.retain_state.replace("_", " ")}</td>
+                <td>{d.fact_count == null ? <Missing /> : formatCount(d.fact_count)}</td>
+                <td>{d.retain_profile ?? <Missing />}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }

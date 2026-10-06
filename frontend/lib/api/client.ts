@@ -37,6 +37,7 @@ export type CompanySections = Schemas["CompanySections"];
 export type SectionCounts = Schemas["SectionCounts"];
 export type VersionCounts = Schemas["VersionCounts"];
 export type ConsolidationRun = Schemas["ConsolidationRun"];
+export type SourceVersionMemory = Schemas["SourceVersionMemory"];
 export type FinancialFigure = Schemas["FinancialFigure"];
 export type EpistemicType = Assertion["epistemic_type"];
 export type Investigation = Schemas["Investigation"];
@@ -211,6 +212,9 @@ export const api = {
     });
     return (await send(parsed)).text();
   },
+  /** What a Source Version holds in Memory: sections by retain state, facts, profile. */
+  sourceVersionMemory: (id: string) =>
+    get("/api/v1/source-versions/{version_id}/memory", { path: { version_id: id } }),
   /** The Assertions citing one Source Version, oldest first. */
   versionAssertions: (id: string) =>
     get("/api/v1/assertions", { query: { source_version_id: id, ...PAGE } }),

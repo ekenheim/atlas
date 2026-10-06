@@ -752,3 +752,89 @@ nav[aria-label="Site"] ul {
   margin-top: 2.5rem;
   padding-top: 1rem;
 }
+
+/* The dossier's findings: a group heading, then a row per finding that opens its quote. */
+.finding-group h3 {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+/* A finding's line: the sentence and its review pill, the whole row a button. */
+.finding-line {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 1rem;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.finding-quote {
+  padding: 0 1rem 0.25rem;
+}
+
+/* The dossier's Records body: wide tables scroll inside it, not the page. */
+.records-body {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+/* Filter chips with a count, one pressed. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.chips button {
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+}
+
+.chips button span {
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+
+.chips button[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+
+/* The dossier's Memory strip: the version bar, counts and status on one wrapping line. */
+.mem-strip {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+}
+
+.mem-strip .vbar {
+  width: 12rem;
+}
+
+/* The version page's Memory line. */
+.mem-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.mem-line button {
+  margin: 0;
+}

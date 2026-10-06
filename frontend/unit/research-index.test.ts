@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import type { InvestigationSummary } from "../lib/api/client";
-import { dayOf, questionKey, researchIndex, runsLabel, statusWords } from "../lib/research-index";
+import { companyQuestions, dayOf, questionKey, researchIndex, runsLabel, statusWords } from "../lib/research-index";
 
 function run(
   id: string,
@@ -66,4 +66,22 @@ test("small helpers", () => {
   expect(runsLabel(1)).toBeNull();
   expect(runsLabel(3)).toBe("3 runs");
   expect(dayOf("2026-10-06T12:00:00Z")).toBe("2026-10-06");
+});
+
+test("a company's questions are its seeded runs, the same question collapsed", () => {
+  const seeded = (id: string, at: string, seeds: string[]) => ({
+    ...run(id, "t", "Is InP short?", at),
+    seed_company_ids: seeds,
+  });
+  const rows = companyQuestions(
+    [
+      seeded("old", "2026-10-01T00:00:00Z", ["lite"]),
+      seeded("new", "2026-10-03T00:00:00Z", ["lite", "coht"]),
+      seeded("other", "2026-10-02T00:00:00Z", ["coht"]),
+    ],
+    "lite",
+  );
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.latest.id).toBe("new");
+  expect(rows[0]?.runs).toBe(2);
 });

@@ -78,3 +78,12 @@ export function runsLabel(runs: number): string | null {
 export function dayOf(timestamp: string): string {
   return timestamp.slice(0, 10);
 }
+
+/** The questions a company was a seed of, the same question collapsed to its latest run. */
+export function companyQuestions(
+  runs: readonly InvestigationSummary[],
+  companyId: string,
+): QuestionRow[] {
+  const seeded = runs.filter((run) => run.seed_company_ids.includes(companyId));
+  return researchIndex(seeded, []).flatMap((entry) => entry.rows);
+}
