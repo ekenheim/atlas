@@ -10,6 +10,7 @@ test("a PDF version shows its page anchors and jumps to a page", async ({ page }
   await page.goto("/");
   await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Companies" }).click();
   await page.getByRole("link", { name: "Lumentum" }).click();
+  await page.locator("summary", { hasText: "Records" }).click();
   await page.getByRole("link", { name: TITLE }).click();
   await page.getByRole("link", { name: "Version 1", exact: true }).click();
 

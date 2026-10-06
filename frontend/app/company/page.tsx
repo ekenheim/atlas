@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 
+import { QuestionRows } from "../../components/question-rows";
 import { EdgeList } from "../../components/edge-list";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { VersionBar, VersionLegend } from "../../components/version-bar";
@@ -12,16 +13,23 @@ import {
   type FinancialFigure,
   type SourceDocument,
 } from "../../lib/api/client";
-import { companyFindings, type Finding as FindingRow } from "../../lib/company-findings";
+import { companyFindings, firstQuote, type Finding as FindingRow } from "../../lib/company-findings";
 import { SOURCE_ROWS, filterByType, typeChips, typeName } from "../../lib/company-sources";
 import { groupDigits, period } from "../../lib/format";
-import { companyRows, formatCount } from "../../lib/memory";
+import { companyRows, formatCount, plural } from "../../lib/memory";
 import { LAYERS } from "../../lib/relationships";
-import { companyQuestions, dayOf, runsLabel, statusWords } from "../../lib/research-index";
+import { companyQuestions, hypothesisByInvestigation } from "../../lib/research-index";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
 
-const loadRuns = async () => (await api.investigations()).items;
+/** The runs, and the Hypotheses a question's thesis comes from; a failed Hypotheses call costs only the theses. */
+async function loadResearch() {
+  const [runs, hypotheses] = await Promise.all([
+    api.investigations(),
+    api.hypotheses().catch(() => ({ items: [] })),
+  ]);
+  return { runs: runs.items, hypotheses: hypothesisByInvestigation(hypotheses.items) };
+}
 const loadHealth = () => api.memoryHealth();
 
 export default function CompanyPage() {
@@ -98,16 +106,16 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
 
       <details className="reader-records">
         <summary>
-          Records{" "}
+          <h2 className="records-title">Records</h2>{" "}
           <span>
-            identity · listings · {edgeCount} Relationships · financials · {dossier.source_total}{" "}
-            sources · memory
+            identity · listings · {plural(edgeCount, "Relationship")} · financials ·{" "}
+            {plural(dossier.source_total, "source")} · memory
           </span>
         </summary>
         <div className="records-body">
           <MemoryStrip companyId={company.id} />
 
-          <h2>Identity</h2>
+          <h3>Identity</h3>
           <table>
             <caption>Identity</caption>
             <tbody>
@@ -148,7 +156,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
             </tbody>
           </table>
 
-          <h2>Listings</h2>
+          <h3>Listings</h3>
           {company.securities.length === 0 ? (
             <p>No listings recorded.</p>
           ) : (
@@ -194,7 +202,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
             </table>
           )}
 
-          <h2>Pending identity reviews</h2>
+          <h3>Pending identity reviews</h3>
           {dossier.pending_identity_reviews.length === 0 ? (
             <p>No identity mapping awaits review.</p>
           ) : (
@@ -235,7 +243,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
             </table>
           )}
 
-          <h2>Relationships</h2>
+          <h3>Relationships</h3>
           {dossier.relationships_out.length === 0 ? (
             <p>No Relationships with {company.display_name} as subject.</p>
           ) : (
@@ -253,12 +261,12 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
             />
           )}
 
-          <h2>Financials</h2>
+          <h3>Financials</h3>
           <Financials figures={dossier.financials.figures} asOf={dossier.financials.as_of} />
 
           <SourceDocuments sources={dossier.sources} total={dossier.source_total} />
 
-          <h2>Fetch-gate blocks</h2>
+          <h3>Fetch-gate blocks</h3>
           {dossier.fetch_gate_blocks.length === 0 ? (
             <p>No request for this company was blocked by the fetch gate.</p>
           ) : (
@@ -298,39 +306,19 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
 
 /** The questions this company seeded: hidden until they load, and when there are none. */
 function InTheResearch({ companyId }: { companyId: string }) {
-  const runs = useApi("investigations", loadRuns);
-  if (runs.state !== "ready") return null;
-  const rows = companyQuestions(runs.data, companyId);
+  const loaded = useApi("company-research", loadResearch);
+  if (loaded.state === "loading") {
+    return <p className="muted reader-label">In the research…</p>;
+  }
+  if (loaded.state !== "ready") return null;
+  const rows = companyQuestions(loaded.data.runs, companyId);
   if (rows.length === 0) return null;
   return (
     <section aria-labelledby="research">
       <h2 className="reader-label" id="research">
         In the research
       </h2>
-      <ul className="reader-rows">
-        {rows.map((row) => (
-          <li key={row.latest.id}>
-            <div className="reader-row">
-              <div>
-                <Link className="reader-row-title" href={routes.investigation(row.latest.id)}>
-                  {row.question}
-                </Link>
-                <div className="reader-row-sub">
-                  {dayOf(row.latest.created_at)}
-                  {runsLabel(row.runs) ? ` · ${runsLabel(row.runs)}` : ""}
-                </div>
-              </div>
-              <span
-                className={`reader-pill ${
-                  row.latest.stop_reason === "answered" ? "reader-supported" : "reader-review"
-                }`}
-              >
-                {statusWords(row.latest)}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <QuestionRows rows={rows} hypotheses={loaded.data.hypotheses} />
     </section>
   );
 }
@@ -339,7 +327,7 @@ function InTheResearch({ companyId }: { companyId: string }) {
 function Finding({ finding }: { finding: FindingRow }) {
   const [open, setOpen] = useState(false);
   const detail = useApi(open ? finding.id : null, api.relationship);
-  const first = detail.state === "ready" ? detail.data.evidence[0] : undefined;
+  const first = detail.state === "ready" ? firstQuote(detail.data.evidence) : null;
   return (
     <li>
       <button
@@ -349,13 +337,7 @@ function Finding({ finding }: { finding: FindingRow }) {
         onClick={() => setOpen(!open)}
       >
         <span>{finding.sentence}</span>
-        <span
-          className={`reader-pill ${
-            finding.state === "needs_human_review" ? "reader-review" : "reader-supported"
-          }`}
-        >
-          {finding.review}
-        </span>
+        <span className={`reader-pill ${finding.tone}`}>{finding.review}</span>
       </button>
       {open && (
         <div className="finding-quote">
@@ -368,7 +350,7 @@ function Finding({ finding }: { finding: FindingRow }) {
             <figure className="reader-quote">
               <blockquote>{first.assertion.quote}</blockquote>
               <figcaption>
-                {first.source_title} ·{" "}
+                {first.publisher} · {first.source_title} ·{" "}
                 <Link href={routes.span(first.assertion.source_version_id, first.assertion.id)}>
                   Source
                 </Link>
@@ -403,8 +385,10 @@ function MemoryStrip({ companyId }: { companyId: string }) {
           memory
         </span>
         <span>{formatCount(row.sections.fact_count)} facts</span>
+        {row.versions.retired > 0 && <span>{formatCount(row.versions.retired)} retired</span>}
+        {row.versions.all_skipped > 0 && <span>{formatCount(row.versions.all_skipped)} skipped</span>}
         <span className={`mem-tag ${row.status.severity}`}>{row.status.label}</span>
-        <Link href="/memory/">Memory</Link>
+        <Link href={routes.memory}>Memory</Link>
       </section>
       <VersionLegend />
     </>
@@ -419,7 +403,7 @@ function SourceDocuments({ sources, total }: { sources: SourceDocument[]; total:
   const shown = all ? chosen : chosen.slice(0, SOURCE_ROWS);
   return (
     <>
-      <h2>Source Documents</h2>
+      <h3>Source Documents</h3>
       {sources.length === 0 ? (
         <p>No Source Documents collected yet.</p>
       ) : (

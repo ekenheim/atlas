@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </ul>
             <ul className="nav-ops" aria-label="Operations">
               <li>
-                <Link href={"/memory/"}>Memory</Link>
+                <Link href={routes.memory}>Memory</Link>
               </li>
               <li>
                 <Link href={routes.relationships()}>Relationships</Link>

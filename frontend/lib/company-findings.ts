@@ -1,7 +1,6 @@
 // What Atlas found about a company, for the reader: its Relationships as plain sentences,
 // grouped, with the review state in the reader's words. Pure; rejected edges are left out.
-import type { Relationship, RelationshipState } from "./api/client";
-import { objectLabel } from "./relationships";
+import type { Relationship, RelationshipEvidence, RelationshipState } from "./api/client";
 
 /** How each predicate reads between its subject and object. */
 const VERB: Record<string, string> = {
@@ -30,11 +29,19 @@ const REVIEW: Record<Shown, string> = {
 };
 const REVIEW_ORDER = Object.keys(REVIEW) as Shown[];
 
+/** A review state's pill colour: only an edge awaiting a person is amber. */
+const TONE: Record<Shown, "reader-supported" | "reader-unknown" | "reader-review"> = {
+  approved: "reader-supported",
+  machine_reviewed: "reader-unknown",
+  needs_human_review: "reader-review",
+};
+
 export type Finding = {
   id: string;
   sentence: string;
   state: Shown;
   review: string;
+  tone: (typeof TONE)[Shown];
   evidenceCount: number;
 };
 
@@ -44,11 +51,12 @@ export type Tally = Record<Shown, number>;
 
 /** One edge as a sentence from its subject's side: "AXT supplies Lumentum". */
 export function sentence(edge: Relationship): string {
-  if (edge.predicate === "capacity_constrained" && edge.company_level) {
+  const object = edge.object_name ?? edge.object_text;
+  if (edge.predicate === "capacity_constrained" && (edge.company_level || !object)) {
     return `${edge.subject_name} is short of capacity`;
   }
   const verb = VERB[edge.predicate] ?? edge.predicate.replace(/_/g, " ");
-  return `${edge.subject_name} ${verb} ${objectLabel(edge)}`;
+  return object ? `${edge.subject_name} ${verb} ${object}` : `${edge.subject_name} ${verb}`;
 }
 
 /** The company's edges (out, then in) as grouped sentences, and the tally of their review states. */
@@ -68,6 +76,7 @@ export function companyFindings(
         sentence: sentence(edge),
         state: edge.review_state,
         review: REVIEW[edge.review_state],
+        tone: TONE[edge.review_state],
         evidenceCount: edge.evidence_count,
       },
     });
@@ -96,4 +105,16 @@ export function companyFindings(
     }))
     .filter((g) => g.findings.length > 0);
   return { groups, tally };
+}
+
+/** The first quote worth showing: not one the owner or a later Assertion has set aside. */
+export function firstQuote(
+  evidence: readonly RelationshipEvidence[],
+): RelationshipEvidence | null {
+  return (
+    evidence.find(
+      (item) =>
+        item.assertion.review_state !== "rejected" && item.assertion.review_state !== "superseded",
+    ) ?? null
+  );
 }

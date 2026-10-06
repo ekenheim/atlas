@@ -9,7 +9,7 @@ import { SourceDocumentRows } from "../../components/source-document";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { api, type Assertion, type SourceVersionDetail } from "../../lib/api/client";
 import { domPosition, splitAtSpan, utf16Index } from "../../lib/offsets";
-import { formatCount } from "../../lib/memory";
+import { formatCount, plural } from "../../lib/memory";
 import { routes } from "../../lib/routes";
 import { versionMemory } from "../../lib/version-memory";
 import { useApi, useIdParam, type Loaded } from "../../lib/use-api";
@@ -184,8 +184,15 @@ function Memory({ versionId }: { versionId: string }) {
       </section>
     );
   }
-  // A 404 or any error: nothing of this version is in memory.
-  const held = memory.state === "ready" ? memory.data : null;
+  if (memory.state === "error") {
+    return (
+      <section aria-labelledby="memory">
+        <h2 id="memory">Memory</h2>
+        <p className="muted">Memory unavailable: {memory.message}</p>
+      </section>
+    );
+  }
+  const held = memory.data;
   const state = versionMemory(held);
   return (
     <section aria-labelledby="memory">
@@ -194,7 +201,7 @@ function Memory({ versionId }: { versionId: string }) {
         <span className={`mem-tag ${state.severity}`}>{state.label}</span>
         {held && (
           <>
-            <span>{state.sections} sections</span>
+            <span>{plural(state.sections, "section")}</span>
             <span>{formatCount(state.facts)} facts</span>
             <span className={state.below ? "mem-tag warn" : "muted"}>
               {state.below ? `${state.below} below ${state.profile}` : state.profile}

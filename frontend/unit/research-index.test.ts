@@ -1,7 +1,19 @@
 import { expect, test } from "@playwright/test";
 
 import type { InvestigationSummary } from "../lib/api/client";
-import { companyQuestions, dayOf, questionKey, researchIndex, runsLabel, statusWords } from "../lib/research-index";
+import type { Hypothesis } from "../lib/api/client";
+import {
+  companyQuestions,
+  dayOf,
+  hypothesisByInvestigation,
+  hypothesisWords,
+  questionKey,
+  researchIndex,
+  rowResult,
+  runsLabel,
+  statusTone,
+  statusWords,
+} from "../lib/research-index";
 
 function run(
   id: string,
@@ -84,4 +96,107 @@ test("a company's questions are its seeded runs, the same question collapsed", (
   expect(rows).toHaveLength(1);
   expect(rows[0]?.latest.id).toBe("new");
   expect(rows[0]?.runs).toBe(2);
+});
+
+test("no runs and no themes is an empty index; a listed theme with no runs is one empty theme", () => {
+  expect(researchIndex([], [])).toEqual([]);
+  expect(researchIndex([], ["photonics"])).toEqual([{ theme: "photonics", rows: [] }]);
+});
+
+test("five wordings of one question collapse to one row with the newest wording", () => {
+  const rows = researchIndex(
+    [
+      run("1", "t", "Is InP short?", "2026-10-01T00:00:00Z"),
+      run("2", "t", "is inp short", "2026-10-02T00:00:00Z"),
+      run("3", "t", "Is  InP short.", "2026-10-03T00:00:00Z"),
+      run("4", "t", "IS INP SHORT???", "2026-10-04T00:00:00Z"),
+      run("5", "t", "Is InP short?!", "2026-10-05T00:00:00Z"),
+    ],
+    ["t"],
+  )[0]!.rows;
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({ runs: 5, question: "Is InP short?!" });
+  expect(rows[0]!.runIds).toHaveLength(5);
+});
+
+test("a company's questions are newest first across themes", () => {
+  const seeded = (id: string, theme: string, q: string, at: string) => ({
+    ...run(id, theme, q, at),
+    seed_company_ids: ["lite"],
+  });
+  const rows = companyQuestions(
+    [
+      seeded("a", "photonics", "First?", "2026-10-01T00:00:00Z"),
+      seeded("b", "robotics", "Second?", "2026-10-03T00:00:00Z"),
+      seeded("c", "photonics", "Third?", "2026-10-02T00:00:00Z"),
+    ],
+    "lite",
+  );
+  expect(rows.map((r) => r.latest.id)).toEqual(["b", "c", "a"]);
+});
+
+test("a pill is quiet unless a run needs a look", () => {
+  const tone = (reason: InvestigationSummary["stop_reason"]) =>
+    statusTone(run("a", "t", "q", "2026-10-01T00:00:00Z", reason));
+  expect(tone("answered")).toBe("reader-supported");
+  expect(tone(null)).toBe("reader-unknown");
+  expect(tone("needs_review")).toBe("reader-review");
+  expect(tone("budget_exhausted")).toBe("reader-review");
+  expect(tone("no_new_independent_evidence")).toBe("reader-review");
+  expect(tone("premise_disproven")).toBe("reader-unknown");
+});
+
+function hypothesis(
+  id: string,
+  investigation: string,
+  updated: string,
+  thesis: string,
+  latest: number | null = 2,
+): Hypothesis {
+  return {
+    id,
+    investigation_id: investigation,
+    status: "draft",
+    updated_at: updated,
+    latest_version: latest,
+    versions: [
+      { version: 1, content: { thesis_statement: "old " + thesis } },
+      { version: 2, content: { thesis_statement: thesis } },
+    ],
+  } as unknown as Hypothesis;
+}
+
+test("a question with a Hypothesis shows its thesis; without one it is a draft", () => {
+  const rows = researchIndex(
+    [run("1", "t", "Q?", "2026-10-01T00:00:00Z"), run("2", "t", "Other?", "2026-10-02T00:00:00Z")],
+    ["t"],
+  )[0]!.rows;
+  const byRun = hypothesisByInvestigation([hypothesis("h1", "1", "2026-10-03T00:00:00Z", "InP is short")]);
+  const withThesis = rowResult(rows.find((r) => r.latest.id === "1")!, byRun);
+  expect(withThesis).toMatchObject({ kind: "hypothesis", id: "h1", thesis: "InP is short" });
+  expect(rowResult(rows.find((r) => r.latest.id === "2")!, byRun)).toEqual({
+    kind: "draft",
+    words: "Draft",
+  });
+});
+
+test("a Hypothesis of an older run still leads its collapsed question", () => {
+  const rows = researchIndex(
+    [run("old", "t", "Q?", "2026-10-01T00:00:00Z"), run("new", "t", "q", "2026-10-05T00:00:00Z", null)],
+    [],
+  )[0]!.rows;
+  const byRun = hypothesisByInvestigation([hypothesis("h", "old", "2026-10-02T00:00:00Z", "Thesis")]);
+  expect(rowResult(rows[0]!, byRun)).toMatchObject({ kind: "hypothesis", id: "h" });
+  expect(rowResult(rows[0]!, new Map())).toEqual({ kind: "draft", words: "Running" });
+});
+
+test("of two Hypotheses of one run the latest updated wins; no versions means none", () => {
+  const byRun = hypothesisByInvestigation([
+    hypothesis("a", "1", "2026-10-01T00:00:00Z", "A"),
+    hypothesis("b", "1", "2026-10-02T00:00:00Z", "B"),
+    { ...hypothesis("c", "2", "2026-10-02T00:00:00Z", "C"), versions: [] } as Hypothesis,
+  ]);
+  expect(byRun.get("1")?.id).toBe("b");
+  expect(byRun.has("2")).toBe(false);
+  expect(hypothesisWords("paper_tracking")).toBe("Paper tracking");
 });

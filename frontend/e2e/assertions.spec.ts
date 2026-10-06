@@ -42,6 +42,7 @@ async function openPressRelease(page: Page): Promise<Locator> {
   await page.goto("/");
   await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Companies" }).click();
   await page.getByRole("link", { name: "Lumentum" }).click();
+  await page.locator("summary", { hasText: "Records" }).click();
   await page
     .getByRole("row")
     .filter({ hasText: ACCESSION_8K })

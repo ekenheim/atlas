@@ -3475,3 +3475,21 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Files:** `frontend/app/globals.css` only: tokens on `:root` from the Memory prototype's variant D, `color-scheme: dark`, every existing rule on the tokens; no page's structure changed.
 - **Contrast:** every text token passes WCAG AA on the three backgrounds (ratios in the ticket's answer).
 - **Checked by eye** on production data through the preview: `/memory/`, `/relationships/`, `/company/` (Lumentum). The e2e against the seeded databases is the runners'.
+
+## Frontend ticket 09: the reader's way in, nav and research index
+
+- **Files:** `frontend/app/page.tsx` (the index), `frontend/components/question-rows.tsx` (the question row, shared with the dossier), `frontend/lib/research-index.ts` (themes, collapsed questions, status words and tone, the Hypothesis per question), `frontend/lib/routes.ts`, `frontend/app/layout.tsx` (reader nav first, operations apart), `frontend/app/globals.css`, `frontend/unit/research-index.test.ts`, `frontend/e2e/reader.spec.ts`.
+- **What the reader sees:** each theme's research questions, newest first, the same question asked again collapsed to one row; a question with a Hypothesis leads with its Thesis Statement (linked to the Hypothesis) and the question under it, one without leads with the question and a Draft pill (a Hypothesis attached to an older run of a collapsed question still leads it). A running run's pill is quiet grey; amber only for what needs a look.
+- **UX laws that decided it:** Von Restorff (colour only for gaps and warnings), Hick (one list per theme, operations apart in the nav), Tesler (the collapse, tone and thesis choice live in the tested lib), Doherty (calls go out at once; a failed companies call costs only the names).
+- **API gaps:** the research card's headline is not in `InvestigationSummary`, so the index cannot show a run's conclusion without a detail call per row; a Hypothesis is the only conclusion it shows.
+- **Review fixes:** the Hypothesis thesis on each row; one shared row component; a pill kept its own width at phone width; no made-up "Company" link for an unknown seed; the `!important` nav rule replaced by a selector; `routes.memory`.
+- **Checks:** `npm --prefix frontend run lint`, `typecheck`, `test` (109 passed) and `build` pass. The seeded e2e (`scripts/e2e.py`) was not run here.
+
+## Frontend ticket 05: the reader's Company dossier and the version's Memory section
+
+- **Files:** `frontend/app/company/page.tsx`, `frontend/app/version/page.tsx`, `frontend/lib/company-findings.ts`, `frontend/lib/version-memory.ts`, `frontend/lib/memory.ts` use, `frontend/app/globals.css`, `frontend/unit/{company-findings,version-memory,research-index}.test.ts`, `frontend/e2e/{reader,source-viewer,assertions,pdf-viewer}.spec.ts`.
+- **What the reader sees:** the company's questions, then What Atlas found as plain sentences grouped by kind, each with its review state (approved green, machine-reviewed grey, awaiting review amber) and opening to its first live quote with who said it and the source; Records (identity, listings, Relationships, financials, sources, fetch-gate blocks, the memory strip with retired and skipped counts) one click deeper. A version page whose Memory read fails says "Memory unavailable", not "Not in memory".
+- **UX laws that decided it:** Von Restorff, Hick (findings first, records behind one summary), Tesler (sentences, tones and the quote choice are pure and tested), Doherty (a skeleton line while the questions load).
+- **API gaps (for the lead):** Atlas's one-line view of a company; open questions per company; the evidence has no publication date for the quote card (only `added_at`, Atlas's time), so the caption names publisher and source only; a Source Document has no publication time, so sources cannot run newest first.
+- **Review fixes:** the three e2e specs that click through the Source Documents table now open Records first; Records styled on its summary only; focus ring inset; finding text wrapping; no rejected or superseded quote shown; singular counts; Records is a heading with h3s beneath.
+- **Checks:** `npm --prefix frontend run lint`, `typecheck`, `test` (109 passed) and `build` pass. The seeded e2e was not run here (`scripts/e2e.py` does not run on this Windows box).

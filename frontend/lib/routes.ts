@@ -5,6 +5,8 @@ export const routes = {
   /** The reader's way in: each theme's research questions. */
   home: "/",
   companies: "/companies/",
+  /** What Memory holds, per company. */
+  memory: "/memory/",
   company: withId("company"),
   source: withId("source"),
   version: withId("version"),

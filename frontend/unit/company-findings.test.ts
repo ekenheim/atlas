@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import type { Relationship } from "../lib/api/client";
-import { companyFindings } from "../lib/company-findings";
+import type { Relationship, RelationshipEvidence } from "../lib/api/client";
+import { companyFindings, firstQuote } from "../lib/company-findings";
 
 function edge(over: Partial<Relationship> & Pick<Relationship, "id" | "predicate">): Relationship {
   return {
@@ -106,9 +106,56 @@ test("within a group reviewed findings come first, in the reader's words", () =>
   const findings = result.groups[0]?.findings ?? [];
   expect(findings.map((f) => f.id)).toEqual(["2", "3", "1"]);
   expect(findings.map((f) => f.review)).toEqual(["Approved", "Machine-reviewed", "Awaiting review"]);
+  expect(findings.map((f) => f.tone)).toEqual(["reader-supported", "reader-unknown", "reader-review"]);
 });
 
 test("an edge in both lists appears once", () => {
   const e = edge({ id: "1", predicate: "supplies", object_text: "x" });
   expect(companyFindings([e], [e]).groups[0]?.findings).toHaveLength(1);
+});
+
+test("nothing, or only rejected edges, is no groups and a zero tally", () => {
+  const none = { groups: [], tally: { approved: 0, machine_reviewed: 0, needs_human_review: 0 } };
+  expect(companyFindings([], [])).toEqual(none);
+  expect(
+    companyFindings([edge({ id: "1", predicate: "supplies", review_state: "rejected" })], []),
+  ).toEqual(none);
+});
+
+test("an edge with no object never reads as a made-up object", () => {
+  const sentences = companyFindings(
+    [edge({ id: "1", predicate: "capacity_constrained" }), edge({ id: "2", predicate: "manufactures" })],
+    [],
+  ).groups.flatMap((g) => g.findings.map((f) => f.sentence));
+  expect(sentences).toContain("Lumentum is short of capacity");
+  expect(sentences).toContain("Lumentum makes");
+});
+
+test("an unknown predicate on an incoming edge reads from its subject's side", () => {
+  const result = companyFindings(
+    [],
+    [edge({ id: "1", predicate: "licenses_to", subject_name: "AXT", object_name: "Lumentum" })],
+  );
+  expect(result.groups[0]?.title).toBe("Other");
+  expect(result.groups[0]?.findings[0]?.sentence).toBe("AXT licenses to Lumentum");
+});
+
+test("a long subject name comes through whole", () => {
+  const name = "A".repeat(40);
+  const result = companyFindings(
+    [edge({ id: "1", predicate: "supplies", subject_name: name, object_text: "x" })],
+    [],
+  );
+  expect(result.groups[0]?.findings[0]?.sentence).toBe(`${name} supplies x`);
+});
+
+function evidence(id: string, review_state: string): RelationshipEvidence {
+  return { assertion: { id, review_state } } as unknown as RelationshipEvidence;
+}
+
+test("the first quote skips rejected and superseded ones", () => {
+  expect(firstQuote([evidence("a", "rejected"), evidence("b", "accepted")])?.assertion.id).toBe("b");
+  expect(firstQuote([evidence("a", "superseded"), evidence("b", "disputed")])?.assertion.id).toBe("b");
+  expect(firstQuote([evidence("a", "rejected")])).toBeNull();
+  expect(firstQuote([])).toBeNull();
 });

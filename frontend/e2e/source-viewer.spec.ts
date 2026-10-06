@@ -49,6 +49,7 @@ test("a Source Version shows its provenance and parsed text", async ({ page }) =
   await page.getByRole("link", { name: "Lumentum" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
+  await page.locator("summary", { hasText: "Records" }).click();
   const documentRow = page.getByRole("row").filter({ hasText: ACCESSION });
   await documentRow.getByRole("link").click();
 

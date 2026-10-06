@@ -42,3 +42,10 @@ test("sections under an older retain profile are counted below", () => {
   expect(v.below).toBe(1);
   expect(v.profile).toBe("retain-v2");
 });
+
+test("linked sections read In memory", () => {
+  expect(versionMemory(memory({ linked: 2 }, [null, null]))).toMatchObject({
+    label: "In memory",
+    sections: 2,
+  });
+});

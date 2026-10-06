@@ -581,10 +581,10 @@ nav[aria-label="Site"] ul {
   font-weight: 600;
 }
 
-.nav-ops {
+nav[aria-label="Site"] .nav-ops {
   border-left: 1px solid var(--line);
   font-size: 0.85rem;
-  padding-left: 1.25rem !important;
+  padding-left: 1.25rem;
 }
 
 .nav-ops a {
@@ -592,9 +592,9 @@ nav[aria-label="Site"] ul {
 }
 
 @media (max-width: 40rem) {
-  .nav-ops {
+  nav[aria-label="Site"] .nav-ops {
     border-left: 0;
-    padding-left: 0 !important;
+    padding-left: 0;
   }
 }
 
@@ -690,8 +690,13 @@ nav[aria-label="Site"] ul {
   align-items: center;
   display: grid;
   gap: 0.25rem 1rem;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   padding: 0.85rem 1rem;
+}
+
+/* On a phone the pill is a grid item: keep it its own width, not the row's. */
+.reader-row > .reader-pill {
+  justify-self: start;
 }
 
 @media (max-width: 40rem) {
@@ -703,6 +708,7 @@ nav[aria-label="Site"] ul {
 /* A row's title, and the muted line under it. */
 .reader-row-title {
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .reader-row-sub {
   color: var(--muted);
@@ -747,10 +753,23 @@ nav[aria-label="Site"] ul {
 /* The last line of a reader page: records one click deeper, muted. */
 .reader-records {
   border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 0.85rem;
   margin-top: 2.5rem;
   padding-top: 1rem;
+}
+.reader-records > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.reader-records > summary span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+  margin-left: 0.5rem;
+}
+.records-title {
+  display: inline;
+  font-size: inherit;
+  margin: 0;
 }
 
 /* The dossier's findings: a group heading, then a row per finding that opens its quote. */
@@ -776,6 +795,18 @@ nav[aria-label="Site"] ul {
   padding: 0.75rem 1rem;
   text-align: left;
   width: 100%;
+}
+
+.finding-line > span:first-child {
+  overflow-wrap: anywhere;
+}
+.finding-line:focus-visible {
+  outline-offset: -3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .finding-line:hover {
+    background: var(--raise);
+  }
 }
 
 .finding-quote {
