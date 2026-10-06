@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # One image for both roles: `atlas api` (default) or `atlas worker`.
 
-FROM node:22-slim AS frontend
+FROM node:24-slim AS frontend
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
