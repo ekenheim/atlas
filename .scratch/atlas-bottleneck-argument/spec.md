@@ -43,7 +43,7 @@ The steps of the argument (Codex 2, 1; the Serenity method's bottleneck test, `d
 ## User Stories
 
 To be written by `/to-spec` after the verdict, from the workflow the verdict names. One is given already (the owner, 2026-10-06):
-- As a reader of Atlas's research, I want to open a Hypothesis and understand its thesis, the argument's steps with the evidence and counterevidence behind each, and how sure Atlas is, without reading raw records, so that I can judge the thesis myself. The records (spans, sources, memory) are one click deeper, never the first thing shown.
+- As a reader of Atlas's research, I want to open a Hypothesis and understand its thesis, the argument's steps with the evidence and counterevidence behind each, and how sure Atlas is, without reading raw records, so that I can judge the thesis myself. The records (spans, sources, memory) are one click deeper, never the first thing shown. **Design input:** the reader page the owner chose on 2026-10-06, `.scratch/atlas-frontend/issues/08-hypothesis-reader-prototype.md` (variant A, the argument as rows; code on the branch `prototype/thesis-reader`), with what the data must give it.
 
 ## Implementation Decisions
 
