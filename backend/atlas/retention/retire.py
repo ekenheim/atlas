@@ -61,11 +61,14 @@ class RetirePayload(BaseModel):
 _FROM = (
     " FROM memory_document m"
     " JOIN source_version v ON v.id = m.source_version_id"
+    # The corrected availability, bounded here so the bound reads the view (the as-of check
+    # of tests/unit/test_availability_readers.py reads one constant at a time).
     " JOIN source_version_availability a ON a.source_version_id = v.id"
+    "  AND a.available_at < :before"
     " JOIN source_document d ON d.id = v.source_document_id"
 )
 _WHERE = (
-    " WHERE m.bank_id = :bank AND d.company_id = :company AND a.available_at < :before"
+    " WHERE m.bank_id = :bank AND d.company_id = :company"
     " AND m.hindsight_document_id IS NOT NULL AND m.retain_state = ANY(:states)"
     f" AND NOT (m.retain_state = 'pending' AND {IN_FLIGHT})"
 )
