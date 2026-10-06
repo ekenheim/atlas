@@ -8,7 +8,8 @@ no section, no failed state, a clean reconciliation. This module classifies ever
 Memory **should** hold, by the rule the retain path already uses (`RETAINABLE_PARSES` and
 `RETAINABLE_LANGUAGES` of `atlas.retention.service`: a `parsed` or `incomplete` parse in
 English; a companyfacts version has no parse and a French or Chinese one is archived, not
-retained), into exactly one state, the first that applies:
+retained), into exactly one state, the first that applies (only a document's current version counts:
+a superseded one that never reached Memory is not a gap):
 
 - `in_memory`: the bank has a memory document of it (a section in any retain state, or linked);
 - `in_flight`: a `triage`, `retain`, `poll_operation` or `reprocess` of it is queued or running;
@@ -40,28 +41,36 @@ type VersionState = Literal[
 type GapReason = Literal["not_submitted", "triage_failed"]
 GAP_REASONS: tuple[GapReason, ...] = ("not_submitted", "triage_failed")
 
-# The CASE of `version_states`: v is the Source Version, `:bank` the research bank. A version
-# whose latest triage job is queued or running is in flight (the first two arms), so a retry
-# in progress is not a failure, and a failed job later retried is judged by the retry.
+# The facts `version_states` joins to each version, each computed once over its table (the
+# state is read at every metrics scrape: no per-version subquery against `job`, which has no
+# index on its payload). A version whose latest triage job is queued or running is in flight
+# (`flight`), so a retry in progress is not a failure, and a failed job later retried is
+# judged by the retry (`latest_triage`).
+_FACTS = (
+    "WITH mem AS (SELECT DISTINCT source_version_id AS id FROM memory_document"
+    "   WHERE bank_id = :bank),"
+    " flight AS ("
+    "   SELECT DISTINCT j.payload ->> 'source_version_id' AS id FROM job j"
+    "    WHERE j.status IN ('queued', 'running') AND j.kind IN ('triage', 'retain')"
+    "   UNION"
+    "   SELECT o.source_version_id::text FROM job j"
+    "    JOIN hindsight_operation o ON o.id = j.payload ->> 'operation_id'"
+    "    WHERE j.status IN ('queued', 'running') AND j.kind IN ('poll_operation', 'reprocess')),"
+    " latest_triage AS ("
+    "   SELECT DISTINCT ON (payload ->> 'source_version_id')"
+    "    payload ->> 'source_version_id' AS id, status FROM job WHERE kind = 'triage'"
+    "    ORDER BY payload ->> 'source_version_id', created_at DESC, id DESC),"
+    " decided AS ("
+    "   SELECT source_version_id AS id, bool_or(decision = 'retain') AS has_retain FROM ("
+    "    SELECT DISTINCT ON (source_version_id, section_anchor) source_version_id, decision"
+    "    FROM triage_decision ORDER BY source_version_id, section_anchor, seq DESC) effective"
+    "   GROUP BY 1)"
+)
 _STATE = (
-    "CASE"
-    " WHEN EXISTS (SELECT FROM memory_document m WHERE m.source_version_id = v.id"
-    "   AND m.bank_id = :bank) THEN 'in_memory'"
-    " WHEN EXISTS (SELECT FROM job j WHERE j.status IN ('queued', 'running') AND ("
-    "   (j.kind IN ('triage', 'retain')"
-    "     AND j.payload ->> 'source_version_id' = CAST(v.id AS text))"
-    "   OR (j.kind IN ('poll_operation', 'reprocess')"
-    "     AND j.payload ->> 'operation_id' IN (SELECT o.id FROM hindsight_operation o"
-    "       WHERE o.source_version_id = v.id)))) THEN 'in_flight'"
-    " WHEN (SELECT j.status FROM job j WHERE j.kind = 'triage'"
-    "   AND j.payload ->> 'source_version_id' = CAST(v.id AS text)"
-    "   ORDER BY j.created_at DESC, j.id DESC LIMIT 1) = 'failed' THEN 'triage_failed'"
-    " WHEN EXISTS (SELECT FROM triage_decision t WHERE t.source_version_id = v.id)"
-    "   AND NOT EXISTS (SELECT FROM triage_decision t WHERE t.source_version_id = v.id"
-    "     AND t.decision = 'retain' AND NOT EXISTS (SELECT FROM triage_decision later"
-    "       WHERE later.source_version_id = t.source_version_id"
-    "       AND later.section_anchor = t.section_anchor AND later.seq > t.seq))"
-    "   THEN 'all_skipped'"
+    "CASE WHEN mem.id IS NOT NULL THEN 'in_memory'"
+    " WHEN flight.id IS NOT NULL THEN 'in_flight'"
+    " WHEN latest_triage.status = 'failed' THEN 'triage_failed'"
+    " WHEN decided.id IS NOT NULL AND NOT decided.has_retain THEN 'all_skipped'"
     " ELSE 'not_submitted' END"
 )
 
@@ -113,13 +122,20 @@ def version_states(
     availability, with its state."""
     rows = connection.execute(
         text(
-            "SELECT v.id AS source_version_id, d.company_id, c.slug AS company_slug,"  # noqa: S608 (constant fragments)
+            f"{_FACTS}"  # noqa: S608 (constant fragments)
+            " SELECT v.id AS source_version_id, d.company_id, c.slug AS company_slug,"
             f" d.title, a.available_at, {_STATE} AS state"
             " FROM source_version v"
             " JOIN source_version_availability a ON a.source_version_id = v.id"
             " JOIN source_document d ON d.id = v.source_document_id"
             " LEFT JOIN company c ON c.id = d.company_id"
+            " LEFT JOIN mem ON mem.id = v.id"
+            " LEFT JOIN flight ON flight.id = CAST(v.id AS text)"
+            " LEFT JOIN latest_triage ON latest_triage.id = CAST(v.id AS text)"
+            " LEFT JOIN decided ON decided.id = v.id"
             " WHERE v.parse_status = ANY(:parses) AND v.language = ANY(:languages)"
+            # Only a document's current version: a superseded one is not a gap.
+            " AND NOT EXISTS (SELECT FROM source_version n WHERE n.supersedes_version_id = v.id)"
             " AND (CAST(:company AS uuid) IS NULL OR d.company_id = :company)"
             " ORDER BY a.available_at DESC, v.id"
         ),

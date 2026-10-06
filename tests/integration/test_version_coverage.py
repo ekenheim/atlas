@@ -106,6 +106,25 @@ class Coverage(Atlas):
             )
         return str(version)
 
+    def supersede(self, version: str) -> str:
+        """A later version of the same document (a changed filing), which supersedes it."""
+        return str(
+            self.sql(
+                "INSERT INTO source_version (id, source_document_id, version_number, raw_sha256,"
+                " comparison_sha256, comparison_rule, object_uri, byte_size, media_type,"
+                " content_sha256, parsed_object_uri, parser_version, parse_status, language,"
+                " available_at, available_at_basis, fetched_at, fetch_status,"
+                " supersedes_version_id)"
+                " SELECT gen_random_uuid(), source_document_id, version_number + 1, :sha, :sha,"
+                " comparison_rule, object_uri, byte_size, media_type, content_sha256,"
+                " parsed_object_uri, parser_version, parse_status, language, now(),"
+                " available_at_basis, now(), fetch_status, id"
+                " FROM source_version WHERE id = :id RETURNING id",
+                id=version,
+                sha=f"{uuid.uuid4().int:064x}"[-64:],
+            ).scalar_one()
+        )
+
     def memory_document(self, version: str, state: str = "completed") -> None:
         """A section of the version in the bank. For the reconciliation, `failed`: a completed
         one would be missing from the (empty) fake Hindsight, a difference of another kind."""
@@ -259,6 +278,18 @@ def test_health_counts_versions_by_what_became_of_them_and_samples_the_gaps(
     # A company filter reads that company's versions, as the bank's.
     only = atlas.health(company_id=atlas.company("lumentum")["id"])
     assert only["versions"]["total"] == 6
+
+
+def test_only_a_document_s_current_version_counts(atlas: Coverage) -> None:
+    old = atlas.add_version("lumentum", "10-K, as first filed")
+    current = atlas.supersede(old)
+    atlas.memory_document(current)
+
+    versions = atlas.company_versions("lumentum")
+
+    # v1 never reached Memory but was superseded by v2, which did: no gap.
+    assert (versions["total"], versions["in_memory"], versions["not_submitted"]) == (1, 1, 0)
+    assert versions["not_submitted_samples"] == []
 
 
 def test_samples_are_bounded_at_twenty(atlas: Coverage) -> None:
