@@ -1,23 +1,41 @@
-/* Plain, readable defaults; no design system. */
+/* One dark theme, no toggle: every colour is a token here. */
 :root {
-  color-scheme: light dark;
+  --bg: #0e1014;
+  --surface: #161920;
+  --raise: #1c2029;
+  --text: #d9dde3;
+  --muted: #8a93a3;
+  --line: #262b35;
+  --edge: #6b7587; /* a control's border: 3:1 against the surfaces */
+  --accent: #9db7e8; /* links, the in-memory bar, focus */
+  --ok: #5fbf8a;
+  --warn: #e3a94b;
+  --gap: #f2685c;
+  --focus: #9db7e8;
+  color-scheme: dark;
   font-family: system-ui, sans-serif;
   line-height: 1.5;
 }
 
 body {
+  background: var(--bg);
+  color: var(--text);
   margin: 0 auto;
   max-width: 72rem;
   padding: 0 1rem 3rem;
 }
 
+a {
+  color: var(--accent);
+}
+
 header {
-  border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-bottom: 1px solid var(--line);
   padding: 0.75rem 0;
 }
 
 :focus-visible {
-  outline: 3px solid Highlight;
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -31,9 +49,14 @@ header {
   top: 0.5rem;
 }
 
+/* Tables as on the Memory page: separate borders, surface cells, a raised muted header. */
 table {
-  border-collapse: collapse;
+  border: 1px solid var(--line);
+  border-collapse: separate;
+  border-radius: 8px;
+  border-spacing: 0;
   margin: 0.5rem 0 1.5rem;
+  overflow: hidden;
   width: 100%;
 }
 
@@ -45,10 +68,19 @@ caption {
 
 th,
 td {
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: var(--surface);
+  border: 0;
+  border-top: 1px solid var(--line);
   padding: 0.3rem 0.5rem;
   text-align: left;
   vertical-align: top;
+}
+
+thead th {
+  background: var(--raise);
+  border-top: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 th[scope="row"] {
@@ -60,6 +92,46 @@ td {
   overflow-wrap: anywhere;
 }
 
+input,
+select,
+textarea,
+button {
+  background: var(--raise);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  padding: 0.2rem 0.4rem;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+button {
+  cursor: pointer;
+  padding: 0.2rem 0.7rem;
+}
+
+button:hover:not(:disabled) {
+  background: var(--line);
+}
+
+button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+::placeholder {
+  color: var(--muted);
+}
+
 .ident,
 time {
   font-family: ui-monospace, monospace;
@@ -67,7 +139,7 @@ time {
 }
 
 .muted {
-  opacity: 0.7;
+  color: var(--muted);
   font-style: italic;
 }
 
@@ -81,7 +153,9 @@ ol.pages {
 }
 
 pre.document {
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   max-height: 70vh;
   overflow: auto;
   padding: 0.75rem;
@@ -94,7 +168,7 @@ pre.document {
 }
 
 blockquote.quote {
-  border-left: 3px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-left: 3px solid var(--edge);
   margin: 0.5rem 0;
   padding: 0.25rem 0.75rem;
 }
@@ -122,8 +196,8 @@ td .field {
 }
 
 .muted-small {
+  color: var(--muted);
   font-size: 0.9em;
-  opacity: 0.8;
 }
 
 .crumbs {
@@ -132,7 +206,9 @@ td .field {
 
 /* An Assertion's span, highlighted in the parsed text (an edge's Evidence links to it). */
 mark.span {
-  outline: 2px solid currentColor;
+  background: color-mix(in srgb, var(--warn) 30%, transparent);
+  color: var(--text);
+  outline: 2px solid var(--warn);
   scroll-margin: 4rem;
 }
 
@@ -145,6 +221,8 @@ ul.choices {
 }
 
 fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
   margin: 0.5rem 0 1rem;
 }
 
