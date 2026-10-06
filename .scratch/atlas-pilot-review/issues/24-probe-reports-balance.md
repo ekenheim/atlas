@@ -23,4 +23,4 @@ Unit-test the pure part (the measures from a recorded answer set) in `tests/unit
 ## Done when
 
 - [x] The report has both tables and the top line; a unit test covers the measures.
-- [ ] Run once on production before tickets 22/23's ops and once after, both recorded in ticket 22.
+- [x] Run once on production before tickets 22/23's ops and once after, both recorded in ticket 22.

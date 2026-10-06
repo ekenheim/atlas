@@ -1,7 +1,7 @@
 # Every parsed Source Version reaches Memory, and a gap shows
 
 Type: build + ops
-Status: open
+Status: done
 Blocked by: none
 Blocks: 05–08 (the verdict runs read the bank this fixes)
 
@@ -40,10 +40,10 @@ Then the API sweep again (`scratchpad/sweep.py`-style: every English parsed vers
 
 ## Done when
 
-- [ ] 529 / `overloaded_error` pauses the queue (tests above); to be released.
-- [ ] Memory health's `versions` block, the reconciliation kind, the metric and the alert; to be released.
-- [ ] On production: 0 versions `not_submitted` or `triage_failed` (health, and the reconciliation `clean`).
-- [ ] The memory probe rerun; STMicro, Soitec and IQE's pointer weight recorded here before and after.
+- [x] 529 / `overloaded_error` pauses the queue (tests above); to be released.
+- [x] Memory health's `versions` block, the reconciliation kind, the metric and the alert; to be released.
+- [x] On production: 0 versions `not_submitted` or `triage_failed` (health, and the reconciliation `clean`).
+- [x] The memory probe rerun; STMicro, Soitec and IQE's pointer weight recorded here before and after.
 
 ## Comments
 
@@ -52,3 +52,10 @@ Then the API sweep again (`scratchpad/sweep.py`-style: every English parsed vers
 Memory probe (25 recalls, probe set 1), companies by pointer weight: applied-optoelectronics 53.85 (352 pointers), lumentum 49.23 (340), coherent 31.43 (398), axt 27.26 (195), macom 24.98 (181), ciena 16.19 (94), marvell 10.33 (76), fabrinet 7.14 (64), iqe 0.49 (4), stmicroelectronics 0.03 (1), soitec absent, innolight absent (no sources). Pointers to versions before 2024-10-06: 785 of 3,491 (22%); coherent 599 of 731 (82%), lumentum 186 of 753 (25%).
 
 Versions per company (English, parsed, companyfacts excluded): in Memory / all sections skipped / never triaged / triaged retain but not in Memory: AAOI 52/1/17/0, AXT 41/2/0/0, Ciena 42/6/0/0, Coherent 354/0/0/0, Fabrinet 31/2/0/0, IQE 54/114/1/0, Lumentum 225/0/0/0, MACOM 26/4/0/0, Marvell 49/13/5/0, Soitec 8/14/2/6, STMicro 36/24/67/0. The 9 failed triage jobs (job IDs `uuid5(ns, ["triage","triage:<version>"])`, read through `GET /api/v1/jobs/{id}`): Soitec's eight transcripts and IQE's H2 2025 call, each 3 attempts, each `HTTP 529 … overloaded_error … (2064)`.
+
+### 2026-10-06: the after-measure (production 0.4.6, after tickets 22 and 23's ops)
+
+- Released in 0.4.6 (home-ops #7265). Catch-up on 0.4.5 commands: 9 triage retries succeeded; the capped ingests enqueued 67 (STMicro), 17 (AAOI) and 5 (Marvell) retains, nothing fetched again. Memory health on 0.4.6: 1,196 versions, 0 `not_submitted`, 0 `triage_failed`; the reconciliation `clean` with `version_not_in_memory: 0`.
+- Sections before/after: STMicro 139 → 217, AAOI 130 → 166, Marvell 154 → 164, Soitec 15 → 52, IQE 82 → 85.
+- Memory probe (ticket 24's report, same probe set), weight: AAOI 54.2, AXT 36.7 (was 27.3), Lumentum 34.9, MACOM 27.2, Ciena 18.4, Coherent 16.4 (was 31.4), Marvell 11.5, Fabrinet 7.8, IQE 0.64, STMicro 0.27, Soitec 0.07 (was absent), Innolight 0. Pre-window pointers 0% (was 22%; Coherent 82%). The InP-substrates probe reaches 11 companies (was 7).
+- **Open, not a gap:** IQE, STMicro and Soitec stay low. Partly relevance (the probes ask about lasers, substrates, modules and DSPs), partly the observations being rebuilt (8,478 after the retirement, from 16,674). Remeasure once consolidation has caught up, before the verdict runs.

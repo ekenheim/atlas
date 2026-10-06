@@ -1,7 +1,7 @@
 # Memory holds the intake window: retire Coherent's and Lumentum's pre-window sections
 
 Type: build + ops
-Status: open
+Status: done
 Blocked by: none
 Blocks: 05–08 (the verdict runs read the bank this fixes)
 
@@ -46,5 +46,13 @@ Order: first a dry count (`--max-sections 0` reports what it would take), then a
 
 ## Done when
 
-- [ ] Tests at the seams: the CLI enqueues; a worker pass deletes the documents (the fake's `forget`), sets `retired`, records the retirement; the resolver's `memory_retired`; retain/backfill/retry skip a retired section; health counts it. Released.
-- [ ] On production: Coherent and Lumentum hold only in-window sections (health), the reconciliation is `clean`, and the memory probe's pre-window pointer share is 0, recorded here.
+- [x] Tests at the seams: the CLI enqueues; a worker pass deletes the documents (the fake's `forget`), sets `retired`, records the retirement; the resolver's `memory_retired`; retain/backfill/retry skip a retired section; health counts it. Released.
+- [x] On production: Coherent and Lumentum hold only in-window sections (health), the reconciliation is `clean`, and the memory probe's pre-window pointer share is 0, recorded here.
+
+## Comments
+
+### 2026-10-06: done on production (0.4.6)
+
+- Count: Coherent 1,131, Lumentum 681 sections before 2024-10-06. Trial of 50 (Coherent): 1,105 memory units deleted, observations 16,674 → 16,022, pending consolidation +1,079. Then the rest: Coherent 1,081 (two attempts; the first stopped on a Hindsight `DELETE` answering HTTP 500 "deadlock detected", most likely against the running consolidation; the retry resumed), Lumentum 681. 0 documents absent.
+- After: 1,812 sections `retired`; bank facts 74,849 → 44,973; observations 8,478 (being rebuilt from the surviving co-source facts; the owner agreed to the rebuild, 2026-10-06). Pending consolidation went down overall (28,161 → 23,761 over Coherent's run, 24,779 after Lumentum's): the deleted facts were largely still pending themselves. Coherent 347 sections / 5,800 facts, Lumentum 310 / 7,045. The reconciliation `clean`; the probe's pre-window share 0% (ticket 22's after-measure).
+- **Known gaps, for after the verdict:** a Hindsight 5xx such as a deadlock on `DELETE` costs the job an attempt instead of being retried within it; a `linked` section is not retired with the version it links to (none on production); retiring on a schedule as the window rolls (map, "Not yet specified").
