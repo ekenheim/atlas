@@ -46,7 +46,7 @@ jobs:
     runs-on: gha-runner-scale-set-atlas
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.7.3"
@@ -80,7 +80,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
       - id: meta
         uses: docker/metadata-action@v6
