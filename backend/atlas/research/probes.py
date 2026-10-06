@@ -20,6 +20,7 @@ Pure: no I/O but reading the probe file. `scripts/memory_probe.py` runs the reca
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -273,4 +274,148 @@ def summary(probe_report: ProbeReport, *, top: int = 10) -> str:
             f"{place}. {company.name or company.company_id}: {company.score}"
             f" ({company.pointers} pointers, best rank {company.best_rank})"
         )
+    return "\n".join(lines) + "\n"
+
+
+# --- The bank's balance (pilot-review ticket 24) ---------------------------------------------
+
+DEFAULT_WINDOW_DAYS = 730
+PRE_WINDOW_ALERT = 0.25
+
+
+class CompanyBalance(BaseModel):
+    company_id: str
+    name: str | None
+    pointers: int
+    score: float
+    share: float  # of the total pointer weight
+    dated: int  # pointers whose version's `available_at` is known
+    pre_window: int  # of those, before the intake window
+    pre_window_share: float | None  # None: no dated pointer
+
+
+class Balance(BaseModel):
+    window_days: int
+    window_start: str
+    total_score: float
+    pointers: int
+    dated: int
+    pre_window: int
+    pre_window_share: float | None
+    companies: list[CompanyBalance]  # every researched company, weight order, 0 ones last
+    outside_universe_pointers: int
+    outside_universe_score: float
+    zero_weight: list[str]
+    over_pre_window: list[str]
+
+
+def _share(part: int, whole: int) -> float | None:
+    return round(part / whole, 4) if whole else None
+
+
+def pointed_versions(answers: Sequence[Answer]) -> list[str]:
+    """The distinct Source Versions the answers' resolved memories lead to, sorted."""
+    return sorted(
+        {section[0] for answer in answers for _, _, section in _pointers(_parsed(answer))}
+    )
+
+
+def balance(
+    answers: Sequence[Answer],
+    researched: Mapping[str, str],
+    available_at: Mapping[str, datetime],
+    *,
+    now: datetime,
+    window_days: int = DEFAULT_WINDOW_DAYS,
+) -> Balance:
+    """How the probe's pointers spread over the researched companies (ID to name, each listed
+    even with none) and over time: per company its pointers, pointer weight and share of the
+    total weight, and the share of its pointers whose Source Version (ID to `available_at`; a
+    version missing from it is undated and left out of the shares) was available before
+    `now` minus `window_days`. Weight is the probe's own (one pointer per resolved memory and
+    section, 1 / rank in its answer)."""
+    start = now - timedelta(days=window_days)
+    ranks: dict[str, list[int]] = {}
+    dated: dict[str, int] = {}
+    old: dict[str, int] = {}
+    for answer in answers:
+        for rank, company, (version, _) in _pointers(_parsed(answer)):
+            if company is None:
+                continue
+            ranks.setdefault(company, []).append(rank)
+            when = available_at.get(version)
+            if when is not None:
+                dated[company] = dated.get(company, 0) + 1
+                old[company] = old.get(company, 0) + (1 if when < start else 0)
+    weights = dict(rank_companies(ranks))
+    total = sum(weight.score for weight in weights.values())
+    rows: list[CompanyBalance] = []
+    for company, name in researched.items():
+        weight = weights.get(company)
+        rows.append(
+            CompanyBalance(
+                company_id=company,
+                name=name,
+                pointers=weight.pointers if weight else 0,
+                score=weight.score if weight else 0.0,
+                share=round(weight.score / total, 4) if weight and total else 0.0,
+                dated=dated.get(company, 0),
+                pre_window=old.get(company, 0),
+                pre_window_share=_share(old.get(company, 0), dated.get(company, 0)),
+            )
+        )
+    rows.sort(key=lambda row: (-row.score, row.name or row.company_id))
+    outside = [w for company, w in weights.items() if company not in researched]
+    all_dated, all_old = sum(dated.values()), sum(old.values())
+    return Balance(
+        window_days=window_days,
+        window_start=start.isoformat(),
+        total_score=round(total, 4),
+        pointers=sum(w.pointers for w in weights.values()),
+        dated=all_dated,
+        pre_window=all_old,
+        pre_window_share=_share(all_old, all_dated),
+        companies=rows,
+        outside_universe_pointers=sum(w.pointers for w in outside),
+        outside_universe_score=round(sum(w.score for w in outside), 4),
+        zero_weight=[row.name or row.company_id for row in rows if row.pointers == 0],
+        over_pre_window=[
+            row.name or row.company_id
+            for row in rows
+            if row.pre_window_share is not None and row.pre_window_share > PRE_WINDOW_ALERT
+        ],
+    )
+
+
+def balance_summary(result: Balance) -> str:
+    """The balance as Markdown: the top line, then one row per researched company."""
+    zero = ", ".join(result.zero_weight) or "none"
+    over = ", ".join(result.over_pre_window) or "none"
+    lines = [
+        f"**Balance:** companies at 0 weight: {zero}. Pre-window share above"
+        f" {PRE_WINDOW_ALERT:.0%}: {over}.",
+        "",
+        f"Pointers by company (all probes; window {result.window_days} days, from"
+        f" {result.window_start[:10]}):",
+        "",
+        "| Company | Pointers | Weight | Share | Pre-window | Pre-window share |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in result.companies:
+        old = "n/a" if row.pre_window_share is None else f"{row.pre_window_share:.0%}"
+        lines.append(
+            f"| {row.name or row.company_id} | {row.pointers} | {row.score} | {row.share:.0%}"
+            f" | {row.pre_window}/{row.dated} | {old} |"
+        )
+    overall = "n/a" if result.pre_window_share is None else f"{result.pre_window_share:.0%}"
+    lines.append(
+        f"| all | {result.pointers} | {result.total_score} | | {result.pre_window}/{result.dated}"
+        f" | {overall} |"
+    )
+    if result.outside_universe_pointers:
+        lines += [
+            "",
+            f"Outside the researched companies: {result.outside_universe_pointers} pointers,"
+            f" weight {result.outside_universe_score}.",
+        ]
     return "\n".join(lines) + "\n"
