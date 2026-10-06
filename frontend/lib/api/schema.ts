@@ -5048,7 +5048,7 @@ export interface components {
              * Retain State
              * @enum {string}
              */
-            retain_state: "pending" | "completed" | "failed" | "zero_fact" | "linked" | "cancelled";
+            retain_state: "pending" | "completed" | "failed" | "zero_fact" | "linked" | "cancelled" | "retired";
             /** Fact Count */
             fact_count: number | null;
             /** Memory Ids */
@@ -7521,6 +7521,12 @@ export interface components {
              */
             linked: number;
             /**
+             * Retired
+             * @description sections retired from Memory: their Source Version is before the intake window (pilot-review ticket 23)
+             * @default 0
+             */
+            retired: number;
+            /**
              * Partial
              * @description completed sections whose extraction reported errors after their one retry
              * @default 0
@@ -8384,7 +8390,7 @@ export interface components {
             effective: boolean;
         };
         /** @enum {string} */
-        UnresolvedReason: "mental_model" | "no_memory_id" | "memory_not_found" | "memory_replaced" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
+        UnresolvedReason: "mental_model" | "no_memory_id" | "memory_not_found" | "memory_replaced" | "memory_retired" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
         /** UnresponsiveEngine */
         UnresponsiveEngine: {
             /** Engine */

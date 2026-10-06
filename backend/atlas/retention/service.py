@@ -641,7 +641,8 @@ class Retention:
                 " JOIN source_version v ON v.id = m.source_version_id"
                 " WHERE v.raw_sha256 = :sha AND m.bank_id = :bank AND v.id <> :version"
                 " GROUP BY m.source_version_id"
-                " HAVING bool_and(m.retain_state NOT IN ('linked', 'failed', 'cancelled'))"
+                " HAVING bool_and(m.retain_state"
+                "   NOT IN ('linked', 'failed', 'cancelled', 'retired'))"
                 " ORDER BY min(m.created_at), m.source_version_id LIMIT 1"
             ),
             {"sha": version.raw_sha256, "bank": self.bank_id, "version": version.id},

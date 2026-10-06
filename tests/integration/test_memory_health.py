@@ -100,6 +100,7 @@ def counts(
         "cancelled": 0,
         "zero_fact": zero_fact,
         "linked": 0,
+        "retired": 0,
         "partial": partial,
         "fact_count": completed * RECORDED_FACT_COUNT,
         # Sections retained now are under the current retain profile; none is below it.

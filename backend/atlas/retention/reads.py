@@ -11,7 +11,9 @@ from atlas.retention.context import RETAIN_PROFILE
 
 # `cancelled`: the section's operation was cancelled (by the owner) before Hindsight stored
 # it; not a failure, and `atlas retention retry-failed` enqueues it again (ticket 03).
-RetainState = Literal["pending", "completed", "failed", "zero_fact", "linked", "cancelled"]
+RetainState = Literal[
+    "pending", "completed", "failed", "zero_fact", "linked", "cancelled", "retired"
+]
 RETAIN_STATES: tuple[RetainState, ...] = get_args(RetainState)
 # Why a failed or cancelled section is not in memory.
 SectionErrorClass = Literal["cancelled", "permanent", "transient", "missing"]

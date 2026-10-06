@@ -626,3 +626,14 @@ Production reaches TradingView through the owner's read-only MCP proxy in the `l
 - **When jobs fail to connect:** the pods can't reach the proxy Service; check the proxy pod and any network policy in `llm`.
 - **Tool names** come from TradingView's beta server and may change; `atlas tradingview check --symbol NASDAQ:LITE` makes one catalog call and prints counts only.
 - **From a PC** (a check, not production): `kubectl -n llm port-forward svc/mcp-tradingview-mcp-proxy 18080:8080`, then run the check with `ATLAS_TRADINGVIEW_MCP_URL=http://127.0.0.1:18080/mcp`.
+
+## Retiring pre-window sections (pilot-review ticket 23)
+
+Memory holds what intake holds (`docs/decisions.md`, "Memory holds the intake window"). `atlas memory retire --before <date> [--company <slug>]... [--max-sections N] [--key K]` deletes the Hindsight document of every section of a Source Version available before the date and marks the section `retired`; the Source Versions stay in the ledger and the archive. It needs `ATLAS_HINDSIGHT_URL`; the `memory_retire` job calls no LLM, is backfill class, and pauses with a Hindsight outage.
+
+1. **Count first.** `atlas memory retire --before 2024-10-06 --company coherent --company lumentum --max-sections 0` prints each company's `sections_before_window` and enqueues nothing.
+2. **A small run.** `--max-sections 50` (the date is UTC when it has no offset). Read the job's artifacts (`GET /api/v1/jobs/{id}`): `sections_retired`, `memory_units_deleted`, `documents_absent`, `pending_consolidation_before` and `_after`, `consolidate_job`. Each delete invalidates the observations that cited the deleted facts, and the `consolidate` that follows rebuilds them from the surviving facts: a burst of rounds on the consolidation quota (`hindsight_consolidation`, `ATLAS_CONSOLIDATE_BUDGET_ROUNDS`), so run it before the consolidation spends rounds on facts that are about to go.
+3. **The rest.** Rerun without `--max-sections` (a new `--key`; the same key resumes a cut-short run without taking more than its `--max-sections`). Check `GET /api/v1/memory/health`: the companies' `sections.retired`, `pending_consolidation`, and a reconciliation (`atlas memory reconcile --wait`) that is `clean`.
+4. **Reading it.** A citation of a retired memory reads `unverified` with the reason `memory_retired`. `memory_retirement` (insert-only) has each section's memories, state, profile, run and what Hindsight answered. Nothing brings a section back: to hold a document again, ingest a new version of it.
+
+Not covered: retiring on a schedule as the window rolls.

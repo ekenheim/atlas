@@ -62,6 +62,7 @@ type UnresolvedReason = Literal[
     "no_memory_id",
     "memory_not_found",
     "memory_replaced",
+    "memory_retired",
     "source_memory_not_found",
     "no_source_memories",
     "not_an_atlas_document",
@@ -308,6 +309,14 @@ class ProvenanceResolver:
         under the current profile (memory-quality ticket 12: the section is still in Memory,
         its facts have new IDs), else `broken`."""
         document = self._replacement(memory_id)
+        retired = None if document is not None else self._retirement(memory_id)
+        if retired is not None:
+            return _Outcome(
+                "unverified",
+                "memory_retired",
+                f"{what} was retired from Memory with document {retired}: its Source Version is"
+                " before the intake window (still in the ledger and the archive)",
+            )
         if document is not None:
             return _Outcome(
                 "unverified",
@@ -318,6 +327,17 @@ class ProvenanceResolver:
         outcome = _Outcome("broken", reason, f"{what} no longer exists")
         outcome.missing.append(memory_id)
         return outcome
+
+    def _retirement(self, memory_id: str) -> str | None:
+        with self._engine.connect() as connection:
+            return connection.execute(
+                text(
+                    "SELECT hindsight_document_id FROM memory_retirement"
+                    " WHERE bank_id = :bank AND retired_memory_ids @> CAST(:memory AS jsonb)"
+                    " ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"bank": self._gateway.bank_id, "memory": json.dumps([memory_id])},
+            ).scalar_one_or_none()
 
     def _replacement(self, memory_id: str) -> str | None:
         with self._engine.connect() as connection:

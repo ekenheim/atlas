@@ -698,13 +698,14 @@ def _retains_pending(connection: Connection) -> bool:
 
 
 def sections_retained_since(connection: Connection, bank_id: str) -> int:
-    """Sections of the bank retained (completed) since the last completed consolidation was
+    """Sections of the bank retained (completed) or retired (their facts are deleted, so the
+    observations that cited them need rebuilding) since the last completed consolidation was
     requested: what the next one would consolidate. Database times on both sides."""
     return int(
         connection.execute(
             text(
                 "SELECT count(*) FROM memory_document m WHERE m.bank_id = :bank"
-                " AND m.retain_state = 'completed' AND m.updated_at > coalesce(("
+                " AND m.retain_state IN ('completed', 'retired') AND m.updated_at > coalesce(("
                 "   SELECT max(c.requested_at) FROM memory_consolidation c"
                 "   WHERE c.bank_id = :bank AND c.status = 'completed'), '-infinity')"
             ),
