@@ -473,6 +473,16 @@ def test_an_unknown_run_takes_no_role_calls(engine: Engine, tmp_path: Path) -> N
     assert litellm.calls == []
 
 
+# What MiniMax answered on 2026-10-06 (production, ticket 22): HTTP 529, the type
+# `overloaded_error` ("overloaded" inside a longer token), in LiteLLM's envelope.
+MINIMAX_OVERLOADED = (
+    "litellm.APIError: MinimaxException - "
+    '{"type":"error","error":{"type":"overloaded_error","message":"The server cluster is'
+    " currently under high load. Please retry after a short wait and thank you for your"
+    ' patience. (2064)","http_code":"529"}}'
+)
+
+
 @pytest.mark.parametrize(
     ("reply", "failure_class"),
     [
@@ -487,6 +497,8 @@ def test_an_unknown_run_takes_no_role_calls(engine: Engine, tmp_path: Path) -> N
         ),
         (ChatReply.error(503, "litellm.ServiceUnavailableError"), "unavailable"),
         (ChatReply.error(500, "APIConnectionError: MinimaxException - overloaded"), "unavailable"),
+        (ChatReply.error(529, MINIMAX_OVERLOADED), "unavailable"),
+        (ChatReply.error(529, "overloaded"), "unavailable"),
         (ChatReply.unreachable(), "unavailable"),
     ],
 )

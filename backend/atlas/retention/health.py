@@ -26,6 +26,11 @@ One read, two sources:
 A Hindsight read that fails (or Hindsight not configured) makes its part `unavailable` with the
 reason; the rest of the read still answers.
 
+`versions` (pilot-review ticket 22, `atlas.retention.coverage`) counts Source Versions, not
+sections: the parsed, retainable ones Memory should hold, by whether the bank has a memory
+document of them, triage skipped every section, their triage failed, a job of theirs is in
+flight, or nothing was ever submitted (the last two are the gaps, with samples).
+
 `consolidation` (ticket 19) is Atlas's record of the bank's consolidations: the last requested
 and the last completed run, their operations, and the sections retained since the last
 completed one (`atlas.retention.consolidation`). `reconciliation` (ticket 22) is the bank's
@@ -47,6 +52,12 @@ from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightG
 from atlas.identity.normalize import normalize_name
 from atlas.retention.backfill import STUCK, stuck_params
 from atlas.retention.consolidation import ConsolidationRecord, consolidation_record
+from atlas.retention.coverage import (
+    VersionCounts,
+    count_versions,
+    counts_by_company,
+    version_states,
+)
 from atlas.retention.reads import RETAIN_STATES
 from atlas.retention.reconciliation import ReconciliationSummary, last_reconciliation
 
@@ -133,6 +144,11 @@ class CompanySections(BaseModel):
     display_name: str | None
     role: str | None  # researched or counterparty
     sections: SectionCounts
+    versions: VersionCounts = Field(
+        default_factory=VersionCounts,
+        description="the company's parsed, retainable Source Versions by what became of them"
+        " (pilot-review ticket 22)",
+    )
 
 
 class FailedGroup(BaseModel):
@@ -202,6 +218,13 @@ class MemoryHealth(BaseModel):
     company_id: uuid.UUID | None
     generated_at: datetime
     sections: SectionCounts
+    versions: VersionCounts = Field(
+        default_factory=VersionCounts,
+        description="the parsed, retainable Source Versions Memory should hold, by what became of"
+        " them (pilot-review ticket 22): in memory, all skipped by triage, triage failed, in"
+        " flight, or never submitted; samples of the last two. Sections alone show none of the"
+        " gaps: a version nothing submitted has no section",
+    )
     companies: list[CompanySections]
     failed_groups: list[FailedGroup]
     pending_by_age: list[PendingBucket]
@@ -249,8 +272,12 @@ def memory_health(
     now: datetime = connection.execute(text("SELECT now()")).scalar_one()
     where, params = _filter(bank_id, company_id)
     total, per_company = _section_counts(connection, where, params, stuck_after_hours)
+    version_rows = version_states(connection, bank_id, company_id)
+    versions = counts_by_company(version_rows)
     if company_id is not None:
         per_company.setdefault(company_id, SectionCounts())
+    for key in versions:
+        per_company.setdefault(key, SectionCounts())
     listed = [
         CompanySections(
             company_id=key,
@@ -258,6 +285,7 @@ def memory_health(
             display_name=companies[key]["display_name"] if key in companies else None,
             role=companies[key]["role"] if key in companies else None,
             sections=counts,
+            versions=versions.get(key, VersionCounts()),
         )
         for key, counts in per_company.items()
     ]
@@ -272,6 +300,7 @@ def memory_health(
                 display_name=config.display_name,
                 role="researched",
                 sections=SectionCounts(),
+                versions=VersionCounts(),
             )
             for slug, config in universe.companies.items()
             if slug not in seen
@@ -281,6 +310,7 @@ def memory_health(
         company_id=company_id,
         generated_at=now,
         sections=total,
+        versions=count_versions(version_rows),
         companies=sorted(listed, key=lambda c: (c.slug is None, c.slug or "")),
         failed_groups=_failed_groups(connection, where, params),
         pending_by_age=_pending(connection, where, params, now),

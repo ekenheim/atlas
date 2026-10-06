@@ -9920,6 +9920,10 @@
           },
           "sections": {
             "$ref": "#/components/schemas/SectionCounts"
+          },
+          "versions": {
+            "$ref": "#/components/schemas/VersionCounts",
+            "description": "the company's parsed, retainable Source Versions by what became of them (pilot-review ticket 22)"
           }
         },
         "type": "object",
@@ -16458,6 +16462,10 @@
           "sections": {
             "$ref": "#/components/schemas/SectionCounts"
           },
+          "versions": {
+            "$ref": "#/components/schemas/VersionCounts",
+            "description": "the parsed, retainable Source Versions Memory should hold, by what became of them (pilot-review ticket 22): in memory, all skipped by triage, triage failed, in flight, or never submitted; samples of the last two. Sections alone show none of the gaps: a version nothing submitted has no section"
+          },
           "companies": {
             "items": {
               "$ref": "#/components/schemas/CompanySections"
@@ -19839,7 +19847,7 @@
             },
             "type": "object",
             "title": "Samples",
-            "description": "up to 20 IDs per kind: Hindsight document IDs (section_missing, document_unrecorded, profile_mismatch), scopes' tags joined by commas (observation_scope_outside), setting names (config_drift), operation IDs or `run:<id>` (consolidation_untracked)"
+            "description": "up to 20 IDs per kind: Hindsight document IDs (section_missing, document_unrecorded, profile_mismatch), scopes' tags joined by commas (observation_scope_outside), setting names (config_drift), operation IDs or `run:<id>` (consolidation_untracked), `<version id>:<reason>` (version_not_in_memory)"
           },
           "details": {
             "additionalProperties": {
@@ -25627,6 +25635,64 @@
         ],
         "title": "ValidityDates"
       },
+      "VersionCounts": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "in_memory": {
+            "type": "integer",
+            "title": "In Memory",
+            "description": "the bank holds a memory document of it",
+            "default": 0
+          },
+          "all_skipped": {
+            "type": "integer",
+            "title": "All Skipped",
+            "description": "triage decided it and every effective decision is `skip`",
+            "default": 0
+          },
+          "triage_failed": {
+            "type": "integer",
+            "title": "Triage Failed",
+            "description": "its latest triage job failed after its attempts",
+            "default": 0
+          },
+          "in_flight": {
+            "type": "integer",
+            "title": "In Flight",
+            "description": "a triage, retain, poll or reprocess of it is queued or running",
+            "default": 0
+          },
+          "not_submitted": {
+            "type": "integer",
+            "title": "Not Submitted",
+            "description": "none of these: nothing of it was offered to Memory",
+            "default": 0
+          },
+          "not_submitted_samples": {
+            "items": {
+              "$ref": "#/components/schemas/VersionSample"
+            },
+            "type": "array",
+            "title": "Not Submitted Samples",
+            "description": "up to 20, newest first"
+          },
+          "triage_failed_samples": {
+            "items": {
+              "$ref": "#/components/schemas/VersionSample"
+            },
+            "type": "array",
+            "title": "Triage Failed Samples",
+            "description": "up to 20, newest first"
+          }
+        },
+        "type": "object",
+        "title": "VersionCounts",
+        "description": "The parsed, retainable Source Versions Memory should hold, by what became of them."
+      },
       "VersionCreate": {
         "properties": {
           "based_on_version": {
@@ -25859,6 +25925,31 @@
         ],
         "title": "VersionProvenance",
         "description": "Where a version came from: the investigation and its run (the research card's Editor\ncall), and for the Editor's draft its own run and call."
+      },
+      "VersionSample": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "title",
+          "available_at"
+        ],
+        "title": "VersionSample"
       },
       "XbrlSource": {
         "properties": {

@@ -25,6 +25,7 @@ from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from atlas.jobs import JobQueue
+from atlas.retention.coverage import GAP_REASONS, version_states
 from atlas.retention.reconciliation import DRIFT_KINDS
 from atlas.retention.triage import LATEST_TRIAGE_JOBS
 
@@ -84,9 +85,10 @@ def recall_latency(registry: CollectorRegistry) -> Histogram:
 
 
 class StateCollector(Collector):
-    def __init__(self, engine: Engine, queue: JobQueue) -> None:
+    def __init__(self, engine: Engine, queue: JobQueue, bank_id: str | None = None) -> None:
         self._engine = engine
         self._queue = queue
+        self._bank_id = bank_id
 
     def collect(self) -> Iterator[Metric]:
         up = GaugeMetricFamily(
@@ -111,6 +113,7 @@ class StateCollector(Collector):
             yield from self._consolidations(connection)
             yield from self._reconciliations(connection)
             yield from self._sections(connection)
+            yield from self._version_gaps(connection)
             yield from self._triage(connection)
             yield from self._research(connection)
             yield from self._claims(connection)
@@ -486,6 +489,28 @@ class StateCollector(Collector):
         )
         partial_sections.add_metric([], partial)
         yield partial_sections
+
+    def _version_gaps(self, connection: Connection) -> Iterator[Metric]:
+        """Parsed Source Versions the research bank should hold and was never given, or whose
+        triage failed (pilot-review ticket 22). Not emitted without a bank."""
+        if self._bank_id is None:
+            return
+        gap = GaugeMetricFamily(
+            "atlas_versions_not_in_memory",
+            "Parsed English Source Versions the research bank holds nothing of, by company and"
+            " reason: not_submitted (never offered to Memory) or triage_failed (its triage job"
+            " failed after its attempts); 0 for a company with none",
+            labels=["company", "reason"],
+        )
+        slugs = connection.execute(text("SELECT slug FROM company ORDER BY slug")).scalars()
+        counts = {(slug, reason): 0 for slug in slugs for reason in GAP_REASONS}
+        for row in version_states(connection, self._bank_id):
+            if row.state in GAP_REASONS:
+                key = (row.company_slug or "unattributed", row.state)
+                counts[key] = counts.get(key, 0) + 1
+        for (slug, reason), count in sorted(counts.items()):
+            gap.add_metric([slug, reason], count)
+        yield gap
 
     def _triage(self, connection: Connection) -> Iterator[Metric]:
         """Retention triage (ticket 30): sections by effective decision and value category,

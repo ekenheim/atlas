@@ -56,6 +56,7 @@ KINDS = (
     "observation_scope_outside",
     "config_drift",
     "consolidation_untracked",
+    "version_not_in_memory",
 )
 NO_DRIFT = dict.fromkeys(KINDS, 0)
 ORPHAN = "srcv:00000000-0000-4000-8000-000000000000:cover"
@@ -254,6 +255,7 @@ def test_each_kind_of_drift_is_found_with_its_samples(
         "observation_scope_outside": 1,
         "config_drift": 1,
         "consolidation_untracked": 1,
+        "version_not_in_memory": 0,
     }
     samples = run["samples"]
     assert samples["section_missing"] == [missing]

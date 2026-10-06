@@ -59,6 +59,20 @@ spec:
               differences, and the one before found some too. GET /api/v1/memory/reconciliations
               lists the runs with their samples; docs/runbooks.md, "Memory reconciliation", says
               what each kind means and what to do.
+        # A parsed English Source Version Memory was never given, or whose triage failed after
+        # its attempts (pilot-review ticket 22): a company is under-read by accident.
+        - alert: AtlasVersionsNotInMemory
+          expr: sum by (company, reason) (atlas_versions_not_in_memory) > 0
+          for: 24h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.company }}: Source Versions not in Memory ({{ $labels.reason }})"
+            description: >-
+              {{ $value | humanize }} parsed Source Versions of {{ $labels.company }} are not in
+              Memory ({{ $labels.reason }}). GET /api/v1/memory/health lists samples under
+              `versions`; `atlas memory backfill --company {{ $labels.company }}` takes them
+              (docs/runbooks.md, "Memory backfill").
         # The last reconciliation failed: a Hindsight listing or read failed, so it counted
         # nothing and the drift gauges still show the run before it.
         - alert: AtlasMemoryReconciliationFailed
