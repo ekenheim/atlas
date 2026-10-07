@@ -13,3 +13,7 @@ It prints one table comparing the new run with the 0.4.6 run of the same questio
 
 **Acceptance:**
 - [ ] The tool, its judge prompt in `.scratch/tools/` (not a product role); runs on the five saved 0.4.6 runs and reproduces their baseline coverage within one hit of the reviewers' marks (report the agreement).
+
+## Result (implementer)
+
+Built `.scratch/tools/pilot_score.py` and `pilot_score_judge.md`. The agreement box is left unticked. Automatic baseline coverage on the five saved 0.4.6 runs (an accepted Claim overlapping the hit's span, or sharing an 8-word run in the hit's document or an `also_in` document) gives 2, 2, 2, 1, 0 of ten hits; the reviewers' strict "covered" marks are 4, 2, 3, 1, 1. Questions 2 to 5 are within one hit; question 1 is two short, because the reviewers also marked two hits covered by a Claim that restates the passage in another document (a semantic call). A content-word containment rule was tried and removed: it added false positives in questions 2 and 3 and fixed nothing in question 1. `--judge` was tested only against a local stub, never live. `python .scratch/tools/pilot_score.py --agreement` prints the agreement.
