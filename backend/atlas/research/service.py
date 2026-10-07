@@ -163,27 +163,26 @@ def reading_index_recall(
     *,
     max_tokens: int,
     as_of: datetime,
-    raw_facts: bool = False,
 ) -> RecallRequest:
     """The recall an investigation asks (memory-quality ticket 07; docs/decisions.md, "Recall
     as a reading index"): `max_tokens` of results, budget high, an observation in place of the
-    facts it was built from, recency judged from `as_of`, each observation's sources and every
-    fact's chunk in the same answer. The one builder of it: investigations and the conformance
-    check's known answers both use it, so what is measured is what is used.
+    facts it was built from, recency judged from `as_of`, every observation's sources and every
+    fact's chunk in the same answer. The one builder of it: investigations, the Reader and the
+    conformance check's known answers all use it, so what is measured is what is used.
 
-    `raw_facts`: the extracted facts only, no observations (the Reader's recall). Measured on
-    2026-10-07 (pilot fix 40): with observations preferred, the known answers' sections were
-    reached at recall 0.08 at both 8,192 and 16,000 tokens; raw facts only at 16,000 tokens
-    pointed at 10 of 17 of them. Observations stand in for the facts that point at a section."""
+    Every source, not Hindsight's default 4,096 tokens of them (the gateway asks
+    `include.source_facts.max_tokens: -1`): an observation points at a section only through
+    its source facts. Measured on 2026-10-07 over the known answers' probe recalls at 8,192
+    tokens: 5 of 17 answer sections reached with the default, 9 with every source fact, 6 with
+    raw facts only (no observations)."""
     return RecallRequest(
         query=query,
         scope=scope,
         budget="high",
         max_tokens=max_tokens,
-        prefer_observations=not raw_facts,
-        types=["world", "experience"] if raw_facts else None,
+        prefer_observations=True,
         query_timestamp=as_of,
-        include_source_facts=not raw_facts,
+        include_source_facts=True,
         # Each fact's chunk located in its section: the pointer's window is the chunk's
         # (memory-quality ticket 08; atlas.research.chunks).
         include_chunks=True,

@@ -201,7 +201,12 @@ class HindsightGateway:
             body["query_timestamp"] = query_timestamp.astimezone(UTC).isoformat()
         include: dict[str, JsonValue] = {}
         if include_source_facts:
-            include["source_facts"] = {}
+            # Every observation's sources, not the default 4,096 tokens of them: on 2026-10-07 the
+            # default dropped 68 of 113 source facts of one investigation-style recall
+            # (`source_facts_truncated`), and the known answers' sections reached fell from 9
+            # of 17 to 5 (docs/decisions.md, "Recall as a reading index"; the recall docs,
+            # `include.source_facts.max_tokens`).
+            include["source_facts"] = {"max_tokens": -1}
         if include_chunks:
             include["chunks"] = {}
         if include:

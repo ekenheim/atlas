@@ -329,7 +329,7 @@ def test_a_recall_sends_the_reading_index_fields_and_returns_scores_and_entities
         "types": ["world", "observation"],
         "prefer_observations": True,
         "query_timestamp": "2026-06-30T00:00:00+00:00",
-        "include": {"source_facts": {}},
+        "include": {"source_facts": {"max_tokens": -1}},
     }
     # The derived recall keeps the recorded world result's scores and entity names; each
     # entity's ID is the recorded answer's `entities` map's.

@@ -1117,7 +1117,7 @@ def test_the_scout_asks_memory_like_a_reading_index_and_each_pointer_keeps_score
             "max_tokens": 8192,
             "prefer_observations": True,
             "query_timestamp": as_of,
-            "include": {"source_facts": {}, "chunks": {}},  # chunks: ticket 08
+            "include": {"source_facts": {"max_tokens": -1}, "chunks": {}},  # chunks: ticket 08
         }
     # The observation resolved from the source facts its answer carried: no memory was asked
     # for one by one.
@@ -4207,7 +4207,9 @@ def test_a_pointer_reads_the_window_its_fact_s_chunk_lies_in_not_the_best_matchi
     assert statuses(found)["investigator:lumentum"] == "succeeded"
     # The pointer recalls asked for the chunks of their results.
     recalls = fake.requests("POST", "memories/recall")
-    assert recalls and all(r["include"] == {"source_facts": {}, "chunks": {}} for r in recalls)
+    assert recalls and all(
+        r["include"] == {"source_facts": {"max_tokens": -1}, "chunks": {}} for r in recalls
+    )
     # Every pointer, the Scout's and the Skeptic's, is placed by the fact's chunk: its span
     # in the parsed text is the chunk's text exactly (the fake's chunk, found verbatim).
     parsed = atlas.parsed(ten_k)

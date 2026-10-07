@@ -1220,7 +1220,6 @@ def run_read_step(
                 ResearchScope(theme_ids=[payload.theme]),
                 max_tokens=settings.reader_recall_max_tokens,
                 as_of=as_of,
-                raw_facts=True,
             )
         )
 
