@@ -110,6 +110,7 @@ def fact(
     quantity: dict[str, JsonValue] | None = None,
     period: str | None = None,
 ) -> ChatReply:
+    """A `record_fact` answer in the single-fact form (`reader.v1`'s, still accepted)."""
     return ChatReply.answer(
         lambda body: act(
             "record_fact",
@@ -251,7 +252,7 @@ def test_a_reader_searches_reads_records_facts_and_is_told_why_one_was_refused(
     assert assertion["quote"] == SHERMAN
     assert assertion["source_version_id"] == ten_k
     assert assertion["epistemic_type"] == "company_claim"
-    assert assertion["extractor_version"] == "reader.v1"
+    assert assertion["extractor_version"] == "reader.v2"
     assert atlas.parsed(ten_k)[assertion["span_start"] : assertion["span_end"]] == SHERMAN
     # Each refusal came back to the Reader in its next call, with the reason.
     calls = reader_requests(llm)
@@ -273,7 +274,7 @@ def test_a_reader_searches_reads_records_facts_and_is_told_why_one_was_refused(
         "seed": True,
     }
     assert request["searched"] == [f'"{SHERMAN_QUERY}" in coherent: {searched["hits"]} hits']
-    assert (request["calls_left"], request["passages_left"]) == (10, 40 - searched["hits"])
+    assert (request["calls_left"], request["passages_left"]) == (22, 40 - searched["hits"])
     assert all(each["trust"] == "low" for each in asked(calls[1])["retrieved_data"])
     assert [each["ref"] for each in asked(calls[6])["request"]["recorded"]] == ["r1"]
     # Every call is a role call of the run, with its tokens.
@@ -389,3 +390,103 @@ def test_a_recall_lists_the_sections_memory_points_to_and_the_reader_reads_one(
         memory["section"],
     )
     assert artifacts["passages"] == 1  # a memory is not a passage; the window is
+
+
+def one_fact(body: dict[str, Any], quote: str, statement: str, status: str) -> dict[str, JsonValue]:
+    return {
+        "passage_id": holding(body, SHERMAN),
+        "quote": quote,
+        "company_slug": "coherent",
+        "step": "relief",
+        "statement": statement,
+        "quantity": None,
+        "period": None,
+        "status": status,
+        "challenges": [],
+    }
+
+
+def test_one_record_fact_carries_several_facts_each_recorded_or_refused_on_its_own(
+    start: Callable[..., Atlas], llm: FakeLiteLLM
+) -> None:
+    atlas = start()
+    llm.script_role(
+        "reader",
+        ChatReply.json(
+            act("search_archive", query=SHERMAN_QUERY, company_slugs=["coherent"]),
+            tokens=(1500, 60),
+        ),
+        # Two Facts from one hit in one call: the first is in the hit, the second is not.
+        ChatReply.answer(
+            lambda body: act(
+                "record_fact",
+                facts=[
+                    one_fact(
+                        body,
+                        SHERMAN,
+                        "Coherent announced the expansion of its Sherman, Texas, manufacturing"
+                        " facility.",
+                        "planned",
+                    ),
+                    one_fact(
+                        body,
+                        "Sherman doubled its laser output in the quarter",
+                        "Coherent's Sherman facility doubled its laser output.",
+                        "in_effect",
+                    ),
+                ],
+            ),
+            tokens=(2000, 200),
+        ),
+        ChatReply.json(act("done", summary="one Fact on the Sherman expansion"), tokens=(2000, 30)),
+    )
+
+    job_id = read_step(atlas)
+
+    artifacts = atlas.get(f"/api/v1/jobs/{job_id}")["artifacts"]
+    assert (artifacts["reader_status"], artifacts["calls"]) == ("done", 3)
+    assert (artifacts["facts_recorded"], artifacts["facts_refused"]) == (1, 1)
+    [recorded] = artifacts["facts"]
+    assert (recorded["ref"], recorded["status"]) == ("r1", "planned")
+    [refused] = artifacts["refused"]
+    assert refused["reason_code"] == "quote_not_found"
+    [found] = atlas.get("/api/v1/facts", step="relief")["items"]
+    assert found["assertion"]["quote"] == SHERMAN
+    # Both outcomes came back to the Reader in its next call, Fact by Fact.
+    request = asked(reader_requests(llm)[2])["request"]
+    assert (request["refused"], [f["ref"] for f in request["recorded"]]) == (1, ["r1"])
+    result = request["results"][-1]
+    assert (result["action"], result["ok"]) == ("record_fact", False)
+    assert result["message"].startswith("1 of 2 facts recorded; ")
+    assert "fact 1: recorded as r1 (coherent, relief, planned)" in result["message"]
+    assert "fact 2: refused (quote_not_found): " in result["message"]
+
+
+def test_done_before_any_search_is_refused_and_counted_as_a_call(
+    start: Callable[..., Atlas], llm: FakeLiteLLM
+) -> None:
+    atlas = start()
+    llm.script_role(
+        "reader",
+        # The 0.5.1 invalidation Reader's first answer: nothing searched, nothing to summarize.
+        ChatReply.json(act("done", summary="no searches yet; nothing to say"), tokens=(800, 30)),
+        ChatReply.json(
+            act("search_archive", query="new entrants capacity", company_slugs=["coherent"]),
+            tokens=(900, 40),
+        ),
+        ChatReply.json(act("done", summary="searched; no new entrant named"), tokens=(1500, 30)),
+    )
+
+    job_id = read_step(atlas, "invalidation")
+
+    artifacts = atlas.get(f"/api/v1/jobs/{job_id}")["artifacts"]
+    assert (artifacts["reader_status"], artifacts["stop_reason"]) == ("done", "done")
+    assert artifacts["calls"] == 3
+    assert artifacts["summary"] == "searched; no new entrant named"
+    assert [s["query"] for s in artifacts["searches"]] == ["new entrants capacity"]
+    calls = reader_requests(llm)
+    assert len(calls) == 3
+    refused = asked(calls[1])["request"]["results"][-1]
+    assert (refused["action"], refused["ok"]) == ("done", False)
+    assert refused["message"].startswith("search first: ")
+    assert asked(calls[1])["request"]["calls_left"] == 22

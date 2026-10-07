@@ -26,16 +26,20 @@ with the reason, so the agent can correct it):
   (`atlas.ledger.current_parse`), as the passage `p<n>`: the window a hit, a memory's chunk or
   a window read is in, another window of that section (`window`, from 1), or a section named
   by its Source Version and anchor. A document available after the as-of time is never read.
-- `record_fact {passage_id, quote, company_slug, step, statement, quantity?, period?,
-  status, challenges}`: the quote is placed as Claims are (`place_quote`: its one exact
-  occurrence in the passage, else its one occurrence through the typographic fold, else the
-  same in the whole parse); it must name the company unless the document is the company's own
-  (`names_party`), and in a call transcript be the words of one of the transcript company's
-  own people (`atlas.claims.speakers`); then it is recorded as a Fact (`atlas.facts`, with the
-  investigation, the current parse's version, `company_claim` from the company's own document
-  and `third_party_report` otherwise), whose own checks (the span, a quantity's number in the
-  quote) can refuse it too. A quote recorded already for the same company and step is refused.
-- `done {summary}`: the step is finished.
+- `record_fact {facts: [{passage_id, quote, company_slug, step, statement, quantity?, period?,
+  status, challenges}, ...]}`: 1 to 8 Facts (one Fact's arguments alone are a list of one),
+  each placed and recorded on its own, and the next result lists, Fact by Fact, what was
+  recorded (`r<n>`) and what was refused with the reason. Each Fact's quote is placed as
+  Claims are (`place_quote`: its one exact occurrence in the passage, else its one occurrence
+  through the typographic fold, else the same in the whole parse); it must name the company
+  unless the document is the company's own (`names_party`), and in a call transcript be the
+  words of one of the transcript company's own people (`atlas.claims.speakers`); then it is
+  recorded as a Fact (`atlas.facts`, with the investigation, the current parse's version,
+  `company_claim` from the company's own document and `third_party_report` otherwise), whose
+  own checks (the span, a quantity's number in the quote) can refuse it too. A quote recorded
+  already for the same company and step is refused.
+- `done {summary}`: the step is finished; but a `done` before the session has made a search or
+  a recall is refused ("search first: ...") and counted as a call, not a stop.
 
 **Bounds.** At most `max_calls` calls (`reader_max_calls`) and `max_passages` passages sent
 (`reader_max_passages`: hits and windows; memories are not passages). A search or read past
@@ -442,6 +446,19 @@ class Reader:
             state.calls += 1
             state.quarantined_in_a_row = 0
             state.role_call_ids.append(str(role_call_id))
+            if action.action == "done" and not (state.searches or state.recalls):
+                # A step is never finished unsearched (0.5.1's invalidation Reader answered
+                # done on its first call): refused, and the call counted.
+                self._result(
+                    state,
+                    "done",
+                    ok=False,
+                    message="search first: you have not searched the archive or recalled yet."
+                    " Search the seed companies' filings and calls with the words they would"
+                    " use for this step, read what you find, and only then say done",
+                )
+                _save(self._engine, session.id, state, "running")
+                continue
             if action.action == "done":
                 assert action.done is not None
                 state.summary = action.done.summary
@@ -543,7 +560,7 @@ class Reader:
             read = action.read
             self._read(state, read.ref, read.source_version_id, read.anchor, read.window)
         elif action.record_fact is not None:
-            self._record(state, action.record_fact)
+            self._record(state, action.record_fact.facts)
 
     def _passages_left(self, state: ReaderState) -> int:
         return max(self._max_passages - state.passages_sent, 0)
@@ -807,24 +824,41 @@ class Reader:
             state, "read", ok=True, message=f"{document.title}: {note}", items=[_item(passage)]
         )
 
-    def _record(self, state: ReaderState, proposed: RecordFact) -> None:
-        refusal = self._recorded(state, proposed)
-        if refusal is None:
-            return
-        code, reason = refusal
-        state.refused.append(
-            Refusal(
-                call=state.calls,
-                reason_code=code,
-                reason=reason,
-                passage_id=proposed.passage_id,
-                quote=proposed.quote,
+    def _record(self, state: ReaderState, proposed: Sequence[RecordFact]) -> None:
+        """Place and record each proposed Fact on its own; one result says, Fact by Fact,
+        which were recorded and which refused, and why."""
+        outcomes: list[str] = []
+        refused = 0
+        for number, each in enumerate(proposed, start=1):
+            done = self._recorded(state, each)
+            if isinstance(done, RecordedFact):
+                outcomes.append(
+                    f"fact {number}: recorded as {done.ref} ({done.company_slug}, {done.step},"
+                    f" {done.status})"
+                )
+                continue
+            code, reason = done
+            state.refused.append(
+                Refusal(
+                    call=state.calls,
+                    reason_code=code,
+                    reason=reason,
+                    passage_id=each.passage_id,
+                    quote=each.quote,
+                )
             )
-        )
-        self._result(state, "record_fact", ok=False, message=f"refused ({code}): {reason}")
+            outcomes.append(f"fact {number}: refused ({code}): {reason}")
+            refused += 1
+        if len(outcomes) == 1:
+            # One Fact: the outcome alone, as `reader.v1`'s single-fact result read.
+            message = outcomes[0].split(": ", 1)[1]
+        else:
+            counted = f"{len(outcomes) - refused} of {len(outcomes)} facts recorded"
+            message = "; ".join([counted, *outcomes])
+        self._result(state, "record_fact", ok=refused == 0, message=message)
 
-    def _recorded(self, state: ReaderState, proposed: RecordFact) -> tuple[str, str] | None:
-        """Record the Fact (None), or why not (a reason code and the reason in words)."""
+    def _recorded(self, state: ReaderState, proposed: RecordFact) -> RecordedFact | tuple[str, str]:
+        """Record the Fact (its record), or why not (a reason code and the reason in words)."""
         # Imported here: atlas.facts imports this package (the grounding check).
         from atlas.facts import FactCreate, Facts, Quantity
 
@@ -936,13 +970,7 @@ class Reader:
             ],
         )
         state.facts.append(fact)
-        self._result(
-            state,
-            "record_fact",
-            ok=True,
-            message=f"recorded as {fact.ref} ({fact.company_slug}, {fact.step}, {fact.status})",
-        )
-        return None
+        return fact
 
     # --- documents --------------------------------------------------------------------------
 

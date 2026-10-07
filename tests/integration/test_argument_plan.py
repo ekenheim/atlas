@@ -167,7 +167,7 @@ def record(
 
 def reading(body: dict[str, Any]) -> JsonValue:
     """The six Readers: Relief and Control each search, record one Fact and stop; the other
-    steps find nothing and stop at once."""
+    steps search once, record nothing and stop (a done before any search is refused)."""
     request = asked(body)["request"]
     step = request["step"]["key"]
     searched, recorded = request["searched"], request["recorded"]
@@ -197,6 +197,8 @@ def reading(body: dict[str, Any]) -> JsonValue:
                 status="in_development",
                 period="March 2, 2026",
             )
+    if not searched:
+        return act("search_archive", query=f"{step} wafers per month", company_slugs=["coherent"])
     return act("done", summary=f"{step}: nothing more found in Coherent's filings")
 
 
@@ -261,7 +263,7 @@ SUPPORTED: JsonValue = {
 def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_argument(
     atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
-    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 10)
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
     llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
@@ -308,7 +310,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     created = atlas.get(f"/api/v1/investigations/{started['id']}/events", limit=500)["items"][0]
     assert (created["type"], created["detail"]["plan_name"]) == ("created", "argument")
     roles = [body["metadata"]["role"] for body in llm.chat_requests()]
-    assert roles.count("reader") == 10
+    assert roles.count("reader") == 14
     assert roles.count("skeptic") == 3
     assert (roles[0], roles[-3:]) == ("scout", ["editor", "finding_judge", "finding_judge"])
     assert {body["metadata"]["run_id"] for body in llm.chat_requests()} == {found["run_id"]}
@@ -322,7 +324,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
         1,
     )
     assert [s["query"] for s in relief["searches"]] == [SHERMAN_QUERY]
-    assert tasks["reader:capture"]["artifacts"]["calls"] == 1
+    assert tasks["reader:capture"]["artifacts"]["calls"] == 2
     # The Facts were recorded for the investigation: two by the Readers, one by the Skeptic.
     facts = atlas.get("/api/v1/facts", investigation_id=started["id"])["items"]
     assert sorted((f["step"], f["status"], f["assertion"]["quote"]) for f in facts) == sorted(
@@ -333,8 +335,8 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
         ]
     )
     by_quote = {f["assertion"]["quote"]: f for f in facts}
-    assert by_quote[COMPETITION]["assertion"]["extractor_version"] == "skeptic-argument.v1"
-    assert by_quote[SHERMAN]["assertion"]["extractor_version"] == "reader.v1"
+    assert by_quote[COMPETITION]["assertion"]["extractor_version"] == "skeptic-argument.v2"
+    assert by_quote[SHERMAN]["assertion"]["extractor_version"] == "reader.v2"
     # The Skeptic was sent the Readers' Facts to challenge, their quotes as low-trust data.
     skeptic_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "skeptic")
     challenge = asked(skeptic_call)["request"]["challenge"]

@@ -5,6 +5,7 @@ Seams: the role's response model (what the caller validates every answer with) a
 through the `read_step` job (tests/integration/test_reader.py).
 """
 
+import json
 from typing import Any, get_args
 
 import pytest
@@ -13,7 +14,9 @@ from pydantic import ValidationError
 from atlas.facts import FactStatus, FactStep
 from atlas.investigations.reader import QuoteRefused, place_quote
 from atlas.roles.reader import (
+    ARGUMENT_SKEPTIC,
     ARGUMENT_STEPS,
+    MAX_FACTS_PER_CALL,
     READER,
     ArgumentStep,
     FactStatusName,
@@ -69,7 +72,7 @@ def test_a_fact_s_step_and_status_are_the_fact_model_s() -> None:
 
 
 def test_the_role_is_versioned_and_its_schema_strict() -> None:
-    assert (READER.name, READER.prompt.name, READER.prompt.version) == ("reader", "reader", 1)
+    assert (READER.name, READER.prompt.name, READER.prompt.version) == ("reader", "reader", 2)
     schema = READER.response_schema()
     assert schema["additionalProperties"] is False
     assert sorted(schema["required"]) == sorted(["action", *NONE])
@@ -151,11 +154,8 @@ def test_an_action_written_flat_or_with_optional_arguments_left_out_is_read_as_m
         ' is sold out.", "status": "in_effect"}}'
     )
     assert fact.record_fact is not None
-    assert (fact.record_fact.quantity, fact.record_fact.period, fact.record_fact.challenges) == (
-        None,
-        None,
-        [],
-    )
+    [one] = fact.record_fact.facts  # one Fact's arguments alone: the reader.v1 form
+    assert (one.quantity, one.period, one.challenges) == (None, None, [])
     # A required argument still missing is still an error.
     import pytest
     from pydantic import ValidationError
@@ -182,4 +182,115 @@ def test_an_action_inside_action_or_split_between_levels_is_read_as_meant() -> N
     assert (split.search_archive.query, split.search_archive.company_slugs) == (
         "EML capacity",
         ["acme"],
+    )
+
+
+# One synthetic Fact's arguments, as the model writes them.
+FACT: dict[str, Any] = {
+    "passage_id": "p2",
+    "quote": "Our six-inch line ran at 4,000 wafer starts per month.",
+    "company_slug": "acme",
+    "step": "constraint",
+    "statement": "Acme's six-inch line ran at 4,000 wafer starts per month.",
+    "quantity": {"value": 4000, "unit": "wafer starts per month", "metric": "line capacity"},
+    "period": None,
+    "status": "in_effect",
+    "challenges": [],
+}
+
+
+@pytest.mark.parametrize("key", ["args", "arguments", "action_args", "read_args", "params"])
+def test_arguments_under_another_key_are_taken_as_the_action_s(key: str) -> None:
+    read = ReaderAction.model_validate_json(
+        json.dumps(
+            {
+                "action": "read",
+                key: {"ref": "p3", "source_version_id": None, "anchor": None, "window": 3},
+                "search_archive": None,
+                "recall": None,
+                "record_fact": None,
+                "done": None,
+            }
+        )
+    )
+
+    assert read.read is not None and (read.read.ref, read.read.window) == ("p3", 3)
+    # With the action's field left out altogether, and for a search.
+    searched = ReaderAction.model_validate_json(
+        json.dumps({"action": "search_archive", key: {"query": "lead times"}})
+    )
+    assert searched.search_archive is not None
+    assert (searched.search_archive.query, searched.search_archive.company_slugs) == (
+        "lead times",
+        [],
+    )
+
+
+def test_a_wrapper_holding_the_action_s_field_is_unwrapped_and_one_fact_is_a_list_of_one() -> None:
+    # {"args": {"record_fact": {...}}}: the form of a repair on 0.5.1's run; `challenges` null.
+    answer = ReaderAction.model_validate_json(
+        json.dumps({"action": "record_fact", "args": {"record_fact": {**FACT, "challenges": None}}})
+    )
+
+    assert answer.record_fact is not None
+    [one] = answer.record_fact.facts
+    assert (one.passage_id, one.challenges) == ("p2", [])
+    assert one.quantity is not None and one.quantity.value == 4000
+
+
+def test_a_fact_s_quantity_written_flat_is_not_taken_for_a_wrapper() -> None:
+    answer = ReaderAction.model_validate_json(json.dumps({"action": "record_fact", **FACT}))
+
+    assert answer.record_fact is not None
+    [one] = answer.record_fact.facts
+    assert one.quantity is not None and one.quantity.unit == "wafer starts per month"
+
+
+def test_two_unknown_objects_are_not_guessed_between() -> None:
+    with pytest.raises(ValidationError):
+        ReaderAction.model_validate_json(
+            json.dumps(
+                {
+                    "action": "search_archive",
+                    "args": {"query": "allocation"},
+                    "options": {"query": "lead times"},
+                }
+            )
+        )
+
+
+def test_record_fact_carries_several_facts() -> None:
+    second = {**FACT, "quote": "We expect 6,000 by the end of 2027.", "status": "planned"}
+    second.pop("challenges")  # optional arguments left out, per Fact
+    answer = ReaderAction.model_validate(action("record_fact", facts=[FACT, second]))
+
+    assert answer.record_fact is not None
+    assert [f.status for f in answer.record_fact.facts] == ["in_effect", "planned"]
+    assert answer.record_fact.facts[1].challenges == []
+    # The list written as the action's field itself, or beside `action`.
+    listed = ReaderAction.model_validate_json(
+        json.dumps({"action": "record_fact", "record_fact": [FACT, second]})
+    )
+    assert listed.record_fact is not None and len(listed.record_fact.facts) == 2
+    flat = ReaderAction.model_validate_json(
+        json.dumps({"action": "record_fact", "facts": [FACT, second]})
+    )
+    assert flat.record_fact is not None and len(flat.record_fact.facts) == 2
+
+
+@pytest.mark.parametrize("count", [0, MAX_FACTS_PER_CALL + 1])
+def test_record_fact_carries_one_to_eight_facts(count: int) -> None:
+    assert MAX_FACTS_PER_CALL == 8
+    with pytest.raises(ValidationError, match="1 to 8 facts"):
+        ReaderAction.model_validate(action("record_fact", facts=[FACT] * count))
+
+
+def test_the_schema_asks_for_a_list_of_facts() -> None:
+    schema = READER.response_schema()
+    facts = schema["$defs"]["RecordFacts"]
+    assert facts["required"] == ["facts"]
+    assert facts["properties"]["facts"]["type"] == "array"
+    assert (ARGUMENT_SKEPTIC.prompt.name, ARGUMENT_SKEPTIC.prompt.version) == (
+        "skeptic-argument",
+        2,
     )

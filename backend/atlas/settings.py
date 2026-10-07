@@ -109,8 +109,9 @@ class Settings(BaseSettings):
     reviewer_assertions_per_call: int = Field(default=5, gt=0, le=25)
     # The Reader (atlas.investigations.reader; bottleneck-argument ticket 03): per argument
     # step, at most this many role calls and passages read (archive-search hits and section
-    # windows sent), and each recall's text budget in tokens (budget high).
-    reader_max_calls: int = Field(default=12, gt=0, le=100)
+    # windows sent), and each recall's text budget in tokens (budget high). 24 calls since
+    # 0.5.1's argument run, where 12 left Readers one or two Facts each.
+    reader_max_calls: int = Field(default=24, gt=0, le=100)
     reader_max_passages: int = Field(default=40, gt=0, le=400)
     reader_recall_max_tokens: int = Field(default=16_000, ge=1, le=65536)
 

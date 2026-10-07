@@ -15,6 +15,13 @@ name (the other action fields null): `search_archive`, `recall`, `read`, `record
 `done`. A flat object rather than a union keeps the schema one LiteLLM can enforce strictly;
 `ReaderAction` checks that exactly the named action's arguments are given, so an answer that
 names one action and fills another is a validation error (repaired once, then quarantined).
+It also reads the answer in the other forms MiniMax writes it (arguments beside `action` or
+under another key such as `"args"`; see `ReaderAction._as_the_model_writes_it`).
+
+`record_fact` carries every fact one passage states (`{"facts": [...]}`, 1 to
+`MAX_FACTS_PER_CALL`), each placed and recorded on its own (`reader.v2`; under `reader.v1` a
+call recorded one Fact, and Readers recorded one or two in a step). One Fact's arguments
+without `facts` (the `reader.v1` form) are still accepted, as a list of one.
 
 The argument plan's Skeptic (`ARGUMENT_SKEPTIC`, role `skeptic`, prompt `skeptic-argument`;
 ticket 05) is the same loop with the same actions: it is sent the Facts the Readers recorded
@@ -30,8 +37,8 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-READER_PROMPT_VERSION = 1
-ARGUMENT_SKEPTIC_PROMPT_VERSION = 1
+READER_PROMPT_VERSION = 2
+ARGUMENT_SKEPTIC_PROMPT_VERSION = 2
 
 # The argument's steps (spec, "The steps of the argument"; the Serenity method's bottleneck
 # test M1 to M6), by the Fact step that records them.
@@ -110,6 +117,9 @@ FactStatusName = Literal[
 ]
 
 ReaderActionName = Literal["search_archive", "recall", "read", "record_fact", "done"]
+
+# The most Facts one `record_fact` carries.
+MAX_FACTS_PER_CALL = 8
 
 
 class _Request(BaseModel):
@@ -232,6 +242,21 @@ class RecordFact(RoleOutput):
     challenges: list[str]  # the argument Skeptic's: the Facts (`f<n>`) it speaks against
 
 
+class RecordFacts(RoleOutput):
+    """`record_fact`'s arguments: every fact one passage states, each placed and recorded on
+    its own (1 to `MAX_FACTS_PER_CALL`; the bound is checked here, not in the schema)."""
+
+    facts: list[RecordFact]
+
+    @model_validator(mode="after")
+    def _bounded(self) -> Self:
+        if not 1 <= len(self.facts) <= MAX_FACTS_PER_CALL:
+            raise ValueError(
+                f"record_fact carries 1 to {MAX_FACTS_PER_CALL} facts (given: {len(self.facts)})"
+            )
+        return self
+
+
 class Done(RoleOutput):
     summary: str
 
@@ -241,18 +266,29 @@ class ReaderAction(RoleOutput):
     search_archive: SearchArchive | None
     recall: Recall | None
     read: Read | None
-    record_fact: RecordFact | None
+    record_fact: RecordFacts | None
     done: Done | None
 
     @model_validator(mode="before")
     @classmethod
     def _as_the_model_writes_it(cls, data: Any) -> Any:
-        """The answer in the forms the model writes it, made the schema's: the action's
-        arguments written beside `action` instead of in its field (`{"action": "read", "ref":
-        "h5"}`), and its optional arguments left out rather than null. On 0.5.0's first
-        argument run (2026-10-07) MiniMax wrote the flat form in 15 of 27 Reader calls, the
-        repair prompt didn't change it, and four of six Readers stopped quarantined before
-        their first search. The strict schema sent to the model is unchanged."""
+        """The answer in the forms the model writes it, made the schema's (the strict schema
+        sent to the model is unchanged):
+
+        - the action's arguments beside `action` instead of in its field (`{"action": "read",
+          "ref": "h5"}`), all of them or some; on 0.5.0's first argument run (2026-10-07)
+          MiniMax wrote this flat form in 15 of 27 Reader calls and the repair prompt didn't
+          change it;
+        - the action's field written inside `action` (`{"action": {"read": {...}}}`);
+        - the arguments under another key (`"args"`, `"arguments"`, `"action_args"`,
+          `"params"`, ...) while the action's own field is missing or null: taken as the
+          action's when exactly one such key holds an object and it is not an action's or an
+          argument's name (and unwrapped once more when that object holds only the action's
+          field); 12 of 59 Reader calls on 0.5.1's run were quarantined this way;
+        - an optional argument left out, or null where it stands for an empty list;
+        - `record_fact` with one Fact's arguments rather than `facts` (the `reader.v1` form),
+          or with the list of Facts itself: made `{"facts": [...]}`.
+        """
         if not isinstance(data, dict):
             return data
         answer = dict(cast(dict[str, Any], data))
@@ -265,20 +301,23 @@ class ReaderAction(RoleOutput):
                 action = answer["action"] = named[0]
         if not isinstance(action, str) or action not in _ACTION_FIELDS:
             return answer
-        fields = _ACTION_FIELDS[action]
-        model, defaults = fields
+        model, defaults = _ACTION_FIELDS[action]
+        names = set(model.model_fields) | ({"facts"} if action == "record_fact" else set[str]())
         nested = answer.get(action)
         # Arguments written beside `action`, all of them or some (the rest in its field).
-        flat = {name: answer.pop(name) for name in list(answer) if name in model.model_fields}
+        flat = {name: answer.pop(name) for name in list(answer) if name in names}
+        if nested is None:
+            nested = _wrapped(answer, action, names)
         if isinstance(nested, dict):
             nested = {**flat, **cast(dict[str, Any], nested)}
-        elif flat:
+        elif nested is None and flat:
             nested = flat
-        if isinstance(nested, dict):
-            args = dict(cast(dict[str, Any], nested))
-            for name, default in defaults.items():
-                args.setdefault(name, default)
-            answer[action] = args
+        if action == "record_fact":
+            nested = _as_facts(nested, defaults)
+        elif isinstance(nested, dict):
+            nested = _with_defaults(cast(dict[str, Any], nested), defaults)
+        if nested is not None:
+            answer[action] = nested
         for other in _ACTION_FIELDS:
             if other != action:
                 answer.setdefault(other, None)
@@ -305,9 +344,62 @@ _ACTION_FIELDS: dict[str, tuple[type[RoleOutput], dict[str, Any]]] = {
     "search_archive": (SearchArchive, {"company_slugs": []}),
     "recall": (Recall, {}),
     "read": (Read, {"ref": None, "source_version_id": None, "anchor": None, "window": None}),
+    # Each Fact's (`record_fact`'s arguments are `{"facts": [...]}`).
     "record_fact": (RecordFact, {"quantity": None, "period": None, "challenges": []}),
     "done": (Done, {}),
 }
+
+
+def _with_defaults(args: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
+    """`args` with each optional argument left out or null set to what it stands for."""
+    given = dict(args)
+    for name, default in defaults.items():
+        if given.get(name) is None:
+            given[name] = default
+    return given
+
+
+def _wrapped(answer: dict[str, Any], action: str, names: set[str]) -> Any:
+    """The action's arguments under some other key (`"args"`, `"arguments"`, ...), removed
+    from `answer`: the one key holding an object that is not `action`, an action's field or
+    an argument's name. None when there is no such key, or more than one."""
+    keys = [
+        key
+        for key, value in answer.items()
+        if key != "action"
+        and key not in _ACTION_FIELDS
+        and key not in names
+        and isinstance(value, dict)
+    ]
+    if len(keys) != 1:
+        return None
+    wrapped = cast(dict[str, Any], answer.pop(keys[0]))
+    # The action's field inside the wrapper: {"args": {"record_fact": {...}}}.
+    given = [key for key, value in wrapped.items() if value is not None]
+    if given == [action] and isinstance(wrapped[action], dict | list):
+        return wrapped[action]
+    return wrapped
+
+
+def _as_facts(nested: Any, defaults: dict[str, Any]) -> Any:
+    """`record_fact`'s arguments as `{"facts": [...]}`, each Fact's optional arguments set:
+    from the list of Facts itself, or from one Fact's arguments (the `reader.v1` form)."""
+    if isinstance(nested, list):
+        nested = {"facts": cast(list[Any], nested)}
+    if not isinstance(nested, dict):
+        return nested
+    args = dict(cast(dict[str, Any], nested))
+    if args.get("facts") is None and set(args) & set(RecordFact.model_fields):
+        args = {"facts": [{k: v for k, v in args.items() if k != "facts"}]}
+    facts: Any = args.get("facts")
+    if isinstance(facts, dict):
+        facts = [cast(dict[str, Any], facts)]  # one Fact written as an object
+    if isinstance(facts, list):
+        args["facts"] = [
+            _with_defaults(cast(dict[str, Any], each), defaults) if isinstance(each, dict) else each
+            for each in cast(list[Any], facts)
+        ]
+    return args
 
 
 READER = Role(
