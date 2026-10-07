@@ -24,6 +24,7 @@ import re
 from collections import Counter
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 
 MIN_CHARS = 300
 MAX_CHARS = 1500
@@ -89,6 +90,17 @@ def passage_spans(text: str) -> list[tuple[int, int]]:
         else:
             spans.append((start, len(text.rstrip())))
     return [(begin, end) for begin, end in spans if end > begin]
+
+
+INDEX_CACHE_TEXTS = 256
+
+
+@lru_cache(maxsize=INDEX_CACHE_TEXTS)
+def indexed_passages(text: str) -> tuple[tuple[int, int, tuple[str, ...]], ...]:
+    """The text's passages with their tokens: (start, end, tokens) per `passage_spans` span.
+    An in-process LRU of the `INDEX_CACHE_TEXTS` (256) most recently used texts, so a second
+    query over the same documents neither cuts nor tokenizes them again."""
+    return tuple((begin, end, tuple(tokens(text[begin:end]))) for begin, end in passage_spans(text))
 
 
 def bm25(terms: Sequence[str], texts: Sequence[Sequence[str]]) -> list[Scored]:

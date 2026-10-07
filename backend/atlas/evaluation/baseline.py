@@ -86,10 +86,10 @@ from atlas.research.search import (
     MIN_CHARS,
     B,
     bm25,
+    indexed_passages,
     normalized,
     passage_spans,
     query_terms,
-    tokens,
 )
 
 NEAR_DUPLICATE = 0.75
@@ -175,17 +175,18 @@ def search(
     near-duplicates)."""
     terms = query_terms(question)
     newest_first = sorted(documents, key=lambda d: d.available_at, reverse=True)
-    candidates: list[tuple[Document, Passage, list[str]]] = []
+    candidates: list[tuple[Document, Passage, tuple[str, ...]]] = []
     first: dict[str, int] = {}  # a passage's normalized text -> its candidate
     copies: dict[int, list[str]] = {}
     for document in newest_first:
-        for passage in passages(document):
+        for begin, end, words in indexed_passages(document.text):
+            passage = Passage(document.source_version_id, begin, end, document.text[begin:end])
             key = normalized(passage.text)
             if key in first:
                 copies.setdefault(first[key], []).append(document.source_version_id)
                 continue
             first[key] = len(candidates)
-            candidates.append((document, passage, tokens(passage.text)))
+            candidates.append((document, passage, words))
     if not candidates or not terms:
         return []
     scored = [

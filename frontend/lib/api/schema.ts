@@ -276,6 +276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/archive-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search */
+        get: operations["search_api_v1_archive_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{company_id}/financials": {
         parameters: {
             query?: never;
@@ -1530,6 +1547,29 @@ export interface components {
             valid_to?: string | null;
             source: components["schemas"]["Source"];
         };
+        /**
+         * AlsoIn
+         * @description Another document that repeats the hit's statement, word for word or nearly.
+         */
+        AlsoIn: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+        };
         /** AnswerLeakage */
         AnswerLeakage: {
             /** Recall Memories */
@@ -1555,6 +1595,69 @@ export interface components {
             tags_match: components["schemas"]["TagMatch"];
             /** Layer */
             layer?: string | null;
+        };
+        /**
+         * ArchiveHit
+         * @description One passage of an archived document that matches the query.
+         */
+        ArchiveHit: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company */
+            company: string;
+            /** Title */
+            title: string;
+            /** Provider */
+            provider: string;
+            /** Form Type */
+            form_type: string | null;
+            /** Document Type */
+            document_type: string | null;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Parser Version */
+            parser_version: string;
+            /** Section Anchor */
+            section_anchor: string | null;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Text */
+            text: string;
+            /** Score */
+            score: number;
+            /** Terms */
+            terms: string[];
+            /** Also In */
+            also_in: components["schemas"]["AlsoIn"][];
+        };
+        /** ArchiveSearch */
+        ArchiveSearch: {
+            /** Query */
+            query: string;
+            /** Terms */
+            terms: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Documents Searched */
+            documents_searched: number;
+            /** Hits */
+            hits: components["schemas"]["ArchiveHit"][];
         };
         /** Assertion */
         Assertion: {
@@ -9245,6 +9348,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_api_v1_archive_search_get: {
+        parameters: {
+            query: {
+                /** @description the query */
+                q: string;
+                /** @description a company to search; repeat */
+                company_id: string[];
+                /** @description default: now */
+                as_of?: string | null;
+                top?: number;
+                per_document?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveSearch"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

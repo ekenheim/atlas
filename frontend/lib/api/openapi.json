@@ -866,6 +866,110 @@
         }
       }
     },
+    "/api/v1/archive-search": {
+      "get": {
+        "tags": [
+          "archive-search"
+        ],
+        "summary": "Search",
+        "operationId": "search_api_v1_archive_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "the query",
+              "title": "Q"
+            },
+            "description": "the query"
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "description": "a company to search; repeat",
+              "title": "Company Id"
+            },
+            "description": "a company to search; repeat"
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "default: now",
+              "title": "As Of"
+            },
+            "description": "default: now"
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Top"
+            }
+          },
+          {
+            "name": "per_document",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 3,
+              "title": "Per Document"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveSearch"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/api/v1/companies/{company_id}/financials": {
       "get": {
         "tags": [
@@ -6425,6 +6529,38 @@
         ],
         "title": "Alias"
       },
+      "AlsoIn": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "company_id",
+          "title",
+          "available_at"
+        ],
+        "title": "AlsoIn",
+        "description": "Another document that repeats the hit's statement, word for word or nearly."
+      },
       "AnswerLeakage": {
         "properties": {
           "recall_memories": {
@@ -6509,6 +6645,165 @@
         ],
         "title": "AppliedScope",
         "description": "The scope as sent to Hindsight: the tags and their strict match mode."
+      },
+      "ArchiveHit": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "form_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Type"
+          },
+          "document_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Type"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "parser_version": {
+            "type": "string",
+            "title": "Parser Version"
+          },
+          "section_anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Anchor"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Terms"
+          },
+          "also_in": {
+            "items": {
+              "$ref": "#/components/schemas/AlsoIn"
+            },
+            "type": "array",
+            "title": "Also In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "company_id",
+          "company",
+          "title",
+          "provider",
+          "form_type",
+          "document_type",
+          "available_at",
+          "parser_version",
+          "section_anchor",
+          "char_start",
+          "char_end",
+          "text",
+          "score",
+          "terms",
+          "also_in"
+        ],
+        "title": "ArchiveHit",
+        "description": "One passage of an archived document that matches the query."
+      },
+      "ArchiveSearch": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Terms"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "documents_searched": {
+            "type": "integer",
+            "title": "Documents Searched"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveHit"
+            },
+            "type": "array",
+            "title": "Hits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "terms",
+          "as_of",
+          "documents_searched",
+          "hits"
+        ],
+        "title": "ArchiveSearch"
       },
       "Assertion": {
         "properties": {
