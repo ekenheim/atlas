@@ -7,6 +7,7 @@ import type {
   CardFact,
   CardReading,
   CardSkepticCompany,
+  CardStepStatement,
   Counterevidence,
   EntityHop,
   Investigation,
@@ -46,6 +47,28 @@ export function factLine(fact: CardFact): string {
   if (fact.period) parts.push(fact.period);
   parts.push(fact.status.split("_").join(" "));
   return `${fact.statement} [${parts.join("; ")}]`;
+}
+
+/** A step's statements that stood, each with the Facts it cites; a card written before the
+ * Editor wrote several per step has its one statement, with the step's Facts. */
+export function stepStatements(step: CardArgumentStep): CardStepStatement[] {
+  if (step.statements && step.statements.length > 0) return step.statements;
+  if (!step.statement) return [];
+  return [
+    {
+      statement: step.statement,
+      facts: step.facts,
+      counterevidence: step.counterevidence,
+      judged: step.judged,
+    },
+  ];
+}
+
+/** Facts and counterevidence in a few words: "2 Facts, 1 against". */
+export function citedTally(facts: CardFact[], against: CardFact[]): string {
+  const parts = [`${facts.length} ${facts.length === 1 ? "Fact" : "Facts"}`];
+  if (against.length > 0) parts.push(`${against.length} against`);
+  return parts.join(", ");
 }
 
 /** The argument's steps counted by status: "2 supported, 1 disputed, 3 unknown". */

@@ -1,7 +1,8 @@
 """The argument plan (bottleneck-argument ticket 05): `{"plan": "argument"}` runs Scout -> one
 Reader per argument step, in parallel -> Skeptic (a Reader challenging their Facts) ||
-Financial Analyst -> the Editor writing the argument, each step's statement held to its Facts'
-quotes by the grounding check and the finding judge, each step's status decided by code.
+Financial Analyst -> the Editor writing the argument, each of a step's statements held to its
+Facts' quotes by the grounding check and the finding judge on its own (`editor-argument.v2`;
+the v1 answer, one statement per step, is still read), each step's status decided by code.
 
 Seam: `POST /api/v1/investigations`, single worker passes, and `/api/v1` (the investigation,
 its events, the Facts, the run's role calls) with the requests the fakes received. The Source
@@ -221,8 +222,9 @@ def challenging(body: dict[str, Any]) -> JsonValue:
 
 
 def editing(body: dict[str, Any]) -> JsonValue:
-    """The argument's Editor: a statement for Relief and Control citing their Facts (Control
-    with the counterevidence), the other steps unknown."""
+    """The argument's Editor in the v1 shape (one statement per step, still read): a statement
+    for Relief and Control citing their Facts (Control with the counterevidence), the other
+    steps unknown."""
     request = asked(body)["request"]
     steps: list[JsonValue] = []
     for step in request["steps"]:
@@ -255,6 +257,52 @@ SUPPORTED: JsonValue = {
     "kinds": [],
     "reason": "the quotes state it",
 }
+
+# editor-argument.v2: several statements per step, each checked on its own.
+RELIEF_SECOND = "The expansion of the Sherman, Texas, manufacturing facility was announced."
+RELIEF_UNGROUNDED = (
+    "Coherent's Sherman, Texas, facility will add 6,000 wafer starts per month by 2027."
+)
+CONTROL_UNGROUNDED = "Coherent entered into a strategic agreement with Broadcom in 2025."
+
+
+def editing_by_point(body: dict[str, Any]) -> JsonValue:
+    """The argument's Editor in the v2 shape: three statements on Relief, one of them with a
+    figure and a year its quote doesn't hold; one statement on Control naming a company and a
+    year its quotes don't hold; the other steps unknown."""
+    request = asked(body)["request"]
+    steps: list[JsonValue] = []
+    for step in request["steps"]:
+        facts = step["fact_refs"]
+        if step["step"] == "relief":
+            statements: list[JsonValue] = [
+                {"statement": RELIEF_STATEMENT, "fact_refs": facts, "counter_refs": []},
+                {"statement": RELIEF_UNGROUNDED, "fact_refs": facts, "counter_refs": []},
+                {"statement": RELIEF_SECOND, "fact_refs": facts, "counter_refs": []},
+            ]
+            status = "supported"
+        elif step["step"] == "control":
+            statements = [
+                {
+                    "statement": CONTROL_UNGROUNDED,
+                    "fact_refs": facts,
+                    "counter_refs": step["counter_refs"],
+                }
+            ]
+            status = "disputed"
+        else:
+            statements = [{"statement": UNKNOWN_STATEMENT, "fact_refs": [], "counter_refs": []}]
+            status = "unknown"
+        steps.append(
+            {"step": step["step"], "status": status, "statements": statements, "unchecked": []}
+        )
+    return {"steps": steps, "open_questions": [], "verdict": "needs_review"}
+
+
+def regrounding_unchanged(body: dict[str, Any]) -> JsonValue:
+    """The Editor asked again for its ungrounded statements writes them as they were."""
+    findings = asked(body)["request"]["findings"]
+    return {"findings": [{"finding": f["finding"], "statement": f["statement"]} for f in findings]}
 
 
 # --- the test -------------------------------------------------------------------------------------
@@ -383,6 +431,15 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     }
     assert steps["relief"]["statement"] == RELIEF_STATEMENT
     assert (steps["relief"]["grounded"], steps["relief"]["judged"]) == (True, True)
+    # The v1 answer's one statement is the step's one statement, with its cited Fact.
+    [relief_said] = steps["relief"]["statements"]
+    assert (relief_said["statement"], relief_said["judged"]) == (RELIEF_STATEMENT, True)
+    assert [f["source_span"]["quote"] for f in relief_said["facts"]] == [SHERMAN]
+    assert relief_said["counterevidence"] == []
+    [control_said] = steps["control"]["statements"]
+    assert [f["source_span"]["quote"] for f in control_said["facts"]] == [AGREEMENT]
+    assert [f["source_span"]["quote"] for f in control_said["counterevidence"]] == [COMPETITION]
+    assert steps["capture"]["statements"] == []
     [sherman] = steps["relief"]["facts"]
     assert (sherman["status"], sherman["period"], sherman["quantity"]) == (
         "planned",
@@ -421,6 +478,89 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     # The workbench list shows the plan too.
     listed = atlas.get("/api/v1/investigations")["items"]
     assert [(i["id"], i["plan"]) for i in listed] == [(started["id"], "argument")]
+
+
+def test_each_statement_of_a_step_is_checked_on_its_own(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing_by_point, tokens=(3000, 400)),  # the Editor
+        ChatReply.answer(regrounding_unchanged, tokens=(800, 100)),  # asked again, once
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    started = response.json()
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{started['id']}")
+    roles = [body["metadata"]["role"] for body in llm.chat_requests()]
+    assert roles[-4:] == ["editor", "editor", "finding_judge", "finding_judge"]
+    # The two ungrounded statements were sent back together, once, and came back unchanged.
+    reground = [b for b in llm.chat_requests() if b["metadata"]["role"] == "editor"][1]
+    assert sorted(f["statement"] for f in asked(reground)["request"]["findings"]) == sorted(
+        [RELIEF_UNGROUNDED, CONTROL_UNGROUNDED]
+    )
+
+    card = found["research_card"]
+    steps = {step["step"]: step for step in card["steps"]}
+    # Relief: one of its three statements is dropped; the other two stand, so it is supported.
+    relief = steps["relief"]
+    assert relief["status"] == "supported"
+    assert [s["statement"] for s in relief["statements"]] == [RELIEF_STATEMENT, RELIEF_SECOND]
+    assert all(s["judged"] is True for s in relief["statements"])
+    assert all(
+        [f["source_span"]["quote"] for f in s["facts"]] == [SHERMAN] for s in relief["statements"]
+    )
+    assert (relief["statement"], relief["grounded"], relief["judged"]) == (
+        RELIEF_STATEMENT,
+        True,
+        True,
+    )
+    # Control: its only statement is dropped, so it is unknown, whatever stands against it.
+    control = steps["control"]
+    assert (control["status"], control["statement"], control["statements"]) == (
+        "unknown",
+        None,
+        [],
+    )
+    assert control["editor_status"] == "disputed"
+    assert [f["source_span"]["quote"] for f in control["facts"]] == [AGREEMENT]
+    # Each dropped statement is in unsupported_findings with its reason.
+    dropped = {each["statement"]: each for each in card["unsupported_findings"]}
+    assert set(dropped) == {RELIEF_UNGROUNDED, CONTROL_UNGROUNDED}
+    assert dropped[RELIEF_UNGROUNDED]["reason"].startswith("ungrounded: ")
+    assert "6,000" in dropped[RELIEF_UNGROUNDED]["reason"]
+    assert "Broadcom" in dropped[CONTROL_UNGROUNDED]["reason"]
+    assert dropped[RELIEF_UNGROUNDED]["claim_ids"] == [relief["facts"][0]["fact_id"]]
+    assert [(j["statement"], j["outcome"]) for j in card["judged"]] == [
+        (RELIEF_STATEMENT, "kept"),
+        (RELIEF_SECOND, "kept"),
+    ]
+    editor = next(t for t in found["tasks"] if t["key"] == "editor")["artifacts"]
+    assert (editor["statements_kept"], editor["unsupported_findings"]) == (2, 2)
+    assert editor["grounding"]["asked_again"] == 2
+    assert found["stop_detail"] == (
+        "steps unknown: constraint, demand_vs_supply, control, capture, invalidation;"
+        " 2 statements were dropped; the Editor asks for review"
+    )
 
 
 def test_the_default_plan_stays_the_default(atlas: Atlas) -> None:

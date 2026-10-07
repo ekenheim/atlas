@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from atlas.roles import Role
-from atlas.roles.editor import EDITOR, HYPOTHESIS_EDITOR
+from atlas.roles.editor import EDITOR, EDITOR_ARGUMENT, HYPOTHESIS_EDITOR
 from atlas.roles.investigator import INVESTIGATOR
 from atlas.roles.scout import SCOUT
 from atlas.roles.skeptic import CHECKLIST_NAMES, SKEPTIC, SKEPTIC_PLAN
@@ -225,6 +225,22 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "`verdict` is `needs_review`",
             "what the next round should look for",
             "Reason from `read`",
+        ),
+    ),
+    (
+        EDITOR_ARGUMENT,
+        "editor-argument",
+        # v2: several statements per step, each on one point, each checked on its own (0.5.2's
+        # argument run: one merged statement per step dropped whole for one bad clause)
+        2,
+        (
+            "one per distinct point",
+            "Do not merge points into one long statement",
+            "the one to four Facts this statement uses, and only those",
+            "Never add a name, acronym, figure, date or term that its cited quotes don't contain",
+            "Keep each Fact's status in the statement's tense",
+            "a plan stays a plan",
+            "A plan, a development or a hedge alone does not establish a present constraint",
         ),
     ),
     (

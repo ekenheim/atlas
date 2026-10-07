@@ -2123,9 +2123,10 @@ export interface components {
         /**
          * CardArgumentStep
          * @description One step of the argument (bottleneck-argument ticket 05): its status, the Editor's
-         *     statement (held to its Facts' quotes by the grounding check and the finding judge; None
-         *     when there is none that passed), the Facts behind it, the Skeptic's counterevidence, and
-         *     what remains unchecked. The status is code's: `unknown` without a statement that passed or
+         *     statements (each held to its Facts' quotes by the grounding check and the finding judge
+         *     on its own; the ones that passed, `statements`; `statement` is the first of them, or None,
+         *     kept for older readers), the Facts behind it, the Skeptic's counterevidence, and what
+         *     remains unchecked. The status is code's: `unknown` without a statement that passed or
          *     without a Fact; `disputed` when counterevidence stands against the step; else
          *     `supported`. `editor_status` is what the Editor proposed.
          */
@@ -2145,6 +2146,8 @@ export interface components {
             editor_status: ("supported" | "disputed" | "unknown") | null;
             /** Statement */
             statement: string | null;
+            /** Statements */
+            statements?: components["schemas"]["CardStepStatement"][];
             /** Facts */
             facts: components["schemas"]["CardFact"][];
             /** Counterevidence */
@@ -2621,6 +2624,21 @@ export interface components {
             title: string;
             /** Passages */
             passages: number;
+        };
+        /**
+         * CardStepStatement
+         * @description One of a step's statements that passed the grounding check and the finding judge, with
+         *     the Facts it cites (`facts`) and the counterevidence it weighs (`counterevidence`).
+         */
+        CardStepStatement: {
+            /** Statement */
+            statement: string;
+            /** Facts */
+            facts: components["schemas"]["CardFact"][];
+            /** Counterevidence */
+            counterevidence: components["schemas"]["CardFact"][];
+            /** Judged */
+            judged: boolean | null;
         };
         /** CaseResult */
         CaseResult: {

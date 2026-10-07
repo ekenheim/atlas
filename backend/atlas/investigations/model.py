@@ -676,11 +676,24 @@ class CardFact(BaseModel):
     against: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
 
 
+class CardStepStatement(BaseModel):
+    """One of a step's statements that passed the grounding check and the finding judge, with
+    the Facts it cites (`facts`) and the counterevidence it weighs (`counterevidence`)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    statement: str
+    facts: list[CardFact]
+    counterevidence: list[CardFact]
+    judged: bool | None  # True: the judge found it supported; None: kept unjudged
+
+
 class CardArgumentStep(BaseModel):
     """One step of the argument (bottleneck-argument ticket 05): its status, the Editor's
-    statement (held to its Facts' quotes by the grounding check and the finding judge; None
-    when there is none that passed), the Facts behind it, the Skeptic's counterevidence, and
-    what remains unchecked. The status is code's: `unknown` without a statement that passed or
+    statements (each held to its Facts' quotes by the grounding check and the finding judge
+    on its own; the ones that passed, `statements`; `statement` is the first of them, or None,
+    kept for older readers), the Facts behind it, the Skeptic's counterevidence, and what
+    remains unchecked. The status is code's: `unknown` without a statement that passed or
     without a Fact; `disputed` when counterevidence stands against the step; else
     `supported`. `editor_status` is what the Editor proposed."""
 
@@ -692,6 +705,7 @@ class CardArgumentStep(BaseModel):
     status: CardStepStatus
     editor_status: CardStepStatus | None
     statement: str | None
+    statements: list[CardStepStatement] = Field(default_factory=list[CardStepStatement])
     facts: list[CardFact]
     counterevidence: list[CardFact]
     unchecked: list[str]

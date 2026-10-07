@@ -25,9 +25,9 @@ the next round drawn from what was searched and read (the card's `searched` and 
 sections are code's, never the model's).
 """
 
-from typing import Literal
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
@@ -285,7 +285,12 @@ EDITOR_REVISE = Role(
 # check and the judge read a statement's references as they read a finding's), its quote as
 # low-trust retrieved data. Code decides each step's status from what it cites and what
 # stands against it (atlas.investigations.argument).
-EDITOR_ARGUMENT_PROMPT_VERSION = 1
+# v2: several statements per step, each on one point citing the few Facts it uses, each
+# checked on its own (0.5.2's argument run: one merged statement per step, dropped whole for
+# one bad clause, left four of six steps unknown).
+EDITOR_ARGUMENT_PROMPT_VERSION = 2
+# At most this many statements of a step are checked and kept (the prompt asks for 1 to 6).
+MAX_STEP_STATEMENTS = 6
 
 
 class ArgumentFactItem(_Request):
@@ -325,13 +330,41 @@ class EditorArgumentRequest(_Request):
 StepStatus = Literal["supported", "disputed", "unknown"]
 
 
+class ArgumentStatementDraft(RoleOutput):
+    """One point of a step: a sentence or two in its cited quotes' terms."""
+
+    statement: str
+    fact_refs: list[str]  # the Facts it rests on (1 to 4)
+    counter_refs: list[str]  # the counterevidence it weighs
+
+
+_STATEMENT_FIELDS = ("statement", "fact_refs", "counter_refs")
+
+
 class ArgumentStepDraft(RoleOutput):
     step: str
     status: StepStatus
-    statement: str  # what the cited Facts establish for the step, in their quotes' terms
-    fact_refs: list[str]  # the Facts it rests on
-    counter_refs: list[str]  # the counterevidence it weighs
+    statements: list[ArgumentStatementDraft]  # one per distinct point, 1 to 6
     unchecked: list[str]  # what remains unchecked for the step
+
+    @model_validator(mode="before")
+    @classmethod
+    def _one_statement_as_a_list(cls, data: Any) -> Any:
+        """The `editor-argument.v1` form, one `statement` with the step's `fact_refs` and
+        `counter_refs`, is read as a list of that one statement (the strict schema sent to the
+        model is v2's), so an answer in either shape works. Refs left out or null are empty."""
+        if not isinstance(data, dict):
+            return data
+        step = cast(dict[str, Any], data)
+        if "statements" in step or "statement" not in step:
+            return step
+        one: dict[str, Any] = {
+            "statement": step["statement"],
+            "fact_refs": step.get("fact_refs") or [],
+            "counter_refs": step.get("counter_refs") or [],
+        }
+        rest = {name: value for name, value in step.items() if name not in _STATEMENT_FIELDS}
+        return rest | {"statements": [one]}
 
 
 class ArgumentCardDraft(RoleOutput):

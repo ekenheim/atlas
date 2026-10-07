@@ -5,17 +5,18 @@ The plan (atlas.investigations.service.argument_plan): the Scout, then one Reade
 argument step in parallel (`reader:<step>`, atlas.investigations.reader), then the Skeptic (the
 same loop, `ARGUMENT_SKEPTIC`, sent the Readers' Facts to challenge) beside the Financial
 Analyst (sent the Readers' Facts in place of Claims), then the Editor (`EDITOR_ARGUMENT`), who
-writes each step's statement. Code holds every statement to the quotes it cites (the grounding
-check, then the finding judge; atlas.investigations.grounding, .meaning) and decides each
-step's status:
+writes each step's statements (`editor-argument.v2`: one per point, each citing the few Facts it
+uses). Code holds every statement to the quotes it cites, each on its own (the grounding
+check, then the finding judge; atlas.investigations.grounding, .meaning): a dropped one leaves
+the others standing. It decides each step's status:
 
 - `unknown`: no statement passed, or no Fact stands behind the step;
 - `disputed`: the Skeptic's counterevidence is on the step, or speaks against one of its Facts;
 - `supported`: otherwise.
 
 The Editor's own status is kept beside it (`editor_status`). The card keeps the research
-card's fields (no `findings`: each step's statement is its finding) with `plan` `argument` and
-its `steps`.
+card's fields (no `findings`: each step's statements are its findings) with `plan` `argument`
+and its `steps`.
 
 What each Reader and the Skeptic recorded is read from their sessions (`reader_session`): the
 Facts (by ID, with the Facts a Skeptic's speaks against), the queries, the windows read, the
@@ -34,6 +35,7 @@ from atlas.investigations.model import (
     CardArgumentStep,
     CardFact,
     CardFactQuantity,
+    CardStepStatement,
     CardStepStatus,
     SourceSpan,
 )
@@ -211,15 +213,21 @@ def card_fact(row: RowMapping, against: Sequence[uuid.UUID] = ()) -> CardFact:
 
 
 @dataclass(frozen=True)
-class StepStatement:
-    """What came of the Editor's statement for one step."""
+class KeptStatement:
+    """One of a step's statements that passed its checks."""
 
-    statement: str | None  # None: none passed (or none was written)
-    cited: list[str]  # the references it cites
+    statement: str
+    cited: list[str]  # the references it cites (its Facts, then its counterevidence)
+    judged: bool | None  # True: judged supported; None: kept unjudged
+
+
+@dataclass(frozen=True)
+class StepStatement:
+    """What came of the Editor's statements for one step."""
+
+    kept: list[KeptStatement]  # in the Editor's order; empty: none passed (or none was written)
     editor_status: CardStepStatus | None
     unchecked: list[str]
-    grounded: bool | None
-    judged: bool | None
 
 
 def build_steps(
@@ -232,13 +240,15 @@ def build_steps(
     """The argument's six steps, in order, each with its status (see the module)."""
     steps: list[CardArgumentStep] = []
     readers = {s.step: s for s in facts.sessions if s.role == "reader"}  # the latest round's
+    counter_ids = {row["id"] for row in facts.counter}
     for definition in ARGUMENT_STEPS:
         said = statements.get(definition.key)
-        cited_ids = {refs[ref]["id"] for ref in (said.cited if said else []) if ref in refs}
+        kept = said.kept if said else []
+        cited_ids = {refs[ref]["id"] for each in kept for ref in each.cited if ref in refs}
         supporting = [
             row
             for row in facts.supporting
-            if row["step"] == definition.key or (said and said.statement and row["id"] in cited_ids)
+            if row["step"] == definition.key or row["id"] in cited_ids
         ]
         ids = {row["id"] for row in supporting}
         counter = [
@@ -246,9 +256,27 @@ def build_steps(
             for row in facts.counter
             if row["step"] == definition.key
             or set(facts.against.get(row["id"], [])) & ids
-            or (said and said.statement and row["id"] in cited_ids)
+            or row["id"] in cited_ids
         ]
-        statement = said.statement if said else None
+        shown = [
+            CardStepStatement(
+                statement=each.statement,
+                facts=[
+                    card_fact(refs[ref])
+                    for ref in each.cited
+                    if ref in refs and refs[ref]["id"] not in counter_ids
+                ],
+                counterevidence=[
+                    card_fact(refs[ref], facts.against.get(refs[ref]["id"], []))
+                    for ref in each.cited
+                    if ref in refs and refs[ref]["id"] in counter_ids
+                ],
+                judged=each.judged,
+            )
+            for each in kept
+        ]
+        first = kept[0] if kept else None
+        statement = first.statement if first else None
         status: CardStepStatus
         if statement is None or not supporting:
             status = "unknown"
@@ -276,13 +304,14 @@ def build_steps(
                 status=status,
                 editor_status=said.editor_status if said else None,
                 statement=statement,
+                statements=shown,
                 facts=[card_fact(row) for row in supporting],
                 counterevidence=[
                     card_fact(row, facts.against.get(row["id"], [])) for row in counter
                 ],
                 unchecked=list(dict.fromkeys(unchecked)),
-                grounded=said.grounded if said and statement else None,
-                judged=said.judged if said and statement else None,
+                grounded=True if first else None,
+                judged=first.judged if first else None,
                 searched=[str(each["query"]) for each in state.searches] if state else [],
                 documents_read=(
                     list(dict.fromkeys(str(each["title"]) for each in state.reads)) if state else []

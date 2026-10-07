@@ -52,6 +52,7 @@ export type EvidenceItem = Schemas["EvidenceItem"];
 export type ResearchCard = Schemas["ResearchCard"];
 export type CardArgumentStep = Schemas["CardArgumentStep"];
 export type CardFact = Schemas["CardFact"];
+export type CardStepStatement = Schemas["CardStepStatement"];
 export type CardSearch = Schemas["CardSearch"];
 export type CardReading = Schemas["CardReading"];
 export type CardSkepticCompany = Schemas["CardSkepticCompany"];

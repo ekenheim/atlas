@@ -78,8 +78,8 @@ One attempt:
      a **Reader** per step (atlas.investigations.reader; its session keyed by the task, so it
      continues where it stopped), the **Skeptic** as the same loop sent the Readers' Facts to
      challenge, the **Financial Analyst** sent the Readers' Facts in place of Claims, and the
-     **Editor** writing the argument (`EDITOR_ARGUMENT`), each step's statement through the
-     grounding check and the finding judge, each step's status decided by code.
+     **Editor** writing the argument (`EDITOR_ARGUMENT`), each of a step's statements through the
+     grounding check and the finding judge on its own, each step's status decided by code.
 3. **Outcome.** Under the lock, the task's outcome is recorded and the plan advanced. When
    the run's token budget runs out, the task and the investigation stop `budget_exhausted`
    (resumable). An LLM quota or outage (a pausable failure) records `task_paused` and
@@ -119,6 +119,7 @@ from atlas.hindsight import HindsightGateway
 from atlas.investigations.argument import (
     SKEPTIC_CHALLENGED,
     ArgumentFacts,
+    KeptStatement,
     StepStatement,
     argument_facts,
     build_steps,
@@ -191,6 +192,7 @@ from atlas.roles.editor import (
     EDITOR_ARGUMENT,
     EDITOR_REGROUND,
     EDITOR_REVISE,
+    MAX_STEP_STATEMENTS,
     ArgumentFactItem,
     ArgumentStepDraft,
     ArgumentStepItem,
@@ -1623,7 +1625,9 @@ class TaskRunner:
                 },
                 card=card,
             )
-        # The first statement the Editor wrote for each step; what it cites must be Facts.
+        # The first entry the Editor wrote for each step, and its first statements (at most
+        # MAX_STEP_STATEMENTS); each statement is checked on its own, and what it cites must be
+        # Facts.
         drafts: dict[str, ArgumentStepDraft] = {}
         for each in draft.steps:
             if each.step in STEPS and each.step not in drafts:
@@ -1631,24 +1635,25 @@ class TaskRunner:
         unsupported: list[UnsupportedFinding] = []
         checking: list[tuple[str, CardFindingDraft, list[str]]] = []
         for key, each in drafts.items():
-            cited = list(dict.fromkeys([*each.fact_refs, *each.counter_refs]))
-            unknown = [ref for ref in cited if ref not in refs]
-            if unknown:
-                unsupported.append(
-                    UnsupportedFinding(
-                        statement=each.statement,
-                        claim_ids=[str(refs[r]["id"]) if r in refs else r for r in cited],
-                        reason="cites what isn't a Fact of this investigation: "
-                        + ", ".join(unknown),
+            for said in each.statements[:MAX_STEP_STATEMENTS]:
+                cited = list(dict.fromkeys([*said.fact_refs, *said.counter_refs]))
+                unknown = [ref for ref in cited if ref not in refs]
+                if unknown:
+                    unsupported.append(
+                        UnsupportedFinding(
+                            statement=said.statement,
+                            claim_ids=[str(refs[r]["id"]) if r in refs else r for r in cited],
+                            reason="cites what isn't a Fact of this investigation: "
+                            + ", ".join(unknown),
+                        )
                     )
+                    continue
+                if not cited:
+                    continue  # a statement resting on no Fact says only that the step is unknown
+                finding = CardFindingDraft(
+                    statement=said.statement, claim_refs=cited, limitations=[], open_questions=[]
                 )
-                continue
-            if not cited:
-                continue  # a statement resting on no Fact says only that the step is unknown
-            finding = CardFindingDraft(
-                statement=each.statement, claim_refs=cited, limitations=[], open_questions=[]
-            )
-            checking.append((key, finding, cited))
+                checking.append((key, finding, cited))
         checked = check_findings(
             [(finding, cited) for _, finding, cited in checking],
             refs,
@@ -1656,7 +1661,7 @@ class TaskRunner:
             self._company_names(),
             lambda again, quotes: self._ask_editor_again(investigation, run_id, again, quotes),
         )
-        kept: dict[str, tuple[str, bool | None]] = {}
+        kept: dict[str, list[KeptStatement]] = {}
         grounded: list[tuple[str, CheckedFinding]] = []
         for (key, _, _), each in zip(checking, checked.findings, strict=True):
             if each.ungrounded:
@@ -1691,21 +1696,21 @@ class TaskRunner:
                         )
                     )
                     continue
-                kept[key] = (outcome.draft.statement, outcome.judged)
+                kept.setdefault(key, []).append(
+                    KeptStatement(outcome.draft.statement, outcome.cited, outcome.judged)
+                )
         else:
             for key, each in grounded:
-                kept[key] = (each.draft.statement, None)
+                kept.setdefault(key, []).append(
+                    KeptStatement(each.draft.statement, each.cited, None)
+                )
         statements = {
             key: StepStatement(
-                statement=kept[key][0] if key in kept else None,
-                cited=list(dict.fromkeys([*each.fact_refs, *each.counter_refs])),
-                editor_status=each.status,
-                unchecked=each.unchecked,
-                grounded=True if key in kept else None,
-                judged=kept[key][1] if key in kept else None,
+                kept=kept.get(key, []), editor_status=each.status, unchecked=each.unchecked
             )
             for key, each in drafts.items()
         }
+        statements_kept = sum(len(each) for each in kept.values())
         steps = build_steps(facts, statements, refs, skeptic_checked, skeptic_ran)
         unjudged = meaning.counts["failed_first"] if meaning is not None else 0
         unknown_steps = [s.step for s in steps if s.status == "unknown"]
@@ -1753,7 +1758,7 @@ class TaskRunner:
                 "facts": len(facts.supporting),
                 "counterevidence": len(facts.counter),
                 "steps": step_counts(steps),
-                "statements_kept": len(kept),
+                "statements_kept": statements_kept,
                 "unsupported_findings": len(unsupported),
                 "grounding": {
                     "asked_again": checked.asked_again,

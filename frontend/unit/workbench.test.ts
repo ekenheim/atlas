@@ -17,6 +17,7 @@ import {
   type PointerGroup,
   addedInvestigator,
   canSaveHypothesis,
+  citedTally,
   channelsLabel,
   skepticCompanyLine,
   skepticCoverageSummary,
@@ -39,6 +40,7 @@ import {
   readingOutcome,
   saidBy,
   selectionSummary,
+  stepStatements,
   stepTally,
 } from "../lib/workbench";
 
@@ -574,4 +576,41 @@ test("the argument's steps are counted by status", () => {
 
   expect(stepTally(steps)).toBe("1 supported, 1 disputed, 2 unknown");
   expect(stepTally([])).toBe("");
+});
+
+test("a step lists the statements that stood, each with the Facts it cites", () => {
+  const fact = (id: string) => ({ fact_id: id }) as unknown as CardFact;
+  const said = {
+    statement: "Vantor Photonics exited the quarter at roughly 4,000 wafer starts per month.",
+    facts: [fact("a")],
+    counterevidence: [],
+    judged: true,
+  };
+  const step = {
+    statement: said.statement,
+    statements: [said, { ...said, statement: "Vantor Photonics expects about 6,000." }],
+    facts: [fact("a"), fact("b")],
+    counterevidence: [fact("c")],
+    judged: true,
+  } as unknown as CardArgumentStep;
+
+  expect(stepStatements(step).map((each) => each.statement)).toEqual([
+    "Vantor Photonics exited the quarter at roughly 4,000 wafer starts per month.",
+    "Vantor Photonics expects about 6,000.",
+  ]);
+  // A card written before the Editor wrote several: its one statement, with the step's Facts.
+  const older = { ...step, statements: undefined } as unknown as CardArgumentStep;
+  expect(stepStatements(older)).toEqual([
+    {
+      statement: said.statement,
+      facts: step.facts,
+      counterevidence: step.counterevidence,
+      judged: true,
+    },
+  ]);
+  // No statement stood: nothing to list.
+  const none = { ...step, statement: null, statements: [] } as unknown as CardArgumentStep;
+  expect(stepStatements(none)).toEqual([]);
+  expect(citedTally([fact("a")], [])).toBe("1 Fact");
+  expect(citedTally([fact("a"), fact("b")], [fact("c")])).toBe("2 Facts, 1 against");
 });

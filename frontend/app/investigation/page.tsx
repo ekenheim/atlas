@@ -27,6 +27,7 @@ import {
   skepticCompanyLine,
   skepticCoverageSummary,
   checklistLabel,
+  citedTally,
   counterevidenceSummary,
   entityHopSummary,
   factLine,
@@ -49,6 +50,7 @@ import {
   selectionSummary,
   STEP_STATUS,
   statusText,
+  stepStatements,
   stepTally,
   tokenUse,
 } from "../../lib/workbench";
@@ -959,7 +961,8 @@ function Card({ card }: { card: ResearchCard | null }) {
   );
 }
 
-/** The argument plan's card: each step's status, statement, Facts and counterevidence. */
+/** The argument plan's card: each step's status and statements, each statement's cited Facts
+ * one click deeper, then all the step's Facts and counterevidence. */
 function ArgumentSteps({ card }: { card: ResearchCard }) {
   const steps = card.steps ?? [];
   return (
@@ -971,21 +974,44 @@ function ArgumentSteps({ card }: { card: ResearchCard }) {
         </p>
       )}
       <ol aria-label="The argument">
-        {steps.map((step) => (
-          <li key={step.step}>
-            <strong>{step.title}</strong>: {STEP_STATUS[step.status]}
-            {step.statement ? (
-              <p>{step.statement}</p>
-            ) : (
-              <p className="muted-small">No statement: {step.asks}</p>
-            )}
-            <StepFacts title="Evidence" facts={step.facts} />
-            <StepFacts title="Against" facts={step.counterevidence} />
-            {step.unchecked.length > 0 && (
-              <p className="muted-small">Unchecked: {step.unchecked.join("; ")}</p>
-            )}
-          </li>
-        ))}
+        {steps.map((step) => {
+          const statements = stepStatements(step);
+          return (
+            <li key={step.step}>
+              <strong>{step.title}</strong>: {STEP_STATUS[step.status]}
+              {statements.length > 0 ? (
+                <ul aria-label={`${step.title}: statements`}>
+                  {statements.map((said, index) => (
+                    <li key={index}>
+                      {said.statement}
+                      <details>
+                        <summary className="muted-small">
+                          {citedTally(said.facts, said.counterevidence)}
+                        </summary>
+                        <StepFacts title="Evidence" facts={said.facts} />
+                        <StepFacts title="Against" facts={said.counterevidence} />
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted-small">No statement: {step.asks}</p>
+              )}
+              {step.facts.length + step.counterevidence.length > 0 && (
+                <details>
+                  <summary className="muted-small">
+                    All: {citedTally(step.facts, step.counterevidence)}
+                  </summary>
+                  <StepFacts title="Evidence" facts={step.facts} />
+                  <StepFacts title="Against" facts={step.counterevidence} />
+                </details>
+              )}
+              {step.unchecked.length > 0 && (
+                <p className="muted-small">Unchecked: {step.unchecked.join("; ")}</p>
+              )}
+            </li>
+          );
+        })}
       </ol>
     </>
   );
