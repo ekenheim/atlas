@@ -71,8 +71,10 @@ marks and spaces to their ASCII forms (`FOLD_TABLE`), so offsets hold; what is s
 returned is always the text as written.
 
 **Direction from the wording** (`direction_refusal`). Two shapes of sentence fix who is who,
-whatever the cue: shares issued or sold *to* a company, or purchased *by* it, make that
-company the holder (`owns` runs from the holder to the issuer); and "an X purchase
+whatever the cue: shares (or a warrant) issued or sold *to* a company or a subsidiary of it,
+purchased *by* it, or an investment in the other company given as its ("NVIDIA's equity
+investment in Coherent") make that company the holder (`owns` runs from the holder to the
+issuer); and "an X purchase
 commitment" makes X the buyer (`supplies` runs to X, `buys_from` from X).
 """
 
@@ -808,7 +810,7 @@ def stray_companies(
 
 # --- direction from the wording (memory-directed reading ticket 02) ---------------------------
 
-_SHARES = r"(?i:shares|stock|securities|warrants)"
+_SHARES = r"(?i:shares|stock|securities|warrants?)"
 _BOUGHT = r"(?i:purchased|acquired|bought|subscribed for)"
 _COMMITMENT = r"(?i:purchase (?:commitment|order)s?)"
 
@@ -823,14 +825,28 @@ def _party(names: Sequence[str], first_person: str | None) -> str:
 
 
 def _holds_shares(folded: str, names: Sequence[str], *, is_filer: bool) -> bool:
-    """Whether the quote makes the party the holder of shares: they were issued or sold *to*
-    it, or it purchased them (or they were purchased *by* it)."""
+    """Whether the quote makes the party the holder of shares: they (or a warrant for them)
+    were issued or sold *to* it (or to a subsidiary of it), it purchased them (or they were
+    purchased *by* it), or the quote gives an investment in the other company as the party's
+    ("NVIDIA's $2 billion equity investment in Coherent", "NVIDIA made a $2 billion
+    investment in the Company", "the investment we made in IQE")."""
     party = _party(names, "we|us|the company" if is_filer else None)
+    owner = _party(names, "our|we|us|the company" if is_filer else None)
+    recipient = (
+        rf"(?:(?:the\s+)?{party}|(?:an?|the)\s+(?:[\w-]+\s+){{0,3}}?"
+        rf"(?:subsidiary|subsidiaries|affiliate|affiliates)\s+of\s+(?:the\s+)?{party})"
+    )
+    investment = r"(?i:(?:equity\s+)?(?:investment|stake))"
     patterns = (
         rf"\b(?i:issu(?:e|es|ed|ing|ance)|sold|sale|sell|sells|selling)\b.{{0,300}}?\b{_SHARES}\b"
-        rf".{{0,300}}?\bto\s+(?:the\s+)?{party}",
+        rf".{{0,300}}?\bto\s+{recipient}",
         rf"{party}.{{0,60}}?\b{_BOUGHT}\b.{{0,200}}?\b{_SHARES}\b",
         rf"\b{_SHARES}\b.{{0,200}}?\b{_BOUGHT} by\s+(?:the\s+)?{party}",
+        rf"{owner}(?:'s)?\s+(?:[\w$.,-]+\s+){{0,6}}?{investment}\s+in\b",
+        rf"{party}\s+(?i:made|makes|completed)\s+(?:[\w$.,-]+\s+){{0,6}}?{investment}\s+in\b",
+        rf"\b{investment}\s+(?i:by|from)\s+(?:the\s+)?{party}",
+        rf"\b{investment}\s+in\b.{{0,100}}?\bby\s+(?:the\s+)?{party}",
+        rf"\b{investment}\s+{owner}\s+(?i:made|makes|completed)\s+in\b",
     )
     return any(re.search(pattern, folded, re.DOTALL) for pattern in patterns)
 
