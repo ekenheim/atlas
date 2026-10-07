@@ -336,6 +336,11 @@ class CardFinding(BaseModel):
     # finding: it is listed under `unsupported_findings`). None: drawn before the check (or a
     # Hypothesis's finding, which it doesn't apply to).
     grounded: bool | None = None
+    # The finding judge (bottleneck-argument ticket 04): True, it found the statement and
+    # limitations say only what the cited quotes say (perhaps after one rewrite; a misstated
+    # finding is never a finding). None: not judged (drawn before the judge, the judge off, or
+    # its call failed, when the finding needs review). The verdicts are the card's `judged`.
+    judged: bool | None = None
 
 
 CounterevidenceOutcome = Literal["accepted", "rejected"]
@@ -446,6 +451,29 @@ class UnsupportedFinding(BaseModel):
     statement: str
     claim_ids: list[str]
     reason: str
+
+
+class CardJudgement(BaseModel):
+    """One verdict of the finding judge on a finding (bottleneck-argument ticket 04): the
+    statement it judged, `supported` or `misstated` with the words that go beyond the quotes
+    (`beyond`), their kinds and the judge's reason; `failed` when its call gave no answer
+    (`reason` says why). `attempt` 2 judges the Editor's rewrite of a misstated finding;
+    `outcome` what came of the finding at this attempt."""
+
+    model_config = ConfigDict(frozen=True)
+
+    finding: str  # `f1`, `f2`, ...: the finding's place among those judged
+    attempt: Literal[1, 2]
+    statement: str
+    limitations: list[str]
+    claim_ids: list[uuid.UUID]
+    verdict: Literal["supported", "misstated", "failed"]
+    beyond: list[str]
+    kinds: list[str]
+    reason: str
+    outcome: Literal["kept", "sent_back", "dropped", "kept_unjudged"]
+    role_call_id: uuid.UUID | None
+    judge: str  # the prompt, e.g. `finding_judge.v1`
 
 
 class CardQuery(BaseModel):
@@ -650,6 +678,9 @@ class ResearchCard(BaseModel):
     # The limit of the grounding check (pilot-fixes ticket 21), stated on the card; None on
     # cards drawn before it.
     grounding_limit: str | None = None
+    # The finding judge's verdicts, every finding and attempt in order (bottleneck-argument
+    # ticket 04); empty on cards drawn before it or with the judge off.
+    judged: list[CardJudgement] = Field(default_factory=list[CardJudgement])
     # Why the Editor wrote no card (None: it did); then the card lists the accepted Claims by
     # company instead of findings. Cards drawn before memory-quality ticket 16 have neither.
     editor_failure: str | None = None

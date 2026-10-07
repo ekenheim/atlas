@@ -150,6 +150,10 @@ class Atlas:
             # Every section is retained unless a test turns retention triage on
             # (`retention_triage="on"`), so modules with LiteLLM configured retain as before.
             "retention_triage": "off",
+            # The finding judge is a role call per finding: off unless a test scripts it
+            # (`finding_judge=True`), so modules whose investigations script the Editor run
+            # as before.
+            "finding_judge": False,
         }
         return make_settings(self.archive, **(values | providers | self.overrides))
 

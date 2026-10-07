@@ -113,7 +113,8 @@ from atlas.hindsight import HindsightGateway
 from atlas.investigations.companies import FloorCandidate, document_floor, documents_in_order
 from atlas.investigations.coverage import coverage, not_read, skeptic_coverage, unchecked_note
 from atlas.investigations.entity_hop import HopLimits, record_entity_pointers
-from atlas.investigations.grounding import GROUNDING_LIMIT, check_findings
+from atlas.investigations.grounding import GROUNDING_LIMIT, CheckedFinding, check_findings
+from atlas.investigations.meaning import JUDGE_LIMIT, judge_findings
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
@@ -159,6 +160,7 @@ from atlas.roles import (
 from atlas.roles.editor import (
     EDITOR,
     EDITOR_REGROUND,
+    EDITOR_REVISE,
     CardFindingDraft,
     EditorBearContext,
     EditorCardClaim,
@@ -170,9 +172,12 @@ from atlas.roles.editor import (
     EditorReading,
     EditorRegroundRequest,
     EditorRequest,
+    EditorReviseRequest,
     RegroundedFindings,
+    RevisedFindings,
 )
 from atlas.roles.financial_analyst import FINANCIAL_ANALYST
+from atlas.roles.finding_judge import FINDING_JUDGE, FindingJudgement, FindingJudgeRequest
 from atlas.runs import RunRecorder
 from atlas.scenarios.analyst import analyst_companies, analyst_context, keep_proposals
 from atlas.settings import Settings
@@ -448,6 +453,28 @@ class TaskRunner:
             return caller.call_recorded(
                 EDITOR_REGROUND, request, run_id=run_id, retrieved=retrieved
             )
+
+    def _judge_finding(
+        self,
+        investigation: RowMapping,
+        run_id: uuid.UUID,
+        request: FindingJudgeRequest,
+        retrieved: list[QuotedText],
+    ) -> tuple[FindingJudgement, uuid.UUID]:
+        """The finding judge on one finding (bottleneck-argument ticket 04)."""
+        with self._caller(investigation) as caller:
+            return caller.call_recorded(FINDING_JUDGE, request, run_id=run_id, retrieved=retrieved)
+
+    def _ask_editor_to_revise(
+        self,
+        investigation: RowMapping,
+        run_id: uuid.UUID,
+        request: EditorReviseRequest,
+        retrieved: list[QuotedText],
+    ) -> tuple[RevisedFindings, uuid.UUID]:
+        """The Editor asked once to rewrite its misstated findings (ticket 04)."""
+        with self._caller(investigation) as caller:
+            return caller.call_recorded(EDITOR_REVISE, request, run_id=run_id, retrieved=retrieved)
 
     def _company_names(self) -> list[tuple[str, str]]:
         """Each company's display and legal names: one name, for the grounding check."""
@@ -1120,6 +1147,7 @@ class TaskRunner:
             self._company_names(),
             lambda again, quotes: self._ask_editor_again(investigation, run_id, again, quotes),
         )
+        grounded: list[CheckedFinding] = []
         for each in checked.findings:
             if each.ungrounded:
                 unsupported.append(
@@ -1130,21 +1158,68 @@ class TaskRunner:
                     )
                 )
                 continue
-            findings.append(
-                card_finding(
-                    each.draft.statement,
-                    [refs[ref] for ref in each.cited],
-                    each.draft,
-                    by_claim,
-                    grounded=True,
-                )
+            grounded.append(each)
+        # Then for meaning (bottleneck-argument ticket 04): each grounded finding judged
+        # against its quotes, a misstated one rewritten once and judged again, and set aside
+        # if it still is.
+        meaning = None
+        if self._settings.finding_judge and grounded:
+            meaning = judge_findings(
+                grounded,
+                refs,
+                investigation["question"],
+                self._company_names(),
+                lambda asked, quotes: self._judge_finding(investigation, run_id, asked, quotes),
+                lambda asked, quotes: self._ask_editor_to_revise(
+                    investigation, run_id, asked, quotes
+                ),
             )
+            for outcome in meaning.outcomes:
+                if not outcome.kept:
+                    unsupported.append(
+                        UnsupportedFinding(
+                            statement=outcome.draft.statement,
+                            claim_ids=[str(refs[ref]["id"]) for ref in outcome.cited],
+                            reason=outcome.reason or "misstated",
+                        )
+                    )
+                    continue
+                findings.append(
+                    card_finding(
+                        outcome.draft.statement,
+                        [refs[ref] for ref in outcome.cited],
+                        outcome.draft,
+                        by_claim,
+                        grounded=True,
+                        judged=outcome.judged,
+                        # Its judge call failed: the finding stands, for review.
+                        unjudged=outcome.judged is None,
+                    )
+                )
+        else:
+            for each in grounded:
+                findings.append(
+                    card_finding(
+                        each.draft.statement,
+                        [refs[ref] for ref in each.cited],
+                        each.draft,
+                        by_claim,
+                        grounded=True,
+                    )
+                )
+        unjudged = meaning.counts["failed_first"] if meaning is not None else 0
         contradicted = sum(1 for f in findings if f.counterevidence_ids)
         if not claims:
             # The card reports what was searched and read; the stop reason is as before.
             stop_reason = "no_new_independent_evidence"
             stop_detail = "no new independent Evidence: the Investigator accepted no Claims"
-        elif draft.verdict == "answered" and findings and not unsupported and not contradicted:
+        elif (
+            draft.verdict == "answered"
+            and findings
+            and not unsupported
+            and not contradicted
+            and not unjudged
+        ):
             stop_reason = "answered"
             stop_detail = f"the Editor judged the question answered by {len(findings)} findings"
         else:
@@ -1156,6 +1231,8 @@ class TaskRunner:
                 problems.append(
                     f"{contradicted} findings are contradicted by independent counterevidence"
                 )
+            if unjudged:
+                problems.append(f"{unjudged} findings could not be judged for meaning")
             if not findings:
                 problems.append("no finding cites an accepted Claim")
             if draft.verdict != "answered":
@@ -1180,7 +1257,8 @@ class TaskRunner:
             read=read,
             not_read=unread,
             skeptic_coverage=unchecked,
-            grounding_limit=GROUNDING_LIMIT,
+            grounding_limit=GROUNDING_LIMIT + (JUDGE_LIMIT if meaning is not None else ""),
+            judged=meaning.judgements if meaning is not None else [],
         )
         return _Outcome(
             "succeeded",
@@ -1198,6 +1276,19 @@ class TaskRunner:
                     ),
                     "failure": checked.failure,
                 },
+                "meaning": (
+                    {
+                        **meaning.counts,
+                        "revise_role_call_id": (
+                            str(meaning.revise_role_call_id)
+                            if meaning.revise_role_call_id is not None
+                            else None
+                        ),
+                        "revise_failure": meaning.revise_failure,
+                    }
+                    if meaning is not None
+                    else None
+                ),
                 "contradictions": len(against),
                 "bear_context": sum(len(group.items) for group in context),
                 "contradicted_findings": contradicted,
@@ -1441,10 +1532,14 @@ def card_finding(
     counterevidence: Mapping[uuid.UUID, list[uuid.UUID]] | None = None,
     *,
     grounded: bool | None = None,
+    judged: bool | None = None,
+    unjudged: bool = False,
 ) -> CardFinding:
     """A finding citing `cited` accepted Claims, with the independent contradictions
     (`counterevidence`: claim ID -> counterevidence IDs, atlas.investigations.skeptic) of any
-    of them; `grounded` the grounding check's result (None: not checked)."""
+    of them; `grounded` the grounding check's result (None: not checked); `judged` the finding
+    judge's (True: supported; None: not judged), and `unjudged` when its judge call failed
+    (the finding then needs review)."""
     available: list[datetime] = [c["available_at"] for c in cited]
     against = list(
         dict.fromkeys(each for c in cited for each in (counterevidence or {}).get(c["id"], []))
@@ -1479,9 +1574,11 @@ def card_finding(
         limitations=finding.limitations,
         counterevidence_ids=against,
         needs_review=bool(against)
-        or any(c["verification_status"] != "corroborated" for c in cited),
+        or any(c["verification_status"] != "corroborated" for c in cited)
+        or unjudged,
         open_questions=finding.open_questions,
         grounded=grounded,
+        judged=judged,
     )
 
 

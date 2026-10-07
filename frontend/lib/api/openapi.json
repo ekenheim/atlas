@@ -8264,6 +8264,17 @@
               }
             ],
             "title": "Grounded"
+          },
+          "judged": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judged"
           }
         },
         "type": "object",
@@ -8284,6 +8295,111 @@
         ],
         "title": "CardFinding",
         "description": "A research card finding in the Â§7.2 claim shape. The statement is the Editor's; every\nother field is filled in by code from the accepted Claims it cites."
+      },
+      "CardJudgement": {
+        "properties": {
+          "finding": {
+            "type": "string",
+            "title": "Finding"
+          },
+          "attempt": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Attempt"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "claim_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Claim Ids"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "misstated",
+              "failed"
+            ],
+            "title": "Verdict"
+          },
+          "beyond": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Beyond"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kinds"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "kept",
+              "sent_back",
+              "dropped",
+              "kept_unjudged"
+            ],
+            "title": "Outcome"
+          },
+          "role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Call Id"
+          },
+          "judge": {
+            "type": "string",
+            "title": "Judge"
+          }
+        },
+        "type": "object",
+        "required": [
+          "finding",
+          "attempt",
+          "statement",
+          "limitations",
+          "claim_ids",
+          "verdict",
+          "beyond",
+          "kinds",
+          "reason",
+          "outcome",
+          "role_call_id",
+          "judge"
+        ],
+        "title": "CardJudgement",
+        "description": "One verdict of the finding judge on a finding (bottleneck-argument ticket 04): the\nstatement it judged, `supported` or `misstated` with the words that go beyond the quotes\n(`beyond`), their kinds and the judge's reason; `failed` when its call gave no answer\n(`reason` says why). `attempt` 2 judges the Editor's rewrite of a misstated finding;\n`outcome` what came of the finding at this attempt."
       },
       "CardQuery": {
         "properties": {
@@ -21886,6 +22002,13 @@
               }
             ],
             "title": "Grounding Limit"
+          },
+          "judged": {
+            "items": {
+              "$ref": "#/components/schemas/CardJudgement"
+            },
+            "type": "array",
+            "title": "Judged"
           },
           "editor_failure": {
             "anyOf": [
