@@ -85,6 +85,11 @@ def ids_under(value, suffixes, found):
 
 
 def main():
+    # `--plan=argument` starts the argument plan (bottleneck-argument ticket 05); the default
+    # plan otherwise.
+    args = [a for a in sys.argv[1:] if not a.startswith("--plan")]
+    plan = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--plan=")), None)
+    sys.argv = [sys.argv[0], *args]
     number = int(sys.argv[1])
     question, seeds = RUNS[number]
     # An optional second argument names the output folder (default pilot-0.3.0), so a run on a
@@ -113,6 +118,7 @@ def main():
                 "question": question,
                 "seed_company_ids": [companies[s] for s in seeds],
                 "budgets": {"token_budget": TOKEN_BUDGET},
+                **({"plan": plan} if plan else {}),
             },
         )
         state = {"id": started["id"], "version": version, "seeds": seeds, "started_at": started["created_at"]}
@@ -145,6 +151,7 @@ def main():
     reads = {
         "role-calls.json": f"/runs/{run_id}/role-calls",
         "claims.json": f"/claims?run_id={run_id}&limit=200",
+        "facts.json": f"/facts?investigation_id={investigation_id}&limit=200",
         "events.json": f"/investigations/{investigation_id}/events",
         "relationships.json": "/relationships?sort=created_at&order=desc&limit=200",
         "counterparties.json": "/companies?role=counterparty",

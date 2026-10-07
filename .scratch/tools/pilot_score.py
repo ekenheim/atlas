@@ -80,6 +80,20 @@ def shingles(text, size=SHINGLE):
     return {" ".join(w[i : i + size]) for i in range(max(len(w) - size + 1, 0))}
 
 
+def card_statements(investigation):
+    """What the card states: the default plan's findings, or an argument card's kept step
+    statements (`steps[*].statements`, else each step's single `statement`)."""
+    card = investigation.get("research_card") or {}
+    out = [f.get("claim_text") or f.get("statement") or "" for f in card.get("findings") or []]
+    for step in card.get("steps") or []:
+        kept = step.get("statements")
+        if kept:
+            out += [k.get("statement", "") for k in kept if k.get("statement")]
+        elif step.get("statement"):
+            out.append(step["statement"])
+    return [each for each in out if each]
+
+
 def run_items(run):
     """The run's accepted Claims and Facts as {id, source_version_id, start, end, quote, kind}."""
     investigation = load(run / "investigation.json")
@@ -102,13 +116,15 @@ def run_items(run):
         facts = load(run / "facts.json")
         facts = facts.get("items", facts) if isinstance(facts, dict) else facts
     for each in facts or []:
+        # A Fact (GET /facts) carries its span and quote on its Assertion.
+        held = each.get("assertion") or each
         items.append(
             {
                 "id": each.get("id") or each.get("fact_id") or "fact",
-                "source_version_id": each["source_version_id"],
-                "start": each.get("span_start"),
-                "end": each.get("span_end"),
-                "quote": each.get("quote") or "",
+                "source_version_id": held["source_version_id"],
+                "start": held.get("span_start"),
+                "end": held.get("span_end"),
+                "quote": held.get("quote") or "",
                 "kind": "fact",
             }
         )
@@ -169,7 +185,7 @@ def run_facts(run):
         "tokens": usage.get("tokens_in", 0) + usage.get("tokens_out", 0),
         "role_calls": calls,
         "wall_seconds": wall,
-        "card_findings": len((investigation.get("research_card") or {}).get("findings", [])),
+        "card_findings": len(card_statements(investigation)),
     }
 
 
@@ -203,7 +219,7 @@ def judge(facts, investigation, items, env_path, out_file):
     key = env.get("ATLAS_LITELLM_API_KEY") or env["LITELLM_API_KEY"]
     model = env.get("ATLAS_LLM_ROLE_MODEL", "MiniMax-M3")
     prompt = (HERE / "pilot_score_judge.md").read_text(encoding="utf-8")
-    card = [f.get("claim_text", "") for f in (investigation.get("research_card") or {}).get("findings", [])]
+    card = card_statements(investigation)
     saved = load(out_file) if out_file.exists() else {"verdicts": {}, "usage": {"prompt": 0, "completion": 0, "calls": 0}}
     todo = [(i, fact) for i, fact in enumerate(facts) if str(i) not in saved["verdicts"]]
     for at in range(0, len(todo), BATCH):
@@ -319,7 +335,7 @@ def main():
         ("researcher's facts held in a Claim or Fact, not on the card", "-", str(new_judged["held"]) if new_judged else "run with --judge"),
         ("researcher's facts absent", "-", str(new_judged["absent"]) if new_judged else "run with --judge"),
         ("accepted Claims / Facts", f"{sum(1 for i in old_items if i['kind'] == 'claim')} / {sum(1 for i in old_items if i['kind'] == 'fact')}", f"{sum(1 for i in new_items if i['kind'] == 'claim')} / {sum(1 for i in new_items if i['kind'] == 'fact')}"),
-        ("card findings", str(old_stats["card_findings"]), str(new_stats["card_findings"])),
+        ("card findings / step statements", str(old_stats["card_findings"]), str(new_stats["card_findings"])),
         ("tokens (in + out)", f"{old_stats['tokens']:,}", f"{new_stats['tokens']:,}"),
         ("role calls", str(old_stats["role_calls"] if old_stats["role_calls"] is not None else review["run"]["role_calls"]), str(new_stats["role_calls"])),
         ("wall time (s)", str(old_stats["wall_seconds"]), str(new_stats["wall_seconds"])),
