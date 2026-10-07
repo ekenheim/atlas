@@ -14,6 +14,7 @@ documentation and Atlas's spec promise, before anything is benchmarked.
 from atlas.conformance.api import AtlasApi, AtlasApiError
 from atlas.conformance.behaviours import CHECKS, BehaviourBank, Check, CheckResult, run_checks
 from atlas.conformance.known_answers import (
+    DEFAULT_RECALL_MAX_TOKENS,
     HOPS,
     TEST_PARTS,
     KnownAnswersError,
@@ -28,6 +29,7 @@ from atlas.conformance.report import ConformanceReport, Usage
 
 __all__ = [
     "CHECKS",
+    "DEFAULT_RECALL_MAX_TOKENS",
     "HOPS",
     "TEST_PARTS",
     "AtlasApi",

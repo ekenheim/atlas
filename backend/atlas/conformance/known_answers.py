@@ -26,7 +26,7 @@ hop, per test part and overall, against the file's thresholds (on the overall fi
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal, Self, cast
 
@@ -36,7 +36,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from atlas.companies import Universe
 from atlas.conformance.api import AtlasApi, AtlasApiError
 from atlas.research.probes import ProbeSet
+from atlas.research.service import ResearchScope, reading_index_recall
 from atlas.retention.sections import split_sections
+from atlas.settings import Settings
 
 Hop = Literal["demand", "system", "module", "chip", "substrate", "feedstock", "equipment"]
 HOPS: tuple[Hop, ...] = (
@@ -406,7 +408,12 @@ class QuestionRecalls(BaseModel):
     sections_ranked: int
 
 
+DEFAULT_RECALL_MAX_TOKENS: int = Settings.model_fields["pointer_recall_max_tokens"].default
+"""What investigations recall with unless configured (`ATLAS_POINTER_RECALL_MAX_TOKENS`)."""
+
+
 class KnownAnswersReport(BaseModel):
+    max_tokens: int = DEFAULT_RECALL_MAX_TOKENS  # the recalls' results budget in tokens
     verdict: Literal["passed", "failed"]
     reason: str | None
     thresholds: Thresholds
@@ -422,9 +429,18 @@ class KnownAnswersReport(BaseModel):
 
 
 def run_known_answers(
-    api: AtlasApi, answer_set: KnownAnswerSet, probes: ProbeSet
+    api: AtlasApi,
+    answer_set: KnownAnswerSet,
+    probes: ProbeSet,
+    *,
+    max_tokens: int = DEFAULT_RECALL_MAX_TOKENS,
+    as_of: datetime | None = None,
 ) -> KnownAnswersReport:
-    """Resolve every answer, recall every question, and score (read-only; no LLM call)."""
+    """Resolve every answer, recall every question, and score (read-only; no LLM call).
+
+    Each recall is the investigations' (`atlas.research.service.reading_index_recall`, the one
+    builder) at `max_tokens` of results, recency judged from `as_of` (default: now)."""
+    as_of = as_of or datetime.now(UTC)
     resolved, errors = resolve_answers(api, answer_set.answers)
     asked = {answer.question for answer in answer_set.answers}
     ranks: dict[str, int | None] = {}
@@ -435,7 +451,13 @@ def run_known_answers(
         answers: list[dict[str, Any]] = []
         failed: list[str] = []
         for text in (probe.question, *probe.queries):
-            body = {"query": text, "scope": {"theme_ids": list(probe.scope.theme_ids)}}
+            request = reading_index_recall(
+                text,
+                ResearchScope(theme_ids=list(probe.scope.theme_ids)),
+                max_tokens=max_tokens,
+                as_of=as_of,
+            )
+            body = request.model_dump(mode="json", exclude_none=True)
             try:
                 answers.append(cast(dict[str, Any], api.post("/memory/recall", body)))
             except AtlasApiError as error:
@@ -473,6 +495,7 @@ def run_known_answers(
         reasons.append(f"recall at 50 {overall.at_50} is below {thresholds.recall_at_50}")
     by_id = {a.id: a for a in answer_set.answers}
     return KnownAnswersReport(
+        max_tokens=max_tokens,
         verdict="failed" if reasons else "passed",
         reason="; ".join(reasons) or None,
         thresholds=thresholds,

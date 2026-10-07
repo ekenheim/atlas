@@ -31,6 +31,7 @@ from sqlalchemy.engine import make_url
 
 from atlas.companies import load_universe
 from atlas.conformance import (
+    DEFAULT_RECALL_MAX_TOKENS,
     AtlasApi,
     ConformanceReport,
     KnownAnswersError,
@@ -56,6 +57,14 @@ DEFAULT_BASE_URL = "https://atlas.ekenhome.se"
 PARTS = ("known-answers", "behaviours")
 SETTLE_SECONDS = 3600.0  # the retains and the consolidation of the throwaway bank
 POLL_SECONDS = 5.0
+
+
+def recall_max_tokens() -> list[int]:
+    """The recalls' results budgets to measure (`--recall-max-tokens`, comma-separated; the
+    first decides the verdict): the setting's default and 16,000 unless given."""
+    given = os.environ.get("ATLAS_CONFORMANCE_RECALL_MAX_TOKENS", "")
+    values = [int(part) for part in given.replace(" ", "").split(",") if part]
+    return list(dict.fromkeys(values)) or [DEFAULT_RECALL_MAX_TOKENS, 16000]
 
 
 def _selected(part: str) -> bool:
@@ -87,8 +96,13 @@ def test_known_answers_on_the_live_bank(report: ConformanceReport) -> None:
     except KnownAnswersError as error:
         report.known_answers_error = str(error)
         raise
+    budgets = recall_max_tokens()
     with httpx2.Client(base_url=base_url.rstrip("/"), timeout=120.0) as client:
-        report.known_answers = run_known_answers(AtlasApi(client), answers, probes)
+        reports = [
+            run_known_answers(AtlasApi(client), answers, probes, max_tokens=value)
+            for value in budgets
+        ]
+    report.known_answers, report.known_answers_sweep = reports[0], reports[1:]
     assert report.known_answers.verdict == "passed", report.known_answers.reason
 
 

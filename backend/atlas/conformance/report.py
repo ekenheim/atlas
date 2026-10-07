@@ -37,6 +37,9 @@ class ConformanceReport(BaseModel):
     finished_at: datetime | None = None
     stack: dict[str, str] = Field(default_factory=dict[str, str])
     known_answers: KnownAnswersReport | None = None
+    # The same recalls at the other results budgets asked for (the first is `known_answers`,
+    # which alone decides the verdict): the numbers for choosing ATLAS_POINTER_RECALL_MAX_TOKENS.
+    known_answers_sweep: list[KnownAnswersReport] = Field(default_factory=list[KnownAnswersReport])
     known_answers_error: str | None = None  # the half could not run (e.g. the file is invalid)
     behaviours: list[CheckResult] | None = None
     bank_id: str | None = None
@@ -106,6 +109,9 @@ class ConformanceReport(BaseModel):
         if report is None:
             return [*lines, "Not run (--only behaviours)."]
         lines += [
+            f"Recalled as investigations do (budget high, observations preferred, source facts"
+            f" and chunks), {report.max_tokens} tokens of results.",
+            "",
             f"Verdict **{report.verdict}**"
             + (f": {report.reason}" if report.reason else "")
             + f". Thresholds: recall at 10 >= {report.thresholds.recall_at_10}, at 50 >="
@@ -122,6 +128,16 @@ class ConformanceReport(BaseModel):
             ("test part", report.by_test_part),
         ):
             lines += [_row(f"{title}: {name}", recall) for name, recall in groups.items()]
+        if self.known_answers_sweep:
+            lines += [
+                "",
+                "Recall by the recalls' results budget (tokens):",
+                "",
+                "| Max tokens | Answers | Recall@10 | Recall@50 |",
+                "|---|---|---|---|",
+            ]
+            for each in [report, *self.known_answers_sweep]:
+                lines.append(_row(str(each.max_tokens), each.overall))
         if report.errors:
             lines += ["", "Errors (not misses):", ""]
             lines += [f"- `{e.id}`: {e.error}" for e in report.errors]
