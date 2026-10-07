@@ -893,3 +893,271 @@ def direction_refusal(
                 f" supplies {other})"
             )
     return None
+
+
+# --- realised statements (pilot-fixes ticket 35) ------------------------------------------------
+
+# A sentence of a quote: a hedge, a condition or a downplaying remark reaches no further.
+_SENTENCE = re.compile(r"[^.!?;]+(?:[.!?;]+|$)")
+# A modal that hedges the verb after it ("may only be available from a single or limited number
+# of suppliers", "could add capacity"). Lower case only ("May 2025" is a month). Not a hedge:
+# "could not" and "couldn't" (a constraint that happened), "would have" (what would have been,
+# had it not), and the speaker's own framing ("I would say", "you could argue").
+_MODAL = re.compile(
+    r"\b(?:may|might|could|would)\b"
+    r"(?!\s+(?:not|have|say|tell|note|add|argue|think|guess|imagine|describe|characterize"
+    r"|point|remind|highlight|emphasize|call|like|love|also say)\b)(?!n't)"
+)
+# How far before its cue a modal still governs it, in words, and never across a comma ("While
+# demand may fluctuate, we manufacture ..." is no hedge on the manufacture).
+_MODAL_REACH = 8
+# The predicates a modal hedges: those with a product object, a fact a company states about
+# itself. (Of a counterparty, "NVIDIA would be the lead customer for us" names the customer;
+# the reviewer weighs it.)
+_HEDGED = frozenset(name for name, rule in PREDICATES.items() if rule.object_kind == "product")
+# A condition before the cue in its sentence ("if the customer would like us to ..., then we
+# start to produce ..."), but not the speaker's "if you look at ...", nor "even if", "as if",
+# "if any", "if not". ("Whether that's an EML or CW laser" lists; it poses no condition.)
+_CONDITION = re.compile(
+    r"(?<!\beven )(?<!\bas )\b(?:if|unless)\b"
+    r"(?!\s+(?:any|not|so|needed|necessary|applicable)\b)"
+    r"(?!\s+(?:you|we|I|one)\s+(?:look|looked|think|recall|remember|consider|compare|go|went"
+    r"|step|take|ask)\b)",
+    re.IGNORECASE,
+)
+# The predicates a condition stops: a stated fact about what a company makes, sources, adds or
+# is qualified for. (A constraint told as "if we had more capacity, we would ship more" is a
+# constraint, and the company-object predicates keep their reviewer.)
+_CONDITIONED = frozenset({"manufactures", "sole_sources", "expands_capacity_for", "qualified_for"})
+# "Make" and "build" in an idiom that is no manufacture: "making significant investments in",
+# "make good progress on", "made great strides", "building on".
+_MAKE_CUE = re.compile(r"(?:make|makes|made|making|build|builds|built|building)", re.IGNORECASE)
+_MAKE_IDIOM = re.compile(
+    r"\s+(?:[\w-]+\s+){0,2}?(?:investments?|progress|strides|headway|sure|decisions?"
+    r"|improvements?|changes?|sense|inroads)\b|\s+(?:on|upon)\b",
+    re.IGNORECASE,
+)
+# Development or intent naming the object just after it ("development of our six-inch indium
+# phosphide capability", "progress on our CW lasers"). Investment is development of a product
+# ("investments in next generation laser chips"), but of capacity it is the expansion itself
+# ("investing in manufacturing capacity"), so it is read for the other predicates only.
+_DEVELOPMENT = re.compile(
+    r"\b(?:develop|develops|developing|development(?:\s+of)?"
+    r"|progress\s+(?:on|in|with)|work(?:ing)?\s+on|R&D\s+(?:on|for|in)"
+    r"|roadmap|tool\s+chest|sampling|samples?\s+of|prototypes?\s+of|plans?\s+to|aim\s+to)\b",
+    re.IGNORECASE,
+)
+_INVESTMENT = re.compile(r"\b(?:investments?|investing|invest)\s+in\b", re.IGNORECASE)
+# How far before the object a development phrase still names it, in words.
+_DEVELOPMENT_REACH = 4
+_DEVELOPED = frozenset({"manufactures", "expands_capacity_for", "qualified_for"})
+# Qualification that is done: anything else ("qualification efforts continue", "going through a
+# qualification phase", "asked by customers to qualify", "customers may require qualification")
+# is qualification under way or asked for, not a qualified supplier.
+_QUALIFICATION_DONE = re.compile(
+    r"\b(?:complet\w*|pass(?:ed|es)?|achiev\w*|receiv\w*|obtain\w*|secur\w*|finish\w*"
+    r"|successful(?:ly)?|approv\w*|earn\w*|won|award\w*)\b",
+    re.IGNORECASE,
+)
+_NOT_YET_QUALIFIED = re.compile(
+    r"\b(?:(?:to|will|would|may|might|could|should)\s+(?:\w+\s+)?(?:be|become|get)"
+    r"|not(?:\s+yet)?|yet\s+to\s+be)\s+$",
+    re.IGNORECASE,
+)
+# A ramp of revenue, demand or content ("revenue to begin ramping", "the demand ... grows: an
+# extremely steep ramp") in a quote with no word of production is no capacity added; a ramp of
+# a product or a site ("our 6-inch indium phosphide ramp", "ramping in two locations") is.
+_REVENUE = re.compile(r"\b(?:revenues?|sales|demand|content|growth)\b", re.IGNORECASE)
+_PRODUCTION = re.compile(
+    r"\b(?:capacit\w*|produc\w*|manufactur\w*|fabs?|facilit\w*|plants?|lines?|output|tools?"
+    r"|wafer\s+starts|factor(?:y|ies)|infrastructure|locations?|sites?|online)\b",
+    re.IGNORECASE,
+)
+_RESERVATION = re.compile(r"\breserv\w*", re.IGNORECASE)
+_ADDING = re.compile(
+    r"\b(?:expan\w*|add|adds|added|adding|increas\w*|build\w*|built|doubl\w*|tripl\w*"
+    r"|new\s+(?:fab|facility|line|plant))\b",
+    re.IGNORECASE,
+)
+# Capacity that is there already, spare: "we have capacity in Greensboro", "available capacity".
+_SPARE = re.compile(
+    r"\b(?:(?:have|has|had)(?:\s+(?:the|some|enough|ample|sufficient|spare|excess|extra"
+    r"|available|plenty\s+of|existing|unused|idle|more))?|available|spare|excess|unused|idle"
+    r"|enough|sufficient|ample)\s+$",
+    re.IGNORECASE,
+)
+# "Expanding our data center transceiver business": a business, not capacity.
+_EXPANDS_BUSINESS = re.compile(
+    r"\s+(?:[\w-]+\s+){0,5}?(?:business|businesses|relationships?|partnerships?|portfolio"
+    r"|presence|customer\s+base|offerings?|engagements?|collaboration)\b",
+    re.IGNORECASE,
+)
+# A constraint of the market in general ("a more supply-constrained market in general", "the
+# general supply shortage"), one the company gets past ("despite pervasive industry-wide
+# constraints"), or one it plays down ("mostly under control", "something that we have been
+# used to"). An industry-wide shortage the company names as its own reason to add capacity
+# ("to address our increased customer demand and industry-wide shortage") is a constraint it
+# is under, so "industry" alone is none of these.
+_MARKET_BEFORE = re.compile(
+    r"\b(?:general|market-wide|macro)\s+(?:[\w-]+\s+){0,2}?$", re.IGNORECASE
+)
+_MARKET_AFTER = re.compile(r"\w*\s+(?:markets?|in\s+general)\b", re.IGNORECASE)
+_DESPITE = re.compile(r"\bdespite\s+(?:[\w-]+\s+){0,3}?$", re.IGNORECASE)
+_DOWNPLAYED = re.compile(
+    r"\b(?:under\s+control|(?:been|are|were|'re)\s+used\s+to|manageable|not\s+(?:a\s+|any\s+)?"
+    r"(?:meaningful|significant|material|major)|behind\s+us)\b",
+    re.IGNORECASE,
+)
+
+
+def _cue_matches(rule: Predicate, folded: str, object_text: str) -> list[re.Match[str]]:
+    """Every match of `rule`'s cues that `object_clause_cue` reads: those in the clauses
+    naming a product object, or all of them when the object is a company or isn't named."""
+    found = [match for cue in rule.cues for match in cue.finditer(folded)]
+    if rule.object_kind != "product" or not object_text.strip():
+        return found
+    spans = clauses(folded)
+    named = _object_clauses(folded, fold(object_text), spans)
+    if not named:
+        return found
+    return [
+        match
+        for match in found
+        if any(spans[i][0] <= match.start() and match.end() <= spans[i][1] for i in named)
+    ]
+
+
+def _sentence_of(folded: str, position: int) -> tuple[int, int]:
+    for match in _SENTENCE.finditer(folded):
+        if match.start() <= position < match.end():
+            return match.start(), match.end()
+    return 0, len(folded)
+
+
+def _object_start(folded: str, object_text: str, low: int, high: int) -> int | None:
+    """Where in `folded[low:high]` the object is first named: the whole text, else the first
+    of its particular words."""
+    words = fold(object_text).split()
+    if not words:
+        return None
+    whole = re.compile(r"\s+".join(re.escape(word) for word in words), re.IGNORECASE)
+    if (match := whole.search(folded, low, high)) is not None:
+        return match.start()
+    starts: list[int] = []
+    for word in {w.lower() for w in _WORD.findall(fold(object_text))} - _GENERIC_WORDS:
+        stem = word[:-1] if len(word) > 3 and word.endswith("s") else word
+        pattern = re.compile(rf"(?<!\w){re.escape(stem)}", re.IGNORECASE)
+        if (match := pattern.search(folded, low, high)) is not None:
+            starts.append(match.start())
+    return min(starts) if starts else None
+
+
+def _developed(
+    predicate: str,
+    folded: str,
+    object_text: str,
+    sentence: tuple[int, int],
+    cues: Sequence[re.Match[str]],
+) -> str | None:
+    """The development phrase naming the object just before it, with no cue between them."""
+    start = _object_start(folded, object_text, *sentence)
+    if start is None:
+        return None
+    low = max(sentence[0], start - 80)
+    patterns = (
+        [_DEVELOPMENT] if predicate == "expands_capacity_for" else [_DEVELOPMENT, _INVESTMENT]
+    )
+    phrases = [match for pattern in patterns for match in pattern.finditer(folded, low, start)]
+    if not phrases:
+        return None
+    last = max(phrases, key=lambda match: match.end())
+    stated = any(last.end() <= cue.start() < start for cue in cues)
+    if stated or len(folded[last.end() : start].split()) > _DEVELOPMENT_REACH:
+        return None
+    return last[0]
+
+
+def _unrealised(
+    predicate: str,
+    folded: str,
+    match: re.Match[str],
+    object_text: str,
+    cues: Sequence[re.Match[str]],
+) -> str | None:
+    """Why the cue `match` states no realised, unhedged `predicate`, or None when it does."""
+    low, high = _sentence_of(folded, match.start())
+    before, after = folded[low : match.start()], folded[match.end() : high]
+    word = match[0]
+    for modal in _MODAL.finditer(before) if predicate in _HEDGED else ():
+        between = before[modal.end() :]
+        if len(between.split()) <= _MODAL_REACH and "," not in between:
+            return f"hedged ({modal[0]!r} ... {word!r}): that it may be so is not that it is"
+    if predicate in _CONDITIONED and (condition := _CONDITION.search(before)) is not None:
+        return f"conditional ({condition[0]!r} ... {word!r}): what would be, not what is"
+    if predicate == "manufactures" and _MAKE_CUE.fullmatch(word):
+        if (idiom := _MAKE_IDIOM.match(after)) is not None:
+            return (
+                f"an idiom ({word + idiom[0].rstrip()!r}): investment, progress or development,"
+                " not manufacture"
+            )
+    if predicate in _DEVELOPED and object_text.strip():
+        phrase = _developed(predicate, folded, object_text, (low, high), cues)
+        if phrase is not None:
+            return f"development or intent ({phrase!r} ...): work toward it, not the fact"
+    lower = word.lower()
+    if predicate == "qualified_for":
+        if lower.startswith("qualified"):
+            if _NOT_YET_QUALIFIED.search(before[-40:]):
+                return f"not yet qualified ({before[-40:].strip()} {word!r})"
+        elif lower.startswith("qualif") and not _QUALIFICATION_DONE.search(folded, low, high):
+            return (
+                f"qualification under way or asked for ({word!r}, nothing completed), not a"
+                " qualified supplier"
+            )
+    if predicate == "expands_capacity_for":
+        if lower.startswith("ramp") and _REVENUE.search(folded) and not _PRODUCTION.search(folded):
+            return f"a ramp of revenue or demand ({word!r}), not of production capacity"
+        if lower == "capacity":
+            if _RESERVATION.search(folded) and not _ADDING.search(folded):
+                return "a reservation of capacity for a customer, not capacity added"
+            if _SPARE.search(before):
+                return f"capacity already there ({before[-20:].strip()} {word!r}), not added"
+        if lower.startswith("expan") and _EXPANDS_BUSINESS.match(after):
+            return f"a business expanding ({word!r} ...), not its capacity"
+    if predicate == "capacity_constrained":
+        if _MARKET_BEFORE.search(before) or _MARKET_AFTER.match(after):
+            return f"a constraint of the market in general ({word!r}), not the company's own"
+        if _DESPITE.search(before):
+            return (
+                f"a constraint the company gets past ('despite' ... {word!r}), not one it is under"
+            )
+        if (downplay := _DOWNPLAYED.search(folded, low, high)) is not None:
+            return f"a constraint played down ({downplay[0]!r}), not one the company is under"
+    return None
+
+
+def unrealised_refusal(predicate: str, quote: str, object_text: str | None = None) -> str | None:
+    """Why `quote` states no realised, unhedged `predicate`, or None when one of its cues does.
+
+    A cue that is hedged ("may only be available from a single or limited number of
+    suppliers"), under a condition ("if the customer would like us to ..."), development or
+    intent ("making significant investments in", "development of", "qualification efforts
+    continue", "asked by customers to qualify"), a revenue ramp, a reservation or spare capacity
+    read as `expands_capacity_for`, or a market-wide, negated or played-down constraint read as
+    `capacity_constrained`, is no statement that the relation holds. The quote is refused only
+    when every cue `object_clause_cue` reads is such a cue. Read through the fold."""
+    rule = PREDICATES.get(predicate)
+    if rule is None:
+        return None
+    folded = fold(quote)
+    text = object_text or ""
+    cues = sorted(_cue_matches(rule, folded, text), key=lambda match: match.start())
+    if not cues:
+        return None
+    reasons: list[str] = []
+    for match in cues:
+        reason = _unrealised(predicate, folded, match, text, cues)
+        if reason is None:
+            return None
+        reasons.append(reason)
+    return f"the quote doesn't state {predicate} as a fact ({rule.reads}): it is {reasons[0]}"

@@ -24,6 +24,7 @@ from atlas.claims import (
     object_clause_cue,
     predicate_refusal,
     stray_companies,
+    unrealised_refusal,
 )
 
 
@@ -762,3 +763,215 @@ def test_the_allocation_statement_carries_a_constraint_cue_and_names_no_product(
     # What investigation 5 proposed for it: not in the quote, and no product either.
     assert not names_object(ALLOCATION, "our products")
     assert is_generic_object("our products")
+
+
+# --- realised statements (pilot-fixes ticket 35) -----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("predicate", "quote", "object_text", "why"),
+    [
+        (
+            "sole_sources",
+            "Some of the wafers we use, including gallium arsenide substrates, may be available"
+            " only from a limited number of suppliers.",
+            "gallium arsenide substrates",
+            "hedged ('may'",
+        ),
+        (
+            "manufactures",
+            "We are making substantial investments in next-generation photodiodes for"
+            " 3.2T receivers.",
+            "photodiodes",
+            "an idiom ('making substantial investments')",
+        ),
+        (
+            "manufactures",
+            "We continue to make solid progress on our 400G per lane EML.",
+            "400G per lane EML",
+            "an idiom ('make solid progress')",
+        ),
+        (
+            "manufactures",
+            "Beyond growing our manufacturing footprint, we have advanced the development of our"
+            " eight-inch silicon carbide capability.",
+            "eight-inch silicon carbide substrate",
+            "development or intent ('development of'",
+        ),
+        (
+            "manufactures",
+            "If a customer wants the full assembly, we then produce the complete"
+            " optical engine for them.",
+            "optical engine",
+            "conditional ('If'",
+        ),
+        (
+            "qualified_for",
+            "Certain customers might require qualification of a new production line before they"
+            " accept volume shipments.",
+            "new production line",
+            "hedged ('might'",
+        ),
+        (
+            "qualified_for",
+            "Customers have asked us to qualify our next 1.6T transceivers this quarter.",
+            "1.6T transceivers",
+            "qualification under way or asked for ('qualify'",
+        ),
+        (
+            "qualified_for",
+            "Our 100 mW CW laser qualification efforts continue with two customers.",
+            "100 mW CW laser",
+            "qualification under way or asked for ('qualification'",
+        ),
+        (
+            "expands_capacity_for",
+            "We expect co-packaged optics revenue to start ramping late next year.",
+            "co-packaged optics",
+            "a ramp of revenue or demand ('ramping')",
+        ),
+        (
+            "expands_capacity_for",
+            "We agreed to reserve a minimum annual volume of substrate capacity for the"
+            " customer over five years.",
+            "substrate",
+            "a reservation of capacity",
+        ),
+        (
+            "expands_capacity_for",
+            "We have spare capacity in our Ohio laser fab today.",
+            "laser",
+            "capacity already there",
+        ),
+        (
+            "expands_capacity_for",
+            "We are expanding our transceiver business with several new hyperscale customers.",
+            "transceiver",
+            "a business expanding ('expanding'",
+        ),
+        (
+            "capacity_constrained",
+            "In a tighter, more constrained market in general, pricing tends to hold up well.",
+            "",
+            "a constraint of the market in general ('constrained')",
+        ),
+        (
+            "capacity_constrained",
+            "Buyers are turning to us because of the general shortage of InP lasers.",
+            "InP lasers",
+            "a constraint of the market in general ('shortage')",
+        ),
+        (
+            "capacity_constrained",
+            "Our team keeps adding supply despite widespread component shortages.",
+            "",
+            "a constraint the company gets past",
+        ),
+        (
+            "capacity_constrained",
+            "Substrate shortages are something we have been used to for years.",
+            "",
+            "a constraint played down ('been used to')",
+        ),
+    ],
+)
+def test_a_cue_that_is_not_stated_as_fact_is_refused(
+    predicate: str, quote: str, object_text: str, why: str
+) -> None:
+    refusal = unrealised_refusal(predicate, quote, object_text)
+    assert refusal is not None
+    assert refusal.startswith(f"the quote doesn't state {predicate} as a fact")
+    assert f"it is {why}" in refusal
+
+
+@pytest.mark.parametrize(
+    ("predicate", "quote", "object_text"),
+    [
+        # The predicate reads "a single supplier or a limited number of suppliers".
+        (
+            "sole_sources",
+            "We depend on a limited number of suppliers for indium phosphide substrates.",
+            "indium phosphide substrates",
+        ),
+        ("manufactures", "We manufacture InP edge-emitting lasers and photodiodes.", "lasers"),
+        (
+            "manufactures",
+            "We develop, manufacture and sell optical transceivers.",
+            "optical transceivers",
+        ),
+        # A modal in another clause than the cue hedges nothing.
+        (
+            "manufactures",
+            "While demand may fluctuate, we manufacture all of our EMLs in our own fab.",
+            "EMLs",
+        ),
+        # "Whether" lists; it poses no condition.
+        (
+            "manufactures",
+            "When the devices, whether EMLs or CW lasers, come out of our production facility,"
+            " they go into our transceivers.",
+            "EMLs or CW lasers",
+        ),
+        # The speaker's "if you look at": no condition either.
+        (
+            "manufactures",
+            "If you look at our Texas fab, we produce the bulk of our VCSELs there.",
+            "VCSELs",
+        ),
+        ("qualified_for", "We have qualified our 800G transceivers at two customers.", "800G"),
+        (
+            "qualified_for",
+            "We successfully completed qualification of our 200G EML with a major customer.",
+            "200G EML",
+        ),
+        ("qualified_for", "We secured a design win for our 1.6T DSP.", "1.6T DSP"),
+        # Investment in capacity is the expansion itself.
+        (
+            "expands_capacity_for",
+            "We are investing in manufacturing capacity for indium phosphide lasers.",
+            "indium phosphide lasers",
+        ),
+        (
+            "expands_capacity_for",
+            "We are ramping in two locations and will bring a third site online next year.",
+            "6-inch indium phosphide",
+        ),
+        ("expands_capacity_for", "I'm pleased with our 6-inch InP ramp.", "6-inch InP"),
+        (
+            "expands_capacity_for",
+            "We are expanding our existing InP capacity in Texas.",
+            "InP",
+        ),
+        # An industry-wide shortage the company adds capacity for is one it is under.
+        (
+            "capacity_constrained",
+            "We are expanding our InP capacity to address our customer demand and the"
+            " industry-wide shortage.",
+            "",
+        ),
+        (
+            "capacity_constrained",
+            "Demand for our EMLs continues to exceed our supply.",
+            "EMLs",
+        ),
+        # A company predicate keeps its reviewer: no hedge read here.
+        ("supplies", "NVIDIA would be the lead customer for us.", ""),
+    ],
+)
+def test_a_cue_stated_as_fact_is_not_refused(predicate: str, quote: str, object_text: str) -> None:
+    assert unrealised_refusal(predicate, quote, object_text) is None
+
+
+def test_a_quote_is_refused_only_when_every_cue_is_unrealised() -> None:
+    quote = (
+        "We manufacture our 100G EMLs in Japan and are making significant investments in 200G EMLs."
+    )
+    # "manufacture" states the 100G EMLs; the 200G EMLs are an investment, and the
+    # sentence's "manufacture" is no cue for them.
+    assert unrealised_refusal("manufactures", quote, "100G EMLs") is None
+    assert unrealised_refusal("manufactures", quote, "200G EMLs") is not None
+    hedged = "Gallium may be available only from a single supplier."
+    assert unrealised_refusal("sole_sources", hedged, "Gallium") is not None
+    # "May" capitalised is a month, not a hedge.
+    dated = "In May we qualified a single supplier of gallium."
+    assert unrealised_refusal("sole_sources", dated, "gallium") is None

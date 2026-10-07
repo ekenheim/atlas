@@ -43,6 +43,7 @@ from atlas.claims.predicates import (
     object_clause_cue,
     predicate_refusal,
     stray_companies,
+    unrealised_refusal,
 )
 from atlas.claims.reads import (
     Claim,
@@ -95,4 +96,5 @@ __all__ = [
     "predicate_refusal",
     "register_claim_handlers",
     "stray_companies",
+    "unrealised_refusal",
 ]
