@@ -26,6 +26,7 @@ function run(
     id,
     theme,
     question,
+    plan: "default",
     seed_company_ids: [],
     round: 1,
     status: stop_reason === null ? "running" : "stopped",

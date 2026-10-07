@@ -1,6 +1,6 @@
 # 03: The reading agent
 
-**Status:** ready-for-agent (after 01 and 02)
+**Status:** done (implementer; the Reader runs standalone as the `read_step` job; inside an investigation it is ticket 05's argument plan)
 **Type:** task
 **Blocked by:** 01, 02
 
@@ -17,6 +17,6 @@ Bounds per step: `ATLAS_READER_MAX_CALLS` (default 12) calls, `ATLAS_READER_MAX_
 The prompt says what a researcher looks for at each step (from `docs/research/serenity-skills-alignment.md` on its branch and the spec's steps), to prefer the companies' own words in calls and filings, to record magnitudes, dates and status exactly as quoted, and never to turn a plan, a development, a hedge or an agreement into present fact (the verdict's misstatements, pilot fixes 34 and 35).
 
 **Acceptance:**
-- [ ] `atlas.roles.reader` and its prompt `reader.v1.md`; actions validated; every call and its tokens recorded on the run.
-- [ ] A Reader's Facts, its searches and reads recorded on its task's artifacts (what was searched, read, recorded and refused).
-- [ ] Tests: the scripted LiteLLM fake drives a Reader through search, read, record (accepted and refused) and done, on the fixture filings; the bounds stop it; a refused fact comes back with its reason.
+- [x] `atlas.roles.reader` and its prompt `reader.v1.md`; actions validated; every call and its tokens recorded on the run.
+- [x] A Reader's Facts, its searches and reads recorded on its task's artifacts (what was searched, read, recorded and refused).
+- [x] Tests: the scripted LiteLLM fake drives a Reader through search, read, record (accepted and refused) and done, on the fixture filings; the bounds stop it; a refused fact comes back with its reason.

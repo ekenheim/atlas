@@ -2121,6 +2121,60 @@ export interface components {
         /** @enum {string} */
         CandidateState: "lead" | "investigating" | "evidence_ready" | "needs_more_evidence" | "paper_tracking" | "rejected" | "closed";
         /**
+         * CardArgumentStep
+         * @description One step of the argument (bottleneck-argument ticket 05): its status, the Editor's
+         *     statement (held to its Facts' quotes by the grounding check and the finding judge; None
+         *     when there is none that passed), the Facts behind it, the Skeptic's counterevidence, and
+         *     what remains unchecked. The status is code's: `unknown` without a statement that passed or
+         *     without a Fact; `disputed` when counterevidence stands against the step; else
+         *     `supported`. `editor_status` is what the Editor proposed.
+         */
+        CardArgumentStep: {
+            /** Step */
+            step: string;
+            /** Title */
+            title: string;
+            /** Asks */
+            asks: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "disputed" | "unknown";
+            /** Editor Status */
+            editor_status: ("supported" | "disputed" | "unknown") | null;
+            /** Statement */
+            statement: string | null;
+            /** Facts */
+            facts: components["schemas"]["CardFact"][];
+            /** Counterevidence */
+            counterevidence: components["schemas"]["CardFact"][];
+            /** Unchecked */
+            unchecked: string[];
+            /** Grounded */
+            grounded: boolean | null;
+            /** Judged */
+            judged: boolean | null;
+            /** Searched */
+            searched?: string[];
+            /** Documents Read */
+            documents_read?: string[];
+            /**
+             * Facts Refused
+             * @default 0
+             */
+            facts_refused: number;
+            /** Reader Summary */
+            reader_summary?: string | null;
+            /** Reader Stop */
+            reader_stop?: string | null;
+            /**
+             * Skeptic Checked
+             * @default false
+             */
+            skeptic_checked: boolean;
+        };
+        /**
          * CardBearContext
          * @description The bear context about one company under one bear-checklist item: what the Skeptic
          *     found on the checklist that contradicts no Claim. It marks no finding.
@@ -2310,6 +2364,55 @@ export interface components {
              * @default false
              */
             floor: boolean;
+        };
+        /**
+         * CardFact
+         * @description A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the
+         *     quantity, period and status the Reader recorded, and its quote's span (`source_span`;
+         *     `claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it
+         *     speaks against (`against`).
+         */
+        CardFact: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Step */
+            step: string;
+            /** Status */
+            status: string;
+            /** Statement */
+            statement: string;
+            quantity: components["schemas"]["CardFactQuantity"] | null;
+            /** Period */
+            period: string | null;
+            /** Source Title */
+            source_title: string;
+            source_span: components["schemas"]["SourceSpan"];
+            /**
+             * Evidence Available At
+             * Format: date-time
+             */
+            evidence_available_at: string;
+            /** Against */
+            against?: string[];
+        };
+        /** CardFactQuantity */
+        CardFactQuantity: {
+            /** Value */
+            value: number;
+            /** Unit */
+            unit: string;
+            /** Metric */
+            metric: string;
         };
         /**
          * CardFinding
@@ -4745,6 +4848,11 @@ export interface components {
             /** Question */
             question: string;
             /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "default" | "argument";
+            /**
              * Status
              * @enum {string}
              */
@@ -4818,6 +4926,13 @@ export interface components {
              */
             as_of?: string | null;
             budgets?: components["schemas"]["BudgetRequest"];
+            /**
+             * Plan
+             * @description `default`, or `argument`: one Reader per argument step and the argument as the card
+             * @default default
+             * @enum {string}
+             */
+            plan: "default" | "argument";
         };
         /**
          * InvestigationDocument
@@ -4947,6 +5062,11 @@ export interface components {
             theme: string;
             /** Question */
             question: string;
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "default" | "argument";
             /** Seed Company Ids */
             seed_company_ids: string[];
             /** Round */
@@ -7273,6 +7393,14 @@ export interface components {
             editor_failure?: string | null;
             /** Claims By Company */
             claims_by_company?: components["schemas"]["CardCompanyClaims"][];
+            /**
+             * Plan
+             * @default default
+             * @enum {string}
+             */
+            plan: "default" | "argument";
+            /** Steps */
+            steps?: components["schemas"]["CardArgumentStep"][];
         };
         /** ResearchScope */
         ResearchScope: {
@@ -8227,7 +8355,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "scout" | "investigator" | "skeptic" | "financial_analyst" | "editor";
+            role: "scout" | "investigator" | "skeptic" | "financial_analyst" | "editor" | "reader";
             /** Company Id */
             company_id: string | null;
             /** Depends On */

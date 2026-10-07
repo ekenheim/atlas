@@ -7,6 +7,7 @@ import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import {
   ApiError,
   api,
+  type CardFact,
   type Counterevidence,
   type EvidenceItem,
   type Investigation,
@@ -28,6 +29,7 @@ import {
   checklistLabel,
   counterevidenceSummary,
   entityHopSummary,
+  factLine,
   figureLabel,
   followUpBlocked,
   foundBy,
@@ -39,12 +41,15 @@ import {
   pointerQueryLabel,
   pointerScope,
   pointerSummary,
+  PLANS,
   pointerWeight,
   readerName,
   readingOutcome,
   saidBy,
   selectionSummary,
+  STEP_STATUS,
   statusText,
+  stepTally,
   tokenUse,
 } from "../../lib/workbench";
 
@@ -129,6 +134,7 @@ function Summary({ investigation }: { investigation: Investigation }) {
           )}
         </Row>
         <Row name="Theme">{investigation.theme}</Row>
+        <Row name="Plan">{PLANS[investigation.plan]}</Row>
         <Row name="Rounds">
           {usage.rounds} of {budgets.max_rounds}
         </Row>
@@ -871,13 +877,24 @@ function Card({ card }: { card: ResearchCard | null }) {
         <p>No research card yet: the Editor drafts it last.</p>
       ) : (
         <>
-          <p>
-            A draft; the Editor&apos;s verdict: <strong>{card.editor_verdict}</strong>, from{" "}
-            {card.claims_considered} accepted Claim{card.claims_considered === 1 ? "" : "s"}.
-            {card.unsupported_findings.length > 0 &&
-              ` ${card.unsupported_findings.length} finding(s) citing no accepted Claim were dropped.`}
-          </p>
-          {card.editor_failure ? (
+          {card.plan === "argument" ? (
+            <p>
+              A draft argument; the Editor&apos;s verdict: <strong>{card.editor_verdict}</strong>
+              . Steps: {stepTally(card.steps ?? []) || "none"}.
+              {card.unsupported_findings.length > 0 &&
+                ` ${card.unsupported_findings.length} statement(s) failed the checks and were dropped.`}
+            </p>
+          ) : (
+            <p>
+              A draft; the Editor&apos;s verdict: <strong>{card.editor_verdict}</strong>, from{" "}
+              {card.claims_considered} accepted Claim{card.claims_considered === 1 ? "" : "s"}.
+              {card.unsupported_findings.length > 0 &&
+                ` ${card.unsupported_findings.length} finding(s) citing no accepted Claim were dropped.`}
+            </p>
+          )}
+          {card.plan === "argument" ? (
+            <ArgumentSteps card={card} />
+          ) : card.editor_failure ? (
             <EditorFailed card={card} reason={card.editor_failure} />
           ) : card.findings.length === 0 ? (
             <p>
@@ -939,6 +956,54 @@ function Card({ card }: { card: ResearchCard | null }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/** The argument plan's card: each step's status, statement, Facts and counterevidence. */
+function ArgumentSteps({ card }: { card: ResearchCard }) {
+  const steps = card.steps ?? [];
+  return (
+    <>
+      {card.editor_failure && (
+        <p role="alert">
+          The Editor failed, so no step has a statement and the card needs review.{" "}
+          {card.editor_failure}
+        </p>
+      )}
+      <ol aria-label="The argument">
+        {steps.map((step) => (
+          <li key={step.step}>
+            <strong>{step.title}</strong>: {STEP_STATUS[step.status]}
+            {step.statement ? (
+              <p>{step.statement}</p>
+            ) : (
+              <p className="muted-small">No statement: {step.asks}</p>
+            )}
+            <StepFacts title="Evidence" facts={step.facts} />
+            <StepFacts title="Against" facts={step.counterevidence} />
+            {step.unchecked.length > 0 && (
+              <p className="muted-small">Unchecked: {step.unchecked.join("; ")}</p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
+function StepFacts({ title, facts }: { title: string; facts: CardFact[] }) {
+  if (facts.length === 0) return null;
+  return (
+    <ul className="muted-small" aria-label={title}>
+      {facts.map((fact) => (
+        <li key={fact.fact_id}>
+          {title}: {fact.company_name}: {factLine(fact)}{" "}
+          <Link href={routes.span(fact.source_span.source_version_id, fact.fact_id)}>
+            {fact.source_title}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 

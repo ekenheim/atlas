@@ -8,13 +8,14 @@ import { Load, Missing, Timestamp } from "../../components/ui";
 import {
   ApiError,
   api,
+  type Investigation,
   type InvestigationSummary,
   type ThemeCompany,
   type ThemeSummary,
 } from "../../lib/api/client";
 import { routes } from "../../lib/routes";
 import { useApi } from "../../lib/use-api";
-import { STOP_REASONS } from "../../lib/workbench";
+import { PLANS, STOP_REASONS } from "../../lib/workbench";
 
 export default function WorkbenchPage() {
   const themes = useApi("themes", api.themes);
@@ -61,6 +62,7 @@ function StartForm({ themes }: { themes: ThemeSummary[] }) {
   const [themeId, setThemeId] = useState(themes[0]?.id ?? "");
   const [question, setQuestion] = useState("");
   const [seeds, setSeeds] = useState<string[]>([]);
+  const [plan, setPlan] = useState<Investigation["plan"]>("default");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const map = useApi(themeId || null, api.themeMap);
@@ -73,6 +75,7 @@ function StartForm({ themes }: { themes: ThemeSummary[] }) {
       const started = await api.startInvestigation({
         theme: themeId,
         question,
+        plan,
         ...(seeds.length > 0 ? { seed_company_ids: seeds } : {}),
       });
       router.push(routes.investigation(started.id));
@@ -105,6 +108,20 @@ function StartForm({ themes }: { themes: ThemeSummary[] }) {
           {themes.map((theme) => (
             <option key={theme.id} value={theme.id}>
               {theme.title}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="plan">Plan</label>
+        <select
+          id="plan"
+          value={plan}
+          onChange={(event) => setPlan(event.target.value as Investigation["plan"])}
+        >
+          {(Object.keys(PLANS) as Investigation["plan"][]).map((name) => (
+            <option key={name} value={name}>
+              {PLANS[name]}
             </option>
           ))}
         </select>

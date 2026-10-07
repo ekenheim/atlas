@@ -37,6 +37,7 @@ MINIMAX_KINDS = [
     "discover",
     "extract_claims",
     "investigation_task",
+    "read_step",
     "review_relationships",
     "triage",
     "triage_audit",

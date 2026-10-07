@@ -3,6 +3,8 @@
 // which Investigators were added for them, how passages were selected, the Skeptic's items by
 // kind, and a task's output as short text.
 import type {
+  CardArgumentStep,
+  CardFact,
   CardReading,
   CardSkepticCompany,
   Counterevidence,
@@ -20,7 +22,41 @@ export const ROLES: Record<InvestigationTask["role"], string> = {
   skeptic: "Skeptic",
   financial_analyst: "Financial Analyst",
   editor: "Editor",
+  reader: "Reader",
 };
+
+/** The plans an investigation can run (bottleneck-argument ticket 05). */
+export const PLANS: Record<Investigation["plan"], string> = {
+  default: "Findings (an Investigator per company)",
+  argument: "Argument (a Reader per step)",
+};
+
+export const STEP_STATUS: Record<CardArgumentStep["status"], string> = {
+  supported: "supported",
+  disputed: "disputed",
+  unknown: "unknown",
+};
+
+/** A Fact in a line: its statement, then its quantity, period and status as recorded. */
+export function factLine(fact: CardFact): string {
+  const parts: string[] = [];
+  if (fact.quantity) {
+    parts.push(`${fact.quantity.value} ${fact.quantity.unit} (${fact.quantity.metric})`);
+  }
+  if (fact.period) parts.push(fact.period);
+  parts.push(fact.status.split("_").join(" "));
+  return `${fact.statement} [${parts.join("; ")}]`;
+}
+
+/** The argument's steps counted by status: "2 supported, 1 disputed, 3 unknown". */
+export function stepTally(steps: CardArgumentStep[]): string {
+  const order: CardArgumentStep["status"][] = ["supported", "disputed", "unknown"];
+  return order
+    .map((status) => ({ status, count: steps.filter((step) => step.status === status).length }))
+    .filter(({ count }) => count > 0)
+    .map(({ status, count }) => `${count} ${STEP_STATUS[status]}`)
+    .join(", ");
+}
 
 export const STOP_REASONS: Record<NonNullable<Investigation["stop_reason"]>, string> = {
   answered: "answered",

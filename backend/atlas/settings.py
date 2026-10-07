@@ -107,6 +107,12 @@ class Settings(BaseSettings):
     investigator_max_passage_share_per_document: float = Field(default=1 / 3, gt=0, le=1)
     # The Reviewer (atlas.relationships): Assertions reviewed per call.
     reviewer_assertions_per_call: int = Field(default=5, gt=0, le=25)
+    # The Reader (atlas.investigations.reader; bottleneck-argument ticket 03): per argument
+    # step, at most this many role calls and passages read (archive-search hits and section
+    # windows sent), and each recall's text budget in tokens (budget high).
+    reader_max_calls: int = Field(default=12, gt=0, le=100)
+    reader_max_passages: int = Field(default=40, gt=0, le=400)
+    reader_recall_max_tokens: int = Field(default=16_000, ge=1, le=65536)
 
     # Discovery (atlas.discovery): SearXNG's base URL (optional; without it the `discover`
     # job fails), the engines every search names (comma-separated; the instance's defaults
