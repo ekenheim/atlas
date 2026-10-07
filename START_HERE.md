@@ -1,6 +1,6 @@
 # START HERE: engineering handoff for Atlas Research
 
-You are the lead implementation agent. The complete, authoritative product and engineering specification is `hindsight_investment_research_build_plan.md` (v1.1). Read all of it before modifying code, including the "What changed in 1.1" table and **Appendix A** (the deployment target). Use this handoff to start implementing right away.
+You are the lead implementation agent. The complete, authoritative product and engineering specification is `hindsight_investment_research_build_plan.md` (v1.1). Read all of it before modifying code, including the "What changed in 1.1" table and **Appendix A** (the deployment target). Use this handoff to start implementing right away. To learn what has already been tried, how it was measured and what came of it (failures included), read `docs/experiments.md` first.
 
 ## Mission
 

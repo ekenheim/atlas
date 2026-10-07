@@ -434,3 +434,103 @@ The dropped findings would have answered the question: TSMC "is currently our so
 **What holds:** every accepted quote is verbatim at an archived, dated span (364 of 364); two blind reviewers agree at kappa 0.77 to 0.86; the roles all ran; cost is half the bar.
 
 **Not done yet** (procedure section 4): the held-out answer key (the owner lists Serenity's flagged names and dates; found, missed and found-before per item); `docs/pilot-report.md`; ticket 13.
+
+## The argument plan on 0.5.3 (2026-10-07/08): the five questions again
+
+The owner authorized 8M MiniMax tokens to run the five questions on the argument plan (bottleneck-argument effort; `docs/pilot-report.md` for why). Same questions and seeds, same 2,000,000-token budget, one at a time. The review keeps the verdict's method for the new output: every Fact judged twice blind (quote states the statement for that company; status, quantity and period exact; on the question), the lead adjudicating; every card statement for the trust gate and saved work; the same archive-search baseline; and the **same researcher's-hour answers** as the 0.4.6 verdict, so the comparison is exact. Review files: `.scratch/live-runs/pilot-0.5.3-arg/inv-<n>/review/` (not in git). Tools: `.scratch/tools/argument_review_pack.py`.
+
+### Question 1 on 0.5.3: laser chips for 800G/1.6T
+
+- **ID:** `18ef6c9e-909d-43f7-89e6-699156046a78`. **Seeds:** Lumentum, Coherent. **Stop:** `needs_review` (3 steps disputed, 2 statements dropped). **Usage:** 1,495,671 tokens in, 88,981 out; 196 role calls, 0 quarantined; 13 min 17 s.
+- **Card:** all six steps stated, 34 statements (2 dropped by the checks); 170 Facts (11 with a quantity); 23 counter-Facts from the Skeptic; constraint, relief and capture disputed.
+- **Review:** two blind reviewers per chunk (5 chunks), agreement 161 of 170, **kappa 0.85**; the lead adjudicated 9 (3 right, 6 wrong: fiscal-period labels, a remark that the fab is much of the cost read as a constraint, context from the next sentence added).
+
+| Measure | 0.4.6 | **0.5.3 argument** | Bar |
+|---|---|---|---|
+| Precision (Facts or Claims right) | 67% | **78%** (133 of 170) | ≥ 80% |
+| Saved work | 0 (2 of 3 failed the gate) | **23 statements** | ≥ 3 |
+| Trust gate | fails (2 of 3 findings) | **fails (4 of 34 statements)** | holds |
+| Baseline coverage | 40% | **90%** (9 of 10, 1 more in substance) | ≥ 50% |
+| Researcher's facts on the card | 4 of 33 | **8** (+7 in Facts only; 18 absent) | reported |
+| Latency | 26 min | **13 min** | ≤ 20 min |
+| Cost | 0.99M | 1.58M | ≤ 2M |
+
+- **Saved work, the strongest:** Broadcom and Lumentum as the only large 200G EML suppliers; Lumentum's EML capacity sold out and its allocation trade-offs between EML and CW and across customers; InP constrained across EML, CW and photodetectors, likely through 2027; EML share about 70–80% at 800G and an expected 40–50% at 1.6T; ASPs roughly doubling from 100G to 200G; Coherent's 6-inch InP against Lumentum's caution; Greensboro not operational before early 2028; MACOM emerging in CW lasers.
+- **Trust gate failures (the judge missed all four):** "800G" added to "Datacom transceiver order strength"; "these components" widened to all of Lumentum's; a GaAs-to-InP conversion taken from a Fact the statement doesn't cite; "end of year" read as the fiscal year's.
+- **Missed:** almost all of the question's feedstock and equipment half, which the researcher had: InP substrate scarcity (Lumentum's 7-year deal, AXT's reservation and deposits, Lumentum no longer well covered, China's export permits, Sumitomo's 3.1x expansion and JX's share), MOCVD reactors and e-beam tools (AIXTRON orders), and third-party market shares. AXT and the equipment makers aren't seeds, and Readers read the seeds' and Memory's companies; the web sources the researcher used aren't evidence in Atlas.
+- **Weaker parts:** the invalidation step holds no invalidating observation; capture has no margin evidence; the Skeptic's counter-Facts all challenge constraint Facts and mostly support them; some statements repeat.
+- **Assessment:** precision 78% (just under 80%); saved work and coverage far above the bar; latency and cost inside; **the trust gate fails** on four narrow overstatements. Against 0.4.6 on the same question: twice the researcher's facts on the card (8 against 4), more than twice the baseline coverage, every step argued, half the time.
+
+### Question 2 on 0.5.3: InP substrates as a chokepoint
+
+- **ID:** `f8161b4c-…` (saved in `inv-2/investigation.json`). **Seeds:** AXT, Coherent, Lumentum. **Stop:** `needs_review`: the Financial Analyst failed after 3 attempts, and that cancelled the Editor, so **there is no card**. **Usage:** 1,553,485 tokens in, 90,218 out; 9 min 40 s.
+- **Facts:** 188 (177 from the Readers, 11 from the Skeptic).
+- **Review:** two blind reviewers per chunk (6 chunks; reviewer B skipped 2 Facts), agreement 162 of 186, **kappa 0.69**. The lead adjudicated the 24 disagreements and the 2 skipped Facts: 13 right, 9 wrong, 4 off-question. The rubric was applied strictly: a status the quote doesn't support counts as wrong, as the reviewers did on the Facts they agreed on.
+
+| Measure | 0.4.6 | **0.5.3 argument** | Bar |
+|---|---|---|---|
+| Precision (Facts or Claims right) | 58% | **73%** (138 of 188) | ≥ 80% |
+| Saved work | 2 | **0: no card** | ≥ 3 |
+| Trust gate | fails (2) | **no statements** | holds |
+| Baseline coverage | 20% | **60% in the Facts** (6 of 10, 4 more in substance); 0 on a card | ≥ 50% |
+| Researcher's facts on the card | 5 of 32 | **0** (22 in Facts only; 10 absent) | reported |
+| Latency | 22.7 min | **9.7 min** | ≤ 20 min |
+| Cost | 0.91M | 1.64M | ≤ 2M |
+
+- **The Facts hold the answer.** 22 of the researcher's 32 facts are among the Facts, against 5 on 0.4.6's card. Examples:
+  - concentration: AXT's own split of the 2024 merchant InP market (AXT ~40%, Sumitomo ~40%, JX ~10%), and its CEO placing AXT first or second with at least 40%;
+  - export permits: permits for the UK and Canada, US permit timing uncertain, the InP backlog rising from $49M to over $100M;
+  - the AXT–Coherent and AXT–Lumentum agreements with their prepayments;
+  - Lumentum saying its large deal with a Japanese supplier is not enough.
+  
+  The Facts also have what the researcher lacked: Coherent's own InP build-out and IQE calling InP substrates a bottleneck.
+- **Absent:** 6 of the 10 come from web sources Atlas doesn't treat as evidence (MOFCOM announcements 10 and 72, USGS indium, JX's and Sumitomo's capacity plans). Two are 10-K risk factors. The other two are AXT needing no permit within China, and Lumentum's remark that the Chinese government controls substrate supply.
+- **Wrong, by kind** (33):
+  - status (agreements or plans as in_effect or in_development; permits as hedged; AXT's own estimates as reported_by_third_party): about two-thirds;
+  - context from the next sentence; a dropped hedge (Lumentum thinking, not saying, it had solved the shortage); a headline quote carrying a body's details.
+- **New defects:**
+  - Ticket `atlas-bottleneck-argument/07`: an optional role failing sinks the card. The analyst wrote `kind: "assertion"` where only sourced, estimated or missing is allowed, and its first attempt hit the 4,096-token output cap.
+  - The review pack took company names from the card, so this run's Facts showed none. The tool is fixed (`argument_review_pack.py` now uses the Fact's subject), and no verdict turned on it.
+- **Assessment:** fails the bar, because there is no card. Measured on the Facts, precision is 73% (0.4.6: 58%), baseline coverage 60% (0.4.6: 20%), and 22 of the researcher's 32 facts are there, in under 10 minutes. The reading works; the stop rule threw its output away.
+
+### Question 3 on 0.5.3: transceiver module assembly
+
+- **ID:** `a5a7402d-…`. **Seeds:** Fabrinet, Applied Optoelectronics, Coherent. **Stop:** `needs_review`; constraint, demand_vs_supply, relief and control are disputed. **Usage:** 1,511,323 tokens in, 80,598 out; 10 min 40 s.
+- **Card:** six steps and 30 statements, from 157 Facts.
+- **Review:** two blind reviewers per chunk (5 chunks). One reviewer's chunk 1 came back with 34 invented fact IDs (correct 8-character prefixes, made-up remainders), and that chunk was re-reviewed. Agreement 146 of 157, **kappa 0.82**. The lead adjudicated the 11 disagreements: 5 right, 3 wrong, 3 off-question.
+
+| Measure | 0.4.6 | **0.5.3 argument** | Bar |
+|---|---|---|---|
+| Precision | 69% | **76%** (119 of 157) | ≥ 80% |
+| Saved work | 0 | **19 of 30 statements** | ≥ 3 |
+| Trust gate | fails (1) | **fails (6 of 30)** | holds |
+| Baseline coverage | 30% | **60%** (6 of 10) | ≥ 50% |
+| Researcher's facts on the card | 1 of 25 | **7** (5 more in Facts only; 13 absent) | reported |
+| Latency | 25.0 min | **10.7 min** | ≤ 20 min |
+| Cost | 0.98M | 1.59M | ≤ 2M |
+
+- **Saved work:** the card's main answer is that module assembly is mostly not the constraint.
+  - Coherent says assembly and test are not constrained, indium phosphide is.
+  - Fabrinet is short of one or two components, not capacity.
+  - AOI's capacity path: about 90k units a month at end-2025, about 200k now, over 650k by end-2026 and over 930k by end-2027.
+  - AOI's Q2 capex was $565.5M, including $280M of prepayments.
+  - Coherent's book-to-bill is above 4x.
+  - AOI's Taiwan factory is approved for 800G.
+  
+  The card shows all of this but never states it as the conclusion.
+- **Trust gate failures (6):**
+  - a "c1" Fact reference left in a statement in place of Coherent (ticket `atlas-bottleneck-argument/08`);
+  - a forecast ($1.1B 2026 revenue) written as a result;
+  - customers' view presented as AOI's own;
+  - two AOI facilities merged;
+  - "on 1.6T pricing" added;
+  - an unstated "it" read as the constraint.
+- **Missed:**
+  - customer concentration, one of the question's three parts, is on neither the card nor the Facts (Fabrinet's 10% customers and NVIDIA's falling share, Coherent's 20% customer, AOI's Digicomm and Microsoft shares). Only AOI's top ten at 99% is a Fact;
+  - qualification cycle times (Fabrinet's 3 to 6 months; AOI's month-long trial in the data center);
+  - Fabrinet's later quarters (shortages broadening, the second EML source);
+  - the web sources (Cignal AI, ComSoc).
+  
+  The four baseline misses are Coherent's and AOI's 10-K qualification and contract-manufacturer risk paragraphs, and Coherent's 2025 investor deck.
+- **Counterevidence:** all of it is Lumentum's, and none of it contradicts the statement it is attached to. Some of it confirms the constraint. This matches question 1 (next-session priority 3).
+- **Assessment:** precision 76% (just under 80%). Saved work and coverage are well above the bar, latency and cost are within it, and **the trust gate fails**. Against 0.4.6 on the same question: 19 saved statements against none, coverage doubled, 7 of the researcher's facts on the card against 1, in less than half the time.
