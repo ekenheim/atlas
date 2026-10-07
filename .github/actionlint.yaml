@@ -1,0 +1,4 @@
+self-hosted-runner:
+  # The owner's actions-runner-controller scale set (home-ops).
+  labels:
+    - gha-runner-scale-set-atlas

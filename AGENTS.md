@@ -8,7 +8,7 @@ Evidence-driven investment research platform built around Hindsight. Start with 
 
 ## Commands
 
-- `scripts/ci.sh`: the one CI entrypoint (GitHub Actions runs exactly this). `--no-image` skips the image build.
+- `scripts/ci.sh [static|suite] [--no-image]`: the one CI entrypoint (GitHub Actions runs exactly this): `static` (lint, types, frontend unit tests, API client; no Docker) runs on GitHub's runners, then `suite` (Compose services, pytest, e2e, image) on the self-hosted scale set; no argument runs both. `--no-image` skips the image build. Main requires the `ci` job (green only when both stages are); `docs/deployment.md`, "CI".
 - `uv run pytest`: unit tests (network blocked by pytest-socket) and integration tests (localhost only; needs `docker compose up -d --wait postgres-app silo`).
 - `uv run atlas api | worker [--once] | migrate`: the three roles of the one image.
 - `uv run atlas audit verify`: check the audit hash chain; exits 1 if it is broken.

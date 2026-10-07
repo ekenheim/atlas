@@ -80,7 +80,7 @@ uv run pytest                              # unit (network blocked) + integratio
 scripts/ci.sh --no-image                   # the CI entrypoint, without the image build
 ```
 
-The app is one image with three roles: `atlas api`, `atlas worker [--once]` and `atlas migrate`. CI (`scripts/ci.sh`) runs on every push, on the owner's self-hosted runner scale set.
+The app is one image with three roles: `atlas api`, `atlas worker [--once]` and `atlas migrate`. CI (`scripts/ci.sh`) runs on every push: the static checks on GitHub's runners, then the Docker suite on the owner's self-hosted runner scale set (`docs/deployment.md`, "CI").
 
 A local Hindsight 0.10.1 runs behind a Compose profile and sends all model traffic to LiteLLM:
 

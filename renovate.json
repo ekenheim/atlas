@@ -1,13 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "local>ekenheim/renovate-config"
+    "local>ekenheim/renovate-config",
+    "helpers:pinGitHubActionDigests"
   ],
   "description": [
     "Every branch push runs the full CI on the owner's runner scale set; more than a few at once starve each other past the 60-minute timeout, so this repo limits what the shared preset's :disableRateLimiting lifts."
   ],
   "branchConcurrentLimit": 3,
   "prConcurrentLimit": 6,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
   "packageRules": [
     {
       "description": ["Frontend npm minor and patch updates merge themselves once CI is green"],

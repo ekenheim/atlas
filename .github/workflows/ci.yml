@@ -1,7 +1,8 @@
 name: ci
 
-# Push only (every branch): the jobs run on the owner's self-hosted runners, so fork pull
-# requests must never trigger them (this repo is public).
+# Push only (every branch): the suite runs on the owner's self-hosted runners, so fork pull
+# requests must never trigger it (this repo is public). Renovate's branches live in this
+# repo, so their pushes run here too.
 on:
   push:
     branches: ["**"]
@@ -14,27 +15,64 @@ on:
       - ".scratch/pilot/pilot-plan.md"
       - "!docs/implementation-log.md"
 
+permissions:
+  contents: read
+
 # One run per branch; a newer push to a work branch supersedes its running CI (main runs all).
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+# Actions are pinned by commit; Renovate keeps the pins and their version comments current.
 jobs:
-  ci:
-    # The owner's actions-runner-controller scale set (home-ops, dind mode: Docker for the
-    # compose services and the image build).
-    runs-on: gha-runner-scale-set-atlas
-    timeout-minutes: 60
+  static:
+    # No Docker needed: GitHub's runners (free for a public repo), so a lint or type error
+    # fails in minutes and never takes a self-hosted runner.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.7.3"
-      - uses: actions/setup-node@v4
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      # The workflows themselves (.github/actionlint.yaml names the self-hosted label).
+      - name: actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+      - run: scripts/ci.sh static
+
+  suite:
+    needs: static
+    # The owner's actions-runner-controller scale set (home-ops, dind mode: Docker for the
+    # compose services and the image build). At most 3 runners, 4 CPUs each; jobs beyond
+    # that wait in GitHub's queue, where this timeout does not run.
+    runs-on: gha-runner-scale-set-atlas
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.7.3"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # Chromium for the e2e tests, keyed on the lock file (it pins Playwright's version).
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
       # The runner image has the Docker CLI (dind) but not the compose plugin.
       - name: Docker compose plugin
         run: |
@@ -46,4 +84,15 @@ jobs:
           fi
           docker compose version
       # Same entrypoint as local runs, so CI and laptops can't drift.
-      - run: scripts/ci.sh
+      - run: scripts/ci.sh suite
+
+  # The one check main's ruleset requires: green only when every stage above is.
+  ci:
+    if: always()
+    needs: [static, suite]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo "static: ${{ needs.static.result }}, suite: ${{ needs.suite.result }}"
+          [ "${{ needs.static.result }}" = success ] && [ "${{ needs.suite.result }}" = success ]

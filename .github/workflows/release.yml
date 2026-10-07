@@ -46,11 +46,13 @@ jobs:
     runs-on: gha-runner-scale-set-atlas
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.7.3"
-      - uses: actions/setup-node@v4
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           cache: npm
@@ -79,11 +81,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # The signed build provenance (attest-build-provenance): an OIDC token, and the
+      # attestation stored with the repo.
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE }}
           flavor: latest=false
@@ -99,7 +105,7 @@ jobs:
       # root, writable /tmp) before anything is pushed. amd64 only: the
       # cluster has no other architecture.
       - name: Build (local, for smoke)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64
@@ -114,20 +120,31 @@ jobs:
         env:
           # atlas_build_info must report the tag's version (vX.Y.Z -> X.Y.Z).
           ATLAS_SMOKE_EXPECT_VERSION: ${{ steps.meta.outputs.version }}
-      - uses: docker/login-action@v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Same inputs as the smoke build, so every layer comes from the cache.
+      # Same inputs as the smoke build, so every layer comes from the cache. The pushed
+      # image also carries an SBOM and BuildKit's provenance.
       - name: Push
-        uses: docker/build-push-action@v7
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64
           push: true
+          sbom: true
+          provenance: mode=max
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             ATLAS_CODE_VERSION=${{ github.sha }}
             ATLAS_VERSION=${{ steps.meta.outputs.version }}
+      # A signed statement (Sigstore, GitHub's attestation store) that this digest was built
+      # by this workflow from this commit: `gh attestation verify oci://ghcr.io/ekenheim/atlas:X.Y.Z -R ekenheim/atlas`.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

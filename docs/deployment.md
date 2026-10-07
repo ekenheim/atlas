@@ -2,6 +2,26 @@
 
 Atlas ships as one container image, `ghcr.io/ekenheim/atlas`. It runs as `atlas api` (the default command) or `atlas worker`, and `atlas migrate` applies the schema. The cluster side (home-ops, `kubernetes/apps/datasci/atlas/`) is covered by spec Part B: Deployment.
 
+## CI
+
+`.github/workflows/ci.yml` runs on every push to any branch of this repo (never on fork pull requests: the suite uses the owner's runners). It has three jobs:
+
+| Job | Runs on | What |
+|---|---|---|
+| `static` | GitHub's runners | actionlint, then `scripts/ci.sh static`: ruff, strict pyright, frontend lint, typecheck and unit tests, the API client is current. No Docker; a few minutes. |
+| `suite` | `gha-runner-scale-set-atlas` (self-hosted, dind) | Only after `static` passes: `scripts/ci.sh suite`: Compose services, pytest (8 workers), the Playwright e2e tests, the image build and smoke. About 15 minutes. |
+| `ci` | GitHub's runners | Green only when both are. **The check `main` requires.** |
+
+`scripts/ci.sh` with no argument runs both stages, so a laptop runs what CI runs.
+
+**Capacity.** The scale set (home-ops, `kubernetes/apps/actions-runner-system/gha-runner-scale-set-atlas`) runs at most 3 runners, each requesting 4 CPUs and 8 GiB. Jobs beyond that wait in GitHub's queue, where the job timeout doesn't run. Before this cap, 10 unrequested runners starved each other: on 6 October, 13 Renovate branches pushed at once and 9 runs passed the 60-minute timeout. Renovate is held to 3 branches at once for the same reason.
+
+**Main is gated.** A repository ruleset on `main` requires the `ci` check and forbids force-pushes and deletion. The check belongs to the commit, so fast-forwarding `main` to a green integration branch passes; a commit without a green `ci` run can't land on `main`.
+
+**Dependencies.** Renovate (`renovate.json`, extending the owner's shared preset) opens update PRs. npm minor and patch updates and the weekly lock-file refresh merge themselves once `ci` is green. Majors, the runtime Python, the test Postgres (it follows production's) and Hindsight (pinned to the spiked, recorded version) wait for a person. Actions are pinned by commit, with the version in a comment; Renovate updates both.
+
+**Flaky tests are bugs.** A test that fails and then passes on a rerun is fixed or its expectation corrected, not retried; record the cause in the commit.
+
 ## Releases
 
 A release is a git tag `vX.Y.Z` on `main`. Pushing the tag runs `.github/workflows/release.yml`:
@@ -12,6 +32,7 @@ A release is a git tag `vX.Y.Z` on `main`. Pushing the tag runs `.github/workflo
    - builds the multi-stage `Dockerfile` for `linux/amd64` only, since the cluster has no other architecture
    - runs `scripts/image-smoke.sh` on the image (non-root, read-only root filesystem, writable `/tmp`, liveness and frontend served)
    - pushes to GHCR only after the smoke passes
+   - attaches an SBOM and BuildKit provenance to the pushed image, and a signed build-provenance attestation (Sigstore, stored with the repo): `gh attestation verify oci://ghcr.io/ekenheim/atlas:X.Y.Z -R ekenheim/atlas` proves the image was built by this workflow from the tagged commit
 
 The job uses the workflow's `GITHUB_TOKEN` with `packages: write`. No other secrets are needed.
 
