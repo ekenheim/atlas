@@ -11,11 +11,17 @@ observation ID or an Assertion ID from the request), `estimated` (with a written
 `missing`. Code, not the model, decides what stands: an input citing what it wasn't sent,
 whose values don't match the observation, or that has a value but neither a source nor a
 basis is rejected and becomes missing (atlas.scenarios.analyst).
+
+An input is read in the forms MiniMax writes it (`ProposedInput._as_the_model_writes_it`): its
+optional fields left out, or its `kind` naming what sources it (`"assertion"`,
+`"assertion_id"`) instead of `sourced`. On pilot question 2 (0.5.3, 2026-10-07) one such
+input quarantined the whole answer twice, and the investigation lost its card
+(bottleneck-argument ticket 07).
 """
 
-from typing import Literal
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 from atlas.scenarios.model import InputName, Measure
@@ -69,6 +75,20 @@ class FinancialAnalystRequest(_Request):
     claims: list[AnalystClaim]
 
 
+_OPTIONAL = ("observation_id", "assertion_id", "basis", "low", "base", "high")
+# A `kind` naming the source's type instead of saying the input is sourced, by the field that
+# then holds its ID.
+_SOURCE_KINDS = {
+    "assertion": "assertion_id",
+    "assertion_id": "assertion_id",
+    "claim": "assertion_id",
+    "fact": "assertion_id",
+    "observation": "observation_id",
+    "observation_id": "observation_id",
+    "xbrl": "observation_id",
+}
+
+
 class ProposedInput(RoleOutput):
     name: InputName
     kind: Literal["sourced", "estimated", "missing"]
@@ -78,6 +98,23 @@ class ProposedInput(RoleOutput):
     low: str | None
     base: str | None
     high: str | None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _as_the_model_writes_it(cls, data: Any) -> Any:
+        """An optional field left out is null; a `kind` naming the source's type is `sourced`
+        when the input gives that ID, else `missing` (code then decides what stands, as for
+        any sourced input). The strict schema sent to the model is unchanged."""
+        if not isinstance(data, dict):
+            return data
+        answer = dict(cast(dict[str, Any], data))
+        for key in _OPTIONAL:
+            answer.setdefault(key, None)
+        kind = answer.get("kind")
+        if isinstance(kind, str) and kind.strip().lower() in _SOURCE_KINDS:
+            field = _SOURCE_KINDS[kind.strip().lower()]
+            answer["kind"] = "sourced" if answer.get(field) else "missing"
+        return answer
 
 
 class ProposedScenario(RoleOutput):
@@ -96,5 +133,5 @@ FINANCIAL_ANALYST = Role(
     prompt=Prompt.load(PROMPTS_DIR, "financial-analyst", FINANCIAL_ANALYST_PROMPT_VERSION),
     request=FinancialAnalystRequest,
     response=ScenarioProposal,
-    max_output_tokens=4096,
+    max_output_tokens=6144,
 )

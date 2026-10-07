@@ -126,6 +126,7 @@ from atlas.investigations.argument import (
     challenged,
     quantity_text,
     step_counts,
+    without_references,
 )
 from atlas.investigations.companies import FloorCandidate, document_floor, documents_in_order
 from atlas.investigations.coverage import coverage, not_read, skeptic_coverage, unchecked_note
@@ -978,9 +979,36 @@ class TaskRunner:
                 claims=claims,
                 catalog=load_metric_catalog(self._settings.financial_metrics_config),
             )
-        with self._caller(investigation) as caller:
-            proposal, role_call_id = caller.call_recorded(
-                FINANCIAL_ANALYST, context.request, run_id=run_id, retrieved=context.retrieved
+        try:
+            with self._caller(investigation) as caller:
+                try:
+                    proposal, role_call_id = caller.call_recorded(
+                        FINANCIAL_ANALYST,
+                        context.request,
+                        run_id=run_id,
+                        retrieved=context.retrieved,
+                    )
+                except RoleOutputTruncated:
+                    # Cut off at the cap: once more with the cap doubled.
+                    proposal, role_call_id = caller.call_recorded(
+                        FINANCIAL_ANALYST,
+                        context.request,
+                        run_id=run_id,
+                        retrieved=context.retrieved,
+                        max_output_tokens=2 * FINANCIAL_ANALYST.max_output_tokens,
+                    )
+        except RoleOutputQuarantined as failure:
+            # The Analyst's proposal is optional: the Editor writes the card without it
+            # (bottleneck-argument ticket 07; a failure here once cost a whole card).
+            return _Outcome(
+                "skipped",
+                detail=f"the Financial Analyst's answer was unusable: {failure}",
+                artifacts={
+                    "role_call_id": str(failure.role_call_id),
+                    "analyst_failed": True,
+                    "claims": len(claims),
+                    "companies": len(companies),
+                },
             )
         with self._engine.connect() as connection:
             kept = keep_proposals(connection, context, proposal, investigation["as_of"])
@@ -1650,8 +1678,18 @@ class TaskRunner:
                     continue
                 if not cited:
                     continue  # a statement resting on no Fact says only that the step is unknown
+                statement = without_references(said.statement, cited, refs)
+                if statement is None:
+                    unsupported.append(
+                        UnsupportedFinding(
+                            statement=said.statement,
+                            claim_ids=[str(refs[r]["id"]) for r in cited],
+                            reason="internal_reference: names a Fact reference it doesn't cite",
+                        )
+                    )
+                    continue
                 finding = CardFindingDraft(
-                    statement=said.statement, claim_refs=cited, limitations=[], open_questions=[]
+                    statement=statement, claim_refs=cited, limitations=[], open_questions=[]
                 )
                 checking.append((key, finding, cited))
         checked = check_findings(

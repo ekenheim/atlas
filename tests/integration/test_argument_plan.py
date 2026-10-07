@@ -563,6 +563,54 @@ def test_each_statement_of_a_step_is_checked_on_its_own(
     )
 
 
+def test_an_unusable_analyst_answer_leaves_the_card_to_the_editor(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Ticket 07: on pilot question 2 the Analyst's answers were quarantined on every attempt,
+    # the investigation stopped and the Editor was cancelled, so 188 Facts reached no card.
+    unusable = ChatReply.json({"scenarios": [{"company_id": "x"}]}, tokens=(1500, 200))
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("financial_analyst", unusable, unusable)  # the answer and its repair
+    llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    started = response.json()
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{started['id']}")
+    tasks = {task["key"]: task for task in found["tasks"]}
+    analyst = tasks["financial_analyst"]
+    assert analyst["status"] == "skipped"
+    assert analyst["detail"].startswith("the Financial Analyst's answer was unusable")
+    assert analyst["artifacts"]["analyst_failed"] is True
+    # One job attempt: the quarantine is the task's outcome, not a failure to retry.
+    roles = [body["metadata"]["role"] for body in llm.chat_requests()]
+    assert roles.count("financial_analyst") == 2
+    assert tasks["editor"]["status"] == "succeeded"
+    card = found["research_card"]
+    steps = {step["step"]: step for step in card["steps"]}
+    assert steps["relief"]["statement"] == RELIEF_STATEMENT
+    assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
+
+
 def test_the_default_plan_stays_the_default(atlas: Atlas) -> None:
     coherent = atlas.company("coherent")["id"]
     response = atlas.api.post(

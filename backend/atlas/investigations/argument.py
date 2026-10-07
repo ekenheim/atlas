@@ -21,10 +21,16 @@ and its `steps`.
 What each Reader and the Skeptic recorded is read from their sessions (`reader_session`): the
 Facts (by ID, with the Facts a Skeptic's speaks against), the queries, the windows read, the
 refusals and why each stopped.
+
+A statement never shows the short reference the Editor cites a Fact by (`c1`, `c2`, ...;
+ticket 08): one naming a Fact it cites, every one of whose cited Facts with that reference is
+one company's, says that company's name instead; one naming a reference it doesn't cite is
+dropped as `internal_reference` (`without_references`).
 """
 
+import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -327,3 +333,26 @@ def build_steps(
 
 def step_counts(steps: Sequence[CardArgumentStep]) -> dict[str, JsonValue]:
     return {step.step: step.status for step in steps}
+
+
+_REFERENCE = re.compile(r"\bc\d+\b")
+
+
+def without_references(
+    statement: str, cited: Sequence[str], refs: Mapping[str, Mapping[Any, Any]]
+) -> str | None:
+    """The statement with each Fact reference it names (`c1`, ...: a key of `refs`) replaced by
+    the cited Fact's company name, or None when it names a reference it doesn't cite (or
+    whose Fact has no company name). Words only shaped like one ("C3 band") are left: only
+    the Editor's references, lower case as it was sent them, count."""
+    named = [m for m in _REFERENCE.finditer(statement) if m.group(0) in refs]
+    if not named:
+        return statement
+    names: dict[str, str] = {}
+    for match in named:
+        ref = match.group(0)
+        name = refs[ref].get("subject_name")
+        if ref not in cited or not name:
+            return None
+        names[ref] = str(name)
+    return _REFERENCE.sub(lambda m: names.get(m.group(0), m.group(0)), statement)

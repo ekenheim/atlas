@@ -1,6 +1,6 @@
 # 08: The Editor's Fact references never reach the card
 
-**Status:** ready-for-agent
+**Status:** done (8 October; awaiting CI and release)
 **Type:** bug
 
 **What happened:** pilot question 3 on 0.5.3, argument plan (investigation `a5a7402d-…`, 2026-10-07): the statement demand_vs_supply 1 names its speaker "c1", the short reference the Editor cites Facts by, where it should say Coherent. The grounding check and the finding judge both passed it; the content is otherwise right.
@@ -10,3 +10,7 @@
 **Acceptance:**
 - [ ] A unit test: "c1 says its data center grew 4%" with c1 → Coherent's Fact becomes "Coherent says …"; a statement naming a reference it doesn't cite is dropped `internal_reference`.
 - [ ] Words that merely look like one ("C3 band", "F1 score") in the cited quote are left alone (the check looks only for references the Editor was given).
+
+## Result (lead)
+
+Deterministic only, with no second ask: a cited reference is replaced with its Fact's company (`subject_name`), and a statement naming one it doesn't cite is dropped as `internal_reference`. Applied to the argument plan's statements; the default plan's findings cite Claims by the same `c<n>` scheme and are left for its retirement (next-session priority 7). `atlas.investigations.argument.without_references`.

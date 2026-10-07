@@ -3596,3 +3596,17 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Fixture only:** `editor-argument.v2` has not been called on MiniMax.
 - **Deviations:** the 1-to-6 statements and 1-to-4 Facts per statement are asked in the prompt; code checks at most the first six statements of a step and does not bound the Facts cited (not in the strict schema). A step's `grounded`/`judged` are its first kept statement's. Older cards (no `statements`) show their one statement through `stepStatements`.
 - **Next:** the lead reruns the argument investigation on production and compares unknown steps and dropped statements with 0.5.2's.
+
+## Bottleneck-argument tickets 07 and 08: an optional Analyst and no Fact references in statements (8 October)
+
+- **Files:**
+  - `backend/atlas/roles/financial_analyst.py`: the answer normalizer, and the cap raised to 6,144.
+  - `backend/atlas/investigations/tasks.py`: the Analyst's retry at the doubled cap, and a quarantine making the task `skipped`; the argument Editor applies `without_references`.
+  - `backend/atlas/investigations/argument.py`: `without_references`.
+  - Tests: `tests/unit/test_financial_analyst_answers.py`, `tests/unit/test_argument_references.py`, and `tests/integration/test_argument_plan.py` (`test_an_unusable_analyst_answer_leaves_the_card_to_the_editor`).
+  - `docs/decisions.md`, 2026-10-08.
+- **Tests:**
+  - Local: the 9 unit tests pass in WSL, and ruff and pyright are clean.
+  - The integration test runs in CI's suite only: no local Docker.
+- **Fixture only:** neither change has run on MiniMax. The normalizer's cases are the two shapes recorded on pilot question 2's role calls (`.scratch/live-runs/pilot-0.5.3-arg/inv-2/role-calls.json`, not in git).
+- **Next:** release after pilot questions 4 and 5 finish on 0.5.3, so the pilot compares one version.
