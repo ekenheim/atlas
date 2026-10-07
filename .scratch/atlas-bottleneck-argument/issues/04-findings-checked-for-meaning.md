@@ -11,5 +11,18 @@ Why: the trust gate failed in four of five verdict investigations, every time on
 
 **Acceptance:**
 - [x] `atlas.roles.finding_judge` with prompt `finding_judge.v1.md`, called by the Editor's task on every finding; its verdicts recorded on the card (`judged`, with the reasons).
-- [ ] Measured on the verdict's labelled findings (`.scratch/live-runs/pilot-0.4.6/labeled-findings.json`, not in git: 18 findings, 9 failing the trust gate with the reviewers' misstatements): report how many misstated findings the judge catches and how many supported ones it wrongly flags, on the owner's MiniMax (at most 40 calls; the lead runs it). Target: catch at least 8 of 9, flag at most 1 of 9 supported.
+- [x] Measured on the verdict's labelled findings (`.scratch/live-runs/pilot-0.4.6/labeled-findings.json`, not in git: 18 findings, 9 failing the trust gate with the reviewers' misstatements): report how many misstated findings the judge catches and how many supported ones it wrongly flags, on the owner's MiniMax (at most 40 calls; the lead runs it). Target: catch at least 8 of 9, flag at most 1 of 9 supported.
 - [ ] Tests with the scripted fake: a misstated finding rewritten and accepted, one dropped after the rewrite, a supported one kept. (Written: `tests/integration/test_investigations.py::test_a_misstated_finding_is_rewritten_once_then_kept_or_dropped_and_a_supported_one_kept`, scripted LiteLLM fake, for the runners; `tests/unit/test_finding_meaning.py`, 6 passed locally.)
+
+## Comments
+
+**2026-10-07, the lead: measured live on MiniMax** (`.scratch/tools/finding_judge_eval.py`, 18 calls a run, reports under `.scratch/live-runs/*-finding-judge-eval/`):
+
+| Judge | Misstated caught | Supported flagged |
+|---|---|---|
+| `finding_judge.v1`, one vote | 9 of 9 | 5 of 9 |
+| `finding_judge.v2`, one vote (run 1) | 9 of 9 | 3 of 9 |
+| `finding_judge.v2`, one vote (run 2) | 8 of 9 | 2 of 9 |
+| `finding_judge.v2`, **two votes, misstated only when both say so** | **8 of 9** | **1 of 9** |
+
+v1 flagged attribution of a company's own call ("Lumentum says"), a list grouped differently and a word for a subsidiary; v2 adds a materiality rule and says a Claim's subject and source settle who said it. The flags that remained were different each run (one vote errs strictly at random), so the judge votes twice (`ATLAS_FINDING_JUDGE_VOTES`, default 2; `atlas.investigations.meaning.voting`): the target is met. The one supported finding both votes flagged (Coherent's 6-inch capacity, investigation 2) is flagged for leaving out a yield qualifier and moving a phrase into quotation marks, borderline; the rewrite step would correct it rather than drop it.

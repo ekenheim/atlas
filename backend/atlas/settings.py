@@ -92,6 +92,9 @@ class Settings(BaseSettings):
     # card's findings are grounding-checked only (the test harness turns it off unless a test
     # scripts the judge).
     finding_judge: bool = True
+    # How many times the judge is asked about a finding; misstated only when every vote says so
+    # (`atlas.investigations.meaning.voting`: one vote is too strict, at random).
+    finding_judge_votes: int = Field(default=2, ge=1, le=5)
     # The Investigator (atlas.claims): at most this many passages per extraction, sent this
     # many to a call.
     investigator_max_passages: int = Field(default=24, gt=0)

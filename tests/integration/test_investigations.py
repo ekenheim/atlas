@@ -3761,7 +3761,10 @@ def test_a_misstated_finding_is_rewritten_once_then_kept_or_dropped_and_a_suppor
     services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:
     atlas = services.start(
-        investigator_max_passages=500, investigator_passages_per_call=500, finding_judge=True
+        investigator_max_passages=500,
+        investigator_passages_per_call=500,
+        finding_judge=True,
+        finding_judge_votes=1,
     )
     coherent = company_id(atlas, "coherent")
     ten_q = atlas.version(COHR_10Q, "coherent")["id"]
@@ -3903,11 +3906,11 @@ def test_a_misstated_finding_is_rewritten_once_then_kept_or_dropped_and_a_suppor
     assert [
         (j["finding"], j["attempt"], j["verdict"], j["outcome"], j["judge"]) for j in card["judged"]
     ] == [
-        ("f1", 1, "supported", "kept", "finding_judge.v1"),
-        ("f2", 1, "misstated", "sent_back", "finding_judge.v1"),
-        ("f3", 1, "misstated", "sent_back", "finding_judge.v1"),
-        ("f2", 2, "supported", "kept", "finding_judge.v1"),
-        ("f3", 2, "misstated", "dropped", "finding_judge.v1"),
+        ("f1", 1, "supported", "kept", "finding_judge.v2"),
+        ("f2", 1, "misstated", "sent_back", "finding_judge.v2"),
+        ("f3", 1, "misstated", "sent_back", "finding_judge.v2"),
+        ("f2", 2, "supported", "kept", "finding_judge.v2"),
+        ("f3", 2, "misstated", "dropped", "finding_judge.v2"),
     ]
     assert card["judged"][1]["reason"] == present_reason
     assert card["judged"][1]["kinds"] == ["tense_or_status"]

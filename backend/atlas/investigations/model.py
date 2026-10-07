@@ -473,7 +473,7 @@ class CardJudgement(BaseModel):
     reason: str
     outcome: Literal["kept", "sent_back", "dropped", "kept_unjudged"]
     role_call_id: uuid.UUID | None
-    judge: str  # the prompt, e.g. `finding_judge.v1`
+    judge: str  # the prompt, e.g. `finding_judge.v2`
 
 
 class CardQuery(BaseModel):

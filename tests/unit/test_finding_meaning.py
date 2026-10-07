@@ -167,7 +167,7 @@ def test_a_supported_finding_is_kept_and_its_verdict_recorded() -> None:
         "kept",
     )
     assert verdict.claim_ids == [CLAIMS["c2"]["id"]]
-    assert verdict.judge == "finding_judge.v1"
+    assert verdict.judge == "finding_judge.v2"
 
 
 def test_a_misstated_finding_is_rewritten_with_the_judge_s_reason_and_kept_when_supported() -> None:
@@ -290,3 +290,42 @@ def test_a_judge_call_that_fails_leaves_the_finding_unjudged_for_review() -> Non
         call,
     )
     assert result.counts["failed_first"] == 1
+
+
+def test_a_finding_is_misstated_only_when_every_vote_says_so() -> None:
+    from atlas.investigations.meaning import voting
+
+    asked: list[str] = []
+
+    def answers(*verdicts: str) -> Callable[..., tuple[FindingJudgement, uuid.UUID]]:
+        queue = list(verdicts)
+
+        def judge(request: FindingJudgeRequest, quotes: Any) -> tuple[FindingJudgement, uuid.UUID]:
+            verdict = queue.pop(0)
+            asked.append(verdict)
+            return (
+                FindingJudgement(
+                    verdict=verdict,  # type: ignore[arg-type]
+                    beyond=["x"] if verdict == "misstated" else [],
+                    kinds=["unstated"] if verdict == "misstated" else [],
+                    reason=f"vote {len(asked)}",
+                ),
+                uuid.uuid4(),
+            )
+
+        return judge
+
+    request: Any = None
+    # A spurious flag: the second vote supports, so the finding is supported.
+    assert voting(answers("misstated", "supported"), 2)(request, [])[0].verdict == "supported"
+    # Both votes misstated: misstated, with the first vote's reason for the rewrite.
+    asked.clear()
+    verdict = voting(answers("misstated", "misstated"), 2)(request, [])[0]
+    assert (verdict.verdict, verdict.reason) == ("misstated", "vote 1")
+    # A supported first vote is the answer: the second is not asked.
+    asked.clear()
+    assert voting(answers("supported", "misstated"), 2)(request, [])[0].verdict == "supported"
+    assert asked == ["supported"]
+    # One vote: the judge as it is.
+    asked.clear()
+    assert voting(answers("misstated"), 1)(request, [])[0].verdict == "misstated"

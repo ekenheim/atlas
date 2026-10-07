@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-FINDING_JUDGE_PROMPT_VERSION = 1
+FINDING_JUDGE_PROMPT_VERSION = 2
 
 # How a finding goes beyond its quotes.
 MisstatementKind = Literal[

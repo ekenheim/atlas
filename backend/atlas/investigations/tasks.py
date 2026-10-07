@@ -114,7 +114,7 @@ from atlas.investigations.companies import FloorCandidate, document_floor, docum
 from atlas.investigations.coverage import coverage, not_read, skeptic_coverage, unchecked_note
 from atlas.investigations.entity_hop import HopLimits, record_entity_pointers
 from atlas.investigations.grounding import GROUNDING_LIMIT, CheckedFinding, check_findings
-from atlas.investigations.meaning import JUDGE_LIMIT, judge_findings
+from atlas.investigations.meaning import JUDGE_LIMIT, judge_findings, voting
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
@@ -1168,7 +1168,10 @@ class TaskRunner:
                 refs,
                 investigation["question"],
                 self._company_names(),
-                lambda asked, quotes: self._judge_finding(investigation, run_id, asked, quotes),
+                voting(
+                    lambda asked, quotes: self._judge_finding(investigation, run_id, asked, quotes),
+                    self._settings.finding_judge_votes,
+                ),
                 lambda asked, quotes: self._ask_editor_to_revise(
                     investigation, run_id, asked, quotes
                 ),

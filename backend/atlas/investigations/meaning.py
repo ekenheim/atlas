@@ -49,6 +49,33 @@ from atlas.roles.finding_judge import (
 type Judge = Callable[[FindingJudgeRequest, list[QuotedText]], tuple[FindingJudgement, uuid.UUID]]
 type Revise = Callable[[EditorReviseRequest, list[QuotedText]], tuple[RevisedFindings, uuid.UUID]]
 
+
+def voting(judge: Judge, votes: int) -> Judge:
+    """`judge` asked up to `votes` times: a finding is misstated only when every vote says so.
+
+    The judge is a model and errs on the strict side at random (on the pilot's labelled
+    findings one call flagged three to five of nine supported findings, a different few each
+    run, while every misstatement was caught on every run); a real misstatement is caught again,
+    a spurious flag rarely is. The first `supported` vote is the answer (later votes are not
+    asked); if none, the first `misstated` vote, with its reason for the rewrite. Measured on
+    the 18 labelled findings with two votes: 8 of 9 misstatements caught, 1 of 9 supported
+    flagged (docs/decisions.md, "Findings checked for meaning")."""
+
+    def judged(
+        request: FindingJudgeRequest, quotes: list[QuotedText]
+    ) -> tuple[FindingJudgement, uuid.UUID]:
+        first: tuple[FindingJudgement, uuid.UUID] | None = None
+        for _ in range(max(1, votes)):
+            answer = judge(request, quotes)
+            if answer[0].verdict == "supported":
+                return answer
+            first = first or answer
+        assert first is not None
+        return first
+
+    return judged
+
+
 # What the card says of the trust gate when the judge ran (beside `GROUNDING_LIMIT`).
 JUDGE_LIMIT = (
     " Each finding that passed was then compared with its quotes by a judge model for tense"
