@@ -4,7 +4,7 @@ Atlas's research pilot, five investigations on production 0.4.6, run and reviewe
 
 ## The verdict: fail
 
-No investigation meets the bar. The trust gate fails in four of five: the Editor's findings say more than their Claims. Pooled Claim precision is 62% (bar 80% per investigation), baseline coverage 22% (bar 50%), and machine-reviewed edge precision 57% (bar 90%). Under ticket 02, a fail means no fix round: the research workflow's design is reopened, starting with what the Claim model and the roles can express, before anything else is built.
+No investigation meets the bar. The trust gate fails in four of five: the Editor's findings say more than their Claims. Pooled Claim precision is 63% (bar 80% per investigation), baseline coverage 22% (bar 50%), and machine-reviewed edge precision 57% (bar 90%). Under ticket 02, a fail means no fix round: the research workflow's design is reopened, starting with what the Claim model and the roles can express, before anything else is built.
 
 The comparison that decides the direction is the researcher's hour. One agent with web search and the archive's term search, under an hour per question, found 144 cited, true, on-question facts across the five questions. The cards had 16 of them (11%). Everything the cards counted as saved work was also in the researchers' answers.
 
@@ -30,7 +30,7 @@ What holds: every accepted quote is verbatim at an archived, dated span (364 of 
 
 | | 1 laser chips | 2 InP substrates | 3 module assembly | 4 DSP and drivers | 5 coherent demand | Bar |
 |---|---|---|---|---|---|---|
-| Precision | 66% (63/95) | 58% (44/76) | 69% (49/71) | 39% (14/36) | 66% (57/86) | ≥ 80% |
+| Precision | 67% (64/95) | 58% (44/76) | 69% (49/71) | 39% (14/36) | 66% (57/86) | ≥ 80% |
 | Saved work | 0 | 2 | 0 | 0 | 1 | ≥ 3 |
 | Trust gate | fails | fails | fails | holds (no finding) | fails | holds |
 | Baseline coverage | 40% | 20% | 30% | 10% | 10% | ≥ 50% |
