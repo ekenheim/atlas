@@ -294,3 +294,33 @@ def test_the_schema_asks_for_a_list_of_facts() -> None:
         "skeptic-argument",
         2,
     )
+
+
+def test_a_quantity_the_model_writes_as_text_or_incomplete_does_not_cost_the_facts() -> None:
+    from atlas.roles.reader import ReaderAction
+
+    def fact(quantity: str) -> str:
+        return (
+            '{"passage_id": "p1", "quote": "Our share is 70%-80% and book-to-bill was 1.6.",'
+            ' "company_slug": "acme", "step": "demand_vs_supply", "statement": "Acme says so.",'
+            f' "quantity": {quantity}, "period": null, "status": "in_effect", "challenges": []}}'
+        )
+
+    answer = ReaderAction.model_validate_json(
+        '{"action": "record_fact", "record_fact": {"facts": ['
+        + ", ".join(
+            [
+                fact('"70%-80%"'),  # text: no quantity
+                fact('{"value": "1.6", "unit": "ratio"}'),  # a numeric string, no metric
+                fact('{"value": "70-80", "unit": "%", "metric": "share"}'),  # a range: none
+                fact('{"value": 1.6, "unit": "ratio", "metric": "book-to-bill", "as_of": "Q3"}'),
+            ]
+        )
+        + "]}}"
+    )
+    assert answer.record_fact is not None
+    quantities = [f.quantity for f in answer.record_fact.facts]
+    assert quantities[0] is None and quantities[2] is None
+    assert quantities[1] is not None
+    assert (quantities[1].value, quantities[1].unit, quantities[1].metric) == (1.6, "ratio", "")
+    assert quantities[3] is not None and quantities[3].metric == "book-to-bill"

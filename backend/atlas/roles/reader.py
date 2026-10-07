@@ -31,7 +31,7 @@ empty for a Reader).
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal, Self, cast
+from typing import Any, Literal, Self, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -396,10 +396,46 @@ def _as_facts(nested: Any, defaults: dict[str, Any]) -> Any:
         facts = [cast(dict[str, Any], facts)]  # one Fact written as an object
     if isinstance(facts, list):
         args["facts"] = [
-            _with_defaults(cast(dict[str, Any], each), defaults) if isinstance(each, dict) else each
+            _with_quantity(_with_defaults(cast(dict[str, Any], each), defaults))
+            if isinstance(each, dict)
+            else each
             for each in cast(list[Any], facts)
         ]
     return args
+
+
+def _with_quantity(fact: dict[str, Any]) -> dict[str, Any]:
+    """`fact` with a `quantity` that isn't `{value: number, unit, metric}` taken as none, so one
+    malformed quantity doesn't cost the call's every Fact (the quote, statement and status keep
+    what the quote says). A value written as a number in a string ("1.6") is the number; other
+    keys (`as_of`) are dropped; a missing unit or metric is empty. On 0.5.2's argument run
+    (2026-10-07) MiniMax wrote quantities as text ("70%-80%"), ranges and objects missing a
+    metric in every quarantined Skeptic call, and those calls held its counterevidence."""
+    step = fact.get("step")
+    if isinstance(step, str) and step not in get_args(FactStepName):
+        # A step that isn't one: the fact is context, not a claim on a step of the argument
+        # (one such Fact quarantined a whole Skeptic call on 0.5.2's run).
+        fact = {**fact, "step": "context"}
+    quantity = fact.get("quantity")
+    if quantity is None:
+        return fact
+    kept: dict[str, Any] | None = None
+    if isinstance(quantity, dict):
+        given = cast(dict[str, Any], quantity)
+        value = given.get("value")
+        if isinstance(value, str):
+            try:
+                value = float(value.replace(",", "").strip())
+            except ValueError:
+                value = None
+        if isinstance(value, int | float) and not isinstance(value, bool):
+            unit, metric = given.get("unit"), given.get("metric")
+            kept = {
+                "value": float(value),
+                "unit": unit if isinstance(unit, str) else "",
+                "metric": metric if isinstance(metric, str) else "",
+            }
+    return {**fact, "quantity": kept}
 
 
 READER = Role(
@@ -407,7 +443,9 @@ READER = Role(
     prompt=Prompt.load(PROMPTS_DIR, "reader", READER_PROMPT_VERSION),
     request=ReaderRequest,
     response=ReaderAction,
-    max_output_tokens=2048,
+    # Up to MAX_FACTS_PER_CALL Facts in one answer, each with its quote and statement: 2,048
+    # tokens cut one call off on 0.5.2's run.
+    max_output_tokens=6144,
 )
 READER_VERSION = f"{READER.prompt.name}.v{READER.prompt.version}"
 
@@ -416,7 +454,7 @@ ARGUMENT_SKEPTIC = Role(
     prompt=Prompt.load(PROMPTS_DIR, "skeptic-argument", ARGUMENT_SKEPTIC_PROMPT_VERSION),
     request=ReaderRequest,
     response=ReaderAction,
-    max_output_tokens=2048,
+    max_output_tokens=6144,
 )
 ARGUMENT_SKEPTIC_VERSION = f"{ARGUMENT_SKEPTIC.prompt.name}.v{ARGUMENT_SKEPTIC.prompt.version}"
 
