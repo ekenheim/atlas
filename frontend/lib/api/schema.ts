@@ -379,6 +379,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Facts */
+        get: operations["facts_api_v1_facts_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_facts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facts/{fact_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fact */
+        get: operations["fact_api_v1_facts__fact_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/source-versions/{version_id}/memory": {
         parameters: {
             query?: never;
@@ -3730,20 +3765,68 @@ export interface components {
             status: string;
         };
         /**
-         * Fact
-         * @description One external fact the resolution used: where it came from and when it was read.
+         * FactCreate
+         * @description A new Fact: the Assertion's span fields and the Fact's own.
          */
-        Fact: {
-            source: components["schemas"]["Source"];
-            /** Url */
-            url: string;
+        FactCreate: {
             /**
-             * Observed At
-             * Format: date-time
+             * Subject Company Id
+             * Format: uuid
              */
-            observed_at: string;
+            subject_company_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Quote
+             * @description exactly the parsed text at the offsets
+             */
+            quote: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /** Page Or Anchor */
+            page_or_anchor?: string | null;
+            /** Event Start */
+            event_start?: string | null;
+            /** Event End */
+            event_end?: string | null;
+            /**
+             * Epistemic Type
+             * @enum {string}
+             */
+            epistemic_type: "direct_source_statement" | "company_claim" | "third_party_report" | "agent_inference" | "quantitative_derived";
+            /** Parser Version */
+            parser_version?: string | null;
+            /**
+             * Investigation Id
+             * @description the investigation it was found for, if any
+             */
+            investigation_id?: string | null;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "constraint" | "demand_vs_supply" | "relief" | "control" | "capture" | "invalidation" | "context";
             /** Statement */
             statement: string;
+            quantity?: components["schemas"]["Quantity"] | null;
+            /** Period */
+            period?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_effect" | "planned" | "in_development" | "hedged" | "regulatory" | "reported_by_third_party";
+        };
+        /** FactRecorded */
+        FactRecorded: {
+            fact: components["schemas"]["atlas__facts__service__Fact"];
+            /** Audit Event Id */
+            audit_event_id: number;
         };
         /** @enum {string} */
         FactType: "world" | "experience" | "observation";
@@ -4445,7 +4528,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** Evidence */
-            evidence: components["schemas"]["Fact"][];
+            evidence: components["schemas"]["atlas__identity__resolver__Fact"][];
             /** Reviewed By */
             reviewed_by: string | null;
             /** Reviewed At */
@@ -5488,6 +5571,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[Fact] */
+        Page_Fact_: {
+            /** Items */
+            items: components["schemas"]["atlas__facts__service__Fact"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[FetchGateDecision] */
         Page_FetchGateDecision_: {
             /** Items */
@@ -5962,6 +6056,27 @@ export interface components {
             version: number;
             /** Note */
             note?: string | null;
+        };
+        /**
+         * Quantity
+         * @description A magnitude the quote states.
+         */
+        Quantity: {
+            /**
+             * Value
+             * @description the number as the quote gives it (it must occur there)
+             */
+            value: number;
+            /**
+             * Unit
+             * @description e.g. "USD", "%", "wafers per month"
+             */
+            unit: string;
+            /**
+             * Metric
+             * @description what is measured, e.g. "net revenue"
+             */
+            metric: string;
         };
         /**
          * QueuePause
@@ -7126,7 +7241,7 @@ export interface components {
             /** Notes */
             notes: string[];
             /** Evidence */
-            evidence: components["schemas"]["Fact"][];
+            evidence: components["schemas"]["atlas__identity__resolver__Fact"][];
             /** Dropped */
             dropped: string[];
             /** Company Id */
@@ -8600,6 +8715,40 @@ export interface components {
              */
             observation_id: string;
         };
+        /**
+         * Fact
+         * @description A Fact; `id` is its Assertion's id.
+         */
+        atlas__facts__service__Fact: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Investigation Id */
+            investigation_id: string | null;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "constraint" | "demand_vs_supply" | "relief" | "control" | "capture" | "invalidation" | "context";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_effect" | "planned" | "in_development" | "hedged" | "regulatory" | "reported_by_third_party";
+            /** Statement */
+            statement: string;
+            quantity: components["schemas"]["Quantity"] | null;
+            /** Period */
+            period: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            assertion: components["schemas"]["Assertion"];
+        };
         /** Citation */
         atlas__hypotheses__export__Citation: {
             /** Number */
@@ -8651,6 +8800,22 @@ export interface components {
              * Format: date-time
              */
             available_at: string;
+        };
+        /**
+         * Fact
+         * @description One external fact the resolution used: where it came from and when it was read.
+         */
+        atlas__identity__resolver__Fact: {
+            source: components["schemas"]["Source"];
+            /** Url */
+            url: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Statement */
+            statement: string;
         };
         /** Citation */
         atlas__research__provenance__Citation: {
@@ -9530,6 +9695,116 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    facts_api_v1_facts_get: {
+        parameters: {
+            query?: {
+                company_id?: string | null;
+                step?: ("constraint" | "demand_vs_supply" | "relief" | "control" | "capture" | "invalidation" | "context") | null;
+                investigation_id?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Fact_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_api_v1_facts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactRecorded"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    fact_api_v1_facts__fact_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["atlas__facts__service__Fact"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -214,6 +214,10 @@ class Assertions:
     def create(
         self, request: AssertionCreate, *, extractor_version: str = EXTRACTOR_VERSION
     ) -> AssertionRecorded:
+        if request.predicate == "fact":
+            raise InvalidAssertion(
+                "use_facts", "a Fact is recorded through POST /api/v1/facts, not as an Assertion"
+            )
         with self._engine.connect() as connection:
             parsed = self._parsed_text(connection, request)
         # A parse, once recorded, never changes (migration 0004), so the text read here is

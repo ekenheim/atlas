@@ -240,6 +240,13 @@ def ungrounded(statement: str, ground: Grounds) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+def number_occurs(value: Decimal, ground: Grounds) -> bool:
+    """Whether `ground` contains the number `value`: as written, with its magnitude applied
+    ("$1.01 billion" holds 1010000000) or before it ("$1.01 billion" holds 1.01)."""
+    wanted = abs(value).normalize()
+    return any(wanted in (each.value, each.coefficient) for each in ground.numbers)
+
+
 # --- helpers ------------------------------------------------------------------------------------
 
 
