@@ -24,7 +24,7 @@ What is matched, and how:
   function word (`_FUNCTION_WORDS`: "The", "However", ...). It must occur as a whole word; a
   plural or possessive "s" on either side is ignored. Neighbouring unfound words are reported
   as one name ("Deutsche Bank").
-- A quoted phrase (in double quotation marks) must occur as written, whitespace aside; an
+- A quoted phrase (in double quotation marks) must occur as written, whitespace, quotation marks of either kind and the punctuation at its two ends aside (a nested quotation, and the Editor's own claim labels such as "(c10, c15)", are handled before); an
   ellipsis splits it into pieces that must each occur.
 
 What is not checked: the logic of a sentence (who did what to whom, a plan written as a fact,
@@ -169,6 +169,11 @@ _SUFFIX = re.compile(
 )
 _FISCAL_YEAR = re.compile(r"^(?:FY|CY)(\d{2}|\d{4})$", re.IGNORECASE)
 _QUOTED = re.compile(r'"([^"]+)"')
+_NESTED_QUOTE = re.compile(r'\("([^"()]+)"\)')
+_PHRASE_EDGE = " .,;:!?-()[]"
+_LABEL = re.compile(r"\bc\d{1,3}\b")
+# "(c10, c15)", "c4 and c5", "claims c1, c2": labels in lower case, in a list
+_LABELS = re.compile(r"\(?\bc\d{1,3}\b(?:\s*(?:,|;|&|and)\s*c\d{1,3}\b)*\)?")
 _ELLIPSIS = re.compile(r"\.\.\.|…|\[[^\]]*\]")
 _TOKEN = re.compile(r"[^\s,;:()\[\]{}\"!?]+")
 _EDGE = "'."  # the statement is folded: its quotation marks are ASCII
@@ -222,11 +227,12 @@ def grounds(texts: Iterable[str], aliases: Iterable[Sequence[str]] = ()) -> Grou
 def ungrounded(statement: str, ground: Grounds) -> list[str]:
     """The numbers, names and quoted phrases of `statement` that `ground` doesn't contain, as
     the statement writes them (folded), in order and without repeats."""
-    text = _normal(statement)
+    text = _without_labels(_nested_quotes(_normal(statement)), ground)
     found: list[str] = []
+    flat_ground = _flat(ground.text)
     for phrase in _QUOTED.findall(text):
-        pieces = [" ".join(piece.split()) for piece in _ELLIPSIS.split(phrase)]
-        if any(piece and piece.lower() not in _spaced(ground.text) for piece in pieces):
+        pieces = [_flat(piece) for piece in _ELLIPSIS.split(phrase)]
+        if any(piece and piece not in flat_ground for piece in pieces):
             found.append(f'"{phrase.strip()}"')
     for match in _NUMBER.finditer(text):
         number = _number(match)
@@ -250,8 +256,32 @@ def _normal(text: str) -> str:
     return folded
 
 
-def _spaced(text: str) -> str:
-    return " ".join(text.split())
+def _flat(text: str) -> str:
+    """`text` as a quoted phrase is compared: lower case, whitespace single, quotation marks of
+    either kind dropped (a nested 'TSMC' for "TSMC"), and the punctuation at its ends (the
+    Editor closes a quoted clause with a comma the source writes as a full stop) dropped."""
+    plain = " ".join(text.lower().replace('"', "").replace("'", "").split())
+    return plain.strip(_PHRASE_EDGE)
+
+
+def _nested_quotes(text: str) -> str:
+    """A quotation inside parentheses ("(\\"TSMC\\")") written with the other kind of mark, so
+    it doesn't end the quoted phrase around it."""
+    unescaped = text.replace('\\"', '"').replace("\\'", "'")  # a JSON escape left in the text
+    return _NESTED_QUOTE.sub(r"('\1')", unescaped)
+
+
+def _without_labels(text: str, ground: Grounds) -> str:
+    """`text` without the Editor's own claim labels ("(c10, c15)"), which it writes into
+    statements and which aren't figures; a label the grounds themselves contain stays."""
+
+    def drop(match: re.Match[str]) -> str:
+        labels = _LABEL.findall(match.group(0))
+        if any(_occurs(label, ground.text) for label in labels):
+            return match.group(0)
+        return " "
+
+    return _LABELS.sub(drop, text)
 
 
 def _occurs(term: str, haystack: str) -> bool:

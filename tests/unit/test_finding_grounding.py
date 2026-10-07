@@ -183,3 +183,60 @@ def test_a_finding_is_held_to_its_cited_claims_subjects_objects_and_sources() ->
     assert ungrounded(
         "Zephyr supplies Halcyon from Zurich.", claim_grounds("Who supplies EMLs?", [zephyr])
     ) == ["Zurich"]
+
+
+# --- punctuation, claim labels and nested quotes (pilot-fixes ticket 33) -------------------------
+
+SUPPLY = (
+    'Our wafers come from Orchid Semiconductor Company Limited ("OSC"), our sole source'
+    " foundry, and we use advanced packaging to produce highly capable TIAs and drivers."
+)
+
+
+def test_punctuation_at_the_ends_of_a_quoted_phrase_does_not_matter() -> None:
+    assert check('It makes "highly capable TIAs and drivers,"', SUPPLY) == []
+    assert check('It makes "highly capable TIAs and drivers"', SUPPLY) == []
+    assert check('It has a "sole source foundry;"', SUPPLY) == []
+
+
+def test_a_changed_word_in_a_quoted_phrase_still_fails() -> None:
+    assert check('It makes "highly capable TIAs and lasers,"', SUPPLY) == [
+        '"highly capable TIAs and lasers,"'
+    ]
+    assert check('It makes "highly capable TIAs, and drivers."', SUPPLY) != []
+
+
+def test_the_editors_claim_labels_are_not_figures() -> None:
+    assert check("Orchid is the sole source foundry (c10, c15).", SUPPLY) == []
+    assert check("Orchid is the sole source foundry (c4).", SUPPLY) == []
+    assert check("Orchid is the sole source foundry, as c4 and c5 say.", SUPPLY) == []
+    # A figure next to a label is still checked.
+    assert check("Orchid is the sole source foundry for 40% (c4).", SUPPLY) == ["40%"]
+
+
+def test_a_label_the_grounds_themselves_contain_stays_a_term() -> None:
+    assert check("The part c10 is named.", "The c10 part is a connector.") == []
+
+
+def test_a_nested_quotation_of_the_other_kind_or_escaped_still_matches() -> None:
+    both = [
+        "It says \"Orchid Semiconductor Company Limited ('OSC'), our sole source foundry,\"",
+        'It says "Orchid Semiconductor Company Limited (\\"OSC\\"), our sole source foundry,"',
+        'It says "Orchid Semiconductor Company Limited ("OSC"), our sole source foundry,"',
+    ]
+    for statement in both:
+        assert check(statement, SUPPLY) == [], statement
+    assert (
+        check(
+            "It says \"Orchid Semiconductor Company Limited ('OSX'), our sole source foundry,\"",
+            SUPPLY,
+        )
+        != []
+    )
+
+
+def test_an_ellipsis_and_a_bracketed_letter_still_split_a_phrase_into_pieces() -> None:
+    assert (
+        check('It says "[o]ur wafers come from Orchid... our sole source foundry,"', SUPPLY) == []
+    )
+    assert check('It says "wafers come from Orchid... our only foundry,"', SUPPLY) != []
