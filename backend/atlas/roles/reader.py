@@ -24,7 +24,7 @@ empty for a Reader).
 """
 
 from dataclasses import dataclass
-from typing import Literal, Self
+from typing import Any, Literal, Self, cast
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -244,6 +244,46 @@ class ReaderAction(RoleOutput):
     record_fact: RecordFact | None
     done: Done | None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _as_the_model_writes_it(cls, data: Any) -> Any:
+        """The answer in the forms the model writes it, made the schema's: the action's
+        arguments written beside `action` instead of in its field (`{"action": "read", "ref":
+        "h5"}`), and its optional arguments left out rather than null. On 0.5.0's first
+        argument run (2026-10-07) MiniMax wrote the flat form in 15 of 27 Reader calls, the
+        repair prompt didn't change it, and four of six Readers stopped quarantined before
+        their first search. The strict schema sent to the model is unchanged."""
+        if not isinstance(data, dict):
+            return data
+        answer = dict(cast(dict[str, Any], data))
+        action = answer.get("action")
+        if isinstance(action, dict):
+            # The action's field written inside `action`: {"action": {"read": {...}}}.
+            named = [k for k, v in cast(dict[str, Any], action).items() if v is not None]
+            if len(named) == 1 and named[0] in _ACTION_FIELDS:
+                answer[named[0]] = cast(dict[str, Any], action)[named[0]]
+                action = answer["action"] = named[0]
+        if not isinstance(action, str) or action not in _ACTION_FIELDS:
+            return answer
+        fields = _ACTION_FIELDS[action]
+        model, defaults = fields
+        nested = answer.get(action)
+        # Arguments written beside `action`, all of them or some (the rest in its field).
+        flat = {name: answer.pop(name) for name in list(answer) if name in model.model_fields}
+        if isinstance(nested, dict):
+            nested = {**flat, **cast(dict[str, Any], nested)}
+        elif flat:
+            nested = flat
+        if isinstance(nested, dict):
+            args = dict(cast(dict[str, Any], nested))
+            for name, default in defaults.items():
+                args.setdefault(name, default)
+            answer[action] = args
+        for other in _ACTION_FIELDS:
+            if other != action:
+                answer.setdefault(other, None)
+        return answer
+
     @model_validator(mode="after")
     def _one_action(self) -> Self:
         given = [
@@ -257,6 +297,17 @@ class ReaderAction(RoleOutput):
                 f" every other action field null (given: {', '.join(given) or 'none'})"
             )
         return self
+
+
+# Each action's arguments model, and what an argument the model leaves out stands for (an
+# optional argument; a required one stays required).
+_ACTION_FIELDS: dict[str, tuple[type[RoleOutput], dict[str, Any]]] = {
+    "search_archive": (SearchArchive, {"company_slugs": []}),
+    "recall": (Recall, {}),
+    "read": (Read, {"ref": None, "source_version_id": None, "anchor": None, "window": None}),
+    "record_fact": (RecordFact, {"quantity": None, "period": None, "challenges": []}),
+    "done": (Done, {}),
+}
 
 
 READER = Role(

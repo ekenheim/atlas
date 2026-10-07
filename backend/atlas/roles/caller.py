@@ -400,12 +400,26 @@ _FENCE = re.compile(r"^```[a-zA-Z]*\s*\n(?P<body>.*)\n\s*```$", re.DOTALL)
 
 
 def _json_text(content: str) -> str:
-    """The JSON in `content`, past a leading `<think>` block and out of a code fence."""
+    """The JSON in `content`, past a leading `<think>` block and out of a code fence; and, when
+    that isn't JSON as it stands, its first complete object (a fence on the JSON's own line,
+    text after the object, or a stray closing brace: MiniMax wrote each on 0.5.0's first
+    argument run). Anything else is returned as it is, for the validation error to name."""
     stripped = content.strip()
     if not stripped.startswith("{") and "</think>" in stripped:
         stripped = stripped.split("</think>", 1)[1].strip()
     fenced = _FENCE.match(stripped)
-    return fenced["body"].strip() if fenced else stripped
+    text = fenced["body"].strip() if fenced else stripped
+    try:
+        json.loads(text)
+    except ValueError:
+        start = text.find("{")
+        if start >= 0:
+            try:
+                _, length = json.JSONDecoder().raw_decode(text[start:])
+            except ValueError:
+                return text
+            return text[start : start + length]
+    return text
 
 
 def _validate[ResponseT: BaseModel](

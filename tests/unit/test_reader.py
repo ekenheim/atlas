@@ -123,3 +123,63 @@ def test_a_quote_not_in_the_document_is_not_found() -> None:
 
     assert isinstance(refused, QuoteRefused) and refused.code == "quote_not_found"
     assert isinstance(place_quote(TEXT, *PASSAGE, "  "), QuoteRefused)
+
+
+def test_an_action_written_flat_or_with_optional_arguments_left_out_is_read_as_meant() -> None:
+    from atlas.roles.reader import ReaderAction
+
+    # The arguments beside `action` instead of in its field (the form MiniMax writes).
+    flat = ReaderAction.model_validate_json(
+        '{"action": "search_archive", "query": "allocation sold out", "company_slugs": ["acme"]}'
+    )
+    assert flat.search_archive is not None
+    assert (flat.search_archive.query, flat.search_archive.company_slugs) == (
+        "allocation sold out",
+        ["acme"],
+    )
+    assert flat.read is None and flat.record_fact is None
+    # Flat, with the other actions' fields written null.
+    read = ReaderAction.model_validate_json(
+        '{"action": "read", "ref": "h5", "search_archive": null, "recall": null,'
+        ' "record_fact": null, "done": null}'
+    )
+    assert read.read is not None and read.read.ref == "h5" and read.read.window is None
+    # Nested, with the optional arguments left out.
+    fact = ReaderAction.model_validate_json(
+        '{"action": "record_fact", "record_fact": {"passage_id": "p4", "quote": "We are sold'
+        ' out.", "company_slug": "acme", "step": "demand_vs_supply", "statement": "Acme says it'
+        ' is sold out.", "status": "in_effect"}}'
+    )
+    assert fact.record_fact is not None
+    assert (fact.record_fact.quantity, fact.record_fact.period, fact.record_fact.challenges) == (
+        None,
+        None,
+        [],
+    )
+    # A required argument still missing is still an error.
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ReaderAction.model_validate_json('{"action": "search_archive", "company_slugs": []}')
+
+
+def test_an_action_inside_action_or_split_between_levels_is_read_as_meant() -> None:
+    from atlas.roles.reader import ReaderAction
+
+    inside = ReaderAction.model_validate_json(
+        '{"action": {"search_archive": {"query": "InP capacity", "company_slugs": []},'
+        ' "recall": null, "read": null, "record_fact": null, "done": null}}'
+    )
+    assert inside.action == "search_archive"
+    assert inside.search_archive is not None and inside.search_archive.query == "InP capacity"
+    split = ReaderAction.model_validate_json(
+        '{"action": "search_archive", "query": "EML capacity",'
+        ' "search_archive": {"company_slugs": ["acme"]}, "recall": null, "read": null,'
+        ' "record_fact": null, "done": null}'
+    )
+    assert split.search_archive is not None
+    assert (split.search_archive.query, split.search_archive.company_slugs) == (
+        "EML capacity",
+        ["acme"],
+    )
