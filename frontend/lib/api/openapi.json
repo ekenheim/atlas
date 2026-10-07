@@ -1547,6 +1547,217 @@
         }
       }
     },
+    "/api/v1/facts": {
+      "get": {
+        "tags": [
+          "facts"
+        ],
+        "summary": "Facts",
+        "operationId": "facts_api_v1_facts_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "constraint",
+                    "demand_vs_supply",
+                    "relief",
+                    "control",
+                    "capture",
+                    "invalidation",
+                    "context"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Step"
+            }
+          },
+          {
+            "name": "investigation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Investigation Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Fact_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "facts"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_facts_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FactCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactRecorded"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/facts/{fact_id}": {
+      "get": {
+        "tags": [
+          "facts"
+        ],
+        "summary": "Fact",
+        "operationId": "fact_api_v1_facts__fact_id__get",
+        "parameters": [
+          {
+            "name": "fact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Fact Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/atlas__facts__service__Fact"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/api/v1/source-versions/{version_id}/memory": {
       "get": {
         "tags": [
@@ -12754,34 +12965,188 @@
         ],
         "title": "ExportRoleCall"
       },
-      "Fact": {
+      "FactCreate": {
         "properties": {
-          "source": {
-            "$ref": "#/components/schemas/Source"
-          },
-          "url": {
+          "subject_company_id": {
             "type": "string",
-            "title": "Url"
+            "format": "uuid",
+            "title": "Subject Company Id"
           },
-          "observed_at": {
+          "source_version_id": {
             "type": "string",
-            "format": "date-time",
-            "title": "Observed At"
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Quote",
+            "description": "exactly the parsed text at the offsets"
+          },
+          "span_start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Span End"
+          },
+          "page_or_anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Or Anchor"
+          },
+          "event_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Start"
+          },
+          "event_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event End"
+          },
+          "epistemic_type": {
+            "type": "string",
+            "enum": [
+              "direct_source_statement",
+              "company_claim",
+              "third_party_report",
+              "agent_inference",
+              "quantitative_derived"
+            ],
+            "title": "Epistemic Type"
+          },
+          "parser_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parser Version"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id",
+            "description": "the investigation it was found for, if any"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "constraint",
+              "demand_vs_supply",
+              "relief",
+              "control",
+              "capture",
+              "invalidation",
+              "context"
+            ],
+            "title": "Step"
           },
           "statement": {
             "type": "string",
+            "minLength": 1,
             "title": "Statement"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quantity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "in_effect",
+              "planned",
+              "in_development",
+              "hedged",
+              "regulatory",
+              "reported_by_third_party"
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "subject_company_id",
+          "source_version_id",
+          "quote",
+          "span_start",
+          "span_end",
+          "epistemic_type",
+          "step",
+          "statement",
+          "status"
+        ],
+        "title": "FactCreate",
+        "description": "A new Fact: the Assertion's span fields and the Fact's own."
+      },
+      "FactRecorded": {
+        "properties": {
+          "fact": {
+            "$ref": "#/components/schemas/atlas__facts__service__Fact"
+          },
+          "audit_event_id": {
+            "type": "integer",
+            "title": "Audit Event Id"
           }
         },
         "type": "object",
         "required": [
-          "source",
-          "url",
-          "observed_at",
-          "statement"
+          "fact",
+          "audit_event_id"
         ],
-        "title": "Fact",
-        "description": "One external fact the resolution used: where it came from and when it was read."
+        "title": "FactRecorded"
       },
       "FactType": {
         "type": "string",
@@ -14627,7 +14992,7 @@
           },
           "evidence": {
             "items": {
-              "$ref": "#/components/schemas/Fact"
+              "$ref": "#/components/schemas/atlas__identity__resolver__Fact"
             },
             "type": "array",
             "title": "Evidence"
@@ -17964,6 +18329,37 @@
         ],
         "title": "Page[EvaluationRunSummary]"
       },
+      "Page_Fact_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/atlas__facts__service__Fact"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Fact]"
+      },
       "Page_FetchGateDecision_": {
         "properties": {
           "items": {
@@ -19216,6 +19612,36 @@
           "version"
         ],
         "title": "PublishRequest"
+      },
+      "Quantity": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "the number as the quote gives it (it must occur there)"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Unit",
+            "description": "e.g. \"USD\", \"%\", \"wafers per month\""
+          },
+          "metric": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Metric",
+            "description": "what is measured, e.g. \"net revenue\""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "unit",
+          "metric"
+        ],
+        "title": "Quantity",
+        "description": "A magnitude the quote states."
       },
       "QueuePause": {
         "properties": {
@@ -22441,7 +22867,7 @@
           },
           "evidence": {
             "items": {
-              "$ref": "#/components/schemas/Fact"
+              "$ref": "#/components/schemas/atlas__identity__resolver__Fact"
             },
             "type": "array",
             "title": "Evidence"
@@ -26273,6 +26699,99 @@
         ],
         "title": "XbrlSource"
       },
+      "atlas__facts__service__Fact": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "constraint",
+              "demand_vs_supply",
+              "relief",
+              "control",
+              "capture",
+              "invalidation",
+              "context"
+            ],
+            "title": "Step"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "in_effect",
+              "planned",
+              "in_development",
+              "hedged",
+              "regulatory",
+              "reported_by_third_party"
+            ],
+            "title": "Status"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quantity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/Assertion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "investigation_id",
+          "step",
+          "status",
+          "statement",
+          "quantity",
+          "period",
+          "created_at",
+          "assertion"
+        ],
+        "title": "Fact",
+        "description": "A Fact; `id` is its Assertion's id."
+      },
       "atlas__hypotheses__export__Citation": {
         "properties": {
           "number": {
@@ -26384,6 +26903,35 @@
           "available_at"
         ],
         "title": "Citation"
+      },
+      "atlas__identity__resolver__Fact": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "url",
+          "observed_at",
+          "statement"
+        ],
+        "title": "Fact",
+        "description": "One external fact the resolution used: where it came from and when it was read."
       },
       "atlas__research__provenance__Citation": {
         "properties": {

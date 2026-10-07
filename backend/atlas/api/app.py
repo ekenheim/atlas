@@ -17,6 +17,7 @@ from atlas.api.common import invalid_request
 from atlas.api.discovery import discovery_router
 from atlas.api.dossier import dossier_router
 from atlas.api.evaluations import evaluations_router
+from atlas.api.facts import facts_router
 from atlas.api.financials import financials_router
 from atlas.api.hypotheses import hypotheses_router
 from atlas.api.identity import identity_router
@@ -109,6 +110,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(archive_search_router(engine, archive))
     app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
+    app.include_router(facts_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(
         memory_router(
             engine,

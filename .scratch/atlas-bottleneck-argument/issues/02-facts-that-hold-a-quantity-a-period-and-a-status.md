@@ -1,6 +1,6 @@
 # 02: Facts that hold a quantity, a period and a status
 
-**Status:** ready-for-agent
+**Status:** done
 **Type:** task
 
 **What to build:** a **Fact**: a verbatim quote at an archived span (the Assertion's span check, unchanged) about one company, recorded with the argument step it bears on and, when the quote states them, a quantity, a period or date, and a status. A Fact needs no predicate from the Relationship whitelist: it is an Assertion with predicate `fact` and a validated `value_json`:
@@ -14,7 +14,7 @@
 Why: in the verdict most of a researcher's facts were magnitudes, shares, timelines and regulatory status (export permits), which the Claim model can't hold (pilot fix 38), and Claims turned hedged or planned language into present fact (pilot fix 35): a status recorded at the source keeps the tense from the start.
 
 **Acceptance:**
-- [ ] `atlas.facts` (record, read), insert-only and audited like Assertions; `GET /api/v1/facts?company_id=&step=&investigation_id=`, `GET /api/v1/facts/{id}`; the API client regenerated.
-- [ ] Validation refuses: an unknown step or status; a quantity whose number doesn't occur in the quote; a quote not verbatim at its span (the existing check).
-- [ ] The Relationship review ignores `fact` Assertions (no edge from a Fact).
-- [ ] Tests at the API seam (real Postgres, fixture filing): record, read, each refusal.
+- [x] `atlas.facts` (record, read), insert-only and audited like Assertions; `GET /api/v1/facts?company_id=&step=&investigation_id=`, `GET /api/v1/facts/{id}`; the API client regenerated.
+- [x] Validation refuses: an unknown step or status; a quantity whose number doesn't occur in the quote; a quote not verbatim at its span (the existing check).
+- [x] The Relationship review ignores `fact` Assertions (no edge from a Fact).
+- [x] Tests at the API seam (real Postgres, fixture filing): record, read, each refusal.
