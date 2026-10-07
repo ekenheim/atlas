@@ -5,8 +5,10 @@
     "helpers:pinGitHubActionDigests"
   ],
   "description": [
-    "Every branch push runs the full CI on the owner's runner scale set; more than a few at once starve each other past the 60-minute timeout, so this repo limits what the shared preset's :disableRateLimiting lifts."
+    "Every branch push runs the full CI on the owner's runner scale set; more than a few at once starve each other past the 60-minute timeout, so this repo limits what the shared preset's :disableRateLimiting lifts.",
+    "Main's ruleset takes only a commit with a green ci run: a branch is rebased whenever main moves, so the commit Renovate automerges is the one CI tested."
   ],
+  "rebaseWhen": "behind-base-branch",
   "branchConcurrentLimit": 3,
   "prConcurrentLimit": 6,
   "lockFileMaintenance": {
