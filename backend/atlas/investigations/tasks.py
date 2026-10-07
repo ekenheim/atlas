@@ -147,7 +147,12 @@ from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import run_recorder
 from atlas.research.provenance import ProvenanceResolver
-from atlas.research.service import RecallRequest, RecallResponse, Research, ResearchScope
+from atlas.research.service import (
+    RecallResponse,
+    Research,
+    ResearchScope,
+    reading_index_recall,
+)
 from atlas.roles import (
     QuotedText,
     RoleCaller,
@@ -609,17 +614,11 @@ class TaskRunner:
 
         def ask(query: str, layer: str | None = None) -> RecallResponse:
             return research.recall(
-                RecallRequest(
-                    query=query,
-                    scope=ResearchScope(theme_ids=[theme_id], layer=layer),
-                    budget="high",
+                reading_index_recall(
+                    query,
+                    ResearchScope(theme_ids=[theme_id], layer=layer),
                     max_tokens=max_tokens,
-                    prefer_observations=True,
-                    query_timestamp=as_of,
-                    include_source_facts=True,
-                    # Each fact's chunk located in its section: the pointer's window is the
-                    # chunk's (memory-quality ticket 08; atlas.research.chunks).
-                    include_chunks=True,
+                    as_of=as_of,
                 )
             )
 

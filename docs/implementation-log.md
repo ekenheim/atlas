@@ -3529,3 +3529,7 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Tests:** ruff, pyright clean; `pytest tests/unit -k "claim or predicate or extraction"`: 165 passed. No integration test touched.
 - **Fixture only:** wording is from the filings and the labelled Claims, no live calls.
 - **Deviation:** the earlier test asserting "NVIDIA made a $2 billion investment in the Company" says nothing of direction is replaced; the ticket asks for the opposite.
+## Pilot fix 40: the conformance check recalls as investigations do
+
+- `atlas.research.service.reading_index_recall` is the one builder of the investigations' recall request; `atlas.investigations.tasks` and `atlas.conformance.run_known_answers(max_tokens=)` both use it. `scripts/memory-conformance.sh --recall-max-tokens N[,N]` (default 8192,16000); the report lists recall at 10 and 50 per budget.
+- Tests: `tests/unit/test_memory_conformance_recall.py` (recording client; unit only, integration rehearsal not run locally). Not run live.

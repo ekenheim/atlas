@@ -157,6 +157,32 @@ class RecallRequest(BaseModel):
     )
 
 
+def reading_index_recall(
+    query: str,
+    scope: ResearchScope,
+    *,
+    max_tokens: int,
+    as_of: datetime,
+) -> RecallRequest:
+    """The recall an investigation asks (memory-quality ticket 07; docs/decisions.md, "Recall
+    as a reading index"): `max_tokens` of results, budget high, an observation in place of the
+    facts it was built from, recency judged from `as_of`, each observation's sources and every
+    fact's chunk in the same answer. The one builder of it: investigations and the conformance
+    check's known answers both use it, so what is measured is what is used."""
+    return RecallRequest(
+        query=query,
+        scope=scope,
+        budget="high",
+        max_tokens=max_tokens,
+        prefer_observations=True,
+        query_timestamp=as_of,
+        include_source_facts=True,
+        # Each fact's chunk located in its section: the pointer's window is the chunk's
+        # (memory-quality ticket 08; atlas.research.chunks).
+        include_chunks=True,
+    )
+
+
 class RecalledEntity(BaseModel):
     """An entity a recalled memory names: its canonical name, and its ID when the answer's
     entity map has it."""

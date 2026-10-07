@@ -21,7 +21,11 @@
 #                    network beyond localhost, no quota
 #   --base-url URL   the Atlas whose bank the known answers are read from (default production,
 #                    https://atlas.ekenhome.se)
-#   --results DIR    where to write the report (default .scratch/live-runs/<UTC stamp>-memory-conformance)
+#   --recall-max-tokens N[,N...]
+#                    the results budget (tokens) of the known answers' recalls; repeatable or
+#                    comma-separated, the first decides the verdict (default: 8192, the
+#                    investigations' setting, and 16000; recall at 10 and 50 per value)
+#   --results DIR   where to write the report (default .scratch/live-runs/<UTC stamp>-memory-conformance)
 #   --yes            don't ask before a live run
 #   --dry-run        print what would run, and run nothing
 #
@@ -32,18 +36,22 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-mode=live only="" strict=0 yes=0 dry=0 results="" base_url=""
+mode=live only="" strict=0 yes=0 dry=0 results="" base_url="" recall_tokens=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --only) only="${2:?--only needs known-answers or behaviours}"; shift ;;
     --strict) strict=1 ;;
     --rehearse) mode=rehearse ;;
     --base-url) base_url="${2:?--base-url needs a URL}"; shift ;;
+    --recall-max-tokens)
+      value="${2:?--recall-max-tokens needs a number or a comma-separated list}"
+      [[ "$value" =~ ^[0-9]+(,[0-9]+)*$ ]] || { echo "memory-conformance: --recall-max-tokens takes numbers" >&2; exit 2; }
+      recall_tokens="${recall_tokens:+$recall_tokens,}$value"; shift ;;
     --results) results="${2:?--results needs a directory}"; shift ;;
     --yes) yes=1 ;;
     --dry-run) dry=1 ;;
     --) shift; break ;;
-    -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,34p' "$0"; exit 0 ;;
     *) echo "memory-conformance: unknown option $1 (see --help)" >&2; exit 2 ;;
   esac
   shift
@@ -70,6 +78,7 @@ else
   [[ -n "${CI:-}" ]] && die "CI is set: the live conformance check never runs in CI"
   export ATLAS_LIVE_TESTS=1
   [[ -n "$base_url" ]] && export ATLAS_CONFORMANCE_BASE_URL="${base_url%/}"
+  [[ -n "$recall_tokens" ]] && export ATLAS_CONFORMANCE_RECALL_MAX_TOKENS="$recall_tokens"
   if [[ ",$ATLAS_CONFORMANCE_PARTS," == *",behaviours,"* ]]; then
     hs_url="${ATLAS_LIVE_HINDSIGHT_URL:-}" hs_key="${ATLAS_LIVE_HINDSIGHT_API_KEY:-}"
     if [[ -z "$hs_url" && -f .env ]]; then
