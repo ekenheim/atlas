@@ -2,5 +2,35 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>ekenheim/renovate-config"
+  ],
+  "description": [
+    "Every branch push runs the full CI on the owner's runner scale set; more than a few at once starve each other past the 60-minute timeout, so this repo limits what the shared preset's :disableRateLimiting lifts."
+  ],
+  "branchConcurrentLimit": 3,
+  "prConcurrentLimit": 6,
+  "packageRules": [
+    {
+      "description": ["Frontend npm minor and patch updates merge themselves once CI is green"],
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "description": ["Lock file maintenance merges itself once CI is green"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "description": ["uv is pinned in CI, release and the Dockerfile: one PR moves them together"],
+      "matchPackageNames": ["astral-sh/uv", "ghcr.io/astral-sh/uv"],
+      "groupName": "uv"
+    },
+    {
+      "description": ["Never automatic: the runtime Python, the test Postgres (tracks production's), and Hindsight (pinned to the spiked, recorded version)"],
+      "matchPackageNames": ["python", "postgres", "ghcr.io/vectorize-io/hindsight-api"],
+      "automerge": false
+    }
   ]
 }
