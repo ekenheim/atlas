@@ -3522,3 +3522,10 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Not run:** anything live.
 - **Deviations:** the check is not applied to the company-object predicates' hedges (the Relationship review already sends those to a human), nor to negation of a constraint (one right Claim's double negative).
 - **Next:** the Investigator prompt could carry the rule, to spend fewer proposals on such sentences.
+## Pilot fix 39: `owns` from an investment or a warrant, with the direction reversed
+
+- **Files:** `backend/atlas/claims/predicates.py` (`_holds_shares`: also an investment or stake given as the party's ("NVIDIA's $2 billion equity investment in Coherent", "NVIDIA made a $2 billion investment in the Company", "equity investment from NVIDIA", "the investment we made in IQE"), a warrant as well as shares, and a recipient that is a subsidiary or affiliate of the party ("to a wholly-owned subsidiary of Amazon.com, Inc."); the docstring), `tests/unit/test_claim_predicates.py` (three new tests with SEC-filing wording; the "says nothing" test no longer uses the investment sentence, which now fixes the direction).
+- **Measured** on the 13 `owns` Claims of the 0.4.6 verdict runs (local labelled data, not in git). Before: 0 of 3 wrong-direction Claims refused (5cd6f7b1, 093d6525, 79496d5c). After: 3 of 3 refused; the 10 others (5 right, 5 off-question, direction correct) all still pass.
+- **Tests:** ruff, pyright clean; `pytest tests/unit -k "claim or predicate or extraction"`: 165 passed. No integration test touched.
+- **Fixture only:** wording is from the filings and the labelled Claims, no live calls.
+- **Deviation:** the earlier test asserting "NVIDIA made a $2 billion investment in the Company" says nothing of direction is replaced; the ticket asks for the opposite.

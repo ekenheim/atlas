@@ -481,10 +481,60 @@ def test_a_filer_that_buys_shares_is_their_holder() -> None:
 
 
 def test_a_sentence_of_no_issuance_or_purchase_says_nothing_of_the_direction() -> None:
-    quote = "NVIDIA made a $2 billion investment in the Company"
+    quote = "NVIDIA and the Company entered into a supply agreement"
     assert direction_refusal("owns", quote, NVIDIA, COHERENT, filer="object") is None
     assert direction_refusal("owns", quote, COHERENT, NVIDIA, filer="subject") is None
     assert direction_refusal("competes_with", ISSUED_AND_SOLD, COHERENT, NVIDIA) is None
+
+
+@pytest.mark.parametrize(
+    ("quote", "filer"),
+    [
+        (
+            "This partnership includes NVIDIA\N{RIGHT SINGLE QUOTATION MARK}s $2 billion equity"
+            " investment in Coherent and a multi-year supply agreement",
+            False,
+        ),
+        (
+            "NVIDIA made a $2 billion investment in the Company, through the purchase of shares",
+            True,
+        ),
+        ("the $2 billion equity investment from NVIDIA that we announced in March", True),
+    ],
+)
+def test_owns_runs_from_the_investor_to_the_company_invested_in(quote: str, filer: bool) -> None:
+    held = direction_refusal("owns", quote, NVIDIA, COHERENT, filer="object" if filer else None)
+    assert held is None
+    reversed_ = direction_refusal(
+        "owns", quote, COHERENT, NVIDIA, filer="subject" if filer else None
+    )
+    assert reversed_ is not None
+    assert "NVIDIA" in reversed_
+
+
+def test_the_filers_own_investment_makes_it_the_holder() -> None:
+    macom = company_names("MACOM", "MACOM Technology Solutions Holdings, Inc.")
+    iqe = company_names("IQE", "IQE plc")
+    for quote in (
+        "An example is the $61 million investment we made in IQE during the quarter",
+        "our $61 million investment in IQE during the June quarter",
+    ):
+        assert direction_refusal("owns", quote, macom, iqe, filer="subject") is None
+        assert direction_refusal("owns", quote, iqe, macom, filer="object") is not None
+
+
+def test_a_warrant_issued_to_a_subsidiary_makes_its_parent_the_holder() -> None:
+    aaoi = company_names("Applied Optoelectronics", "Applied Optoelectronics, Inc.")
+    amazon = company_names("Amazon", "Amazon.com, Inc.")
+    quote = (
+        'the Company issued a warrant (the "Customer Warrant") to a wholly-owned subsidiary'
+        " of Amazon.com, Inc. to purchase up to an aggregate of 7,945,399 shares of the"
+        " Company\N{RIGHT SINGLE QUOTATION MARK}s common stock"
+    )
+    assert direction_refusal("owns", quote, amazon, aaoi, filer="object") is None
+    reversed_ = direction_refusal("owns", quote, aaoi, amazon, filer="subject")
+    assert reversed_ is not None
+    assert "Amazon" in reversed_
 
 
 # Coherent's 8-K filed 2026-03-02 (the same sentence in Lumentum's, "advanced laser components").
