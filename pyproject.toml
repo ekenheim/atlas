@@ -3,7 +3,7 @@ name = "atlas-research"
 version = "0.1.0"
 description = "Evidence-driven investment research platform built around Hindsight."
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "alembic>=1.13",
     "boto3>=1.43.104",
