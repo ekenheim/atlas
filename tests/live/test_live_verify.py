@@ -199,6 +199,9 @@ class Verify:
             "retain_poll_interval_seconds": stack.poll_interval_seconds,
             "retain_poll_attempts": stack.poll_attempts,
             "retention_triage": "off",
+            # The finding judge (one call per finding) is measured on its own
+            # (`.scratch/tools/finding_judge_eval.py`); off here, inside the run's call cap.
+            "finding_judge": False,
             "triage_sections_per_call": 30,
             "backfill_window": "",
             "run_token_budget": RUN_TOKEN_BUDGET,

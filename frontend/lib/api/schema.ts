@@ -2347,6 +2347,51 @@ export interface components {
             open_questions: string[];
             /** Grounded */
             grounded?: boolean | null;
+            /** Judged */
+            judged?: boolean | null;
+        };
+        /**
+         * CardJudgement
+         * @description One verdict of the finding judge on a finding (bottleneck-argument ticket 04): the
+         *     statement it judged, `supported` or `misstated` with the words that go beyond the quotes
+         *     (`beyond`), their kinds and the judge's reason; `failed` when its call gave no answer
+         *     (`reason` says why). `attempt` 2 judges the Editor's rewrite of a misstated finding;
+         *     `outcome` what came of the finding at this attempt.
+         */
+        CardJudgement: {
+            /** Finding */
+            finding: string;
+            /**
+             * Attempt
+             * @enum {integer}
+             */
+            attempt: 1 | 2;
+            /** Statement */
+            statement: string;
+            /** Limitations */
+            limitations: string[];
+            /** Claim Ids */
+            claim_ids: string[];
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "misstated" | "failed";
+            /** Beyond */
+            beyond: string[];
+            /** Kinds */
+            kinds: string[];
+            /** Reason */
+            reason: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "kept" | "sent_back" | "dropped" | "kept_unjudged";
+            /** Role Call Id */
+            role_call_id: string | null;
+            /** Judge */
+            judge: string;
         };
         /**
          * CardQuery
@@ -7222,6 +7267,8 @@ export interface components {
             skeptic_coverage?: components["schemas"]["CardSkepticCompany"][];
             /** Grounding Limit */
             grounding_limit?: string | null;
+            /** Judged */
+            judged?: components["schemas"]["CardJudgement"][];
             /** Editor Failure */
             editor_failure?: string | null;
             /** Claims By Company */

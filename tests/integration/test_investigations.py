@@ -3742,6 +3742,198 @@ def test_a_finding_saying_what_its_claims_do_not_is_asked_again_once_then_kept_o
     }
 
 
+# --- a finding checked for meaning against its quotes (bottleneck-argument ticket 04) ----------
+
+
+def judged(
+    verdict: str, beyond: list[str] | None = None, kinds: list[str] | None = None, reason: str = ""
+) -> ChatReply:
+    answer: JsonValue = {
+        "verdict": verdict,
+        "beyond": list[JsonValue](beyond or []),
+        "kinds": list[JsonValue](kinds or []),
+        "reason": reason or "c1 states it.",
+    }
+    return ChatReply.json(answer, tokens=(600, 80))
+
+
+def test_a_misstated_finding_is_rewritten_once_then_kept_or_dropped_and_a_supported_one_kept(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start(
+        investigator_max_passages=500, investigator_passages_per_call=500, finding_judge=True
+    )
+    coherent = company_id(atlas, "coherent")
+    ten_q = atlas.version(COHR_10Q, "coherent")["id"]
+    unretained = memory_documents(atlas, ten_q)
+    services.hindsight[0].report_zero_facts(lambda document_id: document_id in unretained)
+    started = seeded(atlas, "coherent")
+    # All three pass the grounding check (every name is the quote's); only the judge reads
+    # what they do with them.
+    supported = (
+        "Coherent entered into a strategic multi-year supply agreement with NVIDIA for advanced"
+        " lasers."
+    )
+    as_present_supply = "Coherent supplies NVIDIA with advanced lasers."
+    rewritten = (
+        "Coherent entered into a supply agreement with NVIDIA for advanced lasers and optical"
+        " networking products."
+    )
+    merged = "Coherent is expanding its Sherman, Texas, facility to supply NVIDIA."
+    still_merged = "Coherent expanded its Sherman, Texas, facility for NVIDIA."
+
+    def finding(statement: str) -> dict[str, JsonValue]:
+        return {
+            "statement": statement,
+            "claim_refs": ["c1"],
+            "limitations": ["A company's own statement."],
+            "open_questions": [],
+        }
+
+    first: JsonValue = {
+        "findings": [finding(supported), finding(as_present_supply), finding(merged)],
+        "open_questions": ["Is the supply agreement exclusive?"],
+        "verdict": "answered",
+    }
+    present_reason = "c1 says Coherent 'entered into a ... supply agreement'; not that it supplies."
+    merged_reason = "c1 names the Sherman expansion and the NVIDIA agreement as separate facts."
+    revised: JsonValue = {
+        "findings": [
+            {"finding": "f2", "statement": rewritten, "limitations": []},
+            {"finding": "f3", "statement": still_merged, "limitations": []},
+        ]
+    }
+    llm.script_role("financial_analyst", ANALYSED)
+    llm.script_role(
+        "finding_judge",
+        judged("supported"),
+        judged("misstated", ["supplies NVIDIA"], ["tense_or_status"], present_reason),
+        judged("misstated", ["to supply NVIDIA"], ["merged"], merged_reason),
+        judged("supported"),
+        judged("misstated", ["for NVIDIA"], ["merged"], "c1 does not tie the two."),
+    )
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas))),
+        skeptic_plan((DILUTION, "dilution_financing")),
+        ChatReply.answer(
+            countering(counter(DILUTION_QUOTE, "dilution_financing", coherent, contradicts=False))
+        ),
+        ChatReply.json(first, tokens=(3000, 400)),
+        ChatReply.json(revised, tokens=(800, 120)),
+        REVIEWED,
+    )
+    script_searches(searxng)
+    searxng.script(DILUTION, SearchReply.of("skeptic-dilution"))
+
+    atlas.worker_pass()
+
+    found = investigation(atlas, started["id"])
+    # Each finding judged once, the two misstated ones rewritten in one Editor call, and each
+    # rewrite judged again.
+    assert roles(llm) == [
+        "scout",
+        "investigator",
+        "skeptic",
+        "skeptic",
+        "financial_analyst",
+        "editor",
+        "finding_judge",
+        "finding_judge",
+        "finding_judge",
+        "editor",
+        "finding_judge",
+        "finding_judge",
+        "reviewer",
+    ]
+    bodies = requests(llm)
+    first_judged = asked(bodies[6])
+    assert first_judged["request"]["research_question"] == QUESTION
+    assert first_judged["request"]["finding"] == {
+        "statement": supported,
+        "limitations": ["A company's own statement."],
+        "claim_refs": ["c1"],
+    }
+    # The judge reads the cited Claim's exact quote only: no bear context, no lead.
+    assert [(q["id"], q["text"]) for q in first_judged["retrieved_data"]] == [("c1", SUPPLY_QUOTE)]
+    revise = asked(bodies[9])
+    assert [
+        (f["finding"], f["statement"], f["beyond"], f["reason"])
+        for f in revise["request"]["findings"]
+    ] == [
+        ("f2", as_present_supply, ["supplies NVIDIA"], present_reason),
+        ("f3", merged, ["to supply NVIDIA"], merged_reason),
+    ]
+    assert [q["id"] for q in revise["retrieved_data"]] == ["c1"]
+    assert [asked(body)["request"]["finding"]["statement"] for body in bodies[10:12]] == [
+        rewritten,
+        still_merged,
+    ]
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [
+        (c["prompt_name"], c["prompt_version"])
+        for c in calls
+        if c["role"] in {"editor", "finding_judge"}
+    ] == [
+        ("editor", 7),
+        ("finding_judge", 1),
+        ("finding_judge", 1),
+        ("finding_judge", 1),
+        ("editor-revise", 1),
+        ("finding_judge", 1),
+        ("finding_judge", 1),
+    ]
+    # The supported finding and the accepted rewrite stand, judged; the one still misstated
+    # is set aside with the judge's reason.
+    card = found["research_card"]
+    assert [(f["claim_text"], f["grounded"], f["judged"]) for f in card["findings"]] == [
+        (supported, True, True),
+        (rewritten, True, True),
+    ]
+    assert [f["limitations"] for f in card["findings"]] == [["A company's own statement."], []]
+    [accepted] = atlas.get("/api/v1/claims", outcome="accepted")["items"]
+    assert card["unsupported_findings"] == [
+        {
+            "statement": still_merged,
+            "claim_ids": [accepted["id"]],
+            "reason": "misstated after a rewrite: c1 does not tie the two.",
+        }
+    ]
+    # Every verdict is on the card, with its reasons.
+    assert [
+        (j["finding"], j["attempt"], j["verdict"], j["outcome"], j["judge"]) for j in card["judged"]
+    ] == [
+        ("f1", 1, "supported", "kept", "finding_judge.v1"),
+        ("f2", 1, "misstated", "sent_back", "finding_judge.v1"),
+        ("f3", 1, "misstated", "sent_back", "finding_judge.v1"),
+        ("f2", 2, "supported", "kept", "finding_judge.v1"),
+        ("f3", 2, "misstated", "dropped", "finding_judge.v1"),
+    ]
+    assert card["judged"][1]["reason"] == present_reason
+    assert card["judged"][1]["kinds"] == ["tense_or_status"]
+    assert card["judged"][2]["beyond"] == ["to supply NVIDIA"]
+    assert all(j["claim_ids"] == [accepted["id"]] for j in card["judged"])
+    assert "judge model" in card["grounding_limit"]
+    assert (found["stop_reason"], found["stop_detail"]) == (
+        "needs_review",
+        "1 unsupported findings were dropped" + NVIDIA_UNCHECKED,
+    )
+    artifacts = tasks(found)["editor"]["artifacts"]
+    assert artifacts["meaning"] == {
+        "judged": 3,
+        "supported": 1,
+        "misstated": 2,
+        "failed": 0,
+        "failed_first": 0,
+        "rewritten_kept": 1,
+        "dropped": 1,
+        "revise_role_call_id": calls[[c["prompt_name"] for c in calls].index("editor-revise")][
+            "id"
+        ],
+        "revise_failure": None,
+    }
+
+
 # --- the Skeptic reads by pointers (memory-directed reading, ticket 07) --------------------------
 
 ITEM_1A = "part-i-item-1a"

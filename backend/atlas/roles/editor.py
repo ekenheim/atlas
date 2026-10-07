@@ -234,6 +234,50 @@ EDITOR_REGROUND = Role(
 )
 
 
+# --- a finding rewritten after the judge (bottleneck-argument ticket 04) -------------------------
+
+# A finding the finding judge (atlas.roles.finding_judge) found misstated is sent back once,
+# with the judge's reason and the words that went beyond its quotes; the rewritten finding is
+# checked for grounding and judged again (atlas.investigations.meaning).
+EDITOR_REVISE_PROMPT_VERSION = 1
+
+
+class EditorMisstatedFinding(_Request):
+    finding: str  # `f1`, `f2`, ...: how the answer names it
+    statement: str
+    limitations: list[str]
+    claim_refs: list[str]
+    beyond: list[str]  # the judge's words that go beyond the quotes, as the finding writes them
+    kinds: list[str]
+    reason: str  # the judge's reason
+
+
+class EditorReviseRequest(_Request):
+    research_question: str
+    findings: list[EditorMisstatedFinding]
+    claims: list[EditorCardClaim]  # the Claims those findings cite
+
+
+class RevisedFinding(RoleOutput):
+    finding: str
+    statement: str
+    limitations: list[str]
+
+
+class RevisedFindings(RoleOutput):
+    findings: list[RevisedFinding]
+
+
+# The same Editor role (its calls are recorded as `editor`), with its own versioned prompt.
+EDITOR_REVISE = Role(
+    name="editor",
+    prompt=Prompt.load(PROMPTS_DIR, "editor-revise", EDITOR_REVISE_PROMPT_VERSION),
+    request=EditorReviseRequest,
+    response=RevisedFindings,
+    max_output_tokens=4096,
+)
+
+
 # --- the Hypothesis draft (spec §5.6, §8.1) ------------------------------------------------------
 
 HYPOTHESIS_EDITOR_PROMPT_VERSION = 3  # v2: contradictions (ticket 15); v3: the bottleneck method

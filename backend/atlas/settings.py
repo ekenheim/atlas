@@ -86,6 +86,12 @@ class Settings(BaseSettings):
     # cap (atlas.roles.editor) up to this; an answer cut off at the cap is asked again once
     # with the cap doubled, up to this (memory-quality ticket 16).
     editor_max_output_tokens: int = Field(default=16_384, gt=0)
+    # The finding judge (atlas.investigations.meaning, bottleneck-argument ticket 04): each
+    # grounded finding of a research card is compared with its quotes by the `finding_judge`
+    # role, one call per finding, and a misstated one rewritten once. On by default; off, the
+    # card's findings are grounding-checked only (the test harness turns it off unless a test
+    # scripts the judge).
+    finding_judge: bool = True
     # The Investigator (atlas.claims): at most this many passages per extraction, sent this
     # many to a call.
     investigator_max_passages: int = Field(default=24, gt=0)

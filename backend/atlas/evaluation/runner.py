@@ -292,6 +292,8 @@ def _case_settings(
         hindsight_version=None,
         # Live: the case's sources go through triage into its bank, as in production.
         retention_triage="off" if mode == "fake" else "auto",
+        # The fake cases script no finding judge; live, the judge runs as in production.
+        finding_judge=mode != "fake",
         sec_live=False,
         sec_fixtures_dir=workdir / "edgar",
         sec_8k_items="*",
