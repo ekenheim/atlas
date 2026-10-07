@@ -5,6 +5,15 @@ and resume (spec Phase 4, "Research workflow"; §7.3, §7.4).
 
     scout -> investigator:<company> (one per seed company) -> skeptic || financial_analyst -> editor
 
+**The argument plan** (`plan` `argument`, chosen when the investigation is created;
+bottleneck-argument ticket 05; atlas.investigations.argument) is instead
+
+    scout -> reader:<step> (one per argument step, in parallel) -> skeptic || financial_analyst
+          -> editor
+
+every task depending on the question premise only; it does not grow after the Scout (the
+Readers choose their companies), and its Skeptic and Editor are the argument's.
+
 The Skeptic (atlas.investigations.skeptic) searches independently for counterevidence; the
 Financial Analyst proposes scenario inputs (atlas.scenarios.analyst). Each task depends on
 premises: every task on the question itself (`question`), and each Investigator task also on
@@ -84,12 +93,14 @@ from atlas.investigations.model import (
     DONE,
     INVESTIGATION_TASK_KIND,
     Budgets,
+    PlanName,
     StopReason,
     TaskRole,
 )
 from atlas.jobs.queue import JobQueue
 from atlas.relationships.review import MAX_ASSERTIONS, REVIEW_RELATIONSHIPS_KIND
 from atlas.roles import run_usage
+from atlas.roles.reader import ARGUMENT_STEPS
 
 QUESTION_PREMISE = "question"
 _DETAIL_LIMIT = 1000
@@ -192,6 +203,27 @@ def plan(seeds: Sequence[_Seed]) -> list[_PlannedTask]:
     ]
 
 
+def argument_plan() -> list[_PlannedTask]:
+    """The argument plan's round (bottleneck-argument ticket 05): the Scout, one Reader per
+    argument step (in parallel), then the Skeptic and the Financial Analyst, then the Editor.
+    It does not grow after the Scout: the Readers choose their companies."""
+    readers = [f"reader:{step.key}" for step in ARGUMENT_STEPS]
+    return [
+        _PlannedTask("scout", "scout", [], [QUESTION_PREMISE]),
+        *(_PlannedTask(key, "reader", ["scout"], [QUESTION_PREMISE]) for key in readers),
+        _PlannedTask("skeptic", "skeptic", readers, [QUESTION_PREMISE]),
+        _PlannedTask("financial_analyst", "financial_analyst", readers, [QUESTION_PREMISE]),
+        _PlannedTask(
+            "editor", "editor", [*readers, "skeptic", "financial_analyst"], [QUESTION_PREMISE]
+        ),
+    ]
+
+
+def plan_for(name: str, seeds: Sequence[_Seed]) -> list[_PlannedTask]:
+    """A round's tasks under the investigation's plan."""
+    return argument_plan() if name == "argument" else plan(seeds)
+
+
 @dataclass
 class _Task:
     id: uuid.UUID
@@ -228,6 +260,7 @@ class Investigations:
         as_of: datetime,
         budgets: Budgets,
         bank_id: str,
+        plan_name: PlanName = "default",
     ) -> uuid.UUID:
         theme_config = universe.themes.get(theme)
         if theme_config is None:
@@ -240,9 +273,9 @@ class Investigations:
                     text(
                         "INSERT INTO investigation (id, theme, question, seed_company_ids, as_of,"
                         " bank_id, max_rounds, max_leads, max_documents, max_companies,"
-                        " token_budget, created_by) VALUES (:id, :theme, :question, :seeds,"
-                        " :as_of, :bank, :rounds, :leads, :documents, :companies, :tokens,"
-                        " :actor) RETURNING *"
+                        " token_budget, created_by, plan) VALUES (:id, :theme, :question,"
+                        " :seeds, :as_of, :bank, :rounds, :leads, :documents, :companies,"
+                        " :tokens, :actor, :plan) RETURNING *"
                     ),
                     {
                         "id": investigation_id,
@@ -257,6 +290,7 @@ class Investigations:
                         "companies": budgets.max_companies,
                         "tokens": budgets.token_budget,
                         "actor": actor.name,
+                        "plan": plan_name,
                     },
                 )
                 .mappings()
@@ -279,7 +313,7 @@ class Investigations:
                         "company": company_id,
                     },
                 )
-            planned = plan(seeds)
+            planned = plan_for(plan_name, seeds)
             _insert_tasks(connection, investigation_id, 1, planned)
             event(
                 connection,
@@ -290,6 +324,7 @@ class Investigations:
                 question=question,
                 seed_company_ids=[str(seed.id) for seed in seeds],
                 plan=[task.key for task in planned],
+                plan_name=plan_name,
                 budgets=budgets.model_dump(),
             )
             for task in planned:
@@ -527,7 +562,7 @@ class Investigations:
                     text("UPDATE run SET finished_at = NULL WHERE id = :id"), {"id": run_id}
                 )
             seeds = _seeds(connection, [], investigation["seed_company_ids"])
-            planned = plan(seeds)
+            planned = plan_for(investigation["plan"], seeds)
             _insert_tasks(connection, investigation_id, next_round, planned)
             event(
                 connection,
@@ -620,6 +655,8 @@ class Investigations:
         scout = tasks.get("scout")
         if scout is None or scout.status != "succeeded" or POINTED_COMPANIES in scout.artifacts:
             return False
+        if investigation["plan"] == "argument":
+            return False  # its Readers choose their companies
         others = [task for task in tasks.values() if task.role != "scout"]
         if any(task.status not in ("pending", "cancelled", "skipped") for task in others):
             # A round whose Investigators were already under way when this rule arrived (an

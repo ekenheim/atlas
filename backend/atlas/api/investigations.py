@@ -3,7 +3,10 @@
 - `POST /investigations` (202): records the investigation, its premises and its plan
   (Scout -> one Investigator per seed company -> Skeptic || Financial Analyst -> Editor; the
   Skeptic proposes counterevidence, the Financial Analyst scenario inputs) and enqueues the
-  Scout's task. Once the Scout has asked Memory, the plan gains an Investigator for each
+  Scout's task. `plan` `argument` (bottleneck-argument ticket 05) chooses the argument plan
+  instead: Scout -> one Reader per argument step, in parallel -> Skeptic (a Reader challenging
+  their Facts) || Financial Analyst -> the Editor writing the argument (the card's `steps`).
+  Once the Scout has asked Memory, the default plan gains an Investigator for each
   other researched company its reading pointers name, in rank order, while the company
   budget has room. Budgets default to ≤ 2 rounds, `ATLAS_INVESTIGATION_MAX_LEADS` (≤ 10)
   leads, `ATLAS_INVESTIGATION_MAX_DOCUMENTS` (≤ 25) documents,
@@ -70,6 +73,7 @@ from atlas.investigations import (
     list_events,
     list_investigations,
 )
+from atlas.investigations.model import PlanName
 from atlas.jobs import JobQueue
 from atlas.settings import Settings
 
@@ -111,6 +115,11 @@ class InvestigationCreate(BaseModel):
         default=None, description="only Source Versions available by then are read; default now"
     )
     budgets: BudgetRequest = Field(default_factory=BudgetRequest)
+    plan: PlanName = Field(
+        default="default",
+        description="`default`, or `argument`: one Reader per argument step and the argument"
+        " as the card",
+    )
 
 
 class ResumeRequest(BaseModel):
@@ -199,6 +208,7 @@ def investigations_router(
                 as_of=request.as_of or now,
                 budgets=budgets,
                 bank_id=settings.hindsight_bank_id,
+                plan_name=request.plan,
             )
         except InvestigationError as error:
             return error_response(error.status, error.code, error.message)

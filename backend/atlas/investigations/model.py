@@ -35,7 +35,11 @@ STOP_REASONS: tuple[StopReason, ...] = (
     "premise_disproven",
 )
 InvestigationStatus = Literal["running", "stopped"]
-TaskRole = Literal["scout", "investigator", "skeptic", "financial_analyst", "editor"]
+TaskRole = Literal["scout", "investigator", "skeptic", "financial_analyst", "editor", "reader"]
+# Which plan an investigation runs (bottleneck-argument ticket 05): `default`, Scout ->
+# Investigators -> Skeptic || Financial Analyst -> Editor; `argument`, Scout -> one Reader per
+# argument step -> Skeptic || Financial Analyst -> the Editor writing the argument.
+PlanName = Literal["default", "argument"]
 TaskStatus = Literal[
     "pending",
     "queued",
@@ -639,6 +643,71 @@ class CardCompanyClaims(BaseModel):
     claims: list[CardClaimSummary]
 
 
+CardStepStatus = Literal["supported", "disputed", "unknown"]
+
+
+class CardFactQuantity(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    value: float
+    unit: str
+    metric: str
+
+
+class CardFact(BaseModel):
+    """A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the
+    quantity, period and status the Reader recorded, and its quote's span (`source_span`;
+    `claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it
+    speaks against (`against`)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    fact_id: uuid.UUID
+    company_id: uuid.UUID
+    company_name: str
+    step: str
+    status: str  # in_effect, planned, in_development, hedged, regulatory, reported_by_third_party
+    statement: str
+    quantity: CardFactQuantity | None
+    period: str | None
+    source_title: str
+    source_span: SourceSpan
+    evidence_available_at: datetime
+    against: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
+
+
+class CardArgumentStep(BaseModel):
+    """One step of the argument (bottleneck-argument ticket 05): its status, the Editor's
+    statement (held to its Facts' quotes by the grounding check and the finding judge; None
+    when there is none that passed), the Facts behind it, the Skeptic's counterevidence, and
+    what remains unchecked. The status is code's: `unknown` without a statement that passed or
+    without a Fact; `disputed` when counterevidence stands against the step; else
+    `supported`. `editor_status` is what the Editor proposed."""
+
+    model_config = ConfigDict(frozen=True)
+
+    step: str
+    title: str
+    asks: str
+    status: CardStepStatus
+    editor_status: CardStepStatus | None
+    statement: str | None
+    facts: list[CardFact]
+    counterevidence: list[CardFact]
+    unchecked: list[str]
+    grounded: bool | None
+    judged: bool | None
+    # What its Reader did: the queries searched, the documents read, the Facts it recorded and
+    # had refused, its summary, and why it stopped.
+    searched: list[str] = Field(default_factory=list[str])
+    documents_read: list[str] = Field(default_factory=list[str])
+    facts_refused: int = 0
+    reader_summary: str | None = None
+    reader_stop: str | None = None
+    # Whether the Skeptic was sent this step's Facts to challenge.
+    skeptic_checked: bool = False
+
+
 class ResearchCard(BaseModel):
     """The Editor's structured research card: always a draft (spec Â§7.1, Â§7.3 step 10).
 
@@ -685,6 +754,10 @@ class ResearchCard(BaseModel):
     # company instead of findings. Cards drawn before memory-quality ticket 16 have neither.
     editor_failure: str | None = None
     claims_by_company: list[CardCompanyClaims] = Field(default_factory=list[CardCompanyClaims])
+    # The plan that drew it, and the argument plan's steps (bottleneck-argument ticket 05; its
+    # card has no `findings`: each step's statement is its finding).
+    plan: PlanName = "default"
+    steps: list[CardArgumentStep] = Field(default_factory=list[CardArgumentStep])
 
 
 class EvidenceItem(BaseModel):
@@ -744,6 +817,7 @@ class Investigation(BaseModel):
     id: uuid.UUID
     theme: str
     question: str
+    plan: PlanName
     status: InvestigationStatus
     stop_reason: StopReason | None
     stop_detail: str | None
@@ -786,6 +860,7 @@ class InvestigationSummary(BaseModel):
     id: uuid.UUID
     theme: str
     question: str
+    plan: PlanName
     seed_company_ids: list[uuid.UUID]
     round: int
     status: InvestigationStatus
@@ -1045,6 +1120,7 @@ def _investigation(
         id=row["id"],
         theme=row["theme"],
         question=row["question"],
+        plan=row["plan"],
         status=row["status"],
         stop_reason=row["stop_reason"],
         stop_detail=row["stop_detail"],
@@ -1100,7 +1176,7 @@ def list_investigations(
     total = connection.execute(text("SELECT count(*) FROM investigation")).scalar_one()
     rows = connection.execute(
         text(
-            "SELECT id, theme, question, seed_company_ids, round, status, stop_reason,"
+            "SELECT id, theme, question, plan, seed_company_ids, round, status, stop_reason,"
             " created_by, created_at, stopped_at FROM investigation"
             " ORDER BY created_at DESC, id LIMIT :limit OFFSET :offset"
         ),

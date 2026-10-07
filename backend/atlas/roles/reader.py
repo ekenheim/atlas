@@ -16,8 +16,11 @@ name (the other action fields null): `search_archive`, `recall`, `read`, `record
 `ReaderAction` checks that exactly the named action's arguments are given, so an answer that
 names one action and fills another is a validation error (repaired once, then quarantined).
 
-`record_fact` carries `challenges` (always empty for a Reader): the Facts a recorded quote
-speaks against, for the argument plan's Skeptic, which runs the same loop (ticket 05).
+The argument plan's Skeptic (`ARGUMENT_SKEPTIC`, role `skeptic`, prompt `skeptic-argument`;
+ticket 05) is the same loop with the same actions: it is sent the Facts the Readers recorded
+(`challenge`, their quotes as retrieved data by reference `f1`, ...) and records
+counterevidence as Facts, each naming in `challenges` the Facts it speaks against (always
+empty for a Reader).
 """
 
 from dataclasses import dataclass
@@ -28,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
 READER_PROMPT_VERSION = 1
+ARGUMENT_SKEPTIC_PROMPT_VERSION = 1
 
 # The argument's steps (spec, "The steps of the argument"; the Serenity method's bottleneck
 # test M1 to M6), by the Fact step that records them.
@@ -263,3 +267,24 @@ READER = Role(
     max_output_tokens=2048,
 )
 READER_VERSION = f"{READER.prompt.name}.v{READER.prompt.version}"
+
+ARGUMENT_SKEPTIC = Role(
+    name="skeptic",
+    prompt=Prompt.load(PROMPTS_DIR, "skeptic-argument", ARGUMENT_SKEPTIC_PROMPT_VERSION),
+    request=ReaderRequest,
+    response=ReaderAction,
+    max_output_tokens=2048,
+)
+ARGUMENT_SKEPTIC_VERSION = f"{ARGUMENT_SKEPTIC.prompt.name}.v{ARGUMENT_SKEPTIC.prompt.version}"
+
+# The argument Skeptic's own task, across every step (its session is recorded as the
+# invalidation step's: what would invalidate the argument).
+SKEPTIC_STEP = StepDefinition(
+    "invalidation",
+    "Counterevidence against the argument",
+    "What limits, denies or dates the Facts the Readers recorded, step by step.",
+    "Capacity additions and new entrants, second sources and substitutes being qualified,"
+    " inventory build-up and cancelled orders, price cuts, customer concentration, financing"
+    " and dilution, and later statements that a plan slipped or a qualification failed; in"
+    " the same companies' and their competitors', customers' and suppliers' filings and calls.",
+)

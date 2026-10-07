@@ -168,6 +168,8 @@ class RecordedFact(_Model):
     period: str | None
     quote: str
     challenges: list[str] = Field(default_factory=list[str])
+    # The argument Skeptic's: the IDs of the Facts its `challenges` name.
+    challenged_fact_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
 
 
 class Refusal(_Model):
@@ -336,6 +338,7 @@ class ReaderSetup:
     # The argument Skeptic's: the Facts it challenges, and their quotes (by reference).
     challenge: list[ChallengedFact] = field(default_factory=list[ChallengedFact])
     challenge_quotes: list[QuotedText] = field(default_factory=list[QuotedText])
+    challenge_ids: dict[str, uuid.UUID] = field(default_factory=dict[str, uuid.UUID])
 
 
 @dataclass(frozen=True)
@@ -926,6 +929,11 @@ class Reader:
             period=proposed.period,
             quote=quote,
             challenges=challenges,
+            challenged_fact_ids=[
+                self._setup.challenge_ids[ref]
+                for ref in challenges
+                if ref in self._setup.challenge_ids
+            ],
         )
         state.facts.append(fact)
         self._result(
@@ -1104,7 +1112,7 @@ def artifacts(
                 "status": fact.status,
                 "statement": fact.statement,
                 "source_version_id": str(fact.source_version_id),
-                "challenges": list[JsonValue](fact.challenges),
+                "challenges": list[JsonValue](str(each) for each in fact.challenged_fact_ids),
             }
             for fact in state.facts
         ],

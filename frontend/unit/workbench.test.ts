@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 import type {
+  CardArgumentStep,
+  CardFact,
   CardReading,
   CardSkepticCompany,
   Counterevidence,
@@ -21,6 +23,7 @@ import {
   checklistLabel,
   counterevidenceSummary,
   entityHopSummary,
+  factLine,
   figureLabel,
   followUpBlocked,
   foundBy,
@@ -36,6 +39,7 @@ import {
   readingOutcome,
   saidBy,
   selectionSummary,
+  stepTally,
 } from "../lib/workbench";
 
 const card = {
@@ -544,4 +548,30 @@ test("the Skeptic's coverage says which companies it checked and which it did no
     "not checked: the document budget (25) was spent and 121 documents were left out",
   );
   expect(skepticCompanyLine({ ...missed, reason: null })).toBe("not checked: no reason recorded");
+});
+
+test("a Fact's line keeps its quantity, period and status as recorded", () => {
+  const fact = {
+    statement: "Vantor Photonics expects about 6,000 wafer starts per month",
+    quantity: { value: 6000, unit: "wafer starts per month", metric: "six-inch line capacity" },
+    period: "by the end of fiscal 2027",
+    status: "planned",
+  } as unknown as CardFact;
+
+  expect(factLine(fact)).toBe(
+    "Vantor Photonics expects about 6,000 wafer starts per month" +
+      " [6000 wafer starts per month (six-inch line capacity); by the end of fiscal 2027; planned]",
+  );
+  expect(factLine({ ...fact, quantity: null, period: null, status: "in_development" })).toBe(
+    "Vantor Photonics expects about 6,000 wafer starts per month [in development]",
+  );
+});
+
+test("the argument's steps are counted by status", () => {
+  const steps = ["supported", "unknown", "disputed", "unknown"].map(
+    (status) => ({ status }) as unknown as CardArgumentStep,
+  );
+
+  expect(stepTally(steps)).toBe("1 supported, 1 disputed, 2 unknown");
+  expect(stepTally([])).toBe("");
 });

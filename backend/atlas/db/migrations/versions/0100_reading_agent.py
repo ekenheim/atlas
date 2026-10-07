@@ -7,6 +7,10 @@ progress (`state`: the calls made, what was searched, recalled, read, recorded a
 and the last results). Updated after every action; the Facts it records are insert-only in
 `fact`.
 
+`investigation.plan` (ticket 05): `default` (Scout, Investigators, Skeptic and Financial
+Analyst, Editor) or `argument` (Scout, one Reader per argument step, Skeptic and Financial
+Analyst, the Editor writing the argument); `investigation_task.role` gains `reader`.
+
 Revision ID: 0100
 Revises: 0099
 """
@@ -18,6 +22,7 @@ down_revision = "0099"
 branch_labels = None
 depends_on = None
 
+_ROLES = "'scout', 'investigator', 'skeptic', 'financial_analyst', 'editor'"
 _STEPS = "'constraint', 'demand_vs_supply', 'relief', 'control', 'capture', 'invalidation'"
 
 
@@ -47,6 +52,16 @@ def upgrade() -> None:
         "CREATE INDEX ix_reader_session_investigation ON reader_session (investigation_id)"
         " WHERE investigation_id IS NOT NULL"
     )
+    # The argument plan (ticket 05): chosen when the investigation is created; its Readers are
+    # tasks of their own role.
+    op.execute(
+        "ALTER TABLE investigation ADD COLUMN plan text NOT NULL DEFAULT 'default'"
+        " CONSTRAINT investigation_plan_check CHECK (plan IN ('default', 'argument'))"
+    )
+    op.execute(
+        "ALTER TABLE investigation_task DROP CONSTRAINT investigation_task_role_check,"
+        f" ADD CONSTRAINT investigation_task_role_check CHECK (role IN ({_ROLES}, 'reader'))"
+    )
     op.execute("REVOKE ALL ON reader_session FROM PUBLIC")
     op.execute("""
         DO $$
@@ -61,3 +76,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP TABLE reader_session")
+    op.execute("DELETE FROM investigation_task WHERE role = 'reader'")
+    op.execute(
+        "ALTER TABLE investigation_task DROP CONSTRAINT investigation_task_role_check,"
+        f" ADD CONSTRAINT investigation_task_role_check CHECK (role IN ({_ROLES}))"
+    )
+    op.execute("ALTER TABLE investigation DROP COLUMN plan")

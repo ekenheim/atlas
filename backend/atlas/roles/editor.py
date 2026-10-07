@@ -278,6 +278,78 @@ EDITOR_REVISE = Role(
 )
 
 
+# --- the argument card (bottleneck-argument ticket 05) -------------------------------------------
+
+# The argument plan's Editor: the Readers' Facts and the Skeptic's counterevidence in, the
+# argument out, step by step. Each Fact goes by a short reference (`c1`, ...: the grounding
+# check and the judge read a statement's references as they read a finding's), its quote as
+# low-trust retrieved data. Code decides each step's status from what it cites and what
+# stands against it (atlas.investigations.argument).
+EDITOR_ARGUMENT_PROMPT_VERSION = 1
+
+
+class ArgumentFactItem(_Request):
+    """A Fact as the argument's Editor is sent it (its quote goes as retrieved data)."""
+
+    ref: str  # `c1`, `c2`, ...
+    step: str
+    company: str
+    statement: str  # the Reader's, in the quote's terms
+    status: str  # in_effect, planned, in_development, hedged, regulatory, ...
+    quantity: str | None
+    period: str | None
+    source_title: str
+    against: list[str]  # counterevidence: the references of the Facts it speaks against
+
+
+class ArgumentStepItem(_Request):
+    step: str
+    title: str
+    asks: str
+    fact_refs: list[str]  # the Readers' Facts recorded for this step
+    counter_refs: list[str]  # the Skeptic's Facts against this step's Facts, or on this step
+    searched: list[str]  # the Reader's queries
+    reader_summary: str | None
+
+
+class EditorArgumentRequest(_Request):
+    theme_id: str
+    theme_title: str
+    research_question: str
+    steps: list[ArgumentStepItem]
+    facts: list[ArgumentFactItem]  # the Readers'
+    counterevidence: list[ArgumentFactItem]  # the Skeptic's
+    leads: list[EditorLead]
+
+
+StepStatus = Literal["supported", "disputed", "unknown"]
+
+
+class ArgumentStepDraft(RoleOutput):
+    step: str
+    status: StepStatus
+    statement: str  # what the cited Facts establish for the step, in their quotes' terms
+    fact_refs: list[str]  # the Facts it rests on
+    counter_refs: list[str]  # the counterevidence it weighs
+    unchecked: list[str]  # what remains unchecked for the step
+
+
+class ArgumentCardDraft(RoleOutput):
+    steps: list[ArgumentStepDraft]
+    open_questions: list[str]
+    verdict: Literal["answered", "needs_review"]
+
+
+# The same Editor role (its calls are recorded as `editor`), with its own versioned prompt.
+EDITOR_ARGUMENT = Role(
+    name="editor",
+    prompt=Prompt.load(PROMPTS_DIR, "editor-argument", EDITOR_ARGUMENT_PROMPT_VERSION),
+    request=EditorArgumentRequest,
+    response=ArgumentCardDraft,
+    max_output_tokens=8192,
+)
+
+
 # --- the Hypothesis draft (spec §5.6, §8.1) ------------------------------------------------------
 
 HYPOTHESIS_EDITOR_PROMPT_VERSION = 3  # v2: contradictions (ticket 15); v3: the bottleneck method

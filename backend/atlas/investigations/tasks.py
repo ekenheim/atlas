@@ -74,6 +74,12 @@ One attempt:
      is asked again once with the cap doubled, up to `editor_max_output_tokens`; if it is
      cut off there too, or quarantined, the card is code's alone (no finding, the accepted
      Claims by company, the reason) and the investigation stops `needs_review`.
+   - **The argument plan's roles** (bottleneck-argument ticket 05; atlas.investigations.argument):
+     a **Reader** per step (atlas.investigations.reader; its session keyed by the task, so it
+     continues where it stopped), the **Skeptic** as the same loop sent the Readers' Facts to
+     challenge, the **Financial Analyst** sent the Readers' Facts in place of Claims, and the
+     **Editor** writing the argument (`EDITOR_ARGUMENT`), each step's statement through the
+     grounding check and the finding judge, each step's status decided by code.
 3. **Outcome.** Under the lock, the task's outcome is recorded and the plan advanced. When
    the run's token budget runs out, the task and the investigation stop `budget_exhausted`
    (resumable). An LLM quota or outage (a pausable failure) records `task_paused` and
@@ -110,6 +116,16 @@ from atlas.discovery.searxng import SearXNGClient
 from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
+from atlas.investigations.argument import (
+    SKEPTIC_CHALLENGED,
+    ArgumentFacts,
+    StepStatement,
+    argument_facts,
+    build_steps,
+    challenged,
+    quantity_text,
+    step_counts,
+)
 from atlas.investigations.companies import FloorCandidate, document_floor, documents_in_order
 from atlas.investigations.coverage import coverage, not_read, skeptic_coverage, unchecked_note
 from atlas.investigations.entity_hop import HopLimits, record_entity_pointers
@@ -134,6 +150,14 @@ from atlas.investigations.pointers import (
     record_pointers,
     round_reading,
     scout_queries,
+)
+from atlas.investigations.reader import (
+    READER_ACTOR,
+    Reader,
+    ReaderCompanyRow,
+    ReaderSetup,
+    open_session,
+    reader_companies,
 )
 from atlas.investigations.service import Investigations, event, lock, round_question, stop
 from atlas.investigations.skeptic import (
@@ -164,9 +188,14 @@ from atlas.roles import (
 )
 from atlas.roles.editor import (
     EDITOR,
+    EDITOR_ARGUMENT,
     EDITOR_REGROUND,
     EDITOR_REVISE,
+    ArgumentFactItem,
+    ArgumentStepDraft,
+    ArgumentStepItem,
     CardFindingDraft,
+    EditorArgumentRequest,
     EditorBearContext,
     EditorCardClaim,
     EditorContradiction,
@@ -183,6 +212,16 @@ from atlas.roles.editor import (
 )
 from atlas.roles.financial_analyst import FINANCIAL_ANALYST
 from atlas.roles.finding_judge import FINDING_JUDGE, FindingJudgement, FindingJudgeRequest
+from atlas.roles.reader import (
+    ARGUMENT_SKEPTIC,
+    ARGUMENT_SKEPTIC_VERSION,
+    ARGUMENT_STEPS,
+    READER,
+    READER_VERSION,
+    SKEPTIC_STEP,
+    STEPS,
+    ArgumentStep,
+)
 from atlas.runs import RunRecorder
 from atlas.scenarios.analyst import analyst_companies, analyst_context, keep_proposals
 from atlas.settings import Settings
@@ -422,15 +461,22 @@ class TaskRunner:
         self, job: Job, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
     ) -> _Outcome:
         role: str = task["role"]
+        argument = investigation["plan"] == "argument"
         if role == "scout":
             return self._scout(job, investigation, task, run_id)
         if role == "investigator":
             return self._investigator(job, investigation, task, run_id)
+        if role == "reader":
+            return self._reader(investigation, task, run_id)
         if role == "skeptic":
+            if argument:
+                return self._argument_skeptic(investigation, task, run_id)
             return self._skeptic(investigation, task, run_id)
         if role == "financial_analyst":
             return self._financial_analyst(investigation, run_id)
         if role == "editor":
+            if argument:
+                return self._argument_editor(investigation, task, run_id)
             return self._editor(investigation, task, run_id)
         raise RoleCallFailed(f"the {role} role is not built yet")
 
@@ -900,14 +946,22 @@ class TaskRunner:
         )
 
     def _financial_analyst(self, investigation: RowMapping, run_id: uuid.UUID) -> _Outcome:
+        argument = investigation["plan"] == "argument"
         with self._engine.connect() as connection:
-            claims = accepted_claims(connection, investigation["id"], run_id)
+            # The argument plan's Analyst is sent the Readers' Facts in place of Claims.
+            claims = (
+                argument_facts(connection, investigation["id"], statements=True).supporting
+                if argument
+                else accepted_claims(connection, investigation["id"], run_id)
+            )
             companies = analyst_companies(connection, investigation["seed_company_ids"], claims)
             if not companies:
                 return _Outcome(
                     "skipped",
                     detail=(
-                        "nothing to quantify: the Investigators accepted no Claims"
+                        "nothing to quantify: the Readers recorded no Fact about a seed company"
+                        if argument
+                        else "nothing to quantify: the Investigators accepted no Claims"
                         if not claims
                         else "nothing to quantify: no accepted Claim names a seed company"
                     ),
@@ -1297,6 +1351,434 @@ class TaskRunner:
             card=card,
         )
 
+    # --- the argument plan (bottleneck-argument ticket 05) -------------------------------------
+
+    def _reader_recall(
+        self, theme_id: str, universe: Universe, as_of: datetime, actor: Actor
+    ) -> Recall:
+        """Memory across the theme, asked like a reading index at the Reader's text budget."""
+        research = Research(
+            self._engine, open_archive(self._settings), self._gateway, actor, lambda: universe
+        )
+        max_tokens = self._settings.reader_recall_max_tokens
+
+        def ask(query: str) -> RecallResponse:
+            return research.recall(
+                reading_index_recall(
+                    query, ResearchScope(theme_ids=[theme_id]), max_tokens=max_tokens, as_of=as_of
+                )
+            )
+
+        return ask
+
+    def _run_reader(
+        self,
+        investigation: RowMapping,
+        task: RowMapping,
+        run_id: uuid.UUID,
+        *,
+        skeptic: bool,
+        setup: Callable[[list[ReaderCompanyRow], str], ReaderSetup],
+    ) -> _Outcome:
+        """One Reader (or the argument Skeptic) in the investigation's run, its session keyed
+        by the task, so a retried, paused or resumed task continues it."""
+        universe = load_universe(self._settings.themes_config)
+        theme = universe.themes.get(investigation["theme"])
+        question = self._question(investigation, task)
+        step: ArgumentStep = SKEPTIC_STEP.key if skeptic else _step_of(task["key"])
+        with self._engine.begin() as connection:
+            companies = reader_companies(
+                connection,
+                investigation["seed_company_ids"],
+                list(theme.companies) if theme else [],
+            )
+            session = open_session(
+                connection,
+                key=f"task:{task['id']}",
+                run_id=lambda: run_id,
+                role="skeptic" if skeptic else "reader",
+                step=step,
+                question=question,
+                as_of=investigation["as_of"],
+                task_id=task["id"],
+                investigation_id=investigation["id"],
+            )
+        actor = SKEPTIC_ACTOR if skeptic else READER_ACTOR
+        with self._caller(investigation) as caller:
+            reader = Reader(
+                self._engine,
+                open_archive(self._settings),
+                caller,
+                self._reader_recall(
+                    investigation["theme"], universe, investigation["as_of"], actor
+                ),
+                role=ARGUMENT_SKEPTIC if skeptic else READER,
+                extractor_version=ARGUMENT_SKEPTIC_VERSION if skeptic else READER_VERSION,
+                actor=actor,
+                max_calls=self._settings.reader_max_calls,
+                max_passages=self._settings.reader_max_passages,
+            )
+            outcome = reader.run(session, setup(companies, question))
+        if outcome.status == "budget_exhausted":
+            return _Outcome(
+                "budget_exhausted",
+                detail=f"the run's token budget ran out during the {task['key']} task",
+                artifacts=outcome.artifacts,
+            )
+        return _Outcome("succeeded", artifacts=outcome.artifacts)
+
+    def _reader(self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID) -> _Outcome:
+        step = STEPS[_step_of(task["key"])]
+        return self._run_reader(
+            investigation,
+            task,
+            run_id,
+            skeptic=False,
+            setup=lambda companies, question: ReaderSetup(
+                question=question,
+                step=step,
+                companies=companies,
+                investigation_id=investigation["id"],
+            ),
+        )
+
+    def _argument_skeptic(
+        self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
+    ) -> _Outcome:
+        with self._engine.connect() as connection:
+            facts = argument_facts(connection, investigation["id"])
+        if not facts.supporting:
+            return _Outcome(
+                "skipped",
+                detail="nothing to challenge: the Readers recorded no Fact",
+                artifacts={"facts_to_challenge": 0},
+            )
+        sent, quotes = challenged(facts.supporting)
+        ids = {each.ref: row["id"] for each, row in zip(sent, facts.supporting, strict=False)}
+        outcome = self._run_reader(
+            investigation,
+            task,
+            run_id,
+            skeptic=True,
+            setup=lambda companies, question: ReaderSetup(
+                question=question,
+                step=SKEPTIC_STEP,
+                companies=companies,
+                investigation_id=investigation["id"],
+                challenge=sent,
+                challenge_quotes=quotes,
+                challenge_ids=ids,
+            ),
+        )
+        outcome.artifacts |= {
+            "facts_to_challenge": len(sent),
+            SKEPTIC_CHALLENGED: [str(each) for each in ids.values()],
+        }
+        return outcome
+
+    def _argument_editor(
+        self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
+    ) -> _Outcome:
+        with self._engine.connect() as connection:
+            facts = argument_facts(connection, investigation["id"])
+            leads = connection.execute(
+                text(
+                    "SELECT l.id, l.url, l.title, l.snippet FROM investigation_lead il"
+                    " JOIN lead l ON l.id = il.lead_id WHERE il.investigation_id = :id"
+                    " ORDER BY il.rank"
+                ),
+                {"id": investigation["id"]},
+            ).all()
+            searched, _ = coverage(connection, investigation["id"])
+            skeptic_task = (
+                connection.execute(
+                    text(
+                        "SELECT status, artifacts FROM investigation_task"
+                        " WHERE investigation_id = :id AND round = :round AND key = 'skeptic'"
+                    ),
+                    {"id": investigation["id"], "round": task["round"]},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        round_ = task["round"]
+        if round_ > 1 and not any(
+            facts.rounds.get(row["id"]) == round_ for row in facts.supporting
+        ):
+            return _Outcome(
+                "skipped",
+                detail="no new Fact: the round's Readers recorded none, so the earlier card stands",
+                artifacts={"facts": len(facts.supporting), "new_facts": 0},
+            )
+        skeptic_artifacts: dict[str, Any] = dict(skeptic_task["artifacts"]) if skeptic_task else {}
+        skeptic_ran = skeptic_task is not None and skeptic_task["status"] == "succeeded"
+        recorded = cast(list[Any], skeptic_artifacts.get(SKEPTIC_CHALLENGED) or [])
+        skeptic_checked = {uuid.UUID(str(each)) for each in recorded}
+        rows = [*facts.supporting, *facts.counter]
+        refs = {f"c{index}": row for index, row in enumerate(rows, start=1)}
+        ref_of = {row["id"]: ref for ref, row in refs.items()}
+        theme = load_universe(self._settings.themes_config).themes.get(investigation["theme"])
+        latest = {s.step: s for s in facts.sessions if s.role == "reader"}
+        request = EditorArgumentRequest(
+            theme_id=investigation["theme"],
+            theme_title=theme.title if theme else investigation["theme"],
+            research_question=investigation["question"],
+            steps=[
+                ArgumentStepItem(
+                    step=step.key,
+                    title=step.title,
+                    asks=step.asks,
+                    fact_refs=_step_refs(facts, ref_of, step.key)[0],
+                    counter_refs=_step_refs(facts, ref_of, step.key)[1],
+                    searched=(
+                        [str(each["query"]) for each in latest[step.key].state.searches]
+                        if step.key in latest
+                        else []
+                    ),
+                    reader_summary=(latest[step.key].state.summary if step.key in latest else None),
+                )
+                for step in ARGUMENT_STEPS
+            ],
+            facts=[_argument_item(ref_of[r["id"]], r, []) for r in facts.supporting],
+            counterevidence=[
+                _argument_item(
+                    ref_of[r["id"]],
+                    r,
+                    [ref_of[each] for each in facts.against.get(r["id"], []) if each in ref_of],
+                )
+                for r in facts.counter
+            ],
+            leads=[
+                EditorLead(lead_id=str(lead.id), title=lead.title, url=lead.url) for lead in leads
+            ],
+        )
+        retrieved = [
+            QuotedText(
+                id=ref,
+                source=f"{row['source_version_id']}#{row['span_start']}-{row['span_end']}",
+                text=row["quote"],
+            )
+            for ref, row in refs.items()
+        ] + [
+            QuotedText(id=str(lead.id), source=lead.url, text=f"{lead.title}\n{lead.snippet}")
+            for lead in leads
+        ]
+        bound = self._settings.editor_max_output_tokens
+        cap = min(EDITOR_ARGUMENT.max_output_tokens, bound)
+        card_base: dict[str, Any] = {
+            "status": "draft",
+            "question": investigation["question"],
+            "findings": [],
+            "claims_considered": 0,
+            "lead_ids": [lead.id for lead in leads],
+            "disproven_premises": [],
+            "searched": searched,
+            "plan": "argument",
+        }
+        try:
+            with self._caller(investigation) as caller:
+                try:
+                    draft, role_call_id = caller.call_recorded(
+                        EDITOR_ARGUMENT,
+                        request,
+                        run_id=run_id,
+                        retrieved=retrieved,
+                        max_output_tokens=cap,
+                    )
+                except RoleOutputTruncated:
+                    if cap >= bound:
+                        raise
+                    draft, role_call_id = caller.call_recorded(
+                        EDITOR_ARGUMENT,
+                        request,
+                        run_id=run_id,
+                        retrieved=retrieved,
+                        max_output_tokens=min(2 * cap, bound),
+                    )
+        except RoleOutputQuarantined as failure:
+            steps = build_steps(facts, {}, refs, skeptic_checked, skeptic_ran)
+            stop_reason = "needs_review" if facts.supporting else "no_new_independent_evidence"
+            card = ResearchCard(
+                **card_base,
+                open_questions=[],
+                unsupported_findings=[],
+                editor_verdict="needs_review",
+                editor_role_call_id=failure.role_call_id,
+                editor_failure=str(failure),
+                steps=steps,
+            )
+            return _Outcome(
+                "succeeded",
+                artifacts={
+                    "role_call_id": str(failure.role_call_id),
+                    "facts": len(facts.supporting),
+                    "counterevidence": len(facts.counter),
+                    "editor_failure": str(failure),
+                    "steps": step_counts(steps),
+                    "stop_reason": stop_reason,
+                    "stop_detail": f"the Editor failed, so no step has a statement: {failure}",
+                },
+                card=card,
+            )
+        # The first statement the Editor wrote for each step; what it cites must be Facts.
+        drafts: dict[str, ArgumentStepDraft] = {}
+        for each in draft.steps:
+            if each.step in STEPS and each.step not in drafts:
+                drafts[each.step] = each
+        unsupported: list[UnsupportedFinding] = []
+        checking: list[tuple[str, CardFindingDraft, list[str]]] = []
+        for key, each in drafts.items():
+            cited = list(dict.fromkeys([*each.fact_refs, *each.counter_refs]))
+            unknown = [ref for ref in cited if ref not in refs]
+            if unknown:
+                unsupported.append(
+                    UnsupportedFinding(
+                        statement=each.statement,
+                        claim_ids=[str(refs[r]["id"]) if r in refs else r for r in cited],
+                        reason="cites what isn't a Fact of this investigation: "
+                        + ", ".join(unknown),
+                    )
+                )
+                continue
+            if not cited:
+                continue  # a statement resting on no Fact says only that the step is unknown
+            finding = CardFindingDraft(
+                statement=each.statement, claim_refs=cited, limitations=[], open_questions=[]
+            )
+            checking.append((key, finding, cited))
+        checked = check_findings(
+            [(finding, cited) for _, finding, cited in checking],
+            refs,
+            investigation["question"],
+            self._company_names(),
+            lambda again, quotes: self._ask_editor_again(investigation, run_id, again, quotes),
+        )
+        kept: dict[str, tuple[str, bool | None]] = {}
+        grounded: list[tuple[str, CheckedFinding]] = []
+        for (key, _, _), each in zip(checking, checked.findings, strict=True):
+            if each.ungrounded:
+                unsupported.append(
+                    UnsupportedFinding(
+                        statement=each.draft.statement,
+                        claim_ids=[str(refs[ref]["id"]) for ref in each.cited],
+                        reason="ungrounded: " + ", ".join(each.ungrounded),
+                    )
+                )
+                continue
+            grounded.append((key, each))
+        meaning = None
+        if self._settings.finding_judge and grounded:
+            meaning = judge_findings(
+                [each for _, each in grounded],
+                refs,
+                investigation["question"],
+                self._company_names(),
+                lambda asked, quotes: self._judge_finding(investigation, run_id, asked, quotes),
+                lambda asked, quotes: self._ask_editor_to_revise(
+                    investigation, run_id, asked, quotes
+                ),
+            )
+            for (key, _), outcome in zip(grounded, meaning.outcomes, strict=True):
+                if not outcome.kept:
+                    unsupported.append(
+                        UnsupportedFinding(
+                            statement=outcome.draft.statement,
+                            claim_ids=[str(refs[ref]["id"]) for ref in outcome.cited],
+                            reason=outcome.reason or "misstated",
+                        )
+                    )
+                    continue
+                kept[key] = (outcome.draft.statement, outcome.judged)
+        else:
+            for key, each in grounded:
+                kept[key] = (each.draft.statement, None)
+        statements = {
+            key: StepStatement(
+                statement=kept[key][0] if key in kept else None,
+                cited=list(dict.fromkeys([*each.fact_refs, *each.counter_refs])),
+                editor_status=each.status,
+                unchecked=each.unchecked,
+                grounded=True if key in kept else None,
+                judged=kept[key][1] if key in kept else None,
+            )
+            for key, each in drafts.items()
+        }
+        steps = build_steps(facts, statements, refs, skeptic_checked, skeptic_ran)
+        unjudged = meaning.counts["failed_first"] if meaning is not None else 0
+        unknown_steps = [s.step for s in steps if s.status == "unknown"]
+        disputed = [s.step for s in steps if s.status == "disputed"]
+        if not facts.supporting:
+            stop_reason = "no_new_independent_evidence"
+            stop_detail = "no Fact: the Readers recorded none, so every step is unknown"
+        elif (
+            draft.verdict == "answered"
+            and not unknown_steps
+            and not disputed
+            and not unsupported
+            and not unjudged
+        ):
+            stop_reason = "answered"
+            stop_detail = "every step of the argument is supported by its Facts"
+        else:
+            stop_reason = "needs_review"
+            problems: list[str] = []
+            if unknown_steps:
+                problems.append(f"steps unknown: {', '.join(unknown_steps)}")
+            if disputed:
+                problems.append(f"steps disputed: {', '.join(disputed)}")
+            if unsupported:
+                problems.append(f"{len(unsupported)} statements were dropped")
+            if unjudged:
+                problems.append(f"{unjudged} statements could not be judged for meaning")
+            if draft.verdict != "answered":
+                problems.append("the Editor asks for review")
+            stop_detail = "; ".join(problems)
+        card = ResearchCard(
+            **card_base,
+            open_questions=draft.open_questions,
+            unsupported_findings=unsupported,
+            editor_verdict=draft.verdict,
+            editor_role_call_id=role_call_id,
+            grounding_limit=GROUNDING_LIMIT + (JUDGE_LIMIT if meaning is not None else ""),
+            judged=meaning.judgements if meaning is not None else [],
+            steps=steps,
+        )
+        return _Outcome(
+            "succeeded",
+            artifacts={
+                "role_call_id": str(role_call_id),
+                "facts": len(facts.supporting),
+                "counterevidence": len(facts.counter),
+                "steps": step_counts(steps),
+                "statements_kept": len(kept),
+                "unsupported_findings": len(unsupported),
+                "grounding": {
+                    "asked_again": checked.asked_again,
+                    "repaired": checked.repaired,
+                    "role_call_id": (
+                        str(checked.role_call_id) if checked.role_call_id is not None else None
+                    ),
+                    "failure": checked.failure,
+                },
+                "meaning": (
+                    {
+                        **meaning.counts,
+                        "revise_role_call_id": (
+                            str(meaning.revise_role_call_id)
+                            if meaning.revise_role_call_id is not None
+                            else None
+                        ),
+                        "revise_failure": meaning.revise_failure,
+                    }
+                    if meaning is not None
+                    else None
+                ),
+                "stop_reason": stop_reason,
+                "stop_detail": stop_detail,
+            },
+            card=card,
+        )
+
 
 # --- helpers ------------------------------------------------------------------------------------
 
@@ -1663,6 +2145,43 @@ def bear_context_for_editor(
         for span in (item.source_span,)
     ]
     return sent, quoted
+
+
+def _step_of(key: str) -> ArgumentStep:
+    """The argument step of a Reader task (`reader:<step>`)."""
+    step = key.removeprefix("reader:")
+    if step not in STEPS:
+        raise RoleCallFailed(f"no argument step {step!r} for task {key!r}")
+    return STEPS[step].key
+
+
+def _step_refs(
+    facts: ArgumentFacts, ref_of: Mapping[uuid.UUID, str], step: str
+) -> tuple[list[str], list[str]]:
+    """A step's Facts and the counterevidence against it (on the step, or against one of its
+    Facts), by the Editor's references."""
+    ids = {row["id"] for row in facts.supporting if row["step"] == step}
+    counter = [
+        ref_of[row["id"]]
+        for row in facts.counter
+        if row["step"] == step or set(facts.against.get(row["id"], [])) & ids
+    ]
+    return [ref_of[row["id"]] for row in facts.supporting if row["id"] in ids], counter
+
+
+def _argument_item(ref: str, row: RowMapping, against: list[str]) -> ArgumentFactItem:
+    value: dict[str, Any] = row["value_json"] if isinstance(row["value_json"], dict) else {}
+    return ArgumentFactItem(
+        ref=ref,
+        step=row["step"],
+        company=row["subject_name"],
+        statement=str(value.get("statement", "")),
+        status=str(value.get("status", "")),
+        quantity=quantity_text(row),
+        period=value.get("period"),
+        source_title=row["source_title"],
+        against=against,
+    )
 
 
 def _budget_detail(role: str, error: TokenBudgetExhausted) -> str:

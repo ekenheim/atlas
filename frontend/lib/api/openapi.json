@@ -8270,6 +8270,163 @@
           "closed"
         ]
       },
+      "CardArgumentStep": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "asks": {
+            "type": "string",
+            "title": "Asks"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "disputed",
+              "unknown"
+            ],
+            "title": "Status"
+          },
+          "editor_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "supported",
+                  "disputed",
+                  "unknown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor Status"
+          },
+          "statement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/CardFact"
+            },
+            "type": "array",
+            "title": "Facts"
+          },
+          "counterevidence": {
+            "items": {
+              "$ref": "#/components/schemas/CardFact"
+            },
+            "type": "array",
+            "title": "Counterevidence"
+          },
+          "unchecked": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unchecked"
+          },
+          "grounded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grounded"
+          },
+          "judged": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judged"
+          },
+          "searched": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Searched"
+          },
+          "documents_read": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Documents Read"
+          },
+          "facts_refused": {
+            "type": "integer",
+            "title": "Facts Refused",
+            "default": 0
+          },
+          "reader_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reader Summary"
+          },
+          "reader_stop": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reader Stop"
+          },
+          "skeptic_checked": {
+            "type": "boolean",
+            "title": "Skeptic Checked",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "title",
+          "asks",
+          "status",
+          "editor_status",
+          "statement",
+          "facts",
+          "counterevidence",
+          "unchecked",
+          "grounded",
+          "judged"
+        ],
+        "title": "CardArgumentStep",
+        "description": "One step of the argument (bottleneck-argument ticket 05): its status, the Editor's\nstatement (held to its Facts' quotes by the grounding check and the finding judge; None\nwhen there is none that passed), the Facts behind it, the Skeptic's counterevidence, and\nwhat remains unchecked. The status is code's: `unknown` without a statement that passed or\nwithout a Fact; `disputed` when counterevidence stands against the step; else\n`supported`. `editor_status` is what the Editor proposed."
+      },
       "CardBearContext": {
         "properties": {
           "checklist_item": {
@@ -8674,6 +8831,116 @@
         ],
         "title": "CardDocumentRead",
         "description": "A Source Version an Investigator or Skeptic task read, and the sections of the\npassages it was sent."
+      },
+      "CardFact": {
+        "properties": {
+          "fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Fact Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardFactQuantity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "source_title": {
+            "type": "string",
+            "title": "Source Title"
+          },
+          "source_span": {
+            "$ref": "#/components/schemas/SourceSpan"
+          },
+          "evidence_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evidence Available At"
+          },
+          "against": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Against"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fact_id",
+          "company_id",
+          "company_name",
+          "step",
+          "status",
+          "statement",
+          "quantity",
+          "period",
+          "source_title",
+          "source_span",
+          "evidence_available_at"
+        ],
+        "title": "CardFact",
+        "description": "A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the\nquantity, period and status the Reader recorded, and its quote's span (`source_span`;\n`claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it\nspeaks against (`against`)."
+      },
+      "CardFactQuantity": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "unit",
+          "metric"
+        ],
+        "title": "CardFactQuantity"
       },
       "CardFinding": {
         "properties": {
@@ -15306,6 +15573,14 @@
             "type": "string",
             "title": "Question"
           },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "default",
+              "argument"
+            ],
+            "title": "Plan"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -15486,6 +15761,7 @@
           "id",
           "theme",
           "question",
+          "plan",
           "status",
           "stop_reason",
           "stop_detail",
@@ -15560,6 +15836,16 @@
           },
           "budgets": {
             "$ref": "#/components/schemas/BudgetRequest"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "default",
+              "argument"
+            ],
+            "title": "Plan",
+            "description": "`default`, or `argument`: one Reader per argument step and the argument as the card",
+            "default": "default"
           }
         },
         "additionalProperties": false,
@@ -15876,6 +16162,14 @@
             "type": "string",
             "title": "Question"
           },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "default",
+              "argument"
+            ],
+            "title": "Plan"
+          },
           "seed_company_ids": {
             "items": {
               "type": "string",
@@ -15941,6 +16235,7 @@
           "id",
           "theme",
           "question",
+          "plan",
           "seed_company_ids",
           "round",
           "status",
@@ -22748,6 +23043,22 @@
             },
             "type": "array",
             "title": "Claims By Company"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "default",
+              "argument"
+            ],
+            "title": "Plan",
+            "default": "default"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/CardArgumentStep"
+            },
+            "type": "array",
+            "title": "Steps"
           }
         },
         "type": "object",
@@ -25182,7 +25493,8 @@
               "investigator",
               "skeptic",
               "financial_analyst",
-              "editor"
+              "editor",
+              "reader"
             ],
             "title": "Role"
           },
