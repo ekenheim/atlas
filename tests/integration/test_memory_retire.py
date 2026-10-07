@@ -32,6 +32,7 @@ from tests.harness import BANK, LITE_10K, TEMPLATE, Atlas
 LITE = "https://www.sec.gov/Archives/edgar/data/1633978"
 LITE_10Q = f"{LITE}/000162828026030777/lite-20260328.htm"
 LITE_8K = f"{LITE}/000162828026055726/lite-20260811.htm"
+LITE_8K_EX991 = f"{LITE}/000162828026055726/lite_ex991xq4fy26.htm"
 
 
 @pytest.fixture
@@ -266,8 +267,14 @@ def test_max_sections_bounds_each_run_newest_first_and_failed_ones_are_taken_too
     # The newest document first (the 8-K), in section order; then the 10-Q.
     cut = atlas.available(LITE_10K)
     order = atlas.sections_before(cut)
-    # The 8-K, the newest of the old documents, comes first, in section order.
-    assert order[:3] == [
+    # The 8-K's filing, the newest of the old documents, comes first: the 8-K and its
+    # EX-99.1 share an available_at, so which of the two leads is the version ID's order.
+    # Within the 8-K, section order.
+    newest = {
+        d["document_id"] for d in [*eight_k.values(), *atlas.documents(LITE_8K_EX991).values()]
+    }
+    assert set(order[: len(newest)]) == newest
+    assert [o for o in order if o in {d["document_id"] for d in eight_k.values()}] == [
         d["document_id"] for d in sorted(eight_k.values(), key=lambda d: d["char_start"])
     ]
     assert set(order) >= {d["document_id"] for d in ten_q.values()}
