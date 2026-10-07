@@ -3879,12 +3879,12 @@ def test_a_misstated_finding_is_rewritten_once_then_kept_or_dropped_and_a_suppor
         if c["role"] in {"editor", "finding_judge"}
     ] == [
         ("editor", 7),
-        ("finding_judge", 1),
-        ("finding_judge", 1),
-        ("finding_judge", 1),
+        ("finding_judge", 2),
+        ("finding_judge", 2),
+        ("finding_judge", 2),
         ("editor-revise", 1),
-        ("finding_judge", 1),
-        ("finding_judge", 1),
+        ("finding_judge", 2),
+        ("finding_judge", 2),
     ]
     # The supported finding and the accepted rewrite stand, judged; the one still misstated
     # is set aside with the judge's reason.
