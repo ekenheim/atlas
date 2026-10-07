@@ -244,3 +244,193 @@ The 28, each with its quote:
 | Machine-reviewed edges | 1 of 1 right | pooled over the five runs | (1 edge) |
 
 **Investigation 1 on 0.3.1 does not meet the bar:** the trust gate's second half fails and the run takes 35 minutes. What changed against the 0.2.5 run is large: 182 accepted Claims against 10, precision 84.6% against 60%, six companies read against two, the substrate maker and its agreements with both seeds on the card, baseline coverage 5 of 10 against 2 of 10 on the same strict reading. What stands between this run and the bar is the Editor's licence with its findings and the serial plan, not the reading.
+
+## The verdict runs on 0.4.6 (2026-10-07)
+
+**Preconditions, recorded 2026-10-07 12:20 UTC, before the first run** (the frozen procedure, section 1).
+
+- **Version:** `atlas_build_info{version="0.4.6"}`; `/health/ready` ready (database, archive, hindsight, litellm all `ok`). `main` holds no backend or config change after `v0.4.6` (frontend and dependency updates only), so nothing is released before the runs.
+- **Memory** (`GET /api/v1/memory/health`): 3,570 sections: 1,703 completed, 1,812 retired, 55 zero-fact, 0 pending, 0 failed, 0 stuck; 1,758 at profile, 0 below; 45,276 facts. Versions: 522 in Memory, 443 retired, 232 all skipped, 0 not submitted, 0 triage failed. No failed groups; nothing pending at any age.
+- **Consolidation:** run `538b0cd3` (requested 2026-10-04 23:19 UTC) completed 2026-10-07 12:09 UTC after 583 rounds; `pending_consolidation` 1. Its observations are mixed: qwen3.8 27B on the 5090 (2026-10-04 11:13 to 10-05 07:19 UTC), MiniMax-M3 after, the 5090 again whenever MiniMax capped (ticket 21).
+- **Reconciliation:** `eda74a86` (2026-10-07 03:30 UTC) `clean`, every count 0.
+- **Conformance** (`scripts/memory-conformance.sh --only known-answers --strict`, read-only, no LLM call): **failed.** Recall at 10 is 0.08 (threshold 0.25), at 50 0.12 (threshold 0.5), over 25 answers; 2 found in the top 10, 3 in the top 50 (the before-measure on 2026-10-02: 0.22 and 0.22 over 23). By question: inp-substrates 0.50/0.75, every other question 0/0. Report: `.scratch/live-runs/pilot-0.4.6-conformance/`. The behaviours half was not run (it spends MiniMax, and the weekly allowance was at 81%).
+  - Diagnosis, one recall per probe query through `POST /memory/recall`: a laser-chips recall returns 23 observations of 29 memories, mostly built from call transcripts and on the question; but recalling world and experience facts only points at the same 4 of 17 answer sections as recalling everything. The filings' Item 1, 1A and 7 sections that hold the answers are in Memory and ranked beyond 50 or not pointed at: filing recall, not observations crowding them out. (The check recalls at Hindsight's defaults, budget `mid` and 4,096 tokens; investigations recall at `high` and 8,192 tokens, so they reach more than this figure.)
+  - **The owner's decision (2026-10-07): the runs start on the failed report**, and the verdict says so.
+- **Queue:** no pause; the `minimax` window empty (0 of 8,000,000 tokens). The owner's weekly MiniMax allowance was at 81% used; a run on this version costs about 1.6M tokens (investigation 1's 0.3.1 run), so the five need about 8M.
+
+### Investigation 1 on 0.4.6: laser chips for 800G/1.6T
+
+- **ID:** `b226f892-2718-47ec-857e-4be38affd699`. **Seeds:** Lumentum, Coherent (the plan's question verbatim; a 2,000,000-token budget). **Stop:** `needs_review` ("6 unsupported findings were dropped; the Editor asks for review; the Skeptic did not check IQE"). **Usage:** 933,832 tokens in, 53,822 out; 85 role calls (Scout 1, Investigator 72, Skeptic 9, Financial Analyst 1, Editor 2), 2 schema repairs; 1 round; 10 leads, 25 documents, 6 Investigators (Lumentum, Coherent, and AXT, MACOM, Applied Optoelectronics and Marvell from Memory's pointers); 26 minutes 16 seconds (12:22:53 to 12:49:09 UTC), no budget pause. In the last 4 minutes the lead's recall-size test (about 100 recalls) ran on production beside it.
+- **Review:** two blind Opus reviewers per chunk of Claims (4 chunks), agreement 86 of 95, **Cohen's kappa 0.81**; the lead adjudicated the 9 disagreements (3 right, 6 wrong), confirmed all 12 Claims both called wrong and a random 6 of the 60 both called right. Artifacts: `.scratch/live-runs/pilot-0.4.6/inv-1/review/` (`workflow-result.json`, `disagreements.json`).
+
+**Saved work.** Three findings, each answering a clause with named companies; two fail the trust gate (below), so none is counted until fixed.
+1. Lumentum on high-power CW lasers for CPO: "We see the one competitor, right, who is Coherent that AMB also signed an LTA with, right? And we are really not seeing anybody else in this high-power laser area." (claim `a823081f`). Correct and on the clause "who supplies the laser chips"; it is Lumentum's own view and covers high-power CW only.
+2. AXT as the InP substrate supplier to both seeds: a Capacity Reservation Agreement with Lumentum "for the supply and capacity reservation of InP wafer substrates" (`aaa6335f`), a Master Development and Supply Agreement with Coherent "for the development and supply of certain agreed-upon specifications for 6-inch InP wafer substrates" (`adcf1b4e`), and "We agreed to increase the manufacturing capacity of the Products at our Beijing, China facility in 2026 through 2028" (`b8838257`). The feedstock clause, answered with names.
+3. Coherent and NVIDIA, and Coherent's InP allocation: a multi-year supply agreement "for advanced lasers and optical networking products" (`840fe71d`) and "we allocate indium phosphide capacity to whatever drives the most, the highest margin dollars" (`a623aeff`). The allocation clause, answered.
+
+**Unsupported or wrong.**
+- **Trust gate: fails on findings 2 and 3** (the Editor's wording, not the Claims). Finding 3 says InP devices take "one- to three-month[s]" to reach shipped transceivers; the quote (`c86629a1`) says "the next quarter, two to three months later". Finding 2 says AXT "manufactures … 6-inch InP wafer substrates"; the quote (`adcf1b4e`) gives an agreement "for the development and supply" of them, and its limitations say AXT "sole-sources" quartz tubing and polishing solutions where the quote (`9b6d93e0`) says "a limited number of suppliers". Both Claims under them are verbatim and right.
+- **Claims:** 63 right, 17 wrong, 15 off-question of 95 accepted: **precision 66%**. (Atlas's layer taxonomy puts photodiodes and photodetectors in `chip-laser`, `backend/atlas/claims/predicates.py`; so MACOM's photodetector `bd5d0352` is off-question, for a question about laser chips, not a wrong layer.) Wrong, by kind: direction reversed (`5cd6f7b1`, "Coherent owns NVIDIA" from NVIDIA's equity investment in Coherent); the verb acts on another object (`a592ecc0` expansion of the Sherman facility read onto the NVIDIA products; `e7b404ab`, `83d2a57d`, `4d329e86`); development or qualification read as manufacturing or qualified (`e41817db`, `81b76dc6`, `90f3c158`); a revenue ramp read as capacity (`eeddeee4`); an industry shortage read as MACOM constrained (`07dcf257`); "limited number of suppliers" read as sole-sourcing (`9b6d93e0`, `417642df`); an object the quote doesn't name, taken from the sentence before (`fd599919`); optical components tagged chip-laser (`459f2321`); AXT "uses" SOI or its own InP substrates (`c9c5df8c`, `17510241`); `10f8d03c`. Off-question: Coherent's consumer-market VCSELs and 3D-sensing arrays (6 Claims), risk-factor boilerplate and generic descriptions. Wrong Claims with reasons and right readings: `review/workflow-result.json`.
+
+**Missed evidence.** Lumentum as the merchant EML supplier (record EML shipments, 200G EMLs to several customers, the EML business more than doubling; baseline hit 7); the magnitudes of Coherent's InP expansion (3X capacity, double internal InP output by year-end and again by 2027; hits 1, 2, 11); VCSEL 1.6T ramp timing (hits 6, 9). Unread for the company budget of 6: IQE, Ciena, Fabrinet, STMicroelectronics, Soitec.
+
+**Baseline.** 11 hits judged, 10 on-question: **4 covered**, 5 covered in substance (the card has the fact but not its magnitude or date), 1 not covered. **Coverage 40%.**
+
+**A researcher's hour.** 33 cited facts, all on the question and true; about 4 are on the card, partly. The researcher had what the card lacks: Lumentum's shortfall of 25–30% of demand and its EMLs sold out, Coherent saying InP stays constrained through 2027, AIXTRON MOCVD reactors at both, TrendForce EML and CW-DFB shares, Sumitomo and JX substrate expansion, AXT's export-permit shortfall. Of the card's 3 findings, the researcher's answer has 1 (finding 2, AXT, through the Lumentum capacity reservation); the card's own were Lumentum's competitor view, the Coherent–NVIDIA agreement and InP allocation, AXT's 6-inch agreement with Coherent and its Beijing expansion.
+
+**Corrections needed.** The edge decisions (ticket 09's rule) are applied after the fifth run, so that no write reaches production during a run.
+
+**Cost and latency.** 987,654 tokens, inside the 2,000,000 bar. 26 minutes 16 seconds, outside the 20-minute bar.
+
+**New defects** (tickets after the fifth run):
+- The Editor's findings paraphrase past their quotes (the trust gate).
+- The Investigator tags the question's market on product-catalog sentences of other markets (consumer VCSELs, 3D sensing).
+- Hedged or "limited" supply language becomes `sole_sources`.
+- Generic "optical components" are tagged `chip-laser`.
+- Recall's result cap, measured with the conformance check's plain recall (budget `mid`): the known answers reach 4 of 17 answer sections at Hindsight's default 4,096 tokens, 9 at 16,000 (10 with raw facts only), with no LLM call. Investigations already recall at budget `high` and 8,192 tokens (`pointer_recall_max_tokens`, observations preferred), so this overstates their gap; 8,192 against 16,000 is not measured yet. The conformance check itself recalls at the default, so its 0.08 understates what an investigation reaches.
+
+**Assessment.** Precision 66% (bar 80%): no. Saved work 3, of which 2 fail the trust gate: no until fixed. Baseline coverage 40% (bar 50%): no. The roles ran (the Skeptic read with passages, the Analyst sourced every seed, the Editor wrote open questions): yes. Cost: yes. Latency 26 minutes (bar 20): no. **Investigation 1 does not meet the bar, and the trust gate fails.**
+
+### Investigation 2 on 0.4.6: InP substrates as a chokepoint
+
+- **ID:** `0e8b7e7e-f4fa-410e-8a1a-47c881531601`. **Seeds:** AXT, Coherent, Lumentum. **Stop:** `needs_review` ("2 unsupported findings were dropped; the Editor asks for review"). **Usage:** 862,391 tokens in, 50,230 out; 79 role calls (Scout 1, Investigator 66, Skeptic 9, Financial Analyst 1, Editor 2), 2 repairs; 1 round; 10 leads, 25 documents, 6 Investigators (the seeds, and IQE, Applied Optoelectronics and MACOM from pointers; STMicroelectronics, Marvell, Fabrinet, Ciena and Soitec unread for the company budget); 22 minutes 41 seconds (12:58:42 to 13:21:23 UTC), no pause.
+- **Review:** two blind reviewers per chunk (3 chunks), agreement 70 of 76, **kappa 0.85**; the lead adjudicated the 6 disagreements (1 right, 5 off-question), confirmed the 5 Claims both called wrong and a random 5 of the 43 both called right. Artifacts: `.scratch/live-runs/pilot-0.4.6/inv-2/review/`.
+
+**Saved work.** Two findings pass the trust gate and count:
+2. China's export controls on InP substrates and the permits they need, from AXT's 10-Q of 2026-08-13: China added InP substrates to its export control list on 2025-02-04, and all three of Tongmei's substrate families need MOFCOM export permits. The export-control clause, with a named company and a date.
+3. Lumentum: "This demand is outpacing our current supply which has required us to make decisions on supply allocation", it gets substrates, isolators and raw materials from Chinese suppliers, and it calls its UK laser fab "generally a safe harbor". The concentration clause, from a laser maker's side.
+Findings 4 to 6 are faithful but don't answer the question (Lumentum's and Coherent's product catalogs and InP device-fab capacity, not substrate supply).
+
+**Unsupported or wrong.**
+- **Trust gate: fails on findings 1 and 7.** Finding 1 says AXT "supplies … 6-inch InP to Coherent" and "is increasing" Beijing capacity; the spans give a development-and-supply agreement and an agreement to increase the capacity of "the Products" in 2026 through 2028 (the same overstatement as investigation 1's finding 2). Finding 7 says MACOM is adding capacity "at its fabs" and that "a majority of its capex" goes to capacity; the spans say "We've been adding incremental capacity to support that demand" and "A majority of this CapEx", a specific capex, "and enhancing our R&D capabilities".
+- **Claims:** 44 right, 5 wrong, 27 off-question of 76: **precision 58%**. Wrong: "a mix of internally produced and externally sourced" as a material (`74350fd3`); Umicore as an InP competitor where the quote names it for substrates in general (`a98397ca`); a capacity reservation read as AXT expanding capacity (`79c51b8b`); "our raw material companies produce" read as AXT using (`960a9eef`); Applied Optoelectronics "owns" Amazon from a warrant AAOI issued to Amazon's subsidiary (`79496d5c`). Off-question: Coherent's consumer, industrial and life-sciences sentences, generic material lists, pump lasers (GaAs-based), Lumentum's demand-over-supply sentence (it names no substrate).
+
+**Missed evidence.** The binding half of the export-control clause, all in AXT's own filings: no InP permits in Q1–Q2 2025, then steadily from Q3 2025; permits for Europe, Japan, the UK and Canada but none yet for the US (Nov 2025 10-Q); no GaAs permits to the US because the customers are dual-use; InP permits "the most significant challenge" with a backlog of orders waiting (May 2026 10-Q); China's gallium and germanium controls of 2023 on AXT's GaAs and Ge substrates. Concentration: no market share at all.
+
+**Baseline.** 10 hits judged, all on-question: **2 covered**, 1 covered in substance, 7 not covered. **Coverage 20%.**
+
+**A researcher's hour.** 32 cited facts, all on the question and true; 5 on the card. The researcher answered all three clauses: who makes it (as the card), concentration (AXT about 40%, Sumitomo about 40%, JX about 10%, from a Needham transcript; customers qualify two suppliers; refined indium about 70% Chinese, USGS; JX's and Sumitomo's expansions), and whether controls bind (the permit timeline, no US InP or GaAs permits by August 2026, AXT's North America revenue from 8% to 2%, Lumentum's CEO on substrates "controlled by the Chinese government"). The card's findings 1 to 3 are in the researcher's answer; 4 to 7 are not (and are off the question).
+
+**Corrections needed.** After the fifth run (edges by ticket 09's rule).
+
+**Cost and latency.** 912,621 tokens, inside the bar. 22 minutes 41 seconds, outside the 20-minute bar.
+
+**New defects:**
+- The Editor's overstatement of agreements as present supply recurs (both runs, the same AXT spans).
+- The Scout kept only SEC EDGAR filings (7 of AXT's own, 3 of Aeluma's); no market-share or trade source, though its queries asked for them.
+- The Investigators read AXT's 10-Qs but did not extract the permit status, the most on-question content in them: a directional-language whitelist without a predicate for regulatory constraints (export permits) has nothing to put it in.
+- `owns` from an investment or a warrant, with the direction reversed (`79496d5c`).
+
+**Assessment.** Precision 58% (bar 80%): no. Saved work 2 (bar 3): no. Coverage 20% (bar 50%): no. Roles ran: yes. Cost: yes. Latency 23 minutes: no. Trust gate fails. **Investigation 2 does not meet the bar.**
+
+### Investigation 3 on 0.4.6: transceiver module assembly
+
+- **ID:** `8637ee32-4631-4c1f-897e-fc155bea9136`. **Seeds:** Fabrinet, Applied Optoelectronics, Coherent. **Stop:** `needs_review`. **Usage:** 917,577 tokens in, 62,829 out; 85 role calls, 2 repairs; 1 round; 10 leads, 25 documents, 6 Investigators (the seeds, and Ciena, Lumentum and Marvell from pointers); 24 minutes 58 seconds (13:22:11 UTC on), no pause.
+- **Review:** two blind reviewers per chunk (2 chunks), agreement 66 of 71, **kappa 0.84**; the lead adjudicated the 5 disagreements (1 wrong, 4 off-question), confirmed the 11 Claims both called wrong and a random 4 of the 49 both called right. Artifacts: `.scratch/live-runs/pilot-0.4.6/inv-3/review/`.
+
+**Saved work.** None. Finding 1 fails the trust gate (below). Findings 2 and 3 are faithful but empty: Fabrinet's "The material constraints are something that we have been used to in the past several years" and a supply-shortage risk factor (boilerplate), and Ciena's "we expect demand will continue to outstrip supply at least for the next several quarters" (a systems vendor outside the seeds; it names no module, input or customer). **The card is thin: no clause of the question is answered** (contract manufacturing and module capacity, customer concentration, qualification cycles).
+
+**Unsupported or wrong.**
+- **Trust gate: fails on finding 1.** It says Fabrinet manufactures OCS sub-assemblies and finished product; the quote (`8a834754`) is conditional, "if the customer would like us to do sub-assemblies … then we start to produce the finished product at a point in time", and never names OCS. It also drops the qualification in its own cited quote on Fabrinet as a customer's sole 400G/800G manufacturer (`fcc0bad3`).
+- **Claims:** 49 right, 12 wrong, 10 off-question of 71: **precision 69%**. Wrong: development read as manufacturing (`884d539f` Coherent's 200G VCSEL "in our tool chest", `21b1ab6c`); a hypothetical or a request read as qualified (`4ee77ec1` "customers may require qualification", `bfd97c03` "we have been asked by customers to qualify"); "Coherent owns NVIDIA" again, reversed (`093d6525`); a market-wide remark read as Coherent constrained (`38896e24`); Fabrinet's "material constraints are something that we have been used to", which downplays a constraint, read as constrained (`050b6e17`); "expanding our data center transceiver business" read as capacity (`a5ad2ac1`); process technologies as a product (`8834e6c3`); Lumentum's substrates "mostly under control" read as constrained (`0e1b82ef`); spare capacity in Greensboro read as expanding (`51c04dc6`); the conditional OCS sentence (`8a834754`). Most right Claims are Coherent's InP laser capacity, which answers investigation 1's question rather than this one.
+
+**Missed evidence.** Coherent's own transceiver assembly and test build-out (a second Malaysian site in Penang, Ipoh, Vietnam; 14 assembly sites in 7 countries); AOI's hyperscaler audit and approval of its Taiwan factory for 800G, its 800G/1.6T demand above capacity through mid-2027, its first 1.6T qualification "within weeks", and its contract-manufacturer capacity risk; all in the seeds' filings and calls.
+
+**Baseline.** 12 hits judged, 10 on-question: **3 covered**, 0 in substance, 7 not covered. **Coverage 30%.**
+
+**A researcher's hour.** 25 cited facts, all on the question and true; 1 on the card. The researcher placed the constraint (InP lasers, not assembly, for the vertically integrated makers; Fabrinet's shortage from the 200G EML with Lumentum now the second source; AOI's limit its own capacity and qualification), gave Fabrinet's capex ($299M against $131M) and Building 10, AOI's units per month (90k, about 200k, targets of 650k and 930k), Fabrinet's 10% customers, and the qualification timelines. Of the card's 3 findings, the answer has 1 (finding 2).
+
+**Corrections needed.** After the fifth run.
+
+**Cost and latency.** 980,406 tokens, inside the bar. 24 minutes 58 seconds, outside the 20-minute bar.
+
+**New defects:**
+- The Scout's 10 leads are all third-party commentary and SEO pages (thebuildout.ai, ainvest, Substacks, a vendor's "OEM SFP contract manufacturers" page); two are company pages of companies outside the universe.
+- The Investigators read the seeds' assembly and qualification passages (the baseline found them in the same filings) but the Claims went to Coherent's InP capacity: the question's subject (assembly) lost to the theme's strongest signal.
+- Conditional, hypothetical or downplaying sentences become positive Claims (`8a834754`, `4ee77ec1`, `050b6e17`, `0e1b82ef`).
+
+**Assessment.** Precision 69%: no. Saved work 0: no (thin card). Coverage 30%: no. Roles ran: yes. Cost: yes. Latency 25 minutes: no. Trust gate fails. **Investigation 3 does not meet the bar.**
+
+### Investigation 4 on 0.4.6: the DSP and driver layer
+
+- **ID:** `995b8fb3-e87b-44ae-84ed-ff24bcac90fb`. **Seeds:** Marvell, MACOM. **Stop:** `needs_review` ("14 unsupported findings were dropped; no finding cites an accepted Claim; the Editor asks for review"). **Usage:** 897,722 tokens in, 45,671 out; 86 role calls, 4 repairs; 1 round; **3 leads**, 25 documents, 6 Investigators; 20 minutes 50 seconds (13:47:59 UTC on), no pause.
+- **Review:** one chunk, two blind reviewers, agreement 33 of 36, **kappa 0.86**; the lead adjudicated the 3 disagreements (1 right, 1 wrong, 1 off-question) and confirmed the 3 Claims both called wrong. Artifacts: `.scratch/live-runs/pilot-0.4.6/inv-4/review/`.
+
+**Saved work.** None: **the card has no finding.** The Editor wrote 14 findings, each citing accepted Claims, and the grounding check (`atlas.investigations.grounding.ungrounded`) dropped every one. They were faithful; the check failed them mechanically:
+- a quoted phrase ending in a comma inside the quotation marks ("…to implement and produce highly capable TIAs and drivers,") where the Claim's quote ends in a full stop: quoted phrases must occur exactly;
+- the Editor's own citation labels in the statement ("(c10, c15)"), read as numbers that no quote contains;
+- nested quotation marks: the quote has `("TSMC")`, and the Editor, quoting it inside its own double quotes, wrote `('TSMC')`, which doesn't occur.
+The dropped findings would have answered the question: TSMC "is currently our sole source foundry for all of our advanced process-node wafers" (Marvell, `33c3d5c9`); Marvell's 1.6T DSP family (Ara, Ara T for LRO optics, Ara X, Ara M, Petra; `90d2ab3b`) and its in-house TIAs and drivers (`19dc06d0`); Ciena on "the larger players like Broadcom and Marvell" (`ddf38a54`, `e1b07ff8`); Marvell's partners' constrained advanced-node capacity (`7ad7f58d`). The trust gate holds vacuously (no finding to misstate a Claim).
+
+**Unsupported or wrong.** **Claims:** 14 right, 4 wrong, 18 off-question of 36: **precision 39%**. Half the accepted Claims are about the wrong layer: Coherent's InP lasers, photodiodes, VCSELs and substrates, Applied Optoelectronics' InP capacity, from Investigators the pointers sent to laser makers. Wrong: capacity read from a growth remark or a demand forecast (`52d2eb2d`, `4f8df503`), "our capacity investment" with no object in its clause (`2016b298`), the contract manufacturers' "produce" read onto Coherent (`8e8ebda9`). Off-question also: NVIDIA's $2.0B purchase of Marvell preferred stock (financing).
+
+**Missed evidence.** MACOM is not covered at all, though it is a seed: customers moving from DSP modules to ACC and LPO for cost, MACOM's DSP in production with no further DSP R&D, its 800G/1.6T PAM4 products for DSP, LPO and LRO architectures (baseline hits 3, 6). Marvell: LPO chipsets and CPO drivers and TIAs (hit 2), Marvell DSPs sold to third-party module makers (hit 7), 1.6T coherent timing and its TIA lead (hit 8), the whole-stack claim (hit 9); magnitudes and process nodes (3 nm, 2 nm, 200G per lane).
+
+**Baseline.** 10 hits, all on-question: **1 covered**, 3 covered in substance, 6 not covered. **Coverage 10%.**
+
+**A researcher's hour.** 27 cited facts, 26 on the question and true; 1 on the card (as Claims, not a finding). The card has no finding to compare.
+
+**Corrections needed.** After the fifth run.
+
+**Cost and latency.** 943,393 tokens, inside the bar. 20 minutes 50 seconds, just outside the 20-minute bar.
+
+**New defects:**
+- **The grounding check drops faithful findings on punctuation, citation labels and replacement characters** (a whole card lost; the most damaging defect of the pilot so far, and a mechanical one).
+- The Scout kept 3 leads, all EDGAR full-text hits of one query (Marvell's 10-K, Arista's and Celestica's 8-K exhibits); no SearXNG result survived.
+- Memory's pointers send Investigators to the theme's laser makers whatever the question's layer (Coherent and Applied Optoelectronics on a DSP question).
+
+**Assessment.** Precision 39%: no. Saved work 0: no. Coverage 10%: no. Roles ran: the Editor wrote a card with open questions but no finding: yes on the letter of the bar. Cost: yes. Latency 21 minutes: no. **Investigation 4 does not meet the bar.**
+
+### Investigation 5 on 0.4.6: coherent-optics and systems demand
+
+- **ID:** `321f555a-e79c-4d9d-9518-cb2e6a56381a`. **Seeds:** Ciena, Lumentum, Coherent. **Stop:** `needs_review`. **Usage:** 928,877 tokens in, 57,437 out; 85 role calls, 2 repairs; 1 round; 10 leads, 25 documents, 6 Investigators; 21 minutes 43 seconds (14:09:45 UTC on), no pause.
+- **Review:** two blind reviewers per chunk (4 chunks), agreement 77 of 86, **kappa 0.77**; the lead adjudicated the 9 disagreements (1 right, 1 wrong, 7 off-question: Lumentum competing with Coherent in 1.6T modules, NVIDIA and CPO lasers, OCS, none of them coherent-optics or DCI supply), confirmed the 9 Claims both called wrong. Artifacts: `.scratch/live-runs/pilot-0.4.6/inv-5/review/`.
+
+**Saved work.** One finding passes the trust gate and counts: 5. Ciena expects "demand outstripping supply" into 2027 and is "effectively double our CapEx intensity specifically this year to increase supply capacity" (the systems-demand side, from the company's own words). Finding 1 (AXT's InP substrate agreements with Coherent and Lumentum, with the $22,288,500 prepayment) would count but fails the gate.
+
+**Unsupported or wrong.**
+- **Trust gate: fails on findings 1 to 4.** 1: "6-inch" applied to Lumentum's agreement (only Coherent's names it) and "supplies" for a development-and-supply agreement (the third run with this overstatement). 2: a 6-inch platform and CW lasers attributed to Lumentum, which no Lumentum quote says, and Lumentum "supplies NVIDIA with co-packaged optics" where it supplies a laser. 3: "ramping in volume production" attributed to MACOM's 75 mW CW laser, whose quote says "qualification efforts continue". 4: two items of a forward-looking risk list merged into a stated dependency (Marvell's suppliers "for advanced-node wafers"). Coherent's InP-constraint and capacity-doubling finding was dropped as ungrounded though its Claims are right.
+- **Claims:** 57 right, 10 wrong, 19 off-question of 86: **precision 66%**. Wrong: development read as manufacturing (AXT's 6-inch "development", `53dbb627`); a capacity reservation read as expansion (`cc79b65f`); "sole_sources" from hedged risk language (`e6e8e2b1`); qualification in progress read as qualified (`57c4d1e6`); an industry-wide constraint read as Marvell's (`acdba88c`); Lumentum "supplies NVIDIA" where NVIDIA ships the solution (`d21e6713`); EMLs from a unit forecast (`73b3c94c`); an R&D table entry as material use (`a1ee0ed9`); `d13d91b3`, `7e2689c7`.
+
+**Missed evidence.** The question's demand side is almost absent: Coherent's own calls on extremely strong DCI demand for ZR/ZR+ transceivers and components, ramping capacity for every DCI component, communications revenue up 16% sequentially and 60% year over year on DCI and scale-across (baseline hits 1–3, 7, 8, 12); Lumentum negotiating for customers to fund its capex in exchange for long-term supply, its component shortages and incremental supply costs (hits 14, 16).
+
+**Baseline.** 16 hits judged, 10 on-question: **1 covered**, 0 in substance, 9 not covered. **Coverage 10%.**
+
+**A researcher's hour.** 28 cited facts, all on the question and true; 5 on the card. The researcher found where coherent supply binds: Ciena on external lasers and ITLAs, coherent driver modulators and gold boxes, explicitly not InP wafers; Lumentum on pump and narrow-linewidth lasers, more constrained than EMLs, and its LTAs at higher prices; Coherent's Nano-ITLA and IC-TOSA stack. It quantified the pull: Ciena's orders and backlog, 800ZR volume doubling, purchase commitments from $2.1B to $3.3B. Of the card's 5 findings, the answer has 1 (finding 5).
+
+**Corrections needed.** Below, with all five.
+
+**Cost and latency.** 986,314 tokens, inside the bar. 21 minutes 43 seconds, outside the 20-minute bar.
+
+**New defects:**
+- The Scout's queries are mostly about the theme's InP and laser supply; one of ten targets 800ZR or DCI demand, the question's subject.
+- The card answers the theme's standing story (InP substrates, NVIDIA CPO lasers) instead of this question; the same drift as investigations 3 and 4.
+
+**Assessment.** Precision 66%: no. Saved work 1: no. Coverage 10%: no. Roles ran: yes. Cost: yes. Latency 22 minutes: no. Trust gate fails. **Investigation 5 does not meet the bar.**
+
+### The verdict on 0.4.6: fail
+
+| | Inv 1 laser chips | Inv 2 InP substrates | Inv 3 module assembly | Inv 4 DSP and drivers | Inv 5 coherent demand | Bar |
+|---|---|---|---|---|---|---|
+| Accepted Claims, all verbatim | 95 | 76 | 71 | 36 | 86 | (trust gate, first half) |
+| Precision | 66% | 58% | 69% | 39% | 66% | ≥ 80% |
+| Saved work | 0 (3, two failing the gate) | 2 | 0 (thin card) | 0 (no finding) | 1 | ≥ 3 |
+| Trust gate (findings) | fails (2) | fails (2) | fails (1) | holds (no finding) | fails (4) | must hold |
+| Baseline coverage | 40% | 20% | 30% | 10% | 10% | ≥ 50% |
+| The roles ran | yes | yes | yes | yes | yes | yes |
+| Cost (MiniMax tokens) | 987,654 | 912,621 | 980,406 | 943,393 | 986,314 | ≤ 2,000,000 |
+| Latency | 26.3 min | 22.7 min | 25.0 min | 20.8 min | 21.7 min | ≤ 20 min |
+| Reviewer agreement (kappa) | 0.81 | 0.85 | 0.84 | 0.86 | 0.77 | (reported) |
+| Researcher's hour: its true facts on the card | 4 of 33 | 5 of 32 | 1 of 25 | 1 of 26 | 5 of 28 | (reported) |
+| **Meets the bar** | no | no | no | no | no | |
+
+- **Pooled:** precision 227 of 364 accepted Claims (62%); baseline coverage 11 of 50 on-question hits (22%); 4,810,388 MiniMax tokens for the five.
+- **Machine-reviewed edges** (pooled, the 76 `machine_reviewed` Relationships with Evidence from the five runs): 43 right, 5 wrong, 23 off-question, 5 mixed: **57%** (bar 90%); investigations 1 and 5 each have 2 wrong `machine_reviewed` edges (bar: at most 1). Counting right against wrong only: 43 of 48 (90%).
+- **Edges applied** (ticket 09's rule, the lead, 2026-10-07 after the fifth run): of 233 Relationships with Evidence from the five runs, 87 approved (every Evidence Claim right), 29 rejected (every one wrong), 100 left (mixed, off-question, or Evidence from earlier runs not reviewed here), 17 already decided before. Plan and outcome: `.scratch/live-runs/pilot-0.4.6/edge-plan.json`.
+- **A researcher's hour against the cards:** 144 of 145 cited facts on the question and true; 16 of them on a card (11%). The cards' 3 saved-work findings (investigation 2's findings 2 and 3, investigation 5's finding 5) are all in the researchers' answers: the cards found nothing the hour missed that counts as saved work.
+
+**Verdict (ticket 02): fail.** No investigation meets the bar (the criteria: at most 1 is a fail), the trust gate fails in four of five, and the machine-reviewed edge precision is under 90%. Under ticket 02 a fail means no fix round: the research workflow's design is reopened (what the Claim model and the roles can express) before anything else is built. The researchers' answers say what the design must reach: magnitudes, shares, regulatory status and timing from transcripts, trade sources and filings, which the cards almost never carry.
+
+**What holds:** every accepted quote is verbatim at an archived, dated span (364 of 364); two blind reviewers agree at kappa 0.77 to 0.86; the roles all ran; cost is half the bar.
+
+**Not done yet** (procedure section 4): the held-out answer key (the owner lists Serenity's flagged names and dates; found, missed and found-before per item); `docs/pilot-report.md`; ticket 13.

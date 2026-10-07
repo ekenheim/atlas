@@ -6,14 +6,6 @@ name: ci
 on:
   push:
     branches: ["**"]
-    # A push that only changes the local issue tracker or the implementation log runs nothing:
-    # no test reads them, except the pilot plan (tests/unit/test_memory_probes.py). A release
-    # of such a commit still runs the suite (release.yml: no green ci run for its commit).
-    paths:
-      - "**"
-      - "!.scratch/**"
-      - ".scratch/pilot/pilot-plan.md"
-      - "!docs/implementation-log.md"
 
 permissions:
   contents: read
@@ -25,7 +17,39 @@ concurrency:
 
 # Actions are pinned by commit; Renovate keeps the pins and their version comments current.
 jobs:
+  # Every push gets a `ci` result, because main's ruleset requires one. A push that only changes
+  # the local issue tracker or the implementation log skips the checks: no test reads them,
+  # except the pilot plan (tests/unit/test_memory_probes.py). A new branch's first push, or a
+  # compare the API can't give, counts as code. release.yml asks for a `suite` that ran.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          code=true
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            # The compare API lists at most 300 files; a longer list counts as code.
+            if files=$(gh api "repos/${{ github.repository }}/compare/$BEFORE...$AFTER" --jq '.files[].filename') \
+              && [ -n "$files" ] && [ "$(echo "$files" | wc -l)" -lt 300 ]; then
+              other=$(echo "$files" | grep -v -e '^\.scratch/' -e '^docs/implementation-log\.md$' || true)
+              pilot=$(echo "$files" | grep -x '\.scratch/pilot/pilot-plan\.md' || true)
+              [ -z "$other" ] && [ -z "$pilot" ] && code=false
+            fi
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
   static:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     # No Docker needed: GitHub's runners (free for a public repo), so a lint or type error
     # fails in minutes and never takes a self-hosted runner.
     runs-on: ubuntu-latest
@@ -50,7 +74,8 @@ jobs:
       - run: scripts/ci.sh static
 
   suite:
-    needs: static
+    needs: [changes, static]
+    if: needs.changes.outputs.code == 'true'
     # The owner's actions-runner-controller scale set (home-ops, dind mode: Docker for the
     # compose services and the image build). At most 3 runners, 4 CPUs each; jobs beyond
     # that wait in GitHub's queue, where this timeout does not run.
@@ -86,13 +111,16 @@ jobs:
       # Same entrypoint as local runs, so CI and laptops can't drift.
       - run: scripts/ci.sh suite
 
-  # The one check main's ruleset requires: green only when every stage above is.
+  # The one check main's ruleset requires: green when every stage passed, or when the push
+  # changed no code and the stages were skipped for that reason.
   ci:
     if: always()
-    needs: [static, suite]
+    needs: [changes, static, suite]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - run: |
-          echo "static: ${{ needs.static.result }}, suite: ${{ needs.suite.result }}"
+          echo "changes: ${{ needs.changes.result }} (code: ${{ needs.changes.outputs.code }}), static: ${{ needs.static.result }}, suite: ${{ needs.suite.result }}"
+          [ "${{ needs.changes.result }}" = success ] || exit 1
+          if [ "${{ needs.changes.outputs.code }}" = false ]; then exit 0; fi
           [ "${{ needs.static.result }}" = success ] && [ "${{ needs.suite.result }}" = success ]

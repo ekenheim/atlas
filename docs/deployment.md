@@ -4,13 +4,14 @@ Atlas ships as one container image, `ghcr.io/ekenheim/atlas`. It runs as `atlas 
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push to any branch of this repo (never on fork pull requests: the suite uses the owner's runners). It has three jobs:
+`.github/workflows/ci.yml` runs on every push to any branch of this repo (never on fork pull requests: the suite uses the owner's runners). It has four jobs:
 
 | Job | Runs on | What |
 |---|---|---|
+| `changes` | GitHub's runners | Whether the push changed code: anything outside `.scratch/` (the pilot plan counts, a test reads it) and `docs/implementation-log.md`. If not, `static` and `suite` are skipped. |
 | `static` | GitHub's runners | actionlint, then `scripts/ci.sh static`: ruff, strict pyright, frontend lint, typecheck and unit tests, the API client is current. No Docker; a few minutes. |
 | `suite` | `gha-runner-scale-set-atlas` (self-hosted, dind) | Only after `static` passes: `scripts/ci.sh suite`: Compose services, pytest (8 workers), the Playwright e2e tests, the image build and smoke. About 15 minutes. |
-| `ci` | GitHub's runners | Green only when both are. **The check `main` requires.** |
+| `ci` | GitHub's runners | Green when both passed, or when the push changed no code. **The check `main` requires**, so every push gets one. |
 
 `scripts/ci.sh` with no argument runs both stages, so a laptop runs what CI runs.
 
@@ -26,7 +27,7 @@ Atlas ships as one container image, `ghcr.io/ekenheim/atlas`. It runs as `atlas 
 
 A release is a git tag `vX.Y.Z` on `main`. Pushing the tag runs `.github/workflows/release.yml`:
 
-1. **`verified` job:** whether `ci.yml` already passed on the tagged commit.
+1. **`verified` job:** whether a `suite` job already passed on the tagged commit (a green `ci` that skipped its stages tested nothing, so it doesn't count).
 2. **`ci` job** (only if it had not): `scripts/ci.sh --no-image`, the same gates as every CI run (ruff, strict pyright, frontend lint/typecheck/export, pytest against Postgres and Silo).
 3. **`publish` job** (only if the commit passed CI, there or here):
    - builds the multi-stage `Dockerfile` for `linux/amd64` only, since the cluster has no other architecture
@@ -69,7 +70,7 @@ git tag -a v1.2.3 -m "Atlas 1.2.3"
 git push origin v1.2.3             # triggers the release workflow
 ```
 
-Then watch the run under **Actions → release**. Its `verified` job asks GitHub whether `ci.yml` already passed on the tagged commit (on any branch: normally the integration branch the release was cut from). If it did, the suite is not run again and `publish` follows at once (since 0.4.4; it took 32 minutes). If not, the `ci` job runs the suite on the owner's self-hosted scale set (since 0.2.3; GitHub's hosted runners took over 30 minutes for the suite). The `publish` job runs on GitHub's runners. A failed `ci` or `verified` job publishes nothing. Pushes that change only `.scratch/` (the tracker, except the pilot plan a test reads) or `docs/implementation-log.md` run no CI at all, so tag a commit CI has passed, or the release runs the suite itself. To retry, fix `main`, then tag a new patch version; don't move or re-push an existing tag.
+Then watch the run under **Actions → release**. Its `verified` job asks GitHub whether `ci.yml` already passed on the tagged commit (on any branch: normally the integration branch the release was cut from). If it did, the suite is not run again and `publish` follows at once (since 0.4.4; it took 32 minutes). If not, the `ci` job runs the suite on the owner's self-hosted scale set (since 0.2.3; GitHub's hosted runners took over 30 minutes for the suite). The `publish` job runs on GitHub's runners. A failed `ci` or `verified` job publishes nothing. Pushes that change only `.scratch/` (the tracker, except the pilot plan a test reads) or `docs/implementation-log.md` get a green `ci` without the suite, so a release of such a commit runs the suite itself. To retry, fix `main`, then tag a new patch version; don't move or re-push an existing tag.
 
 ### First release: make the package public (once)
 
