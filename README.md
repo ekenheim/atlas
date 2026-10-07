@@ -82,7 +82,7 @@ scripts/ci.sh --no-image                   # the CI entrypoint, without the imag
 
 The app is one image with three roles: `atlas api`, `atlas worker [--once]` and `atlas migrate`. CI (`scripts/ci.sh`) runs on every push: the static checks on GitHub's runners, then the Docker suite on the owner's self-hosted runner scale set (`docs/deployment.md`, "CI").
 
-A local Hindsight 0.10.1 runs behind a Compose profile and sends all model traffic to LiteLLM:
+A local Hindsight 0.10.2 (production's version) runs behind a Compose profile and sends all model traffic to LiteLLM:
 
 ```bash
 docker compose --profile hindsight up -d --wait hindsight   # needs ATLAS_LITELLM_URL / _API_KEY
