@@ -1017,6 +1017,107 @@ def test_a_generic_sentence_is_no_substrate_claim_and_a_cue_must_share_the_objec
     ]
 
 
+# --- statements of fact (pilot-fixes ticket 35) -------------------------------------------------
+
+# Written for the test in the shapes pilot 0.4.6 accepted wrongly: hedged risk language, an
+# investment read as manufacture, qualification asked for, a revenue ramp read as capacity, a
+# market-wide shortage read as the company's own constraint; and the unhedged dependence on a
+# limited number of suppliers, which `sole_sources` reads as it is.
+HEDGED_SOURCE = (
+    "Some of our inputs, including indium phosphide substrates, may be available only from a"
+    " limited number of suppliers."
+)
+DEPENDENCE = "We depend on a limited number of suppliers for indium phosphide substrates."
+INVESTING = "We are making significant investments in next-generation laser chips for AI optics."
+ASKED_TO_QUALIFY = "Customers have asked us to qualify our 1.6T transceivers this quarter."
+REVENUE_RAMP = "We expect co-packaged optics revenue to begin ramping next year."
+MARKET_SHORTAGE = "Customers come to our team because of the general shortage of InP lasers."
+FACT_DOCUMENT = f"""<html><head><title>Coherent outlook notes</title></head><body>
+<h1>Coherent outlook notes</h1>
+<p>{HEDGED_SOURCE}</p>
+<p>{DEPENDENCE}</p>
+<p>{INVESTING}</p>
+<p>{ASKED_TO_QUALIFY}</p>
+<p>{REVENUE_RAMP}</p>
+<p>{MARKET_SHORTAGE}</p>
+<p>We also supply 800G transceivers to NVIDIA.</p>
+</body></html>
+"""
+
+
+def test_a_claim_its_quote_does_not_state_as_fact_is_rejected(
+    atlas: Atlas, llm: FakeLiteLLM
+) -> None:
+    coherent = company_id(atlas, "coherent")
+    path = atlas.tmp_path / "coherent-outlook-notes.html"
+    path.write_text(FACT_DOCUMENT, encoding="utf-8")
+    imported = atlas.cli(
+        "sources",
+        "import",
+        "--company",
+        "coherent",
+        "--file",
+        str(path),
+        "--origin-url",
+        "https://www.coherent.com/news/outlook-notes",
+        "--published-at",
+        "2026-08-14T08:00-04:00",
+    )
+    assert imported.returncode == 0, imported.stderr
+    version_id = json.loads(imported.stdout)["source_version_id"]
+
+    def fact(predicate: str, object_text: str, quote: str, layer: str) -> dict[str, JsonValue]:
+        return claim(
+            subject_company_id=coherent,
+            predicate=predicate,
+            object_text=object_text,
+            layer=layer,
+            quote=quote,
+        )
+
+    llm.script_chat(
+        ChatReply.answer(
+            quoting(
+                fact("sole_sources", "indium phosphide substrates", HEDGED_SOURCE, "substrate"),
+                fact("sole_sources", "indium phosphide substrates", DEPENDENCE, "substrate"),
+                fact("manufactures", "laser chips", INVESTING, "chip-laser"),
+                fact("qualified_for", "1.6T transceivers", ASKED_TO_QUALIFY, "module"),
+                fact("expands_capacity_for", "co-packaged optics", REVENUE_RAMP, "module"),
+                fact("capacity_constrained", "InP lasers", MARKET_SHORTAGE, "chip-laser"),
+            )
+        )
+    )
+
+    job = extract(atlas, "statements-of-fact", source_version_ids=[version_id])
+
+    assert job["status"] == "succeeded", job["failures"]
+    outcomes = claims_of(atlas, job["artifacts"]["extraction_id"])
+    assert [(c["outcome"], c["reason_code"]) for c in outcomes] == [
+        ("rejected", "not_stated_as_fact"),
+        ("accepted", None),
+        ("rejected", "not_stated_as_fact"),
+        ("rejected", "not_stated_as_fact"),
+        ("rejected", "not_stated_as_fact"),
+        ("rejected", "not_stated_as_fact"),
+    ]
+    reasons = [c["reason"] or "" for c in outcomes]
+    assert reasons[0].startswith("the quote doesn't state sole_sources as a fact")
+    assert "hedged ('may'" in reasons[0]
+    assert "making significant investments" in reasons[2]
+    assert "qualification under way or asked for" in reasons[3]
+    assert "a ramp of revenue or demand" in reasons[4]
+    assert "a constraint of the market in general" in reasons[5]
+    assert outcomes[1]["directional_cue"] == "limited number of suppliers"
+    assert audit_actions(atlas, "claim") == [
+        "claim.rejected",
+        "claim.accepted",
+        "claim.rejected",
+        "claim.rejected",
+        "claim.rejected",
+        "claim.rejected",
+    ]
+
+
 # --- claim checks (memory-directed reading ticket 02) -------------------------------------------
 
 # Hand-shaped fragments of the documents pilot investigation 1 read on 0.2.5 (the recorded

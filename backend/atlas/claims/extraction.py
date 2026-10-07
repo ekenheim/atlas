@@ -66,7 +66,14 @@ An `extract_claims` job names Source Versions (and optionally a question). One a
    named in the quote (`object_not_in_quote`) and be a particular input or product, not
    generic materials, components or capacity (`generic_object`); and for any product object
    the cue must be in a clause that names the object (`cue_in_other_clause`, pilot-fixes
-   ticket 09). See `atlas.claims.predicates`.
+   ticket 09). Last, **the quote states the predicate as a fact** (`not_stated_as_fact`,
+   pilot-fixes ticket 35; `atlas.claims.unrealised_refusal`): a Claim whose every cue is
+   hedged ("may only be available from a single or limited number of suppliers"), under a
+   condition ("if the customer would like us to ..."), development or intent ("making
+   significant investments in", "development of", "qualification efforts continue"), a
+   revenue ramp, reservation or spare capacity read as `expands_capacity_for`, or a
+   market-wide or played-down constraint read as `capacity_constrained` is refused. See
+   `atlas.claims.predicates`.
    **A company-level constraint** (memory-directed reading ticket 09): a
    `capacity_constrained` Claim proposed with no object text, or with one that names no
    product ("our products", "manufacturing capacity", "our current supply":
@@ -141,6 +148,7 @@ from atlas.claims.predicates import (
     object_clause_cue,
     predicate_refusal,
     stray_companies,
+    unrealised_refusal,
 )
 from atlas.claims.reads import ClaimExtraction, Passage, SkippedVersion, get_extraction
 from atlas.claims.selection import Document, Reading, ceiling, select, selections
@@ -949,6 +957,9 @@ class ClaimExtractor:
                     f" object ({object_text}): a verb in a neighbouring clause is no cue"
                 )
                 return _reject(judged, "cue_in_other_clause", message)
+        unrealised = unrealised_refusal(rule.name, quote, object_text)
+        if unrealised is not None:
+            return _reject(judged, "not_stated_as_fact", unrealised)
         return _Judged(
             source_version_id=version.id,
             subject_company_id=subject.id,
