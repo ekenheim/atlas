@@ -100,6 +100,7 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "extract_claims": "minimax",
     "review_relationships": "minimax",
     "investigation_task": "minimax",
+    "read_step": "minimax",
     "triage": "minimax",
     "triage_audit": "minimax",
     "tradingview_catalog": "tradingview",

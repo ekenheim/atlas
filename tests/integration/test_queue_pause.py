@@ -52,6 +52,7 @@ PAUSABLE_KINDS = [
     "memory_retire",
     "poll_operation",
     "propose_candidates",
+    "read_step",
     "refresh_mental_model",
     "replay",
     "reprocess",
