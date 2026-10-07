@@ -1,6 +1,6 @@
 # 33: The grounding check drops faithful findings on punctuation, citation labels and nested quotes
 
-**Status:** ready-for-agent
+**Status:** done (2026-10-07, integrate/fixes-1)
 **Hurt:** investigations 4 (the whole card: 14 of 14 findings dropped) and 5 (Coherent's InP-constraint finding), verdict runs on 0.4.6.
 
 `atlas.investigations.grounding.ungrounded` matches a finding's quoted phrases as exact substrings and reads tokens like `c10` as numbers. Investigation 4 (`995b8fb3-e87b-44ae-84ed-ff24bcac90fb`) lost every finding though each cited accepted Claims and quoted them faithfully:

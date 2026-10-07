@@ -1,6 +1,6 @@
 # 35: Hedged, conditional and development language becomes a positive Claim
 
-**Status:** needs-triage
+**Status:** done (2026-10-07, integrate/fixes-1)
 **Hurt:** investigations 1, 2, 3 and 5, verdict runs on 0.4.6.
 
 Accepted Claims whose predicate the quote doesn't support:

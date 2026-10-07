@@ -24,8 +24,10 @@ What is matched, and how:
   function word (`_FUNCTION_WORDS`: "The", "However", ...). It must occur as a whole word; a
   plural or possessive "s" on either side is ignored. Neighbouring unfound words are reported
   as one name ("Deutsche Bank").
-- A quoted phrase (in double quotation marks) must occur as written, whitespace, quotation marks of either kind and the punctuation at its two ends aside (a nested quotation, and the Editor's own claim labels such as "(c10, c15)", are handled before); an
-  ellipsis splits it into pieces that must each occur.
+- A quoted phrase (in double quotation marks) must occur as written, whitespace, quotation
+  marks of either kind and the punctuation at its two ends aside (a nested quotation, and the
+  Editor's own claim labels such as "(c10, c15)", are handled before); an ellipsis splits it
+  into pieces that must each occur.
 
 What is not checked: the logic of a sentence (who did what to whom, a plan written as a fact,
 two agreements written as one). The check holds names and figures; the rest stays the
