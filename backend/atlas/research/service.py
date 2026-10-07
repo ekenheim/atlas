@@ -163,20 +163,27 @@ def reading_index_recall(
     *,
     max_tokens: int,
     as_of: datetime,
+    raw_facts: bool = False,
 ) -> RecallRequest:
     """The recall an investigation asks (memory-quality ticket 07; docs/decisions.md, "Recall
     as a reading index"): `max_tokens` of results, budget high, an observation in place of the
     facts it was built from, recency judged from `as_of`, each observation's sources and every
     fact's chunk in the same answer. The one builder of it: investigations and the conformance
-    check's known answers both use it, so what is measured is what is used."""
+    check's known answers both use it, so what is measured is what is used.
+
+    `raw_facts`: the extracted facts only, no observations (the Reader's recall). Measured on
+    2026-10-07 (pilot fix 40): with observations preferred, the known answers' sections were
+    reached at recall 0.08 at both 8,192 and 16,000 tokens; raw facts only at 16,000 tokens
+    pointed at 10 of 17 of them. Observations stand in for the facts that point at a section."""
     return RecallRequest(
         query=query,
         scope=scope,
         budget="high",
         max_tokens=max_tokens,
-        prefer_observations=True,
+        prefer_observations=not raw_facts,
+        types=["world", "experience"] if raw_facts else None,
         query_timestamp=as_of,
-        include_source_facts=True,
+        include_source_facts=not raw_facts,
         # Each fact's chunk located in its section: the pointer's window is the chunk's
         # (memory-quality ticket 08; atlas.research.chunks).
         include_chunks=True,

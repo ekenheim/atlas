@@ -362,7 +362,8 @@ def test_a_recall_lists_the_sections_memory_points_to_and_the_reader_reads_one(
     [recalled] = artifacts["recalls"]
     assert recalled["query"] == "Coherent Sherman capacity"
     assert recalled["memories"] > 0
-    # Asked as investigations ask Memory, at the Reader's text budget and the step's as-of time.
+    # Asked at the Reader's text budget and the step's as-of time, for the extracted facts only:
+    # observations stand in for the facts that point at a filing's section (pilot fix 40).
     [sent] = hindsight[0].requests("POST", "memories/recall")
     assert sent == {
         "query": "Coherent Sherman capacity",
@@ -370,9 +371,10 @@ def test_a_recall_lists_the_sections_memory_points_to_and_the_reader_reads_one(
         "tags": ["theme:photonics"],
         "tags_match": "any_strict",
         "max_tokens": 16_000,
-        "prefer_observations": True,
+        "types": ["world", "experience"],
+        "prefer_observations": False,
         "query_timestamp": "2026-12-31T00:00:00+00:00",
-        "include": {"source_facts": {}, "chunks": {}},
+        "include": {"chunks": {}},
     }
     calls = reader_requests(llm)
     memory = asked(calls[1])["request"]["results"][-1]["items"][0]
