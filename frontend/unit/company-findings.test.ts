@@ -105,7 +105,7 @@ test("within a group reviewed findings come first, in the reader's words", () =>
   );
   const findings = result.groups[0]?.findings ?? [];
   expect(findings.map((f) => f.id)).toEqual(["2", "3", "1"]);
-  expect(findings.map((f) => f.review)).toEqual(["Approved", "Machine-reviewed", "Awaiting review"]);
+  expect(findings.map((f) => f.review)).toEqual(["Approved", "Machine-checked only", "Not yet verified"]);
   expect(findings.map((f) => f.tone)).toEqual(["reader-supported", "reader-unknown", "reader-review"]);
 });
 

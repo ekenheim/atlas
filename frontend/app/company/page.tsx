@@ -91,7 +91,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
           <>
             <p className="muted-small">
               {findings.tally.approved} approved · {findings.tally.machine_reviewed}{" "}
-              machine-reviewed · {findings.tally.needs_human_review} awaiting review
+              machine-checked only · {findings.tally.needs_human_review} not yet verified
             </p>
             {findings.groups.map((group) => (
               <div key={group.key} className="finding-group">

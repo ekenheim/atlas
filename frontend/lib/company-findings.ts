@@ -24,8 +24,11 @@ type Shown = Exclude<RelationshipState, "rejected">;
 /** The review states a reader sees, best first (also the order within a group). */
 const REVIEW: Record<Shown, string> = {
   approved: "Approved",
-  machine_reviewed: "Machine-reviewed",
-  needs_human_review: "Awaiting review",
+  // Machine review is right about 57% of the time (the pilot verdict, 2026-10-07): it is no
+  // verification, and a reader isn't told which queue an edge waits in (the spec's "review
+  // state for a reader").
+  machine_reviewed: "Machine-checked only",
+  needs_human_review: "Not yet verified",
 };
 const REVIEW_ORDER = Object.keys(REVIEW) as Shown[];
 
