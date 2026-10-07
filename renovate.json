@@ -13,30 +13,69 @@
   "prConcurrentLimit": 6,
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 6am on monday"]
+    "schedule": [
+      "before 6am on monday"
+    ]
   },
   "packageRules": [
     {
-      "description": ["Frontend npm minor and patch updates merge themselves once CI is green"],
-      "matchManagers": ["npm"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "description": [
+        "Frontend npm minor and patch updates merge themselves once CI is green"
+      ],
+      "matchManagers": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "automerge": true,
       "automergeType": "branch"
     },
     {
-      "description": ["Lock file maintenance merges itself once CI is green"],
-      "matchUpdateTypes": ["lockFileMaintenance"],
+      "description": [
+        "Lock file maintenance merges itself once CI is green"
+      ],
+      "matchUpdateTypes": [
+        "lockFileMaintenance"
+      ],
       "automerge": true,
       "automergeType": "branch"
     },
     {
-      "description": ["uv is pinned in CI, release and the Dockerfile: one PR moves them together"],
-      "matchPackageNames": ["astral-sh/uv", "ghcr.io/astral-sh/uv"],
+      "description": [
+        "uv is pinned in CI, release and the Dockerfile: one PR moves them together"
+      ],
+      "matchPackageNames": [
+        "astral-sh/uv",
+        "ghcr.io/astral-sh/uv"
+      ],
       "groupName": "uv"
     },
     {
-      "description": ["Never automatic: the runtime Python, the test Postgres (tracks production's), and Hindsight (pinned to the spiked, recorded version)"],
-      "matchPackageNames": ["python", "postgres", "ghcr.io/vectorize-io/hindsight-api"],
+      "description": [
+        "The runtime Python moves deliberately (Dockerfile, requires-python, the lock and every compiled dependency at once; 3.14 segfaulted in CI on 6 October), never by a Renovate PR; patch updates of the pinned minor still come"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
+      "description": [
+        "Never automatic: the runtime Python, the test Postgres (tracks production's), and Hindsight (pinned to the spiked, recorded version)"
+      ],
+      "matchPackageNames": [
+        "python",
+        "postgres",
+        "ghcr.io/vectorize-io/hindsight-api"
+      ],
       "automerge": false
     }
   ]
