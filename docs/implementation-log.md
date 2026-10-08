@@ -3695,3 +3695,21 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The step-status replay is only detected (`build_steps` takes no `relations` yet), not run.
   - Counter-Facts keep both the Fact's own step and the step whose card lists it (`on_step`); the 17th counter-Fact of question 5 is not in the 200-Fact listing, so its verdict is null.
 - **Next:** the lead builds and commits `labels.json`, then the replay is wired when the `relations` signature lands.
+
+## Release 0.5.4: the Fable round and tickets 07–08 (8 October)
+
+- **What:** five fixes that Fable diagnosed from the 0.5.3 pilot reviews, specified, and reviewed. Fable chose the implementer models: Sonnet for the grounding rules and the regression set, Opus for the judge, the counter-judge and the Reader's prompt. Plus bottleneck-argument tickets 07 (an optional Financial Analyst) and 08 (no Fact references in statements).
+- **Integration:** `integrate/fable-round-1`, from `main`.
+  - Conflicts: `grounding.py` (two independent additions, both kept), `roles/reader.py` (Reader v3 from T4, Skeptic v3 from T3) and `tests/integration/test_argument_plan.py`.
+  - In the test, T2 and T3 had each added tests. T2 made `SUPPORTED` a ready reply, and T3 added the counter-judge, which T2's and T1's new tests didn't script. Fixed in the merge.
+- **Checks:**
+  - Local (WSL, local Postgres): ruff and pyright clean, API client current; 1,147 unit tests passed, 2 skipped; `test_argument_plan.py`, `test_reader.py`, `test_investigations.py` and `test_facts.py`: 86 passed.
+  - CI run 37778071329 green.
+- **Measured on the reviewed 0.5.3 data** (`.scratch/tools/argument_regression.py`; the labels are local, because 11 card statements carry transcript text):
+  - `check_status`: refuses 17 of 127 wrong Facts, 1 of 608 right and 1 of 118 off-question.
+  - The grounding rules: catch 6 of the 17 failing statements and flag 1 of 113 passing.
+  - The step-status replay is not yet wired to the counter-judge's relations.
+  - Two question 2 labels were corrected (results.md).
+- **Release:** `v0.5.4` at `3081dd4`. Release run 37784647221 (`verified`, `publish` success); image `ghcr.io/ekenheim/atlas:0.5.4`. No migrations. One new setting with a default (`ATLAS_FINDING_JUDGE_VOTE_RULE=any`).
+- **Deploy:** home-ops-upgrade#7334, for the owner to merge. The cluster was having issues at release time.
+- **Fixture only:** none of the role changes has run on MiniMax. Their live effect needs a pilot re-run.
