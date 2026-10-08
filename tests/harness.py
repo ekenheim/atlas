@@ -154,6 +154,9 @@ class Atlas:
             # (`finding_judge=True`), so modules whose investigations script the Editor run
             # as before.
             "finding_judge": False,
+            # One vote per statement unless a test asks for more (`finding_judge_votes`,
+            # `finding_judge_vote_rule`), so a scripted judge answers once per statement.
+            "finding_judge_votes": 1,
         }
         return make_settings(self.archive, **(values | providers | self.overrides))
 

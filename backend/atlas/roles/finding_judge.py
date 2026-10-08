@@ -16,6 +16,14 @@ short reference the Editor used, `c1`, ...), and the retrieved data each Claim's
 (`id` = its reference), quoted and low-trust like every role's. A misstated finding is
 rewritten once by the Editor (`atlas.roles.editor.EDITOR_REVISE`) with the judge's reason and
 judged again (`atlas.investigations.meaning`).
+
+v3 (pilot 0.5.3's review: the judge missed 17 of 17 narrow overstatements and nothing in its
+answer could be checked) shows its basis clause by clause: the statement split into its claims
+(`clauses`), each tied to the one cited quote that states it (`ref`) by that quote's own words
+copied (`basis`), and code checks every basis occurs in its quote
+(`atlas.investigations.meaning.verify_bases`): a `supported` verdict with a clause it can't
+verify is a misstatement. A cited Fact (the argument plan) carries how its Reader read it:
+`status`, `period`, `quantity` and the Reader's statement (`reading`); a Claim leaves them None.
 """
 
 from typing import Literal
@@ -24,7 +32,7 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-FINDING_JUDGE_PROMPT_VERSION = 2
+FINDING_JUDGE_PROMPT_VERSION = 3
 
 # How a finding goes beyond its quotes.
 MisstatementKind = Literal[
@@ -42,7 +50,7 @@ class _Request(BaseModel):
 
 
 class JudgedClaim(_Request):
-    """A cited Claim as the judge is sent it (its exact quote goes as retrieved data)."""
+    """A cited Claim or Fact as the judge is sent it (its exact quote goes as retrieved data)."""
 
     ref: str  # `c1`, `c2`, ...: the retrieved quote's `id`
     subject: str  # the subject company's name
@@ -50,6 +58,12 @@ class JudgedClaim(_Request):
     object: str
     epistemic_type: str
     source_title: str
+    # A Fact's reading by its Reader (the argument plan): its status (`in_effect`, `planned`,
+    # `hedged`, `in_development`, ...), period, quantity and statement. None for a Claim.
+    status: str | None = None
+    period: str | None = None
+    quantity: str | None = None
+    reading: str | None = None
 
 
 class JudgedFinding(_Request):
@@ -64,7 +78,17 @@ class FindingJudgeRequest(_Request):
     claims: list[JudgedClaim]
 
 
+class JudgedClause(RoleOutput):
+    """One claim of the statement (or a limitation) and the quote words that state it."""
+
+    text: str  # the clause, copied as the finding writes it
+    ref: str | None  # the cited reference whose quote states it; None: no quote does
+    basis: str | None  # that quote's own words stating it, copied verbatim; None: none
+
+
 class FindingJudgement(RoleOutput):
+    # The statement split into its claims, each with its basis (checked by code).
+    clauses: list[JudgedClause]
     verdict: Literal["supported", "misstated"]
     # The finding's own words that go beyond the quotes, as it writes them (empty: supported).
     beyond: list[str]

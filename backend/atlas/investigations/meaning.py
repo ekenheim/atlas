@@ -19,7 +19,13 @@ The flow, per research card:
    budget spent) leaves the finding on the card unjudged (`judged` None), and the card needs
    review: the judge's failure is not the finding's.
 
-Every verdict is recorded on the card (`ResearchCard.judged`).
+Every verdict is recorded on the card (`ResearchCard.judged`), each vote its own.
+
+The judge shows its basis (`finding_judge.v3`, pilot 0.5.3): the statement split into clauses,
+each tied to a cited quote by that quote's own words. Code checks every basis
+(`verify_bases`): a `supported` verdict with a clause whose reference isn't cited or whose
+words aren't its quote's is a misstatement (`unstated`, the clauses `beyond`), rewritten like
+any other. It applies to every vote, before the votes are counted (`voting`).
 """
 
 import uuid
@@ -27,8 +33,13 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from atlas.investigations.grounding import CheckedFinding, claim_grounds, ungrounded
-from atlas.investigations.model import CardJudgement
+from atlas.investigations.grounding import (
+    CheckedFinding,
+    claim_grounds,
+    phrase_occurs,
+    ungrounded,
+)
+from atlas.investigations.model import CardClause, CardJudgement
 from atlas.roles.caller import RoleOutputQuarantined, TokenBudgetExhausted
 from atlas.roles.contract import QuotedText
 from atlas.roles.editor import (
@@ -50,38 +61,118 @@ type Judge = Callable[[FindingJudgeRequest, list[QuotedText]], tuple[FindingJudg
 type Revise = Callable[[EditorReviseRequest, list[QuotedText]], tuple[RevisedFindings, uuid.UUID]]
 
 
-def voting(judge: Judge, votes: int) -> Judge:
-    """`judge` asked up to `votes` times: a finding is misstated only when every vote says so.
+type VoteRule = Literal["any", "all"]
 
-    The judge is a model and errs on the strict side at random (on the pilot's labelled
-    findings one call flagged three to five of nine supported findings, a different few each
-    run, while every misstatement was caught on every run); a real misstatement is caught again,
-    a spurious flag rarely is. The first `supported` vote is the answer (later votes are not
-    asked); if none, the first `misstated` vote, with its reason for the rewrite. Measured on
-    the 18 labelled findings with two votes: 8 of 9 misstatements caught, 1 of 9 supported
-    flagged (docs/decisions.md, "Findings checked for meaning")."""
 
-    def judged(
-        request: FindingJudgeRequest, quotes: list[QuotedText]
+def verify_bases(judgement: FindingJudgement, quotes: Sequence[QuotedText]) -> list[str]:
+    """The judge's clauses whose basis code can't verify, as it wrote them, in order: a clause
+    whose `ref` is not one of the cited quotes' (`quotes`, by `id`), or whose `basis` does not
+    occur in that quote (folded, lower case, whitespace single, quotation marks and end
+    punctuation dropped: `atlas.investigations.grounding.phrase_occurs`). A clause with no
+    reference or basis (one the judge says goes beyond the quotes) is among them."""
+    texts = {quote.id: quote.text for quote in quotes}
+    return [
+        clause.text
+        for clause in judgement.clauses
+        if clause.ref is None
+        or clause.ref not in texts
+        or clause.basis is None
+        or not phrase_occurs(clause.basis, texts[clause.ref])
+    ]
+
+
+def checked(judgement: FindingJudgement, quotes: Sequence[QuotedText]) -> FindingJudgement:
+    """`judgement` with its bases checked: a `supported` verdict with an unverified clause is
+    `misstated` (`unstated`, the clauses `beyond`, the reason naming them); any other is as
+    the judge gave it."""
+    if judgement.verdict != "supported":
+        return judgement
+    unverified = verify_bases(judgement, quotes)
+    if not unverified:
+        return judgement
+    named = "; ".join(f'"{text}"' for text in unverified)
+    return judgement.model_copy(
+        update={
+            "verdict": "misstated",
+            "beyond": unverified,
+            "kinds": ["unstated"],
+            "reason": (
+                f"basis unverified: {named}: no cited quote holds the words the judge gave as"
+                f" the basis of each (the judge's reason: {judgement.reason})"
+            ),
+        }
+    )
+
+
+@dataclass(frozen=True)
+class Ballot:
+    """What the judge answered about one statement: every vote asked, in order, each with its
+    bases checked, and which one decides."""
+
+    votes: list[tuple[FindingJudgement, uuid.UUID]]
+    decided: int
+
+
+class Voting:
+    """A judge asked up to `votes` times about each statement, decided by `rule` (see
+    `voting`). Called, it answers the deciding vote; `ballot` gives every vote."""
+
+    def __init__(self, judge: Judge, votes: int, rule: VoteRule) -> None:
+        self.judge = judge
+        self.votes = max(1, votes)
+        self.rule: VoteRule = rule
+
+    def ballot(self, request: FindingJudgeRequest, quotes: list[QuotedText]) -> Ballot:
+        asked: list[tuple[FindingJudgement, uuid.UUID]] = []
+        for _ in range(self.votes):
+            judgement, role_call_id = self.judge(request, quotes)
+            asked.append((checked(judgement, quotes), role_call_id))
+            if self.rule == "all" and asked[-1][0].verdict == "supported":
+                break
+        wanted = "misstated" if self.rule == "any" else "supported"
+        decided = next((i for i, (each, _) in enumerate(asked) if each.verdict == wanted), 0)
+        return Ballot(asked, decided)
+
+    def __call__(
+        self, request: FindingJudgeRequest, quotes: list[QuotedText]
     ) -> tuple[FindingJudgement, uuid.UUID]:
-        first: tuple[FindingJudgement, uuid.UUID] | None = None
-        for _ in range(max(1, votes)):
-            answer = judge(request, quotes)
-            if answer[0].verdict == "supported":
-                return answer
-            first = first or answer
-        assert first is not None
-        return first
+        ballot = self.ballot(request, quotes)
+        return ballot.votes[ballot.decided]
 
-    return judged
+
+def voting(judge: Judge, votes: int, rule: VoteRule) -> Voting:
+    """`judge` asked up to `votes` times about a statement, each vote's bases checked
+    (`checked`), decided by `rule`:
+
+    - `any` (the setting's default, `ATLAS_FINDING_JUDGE_VOTE_RULE`): every vote is asked, and
+      the statement is misstated when any vote says so (the first misstated vote, with its
+      reason for the rewrite); else supported. On pilot 0.5.3's 130 statements the judge
+      missed 17 of 17 misstatements: a second look that can only add a flag is the cheaper
+      error.
+    - `all`: misstated only when every vote says so. The first supported vote is the answer
+      (later votes are not asked); if none, the first misstated vote. Measured on the 18
+      labelled 0.4.6 findings with two votes: 8 of 9 misstatements caught, 1 of 9 supported
+      flagged; the judge then erred on the strict side at random.
+
+    (docs/decisions.md, "Findings checked for meaning")"""
+    return Voting(judge, votes, rule)
+
+
+def _ballot(judge: Judge, request: FindingJudgeRequest, quotes: list[QuotedText]) -> Ballot:
+    if isinstance(judge, Voting):
+        return judge.ballot(request, quotes)
+    judgement, role_call_id = judge(request, quotes)
+    return Ballot([(checked(judgement, quotes), role_call_id)], 0)
 
 
 # What the card says of the trust gate when the judge ran (beside `GROUNDING_LIMIT`).
 JUDGE_LIMIT = (
     " Each finding that passed was then compared with its quotes by a judge model for tense"
-    " and status, direction, figures and dates, and merged facts (the card's `judged`); a"
-    " misstated finding was rewritten once and dropped if still misstated. The judge is a"
-    " model: a finding it passed can still be wrong."
+    " and status, direction, figures and dates, attribution and merged facts, clause by"
+    " clause, each clause tied to the quote words that state it, and code checked that every"
+    " such basis occurs in its quote (the card's `judged`, every vote); a misstated finding,"
+    " or one with a clause whose basis code could not find, was rewritten once and dropped if"
+    " still misstated. The judge is a model: a finding it passed can still be wrong."
 )
 
 
@@ -123,6 +214,19 @@ def _object(claim: Mapping[Any, Any]) -> str:
     return claim["object_name"] or claim["object_text"] or ""
 
 
+def judged_claim(ref: str, claim: Mapping[Any, Any]) -> JudgedClaim:
+    """A cited Claim as the judge is sent it (a Fact's reading is the argument plan's, added
+    by `atlas.investigations.tasks`)."""
+    return JudgedClaim(
+        ref=ref,
+        subject=claim["subject_name"],
+        predicate=claim["predicate"],
+        object=_object(claim),
+        epistemic_type=claim["epistemic_type"],
+        source_title=claim["source_title"],
+    )
+
+
 def judge_findings(
     findings: Sequence[CheckedFinding],
     claims: Mapping[str, Mapping[Any, Any]],
@@ -130,66 +234,87 @@ def judge_findings(
     aliases: Sequence[Sequence[str]],
     judge: Judge,
     revise: Revise,
+    describe: Callable[[str, Mapping[Any, Any]], JudgedClaim] = judged_claim,
 ) -> JudgedFindings:
     """Judge each of `findings` (grounded ones: their drafts and cited references, each a key
-    of `claims`), have the misstated ones rewritten once, and judge the rewrites (see the
-    module)."""
+    of `claims`, described to the judge by `describe`), have the misstated ones rewritten
+    once, and judge the rewrites (see the module). Every vote of a `Voting` judge is
+    recorded."""
     judgements: list[CardJudgement] = []
     keys = [f"f{index + 1}" for index in range(len(findings))]
 
     def ask(
         draft: CardFindingDraft, cited: list[str]
-    ) -> tuple[FindingJudgement | None, uuid.UUID | None, str | None]:
+    ) -> tuple[FindingJudgement | None, uuid.UUID | None, str | None, Ballot | None]:
         request = FindingJudgeRequest(
             research_question=question,
             finding=JudgedFinding(
                 statement=draft.statement, limitations=draft.limitations, claim_refs=cited
             ),
-            claims=[
-                JudgedClaim(
-                    ref=ref,
-                    subject=claims[ref]["subject_name"],
-                    predicate=claims[ref]["predicate"],
-                    object=_object(claims[ref]),
-                    epistemic_type=claims[ref]["epistemic_type"],
-                    source_title=claims[ref]["source_title"],
-                )
-                for ref in cited
-            ],
+            claims=[describe(ref, claims[ref]) for ref in cited],
         )
         try:
-            verdict, role_call_id = judge(request, _quotes(cited, claims))
+            ballot = _ballot(judge, request, _quotes(cited, claims))
         except RoleOutputQuarantined as failure:
-            return None, failure.role_call_id, str(failure)
+            return None, failure.role_call_id, str(failure), None
         except TokenBudgetExhausted as failure:
-            return None, None, str(failure)
-        return verdict, role_call_id, None
+            return None, None, str(failure), None
+        verdict, role_call_id = ballot.votes[ballot.decided]
+        return verdict, role_call_id, None, ballot
 
     def record(
         key: str,
         attempt: Literal[1, 2],
         draft: CardFindingDraft,
         cited: list[str],
-        answer: tuple[FindingJudgement | None, uuid.UUID | None, str | None],
+        answer: tuple[FindingJudgement | None, uuid.UUID | None, str | None, Ballot | None],
         outcome: Literal["kept", "sent_back", "dropped", "kept_unjudged"],
     ) -> None:
-        verdict, role_call_id, failure = answer
-        judgements.append(
-            CardJudgement(
-                finding=key,
-                attempt=attempt,
-                statement=draft.statement,
-                limitations=draft.limitations,
-                claim_ids=[claims[ref]["id"] for ref in cited],
-                verdict=verdict.verdict if verdict is not None else "failed",
-                beyond=verdict.beyond if verdict is not None else [],
-                kinds=list(verdict.kinds) if verdict is not None else [],
-                reason=verdict.reason if verdict is not None else str(failure),
-                outcome=outcome,
-                role_call_id=role_call_id,
-                judge=FINDING_JUDGE_VERSION,
+        _, role_call_id, failure, ballot = answer
+        claim_ids = [claims[ref]["id"] for ref in cited]
+        if ballot is None:
+            judgements.append(
+                CardJudgement(
+                    finding=key,
+                    attempt=attempt,
+                    statement=draft.statement,
+                    limitations=draft.limitations,
+                    claim_ids=claim_ids,
+                    verdict="failed",
+                    beyond=[],
+                    kinds=[],
+                    reason=str(failure),
+                    outcome=outcome,
+                    role_call_id=role_call_id,
+                    judge=FINDING_JUDGE_VERSION,
+                )
             )
-        )
+            return
+        quotes = _quotes(cited, claims)
+        for index, (verdict, vote_call_id) in enumerate(ballot.votes):
+            judgements.append(
+                CardJudgement(
+                    finding=key,
+                    attempt=attempt,
+                    statement=draft.statement,
+                    limitations=draft.limitations,
+                    claim_ids=claim_ids,
+                    verdict=verdict.verdict,
+                    beyond=verdict.beyond,
+                    kinds=list(verdict.kinds),
+                    reason=verdict.reason,
+                    outcome=outcome,
+                    role_call_id=vote_call_id,
+                    judge=FINDING_JUDGE_VERSION,
+                    vote=index + 1,
+                    decided=index == ballot.decided,
+                    clauses=[
+                        CardClause(text=each.text, ref=each.ref, basis=each.basis)
+                        for each in verdict.clauses
+                    ],
+                    unverified=verify_bases(verdict, quotes),
+                )
+            )
 
     outcomes: list[JudgedOutcome | None] = [None] * len(findings)
     misstated: dict[str, tuple[int, FindingJudgement]] = {}
@@ -292,13 +417,14 @@ def judge_findings(
         outcomes[index] = JudgedOutcome(draft, cited, False, None, reason)
 
     done = [each for each in outcomes if each is not None]
+    decided = [j for j in judgements if j.decided]  # one per finding and attempt
     counts = {
         "judged": len(findings),
-        "supported": sum(1 for j in judgements if j.attempt == 1 and j.verdict == "supported"),
+        "supported": sum(1 for j in decided if j.attempt == 1 and j.verdict == "supported"),
         "misstated": len(misstated),
-        "failed": sum(1 for j in judgements if j.verdict == "failed"),
-        "failed_first": sum(1 for j in judgements if j.attempt == 1 and j.verdict == "failed"),
-        "rewritten_kept": sum(1 for j in judgements if j.attempt == 2 and j.outcome == "kept"),
+        "failed": sum(1 for j in decided if j.verdict == "failed"),
+        "failed_first": sum(1 for j in decided if j.attempt == 1 and j.verdict == "failed"),
+        "rewritten_kept": sum(1 for j in decided if j.attempt == 2 and j.outcome == "kept"),
         "dropped": sum(1 for each in done if not each.kept),
     }
     return JudgedFindings(done, judgements, revise_call, revise_failure, counts)

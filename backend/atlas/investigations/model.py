@@ -457,12 +457,27 @@ class UnsupportedFinding(BaseModel):
     reason: str
 
 
+class CardClause(BaseModel):
+    """One clause of a judged statement and its basis, as the finding judge gave them
+    (`finding_judge.v3`): the clause as written, the cited reference whose quote states it and
+    that quote's words (None: the judge found none)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str
+    ref: str | None
+    basis: str | None
+
+
 class CardJudgement(BaseModel):
     """One verdict of the finding judge on a finding (bottleneck-argument ticket 04): the
     statement it judged, `supported` or `misstated` with the words that go beyond the quotes
     (`beyond`), their kinds and the judge's reason; `failed` when its call gave no answer
     (`reason` says why). `attempt` 2 judges the Editor's rewrite of a misstated finding;
-    `outcome` what came of the finding at this attempt."""
+    `outcome` what came of the finding at this attempt. With several votes, each is a verdict
+    of its own (`vote`, 1-based), the one the rule took marked `decided`. Since
+    `finding_judge.v3` each carries its `clauses` and those whose basis code could not find in
+    its quote (`unverified`): a `supported` vote with any is recorded `misstated`."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -477,7 +492,11 @@ class CardJudgement(BaseModel):
     reason: str
     outcome: Literal["kept", "sent_back", "dropped", "kept_unjudged"]
     role_call_id: uuid.UUID | None
-    judge: str  # the prompt, e.g. `finding_judge.v2`
+    judge: str  # the prompt, e.g. `finding_judge.v3`
+    vote: int = 1
+    decided: bool = True
+    clauses: list[CardClause] = Field(default_factory=list[CardClause])
+    unverified: list[str] = Field(default_factory=list[str])
 
 
 class CardQuery(BaseModel):
