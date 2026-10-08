@@ -132,7 +132,7 @@ from atlas.investigations.companies import FloorCandidate, document_floor, docum
 from atlas.investigations.coverage import coverage, not_read, skeptic_coverage, unchecked_note
 from atlas.investigations.entity_hop import HopLimits, record_entity_pointers
 from atlas.investigations.grounding import GROUNDING_LIMIT, CheckedFinding, check_findings
-from atlas.investigations.meaning import JUDGE_LIMIT, judge_findings, voting
+from atlas.investigations.meaning import JUDGE_LIMIT, judge_findings, judged_claim, voting
 from atlas.investigations.model import (
     RUN_KIND,
     CardBearContext,
@@ -214,7 +214,12 @@ from atlas.roles.editor import (
     RevisedFindings,
 )
 from atlas.roles.financial_analyst import FINANCIAL_ANALYST
-from atlas.roles.finding_judge import FINDING_JUDGE, FindingJudgement, FindingJudgeRequest
+from atlas.roles.finding_judge import (
+    FINDING_JUDGE,
+    FindingJudgement,
+    FindingJudgeRequest,
+    JudgedClaim,
+)
 from atlas.roles.reader import (
     ARGUMENT_SKEPTIC,
     ARGUMENT_SKEPTIC_VERSION,
@@ -1255,6 +1260,7 @@ class TaskRunner:
                 voting(
                     lambda asked, quotes: self._judge_finding(investigation, run_id, asked, quotes),
                     self._settings.finding_judge_votes,
+                    self._settings.finding_judge_vote_rule,
                 ),
                 lambda asked, quotes: self._ask_editor_to_revise(
                     investigation, run_id, asked, quotes
@@ -1719,10 +1725,17 @@ class TaskRunner:
                 refs,
                 investigation["question"],
                 self._company_names(),
-                lambda asked, quotes: self._judge_finding(investigation, run_id, asked, quotes),
+                # As many votes as configured, decided by the rule, as the default plan asks
+                # (pilot 0.5.3: this plan asked one vote per statement whatever the setting).
+                voting(
+                    lambda asked, quotes: self._judge_finding(investigation, run_id, asked, quotes),
+                    self._settings.finding_judge_votes,
+                    self._settings.finding_judge_vote_rule,
+                ),
                 lambda asked, quotes: self._ask_editor_to_revise(
                     investigation, run_id, asked, quotes
                 ),
+                _judged_fact,
             )
             for (key, _), outcome in zip(grounded, meaning.outcomes, strict=True):
                 if not outcome.kept:
@@ -2227,6 +2240,23 @@ def _argument_item(ref: str, row: RowMapping, against: list[str]) -> ArgumentFac
         period=value.get("period"),
         source_title=row["source_title"],
         against=against,
+    )
+
+
+def _judged_fact(ref: str, row: Mapping[Any, Any]) -> JudgedClaim:
+    """A cited Fact as the finding judge is sent it: its row as a Claim's, with how its Reader
+    read the quote (status, period, quantity and the Reader's statement), so a statement's
+    tense can be held to a `planned` or `hedged` Fact (pilot 0.5.3)."""
+    raw: Any = row["value_json"]
+    value = cast(dict[str, Any], raw) if isinstance(raw, dict) else {}
+    status, period, reading = value.get("status"), value.get("period"), value.get("statement")
+    return judged_claim(ref, row).model_copy(
+        update={
+            "status": str(status) if status else None,
+            "period": str(period) if period else None,
+            "quantity": quantity_text(cast(RowMapping, row)),
+            "reading": str(reading) if reading else None,
+        }
     )
 
 

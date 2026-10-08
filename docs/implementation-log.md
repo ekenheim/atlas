@@ -3610,3 +3610,27 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The integration test runs in CI's suite only: no local Docker.
 - **Fixture only:** neither change has run on MiniMax. The normalizer's cases are the two shapes recorded on pilot question 2's role calls (`.scratch/live-runs/pilot-0.5.3-arg/inv-2/role-calls.json`, not in git).
 - **Next:** release after pilot questions 4 and 5 finish on 0.5.3, so the pilot compares one version.
+
+## Pilot 0.5.3 fix T2: the finding judge shows its basis, sees the Fact's status, and the argument plan counts its votes (8 October)
+
+- **Why:** on 0.5.3's four argument cards the judge missed 17 of 17 failing statements and flagged 31 that mostly survived a rewrite; the argument plan asked one vote per statement whatever `ATLAS_FINDING_JUDGE_VOTES` said (role calls = recorded judgements on every card); a Fact reached the judge as `predicate: "fact"`, `object: ""`, no status.
+- **Files:**
+  - `backend/atlas/roles/finding_judge.py`: `FINDING_JUDGE_PROMPT_VERSION` 3; `JudgedClaim.status`, `period`, `quantity`, `reading` (optional); `JudgedClause(text, ref, basis)`; `FindingJudgement.clauses` (first in the schema).
+  - `backend/atlas/roles/prompts/finding_judge.v3.md` (new; v2 kept): the clause-and-basis protocol, the Fact's status, figure-to-another-thing, merged dates or companies; synthetic examples.
+  - `backend/atlas/investigations/meaning.py`: `verify_bases`, `checked` (a supported vote with an unverified clause becomes `misstated`, `unstated`, `basis unverified: ...`), `Voting`/`Ballot` and `voting(judge, votes, rule)` with `any`/`all`, every vote recorded (`vote`, `decided`), counts from the deciding votes, `judged_claim` and a `describe` parameter, `JUDGE_LIMIT`.
+  - `backend/atlas/investigations/grounding.py`: `phrase_occurs` (whole words, the quoted-phrase comparison, no ellipsis).
+  - `backend/atlas/investigations/model.py`: `CardClause`; `CardJudgement.vote`, `decided`, `clauses`, `unverified` (defaults, so older cards read).
+  - `backend/atlas/investigations/tasks.py`: `_argument_editor` wraps the judge in `voting(...)` with the votes and rule; `_judged_fact` sends each Fact's status, period, quantity and the Reader's statement; the default plan passes the rule.
+  - `backend/atlas/settings.py`: `finding_judge_vote_rule` (`ATLAS_FINDING_JUDGE_VOTE_RULE`, `any`).
+  - `.scratch/tools/argument_statement_labels.py` (new), `.scratch/tools/finding_judge_eval.py` (`--argument`, `--labels`, ceiling 300 with `--argument`, the basis check applied, caught/flagged after and before it, `basis_unverified`, `no_clauses`).
+  - Tests: `tests/unit/test_finding_meaning.py` (4 new, the old vote test now names rule `all`), `tests/unit/test_finding_judge_role.py` (new), `tests/unit/test_finding_judge_eval.py` (new: both tools on a synthetic pilot directory), `tests/integration/test_argument_plan.py` (the scripted judge answers with a basis; `test_the_argument_plan_asks_the_judge_as_many_votes_as_configured`), `tests/integration/test_investigations.py` (the judge's answers with clauses, v3), `tests/harness.py` (one vote unless a test asks for more).
+  - `frontend/lib/api/{openapi.json,schema.ts}` regenerated; `docs/decisions.md` ("Findings checked for meaning", addendum of 2026-10-08).
+- **Tests (actual, WSL, local PostgreSQL at 55432):** `tests/unit/test_finding_meaning.py` + `test_finding_judge_role.py` 12 passed; `tests/unit/test_finding_judge_eval.py` 2 passed; whole unit suite 1104 passed; `tests/integration/test_argument_plan.py` 5 passed; `tests/integration/test_investigations.py -k misstated_finding_is_rewritten` 1 passed; ruff format/check and strict pyright clean; frontend lint, typecheck and 112 unit tests pass. The eval's dry run over the real labels (written by the new tool to a scratch path, not committed): 130 requests built (17 fail, 113 pass); over 0.4.6's findings: 18 built.
+- **Fixture only:** `finding_judge.v3` has not been called on MiniMax; the live eval (`finding_judge_eval.py --argument`, target >= 10 of 17 caught, <= 10 of 113 flagged) is the lead's.
+- **Deviations:**
+  - A `supported` vote with an empty `clauses` list has nothing unverified and stands (the spec's rule read literally); the eval reports how often that happens (`no_clauses`), so the lead can decide whether to treat it as unverified.
+  - Each vote is its own `CardJudgement` (`vote`, `decided` added beside the spec's `clauses` and `unverified`), so the card shows every vote, as acceptance 4 asks; `meaning` counts only the deciding votes.
+  - The basis comparison is by whole words ("our" is not found in "four") and allows no ellipsis.
+  - The default `any` rule applies to the default plan too (one setting for both).
+  - The eval sends a Fact's epistemic type as `company_claim` unless its status is `reported_by_third_party` (the card does not carry the Assertion's own).
+- **Next:** the lead runs `argument_statement_labels.py` then `finding_judge_eval.py --argument` live and keeps or adjusts the rule and the prompt by its numbers.

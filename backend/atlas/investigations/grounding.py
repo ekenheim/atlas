@@ -248,6 +248,19 @@ def ungrounded(statement: str, ground: Grounds) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+def phrase_occurs(phrase: str, text: str) -> bool:
+    """Whether `phrase` occurs in `text` whole, compared as a statement's quoted phrase is with
+    its grounds: folded, lower case, whitespace single, quotation marks and the punctuation at
+    its ends dropped, and as whole words ("our" is not in "four"). No ellipsis: the finding
+    judge's basis is one unbroken run of its quote's words
+    (`atlas.investigations.meaning.verify_bases`). An empty phrase occurs nowhere."""
+    flat = _flat(_normal(phrase))
+    if not flat:
+        return False
+    pattern = r"(?<![\w])" + re.escape(flat) + r"(?![\w])"
+    return re.search(pattern, _flat(_normal(text))) is not None
+
+
 def number_occurs(value: Decimal, ground: Grounds) -> bool:
     """Whether `ground` contains the number `value`: as written, with its magnitude applied
     ("$1.01 billion" holds 1010000000) or before it ("$1.01 billion" holds 1.01)."""

@@ -99,12 +99,19 @@ def searxng_served(searxng: FakeSearXNG) -> Iterator[Served]:
 
 
 @pytest.fixture
+def judge_settings() -> dict[str, Any]:
+    """The finding judge's settings beyond the harness's (one vote): a test parametrizes it."""
+    return {}
+
+
+@pytest.fixture
 def atlas(
     database_url: str,
     tmp_path: Path,
     hindsight: tuple[RecordedHindsight, Served],
     litellm: Served,
     searxng_served: Served,
+    judge_settings: dict[str, Any],
 ) -> Iterator[Atlas]:
     harness = Atlas(
         database_url,
@@ -113,6 +120,7 @@ def atlas(
         litellm.url,
         searxng_url=searxng_served.url,
         finding_judge=True,
+        **judge_settings,
     )
     harness.apply_template()
     seeded = harness.cli("companies", "seed")
@@ -251,12 +259,22 @@ def editing(body: dict[str, Any]) -> JsonValue:
     }
 
 
-SUPPORTED: JsonValue = {
-    "verdict": "supported",
-    "beyond": [],
-    "kinds": [],
-    "reason": "the quotes state it",
-}
+def supporting(body: dict[str, Any]) -> JsonValue:
+    """The finding judge (`finding_judge.v3`): supported, the statement one clause whose basis
+    is the first cited quote, whole (code checks it occurs there)."""
+    request = asked(body)
+    statement = request["request"]["finding"]["statement"]
+    quote = request["retrieved_data"][0]
+    return {
+        "clauses": [{"text": statement, "ref": quote["id"], "basis": quote["text"]}],
+        "verdict": "supported",
+        "beyond": [],
+        "kinds": [],
+        "reason": "the quotes state it",
+    }
+
+
+SUPPORTED = ChatReply.answer(supporting, tokens=(400, 40))
 
 # editor-argument.v2: several statements per step, each checked on its own.
 RELIEF_SECOND = "The expansion of the Sherman, Texas, manufacturing facility was announced."
@@ -314,7 +332,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
     llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
-    llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
+    llm.script_role("finding_judge", *(SUPPORTED,) * 2)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
@@ -486,7 +504,7 @@ def test_each_statement_of_a_step_is_checked_on_its_own(
     llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
     llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
-    llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
+    llm.script_role("finding_judge", *(SUPPORTED,) * 2)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing_by_point, tokens=(3000, 400)),  # the Editor
@@ -572,7 +590,7 @@ def test_an_unusable_analyst_answer_leaves_the_card_to_the_editor(
     llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
     llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
     llm.script_role("financial_analyst", unusable, unusable)  # the answer and its repair
-    llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
+    llm.script_role("finding_judge", *(SUPPORTED,) * 2)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
@@ -609,6 +627,131 @@ def test_an_unusable_analyst_answer_leaves_the_card_to_the_editor(
     steps = {step["step"]: step for step in card["steps"]}
     assert steps["relief"]["statement"] == RELIEF_STATEMENT
     assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
+
+
+RELIEF_REWRITTEN = (
+    "Coherent says it announced the expansion of its Sherman, Texas, manufacturing facility."
+)
+RELIEF_READING = (
+    "Coherent announced the expansion of its Sherman, Texas, manufacturing facility during"
+    " fiscal 2026."
+)
+# The votes the judge has been asked, by statement (the judge is asked one call at a time).
+VOTES: dict[str, int] = {}
+
+
+def judging_relief_misstated_once(body: dict[str, Any]) -> JsonValue:
+    """The finding judge: the second vote on the Relief statement says misstated (its Fact is
+    `planned`); every other vote is supported, with a verifiable basis."""
+    statement = asked(body)["request"]["finding"]["statement"]
+    VOTES[statement] = VOTES.get(statement, 0) + 1
+    if statement == RELIEF_STATEMENT and VOTES[statement] == 2:
+        return {
+            "clauses": [{"text": "announced the expansion", "ref": None, "basis": None}],
+            "verdict": "misstated",
+            "beyond": ["announced the expansion"],
+            "kinds": ["tense_or_status"],
+            "reason": "vote 2: the cited Fact is planned",
+        }
+    return supporting(body)
+
+
+def revising(body: dict[str, Any]) -> JsonValue:
+    """The Editor's rewrite of a misstated statement."""
+    findings = asked(body)["request"]["findings"]
+    return {
+        "findings": [
+            {"finding": f["finding"], "statement": RELIEF_REWRITTEN, "limitations": []}
+            for f in findings
+        ]
+    }
+
+
+@pytest.mark.parametrize(
+    "judge_settings", [{"finding_judge_votes": 2, "finding_judge_vote_rule": "any"}]
+)
+def test_the_argument_plan_asks_the_judge_as_many_votes_as_configured(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    # Pilot 0.5.3: the argument plan asked one vote per statement whatever the setting.
+    VOTES.clear()
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role(
+        "finding_judge",
+        *(ChatReply.answer(judging_relief_misstated_once, tokens=(400, 40)),) * 6,
+    )
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
+        ChatReply.answer(revising, tokens=(800, 100)),  # its rewrite of the misstated one
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    started = response.json()
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{started['id']}")
+    judge_calls = [b for b in llm.chat_requests() if b["metadata"]["role"] == "finding_judge"]
+    # Two votes on each of the two statements, then two on the rewrite.
+    assert len(judge_calls) == 6
+    card = found["research_card"]
+    relief = [
+        (j["attempt"], j["vote"], j["verdict"], j["decided"], j["outcome"])
+        for j in card["judged"]
+        if j["finding"] == "f1"
+    ]
+    # Rule any: both votes asked; the misstated second vote decides and the statement goes to
+    # the rewrite, which is judged by two votes again.
+    assert relief == [
+        (1, 1, "supported", False, "sent_back"),
+        (1, 2, "misstated", True, "sent_back"),
+        (2, 1, "supported", True, "kept"),
+        (2, 2, "supported", False, "kept"),
+    ]
+    sent_back = next(j for j in card["judged"] if j["finding"] == "f1" and j["decided"])
+    assert sent_back["reason"] == "vote 2: the cited Fact is planned"
+    assert [j["verdict"] for j in card["judged"] if j["finding"] == "f2"] == [
+        "supported",
+        "supported",
+    ]
+    # Each vote's clauses and bases are on the card, verified.
+    first = card["judged"][0]
+    assert first["clauses"][0]["basis"] == SHERMAN
+    assert first["unverified"] == []
+    assert first["judge"] == "finding_judge.v3"
+    steps = {step["step"]: step for step in card["steps"]}
+    assert [s["statement"] for s in steps["relief"]["statements"]] == [RELIEF_REWRITTEN]
+    # Every judge call was sent the cited Fact's reading: its status, period and statement.
+    for body in judge_calls:
+        claims = {c["ref"]: c for c in asked(body)["request"]["claims"]}
+        assert all(c["predicate"] == "fact" for c in claims.values())
+        assert all(c["status"] and c["reading"] for c in claims.values())
+    relief_calls = [
+        asked(b)["request"]["claims"]
+        for b in judge_calls
+        if asked(b)["request"]["finding"]["statement"] in {RELIEF_STATEMENT, RELIEF_REWRITTEN}
+    ]
+    assert len(relief_calls) == 4
+    assert all(
+        [(c["status"], c["period"], c["reading"]) for c in claims]
+        == [("planned", "fiscal 2026", RELIEF_READING)]
+        for claims in relief_calls
+    )
 
 
 def test_the_default_plan_stays_the_default(atlas: Atlas) -> None:

@@ -8581,6 +8581,44 @@
         "title": "CardClaimSummary",
         "description": "An accepted Claim as the card lists it when the Editor failed: what it states and\nwhere (its quote and span are in the Evidence tray)."
       },
+      "CardClause": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "ref",
+          "basis"
+        ],
+        "title": "CardClause",
+        "description": "One clause of a judged statement and its basis, as the finding judge gave them\n(`finding_judge.v3`): the clause as written, the cited reference whose quote states it and\nthat quote's words (None: the judge found none)."
+      },
       "CardCompanyClaims": {
         "properties": {
           "company_id": {
@@ -9161,6 +9199,30 @@
           "judge": {
             "type": "string",
             "title": "Judge"
+          },
+          "vote": {
+            "type": "integer",
+            "title": "Vote",
+            "default": 1
+          },
+          "decided": {
+            "type": "boolean",
+            "title": "Decided",
+            "default": true
+          },
+          "clauses": {
+            "items": {
+              "$ref": "#/components/schemas/CardClause"
+            },
+            "type": "array",
+            "title": "Clauses"
+          },
+          "unverified": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unverified"
           }
         },
         "type": "object",
@@ -9179,7 +9241,7 @@
           "judge"
         ],
         "title": "CardJudgement",
-        "description": "One verdict of the finding judge on a finding (bottleneck-argument ticket 04): the\nstatement it judged, `supported` or `misstated` with the words that go beyond the quotes\n(`beyond`), their kinds and the judge's reason; `failed` when its call gave no answer\n(`reason` says why). `attempt` 2 judges the Editor's rewrite of a misstated finding;\n`outcome` what came of the finding at this attempt."
+        "description": "One verdict of the finding judge on a finding (bottleneck-argument ticket 04): the\nstatement it judged, `supported` or `misstated` with the words that go beyond the quotes\n(`beyond`), their kinds and the judge's reason; `failed` when its call gave no answer\n(`reason` says why). `attempt` 2 judges the Editor's rewrite of a misstated finding;\n`outcome` what came of the finding at this attempt. With several votes, each is a verdict\nof its own (`vote`, 1-based), the one the rule took marked `decided`. Since\n`finding_judge.v3` each carries its `clauses` and those whose basis code could not find in\nits quote (`unverified`): a `supported` vote with any is recorded `misstated`."
       },
       "CardQuery": {
         "properties": {

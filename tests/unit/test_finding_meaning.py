@@ -20,7 +20,7 @@ from atlas.roles.editor import (
     RevisedFinding,
     RevisedFindings,
 )
-from atlas.roles.finding_judge import FindingJudgement, FindingJudgeRequest
+from atlas.roles.finding_judge import FindingJudgement, FindingJudgeRequest, JudgedClause
 
 QUESTION = "Who holds qualified 200G EML capacity?"
 AGREEMENT = (
@@ -80,14 +80,21 @@ def finding(statement: str, *refs: str) -> CheckedFinding:
     return CheckedFinding(draft, list(refs), [])
 
 
-def supported() -> FindingJudgement:
-    return FindingJudgement(verdict="supported", beyond=[], kinds=[], reason="c2 states it.")
+def supported(*clauses: JudgedClause) -> FindingJudgement:
+    return FindingJudgement(
+        clauses=list(clauses), verdict="supported", beyond=[], kinds=[], reason="c2 states it."
+    )
+
+
+def clause(text: str, ref: str | None, basis: str | None) -> JudgedClause:
+    return JudgedClause(text=text, ref=ref, basis=basis)
 
 
 def misstated(
     reason: str = "c1 is an agreement; it does not say supply has begun.",
 ) -> FindingJudgement:
     return FindingJudgement(
+        clauses=[clause("supplies 200G EMLs to Halcyon Networks", None, None)],
         verdict="misstated",
         beyond=["supplies 200G EMLs to Halcyon Networks"],
         kinds=["tense_or_status"],
@@ -167,7 +174,7 @@ def test_a_supported_finding_is_kept_and_its_verdict_recorded() -> None:
         "kept",
     )
     assert verdict.claim_ids == [CLAIMS["c2"]["id"]]
-    assert verdict.judge == "finding_judge.v2"
+    assert verdict.judge == "finding_judge.v3"
 
 
 def test_a_misstated_finding_is_rewritten_with_the_judge_s_reason_and_kept_when_supported() -> None:
@@ -292,40 +299,178 @@ def test_a_judge_call_that_fails_leaves_the_finding_unjudged_for_review() -> Non
     assert result.counts["failed_first"] == 1
 
 
-def test_a_finding_is_misstated_only_when_every_vote_says_so() -> None:
-    from atlas.investigations.meaning import voting
-
+def answers(*verdicts: str) -> tuple[list[str], Callable[..., tuple[FindingJudgement, uuid.UUID]]]:
+    """A judge answering `verdicts` in order (no clauses), and the verdicts it was asked for."""
+    queue = list(verdicts)
     asked: list[str] = []
 
-    def answers(*verdicts: str) -> Callable[..., tuple[FindingJudgement, uuid.UUID]]:
-        queue = list(verdicts)
+    def judge(request: FindingJudgeRequest, quotes: Any) -> tuple[FindingJudgement, uuid.UUID]:
+        verdict = queue.pop(0)
+        asked.append(verdict)
+        return (
+            FindingJudgement(
+                clauses=[],
+                verdict=verdict,  # type: ignore[arg-type]
+                beyond=["x"] if verdict == "misstated" else [],
+                kinds=["unstated"] if verdict == "misstated" else [],
+                reason=f"vote {len(asked)}",
+            ),
+            uuid.uuid4(),
+        )
 
-        def judge(request: FindingJudgeRequest, quotes: Any) -> tuple[FindingJudgement, uuid.UUID]:
-            verdict = queue.pop(0)
-            asked.append(verdict)
-            return (
-                FindingJudgement(
-                    verdict=verdict,  # type: ignore[arg-type]
-                    beyond=["x"] if verdict == "misstated" else [],
-                    kinds=["unstated"] if verdict == "misstated" else [],
-                    reason=f"vote {len(asked)}",
-                ),
-                uuid.uuid4(),
-            )
+    return asked, judge
 
-        return judge
+
+def test_under_the_all_rule_a_finding_is_misstated_only_when_every_vote_says_so() -> None:
+    from atlas.investigations.meaning import voting
 
     request: Any = None
     # A spurious flag: the second vote supports, so the finding is supported.
-    assert voting(answers("misstated", "supported"), 2)(request, [])[0].verdict == "supported"
+    _, judge = answers("misstated", "supported")
+    assert voting(judge, 2, "all")(request, [])[0].verdict == "supported"
     # Both votes misstated: misstated, with the first vote's reason for the rewrite.
-    asked.clear()
-    verdict = voting(answers("misstated", "misstated"), 2)(request, [])[0]
+    _, judge = answers("misstated", "misstated")
+    verdict = voting(judge, 2, "all")(request, [])[0]
     assert (verdict.verdict, verdict.reason) == ("misstated", "vote 1")
     # A supported first vote is the answer: the second is not asked.
-    asked.clear()
-    assert voting(answers("supported", "misstated"), 2)(request, [])[0].verdict == "supported"
+    asked, judge = answers("supported", "misstated")
+    assert voting(judge, 2, "all")(request, [])[0].verdict == "supported"
     assert asked == ["supported"]
     # One vote: the judge as it is.
-    asked.clear()
-    assert voting(answers("misstated"), 1)(request, [])[0].verdict == "misstated"
+    _, judge = answers("misstated")
+    assert voting(judge, 1, "all")(request, [])[0].verdict == "misstated"
+
+
+def test_under_the_any_rule_every_vote_is_asked_and_one_misstated_vote_decides() -> None:
+    from atlas.investigations.meaning import voting
+
+    request: Any = None
+    # Rule any: both votes asked; the misstated second vote decides, with its reason.
+    asked, judge = answers("supported", "misstated")
+    verdict = voting(judge, 2, "any")(request, [])[0]
+    assert (verdict.verdict, verdict.reason) == ("misstated", "vote 2")
+    assert asked == ["supported", "misstated"]
+    # Both supported: supported, every vote asked.
+    asked, judge = answers("supported", "supported")
+    assert voting(judge, 2, "any")(request, [])[0].verdict == "supported"
+    assert asked == ["supported", "supported"]
+    # Rule all, the same votes: supported, and the second vote is not asked: it is asked only
+    # after a misstated first.
+    asked, judge = answers("supported", "misstated")
+    assert voting(judge, 2, "all")(request, [])[0].verdict == "supported"
+    assert asked == ["supported"]
+    asked, judge = answers("misstated", "supported")
+    assert voting(judge, 2, "all")(request, [])[0].verdict == "supported"
+    assert asked == ["misstated", "supported"]
+
+    # On the card each vote is a verdict of its own at the finding's attempt, the deciding one
+    # marked; the counts are the findings'.
+    _, judge = answers("supported", "misstated", "supported", "supported")
+    _, revise = revising(("f1", REWRITTEN_LINE))
+    result = judge_findings(
+        [finding(SUPPORTED_STATEMENT, "c2")],
+        CLAIMS,
+        QUESTION,
+        [],
+        voting(judge, 2, "any"),
+        revise,
+    )
+    assert [(j.attempt, j.vote, j.verdict, j.decided, j.outcome) for j in result.judgements] == [
+        (1, 1, "supported", False, "sent_back"),
+        (1, 2, "misstated", True, "sent_back"),
+        (2, 1, "supported", True, "kept"),
+        (2, 2, "supported", False, "kept"),
+    ]
+    assert result.judgements[1].reason == "vote 2"
+    assert (result.counts["supported"], result.counts["misstated"]) == (0, 1)
+    assert result.counts["rewritten_kept"] == 1
+
+
+# --- v3: the judge's basis, clause by clause, checked by code (pilot 0.5.3) ----------------------
+
+# The finding's statement is SUPPORTED_STATEMENT; its rewrite says less.
+REWRITTEN_LINE = "Zephyr Optics says demand exceeds its supply."
+LINE = "its 6-inch line in Rosemont is producing CW lasers"
+
+
+def test_a_clause_whose_basis_is_not_in_its_quote_makes_the_finding_misstated() -> None:
+    from atlas.investigations.meaning import verify_bases
+
+    # The judge says supported, but its basis for the line is cited to c1, whose quote doesn't
+    # hold it (and which the finding doesn't cite), and its basis for the demand is its own
+    # paraphrase, not c2's words ("demand exceeds our supply").
+    unverified = supported(
+        clause("Zephyr Optics says", "c2", "Our"),
+        clause(LINE, "c1", "6-inch line in Rosemont"),
+        clause("demand outstrips its supply", "c2", "demand outstrips our supply"),
+    )
+    judge = Judge({SUPPORTED_STATEMENT: unverified, REWRITTEN_LINE: supported()})
+    asked, revise = revising(("f1", REWRITTEN_LINE))
+
+    result = judge_findings(
+        [finding(SUPPORTED_STATEMENT, "c2")], CLAIMS, QUESTION, [], judge, revise
+    )
+
+    quotes = [QuotedText(id="c2", source="v#1-2", text=CALL)]
+    assert verify_bases(unverified, quotes) == [LINE, "demand outstrips its supply"]
+    first = result.judgements[0]
+    assert (first.verdict, first.outcome, first.kinds) == ("misstated", "sent_back", ["unstated"])
+    assert first.reason.startswith("basis unverified: ")
+    assert LINE in first.reason and "demand outstrips its supply" in first.reason
+    assert first.beyond == [LINE, "demand outstrips its supply"]
+    assert first.unverified == [LINE, "demand outstrips its supply"]
+    assert [(c.text, c.ref, c.basis) for c in first.clauses] == [
+        ("Zephyr Optics says", "c2", "Our"),
+        (LINE, "c1", "6-inch line in Rosemont"),
+        ("demand outstrips its supply", "c2", "demand outstrips our supply"),
+    ]
+    # It went to the Editor's rewrite like any misstatement, with the clauses named.
+    [request] = asked
+    [sent] = request.findings
+    assert (sent.kinds, sent.beyond) == (["unstated"], [LINE, "demand outstrips its supply"])
+    assert sent.reason.startswith("basis unverified: ")
+    [outcome] = result.outcomes
+    assert (outcome.kept, outcome.draft.statement) == (True, REWRITTEN_LINE)
+
+    # Verbatim bases, modulo case, whitespace, quotation marks and end punctuation: supported.
+    verbatim = supported(
+        clause("Zephyr Optics says", "c2", "our"),
+        clause(LINE, "c2", '"our 6-inch  line in Rosemont is producing CW lasers,"'),
+        clause("demand exceeds its supply", "c2", "DEMAND EXCEEDS OUR SUPPLY."),
+    )
+    kept = judge_findings(
+        [finding(SUPPORTED_STATEMENT, "c2")],
+        CLAIMS,
+        QUESTION,
+        [],
+        Judge({SUPPORTED_STATEMENT: verbatim}),
+        never,
+    )
+    [verdict] = kept.judgements
+    assert (verdict.verdict, verdict.outcome, verdict.unverified) == ("supported", "kept", [])
+    assert len(verdict.clauses) == 3
+    assert kept.outcomes[0].judged is True
+
+
+def test_a_vote_whose_basis_is_unverified_counts_as_misstated_under_either_rule() -> None:
+    from atlas.investigations.meaning import voting
+
+    quotes = [QuotedText(id="c2", source="v#1-2", text=CALL)]
+    wrong = supported(clause("demand outstrips its supply", "c2", "demand outstrips our supply"))
+    right = supported(clause("demand exceeds its supply", "c2", "demand exceeds our supply"))
+    request: Any = None
+
+    def scripted(*votes: FindingJudgement) -> Callable[..., tuple[FindingJudgement, uuid.UUID]]:
+        queue = list(votes)
+
+        def judge(*_: Any) -> tuple[FindingJudgement, uuid.UUID]:
+            return queue.pop(0), uuid.uuid4()
+
+        return judge
+
+    for rule in ("any", "all"):
+        judged = voting(scripted(wrong, wrong), 2, rule)(request, quotes)[0]
+        assert judged.verdict == "misstated"
+        assert judged.reason.startswith("basis unverified: ")
+    judged = voting(scripted(wrong, right), 2, "all")(request, quotes)[0]
+    assert judged.verdict == "supported"
