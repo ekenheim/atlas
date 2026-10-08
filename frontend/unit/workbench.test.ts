@@ -570,6 +570,21 @@ test("a Fact's line keeps its quantity, period and status as recorded", () => {
   );
 });
 
+test("a Fact's line shows the day its document became available, next to the period", () => {
+  const fact = {
+    statement: "Vantor Photonics expects about 6,000 wafer starts per month",
+    quantity: null,
+    period: "by the end of fiscal 2027",
+    status: "planned",
+    evidence_available_at: "2025-11-05T21:30:00Z",
+  } as unknown as CardFact;
+
+  expect(factLine(fact)).toBe(
+    "Vantor Photonics expects about 6,000 wafer starts per month" +
+      " [by the end of fiscal 2027; 2025-11-05; planned]",
+  );
+});
+
 test("the argument's steps are counted by status", () => {
   const steps = ["supported", "unknown", "disputed", "unknown"].map(
     (status) => ({ status }) as unknown as CardArgumentStep,

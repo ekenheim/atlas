@@ -48,6 +48,7 @@ import re
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -536,12 +537,56 @@ def _names_in(name: str, statement: str, aliases: Sequence[Sequence[str]]) -> bo
     return any(_named(form, text, text.lower()) for form in dict.fromkeys(forms) if form)
 
 
+_MONTHS = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
+
+def source_day(claim: Mapping[Any, Any]) -> date | None:
+    """The day a cited Claim's or Fact's document became available (its row's `available_at`),
+    or None when the row has none."""
+    value = claim.get("available_at")
+    if isinstance(value, datetime):
+        return value.date()
+    return value if isinstance(value, date) else None
+
+
+def source_date_text(claim: Mapping[Any, Any]) -> str | None:
+    """That day as an ISO date, as the Editor and the judge are sent it."""
+    day = source_day(claim)
+    return day.isoformat() if day else None
+
+
+def date_texts(day: date) -> list[str]:
+    """The ways a statement names a document's date: the year, `Month YYYY`, `YYYY-MM-DD` and
+    `D Month YYYY` (English month names)."""
+    month = _MONTHS[day.month - 1]
+    return [
+        str(day.year),
+        f"{month} {day.year}",
+        day.isoformat(),
+        f"{day.day} {month} {day.year}",
+    ]
+
+
 def claim_grounds(
     question: str, cited: Iterable[Mapping[Any, Any]], aliases: Iterable[Sequence[str]] = ()
 ) -> Grounds:
     """The grounds of a finding citing `cited` accepted Claims (rows with their `quote`,
     `subject_name`, `object_name`, `object_text` and `source_title`; the source's title
-    dates a call or a report): those texts and the research question."""
+    dates a call or a report): those texts, the date of each one's document when its row has
+    `available_at` (its year, month and day, `date_texts`; R2-04) and the research question."""
     texts = [question]
     for claim in cited:
         texts.extend(
@@ -549,6 +594,9 @@ def claim_grounds(
             for key in ("quote", "subject_name", "object_name", "object_text", "source_title")
             if claim.get(key)
         )
+        day = source_day(claim)
+        if day:
+            texts.extend(date_texts(day))
     return grounds(texts, aliases)
 
 
@@ -631,6 +679,7 @@ def check_findings(
                 epistemic_type=claims[ref]["epistemic_type"],
                 source_title=claims[ref]["source_title"],
                 source_version_id=str(claims[ref]["source_version_id"]),
+                source_date=source_date_text(claims[ref]),
             )
             for ref in refs
         ],

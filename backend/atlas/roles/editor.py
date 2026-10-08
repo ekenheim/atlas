@@ -70,6 +70,8 @@ class EditorCardClaim(_Request):
     epistemic_type: str
     source_title: str
     source_version_id: str
+    # The day the Claim's document became available (ISO date); None: not known.
+    source_date: str | None = None
 
 
 class EditorLead(_Request):
@@ -239,7 +241,7 @@ EDITOR_REGROUND = Role(
 # A finding the finding judge (atlas.roles.finding_judge) found misstated is sent back once,
 # with the judge's reason and the words that went beyond its quotes; the rewritten finding is
 # checked for grounding and judged again (atlas.investigations.meaning).
-EDITOR_REVISE_PROMPT_VERSION = 1
+EDITOR_REVISE_PROMPT_VERSION = 2
 
 
 class EditorMisstatedFinding(_Request):
@@ -304,6 +306,8 @@ class ArgumentFactItem(_Request):
     quantity: str | None
     period: str | None
     source_title: str
+    # The day the Fact's document became available (ISO date): a call's or filing's date.
+    source_date: str
     against: list[str]  # counterevidence: the references of the Facts it speaks against
 
 

@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from atlas.roles.editor import EDITOR_ARGUMENT, ArgumentCardDraft
+from atlas.roles.editor import EDITOR_ARGUMENT, ArgumentCardDraft, ArgumentFactItem
 
 
 def card(*steps: dict[str, Any]) -> dict[str, Any]:
@@ -99,3 +99,22 @@ def test_the_strict_schema_asks_for_the_list_of_statements() -> None:
     assert statement["required"] == ["statement", "fact_refs", "counter_refs"]
     assert statement["additionalProperties"] is False
     assert (EDITOR_ARGUMENT.prompt.name, EDITOR_ARGUMENT.prompt.version) == ("editor-argument", 2)
+
+
+def test_the_editor_is_sent_each_fact_s_source_date() -> None:
+    schema = EDITOR_ARGUMENT.request.model_json_schema()
+    fact = schema["$defs"]["ArgumentFactItem"]
+    assert "source_date" in fact["required"]
+    item = ArgumentFactItem(
+        ref="c1",
+        step="constraint",
+        company="Zephyr Optics",
+        statement="Zephyr is sold out.",
+        status="in_effect",
+        quantity=None,
+        period=None,
+        source_title="Q3 2026",
+        source_date="2025-11-05",
+        against=[],
+    )
+    assert item.model_dump(mode="json")["source_date"] == "2025-11-05"

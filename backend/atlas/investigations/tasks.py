@@ -137,7 +137,12 @@ from atlas.investigations.argument import (
 from atlas.investigations.companies import FloorCandidate, document_floor, documents_in_order
 from atlas.investigations.coverage import coverage, not_read, skeptic_coverage, unchecked_note
 from atlas.investigations.entity_hop import HopLimits, record_entity_pointers
-from atlas.investigations.grounding import GROUNDING_LIMIT, CheckedFinding, check_findings
+from atlas.investigations.grounding import (
+    GROUNDING_LIMIT,
+    CheckedFinding,
+    check_findings,
+    source_date_text,
+)
 from atlas.investigations.meaning import JUDGE_LIMIT, judge_findings, judged_claim, voting
 from atlas.investigations.model import (
     RUN_KIND,
@@ -1099,6 +1104,7 @@ class TaskRunner:
                     epistemic_type=c["epistemic_type"],
                     source_title=c["source_title"],
                     source_version_id=str(c["source_version_id"]),
+                    source_date=source_date_text(c),
                 )
                 for ref, c in refs.items()
             ],
@@ -2387,6 +2393,7 @@ def _argument_item(ref: str, row: RowMapping, against: list[str]) -> ArgumentFac
         quantity=quantity_text(row),
         period=value.get("period"),
         source_title=row["source_title"],
+        source_date=source_date_text(row) or "",
         against=against,
     )
 

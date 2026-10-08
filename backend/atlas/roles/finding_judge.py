@@ -24,6 +24,10 @@ copied (`basis`), and code checks every basis occurs in its quote
 (`atlas.investigations.meaning.verify_bases`): a `supported` verdict with a clause it can't
 verify is a misstatement. A cited Fact (the argument plan) carries how its Reader read it:
 `status`, `period`, `quantity` and the Reader's statement (`reading`); a Claim leaves them None.
+
+v4 (R2-04) tells it each quote's date: `source_date`, the day the quote's document became
+available. Transcript titles ("Q3 2026") carry none, so the `merged` rule had no dates to
+compare; two quotes more than 90 days apart joined as one current statement are `merged`.
 """
 
 from typing import Literal
@@ -32,7 +36,7 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-FINDING_JUDGE_PROMPT_VERSION = 3
+FINDING_JUDGE_PROMPT_VERSION = 4
 
 # How a finding goes beyond its quotes.
 MisstatementKind = Literal[
@@ -58,6 +62,8 @@ class JudgedClaim(_Request):
     object: str
     epistemic_type: str
     source_title: str
+    # The day the quote's document became available (ISO date; a call's or filing's date).
+    source_date: str | None = None
     # A Fact's reading by its Reader (the argument plan): its status (`in_effect`, `planned`,
     # `hedged`, `in_development`, ...), period, quantity and statement. None for a Claim.
     status: str | None = None
