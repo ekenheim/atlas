@@ -72,7 +72,7 @@ def test_a_fact_s_step_and_status_are_the_fact_model_s() -> None:
 
 
 def test_the_role_is_versioned_and_its_schema_strict() -> None:
-    assert (READER.name, READER.prompt.name, READER.prompt.version) == ("reader", "reader", 3)
+    assert (READER.name, READER.prompt.name, READER.prompt.version) == ("reader", "reader", 4)
     # The argument Skeptic names in `challenges` only the Facts its quote denies, limits or
     # dates (skeptic-argument.v3; pilot-review T3).
     assert (
@@ -344,3 +344,23 @@ def test_a_quantity_the_model_writes_as_text_or_incomplete_does_not_cost_the_fac
     assert quantities[1] is not None
     assert (quantities[1].value, quantities[1].unit, quantities[1].metric) == (1.6, "ratio", "")
     assert quantities[3] is not None and quantities[3].metric == "book-to-bill"
+
+
+def test_the_role_is_v4_and_asks_for_the_part_of_each_fact() -> None:
+    # Pilot-review R2-01: the question's parts reach the Reader, and each Fact names the part
+    # it answers.
+    assert READER.prompt.version == 4
+    assert "Stay on the question's parts" in READER.prompt.text
+    schema = READER.response_schema()
+    fact = schema["$defs"]["RecordFact"]
+    assert "part" in fact["required"]
+    assert fact["properties"]["part"]["anyOf"] == [{"type": "string"}, {"type": "null"}]
+    request = READER.request.model_json_schema()
+    assert "question_parts" in request["required"]
+    assert set(request["$defs"]["ReaderQuestionPart"]["properties"]) == {"key", "text", "terms"}
+    assert "focus" in request["$defs"]["ReaderStep"]["required"]
+    # A Fact written without `part` has none; with one, it is kept.
+    answer = ReaderAction.model_validate(action("record_fact", facts=[FACT]))
+    assert answer.record_fact is not None and answer.record_fact.facts[0].part is None
+    tagged = ReaderAction.model_validate(action("record_fact", facts=[{**FACT, "part": "zr"}]))
+    assert tagged.record_fact is not None and tagged.record_fact.facts[0].part == "zr"

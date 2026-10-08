@@ -14,8 +14,9 @@ path with the recorded Hindsight fake; SearXNG is the scripted fake over
 Readers, the Skeptic, the counter-judge, the Financial Analyst, the Editor and the finding
 judge), each Reader's
 computed from the request it answers (its step, the hits it was sent). The Readers' jobs run
-in either order, so their answers are scripted by role and dispatched on the step. Nothing
-live is called.
+in either order, so their answers are scripted by role and dispatched on the step. The
+question planner (pilot-review R2-01) is scripted too: its parts' terms bind the Readers'
+searches. Nothing live is called.
 """
 
 import json
@@ -70,6 +71,34 @@ CONTROL_STATEMENT = (
     " competition."
 )
 UNKNOWN_STATEMENT = "The Facts do not establish this step."
+# The question planner's answer (pilot-review R2-01): two parts whose terms the scripted
+# Readers' queries name ("Sherman", "wafers"; "NVIDIA").
+CAPACITY_FOCUS = "Whether Coherent's InP laser capacity, in wafers per month, is short."
+PLANNED_PARTS: list[JsonValue] = [
+    {
+        "key": "inp_capacity",
+        "text": "Coherent's InP laser capacity the constraint",
+        "terms": ["InP", "indium phosphide", "Sherman", "wafers"],
+        "layer": "laser",
+    },
+    {
+        "key": "who_gains",
+        "text": "who gains",
+        "terms": ["NVIDIA", "hyperscaler", "customers"],
+        "layer": None,
+    },
+]
+FOCUS = {
+    "constraint": CAPACITY_FOCUS,
+    "relief": "How fast Coherent's Sherman expansion adds InP capacity.",
+}
+PLANNED = ChatReply.json(
+    {
+        "parts": PLANNED_PARTS,
+        "step_focus": [{"step": step, "focus": focus} for step, focus in FOCUS.items()],
+    },
+    tokens=(700, 150),
+)
 
 
 @pytest.fixture
@@ -355,6 +384,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    llm.script_role("question_planner", PLANNED)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
@@ -401,7 +431,11 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     assert roles.count("reader") == 14
     assert roles.count("skeptic") == 3
     assert roles.count("counter_judge") == 1
-    assert (roles[0], roles[-3:]) == ("scout", ["editor", "finding_judge", "finding_judge"])
+    assert (roles[0], roles[1], roles[-3:]) == (
+        "scout",
+        "question_planner",
+        ["editor", "finding_judge", "finding_judge"],
+    )
     assert {body["metadata"]["run_id"] for body in llm.chat_requests()} == {found["run_id"]}
 
     # Each Reader's task says what it searched, read and recorded.
@@ -425,7 +459,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     )
     by_quote = {f["assertion"]["quote"]: f for f in facts}
     assert by_quote[COMPETITION]["assertion"]["extractor_version"] == "skeptic-argument.v3"
-    assert by_quote[SHERMAN]["assertion"]["extractor_version"] == "reader.v3"
+    assert by_quote[SHERMAN]["assertion"]["extractor_version"] == "reader.v4"
     # The Skeptic was sent the Readers' Facts to challenge, their quotes as low-trust data.
     skeptic_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "skeptic")
     challenge = asked(skeptic_call)["request"]["challenge"]
@@ -533,6 +567,7 @@ def test_each_statement_of_a_step_is_checked_on_its_own(
     llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    llm.script_role("question_planner", PLANNED)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing_by_point, tokens=(3000, 400)),  # the Editor
@@ -620,6 +655,7 @@ def test_an_unusable_analyst_answer_leaves_the_card_to_the_editor(
     llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
     llm.script_role("financial_analyst", unusable, unusable)  # the answer and its repair
     llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    llm.script_role("question_planner", PLANNED)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
@@ -712,6 +748,7 @@ def test_the_argument_plan_asks_the_judge_as_many_votes_as_configured(
         "finding_judge",
         *(ChatReply.answer(judging_relief_misstated_once, tokens=(400, 40)),) * 6,
     )
+    llm.script_role("question_planner", PLANNED)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
@@ -791,6 +828,7 @@ def start_argument(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG) -> str:
     llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    llm.script_role("question_planner", PLANNED)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
@@ -965,6 +1003,7 @@ def test_a_statement_adding_a_domain_term_or_qualifier_its_quotes_lack_is_sent_b
     llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    llm.script_role("question_planner", PLANNED)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing_with_domain_term, tokens=(3000, 400)),  # the Editor
@@ -1035,6 +1074,7 @@ def test_the_judge_and_the_editor_are_told_each_fact_s_document_date(
     llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_role("finding_judge", *(ChatReply.answer(judging_dated_misstated),) * 6)
+    llm.script_role("question_planner", PLANNED)
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
         ChatReply.answer(editing_with_dates, tokens=(3000, 400)),  # the Editor
@@ -1094,3 +1134,269 @@ def test_the_judge_and_the_editor_are_told_each_fact_s_document_date(
     assert month in judged[0]["messages"][1]["content"]
     steps = {step["step"]: step for step in card["steps"]}
     assert steps["relief"]["statement"] == RELIEF_REWRITTEN
+
+
+# --- the question's parts (pilot-review R2-01) -------------------------------------------------
+
+OFF_QUESTION_QUERY = "capacity expansion plans"  # names none of the planned parts' terms
+
+
+def reading_by_part(body: dict[str, Any]) -> JsonValue:
+    """The six Readers held to the question's parts: Relief first searches with none of the
+    question's terms (refused), then names one and records its Fact for `inp_capacity`; Control
+    records its Fact for a part the question doesn't have (refused), then as background; the
+    other steps search once and stop."""
+    request = asked(body)["request"]
+    step = request["step"]["key"]
+    searched, recorded = request["searched"], request["recorded"]
+    if step == "relief":
+        if not searched and not request["results"]:
+            return act("search_archive", query=OFF_QUESTION_QUERY, company_slugs=["coherent"])
+        if not searched:
+            return act("search_archive", query=SHERMAN_QUERY, company_slugs=["coherent"])
+        if not recorded:
+            answer = record(
+                body,
+                SHERMAN,
+                step="relief",
+                statement="Coherent announced the expansion of its Sherman, Texas,"
+                " manufacturing facility during fiscal 2026.",
+                status="planned",
+                period="fiscal 2026",
+            )
+            cast(dict[str, Any], answer["record_fact"])["part"] = "inp_capacity"
+            return answer
+    if step == "control":
+        if not searched:
+            return act("search_archive", query=AGREEMENT_QUERY, company_slugs=["coherent"])
+        if not recorded:
+            answer = record(
+                body,
+                AGREEMENT,
+                step="control",
+                statement="Coherent entered into a multi-year strategic agreement with NVIDIA to"
+                " advance the development of advanced optics technologies.",
+                status="in_development",
+                period="March 2, 2026",
+            )
+            # First for a part the question doesn't have, then as background.
+            cast(dict[str, Any], answer["record_fact"])["part"] = (
+                "moat" if request["refused"] == 0 else None
+            )
+            return answer
+    if not searched:
+        return act("search_archive", query=f"{step} wafers per month", company_slugs=["coherent"])
+    return act("done", summary=f"{step}: nothing more found in Coherent's filings")
+
+
+def test_the_question_s_parts_reach_each_reader_and_the_card_reports_them(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("question_planner", PLANNED)
+    llm.script_role("reader", *(ChatReply.answer(reading_by_part, tokens=(1000, 50)),) * 16)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("counter_judge", ChatReply.answer(relating("qualifies"), tokens=(600, 60)))
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    investigation = response.json()["id"]
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{investigation}")
+    assert {task["key"]: task["status"] for task in found["tasks"]} == {
+        key: "succeeded" for key in PLAN
+    }
+    tasks = {task["key"]: task["artifacts"] for task in found["tasks"]}
+    # The planner was asked once, in the Scout task, in the run: the question, the theme and
+    # the argument's steps; its plan is the Scout task's artifact.
+    [planning] = [b for b in llm.chat_requests() if b["metadata"]["role"] == "question_planner"]
+    assert planning["metadata"]["run_id"] == found["run_id"]
+    asked_plan = asked(planning)["request"]
+    assert asked_plan["research_question"] == QUESTION
+    assert asked_plan["theme_title"]
+    assert [s["key"] for s in asked_plan["steps"]] == STEPS
+    plan = tasks["scout"]["question_plan"]
+    assert plan["source"] == "planner"
+    assert [p["key"] for p in plan["parts"]] == ["inp_capacity", "who_gains"]
+    assert plan["step_focus"]["constraint"] == CAPACITY_FOCUS
+
+    # Each Reader was sent the parts and its step's focus.
+    readers = [b for b in llm.chat_requests() if b["metadata"]["role"] == "reader"]
+    for body in readers:
+        request = asked(body)["request"]
+        assert [(p["key"], p["terms"]) for p in request["question_parts"]] == [
+            ("inp_capacity", ["InP", "indium phosphide", "Sherman", "wafers"]),
+            ("who_gains", ["NVIDIA", "hyperscaler", "customers"]),
+        ]
+        assert request["step"]["focus"] == FOCUS.get(request["step"]["key"])
+    # Relief's first query named no term of the question: refused, with no search made.
+    relief = [b for b in readers if asked(b)["request"]["step"]["key"] == "relief"]
+    second = asked(relief[1])["request"]
+    [refused] = second["results"]
+    assert (refused["action"], refused["ok"], refused["items"]) == ("search_archive", False, [])
+    assert refused["message"].startswith("name one of the question's terms in the query: ")
+    assert "Sherman" in refused["message"] and "NVIDIA" in refused["message"]
+    assert second["searched"] == []
+    assert second["passages_left"] == 40
+    relief_done = tasks["reader:relief"]
+    assert [(s["query"], s["part"]) for s in relief_done["searches"]] == [
+        (SHERMAN_QUERY, "inp_capacity")
+    ]
+    assert relief_done["calls"] == 4
+    assert [f["part"] for f in relief_done["facts"]] == ["inp_capacity"]
+    assert relief_done["facts_by_part"] == {"inp_capacity": 1}
+    # Control's Fact for a part the question doesn't have was refused; as background it stood.
+    control = tasks["reader:control"]
+    assert [r["reason_code"] for r in control["refused"]] == ["unknown_part"]
+    assert "inp_capacity, who_gains" in control["refused"][0]["reason"]
+    assert control["facts_by_part"] == {"none": 1}
+
+    # The Fact keeps its part.
+    facts = atlas.get("/api/v1/facts", investigation_id=investigation)["items"]
+    by_quote = {f["assertion"]["quote"]: f for f in facts}
+    assert by_quote[SHERMAN]["part"] == "inp_capacity"
+    assert by_quote[SHERMAN]["assertion"]["value_json"]["part"] == "inp_capacity"
+    assert by_quote[AGREEMENT]["part"] is None
+    assert "part" not in by_quote[AGREEMENT]["assertion"]["value_json"]
+
+    # The Editor was sent the parts, and each Fact's.
+    editor_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "editor")
+    editor = asked(editor_call)["request"]
+    assert editor["question_parts"] == [
+        {"key": "inp_capacity", "text": "Coherent's InP laser capacity the constraint"},
+        {"key": "who_gains", "text": "who gains"},
+    ]
+    assert sorted((f["step"], f["part"]) for f in editor["facts"]) == [
+        ("control", None),
+        ("relief", "inp_capacity"),
+    ]
+
+    # The card says which parts its statements answered.
+    card = found["research_card"]
+    assert [
+        (p["key"], p["text"], p["status"], p["facts"], p["statements"])
+        for p in card["question_parts"]
+    ] == [
+        ("inp_capacity", "Coherent's InP laser capacity the constraint", "answered", 1, 1),
+        ("who_gains", "who gains", "unanswered", 0, 0),
+    ]
+    relief_step = next(step for step in card["steps"] if step["step"] == "relief")
+    assert [f["part"] for f in relief_step["facts"]] == ["inp_capacity"]
+    assert tasks["editor"]["question_parts"] == {
+        "answered": 1,
+        "facts_only": 0,
+        "unanswered": 1,
+    }
+
+
+def reading_the_question_s_words(body: dict[str, Any]) -> JsonValue:
+    """The six Readers with the fallback plan's terms in their queries ("capacity", "optics")."""
+    request = asked(body)["request"]
+    step = request["step"]["key"]
+    searched, recorded = request["searched"], request["recorded"]
+    if step == "relief":
+        if not searched:
+            return act(
+                "search_archive", query=f"{SHERMAN_QUERY} capacity", company_slugs=["coherent"]
+            )
+        if not recorded:
+            return record(
+                body,
+                SHERMAN,
+                step="relief",
+                statement="Coherent announced the expansion of its Sherman, Texas,"
+                " manufacturing facility during fiscal 2026.",
+                status="planned",
+                period="fiscal 2026",
+            )
+    if not searched:
+        return act("search_archive", query=f"{step} laser capacity", company_slugs=["coherent"])
+    return act("done", summary=f"{step}: nothing more found in Coherent's filings")
+
+
+def test_a_failed_planner_falls_back_to_the_question_s_clauses(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    unusable = ChatReply.json({"parts": [], "step_focus": []}, tokens=(700, 20))
+    llm.script_role("question_planner", unusable, unusable)  # the answer and its repair
+    llm.script_role(
+        "reader", *(ChatReply.answer(reading_the_question_s_words, tokens=(1000, 50)),) * 13
+    )
+    llm.script_role(
+        "skeptic",
+        # Its searches are not held to the question's parts: it searches once and stops.
+        ChatReply.json(act("search_archive", query=COMPETITION_QUERY, company_slugs=[])),
+        ChatReply.json(act("done", summary="nothing against the Sherman expansion")),
+    )
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", SUPPORTED)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{response.json()['id']}")
+    tasks = {task["key"]: task for task in found["tasks"]}
+    assert {key: task["status"] for key, task in tasks.items()} == {
+        key: "succeeded" for key in PLAN
+    }
+    scout = tasks["scout"]["artifacts"]
+    plan = scout["question_plan"]
+    assert plan["source"] == "fallback"
+    assert scout["question_plan_failure"]
+    assert plan["step_focus"] == {}
+    assert [(p["key"], p["text"]) for p in plan["parts"]] == [
+        ("part_1", "Is Coherent's InP laser capacity the constraint on AI data-center optics"),
+        ("part_2", "and who gains?"),
+    ]
+    assert {"InP", "capacity", "optics"} <= set(plan["parts"][0]["terms"])
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [c["status"] for c in calls if c["role"] == "question_planner"] == ["quarantined"]
+    # The Readers ran on the fallback's parts, searched and recorded.
+    readers = [b for b in llm.chat_requests() if b["metadata"]["role"] == "reader"]
+    assert {tuple(p["key"] for p in asked(b)["request"]["question_parts"]) for b in readers} == {
+        ("part_1", "part_2")
+    }
+    assert all(tasks[f"reader:{step}"]["status"] == "succeeded" for step in STEPS)
+    relief = tasks["reader:relief"]["artifacts"]
+    assert [s["part"] for s in relief["searches"]] == ["part_1"]
+    assert relief["facts_recorded"] == 1
+    assert tasks["editor"]["status"] == "succeeded"
+    assert [p["status"] for p in found["research_card"]["question_parts"]] == [
+        "unanswered",
+        "unanswered",
+    ]

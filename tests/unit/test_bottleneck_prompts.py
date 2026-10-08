@@ -231,9 +231,12 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
         EDITOR_ARGUMENT,
         "editor-argument",
         # v2: several statements per step, each on one point, each checked on its own (0.5.2's
-        # argument run: one merged statement per step dropped whole for one bad clause)
-        2,
+        # argument run: one merged statement per step dropped whole for one bad clause); v3: the
+        # question's parts (pilot-review R2-01)
+        3,
         (
+            "Each statement should answer one of the question's parts where its Facts allow",
+            "first the question's parts no statement answers",
             "one per distinct point",
             "Do not merge points into one long statement",
             "the one to four Facts this statement uses, and only those",

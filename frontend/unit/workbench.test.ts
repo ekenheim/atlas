@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import type {
   CardArgumentStep,
   CardFact,
+  CardQuestionPart,
   CardReading,
   CardSkepticCompany,
   Counterevidence,
@@ -30,6 +31,9 @@ import {
   foundBy,
   openQuestions,
   outputParts,
+  PART_STATUS,
+  partLine,
+  partTally,
   pointedOutcome,
   pointerGroups,
   pointerQueryLabel,
@@ -583,6 +587,25 @@ test("a Fact's line shows the day its document became available, next to the per
     "Vantor Photonics expects about 6,000 wafer starts per month" +
       " [by the end of fiscal 2027; 2025-11-05; planned]",
   );
+});
+
+test("each part of the question says what the card made of it", () => {
+  const part = (key: string, status: CardQuestionPart["status"], facts: number, statements: number) =>
+    ({ key, text: `the ${key} part`, status, facts, statements }) as CardQuestionPart;
+  const parts = [
+    part("zr_demand", "answered", 3, 2),
+    part("component_supply", "facts_only", 1, 0),
+    part("where_it_binds", "unanswered", 0, 0),
+  ];
+
+  expect(Object.keys(PART_STATUS).sort()).toEqual(["answered", "facts_only", "unanswered"]);
+  expect(parts.map(partLine)).toEqual([
+    "the zr_demand part: answered (2 statements, 3 Facts)",
+    "the component_supply part: Facts, no statement (1 Fact)",
+    "the where_it_binds part: unanswered (0 Facts)",
+  ]);
+  expect(partTally(parts)).toBe("1 answered, 1 Facts, no statement, 1 unanswered");
+  expect(partTally([])).toBe("");
 });
 
 test("the argument's steps are counted by status", () => {

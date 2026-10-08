@@ -98,7 +98,11 @@ def test_the_strict_schema_asks_for_the_list_of_statements() -> None:
     statement = schema["$defs"]["ArgumentStatementDraft"]
     assert statement["required"] == ["statement", "fact_refs", "counter_refs"]
     assert statement["additionalProperties"] is False
-    assert (EDITOR_ARGUMENT.prompt.name, EDITOR_ARGUMENT.prompt.version) == ("editor-argument", 2)
+    assert (EDITOR_ARGUMENT.prompt.name, EDITOR_ARGUMENT.prompt.version) == ("editor-argument", 3)
+    # The question's parts (pilot-review R2-01): sent with the request, and each Fact's part.
+    request = EDITOR_ARGUMENT.request.model_json_schema()
+    assert "question_parts" in request["required"]
+    assert "part" in request["$defs"]["ArgumentFactItem"]["required"]
 
 
 def test_the_editor_is_sent_each_fact_s_source_date() -> None:
@@ -116,5 +120,6 @@ def test_the_editor_is_sent_each_fact_s_source_date() -> None:
         source_title="Q3 2026",
         source_date="2025-11-05",
         against=[],
+        part=None,
     )
     assert item.model_dump(mode="json")["source_date"] == "2025-11-05"

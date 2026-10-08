@@ -56,6 +56,17 @@ def test_an_unknown_step_or_status_or_a_blank_statement_is_invalid() -> None:
             FactValue.model_validate(bad)
 
 
+def test_a_fact_value_carries_an_optional_part() -> None:
+    # Pilot-review R2-01: the key of the question's part a Reader's Fact answers, kept in the
+    # Assertion's value_json; none for background, and none on Facts recorded before it.
+    good = {"step": "relief", "statement": "A second source qualified.", "status": "planned"}
+    assert FactValue.model_validate(good).part is None
+    tagged = FactValue.model_validate(good | {"part": "zr_demand"})
+    assert tagged.part == "zr_demand"
+    assert tagged.model_dump(mode="json", exclude_none=True)["part"] == "zr_demand"
+    assert "part" not in FactValue.model_validate(good).model_dump(mode="json", exclude_none=True)
+
+
 AGREEMENT = (
     "On June 26, 2026, we entered into a Master Development and Supply Agreement with Halden"
     " Optics for the development and supply of 6-inch substrates for an initial term of three"

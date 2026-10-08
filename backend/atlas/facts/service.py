@@ -75,6 +75,10 @@ class FactValue(BaseModel):
         default=None, description='as the quote gives it: "Q3 FY2026", "through 2028"'
     )
     status: FactStatus
+    part: str | None = Field(
+        default=None,
+        description="the key of the question's part it answers (an argument Reader's; R2-01)",
+    )
 
     _statement = field_validator("statement")(_not_blank)
 
@@ -107,6 +111,7 @@ class FactCreate(BaseModel):
     quantity: Quantity | None = None
     period: str | None = None
     status: FactStatus
+    part: str | None = None  # the question's part it answers (stored in `value_json`)
 
     @model_validator(mode="after")
     def _valid(self) -> Self:
@@ -122,6 +127,7 @@ class FactCreate(BaseModel):
             quantity=self.quantity,
             period=self.period,
             status=self.status,
+            part=self.part,
         )
 
 
@@ -137,6 +143,7 @@ class Fact(BaseModel):
     period: str | None
     created_at: datetime
     assertion: Assertion
+    part: str | None = None  # the question's part it answers; None: background, or before R2-01
 
 
 class FactRecorded(BaseModel):
@@ -267,6 +274,7 @@ def _build(connection: Connection, row: Any) -> Fact:
         statement=value.statement,
         quantity=value.quantity,
         period=value.period,
+        part=value.part,
         created_at=row.created_at,
         assertion=assertion,
     )

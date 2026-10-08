@@ -16,6 +16,11 @@ One attempt:
      ranking says not to keep, from a denied host or below the minimum score, counted as
      rejected). With entity resolution configured, its filing leads' filers are then
      proposed as Candidates by CIK (`propose_candidates` with `filers_only`: no LLM call).
+     In the argument plan the Scout then plans the round's question (pilot-review R2-01;
+     atlas.roles.question_planner, one call): its parts, each part's search terms and what
+     each argument step must establish for it, stored in its artifacts (`question_plan`), or
+     code's plan of the question's clauses (atlas.investigations.question.fallback_plan) when
+     the answer is quarantined or the run's budget is spent.
      Once the discovery has its queries, the round's question and each query are asked of
      Memory across the theme, and what resolves is stored as the round's **reading
      pointers** (atlas.investigations.pointers): Memory as an index of where to read, never
@@ -76,10 +81,13 @@ One attempt:
      Claims by company, the reason) and the investigation stops `needs_review`.
    - **The argument plan's roles** (bottleneck-argument ticket 05; atlas.investigations.argument):
      a **Reader** per step (atlas.investigations.reader; its session keyed by the task, so it
-     continues where it stopped), the **Skeptic** as the same loop sent the Readers' Facts to
-     challenge, the **Financial Analyst** sent the Readers' Facts in place of Claims, and the
-     **Editor** writing the argument (`EDITOR_ARGUMENT`), each of a step's statements through the
-     grounding check and the finding judge on its own, each step's status decided by code.
+     continues where it stopped; given the round's question plan, so its searches name the
+     question's terms and its Facts the part they answer), the **Skeptic** as the same loop
+     sent the Readers' Facts to challenge, the **Financial Analyst** sent the Readers' Facts in
+     place of Claims, and the **Editor** writing the argument (`EDITOR_ARGUMENT`), each of a
+     step's statements through the grounding check and the finding judge on its own, each
+     step's status decided by code, and each of the question's parts marked answered, facts
+     only or unanswered on the card.
 3. **Outcome.** Under the lock, the task's outcome is recorded and the plan advanced. When
    the run's token budget runs out, the task and the investigation stop `budget_exhausted`
    (resumable). An LLM quota or outage (a pausable failure) records `task_paused` and
@@ -128,8 +136,10 @@ from atlas.investigations.argument import (
     argument_facts,
     build_steps,
     challenged,
+    fact_part,
     fact_rows,
     judged_fact,
+    parts_answered,
     quantity_text,
     step_counts,
     without_references,
@@ -151,6 +161,7 @@ from atlas.investigations.model import (
     CardCompanyClaims,
     CardContradiction,
     CardFinding,
+    CardQuestionPart,
     ResearchCard,
     SourceSpan,
     UnsupportedFinding,
@@ -163,6 +174,13 @@ from atlas.investigations.pointers import (
     record_pointers,
     round_reading,
     scout_queries,
+)
+from atlas.investigations.question import (
+    QUESTION_PLAN,
+    QuestionPlan,
+    fallback_plan,
+    load_plan,
+    planned,
 )
 from atlas.investigations.reader import (
     READER_ACTOR,
@@ -225,6 +243,7 @@ from atlas.roles.editor import (
     EditorDocumentRead,
     EditorLead,
     EditorQuery,
+    EditorQuestionPart,
     EditorReading,
     EditorRegroundRequest,
     EditorRequest,
@@ -238,6 +257,11 @@ from atlas.roles.finding_judge import (
     FindingJudgement,
     FindingJudgeRequest,
     JudgedClaim,
+)
+from atlas.roles.question_planner import (
+    QUESTION_PLANNER,
+    PlannerStep,
+    QuestionPlannerRequest,
 )
 from atlas.roles.reader import (
     ARGUMENT_SKEPTIC,
@@ -607,6 +631,9 @@ class TaskRunner:
                 )
             finally:
                 runs.close()
+            plan: dict[str, JsonValue] = {}
+            if investigation["plan"] == "argument":
+                plan = self._plan_question(caller, run_id, question, theme.title, theme.description)
         discovery_id = uuid.UUID(str(found["discovery_id"]))
         # Before the leads are taken: a Hindsight outage here pauses the task, and the
         # attempt that resumes it takes the leads once.
@@ -657,7 +684,7 @@ class TaskRunner:
                     max_leads=investigation["max_leads"],
                     dropped=dropped,
                 )
-        artifacts: dict[str, JsonValue] = dict(pointers) | hop
+        artifacts: dict[str, JsonValue] = dict(pointers) | hop | plan
         if edgar is not None and self._settings.sec_user_agent:
             # The filing leads' filers, by CIK (no mention extractor): Candidates for the
             # ones outside the universe (atlas.candidates).
@@ -683,6 +710,40 @@ class TaskRunner:
                 "ranking_version": ranking.version,
             },
         )
+
+    def _plan_question(
+        self,
+        caller: RoleCaller,
+        run_id: uuid.UUID,
+        question: str,
+        theme_title: str,
+        theme_description: str,
+    ) -> dict[str, JsonValue]:
+        """The round's question plan (pilot-review R2-01) as the Scout task's artifacts: the
+        planner's answer, or code's plan of the question's clauses when the answer is
+        quarantined or the run's token budget is spent."""
+        request = QuestionPlannerRequest(
+            research_question=question,
+            theme_title=theme_title,
+            theme_description=theme_description,
+            steps=[PlannerStep(key=s.key, title=s.title, asks=s.asks) for s in ARGUMENT_STEPS],
+        )
+        failure: str | None = None
+        role_call_id: uuid.UUID | None = None
+        try:
+            draft, role_call_id = caller.call_recorded(QUESTION_PLANNER, request, run_id=run_id)
+        except RoleOutputQuarantined as quarantined:
+            plan, failure = fallback_plan(question), str(quarantined)
+            role_call_id = quarantined.role_call_id
+        except TokenBudgetExhausted as spent:
+            plan, failure = fallback_plan(question), f"the run's token budget was spent: {spent}"
+        else:
+            plan = planned(draft, set(STEPS))
+        return {
+            QUESTION_PLAN: plan.artifact(),
+            "question_plan_role_call_id": str(role_call_id) if role_call_id else None,
+            "question_plan_failure": failure,
+        }
 
     def _theme_recall(
         self, theme_id: str, universe: Universe, as_of: datetime, actor: Actor = SCOUT_ACTOR
@@ -1488,6 +1549,8 @@ class TaskRunner:
 
     def _reader(self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID) -> _Outcome:
         step = STEPS[_step_of(task["key"])]
+        with self._engine.connect() as connection:
+            plan = load_plan(connection, investigation["id"], task["round"])
         return self._run_reader(
             investigation,
             task,
@@ -1498,6 +1561,7 @@ class TaskRunner:
                 step=step,
                 companies=companies,
                 investigation_id=investigation["id"],
+                plan=plan,
             ),
         )
 
@@ -1669,6 +1733,7 @@ class TaskRunner:
                 {"id": investigation["id"]},
             ).all()
             searched, _ = coverage(connection, investigation["id"])
+            plan = load_plan(connection, investigation["id"], task["round"])
             skeptic_task = (
                 connection.execute(
                     text(
@@ -1702,6 +1767,10 @@ class TaskRunner:
             theme_id=investigation["theme"],
             theme_title=theme.title if theme else investigation["theme"],
             research_question=investigation["question"],
+            question_parts=[
+                EditorQuestionPart(key=part.key, text=part.text)
+                for part in (plan.parts if plan is not None else [])
+            ],
             steps=[
                 ArgumentStepItem(
                     step=step.key,
@@ -1779,6 +1848,7 @@ class TaskRunner:
         except RoleOutputQuarantined as failure:
             steps = build_steps(facts, {}, refs, skeptic_checked, skeptic_ran)
             stop_reason = "needs_review" if facts.supporting else "no_new_independent_evidence"
+            parts = _question_parts(plan, facts, [])
             card = ResearchCard(
                 **card_base,
                 open_questions=[],
@@ -1787,6 +1857,7 @@ class TaskRunner:
                 editor_role_call_id=failure.role_call_id,
                 editor_failure=str(failure),
                 steps=steps,
+                question_parts=parts,
             )
             return _Outcome(
                 "succeeded",
@@ -1796,6 +1867,7 @@ class TaskRunner:
                     "counterevidence": len(facts.counter),
                     "editor_failure": str(failure),
                     "steps": step_counts(steps),
+                    "question_parts": _part_counts(parts),
                     "stop_reason": stop_reason,
                     "stop_detail": f"the Editor failed, so no step has a statement: {failure}",
                 },
@@ -1910,6 +1982,15 @@ class TaskRunner:
         }
         statements_kept = sum(len(each) for each in kept.values())
         steps = build_steps(facts, statements, refs, skeptic_checked, skeptic_ran)
+        parts = _question_parts(
+            plan,
+            facts,
+            [
+                {refs[ref]["id"] for ref in each.cited if ref in refs}
+                for said in kept.values()
+                for each in said
+            ],
+        )
         unjudged = meaning.counts["failed_first"] if meaning is not None else 0
         unknown_steps = [s.step for s in steps if s.status == "unknown"]
         disputed = [s.step for s in steps if s.status == "disputed"]
@@ -1948,6 +2029,7 @@ class TaskRunner:
             grounding_limit=GROUNDING_LIMIT + (JUDGE_LIMIT if meaning is not None else ""),
             judged=meaning.judgements if meaning is not None else [],
             steps=steps,
+            question_parts=parts,
         )
         return _Outcome(
             "succeeded",
@@ -1956,6 +2038,7 @@ class TaskRunner:
                 "facts": len(facts.supporting),
                 "counterevidence": len(facts.counter),
                 "steps": step_counts(steps),
+                "question_parts": _part_counts(parts),
                 "statements_kept": statements_kept,
                 "unsupported_findings": len(unsupported),
                 "grounding": {
@@ -2395,7 +2478,23 @@ def _argument_item(ref: str, row: RowMapping, against: list[str]) -> ArgumentFac
         source_title=row["source_title"],
         source_date=source_date_text(row) or "",
         against=against,
+        part=fact_part(row),
     )
+
+
+def _question_parts(
+    plan: QuestionPlan | None, facts: ArgumentFacts, statements: Sequence[set[uuid.UUID]]
+) -> list[CardQuestionPart]:
+    """The card's account of the question's parts (none without a plan)."""
+    return [] if plan is None else parts_answered(plan, facts.supporting, statements)
+
+
+def _part_counts(parts: Sequence[CardQuestionPart]) -> dict[str, JsonValue]:
+    """How many of the question's parts the card answered, has Facts only for, or left."""
+    counts: dict[str, JsonValue] = {"answered": 0, "facts_only": 0, "unanswered": 0}
+    for part in parts:
+        counts[part.status] = int(cast(int, counts[part.status])) + 1
+    return counts
 
 
 def _judged_fact(ref: str, row: Mapping[Any, Any]) -> JudgedClaim:

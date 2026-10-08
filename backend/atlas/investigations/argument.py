@@ -35,11 +35,16 @@ A statement never shows the short reference the Editor cites a Fact by (`c1`, `c
 ticket 08): one naming a Fact it cites, every one of whose cited Facts with that reference is
 one company's, says that company's name instead; one naming a reference it doesn't cite is
 dropped as `internal_reference` (`without_references`).
+
+The card also says which parts of the question it answered (pilot-review R2-01;
+`parts_answered`): each part of the round's question plan (atlas.investigations.question),
+`answered` when a kept statement cites a Fact the Reader recorded for it, `facts_only` when Facts
+were recorded for it but no kept statement cites one, else `unanswered`.
 """
 
 import re
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -51,10 +56,12 @@ from atlas.investigations.model import (
     CardFact,
     CardFactQuantity,
     CardFactRelation,
+    CardQuestionPart,
     CardStepStatement,
     CardStepStatus,
     SourceSpan,
 )
+from atlas.investigations.question import QuestionPlan
 from atlas.investigations.reader import ReaderState
 from atlas.roles.contract import QuotedText
 from atlas.roles.counter_judge import CONTRADICTING, UNJUDGED, JudgedFactItem
@@ -334,7 +341,42 @@ def card_fact(
         evidence_available_at=row["available_at"],
         against=list(against),
         relations=list(relations),
+        part=fact_part(row),
     )
+
+
+def fact_part(row: Mapping[Any, Any]) -> str | None:
+    """The key of the question's part a Fact (a row of `fact_rows`) was recorded as answering."""
+    value: Any = row.get("value_json")
+    part: Any = cast(dict[str, Any], value).get("part") if isinstance(value, dict) else None
+    return part if isinstance(part, str) else None
+
+
+def parts_answered(
+    plan: QuestionPlan,
+    supporting: Sequence[Mapping[Any, Any]],
+    statements: Sequence[Collection[uuid.UUID]],
+) -> list[CardQuestionPart]:
+    """Each part of the plan, in its order, with what the card says of it: `supporting` are the
+    Readers' Facts (rows with `id` and `value_json`), `statements` the Fact IDs each kept
+    statement cites."""
+    part_of = {row["id"]: fact_part(row) for row in supporting}
+    shown: list[CardQuestionPart] = []
+    for part in plan.parts:
+        facts = sum(1 for each in part_of.values() if each == part.key)
+        citing = sum(
+            1 for cited in statements if any(part_of.get(each) == part.key for each in cited)
+        )
+        shown.append(
+            CardQuestionPart(
+                key=part.key,
+                text=part.text,
+                facts=facts,
+                statements=citing,
+                status="answered" if citing else "facts_only" if facts else "unanswered",
+            )
+        )
+    return shown
 
 
 @dataclass(frozen=True)

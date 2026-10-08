@@ -23,7 +23,11 @@ under another key such as `"args"`; see `ReaderAction._as_the_model_writes_it`).
 call recorded one Fact, and Readers recorded one or two in a step). One Fact's arguments
 without `facts` (the `reader.v1` form) are still accepted, as a list of one. `reader.v3` sets a
 Fact's status by a table of cues and keeps its period as the quote gives it; code refuses two
-status mistakes (`atlas.facts.service.check_status`).
+status mistakes (`atlas.facts.service.check_status`). `reader.v4` (pilot-review R2-01) is sent the
+question's parts (`question_parts`: each part's key, words and search terms, from the round's
+question plan, `atlas.investigations.question`) and what its step must establish for this
+question (`step.focus`); code refuses a search that names none of the parts' terms, and each
+Fact names the part it answers (`part`, null for background).
 
 The argument plan's Skeptic (`ARGUMENT_SKEPTIC`, role `skeptic`, prompt `skeptic-argument`;
 ticket 05) is the same loop with the same actions: it is sent the Facts the Readers recorded
@@ -42,7 +46,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-READER_PROMPT_VERSION = 3
+READER_PROMPT_VERSION = 4
 ARGUMENT_SKEPTIC_PROMPT_VERSION = 3
 
 # The argument's steps (spec, "The steps of the argument"; the Serenity method's bottleneck
@@ -140,6 +144,17 @@ class ReaderStep(_Request):
     title: str
     asks: str
     looks_for: str
+    # What the step must establish for this question (the question plan's `step_focus`); None
+    # without a plan, or when the plan has none for the step.
+    focus: str | None
+
+
+class ReaderQuestionPart(_Request):
+    """One part of the question (the round's question plan): what a search must name."""
+
+    key: str
+    text: str  # the question's own words for it
+    terms: list[str]  # a search names at least one of the plan's terms
 
 
 class ReaderCompany(_Request):
@@ -160,6 +175,7 @@ class ReaderFactSummary(_Request):
     quantity: str | None  # "3 x InP capacity" as value, unit and metric
     period: str | None
     challenges: list[str]  # the Skeptic's: the Facts it speaks against
+    part: str | None  # the question's part it answers; None: background
 
 
 class ChallengedFact(_Request):
@@ -201,6 +217,8 @@ class ReaderResult(_Request):
 
 class ReaderRequest(_Request):
     research_question: str
+    # The question's parts (empty without a plan: the standalone Reader and the Skeptic).
+    question_parts: list[ReaderQuestionPart]
     as_of: str  # nothing available after it is searched or read
     step: ReaderStep
     companies: list[ReaderCompany]
@@ -249,6 +267,7 @@ class RecordFact(RoleOutput):
     period: str | None
     status: FactStatusName
     challenges: list[str]  # the argument Skeptic's: the Facts (`f<n>`) it speaks against
+    part: str | None  # the key of the question's part it answers (`reader.v4`); None: background
 
 
 class RecordFacts(RoleOutput):
@@ -354,7 +373,10 @@ _ACTION_FIELDS: dict[str, tuple[type[RoleOutput], dict[str, Any]]] = {
     "recall": (Recall, {}),
     "read": (Read, {"ref": None, "source_version_id": None, "anchor": None, "window": None}),
     # Each Fact's (`record_fact`'s arguments are `{"facts": [...]}`).
-    "record_fact": (RecordFact, {"quantity": None, "period": None, "challenges": []}),
+    "record_fact": (
+        RecordFact,
+        {"quantity": None, "period": None, "challenges": [], "part": None},
+    ),
     "done": (Done, {}),
 }
 

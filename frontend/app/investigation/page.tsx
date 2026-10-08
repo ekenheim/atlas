@@ -43,6 +43,8 @@ import {
   pointerQueryLabel,
   pointerScope,
   pointerSummary,
+  partLine,
+  partTally,
   PLANS,
   pointerWeight,
   readerName,
@@ -896,6 +898,7 @@ function Card({ card }: { card: ResearchCard | null }) {
                 ` ${card.unsupported_findings.length} finding(s) citing no accepted Claim were dropped.`}
             </p>
           )}
+          {card.plan === "argument" && <QuestionParts card={card} />}
           {card.plan === "argument" ? (
             <ArgumentSteps card={card} />
           ) : card.editor_failure ? (
@@ -960,6 +963,23 @@ function Card({ card }: { card: ResearchCard | null }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/** The question's parts and what the card says of each (pilot-review R2-01): answered by a
+ * statement, Facts recorded but no statement, or unanswered. */
+function QuestionParts({ card }: { card: ResearchCard }) {
+  const parts = card.question_parts ?? [];
+  if (parts.length === 0) return null;
+  return (
+    <>
+      <h3 id="question-parts">The question&apos;s parts: {partTally(parts)}</h3>
+      <ul aria-labelledby="question-parts">
+        {parts.map((part) => (
+          <li key={part.key}>{partLine(part)}</li>
+        ))}
+      </ul>
+    </>
   );
 }
 
