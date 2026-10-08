@@ -534,3 +534,102 @@ The owner authorized 8M MiniMax tokens to run the five questions on the argument
   The four baseline misses are Coherent's and AOI's 10-K qualification and contract-manufacturer risk paragraphs, and Coherent's 2025 investor deck.
 - **Counterevidence:** all of it is Lumentum's, and none of it contradicts the statement it is attached to. Some of it confirms the constraint. This matches question 1 (next-session priority 3).
 - **Assessment:** precision 76% (just under 80%). Saved work and coverage are well above the bar, latency and cost are within it, and **the trust gate fails**. Against 0.4.6 on the same question: 19 saved statements against none, coverage doubled, 7 of the researcher's facts on the card against 1, in less than half the time.
+
+### Question 4 on 0.5.3: the DSP and driver layer
+
+- **ID:** `fe7e5989-…`. **Seeds:** Marvell, MACOM.
+- **Stop:** `needs_review`. Constraint, demand_vs_supply and capture are disputed. The Financial Analyst's first attempt was quarantined and its second succeeded.
+- **Usage:** 1,515,953 tokens in, 72,749 out.
+- **Time:** 44 minutes from the first task to the stop. About 25 of those were tasks queued rather than running: two Readers waited 16 minutes and the Editor 9. The run started at the end of the MiniMax window that questions 2 and 3 had filled, so the working time is about 20 minutes.
+- **Card:** six steps and 34 statements, from 138 Facts.
+- **Review:** two blind reviewers per chunk (4 chunks). They agreed on 132 of 138, **kappa 0.89**. The lead adjudicated the 6 disagreements: 1 right, 3 wrong, 2 off-question.
+
+| Measure | 0.4.6 | **0.5.3 argument** | Bar |
+|---|---|---|---|
+| Precision | 39% | **75%** (103 of 138) | ≥ 80% |
+| Saved work | 0 (no finding) | **19 of 34 statements** | ≥ 3 |
+| Trust gate | holds (no finding) | **fails (2 of 34)** | holds |
+| Baseline coverage | 10% | **70%** (7 of 10, 1 more in substance) | ≥ 50% |
+| Researcher's facts on the card | 1 of 27 | **6** (7 more in Facts only; 14 absent) | reported |
+| Latency | 20.8 min | 44 min wall (about 20 working; see above) | ≤ 20 min |
+| Cost | 0.94M | 1.59M | ≤ 2M |
+
+- **Saved work:**
+  - Marvell's DSP generations: 5nm sampled February 2024, 3nm sampled February 2025, more than 20% lower module power, shipping in volume.
+  - TSMC as the sole wafer source at 3nm, assembly and test partners possibly single-sourced, and the TSMC capacity reservation with $458.2M of commitments.
+  - 3.2T on 2nm in calendar 2028.
+  - The Celestial AI acquisition for CPO, and NPO before CPO.
+  - Demand for drivers and TIAs above expectations, and MACOM's 200G-per-lane products for 1.6T.
+- **Trust gate failures (2):**
+  - The design-win momentum of an earlier product is attached to the 3nm DSP announced in the next sentence.
+  - A revenue trajectory is named "data center interconnect", which the quote doesn't say.
+- **Wrong, by kind (14):**
+  - merged facts (plasmonics for 3.2T with being first to 14A DSPs; the 800G/1.6T scale-out modules read as the NPO modules);
+  - a billion-dollar analog business read as NPO revenue;
+  - added glosses ("including interconnects").
+  
+  The off-question Facts are mostly active electrical cables and switching.
+- **Missed:** the question's "how many qualified sources" half. Broadcom's Sian3, Credo's Bluebird, MaxLinear's Rushmore and NVIDIA's own DSP are all absent: they appear in no seed's filing and the web sources aren't evidence. Also missing is MACOM's side: no R&D on DSPs, its LPO orders, and the contested driver sockets. The baseline's two misses are both of these, MACOM's DSP stance and Marvell's lead in 1.6T TIAs and its LPO sockets. Marvell's majority-share remark is a Fact but on no statement.
+- **Counterevidence:** not real again. Two items are another company's hypothetical about a DSP shortage, and one is Ciena saying it will compete with Marvell. One step is marked disputed with no counterevidence shown.
+- **Assessment:** precision 75% (just under 80%). Saved work and coverage are well above the bar, cost is within it, and **the trust gate fails** on two narrow overstatements. Latency is over the bar as measured, because of the queued time. Against 0.4.6, which had no finding at all: 19 saved statements, coverage from 10% to 70%, and 6 of the researcher's facts on the card against 1.
+
+### Question 5 on 0.5.3: coherent-optics and systems demand
+
+- **ID:** `25692663-…`. **Seeds:** Ciena, Lumentum, Coherent.
+- **Stop:** `needs_review`. Relief, control, capture and invalidation are disputed.
+- **Usage:** 1,491,428 tokens in, 82,962 out; **15.5 minutes**, starting in a fresh MiniMax window.
+- **Card:** six steps and 32 statements, from 200 Facts.
+- **Review:** two blind reviewers per chunk (6 chunks). Reviewer A's chunk 1 stopped halfway and padded with a placeholder ID, so it was re-reviewed. They agreed on 153 of 200, **kappa 0.52**. 36 of the 47 disagreements were about scope: whether a datacom-only Fact (1.6T transceivers, EMLs, CPO, OCS) bears on a coherent and DCI question. The lead applied question 5's rule from 0.4.6, under which those are off-question. The other 11 split 2 right, 4 wrong (AXT agreement statuses, as on question 2) and 5 off-question.
+
+| Measure | 0.4.6 | **0.5.3 argument** | Bar |
+|---|---|---|---|
+| Precision | 66% | **59%** (117 of 200; 88% true to their quotes, 29% off-question) | ≥ 80% |
+| Saved work | 1 | **21 of 32 statements** | ≥ 3 |
+| Trust gate | fails (4) | **fails (5 of 32)** | holds |
+| Baseline coverage | 10% | **33%** (3 of 9, 2 more in substance) | ≥ 50% |
+| Researcher's facts on the card | 5 of 28 | **6** (4 more in Facts only; 18 absent) | reported |
+| Latency | 21.7 min | **15.5 min** | ≤ 20 min |
+| Cost | 0.99M | 1.57M | ≤ 2M |
+
+- **The card answers a neighbouring question.** It argues the InP laser and substrate bind on datacom optics thoroughly: Coherent's 6-inch ramp, Lumentum sold out, AXT's share and agreements, ASPs at 1.6T. It barely reaches the coherent and DCI path the question asks about:
+  - Ciena: external lasers and ITLAs, CDMs and gold boxes are where supply is tightest, and InP wafers are not its limit.
+  - Lumentum: pump and narrow-linewidth lasers are tighter than EMLs.
+  - Ciena's 800ZR doubling and its purchase commitments.
+  
+  The researcher had all of these. Most of the 58 off-question Facts are datacom, so the reading followed the theme's datacom story, not the question (pilot-fixes 36).
+- **Saved work:** Ciena's orders against revenue, no balance before 2028, the backlog and supply secured to 2029. Coherent's InP as its primary constraint while assembly is not. Lumentum's pump lasers up more than 80% and narrow-linewidth lasers up more than 130% year on year, and its substrate no longer covered.
+- **Trust gate failures (5):**
+  - "on indium phosphide" added;
+  - a mid-2025 tripling joined to the 2026 doubling plan, undated;
+  - four Lumentum statements of different dates merged, one from a Nokia-titled source;
+  - the qualifier dropped from Coherent's cost buffer;
+  - a Coherent Fact folded into a Lumentum statement.
+- **Wrong, by kind (25):** above all, fiscal against calendar years. On Coherent's fiscal Q2 and Q3 2026 calls, "this calendar year" was recorded as 2025 several times. Also agreement statuses, and two headwinds split where Ciena named one.
+- **Counterevidence:** not real again. Coherent's own later statements confirm the ones they are filed against, and one step is marked disputed with nothing attached.
+- **Assessment:** precision 59% fails. Saved work passes. Coverage of 33% fails. The trust gate fails. Latency and cost are within the bar.
+
+### The argument plan on 0.5.3: pooled against the 0.4.6 verdict
+
+| Measure (pooled over 5) | 0.4.6 (default plan) | **0.5.3 (argument plan)** | Bar |
+|---|---|---|---|
+| Precision | 63% (228 of 364 Claims) | **72%** (610 of 853 Facts) | ≥ 80% per question |
+| Saved work | 3 findings | **82 statements** (23, 0, 19, 19, 21) | ≥ 3 per question |
+| Trust gate | fails in 4 of 5 | **fails in 4 of 4 cards**: 17 of 130 statements | holds |
+| Baseline coverage | 22% (11 of 50) | **63%** (31 of 49) | ≥ 50% |
+| Researcher's facts on a card | 16 of 145 (11%) | **27 of 145 (19%)**; 72 of 145 (50%) in Facts or on a card | reported |
+| Latency | 21–26 min | **10–16 min** (Q4: 44 min wall, about 25 of it queued) | ≤ 20 min |
+| Cost | 0.94–0.99M each | 1.49–1.55M in, 73–91k out each | ≤ 2M |
+| Reviewer kappa | 0.77–0.86 | 0.85, 0.69, 0.82, 0.89, 0.52 | reported |
+
+**Verdict: still fails the bar.** No question reaches 80% precision, and the trust gate fails on every card. The argument plan is still clearly better than the default plan on every measure the verdict uses:
+
+- **Reading is much better:** 27 times the saved work, coverage nearly three times higher, half the researcher's facts reached.
+- **What fails, ranked:**
+  1. The trust gate: narrow overstatements the judge misses, such as merged dates, added glosses and dropped qualifiers.
+  2. Fact statuses and periods, notably fiscal against calendar years and agreements labelled in_effect.
+  3. Counterevidence that confirms instead of contradicting.
+  4. Reading that follows the theme's story instead of the question (question 5).
+  5. Competitors outside the seeds and web-only facts (question 4's DSP vendors, question 2's MOFCOM and USGS facts).
+  6. An optional role that sank a whole card (question 2; fixed on main as ticket 07, not yet released).
+
+By the rule agreed with the owner, the argument plan replaces the default plan: it beats 0.4.6 on researcher facts held, archive hits covered and precision. The default plan's retirement is next-session priority 7.

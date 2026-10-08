@@ -6,7 +6,7 @@ What Atlas has tried, how each attempt was measured, and what came of it, failur
 
 - **Version:** 0.5.3 (tag `v0.5.3`). **Plan under test:** the argument plan (`"plan": "argument"`: Scout, then six Readers, one per argument step, then Skeptic ∥ Financial Analyst, then the Editor; `docs/decisions.md`, "The argument plan"). The default plan, which extracts Claims, is still the API default.
 - **Last verdict:** the five-question pilot on 0.4.6 (2026-10-07) failed. Pooled Claim precision was 63%, baseline coverage 22%, machine-reviewed edge precision 57%, and the trust gate failed in 4 of 5 investigations. A researcher's hour found 144 true facts; the cards carried 16 of them (`docs/pilot-report.md`).
-- **Since then:** question 1 on 0.5.3's argument plan had 78% Fact precision (133 of 170), 23 saved-work statements, baseline coverage 9 of 10 and 13 minutes of latency. Its trust gate still fails, on 4 of 34 statements (`.scratch/pilot/results.md`, "The argument plan on 0.5.3"). Questions 2 to 5 are pending (below).
+- **Since then:** question 1 on 0.5.3's argument plan had 78% Fact precision (133 of 170), 23 saved-work statements, baseline coverage 9 of 10 and 13 minutes of latency. Its trust gate still fails, on 4 of 34 statements (`.scratch/pilot/results.md`, "The argument plan on 0.5.3"). Questions 2 to 5 and the pooled verdict are below.
 - **Open questions:**
   - How to stop narrow overstatements the finding judge misses.
   - The feedstock and equipment half of a question: non-seed companies, and web sources that aren't Evidence.
@@ -283,8 +283,9 @@ Each question's section in `.scratch/pilot/results.md` has the detail. Facts are
 | 1, laser chips | 67% → **78%** | 23 | fails (4 of 34) | 40% → **90%** | 4 → **8** (+7 in Facts) | 13.3 min |
 | 2, InP substrates | 58% → **73%** | **0: no card** | — | 20% → 60% in Facts | 5 → 0 (22 in Facts) | 9.7 min |
 | 3, module assembly | 69% → **76%** | 19 | fails (6 of 30) | 30% → **60%** | 1 → **7** (+5 in Facts) | 10.7 min |
-| 4, DSP and drivers | pending | | | | | |
-| 5, coherent optics | pending | | | | | |
+| 4, DSP and drivers | 39% → **75%** | 19 | fails (2 of 34) | 10% → **70%** | 1 → **6** (+7 in Facts) | 44 min wall (≈25 queued) |
+| 5, coherent optics | 66% → 59% (88% true to quote; 29% off-question) | 21 | fails (5 of 32) | 10% → 33% | 5 → **6** (+4 in Facts) | 15.5 min |
+| **Pooled** | 63% → **72%** | 82 | fails on 4 of 4 cards (17 of 130) | 22% → **63%** | 16 → **27** of 145 (72 in Facts or on a card) | 10–16 min |
 
 Findings so far:
 - **Reading is fixed:** most of the researcher's facts are now among the Facts (Q2: 22 of 32).
@@ -296,4 +297,4 @@ Findings so far:
 - **Defect:** a failed optional Financial Analyst cancels the Editor, so Q2 has no card (`.scratch/atlas-bottleneck-argument/issues/07`).
 - **Review method:** one blind reviewer invented fact IDs (correct 8-character prefixes); that chunk was re-reviewed. Checking IDs against the pack is now part of the tally.
 
-Still to add: questions 4 and 5, a pooled comparison, and whether the argument plan replaces the default.
+**Verdict:** the plan still fails the bar: no question reaches 80% precision, and the trust gate fails on every card. It beats 0.4.6 on every measure, so by the rule agreed with the owner it replaces the default plan. Question 5's card argued the datacom InP story rather than the coherent/DCI question, so the reading follows the theme, not the question. Ranked failures and the detail are in `.scratch/pilot/results.md`, "The argument plan on 0.5.3: pooled against the 0.4.6 verdict".
