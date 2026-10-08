@@ -21,7 +21,9 @@ under another key such as `"args"`; see `ReaderAction._as_the_model_writes_it`).
 `record_fact` carries every fact one passage states (`{"facts": [...]}`, 1 to
 `MAX_FACTS_PER_CALL`), each placed and recorded on its own (`reader.v2`; under `reader.v1` a
 call recorded one Fact, and Readers recorded one or two in a step). One Fact's arguments
-without `facts` (the `reader.v1` form) are still accepted, as a list of one.
+without `facts` (the `reader.v1` form) are still accepted, as a list of one. `reader.v3` sets a
+Fact's status by a table of cues and keeps its period as the quote gives it; code refuses two
+status mistakes (`atlas.facts.service.check_status`).
 
 The argument plan's Skeptic (`ARGUMENT_SKEPTIC`, role `skeptic`, prompt `skeptic-argument`;
 ticket 05) is the same loop with the same actions: it is sent the Facts the Readers recorded
@@ -37,7 +39,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-READER_PROMPT_VERSION = 2
+READER_PROMPT_VERSION = 3
 ARGUMENT_SKEPTIC_PROMPT_VERSION = 2
 
 # The argument's steps (spec, "The steps of the argument"; the Serenity method's bottleneck
@@ -86,14 +88,18 @@ ARGUMENT_STEPS: tuple[StepDefinition, ...] = (
         "Who controls the scarce capability",
         "Who controls the scarce capability.",
         "Sole or few suppliers, shares of supply, who owns the fabs, the process know-how or"
-        " the licences, who has qualified with the customers, and who is still qualifying.",
+        " the licences, who has qualified with the customers, and who is still qualifying;"
+        " how many suppliers the customers have qualified and which competitors the company"
+        " itself names.",
     ),
     StepDefinition(
         "capture",
         "How the company captures it",
         "How the company that controls it captures more revenue or profit.",
         "Pricing (increases, contracts, prepayments), share of the bill of materials, revenue"
-        " and margin of the segment, customer funding or financing of capacity, dilution.",
+        " and margin of the segment, customer funding or financing of capacity, dilution;"
+        " customer concentration: customers over 10% of revenue and their share (the annual"
+        " report's customers paragraph, 'accounted for').",
     ),
     StepDefinition(
         "invalidation",

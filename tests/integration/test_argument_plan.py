@@ -384,7 +384,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     )
     by_quote = {f["assertion"]["quote"]: f for f in facts}
     assert by_quote[COMPETITION]["assertion"]["extractor_version"] == "skeptic-argument.v2"
-    assert by_quote[SHERMAN]["assertion"]["extractor_version"] == "reader.v2"
+    assert by_quote[SHERMAN]["assertion"]["extractor_version"] == "reader.v3"
     # The Skeptic was sent the Readers' Facts to challenge, their quotes as low-trust data.
     skeptic_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "skeptic")
     challenge = asked(skeptic_call)["request"]["challenge"]

@@ -72,10 +72,23 @@ def test_a_fact_s_step_and_status_are_the_fact_model_s() -> None:
 
 
 def test_the_role_is_versioned_and_its_schema_strict() -> None:
-    assert (READER.name, READER.prompt.name, READER.prompt.version) == ("reader", "reader", 2)
+    assert (READER.name, READER.prompt.name, READER.prompt.version) == ("reader", "reader", 3)
     schema = READER.response_schema()
     assert schema["additionalProperties"] is False
     assert sorted(schema["required"]) == sorted(["action", *NONE])
+
+
+def test_control_and_capture_look_for_qualified_sources_and_customer_concentration() -> None:
+    steps = {step.key: step for step in ARGUMENT_STEPS}
+
+    assert (
+        "how many suppliers the customers have qualified and which competitors the company"
+        " itself names" in steps["control"].looks_for
+    )
+    assert (
+        "customer concentration: customers over 10% of revenue and their share (the annual"
+        " report's customers paragraph, 'accounted for')" in steps["capture"].looks_for
+    )
 
 
 CURLY = "\N{RIGHT SINGLE QUOTATION MARK}"
