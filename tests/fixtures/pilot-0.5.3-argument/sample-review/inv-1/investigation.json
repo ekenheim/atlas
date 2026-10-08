@@ -1,0 +1,182 @@
+{
+ "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+ "question": "Who is constrained on lasers, and what eases it?",
+ "research_card": {
+  "plan": "argument",
+  "steps": [
+   {
+    "step": "constraint",
+    "status": "supported",
+    "facts": [
+     {
+      "fact_id": "11111111-1111-4111-8111-111111111111",
+      "company_name": "Acme Photonics",
+      "step": "constraint",
+      "status": "in_effect",
+      "statement": "Acme Photonics says its laser line is sold out and it lifted capacity by 40% in the spring",
+      "quantity": {
+       "value": 40.0,
+       "unit": "%",
+       "metric": "laser capacity increase"
+      },
+      "period": "this year",
+      "source_title": "Acme Q2 call",
+      "source_span": {
+       "quote": "x"
+      },
+      "against": []
+     }
+    ],
+    "counterevidence": [
+     {
+      "fact_id": "33333333-3333-4333-8333-333333333333",
+      "company_name": "Borealis Optics",
+      "step": "constraint",
+      "status": "in_effect",
+      "statement": "Borealis Optics reopened a cafeteria",
+      "quantity": null,
+      "period": null,
+      "source_title": "Borealis filing",
+      "source_span": {
+       "quote": "x"
+      },
+      "against": [
+       "11111111-1111-4111-8111-111111111111"
+      ]
+     }
+    ],
+    "statements": [
+     {
+      "statement": "Acme Photonics says its laser line is sold out and it lifted capacity by 40% this year.",
+      "facts": [
+       {
+        "fact_id": "11111111-1111-4111-8111-111111111111",
+        "company_name": "Acme Photonics",
+        "step": "constraint",
+        "status": "in_effect",
+        "statement": "Acme Photonics says its laser line is sold out and it lifted capacity by 40% in the spring",
+        "quantity": {
+         "value": 40.0,
+         "unit": "%",
+         "metric": "laser capacity increase"
+        },
+        "period": "this year",
+        "source_title": "Acme Q2 call",
+        "source_span": {
+         "quote": "x"
+        },
+        "against": []
+       }
+      ],
+      "counterevidence": [
+       {
+        "fact_id": "33333333-3333-4333-8333-333333333333",
+        "company_name": "Borealis Optics",
+        "step": "constraint",
+        "status": "in_effect",
+        "statement": "Borealis Optics reopened a cafeteria",
+        "quantity": null,
+        "period": null,
+        "source_title": "Borealis filing",
+        "source_span": {
+         "quote": "x"
+        },
+        "against": [
+         "11111111-1111-4111-8111-111111111111"
+        ]
+       }
+      ],
+      "judged": true
+     }
+    ]
+   },
+   {
+    "step": "relief",
+    "status": "disputed",
+    "facts": [
+     {
+      "fact_id": "22222222-2222-4222-8222-222222222222",
+      "company_name": "Acme Photonics",
+      "step": "relief",
+      "status": "in_effect",
+      "statement": "Acme Photonics has brought a second furnace online",
+      "quantity": null,
+      "period": "next quarter",
+      "source_title": "Acme Q2 call",
+      "source_span": {
+       "quote": "x"
+      },
+      "against": []
+     }
+    ],
+    "counterevidence": [],
+    "statements": [
+     {
+      "statement": "Acme Photonics has brought a second furnace online, easing the shortage.",
+      "facts": [
+       {
+        "fact_id": "22222222-2222-4222-8222-222222222222",
+        "company_name": "Acme Photonics",
+        "step": "relief",
+        "status": "in_effect",
+        "statement": "Acme Photonics has brought a second furnace online",
+        "quantity": null,
+        "period": "next quarter",
+        "source_title": "Acme Q2 call",
+        "source_span": {
+         "quote": "x"
+        },
+        "against": []
+       }
+      ],
+      "counterevidence": [],
+      "judged": true
+     }
+    ]
+   }
+  ],
+  "judged": [
+   {
+    "finding": "f1",
+    "attempt": 1,
+    "statement": "Acme Photonics says its laser line is sold out and it lifted capacity by 40% this year.",
+    "claim_ids": [
+     "11111111-1111-4111-8111-111111111111"
+    ],
+    "verdict": "supported",
+    "kinds": [],
+    "beyond": [],
+    "outcome": "kept",
+    "reason": "The quote says it."
+   },
+   {
+    "finding": "f2",
+    "attempt": 1,
+    "statement": "Acme Photonics has brought a second furnace online, easing the shortage.",
+    "claim_ids": [
+     "22222222-2222-4222-8222-222222222222"
+    ],
+    "verdict": "misstated",
+    "kinds": [
+     "tense"
+    ],
+    "beyond": [],
+    "outcome": "rewritten",
+    "reason": "A plan, not done."
+   },
+   {
+    "finding": "f2",
+    "attempt": 2,
+    "statement": "Acme Photonics has brought a second furnace online, easing the shortage.",
+    "claim_ids": [
+     "22222222-2222-4222-8222-222222222222"
+    ],
+    "verdict": "supported",
+    "kinds": [],
+    "beyond": [],
+    "outcome": "kept",
+    "reason": "Now fine."
+   }
+  ]
+ }
+}
