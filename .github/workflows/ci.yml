@@ -21,11 +21,15 @@ jobs:
   # the local issue tracker or the implementation log skips the checks: no test reads them,
   # except the pilot plan (tests/unit/test_memory_probes.py). A new branch's first push, or a
   # compare the API can't give, counts as code. release.yml asks for a `suite` that ran.
+  # A commit whose `suite` already passed (on its integrate/ branch, before main was
+  # fast-forwarded to the same commit) is not tested again: check runs belong to the commit,
+  # so main's ruleset and release.yml see that green `suite`.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
+      checks: read
     outputs:
       code: ${{ steps.diff.outputs.code }}
     steps:
@@ -36,6 +40,13 @@ jobs:
           AFTER: ${{ github.sha }}
         run: |
           code=true
+          # Already tested: a successful `suite` check run on this very commit.
+          passed=$(gh api "repos/${{ github.repository }}/commits/$AFTER/check-runs?check_name=suite&status=completed"             --jq '[.check_runs[] | select(.conclusion == "success")] | length' || echo 0)
+          if [ "${passed:-0}" -gt 0 ]; then
+            echo "suite already passed on $AFTER; not testing it again"
+            echo "code=false" | tee -a "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
             # The compare API lists at most 300 files; a longer list counts as code.
             if files=$(gh api "repos/${{ github.repository }}/compare/$BEFORE...$AFTER" --jq '.files[].filename') \

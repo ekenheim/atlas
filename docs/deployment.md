@@ -8,7 +8,7 @@ Atlas ships as one container image, `ghcr.io/ekenheim/atlas`. It runs as `atlas 
 
 | Job | Runs on | What |
 |---|---|---|
-| `changes` | GitHub's runners | Whether the push changed code: anything outside `.scratch/` (the pilot plan counts, a test reads it) and `docs/implementation-log.md`. If not, `static` and `suite` are skipped. |
+| `changes` | GitHub's runners | Whether the push needs testing. Not when a `suite` already passed on this very commit, the usual case when `main` is fast-forwarded to a green `integrate/` branch: check runs belong to the commit, so it was tested once and that is enough (2026-10-08; it used to run the whole suite again). Not when it changed no code: nothing outside `.scratch/` (the pilot plan counts, a test reads it) and `docs/implementation-log.md`. Otherwise `static` and `suite` run. |
 | `static` | GitHub's runners | actionlint, then `scripts/ci.sh static`: ruff, strict pyright, frontend lint, typecheck and unit tests, the API client is current. No Docker; a few minutes. |
 | `suite` | `gha-runner-scale-set-atlas` (self-hosted, dind) | Only after `static` passes: `scripts/ci.sh suite`: Compose services, pytest (8 workers), the Playwright e2e tests, the image build and smoke. About 15 minutes. |
 | `ci` | GitHub's runners | Green when both passed, or when the push changed no code. **The check `main` requires**, so every push gets one. |
