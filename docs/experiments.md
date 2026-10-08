@@ -340,3 +340,24 @@ Findings so far:
 - An invalidation step that looks for counterevidence.
 
 Detail: `.scratch/pilot/results.md`, "0.5.4 against 0.5.3".
+
+## 0.5.5 on questions 1-3, and 0.5.6
+
+| Question | Precision | Trust gate | Coverage | Researcher's facts on the card | Tokens in |
+|---|---|---|---|---|---|
+| 1, laser chips | 78% → **84%** | **holds (0/26)** | 70% | 7 → **12** | 2.60M |
+| 2, InP substrates | 84.5% → 72% | fails 2/22 | 80% | 8 → 6 | 2.29M |
+| 3, module assembly | 76% → **80.0%** | fails 1/18 | 60% | 7 | 2.76M |
+
+**Kept:**
+- The answer schema in every role's prompt. MiniMax ignores `response_format` and forced tool calls, measured live with two calls.
+- Question parts: question 3 now answers customer concentration.
+- The invalidation step: `found` on all three questions.
+
+**Problems found, and fixed in 0.5.6 (Fable round 3):**
+- **Job lease:** every Editor ran twice, because the 5-minute job lease was never renewed. Fixed by a lease heartbeat, with an interim `ATLAS_JOB_LEASE_SECONDS=1800`.
+- **Duplicate Facts:** 31% of Facts overlap another Fact's span, so one error can be counted three times. Fixed: one Fact per span.
+- **Dropped statements:** the judge's basis check rejected the source and date preambles. 38 statements judged supported were dropped, which emptied question 3's control step. Fixed: the check accepts them.
+- **`regulatory` status:** it now needs a regulatory word.
+
+**Not measured:** run-to-run variation. Question 2 went from 174 to 108 Facts between releases; its repeat was dropped for quota. Questions 4 and 5 ran on 0.5.6.

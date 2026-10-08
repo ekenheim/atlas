@@ -17,7 +17,7 @@ import urllib.request
 
 BASE = "https://atlas.ekenhome.se/api/v1"
 OUT = pathlib.Path(".scratch/live-runs/pilot-0.3.0")
-TOKEN_BUDGET = 2_000_000
+TOKEN_BUDGET = 3_000_000
 POLL_SECONDS = 20
 DEADLINE_SECONDS = 110 * 60
 RUNS = {

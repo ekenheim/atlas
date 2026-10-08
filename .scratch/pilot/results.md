@@ -673,3 +673,36 @@ Pooled over the three:
 2. Reading that follows the question: decompose it into its parts and give each Reader the part for its step (question 5).
 3. Resolve periods in code from the document's date: fiscal against calendar, "this year".
 4. An invalidation step that looks for what would break the thesis.
+
+## 0.5.5 on questions 1, 2 and 3
+
+0.5.5 carries Fable round 2 (question parts, periods resolved in code, an invalidation step that looks for what would break the thesis, Fact dates for the Editor and the judge), the answer schema in every role's prompt (MiniMax-M3 ignores `response_format` and forced tool calls; measured live with two calls) and bank template 1.6.0. Run budget 3M. Same questions, seeds, researcher answers and review method. Review files: `.scratch/live-runs/pilot-0.5.5-arg/inv-<n>/review/`. Reviewer agreement was kappa 0.83 on all three.
+
+Two reviewer lapses were caught by the ID check and decided by the lead:
+- Question 1, reviewer B, chunk 2: 22 Facts skipped.
+- Question 2: 2 Facts skipped.
+
+Questions 4 and 5 were created on 0.5.5 but held by the MiniMax window. 0.5.6 was deployed before any of their tasks ran, so they are 0.5.6 runs (folder `pilot-0.5.6-arg`). The planned repeat of question 2 was dropped to save the weekly MiniMax allowance (96% used).
+
+| Measure | Q1 0.5.4 → **0.5.5** | Q2 0.5.4 → **0.5.5** | Q3 0.5.3 → **0.5.5** | Bar |
+|---|---|---|---|---|
+| Precision | 78% → **84%** (143 of 171) | 84.5% → **72%** (78 of 108) | 76% → **80.0%** (112 of 140) | ≥ 80% |
+| Trust gate | fails 3/27 → **holds, 0/26** | fails 4/25 → fails **2/22** | fails 6/30 → fails **1/18** | holds |
+| Saved work | 19 → **23** | 18 → 16 | 19 → 13 | ≥ 3 |
+| Baseline coverage | 60% → **70%** (+2 in substance) | 70% → **80%** (+1) | 60% → 60% | ≥ 50% |
+| Researcher's facts on the card | 7 → **12** (+12 in Facts) | 8 → 6 (+10 in Facts) | 7 → 7 (+4 in Facts) | reported |
+| Latency | 16.6 → 14.4 min | 12.5 → 14.0 min | 10.7 → 15.0 min | ≤ 20 min |
+| Tokens in | 1.91M → 2.60M | 1.90M → 2.29M | 1.51M → 2.76M | ≤ 2M (budget 3M) |
+
+**Question 1 meets every quality bar for the first time.** Precision is 84%, no statement fails the trust gate, coverage is 70%, 23 statements are saved work and 12 of the researcher's facts are on the card. Its invalidation step reports `found` for the first time.
+
+**Question 2's precision fell** (84.5% → 72%). Of its 14 wrong Facts, 6 are two errors recorded three times each: Lumentum's hedge on whether its AXT deal would suffice, stated as a certainty, and CHIPS Act funding labelled `regulatory`. Off-question Facts rose to 16 (0.5.4: 9). It recorded 108 Facts, against 174 on 0.5.4: the run-to-run variation is large, and its repeat was dropped for quota.
+
+**Question 3 reaches the precision bar exactly** (80.0%), with one trust-gate failure. Customer concentration, missing from 0.5.3, is now partly answered: Fabrinet's top ten at 86%, NVIDIA 28% and Cisco 18%. Qualification-cycle times are still unanswered. Its control step is `unknown`: 19 statements were drafted and none kept.
+
+**Defects found and fixed in 0.5.6 (Fable round 3, `docs/experiments.md`):**
+- **The job lease.** Every 0.5.5 Editor ran twice: the 5-minute job lease was never renewed. This inflated the tokens.
+- **Duplicate Facts.** 31% of all Facts overlap another Fact's span.
+- **Dropped statements.** The judge's basis check dropped statements it had judged `supported`, because their source and date preamble had no basis in the quote. Question 2 lost 11 statements this way and question 3 lost 13, which is why question 3's control step and its qualification-cycle part ended up with no statement.
+
+**Assessment.** Fact precision is at or near the bar on all three questions; question 2's drop is mostly duplicates. The trust gate holds on question 1 and fails narrowly on questions 2 and 3, by 2 and 1 statements. Coverage and saved work are well above the bar. Cost is above the original 2M bar but inside the 3M budget, and it is inflated by the duplicate Editors.
