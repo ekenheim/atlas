@@ -89,7 +89,7 @@ def _investigations(folder: Path) -> list[int]:
             print(f"skipped {p.name}: not reviewed yet (no review/final-verdicts.json)", file=sys.stderr)
     if not found:
         raise SystemExit(f"no reviewed inv-<n> folders under {folder}")
-    return found
+    return sorted(found)
 
 
 def _judge_entries(card: dict[str, Any], text: str, cited: set[str]) -> list[dict[str, Any]]:

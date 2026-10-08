@@ -211,4 +211,10 @@ def test_funding_or_an_award_recorded_as_regulatory_is_refused_naming_the_status
     ],
 )
 def test_a_permit_licence_export_control_or_rule_is_regulatory(quote: str) -> None:
-    check_status(quote, "Corvid Systems faces a regulatory condition on its sales.", "regulatory")
+    check_status(quote, "Corvid Systems faces a condition on its sales.", "regulatory")
+    with pytest.raises(InvalidAssertion):
+        check_status(
+            "The company expanded its sales team.",
+            "Corvid Systems faces a condition on its sales.",
+            "regulatory",
+        )

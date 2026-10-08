@@ -1,9 +1,12 @@
-"""The standing regression check on the 0.5.3 argument-plan reviews (no database, no LLM, no network).
+"""The standing regression check on the 0.5.3, 0.5.4 and 0.5.5 argument-plan reviews (no database, no LLM, no network).
 
     uv run --no-sync python .scratch/tools/argument_regression.py \
         [--data .scratch/live-runs/pilot-0.5.3-arg] \
         [--labels tests/fixtures/pilot-0.5.3-argument/labels.json] \
         [--max-right 0] [--max-pass-flagged 2]
+
+`--data` and `--labels` may be repeated and are paired in order (default: the 0.5.3 pair); the
+counters are pooled over the pairs and the table gains a `runs:` line naming the label files.
 
 The labels (`argument_labels.py`: Facts with the reviewers' verdicts, card statements with
 their trust gate, counter-Facts) are committed. The quotes are licensed transcript text and
