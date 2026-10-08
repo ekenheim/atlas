@@ -165,7 +165,8 @@ def test_the_scout_turns_the_question_and_the_bottleneck_gaps_into_queries(
     assert body["response_format"]["json_schema"]["name"] == "scout"
     assert body["response_format"]["json_schema"]["strict"] is True
     system, user = body["messages"]
-    assert system == {"role": "system", "content": f"{DIRECTIVES}\n\n{SCOUT_PROMPT}"}
+    assert system["role"] == "system"
+    assert system["content"].startswith(f"{DIRECTIVES}\n\n{SCOUT_PROMPT}\n\n## Answer format")
     sent = json.loads(user["content"])
     assert sent["request"] == {
         "theme_id": "photonics",

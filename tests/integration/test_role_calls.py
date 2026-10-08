@@ -138,9 +138,41 @@ def test_a_role_call_goes_through_litellm_with_a_strict_schema_and_the_run_s_met
     assert schema["additionalProperties"] is False
     assert sorted(schema["required"]) == ["answer", "source_ids"]
     system, user = body["messages"]
-    assert system == {"role": "system", "content": f"{DIRECTIVES}\n\n{PROMPT_TEXT}"}
+    assert system["role"] == "system"
+    assert system["content"].startswith(f"{DIRECTIVES}\n\n{PROMPT_TEXT}\n\n## Answer format\n")
     assert user["role"] == "user"
     assert json.loads(user["content"]) == {"request": QUESTION.model_dump(), "retrieved_data": []}
+
+
+def test_the_system_message_carries_the_role_s_response_schema_and_the_format_rules(
+    engine: Engine, tmp_path: Path
+) -> None:
+    run = start_run(engine, tmp_path)
+    litellm = FakeLiteLLM().script_chat(ChatReply.json(ANSWER))
+
+    caller(engine, tmp_path, litellm).call(EXAMPLE, QUESTION, run_id=run.id)
+
+    [body] = litellm.chat_requests()
+    content = body["messages"][0]["content"]
+    section = content.split("## Answer format\n", 1)[1]
+    assert "exactly one JSON object" in section
+    assert "no code fence" in section
+    assert "no text before or after" in section
+    assert "Every field the schema lists is present" in section
+    assert "null where" in section
+    assert "Add no other fields" in section
+    # The schema validation uses, verbatim and pretty-printed, last in the message.
+    pretty = json.dumps(EXAMPLE.response_schema(), indent=2, ensure_ascii=False)
+    assert content.endswith("\n" + pretty)
+    assert (
+        json.loads(content[content.rindex("\n{") :])
+        == body["response_format"]["json_schema"]["schema"]
+    )
+    # In schema order, not sorted.
+    assert pretty.index('"answer"') < pretty.index('"source_ids"')
+    # The caller's format version is on the role call (the prompt file's hash covers the file only).
+    [call] = role_calls(engine, tmp_path, run.id)["role_calls"]
+    assert call["answer_format_version"] == 1
 
 
 def test_each_call_records_its_routed_model_and_tokens_and_the_run_sums_them(
@@ -226,6 +258,9 @@ def test_malformed_output_is_repaired_once(engine: Engine, tmp_path: Path) -> No
     assert repair["messages"][2] == {"role": "assistant", "content": malformed}
     assert repair["messages"][3]["role"] == "user"
     assert "source_ids" in repair["messages"][3]["content"]
+    pretty = json.dumps(EXAMPLE.response_schema(), indent=2, ensure_ascii=False)
+    assert pretty in repair["messages"][3]["content"]
+    assert "Answer format" in repair["messages"][3]["content"]
     assert repair["metadata"] == first["metadata"]
     usage = role_calls(engine, tmp_path, run.id)
     assert (usage["tokens_in"], usage["tokens_out"]) == (1700, 70)
@@ -346,7 +381,7 @@ def test_a_missing_required_field_is_still_repaired_and_extra_fields_are_not_nam
 
     assert output.items[0].name == "EMLs"
     _, repair = litellm.chat_requests()
-    errors = json.loads(repair["messages"][3]["content"].split("\n\n", 1)[1])
+    errors = json.loads(repair["messages"][3]["content"].split("\n\n")[1])
     assert [e["loc"] for e in errors] == [["items", 0, "note"]]
     [stored] = role_calls(engine, tmp_path, run.id)["role_calls"]
     first_attempt, second_attempt = stored["attempts"]

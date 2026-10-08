@@ -7765,6 +7765,8 @@ export interface components {
             prompt_version: number;
             /** Prompt Sha256 */
             prompt_sha256: string;
+            /** Answer Format Version */
+            answer_format_version: number;
             /** Model */
             model: string;
             /** Request */
