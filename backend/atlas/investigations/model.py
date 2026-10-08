@@ -654,11 +654,26 @@ class CardFactQuantity(BaseModel):
     metric: str
 
 
+class CardFactRelation(BaseModel):
+    """What a Skeptic Fact does to one Fact it challenges, as the counter-judge labelled it
+    (`atlas.roles.counter_judge`): `contradicts`, `limits`, `dates`, `qualifies`, `supports`,
+    `unrelated`, or `unjudged` when no label could be had (its call failed, or it was never
+    asked)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    fact_id: uuid.UUID  # the challenged Fact
+    relation: str
+    reason: str | None
+
+
 class CardFact(BaseModel):
     """A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the
     quantity, period and status the Reader recorded, and its quote's span (`source_span`;
     `claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it
-    speaks against (`against`)."""
+    speaks against (`against`: those the counter-judge found it contradicts, limits or dates, or
+    could not judge) and what it does to each Fact it challenges (`relations`, pilot-review
+    T3)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -674,6 +689,7 @@ class CardFact(BaseModel):
     source_span: SourceSpan
     evidence_available_at: datetime
     against: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
+    relations: list[CardFactRelation] = Field(default_factory=list[CardFactRelation])
 
 
 class CardStepStatement(BaseModel):
@@ -694,8 +710,10 @@ class CardArgumentStep(BaseModel):
     on its own; the ones that passed, `statements`; `statement` is the first of them, or None,
     kept for older readers), the Facts behind it, the Skeptic's counterevidence, and what
     remains unchecked. The status is code's: `unknown` without a statement that passed or
-    without a Fact; `disputed` when counterevidence stands against the step; else
-    `supported`. `editor_status` is what the Editor proposed."""
+    without a Fact; `disputed` when a Skeptic Fact contradicts, limits or dates one of the
+    step's Facts (or the Facts its statements cite), or could not be judged against it; else
+    `supported`. `contested`: a judged contradiction stands against the step's Facts, whatever
+    its status. `editor_status` is what the Editor proposed."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -720,6 +738,8 @@ class CardArgumentStep(BaseModel):
     reader_stop: str | None = None
     # Whether the Skeptic was sent this step's Facts to challenge.
     skeptic_checked: bool = False
+    # Whether a Skeptic Fact was judged to contradict, limit or date one of its Facts.
+    contested: bool = False
 
 
 class ResearchCard(BaseModel):

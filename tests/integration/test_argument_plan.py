@@ -2,14 +2,17 @@
 Reader per argument step, in parallel -> Skeptic (a Reader challenging their Facts) ||
 Financial Analyst -> the Editor writing the argument, each of a step's statements held to its
 Facts' quotes by the grounding check and the finding judge on its own (`editor-argument.v2`;
-the v1 answer, one statement per step, is still read), each step's status decided by code.
+the v1 answer, one statement per step, is still read), each step's status decided by code: a
+step is disputed only by a Skeptic Fact the counter-judge finds contradicting one of its Facts
+(pilot-review T3).
 
 Seam: `POST /api/v1/investigations`, single worker passes, and `/api/v1` (the investigation,
 its events, the Facts, the run's role calls) with the requests the fakes received. The Source
 Versions are the recorded Coherent EDGAR filings, ingested and retained through the fixture
 path with the recorded Hindsight fake; SearXNG is the scripted fake over
 `tests/fixtures/searxng/`. **Every role's answers are scripted here** (the Scout, the six
-Readers, the Skeptic, the Financial Analyst, the Editor and the finding judge), each Reader's
+Readers, the Skeptic, the counter-judge, the Financial Analyst, the Editor and the finding
+judge), each Reader's
 computed from the request it answers (its step, the hits it was sent). The Readers' jobs run
 in either order, so their answers are scripted by role and dispatched on the step. Nothing
 live is called.
@@ -258,6 +261,22 @@ SUPPORTED: JsonValue = {
     "reason": "the quotes state it",
 }
 
+
+def relating(relation: str) -> Any:
+    """The counter-judge answering `relation` for every Fact the counter-Fact challenges."""
+
+    def answer(body: dict[str, Any]) -> JsonValue:
+        challenged = asked(body)["request"]["challenged"]
+        return {
+            "relations": [
+                {"ref": each["ref"], "relation": relation, "reason": f"k1 {relation} it"}
+                for each in challenged
+            ]
+        }
+
+    return answer
+
+
 # editor-argument.v2: several statements per step, each checked on its own.
 RELIEF_SECOND = "The expansion of the Sherman, Texas, manufacturing facility was announced."
 RELIEF_UNGROUNDED = (
@@ -313,6 +332,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
 ) -> None:
     llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
     llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
     llm.script_chat(
@@ -360,6 +380,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     roles = [body["metadata"]["role"] for body in llm.chat_requests()]
     assert roles.count("reader") == 14
     assert roles.count("skeptic") == 3
+    assert roles.count("counter_judge") == 1
     assert (roles[0], roles[-3:]) == ("scout", ["editor", "finding_judge", "finding_judge"])
     assert {body["metadata"]["run_id"] for body in llm.chat_requests()} == {found["run_id"]}
 
@@ -383,7 +404,7 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
         ]
     )
     by_quote = {f["assertion"]["quote"]: f for f in facts}
-    assert by_quote[COMPETITION]["assertion"]["extractor_version"] == "skeptic-argument.v2"
+    assert by_quote[COMPETITION]["assertion"]["extractor_version"] == "skeptic-argument.v3"
     assert by_quote[SHERMAN]["assertion"]["extractor_version"] == "reader.v2"
     # The Skeptic was sent the Readers' Facts to challenge, their quotes as low-trust data.
     skeptic_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "skeptic")
@@ -457,6 +478,10 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     [competition] = steps["control"]["counterevidence"]
     assert competition["source_span"]["quote"] == COMPETITION
     assert competition["against"] == [agreement["fact_id"]]
+    assert [(r["fact_id"], r["relation"]) for r in competition["relations"]] == [
+        (agreement["fact_id"], "contradicts")
+    ]
+    assert steps["control"]["contested"] is True
     assert steps["control"]["statement"] == CONTROL_STATEMENT
     assert steps["control"]["editor_status"] == "disputed"
     # A step with no Fact has no statement, whatever the Editor wrote: it is unknown.
@@ -485,6 +510,7 @@ def test_each_statement_of_a_step_is_checked_on_its_own(
 ) -> None:
     llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
     llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
     llm.script_chat(
@@ -571,6 +597,7 @@ def test_an_unusable_analyst_answer_leaves_the_card_to_the_editor(
     unusable = ChatReply.json({"scenarios": [{"company_id": "x"}]}, tokens=(1500, 200))
     llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
     llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
     llm.script_role("financial_analyst", unusable, unusable)  # the answer and its repair
     llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
     llm.script_chat(
@@ -609,6 +636,128 @@ def test_an_unusable_analyst_answer_leaves_the_card_to_the_editor(
     steps = {step["step"]: step for step in card["steps"]}
     assert steps["relief"]["statement"] == RELIEF_STATEMENT
     assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
+
+
+def start_argument(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG) -> str:
+    """An argument investigation of Coherent with the Readers, the Skeptic, the Analyst, the
+    Scout and the Editor (v1 shape) scripted, run to its end; its ID."""
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing, tokens=(3000, 400)),  # the Editor
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    atlas.worker_pass()
+    return response.json()["id"]
+
+
+@pytest.mark.parametrize("relation", ["qualifies", "contradicts"])
+def test_the_skeptic_s_counter_fact_is_judged_and_disputes_only_when_it_contradicts(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG, relation: str
+) -> None:
+    # Pilot-review T3: on the four 0.5.3 cards none of the Skeptic's 50 Facts denied, limited
+    # or dated what it was filed against, yet 14 of 24 steps were disputed.
+    llm.script_role("counter_judge", ChatReply.answer(relating(relation), tokens=(600, 60)))
+    investigation = start_argument(atlas, llm, searxng)
+
+    found = atlas.get(f"/api/v1/investigations/{investigation}")
+    assert {task["key"]: task["status"] for task in found["tasks"]} == {
+        key: "succeeded" for key in PLAN
+    }
+    # One counter-judge call, in the run, for the Skeptic's one Fact, sent both quotes as
+    # low-trust retrieved data: the counter-Fact's as k1, the Control Fact's by its reference.
+    judged = [b for b in llm.chat_requests() if b["metadata"]["role"] == "counter_judge"]
+    assert len(judged) == 1
+    assert judged[0]["metadata"]["run_id"] == found["run_id"]
+    request = asked(judged[0])["request"]
+    assert request["research_question"] == QUESTION
+    assert (request["counter"]["ref"], request["counter"]["step"]) == ("k1", "control")
+    [challenged] = request["challenged"]
+    assert challenged["step"] == "control"
+    assert challenged["ref"].startswith("f")
+    quoted = {each["id"]: each for each in asked(judged[0])["retrieved_data"]}
+    assert set(quoted) == {"k1", challenged["ref"]}
+    assert quoted["k1"]["text"] == COMPETITION
+    assert quoted[challenged["ref"]]["text"] == AGREEMENT
+    assert {each["trust"] for each in quoted.values()} == {"low"}
+
+    facts = atlas.get("/api/v1/facts", investigation_id=investigation)["items"]
+    by_quote = {f["assertion"]["quote"]: f["id"] for f in facts}
+    competition, agreement = by_quote[COMPETITION], by_quote[AGREEMENT]
+    skeptic = next(t for t in found["tasks"] if t["key"] == "skeptic")["artifacts"]
+    assert skeptic["counter_relations"] == {competition: {agreement: relation}}
+    assert skeptic["counter_relations_unjudged"] == []
+    assert skeptic["counter_judge_calls"] == 1
+
+    steps = {step["step"]: step for step in found["research_card"]["steps"]}
+    control = steps["control"]
+    # Either way the Skeptic's Fact is shown with Control's counterevidence, with its relation.
+    [shown] = control["counterevidence"]
+    assert shown["fact_id"] == competition
+    assert [(r["fact_id"], r["relation"]) for r in shown["relations"]] == [(agreement, relation)]
+    assert control["editor_status"] == "disputed"
+    if relation == "qualifies":
+        assert (control["status"], control["contested"], shown["against"]) == (
+            "supported",
+            False,
+            [],
+        )
+        assert "steps disputed" not in found["stop_detail"]
+    else:
+        assert (control["status"], control["contested"], shown["against"]) == (
+            "disputed",
+            True,
+            [agreement],
+        )
+        assert "steps disputed: control" in found["stop_detail"]
+    assert not any("could not be judged" in note for note in control["unchecked"])
+
+
+def test_a_failed_counter_judge_call_leaves_the_relation_unjudged_and_the_step_disputed(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    unusable = ChatReply.json(
+        {"relations": [{"ref": "f1", "relation": "denies", "reason": "?"}]}, tokens=(600, 60)
+    )
+    llm.script_role("counter_judge", unusable, unusable)  # the answer and its repair
+    investigation = start_argument(atlas, llm, searxng)
+
+    found = atlas.get(f"/api/v1/investigations/{investigation}")
+    tasks = {task["key"]: task for task in found["tasks"]}
+    # The quarantine is the pair's label, not the task's failure.
+    assert tasks["skeptic"]["status"] == "succeeded"
+    facts = atlas.get("/api/v1/facts", investigation_id=investigation)["items"]
+    by_quote = {f["assertion"]["quote"]: f["id"] for f in facts}
+    competition, agreement = by_quote[COMPETITION], by_quote[AGREEMENT]
+    skeptic = tasks["skeptic"]["artifacts"]
+    assert skeptic["counter_relations_unjudged"] == [competition]
+    assert skeptic["counter_relations"] == {competition: {agreement: "unjudged"}}
+    assert skeptic["counter_judge_calls"] == 1
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [c["status"] for c in calls if c["role"] == "counter_judge"] == ["quarantined"]
+
+    control = {step["step"]: step for step in found["research_card"]["steps"]}["control"]
+    assert (control["status"], control["contested"]) == ("disputed", False)
+    [shown] = control["counterevidence"]
+    assert shown["against"] == [agreement]
+    assert [r["relation"] for r in shown["relations"]] == ["unjudged"]
+    assert "1 counter-Fact could not be judged" in control["unchecked"]
 
 
 def test_the_default_plan_stays_the_default(atlas: Atlas) -> None:

@@ -73,6 +73,17 @@ def test_a_fact_s_step_and_status_are_the_fact_model_s() -> None:
 
 def test_the_role_is_versioned_and_its_schema_strict() -> None:
     assert (READER.name, READER.prompt.name, READER.prompt.version) == ("reader", "reader", 2)
+    # The argument Skeptic names in `challenges` only the Facts its quote denies, limits or
+    # dates (skeptic-argument.v3; pilot-review T3).
+    assert (
+        ARGUMENT_SKEPTIC.name,
+        ARGUMENT_SKEPTIC.prompt.name,
+        ARGUMENT_SKEPTIC.prompt.version,
+    ) == (
+        "skeptic",
+        "skeptic-argument",
+        3,
+    )
     schema = READER.response_schema()
     assert schema["additionalProperties"] is False
     assert sorted(schema["required"]) == sorted(["action", *NONE])
@@ -290,10 +301,6 @@ def test_the_schema_asks_for_a_list_of_facts() -> None:
     facts = schema["$defs"]["RecordFacts"]
     assert facts["required"] == ["facts"]
     assert facts["properties"]["facts"]["type"] == "array"
-    assert (ARGUMENT_SKEPTIC.prompt.name, ARGUMENT_SKEPTIC.prompt.version) == (
-        "skeptic-argument",
-        2,
-    )
 
 
 def test_a_quantity_the_model_writes_as_text_or_incomplete_does_not_cost_the_facts() -> None:

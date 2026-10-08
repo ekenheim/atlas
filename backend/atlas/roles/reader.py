@@ -27,7 +27,10 @@ The argument plan's Skeptic (`ARGUMENT_SKEPTIC`, role `skeptic`, prompt `skeptic
 ticket 05) is the same loop with the same actions: it is sent the Facts the Readers recorded
 (`challenge`, their quotes as retrieved data by reference `f1`, ...) and records
 counterevidence as Facts, each naming in `challenges` the Facts it speaks against (always
-empty for a Reader).
+empty for a Reader). Under `skeptic-argument.v3` (pilot-review T3) `challenges` names only the
+Facts a quote denies, limits or dates; capacity coming, a second source or a competitor is
+recorded under `relief` or `control` with no challenge, and the counter-judge
+(`atlas.roles.counter_judge`) labels what each counter-Fact does to the Facts it names.
 """
 
 from dataclasses import dataclass
@@ -38,7 +41,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
 READER_PROMPT_VERSION = 2
-ARGUMENT_SKEPTIC_PROMPT_VERSION = 2
+ARGUMENT_SKEPTIC_PROMPT_VERSION = 3
 
 # The argument's steps (spec, "The steps of the argument"; the Serenity method's bottleneck
 # test M1 to M6), by the Fact step that records them.

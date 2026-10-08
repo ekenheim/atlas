@@ -11,8 +11,17 @@ check, then the finding judge; atlas.investigations.grounding, .meaning): a drop
 the others standing. It decides each step's status:
 
 - `unknown`: no statement passed, or no Fact stands behind the step;
-- `disputed`: the Skeptic's counterevidence is on the step, or speaks against one of its Facts;
+- `disputed`: a Skeptic Fact contradicts, limits or dates one of the step's Facts (or of the
+  Facts its kept statements cite), or could not be judged against it;
 - `supported`: otherwise.
+
+What a Skeptic Fact does to each Fact it challenges is the counter-judge's label
+(`atlas.roles.counter_judge`, pilot-review T3), recorded in the Skeptic task's artifacts
+(`counter_relations`; `counter_relations_unjudged` for the Skeptic Facts whose call failed): a
+Skeptic Fact filed under a step, or naming one of its Facts, that only qualifies, supports or
+is unrelated to them is shown with the step's counterevidence but never disputes it. A pair
+with no label (its call failed, or nothing judged it) counts as contradicting: unjudged, the
+step stays disputed and says so in `unchecked`.
 
 The Editor's own status is kept beside it (`editor_status`). The card keeps the research
 card's fields (no `findings`: each step's statements are its findings) with `plan` `argument`
@@ -41,17 +50,26 @@ from atlas.investigations.model import (
     CardArgumentStep,
     CardFact,
     CardFactQuantity,
+    CardFactRelation,
     CardStepStatement,
     CardStepStatus,
     SourceSpan,
 )
 from atlas.investigations.reader import ReaderState
 from atlas.roles.contract import QuotedText
+from atlas.roles.counter_judge import CONTRADICTING, UNJUDGED, JudgedFactItem
 from atlas.roles.reader import ARGUMENT_STEPS, ChallengedFact
 
 # At most this many of the Readers' Facts are sent to the Skeptic to challenge (oldest first).
 MAX_CHALLENGED = 60
 SKEPTIC_CHALLENGED = "challenged_fact_ids"  # the Skeptic task's artifact naming them
+# The Skeptic task's artifacts holding the counter-judge's labels (pilot-review T3): a Skeptic
+# Fact -> each Fact it challenges -> its relation (and the judge's reason); the Skeptic Facts
+# whose call failed; how many calls were made.
+COUNTER_RELATIONS = "counter_relations"
+COUNTER_REASONS = "counter_relation_reasons"
+COUNTER_UNJUDGED = "counter_relations_unjudged"
+COUNTER_JUDGE_CALLS = "counter_judge_calls"
 
 
 @dataclass(frozen=True)
@@ -75,6 +93,77 @@ class ArgumentFacts:
         default_factory=dict[uuid.UUID, list[uuid.UUID]]
     )  # a Skeptic Fact -> the Readers' Facts it speaks against
     rounds: dict[uuid.UUID, int] = field(default_factory=dict[uuid.UUID, int])
+    # A Skeptic Fact -> a Fact it challenges -> the counter-judge's relation (and reason).
+    relations: dict[uuid.UUID, dict[uuid.UUID, str]] = field(
+        default_factory=dict[uuid.UUID, dict[uuid.UUID, str]]
+    )
+    reasons: dict[uuid.UUID, dict[uuid.UUID, str]] = field(
+        default_factory=dict[uuid.UUID, dict[uuid.UUID, str]]
+    )
+
+    def relation(self, counter_id: uuid.UUID, fact_id: uuid.UUID) -> str:
+        """What Skeptic Fact `counter_id` does to `fact_id`, one of the Facts it challenges:
+        the counter-judge's label, or `unjudged` when there is none."""
+        return self.relations.get(counter_id, {}).get(fact_id, UNJUDGED)
+
+    def against_of(self, counter_id: uuid.UUID) -> list[uuid.UUID]:
+        """The Facts Skeptic Fact `counter_id` speaks against: those it challenges whose
+        relation contradicts, limits or dates them, or could not be judged."""
+        return [
+            each
+            for each in self.against.get(counter_id, [])
+            if self.relation(counter_id, each) in CONTRADICTING | {UNJUDGED}
+        ]
+
+    def contradicted_by(self, counter_id: uuid.UUID) -> list[uuid.UUID]:
+        """The Facts the counter-judge found Skeptic Fact `counter_id` contradicts, limits or
+        dates (judged: an unjudged pair is not among them)."""
+        return [
+            each
+            for each in self.against.get(counter_id, [])
+            if self.relation(counter_id, each) in CONTRADICTING
+        ]
+
+    def card_relations(self, counter_id: uuid.UUID) -> list[CardFactRelation]:
+        """What Skeptic Fact `counter_id` does to each Fact it challenges, for the card."""
+        return [
+            CardFactRelation(
+                fact_id=each,
+                relation=self.relation(counter_id, each),
+                reason=self.reasons.get(counter_id, {}).get(each),
+            )
+            for each in self.against.get(counter_id, [])
+        ]
+
+
+def skeptic_relations(
+    connection: Connection, investigation_id: uuid.UUID, round_: int | None = None
+) -> tuple[dict[uuid.UUID, dict[uuid.UUID, str]], dict[uuid.UUID, dict[uuid.UUID, str]]]:
+    """The counter-judge's relations and reasons the investigation's Skeptic tasks recorded
+    (every round's, or `round_`'s), by Skeptic Fact and challenged Fact."""
+    relations: dict[uuid.UUID, dict[uuid.UUID, str]] = {}
+    reasons: dict[uuid.UUID, dict[uuid.UUID, str]] = {}
+    rows = connection.execute(
+        text(
+            "SELECT artifacts FROM investigation_task WHERE investigation_id = :id"
+            " AND role = 'skeptic' AND (CAST(:round AS integer) IS NULL OR round = :round)"
+            " ORDER BY round"
+        ),
+        {"id": investigation_id, "round": round_},
+    ).all()
+    for (artifacts,) in rows:
+        recorded = cast(dict[str, Any], artifacts) if isinstance(artifacts, dict) else {}
+        for target, source in ((relations, COUNTER_RELATIONS), (reasons, COUNTER_REASONS)):
+            given: Any = recorded.get(source)
+            if not isinstance(given, dict):
+                continue
+            for counter_id, labels in cast(dict[str, Any], given).items():
+                if isinstance(labels, dict):
+                    target[uuid.UUID(counter_id)] = {
+                        uuid.UUID(fact_id): str(label)
+                        for fact_id, label in cast(dict[str, Any], labels).items()
+                    }
+    return relations, reasons
 
 
 def argument_facts(
@@ -113,12 +202,15 @@ def argument_facts(
             if session.role == "skeptic":
                 against[fact.fact_id] = list(fact.challenged_fact_ids)
     rows = fact_rows(connection, list(roles), statements=statements)
+    relations, reasons = skeptic_relations(connection, investigation_id)
     return ArgumentFacts(
         sessions=sessions,
         supporting=[row for row in rows if roles[row["id"]] == "reader"],
         counter=[row for row in rows if roles[row["id"]] == "skeptic"],
         against=against,
         rounds=rounds,
+        relations=relations,
+        reasons=reasons,
     )
 
 
@@ -191,7 +283,33 @@ def challenged(facts: Sequence[RowMapping]) -> tuple[list[ChallengedFact], list[
     return sent, quotes
 
 
-def card_fact(row: RowMapping, against: Sequence[uuid.UUID] = ()) -> CardFact:
+def judged_fact(ref: str, row: RowMapping) -> tuple[JudgedFactItem, QuotedText]:
+    """A Fact as the counter-judge is sent it, by `ref`, with its quote as retrieved data."""
+    value = _value(row)
+    return (
+        JudgedFactItem(
+            ref=ref,
+            company=row["subject_name"],
+            step=row["step"],
+            statement=str(value.get("statement", "")),
+            status=str(value.get("status", "")),
+            quantity=quantity_text(row),
+            period=value.get("period"),
+            source_title=row["source_title"],
+        ),
+        QuotedText(
+            id=ref,
+            source=f"{row['source_version_id']}#{row['span_start']}-{row['span_end']}",
+            text=row["quote"],
+        ),
+    )
+
+
+def card_fact(
+    row: RowMapping,
+    against: Sequence[uuid.UUID] = (),
+    relations: Sequence[CardFactRelation] = (),
+) -> CardFact:
     value = _value(row)
     quantity: Any = value.get("quantity")
     return CardFact(
@@ -215,6 +333,7 @@ def card_fact(row: RowMapping, against: Sequence[uuid.UUID] = ()) -> CardFact:
         ),
         evidence_available_at=row["available_at"],
         against=list(against),
+        relations=list(relations),
     )
 
 
@@ -247,6 +366,10 @@ def build_steps(
     steps: list[CardArgumentStep] = []
     readers = {s.step: s for s in facts.sessions if s.role == "reader"}  # the latest round's
     counter_ids = {row["id"] for row in facts.counter}
+
+    def counter_fact(row: RowMapping) -> CardFact:
+        return card_fact(row, facts.against_of(row["id"]), facts.card_relations(row["id"]))
+
     for definition in ARGUMENT_STEPS:
         said = statements.get(definition.key)
         kept = said.kept if said else []
@@ -273,7 +396,7 @@ def build_steps(
                     if ref in refs and refs[ref]["id"] not in counter_ids
                 ],
                 counterevidence=[
-                    card_fact(refs[ref], facts.against.get(refs[ref]["id"], []))
+                    counter_fact(refs[ref])
                     for ref in each.cited
                     if ref in refs and refs[ref]["id"] in counter_ids
                 ],
@@ -281,18 +404,37 @@ def build_steps(
             )
             for each in kept
         ]
+        # Only a Skeptic Fact that contradicts, limits or dates one of the step's Facts (or
+        # could not be judged against one) disputes it; one that qualifies, supports or is
+        # unrelated to them is shown but disputes nothing.
+        disputing = [row for row in facts.counter if set(facts.against_of(row["id"])) & ids]
+        contested = any(set(facts.contradicted_by(row["id"])) & ids for row in facts.counter)
+        unjudged = [
+            row
+            for row in facts.counter
+            if any(
+                facts.relation(row["id"], each) == UNJUDGED
+                for each in facts.against.get(row["id"], [])
+                if each in ids
+            )
+        ]
         first = kept[0] if kept else None
         statement = first.statement if first else None
         status: CardStepStatus
         if statement is None or not supporting:
             status = "unknown"
-        elif counter:
+        elif disputing:
             status = "disputed"
         else:
             status = "supported"
         unchecked = list(said.unchecked) if said else []
         if not supporting:
             unchecked.append("no Fact was recorded for this step")
+        if unjudged:
+            unchecked.append(
+                f"{len(unjudged)} counter-Fact{'s' if len(unjudged) != 1 else ''}"
+                " could not be judged"
+            )
         checked = bool(ids) and ids <= skeptic_checked
         if ids and not checked:
             unchecked.append(
@@ -312,9 +454,7 @@ def build_steps(
                 statement=statement,
                 statements=shown,
                 facts=[card_fact(row) for row in supporting],
-                counterevidence=[
-                    card_fact(row, facts.against.get(row["id"], [])) for row in counter
-                ],
+                counterevidence=[counter_fact(row) for row in counter],
                 unchecked=list(dict.fromkeys(unchecked)),
                 grounded=True if first else None,
                 judged=first.judged if first else None,
@@ -326,6 +466,7 @@ def build_steps(
                 reader_summary=state.summary if state else None,
                 reader_stop=state.stop_reason if state else None,
                 skeptic_checked=checked,
+                contested=contested,
             )
         )
     return steps

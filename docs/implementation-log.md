@@ -3610,3 +3610,27 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The integration test runs in CI's suite only: no local Docker.
 - **Fixture only:** neither change has run on MiniMax. The normalizer's cases are the two shapes recorded on pilot question 2's role calls (`.scratch/live-runs/pilot-0.5.3-arg/inv-2/role-calls.json`, not in git).
 - **Next:** release after pilot questions 4 and 5 finish on 0.5.3, so the pilot compares one version.
+
+## Pilot-review T3: a counter-judge labels each Skeptic Fact; a step is disputed only by a confirmed contradiction (8 October)
+
+- **Why:** on the four 0.5.3 argument cards, 14 of 24 steps were `disputed` (12 over the Editor's `supported`) though none of the Skeptic's 50 Facts denied, limited or dated the Facts it was filed against; `answered` was unreachable.
+- **Files:**
+  - `backend/atlas/roles/counter_judge.py` (new: `COUNTER_JUDGE`, `CounterJudgeRequest`, `JudgedFactItem`, `CounterJudgement`, `CounterRelation`, `CONTRADICTING`, `UNJUDGED`), `backend/atlas/roles/prompts/counter_judge.v1.md` (new).
+  - `backend/atlas/roles/prompts/skeptic-argument.v3.md` (new; v2 kept), `backend/atlas/roles/reader.py` (`ARGUMENT_SKEPTIC_PROMPT_VERSION` 3).
+  - `backend/atlas/investigations/tasks.py`: `_judge_counter_facts` after the Skeptic's loop succeeds (one call per Skeptic Fact with challenged Facts; labels written to the task's artifacts as they come; prior artifacts read first); the Editor's counterevidence `against` is the contradicting one.
+  - `backend/atlas/investigations/argument.py`: `ArgumentFacts.relations`/`reasons` with `relation`, `against_of`, `contradicted_by`, `card_relations`; `skeptic_relations`; `judged_fact`; `build_steps`' new status rule, `contested` and the unjudged note.
+  - `backend/atlas/investigations/model.py`: `CardFactRelation`, `CardFact.relations`, `CardArgumentStep.contested`.
+  - `frontend/lib/workbench.ts` (`splitCounterevidence`, `citedTally`'s "also found"), `frontend/app/investigation/page.tsx` ("Against" with the relation and "Also found" under each statement and step), `frontend/lib/api/{openapi.json,schema.ts}` regenerated.
+  - Tests: `tests/unit/test_argument_steps.py` (new, 5), `tests/unit/test_counter_judge_role.py` (new, 14), `tests/unit/test_reader.py` (Skeptic v3 pin), `tests/integration/test_argument_plan.py` (the counter-judge scripted in the existing tests; `test_the_skeptic_s_counter_fact_is_judged_and_disputes_only_when_it_contradicts[qualifies|contradicts]`, `test_a_failed_counter_judge_call_leaves_the_relation_unjudged_and_the_step_disputed`), `frontend/unit/workbench.test.ts`.
+  - Lead's tools: `.scratch/tools/counter_relations_labels.py` (writes the 135 pairs with both quotes and an empty `relation`, keeping filled labels on a rerun, and reruns `build_steps` over the saved cards), `.scratch/tools/counter_judge_eval.py` (live, capped at 60 calls, `--dry-run`).
+  - `docs/decisions.md` ("The argument plan", addendum of 2026-10-08), `AGENTS.md` (the argument-plan line).
+- **Tests (actual, WSL):** ruff format/check and pyright clean; unit suite 1116 passed; `tests/integration/test_argument_plan.py` 7 passed, with `test_reader.py` and `test_facts.py` 23 passed; frontend lint, typecheck and unit tests passed; the client regenerated.
+- **Saved cards (acceptance 6):** `counter_relations_labels.py` over `.scratch/live-runs/pilot-0.5.3-arg/inv-{1,3,4,5}/investigation.json`, through `build_steps`: disputed steps 14 today; 0 with every relation `qualifies`, 0 with every relation `supports`; 11 with every pair `unjudged` (the 3 others, inv-1 relief and capture and inv-3 relief, were disputed only by Skeptic Facts filed under the step against other steps' Facts). The 135 pairs were written to the scratchpad for the check, not into the main checkout: the lead runs the script to write `labeled-counter-facts.json` there.
+- **Fixture only:** `counter_judge.v1` and `skeptic-argument.v3` have not been called on MiniMax; `counter_judge_eval.py` ran only as `--dry-run` (50 requests built from labels set to `qualifies`).
+- **Deviations:**
+  - `CardFactRelation.relation` is a string, also `unjudged`; the judge's reasons are recorded in a fourth artifact, `counter_relation_reasons`, beside the three the ticket names.
+  - A pair with no recorded label (a Skeptic task that never judged, e.g. a card built before this change, or a challenged Fact the answer left out) counts as `unjudged`, so it disputes as before; `counter_relations_unjudged` lists a Skeptic Fact when any of its pairs is unjudged.
+  - `contested` counts judged contradictions only: an unjudged pair disputes a step without contesting it.
+  - The Editor's counterevidence items now carry the contradicting `against` too (its `counter_refs` membership is unchanged), so the Editor isn't told a qualifying Fact speaks against a step.
+  - A judge call failing other than by quarantine, truncation or the budget (an outage) pauses or fails the task as any role call does; the labels already written stay and are not asked again. The resume path has no test of its own.
+- **Next:** the lead labels the 135 pairs, runs `counter_judge_eval.py` live (≤ 60 calls) and reruns a pilot question on the argument plan.

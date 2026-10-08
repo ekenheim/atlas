@@ -117,6 +117,10 @@ from atlas.discovery.service import Scout
 from atlas.financials import load_metric_catalog
 from atlas.hindsight import HindsightGateway
 from atlas.investigations.argument import (
+    COUNTER_JUDGE_CALLS,
+    COUNTER_REASONS,
+    COUNTER_RELATIONS,
+    COUNTER_UNJUDGED,
     SKEPTIC_CHALLENGED,
     ArgumentFacts,
     KeptStatement,
@@ -124,6 +128,8 @@ from atlas.investigations.argument import (
     argument_facts,
     build_steps,
     challenged,
+    fact_rows,
+    judged_fact,
     quantity_text,
     step_counts,
     without_references,
@@ -158,6 +164,7 @@ from atlas.investigations.reader import (
     Reader,
     ReaderCompanyRow,
     ReaderSetup,
+    ReaderState,
     open_session,
     reader_companies,
 )
@@ -187,6 +194,13 @@ from atlas.roles import (
     RoleOutputQuarantined,
     RoleOutputTruncated,
     TokenBudgetExhausted,
+)
+from atlas.roles.counter_judge import (
+    COUNTER_JUDGE,
+    COUNTER_REF,
+    RELATIONS,
+    UNJUDGED,
+    CounterJudgeRequest,
 )
 from atlas.roles.editor import (
     EDITOR,
@@ -1507,7 +1521,127 @@ class TaskRunner:
             "facts_to_challenge": len(sent),
             SKEPTIC_CHALLENGED: [str(each) for each in ids.values()],
         }
+        if outcome.status == "succeeded":
+            outcome.artifacts |= self._judge_counter_facts(investigation, task, run_id, ids)
         return outcome
+
+    def _judge_counter_facts(
+        self,
+        investigation: RowMapping,
+        task: RowMapping,
+        run_id: uuid.UUID,
+        refs: Mapping[str, uuid.UUID],
+    ) -> dict[str, JsonValue]:
+        """The counter-judge on each of the Skeptic's Facts that challenges any (pilot-review
+        T3): one `counter_judge` call per Fact, in the run, labelling what it does to each Fact
+        it challenges. A quarantined or cut-off call, or the run's budget spent, leaves that
+        Fact's relations `unjudged`. Each label is written to the task's artifacts as it comes,
+        so a paused or retried task judges only the Facts not yet there."""
+        with self._engine.connect() as connection:
+            prior: Any = connection.execute(
+                text("SELECT artifacts FROM investigation_task WHERE id = :id"),
+                {"id": task["id"]},
+            ).scalar_one()
+            state: Any = connection.execute(
+                text("SELECT state FROM reader_session WHERE key = :key"),
+                {"key": f"task:{task['id']}"},
+            ).scalar_one_or_none()
+        recorded = cast(dict[str, Any], prior) if isinstance(prior, dict) else {}
+        relations = _labels(recorded.get(COUNTER_RELATIONS))
+        reasons = _labels(recorded.get(COUNTER_REASONS))
+        unjudged = [str(each) for each in cast(list[Any], recorded.get(COUNTER_UNJUDGED) or [])]
+        calls = int(recorded.get(COUNTER_JUDGE_CALLS) or 0)
+
+        def artifacts() -> dict[str, JsonValue]:
+            return {
+                COUNTER_RELATIONS: cast(JsonValue, relations),
+                COUNTER_REASONS: cast(JsonValue, reasons),
+                COUNTER_UNJUDGED: list[JsonValue](unjudged),
+                COUNTER_JUDGE_CALLS: calls,
+            }
+
+        counter = [
+            fact
+            for fact in (ReaderState.model_validate(state).facts if state is not None else [])
+            if fact.challenged_fact_ids and str(fact.fact_id) not in relations
+        ]
+        if not counter:
+            return artifacts()
+        ref_of = {fact_id: ref for ref, fact_id in refs.items()}
+        with self._engine.connect() as connection:
+            rows = {
+                row["id"]: row
+                for row in fact_rows(
+                    connection,
+                    list(
+                        dict.fromkeys(
+                            [
+                                *(fact.fact_id for fact in counter),
+                                *(each for fact in counter for each in fact.challenged_fact_ids),
+                            ]
+                        )
+                    ),
+                )
+            }
+        question = self._question(investigation, task)
+        spent = False
+        with self._caller(investigation) as caller:
+            for fact in counter:
+                challenged_ids = list(dict.fromkeys(fact.challenged_fact_ids))
+                labels = dict.fromkeys((str(each) for each in challenged_ids), UNJUDGED)
+                why: dict[str, str] = {}
+                sent = {
+                    ref_of.get(each, f"x{index}"): each
+                    for index, each in enumerate(challenged_ids, start=1)
+                    if each in rows
+                }
+                if not spent and fact.fact_id in rows and sent:
+                    counter_item, counter_quote = judged_fact(COUNTER_REF, rows[fact.fact_id])
+                    items = [judged_fact(ref, rows[each]) for ref, each in sent.items()]
+                    request = CounterJudgeRequest(
+                        research_question=question,
+                        counter=counter_item,
+                        challenged=[item for item, _ in items],
+                    )
+                    calls += 1
+                    try:
+                        judgement, _ = caller.call_recorded(
+                            COUNTER_JUDGE,
+                            request,
+                            run_id=run_id,
+                            retrieved=[counter_quote, *(quote for _, quote in items)],
+                        )
+                    except TokenBudgetExhausted:
+                        spent = True
+                        why = dict.fromkeys(labels, "the run's token budget was spent")
+                    except RoleOutputQuarantined as failure:
+                        why = dict.fromkeys(labels, f"the judge's answer was unusable: {failure}")
+                    else:
+                        for each in judgement.relations:
+                            fact_id = sent.get(each.ref)
+                            if fact_id is None or labels[str(fact_id)] != UNJUDGED:
+                                continue
+                            if each.relation in RELATIONS:
+                                labels[str(fact_id)] = each.relation
+                                why[str(fact_id)] = each.reason
+                elif spent:
+                    why = dict.fromkeys(labels, "the run's token budget was spent")
+                for key, label in labels.items():
+                    if label == UNJUDGED:
+                        why.setdefault(key, "the judge gave no relation for this Fact")
+                relations[str(fact.fact_id)] = labels
+                reasons[str(fact.fact_id)] = why
+                if UNJUDGED in labels.values():
+                    unjudged.append(str(fact.fact_id))
+                with self._engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "UPDATE investigation_task SET artifacts = artifacts"
+                            " || CAST(:artifacts AS jsonb) WHERE id = :id"
+                        ),
+                        {"id": task["id"], "artifacts": _json(artifacts())},
+                    )
+        return artifacts()
 
     def _argument_editor(
         self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
@@ -1577,7 +1711,9 @@ class TaskRunner:
                 _argument_item(
                     ref_of[r["id"]],
                     r,
-                    [ref_of[each] for each in facts.against.get(r["id"], []) if each in ref_of],
+                    # Only the Facts it contradicts, limits or dates (or could not be judged
+                    # against): the counter-judge's labels (pilot-review T3).
+                    [ref_of[each] for each in facts.against_of(r["id"]) if each in ref_of],
                 )
                 for r in facts.counter
             ],
@@ -2239,3 +2375,14 @@ def _budget_detail(role: str, error: TokenBudgetExhausted) -> str:
 
 def _json(value: dict[str, JsonValue]) -> str:
     return json.dumps(value)
+
+
+def _labels(value: Any) -> dict[str, dict[str, str]]:
+    """A `{fact_id: {fact_id: label}}` artifact as recorded (an absent or odd one: empty)."""
+    if not isinstance(value, dict):
+        return {}
+    return {
+        str(key): {str(k): str(v) for k, v in cast(dict[Any, Any], labels).items()}
+        for key, labels in cast(dict[Any, Any], value).items()
+        if isinstance(labels, dict)
+    }
