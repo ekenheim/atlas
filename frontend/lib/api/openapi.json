@@ -8933,6 +8933,17 @@
             ],
             "title": "Period"
           },
+          "period_resolved": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Resolved"
+          },
           "source_title": {
             "type": "string",
             "title": "Source Title"
@@ -13714,6 +13725,27 @@
               }
             ],
             "title": "Part"
+          },
+          "period_resolved": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Resolved"
+          },
+          "period_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PeriodBasis"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -19613,6 +19645,39 @@
           "budget_held"
         ],
         "title": "PendingKind"
+      },
+      "PeriodBasis": {
+        "properties": {
+          "document_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Document Date"
+          },
+          "fiscal_year_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year End",
+            "description": "\"06-30\": the month and day the fiscal year ends"
+          },
+          "assumed_calendar": {
+            "type": "boolean",
+            "title": "Assumed Calendar",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "document_date"
+        ],
+        "title": "PeriodBasis",
+        "description": "What code resolved the period's relative phrases against (R2-02): the document's date\nand the company's fiscal year end (`MM-DD`), or the calendar year assumed for want of one."
       },
       "PointedCompany": {
         "properties": {
@@ -27427,6 +27492,27 @@
               }
             ],
             "title": "Period"
+          },
+          "period_resolved": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Resolved"
+          },
+          "period_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PeriodBasis"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "type": "string",

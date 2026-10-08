@@ -2425,6 +2425,8 @@ export interface components {
             quantity: components["schemas"]["CardFactQuantity"] | null;
             /** Period */
             period: string | null;
+            /** Period Resolved */
+            period_resolved?: string | null;
             /** Source Title */
             source_title: string;
             source_span: components["schemas"]["SourceSpan"];
@@ -4180,6 +4182,9 @@ export interface components {
             status: "in_effect" | "planned" | "in_development" | "hedged" | "regulatory" | "reported_by_third_party";
             /** Part */
             part?: string | null;
+            /** Period Resolved */
+            period_resolved?: string | null;
+            period_basis?: components["schemas"]["PeriodBasis"] | null;
         };
         /** FactRecorded */
         FactRecorded: {
@@ -6183,6 +6188,28 @@ export interface components {
             paused: boolean;
             /** Budget Held */
             budget_held: number;
+        };
+        /**
+         * PeriodBasis
+         * @description What code resolved the period's relative phrases against (R2-02): the document's date
+         *     and the company's fiscal year end (`MM-DD`), or the calendar year assumed for want of one.
+         */
+        PeriodBasis: {
+            /**
+             * Document Date
+             * Format: date
+             */
+            document_date: string;
+            /**
+             * Fiscal Year End
+             * @description "06-30": the month and day the fiscal year ends
+             */
+            fiscal_year_end?: string | null;
+            /**
+             * Assumed Calendar
+             * @default false
+             */
+            assumed_calendar: boolean;
         };
         /**
          * PointedCompany
@@ -9130,6 +9157,9 @@ export interface components {
             quantity: components["schemas"]["Quantity"] | null;
             /** Period */
             period: string | null;
+            /** Period Resolved */
+            period_resolved?: string | null;
+            period_basis?: components["schemas"]["PeriodBasis"] | null;
             /**
              * Created At
              * Format: date-time
