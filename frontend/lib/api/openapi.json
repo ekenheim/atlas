@@ -23682,6 +23682,10 @@
             "type": "string",
             "title": "Prompt Sha256"
           },
+          "answer_format_version": {
+            "type": "integer",
+            "title": "Answer Format Version"
+          },
           "model": {
             "type": "string",
             "title": "Model"
@@ -23769,6 +23773,7 @@
           "prompt_name",
           "prompt_version",
           "prompt_sha256",
+          "answer_format_version",
           "model",
           "request",
           "retrieved",

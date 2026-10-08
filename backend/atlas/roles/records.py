@@ -57,6 +57,7 @@ class RoleCallRecord(BaseModel):
     prompt_name: str
     prompt_version: int
     prompt_sha256: str
+    answer_format_version: int  # 0: the schema went in `response_format` only
     model: str
     request: dict[str, JsonValue]
     retrieved: list[QuotedText]

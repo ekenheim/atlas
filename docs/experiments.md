@@ -226,6 +226,13 @@ Each entry gives the date, the version or ticket, the hypothesis, the change and
   - The Skeptic is a Reader. On 0.5.3 Q1 its 23 counter-Facts all challenged constraint Facts and mostly supported them.
   - **Open**: counterevidence quality is next-session priority 3.
 
+### Roles: the answer schema in the prompt (8 October)
+
+- **Hypothesis:** MiniMax-M3 through LiteLLM never sees the schema Atlas sends only as `response_format`, so it answers in its own shape; putting the schema in the system message cuts repairs and quarantines.
+- **Measured (two live calls, 2026-10-08):** a strict schema `{answer: string}` with the user asking for an extra field and a code fence: the reply was a fenced JSON object with `country`, `capital`, `note` and no `answer` (`response_format` ignored). A forced tool call (`tools` + `tool_choice`): no `tool_calls`, fenced content (ignored too).
+- **Result:** the schema goes in the system message ("Answer format", `ANSWER_FORMAT_VERSION` 1, recorded per role call), `response_format` kept, normalizers kept. **Kept**, effect **not yet measured**: compare repairs and quarantines per role call on the next pilot with the 0.5.4 runs (calls with `answer_format_version` 0).
+- **Cost:** about 1,620 tokens on each Reader and Skeptic call, about 227,000 input tokens an investigation at 140 Reader calls.
+
 ### Relationships review
 
 - **Ticket 09's rule, owner-delegated 2026-10-02.**

@@ -9,7 +9,10 @@ One call of a role is:
 2. **Request.** `POST /chat/completions` on LiteLLM with Atlas's key: the configured model
    (MiniMax-M3), the configured extra body (thinking disabled), a strict `json_schema`
    `response_format` from the role's response model, and `metadata` naming the run and the
-   role. The system message is the fixed directives plus the role's versioned prompt; the
+   role. MiniMax-M3 ignores `response_format`, so the same schema (`role.response_schema()`,
+   the one validation uses) is also in the system message, in an "Answer format" section
+   (`ANSWER_FORMAT_VERSION`, recorded on the role call; the repair message repeats it). The
+   system message is the fixed directives, the role's versioned prompt and that section; the
    user message is a JSON object whose `request` is the role's request and whose
    `retrieved_data` is the quoted, low-trust retrieved text. Retrieved text never enters the
    system message.
@@ -46,7 +49,14 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 from sqlalchemy import Engine, text
 
 from atlas.jobs.pacing import TransientFailure, classify_error_text, classify_status
-from atlas.roles.contract import DIRECTIVES, REPAIR_DIRECTIVE, QuotedText, Role
+from atlas.roles.contract import (
+    ANSWER_FORMAT_VERSION,
+    DIRECTIVES,
+    REPAIR_DIRECTIVE,
+    QuotedText,
+    Role,
+    answer_format,
+)
 from atlas.roles.records import RoleCallStatus, run_usage
 from atlas.settings import Settings
 
@@ -212,7 +222,12 @@ class RoleCaller:
         role_call_id = self._open(role, run_id, request_json, quoted)
         user = json.dumps({"request": request_json, "retrieved_data": quoted}, ensure_ascii=False)
         messages: list[dict[str, str]] = [
-            {"role": "system", "content": f"{DIRECTIVES}\n\n{role.prompt.text}"},
+            {
+                "role": "system",
+                "content": (
+                    f"{DIRECTIVES}\n\n{role.prompt.text}\n\n{answer_format(role.response_schema())}"
+                ),
+            },
             {"role": "user", "content": user},
         ]
         for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -243,7 +258,13 @@ class RoleCaller:
             messages = [
                 *messages,
                 {"role": "assistant", "content": content},
-                {"role": "user", "content": f"{REPAIR_DIRECTIVE}\n\n{json.dumps(errors)}"},
+                {
+                    "role": "user",
+                    "content": (
+                        f"{REPAIR_DIRECTIVE}\n\n{json.dumps(errors)}"
+                        f"\n\n{answer_format(role.response_schema())}"
+                    ),
+                },
             ]
         quarantined = RoleOutputQuarantined(role_call_id, role.name)
         self._close(role_call_id, "quarantined", error=str(quarantined))
@@ -312,8 +333,9 @@ class RoleCaller:
             connection.execute(
                 text(
                     "INSERT INTO role_call (id, run_id, role, prompt_name, prompt_version,"
-                    " prompt_sha256, model, request, retrieved) VALUES (:id, :run, :role,"
-                    " :prompt_name, :prompt_version, :prompt_sha256, :model,"
+                    " prompt_sha256, answer_format_version, model, request, retrieved)"
+                    " VALUES (:id, :run, :role, :prompt_name, :prompt_version, :prompt_sha256,"
+                    " :answer_format_version, :model,"
                     " CAST(:request AS jsonb), CAST(:retrieved AS jsonb))"
                 ),
                 {
@@ -323,6 +345,7 @@ class RoleCaller:
                     "prompt_name": role.prompt.name,
                     "prompt_version": role.prompt.version,
                     "prompt_sha256": role.prompt.sha256,
+                    "answer_format_version": ANSWER_FORMAT_VERSION,
                     "model": self._model,
                     "request": json.dumps(request),
                     "retrieved": json.dumps(quoted),
