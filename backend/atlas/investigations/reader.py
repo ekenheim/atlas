@@ -36,8 +36,22 @@ with the reason, so the agent can correct it):
   words of one of the transcript company's own people (`atlas.claims.speakers`); then it is
   recorded as a Fact (`atlas.facts`, with the investigation, the current parse's version,
   `company_claim` from the company's own document and `third_party_report` otherwise), whose
-  own checks (the span, a quantity's number in the quote) can refuse it too. A quote recorded
-  already for the same company and step is refused.
+  own checks (the span, a quantity's number in the quote) can refuse it too.
+
+  **One Fact per span** (ticket 10; `atlas.facts.duplicates`, docs/decisions.md, "One Fact
+  per span"). Before it is recorded, a placed Fact is checked against this session's Facts,
+  then the investigation's Facts of the same Source Version, oldest first: the same company
+  with (a) the same span or the same folded quote, in any step, or (b) an overlapping span with
+  the same status and an alike statement (word Jaccard >= 0.5) is a duplicate, and the first
+  match wins. This session's own is refused `already_recorded`, naming its reference (to record
+  another fact of the passage, quote the clause that states it). Another Reader's is not
+  recorded again: it counts for this Reader's step as a reused Fact (`r<n>`, `reused`,
+  `reused_from_step`; the result says "already recorded as Fact ... by the <step> Reader"), and
+  the card and the Editor list it under both steps. The argument Skeptic is refused a Reader's
+  Fact ("that is Fact f<n>, which you were sent to challenge, not counterevidence"). Measured
+  on the 11 reviewed argument runs: 31% of 1,840 Facts overlapped an earlier one; (a) alone
+  removes 126 and (b) alone 324, precision-neutral. Two Readers recording the same span at
+  the same moment are not locked against each other: each finds no Fact yet, both record.
 - `done {summary}`: the step is finished; but a `done` before the session has made a search or
   a recall is refused ("search first: ...") and counted as a call, not a stop.
 
@@ -191,6 +205,10 @@ class RecordedFact(_Model):
     part: str | None = None  # the question's part it answers (R2-01)
     # The argument Skeptic's: the IDs of the Facts its `challenges` name.
     challenged_fact_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
+    # Another Reader's Fact of the same span, counted for this session's step (ticket 10): no
+    # Fact was recorded for it; `fact_id` is that Reader's, `reused_from_step` its step.
+    reused: bool = False
+    reused_from_step: str | None = None
 
 
 class Refusal(_Model):
@@ -433,6 +451,7 @@ class Reader:
             )
         self._as_of = session.as_of
         self._setup = setup
+        self._session_key = str(session.id)
         self._skeptic = bool(setup.challenge)
         while True:
             if state.calls >= self._max_calls:
@@ -874,6 +893,13 @@ class Reader:
         refused = 0
         for number, each in enumerate(proposed, start=1):
             done = self._recorded(state, each)
+            if isinstance(done, RecordedFact) and done.reused:
+                outcomes.append(
+                    f"fact {number}: already recorded as Fact {done.fact_id.hex[:8]} by the"
+                    f" {done.reused_from_step} Reader ({done.company_slug}, {done.status}); it"
+                    f" counts for your step as {done.ref}"
+                )
+                continue
             if isinstance(done, RecordedFact):
                 outcomes.append(
                     f"fact {number}: recorded as {done.ref} ({done.company_slug}, {done.step},"
@@ -955,14 +981,9 @@ class Reader:
             speaker = transcript_speaker(document.text, (start, end), document.company_names)
             if isinstance(speaker, SpeakerRefusal):
                 return speaker.code, speaker.message
-        for fact in state.facts:
-            if (
-                fact.source_version_id == document.id
-                and (fact.span_start, fact.span_end) == (start, end)
-                and fact.company_slug == company.slug
-                and fact.step == proposed.step
-            ):
-                return "already_recorded", f"this quote is recorded already as {fact.ref}"
+        held = self._held(state, proposed, document.id, company, start, end, quote)
+        if held is not None:
+            return held
         try:
             request = FactCreate(
                 subject_company_id=company.id,
@@ -1029,6 +1050,120 @@ class Reader:
                 for ref in challenges
                 if ref in self._setup.challenge_ids
             ],
+        )
+        state.facts.append(fact)
+        return fact
+
+    def _held(
+        self,
+        state: ReaderState,
+        proposed: RecordFact,
+        version_id: uuid.UUID,
+        company: ReaderCompanyRow,
+        start: int,
+        end: int,
+        quote: str,
+    ) -> "RecordedFact | tuple[str, str] | None":
+        """One Fact per span (ticket 10; `atlas.facts.duplicates`): the Fact the investigation
+        holds already for the proposed one, checked against this session's Facts first, then
+        the investigation's Facts of the Source Version, oldest first. This session's own is
+        refused, naming its reference; another session's is reused by a Reader for its step
+        (recorded in the session, not in the ledger) and refused to the argument Skeptic (a
+        Reader's Fact is not counterevidence). None: no duplicate, record it."""
+        # Imported here: atlas.facts imports this package (the grounding check).
+        from atlas.facts import facts_of_version
+        from atlas.facts.duplicates import FactSpan, duplicate_of
+
+        ids = {each.slug: each.id for each in self._setup.companies}
+        own = [
+            FactSpan(
+                fact_id=fact.fact_id,
+                source_version_id=fact.source_version_id,
+                company_id=ids[fact.company_slug],
+                span_start=fact.span_start,
+                span_end=fact.span_end,
+                quote=fact.quote,
+                status=fact.status,
+                statement=fact.statement,
+                step=fact.step,
+                session_key=self._session_key,
+            )
+            for fact in state.facts
+            if fact.company_slug in ids
+        ]
+        ledger: list[FactSpan] = []
+        if self._setup.investigation_id is not None:
+            mine = {fact.fact_id for fact in state.facts}
+            with self._engine.connect() as connection:
+                recorded = facts_of_version(connection, self._setup.investigation_id, version_id)
+            ledger = [
+                FactSpan(
+                    fact_id=fact.id,
+                    source_version_id=fact.assertion.source_version_id,
+                    company_id=fact.assertion.subject_company_id,
+                    span_start=fact.assertion.span_start,
+                    span_end=fact.assertion.span_end,
+                    quote=fact.assertion.quote,
+                    status=fact.status,
+                    statement=fact.statement,
+                    step=fact.step,
+                    session_key=None,
+                )
+                for fact in recorded
+                if fact.id not in mine
+            ]
+        candidate = FactSpan(
+            fact_id=None,
+            source_version_id=version_id,
+            company_id=company.id,
+            span_start=start,
+            span_end=end,
+            quote=quote,
+            status=proposed.status,
+            statement=proposed.statement,
+            step=proposed.step,
+            session_key=self._session_key,
+        )
+        match = duplicate_of(candidate, [*own, *ledger])
+        if match is None:
+            return None
+        if match.session_key is not None:
+            held = next(fact for fact in state.facts if fact.fact_id == match.fact_id)
+            return (
+                "already_recorded",
+                f"this quote is already recorded as {held.ref} ({held.step}, {held.status}); to"
+                " record a different fact of this passage, quote the clause that states it and"
+                " give it its own status",
+            )
+        assert match.fact_id is not None
+        if self._skeptic:
+            ref = next(
+                (ref for ref, each in self._setup.challenge_ids.items() if each == match.fact_id),
+                match.fact_id.hex[:8],
+            )
+            return (
+                "already_recorded",
+                f"that is Fact {ref}, which you were sent to challenge, not counterevidence:"
+                " quote other words",
+            )
+        fact = RecordedFact(
+            ref=state.new_id("r"),
+            fact_id=match.fact_id,
+            call=state.calls,
+            passage_id=proposed.passage_id,
+            source_version_id=match.source_version_id,
+            span_start=match.span_start,
+            span_end=match.span_end,
+            company_slug=company.slug,
+            step=proposed.step,
+            status=match.status,
+            statement=match.statement,
+            quantity=None,
+            period=None,
+            quote=match.quote,
+            part=proposed.part,
+            reused=True,
+            reused_from_step=match.step,
         )
         state.facts.append(fact)
         return fact
@@ -1227,16 +1362,22 @@ def artifacts(
                 "source_version_id": str(fact.source_version_id),
                 "challenges": list[JsonValue](str(each) for each in fact.challenged_fact_ids),
                 "part": fact.part,
+                "reused": fact.reused,
+                "reused_from_step": fact.reused_from_step,
             }
             for fact in state.facts
         ],
-        "facts_by_part": facts_by_part(state.facts),
+        "facts_by_part": facts_by_part(state.facts),  # reused Facts too
         "refused": [
             {"reason_code": each.reason_code, "reason": each.reason, "quote": each.quote}
             for each in state.refused
         ],
-        "facts_recorded": len(state.facts),
+        "facts_recorded": sum(1 for fact in state.facts if not fact.reused),
+        "facts_reused": sum(1 for fact in state.facts if fact.reused),
         "facts_refused": len(state.refused),
+        "duplicates_refused": sum(
+            1 for each in state.refused if each.reason_code == "already_recorded"
+        ),
         "summary": state.summary,
     }
 

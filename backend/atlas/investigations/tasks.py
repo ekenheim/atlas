@@ -2629,13 +2629,14 @@ def _companies_to_name(cited: Sequence[Mapping[Any, Any]]) -> list[str]:
 def _step_refs(
     facts: ArgumentFacts, ref_of: Mapping[uuid.UUID, str], step: str
 ) -> tuple[list[str], list[str]]:
-    """A step's Facts and the counterevidence against it (on the step, or against one of its
-    Facts), by the Editor's references. The invalidation step's Facts are only those judged to
-    bear against the argument, or not judged (pilot-review R2-03)."""
+    """A step's Facts (recorded for it, or reused for it: ticket 10) and the counterevidence
+    against it (on the step, or against one of its Facts), by the Editor's references. The
+    invalidation step's Facts are only those judged to bear against the argument, or not
+    judged (pilot-review R2-03)."""
     ids = {
         row["id"]
         for row in facts.supporting
-        if row["step"] == step
+        if facts.counts_for(row, step)
         and (step != "invalidation" or facts.invalidation_verdict(row["id"]) != "not_invalidating")
     }
     counter = [
