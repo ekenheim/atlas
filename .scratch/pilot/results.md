@@ -635,3 +635,41 @@ The owner authorized 8M MiniMax tokens to run the five questions on the argument
 By the rule agreed with the owner, the argument plan replaces the default plan: it beats 0.4.6 on researcher facts held, archive hits covered and precision. The default plan's retirement is next-session priority 7.
 
 **Label correction (2026-10-08).** The regression check (`.scratch/tools/argument_regression.py`) found two question 2 Facts, `8db4f309` and `d65b0dd3`, that both reviewers labelled right. They are twins of `f8fc66fa`, which the lead adjudicated wrong: AXT's own market-share estimate labelled `reported_by_third_party`. The lead corrected both to wrong for consistency. Question 2 goes to 72% and the pooled figure to 71% (608 of 853).
+
+## 0.5.4 against 0.5.3: questions 1, 2 and 5
+
+The owner approved a live re-run of three questions on 0.5.4: question 1 as the baseline case, question 2 because it lost its card, and question 5 because it drifted off its question. 0.5.4 carries the Fable round (grounding rules, the judge v3 with two votes and rule `any`, the counter-judge, status refusals and `reader.v3`) and tickets 07 and 08. Same questions, seeds, budget, researcher answers and review method. Review files: `.scratch/live-runs/pilot-0.5.4-arg/inv-<n>/review/`. The reviewers agreed at kappa 0.85, 0.85 and 0.83. Reviewers skipped 7, 3 and 16 Facts, and the lead decided those. No IDs were invented.
+
+| Measure | Q1 0.5.3 → **0.5.4** | Q2 0.5.3 → **0.5.4** | Q5 0.5.3 → **0.5.4** | Bar |
+|---|---|---|---|---|
+| Precision | 78% → **78%** (152 of 194) | 72% → **84.5%** (147 of 174) | 59% → **64%** (128 of 200; 91% true to quote) | ≥ 80% |
+| Saved work | 23 → 19 | 0 (no card) → **18** | 21 → **25** | ≥ 3 |
+| Trust gate | fails 4 of 34 → **fails 3 of 27** | none → **fails 4 of 25** | fails 5 of 32 → **fails 4 of 30** | holds |
+| Statements dropped by the checks | 2 → 9 | – → 9 | – → 6 (token budget spent) | |
+| Baseline coverage | 90% → 60% (+3 in substance) | 60% (Facts only) → **70%** | 33% → **11%** (+1 in substance) | ≥ 50% |
+| Researcher's facts on the card | 8 → 7 (+6 Facts) | 0 → **8** (+10 Facts) | 6 → 6 (+5 Facts) | reported |
+| Steps disputed | 3 → 0 | – → 0 | 4 → 0 | |
+| Tokens in | 1.50M → 1.91M | 1.55M → 1.90M | 1.49M → 1.89M | ≤ 2M |
+| Latency | 13.3 → 16.6 min | 9.7 → 12.5 min | 15.5 → 12.7 min | ≤ 20 min |
+
+Pooled over the three:
+- **Precision** 69% → **75%** (386 of 558 → 427 of 568).
+- **Trust-gate failures** 9 of 66 → 11 of 80 statements: no change in rate (14%).
+- **Baseline coverage** 62% → 48%.
+
+**What the fixes did:**
+- **Question 2 has its card** (ticket 07), and its Facts are the best yet: 84.5%, the first question over the bar.
+- **Fact precision rose** on two of three questions. Status-only errors fell (the refusals and `reader.v3`).
+- **No step is falsely disputed:** the counter-judge marked none, against 7 before.
+
+**What they didn't do:**
+- **The trust gate fails at the same rate.** The checks drop more statements (24 against 2), but the ones that pass still fail about 14% of the time. The misses that remain are merges of different dates, a past fact written as a plan, a pronoun inflated to a whole industry, and periods ("this year" read as 2025 again on question 2).
+- **Coverage fell.** Question 1's card is smaller (27 statements, 9 dropped). Question 5 still argues the datacom InP story: 27% of its Facts are off-question, and its card covers 1 of 9 baseline hits. The reading-follows-the-theme problem is untouched; Fable listed it under "not doing".
+- **Cost is at the cap.** 0.5.4 spends about 1.9M tokens a question. Question 5 hit the 2M run budget, so the judge's rewrites could not run and 6 statements, some probably sound, were dropped.
+- **Invalidation steps** still argue for the thesis, not against it. All six steps are `supported` on every card.
+
+**Assessment.** 0.5.4 is better than 0.5.3, and only question 2 meets the precision bar. No card holds the trust gate. Next, in order:
+1. Raise the run budget to about 3M, or make the judge cheaper, so rewrites can run.
+2. Reading that follows the question: decompose it into its parts and give each Reader the part for its step (question 5).
+3. Resolve periods in code from the document's date: fiscal against calendar, "this year".
+4. An invalidation step that looks for what would break the thesis.

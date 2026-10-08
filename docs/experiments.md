@@ -299,3 +299,26 @@ Findings so far:
 - **Review method:** one blind reviewer invented fact IDs (correct 8-character prefixes); that chunk was re-reviewed. Checking IDs against the pack is now part of the tally.
 
 **Verdict:** the plan still fails the bar: no question reaches 80% precision, and the trust gate fails on every card. It beats 0.4.6 on every measure, so by the rule agreed with the owner it replaces the default plan. Question 5's card argued the datacom InP story rather than the coherent/DCI question, so the reading follows the theme, not the question. Ranked failures and the detail are in `.scratch/pilot/results.md`, "The argument plan on 0.5.3: pooled against the 0.4.6 verdict".
+
+## 0.5.4 (the Fable round) on questions 1, 2 and 5
+
+| Question | Precision 0.5.3 → 0.5.4 | Saved work | Trust gate | Baseline coverage | Researcher's facts on the card | Tokens in |
+|---|---|---|---|---|---|---|
+| 1, laser chips | 78% → 78% | 23 → 19 | 4/34 → 3/27 | 90% → 60% | 8 → 7 | 1.50M → 1.91M |
+| 2, InP substrates | 72% → **84.5%** | 0 → **18** (the card is back) | – → 4/25 | 60% (Facts) → 70% | 0 → **8** | 1.55M → 1.90M |
+| 5, coherent optics | 59% → 64% | 21 → 25 | 5/32 → 4/30 | 33% → **11%** | 6 → 6 | 1.49M → 1.89M (budget hit) |
+
+**Kept:**
+- The status refusals and `reader.v3`: precision is up.
+- Ticket 07: question 2 has a card.
+- The counter-judge: no step is falsely disputed.
+
+**Not yet effective:** the grounding rules and the judge (v3, two votes, rule `any`). The trust-gate failure rate is unchanged at 14%. The checks drop more statements, and the ones that pass still fail about as often.
+
+**Open:**
+- The run budget: 0.5.4 needs about 1.9M tokens a question, and question 5 hit 2M.
+- Reading that follows the question: question 5 is still 27% off-question, with 11% coverage.
+- Periods in code.
+- An invalidation step that looks for counterevidence.
+
+Detail: `.scratch/pilot/results.md`, "0.5.4 against 0.5.3".
