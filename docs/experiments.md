@@ -236,6 +236,7 @@ Each entry gives the date, the version or ticket, the hypothesis, the change and
   - `pilot_runs.py` and `pilot_score.py`.
   - `pilot_regression.py`: re-checks the reviewed data. Session record, not in repo: it reports 1 of 228 right refused and 24 of 47 wrong.
   - `argument_review_pack.py` and `finding_judge_eval.py`.
+  - `argument_labels.py` and `argument_regression.py`: the standing regression set from the 0.5.3 reviews. The labels (`tests/fixtures/pilot-0.5.3-argument/labels.json`, committed: 853 Fact verdicts, 130 statement verdicts, 50 counter-Facts, no quotes) are built from the local review folders; the script joins them with the local quotes and runs each Fact and statement check that exists (a check not yet in the code is `skipped`). Tested on a synthetic folder in `tests/unit/test_argument_labels.py`; see `docs/evaluation-methodology.md` §10.
 - **Not done:**
   - The live gold evaluation (pilot-review 11).
   - The §15 demo (pilot-review 12).

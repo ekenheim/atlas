@@ -3610,3 +3610,21 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The integration test runs in CI's suite only: no local Docker.
 - **Fixture only:** neither change has run on MiniMax. The normalizer's cases are the two shapes recorded on pilot question 2's role calls (`.scratch/live-runs/pilot-0.5.3-arg/inv-2/role-calls.json`, not in git).
 - **Next:** release after pilot questions 4 and 5 finish on 0.5.3, so the pilot compares one version.
+
+## T5: a standing regression set from the 0.5.3 reviews (8 October)
+
+- **Files:**
+  - `.scratch/tools/argument_labels.py`: `build(folder)` cuts `inv-<n>/review/{final-verdicts,facts-compact,workflow-result}.json` and `inv-<n>/investigation.json` into `facts`, `statements`, `counter_facts` and `totals`; `categorise(reason)` is the keyword table (first match: status, merged, context_added, period, quantity, misreading, else other). No quote, no context; a field equal to a quote, or a Fact record holding a quote of 80 or more characters, raises.
+  - `.scratch/tools/argument_regression.py`: joins the labels with the local quotes and runs `check_status` and `check_quantity` on each Fact, `grounding.ungrounded` and `argument.without_references` on each statement, and reports the step-status replay (all looked up with `getattr` when they run; a missing one is `skipped`).
+  - `tests/unit/test_argument_labels.py`; `tests/fixtures/pilot-0.5.3-argument/sample-review/` (one invented investigation: three Facts, two statements, one counter-Fact).
+  - `docs/experiments.md` ("Measurement method"), `docs/evaluation-methodology.md` §10.
+- **Tests (actual, WSL):** `tests/unit/test_argument_labels.py` 15 passed with the lead-style labels built locally from `pilot-0.5.3-arg` (not committed); 13 passed and the two committed-labels tests skipped without the file.
+- **Measured (local data, no live call):** the builder on the real folders gives exactly the pinned counts (facts 170/188/157/138/200, right 133/138/119/103/117, wrong 26/33/27/14/25, off-question 11/17/11/21/58, statements 34/0/30/34/32, failing 4/0/6/2/5, counter-Facts 12/0/12/9/17, wrong-by-status 16/24/10/3/12). `argument_regression.py --data .scratch/live-runs/pilot-0.5.3-arg --max-right 0` exits 0: `check_quantity` refuses 0 of 75 right, 0 of 24 wrong, 0 of 12 off-question Facts; `ungrounded` and `without_references` flag 0 of 113 passing statements and catch 0 of 17 failing ones; `check_status` and the step replay are skipped.
+- **Fixture only:** the logic is tested on the synthetic folder; the real-data numbers above were run on the lead's local review folders.
+- **Deviations:**
+  - `facts-compact.json` cuts quotes at 400 characters (65 of 853 Facts), which made `check_quantity` refuse two right Facts falsely; the script takes whole quotes from `inv-<n>/facts.json` and uses the compact ones only without it.
+  - Atlas's statements run to about 550 characters, so the "no string over 400" test bound is 600.
+  - 10 card statement texts and 1 misstatement note quote a long span of a transcript as written (Atlas's and the reviewer's words); the builder prints a warning for each, the lead decides before committing `labels.json`.
+  - The step-status replay is only detected (`build_steps` takes no `relations` yet), not run.
+  - Counter-Facts keep both the Fact's own step and the step whose card lists it (`on_step`); the 17th counter-Fact of question 5 is not in the 200-Fact listing, so its verdict is null.
+- **Next:** the lead builds and commits `labels.json`, then the replay is wired when the `relations` signature lands.

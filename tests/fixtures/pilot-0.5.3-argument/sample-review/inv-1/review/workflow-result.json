@@ -1,0 +1,24 @@
+{
+ "facts": [],
+ "card": {
+  "statements": [
+   {
+    "step": "constraint",
+    "index": 1,
+    "trust_gate": "pass",
+    "saved_work": true,
+    "why": "Faithful."
+   },
+   {
+    "step": "relief",
+    "index": 1,
+    "trust_gate": "fail",
+    "saved_work": false,
+    "why": "Wrong tense.",
+    "misstatement": "Presents a next-quarter plan as done."
+   }
+  ],
+  "steps_answered": "Partly.",
+  "review_md": "invented"
+ }
+}
