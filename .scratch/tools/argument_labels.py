@@ -77,13 +77,18 @@ def _load(path: Path) -> Any:
 
 
 def _investigations(folder: Path) -> list[int]:
-    found = sorted(
-        int(p.name.removeprefix("inv-"))
-        for p in folder.glob("inv-*")
-        if p.is_dir() and p.name.removeprefix("inv-").isdigit()
-    )
+    """The reviewed investigations (`inv-<n>/review/final-verdicts.json` present). An
+    investigation run but not yet reviewed is named on stderr and left out."""
+    found: list[int] = []
+    for p in sorted(folder.glob("inv-*"), key=lambda p: p.name):
+        if not p.is_dir() or not p.name.removeprefix("inv-").isdigit():
+            continue
+        if (p / "review" / "final-verdicts.json").exists():
+            found.append(int(p.name.removeprefix("inv-")))
+        else:
+            print(f"skipped {p.name}: not reviewed yet (no review/final-verdicts.json)", file=sys.stderr)
     if not found:
-        raise SystemExit(f"no inv-<n> folders under {folder}")
+        raise SystemExit(f"no reviewed inv-<n> folders under {folder}")
     return found
 
 
@@ -285,7 +290,7 @@ def build_with_quotes(folder: Path | str) -> tuple[dict[str, Any], set[str]]:
         },
     }
     labels = {
-        "source": "pilot-0.5.3-arg",
+        "source": folder.name,
         "note": "Atlas's and the reviewers' own words only; no quote and no context text.",
         "category_rules": [{"category": name, "pattern": pattern} for name, pattern in CATEGORY_RULES],
         "facts": facts,

@@ -186,3 +186,29 @@ def test_a_third_party_report_without_first_person_passes() -> None:
         "Corvid Systems said US demand exceeds supply.",
         "reported_by_third_party",
     )
+
+
+def test_funding_or_an_award_recorded_as_regulatory_is_refused_naming_the_status_to_use() -> None:
+    quote = "The company received a $40 million grant under the CHIPS Act to expand its fab."
+    statement = "Corvid Systems received a $40 million CHIPS Act grant."
+
+    with pytest.raises(InvalidAssertion) as refused:
+        check_status(quote, statement, "regulatory")
+
+    assert refused.value.code == "status_regulatory"
+    assert "in_effect" in refused.value.message
+    check_status(quote, statement, "in_effect")
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Halden Optics needs an export licence before it can ship to the buyer.",
+        "The shipment awaits an export control permit from the ministry.",
+        "New rules on cross-border sales take effect in March.",
+        "Tariffs on imported substrates are scheduled to rise next year.",
+        "Regulators approved the transfer by the end of the quarter.",
+    ],
+)
+def test_a_permit_licence_export_control_or_rule_is_regulatory(quote: str) -> None:
+    check_status(quote, "Corvid Systems faces a regulatory condition on its sales.", "regulatory")

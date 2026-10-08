@@ -258,20 +258,63 @@ def render(
     return lines
 
 
+def _pool(values: list[Any]) -> Any:
+    """Sums (refused, tested) pairs across label files, key by key. A check skipped in any run
+    is reported skipped (the first such reason)."""
+    strings = [value for value in values if isinstance(value, str)]
+    if strings:
+        return strings[0]
+    if isinstance(values[0], dict):
+        return {key: _pool([value[key] for value in values]) for key in values[0]}
+    return (sum(value[0] for value in values), sum(value[1] for value in values))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
-    parser.add_argument("--labels", type=Path, default=DEFAULT_LABELS)
+    parser.add_argument(
+        "--data",
+        type=Path,
+        action="append",
+        help="a review folder (repeat to pair each with a --labels, in order; default: the 0.5.3 folder)",
+    )
+    parser.add_argument(
+        "--labels",
+        type=Path,
+        action="append",
+        help="a labels file (repeat to pair each with a --data, in order; default: the 0.5.3 labels)",
+    )
     parser.add_argument("--max-right", type=int, default=0, help="right Facts a check may refuse")
     parser.add_argument("--max-pass-flagged", type=int, default=2, help="passing statements a check may flag")
     args = parser.parse_args(argv)
-    labels = _load(args.labels)
-    quotes, questions = join_quotes(labels, args.data)
+    datas = args.data or [DEFAULT_DATA]
+    label_files = args.labels or [DEFAULT_LABELS]
+    if len(datas) != len(label_files):
+        parser.error("--data and --labels must be given the same number of times, in pairs")
 
-    fact_rows, right_refused = fact_check_rows(labels, quotes, join_documents(labels, args.data))
-    statement_rows, pass_flagged = statement_flags(labels, quotes, questions)
+    fact_tables: list[list[tuple[str, Any]]] = []
+    statement_tables: list[dict[str, Any]] = []
+    right_refused = 0
+    pass_flagged = 0
+    for data, label_file in zip(datas, label_files):
+        labels = _load(label_file)
+        quotes, questions = join_quotes(labels, data)
+        rows, refused_here = fact_check_rows(labels, quotes, join_documents(labels, data))
+        statements, flagged_here = statement_flags(labels, quotes, questions)
+        fact_tables.append(rows)
+        statement_tables.append(statements)
+        right_refused += refused_here
+        pass_flagged += flagged_here
+
+    fact_rows = [
+        (name, _pool([table[index][1] for table in fact_tables]))
+        for index, (name, _) in enumerate(fact_tables[0])
+    ]
+    statement_rows = {
+        name: _pool([table[name] for table in statement_tables]) for name in statement_tables[0]
+    }
     for line in render(fact_rows, statement_rows, step_replay_row()):
         print(line)
+    print("runs: " + ", ".join(str(path) for path in label_files))
     print(f"right Facts refused: {right_refused} (max {args.max_right})")
     print(f"passing statements flagged: {pass_flagged} (max {args.max_pass_flagged})")
     bad = right_refused > args.max_right or pass_flagged > args.max_pass_flagged
