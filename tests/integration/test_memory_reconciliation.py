@@ -202,9 +202,10 @@ def test_a_bank_that_matches_atlas_s_records_reconciles_clean(
     metrics = atlas.metrics()
     assert drift(metrics) == NO_DRIFT
     assert status(metrics) == {"clean": 1, "drift": 0, "failed": 0}
-    # Template 1.5.0 (ticket 23) pins 23 bank settings; each was compared, generically.
+    # Template 1.6.0 pins 24 bank settings (ticket 23's 23 and the parallelism); each was
+    # compared, generically.
     template = json.loads(TEMPLATE.read_text(encoding="utf-8"))
-    assert (template["template_version"], len(template["manifest"]["bank"])) == ("1.5.0", 23)
+    assert (template["template_version"], len(template["manifest"]["bank"])) == ("1.6.0", 24)
     ended = datetime.fromisoformat(run["ended_at"]).timestamp()
     last = (
         "atlas_memory_reconciliation_last_success_timestamp_seconds",

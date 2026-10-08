@@ -3713,3 +3713,13 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Release:** `v0.5.4` at `3081dd4`. Release run 37784647221 (`verified`, `publish` success); image `ghcr.io/ekenheim/atlas:0.5.4`. No migrations. One new setting with a default (`ATLAS_FINDING_JUDGE_VOTE_RULE=any`).
 - **Deploy:** home-ops-upgrade#7334, for the owner to merge. The cluster was having issues at release time.
 - **Fixture only:** none of the role changes has run on MiniMax. Their live effect needs a pilot re-run.
+
+## Template 1.6.0: full consolidation batches (8 October)
+
+- **What:** the consolidation review (`docs/decisions.md`, "The bank template 1.6.0") found `consolidation_llm_parallelism: 4` splits a round into batches of 8, 5, 3, 2, 1, ... The template pins it at 1.
+- **Files:** `configs/hindsight/bank-template.json` (1.6.0, the setting); `backend/atlas/bank_template.py` (`consolidation_llm_parallelism: Literal[1]`, required, so left out, null or any other value is invalid); `tests/unit/test_bank_template_config.py` (1.6.0 is valid; six invalid values); `tests/integration/test_bank_template.py`, `test_consolidation.py`, `test_mental_models.py`, `test_memory_reconciliation.py` (version 1.6.0, 24 pinned settings, the parallelism in `PINNED`); docs: `decisions.md` (a correction and the new entry), `research/hindsight-memory-use.md`, `research/hindsight-bank-settings.md`, `experiments.md`.
+- **Schema:** the recorded 0.10.2 template schema (`rerun-0.10.2/bank_templates/01-schema.json`) names `consolidation_llm_parallelism` (nullable integer), so the manifest validates.
+- **Tests (actual, WSL):** ruff format, ruff check and pyright clean; test_bank_template_config, test_hindsight_contract, test_bank_template, test_consolidation, test_mental_models, test_memory_reconciliation: 179 passed.
+- **Fixture only:** nothing was applied to Hindsight and no server setting changed; the effect on batches is from the upstream source, not measured on the bank.
+- **Deviations:** none.
+- **Next:** the lead applies the template at deploy; re-consolidation and the model choice are measured on a throwaway bank.

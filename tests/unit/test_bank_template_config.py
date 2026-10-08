@@ -9,9 +9,10 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from jsonschema.validators import validator_for
 
-from atlas.bank_template import BankTemplate
+from atlas.bank_template import BankTemplate, InvalidTemplate
 from atlas.claims import LAYERS
 
 REPO = Path(__file__).resolve().parents[2]
@@ -93,3 +94,33 @@ def test_the_missions_say_what_to_ignore_and_stand_alone() -> None:
         "not corroboration",
     ):
         assert phrase in observations, phrase
+
+
+def edited_template(tmp_path: Path, parallelism: object) -> Path:
+    """The template file with `consolidation_llm_parallelism` set to the value, or left out."""
+    edited = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+    settings = edited["manifest"]["bank"]
+    if parallelism == "left out":
+        del settings["consolidation_llm_parallelism"]
+    else:
+        settings["consolidation_llm_parallelism"] = parallelism
+    path = tmp_path / "template.json"
+    path.write_text(json.dumps(edited), encoding="utf-8")
+    return path
+
+
+def test_template_1_6_0_pins_consolidation_to_full_batches() -> None:
+    template = BankTemplate.load(TEMPLATE)
+
+    assert template.template_version == "1.6.0"
+    assert bank()["consolidation_llm_parallelism"] == 1
+    assert (
+        "consolidation_llm_parallelism"
+        in recorded_schema()["$defs"]["BankTemplateConfig"]["properties"]
+    )
+
+
+@pytest.mark.parametrize("value", ["left out", None, 0, 2, 4, "1"])
+def test_a_template_without_parallelism_one_is_invalid(tmp_path: Path, value: object) -> None:
+    with pytest.raises(InvalidTemplate, match="consolidation_llm_parallelism"):
+        BankTemplate.load(edited_template(tmp_path, value))

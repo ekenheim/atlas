@@ -43,6 +43,7 @@ PINNED: dict[str, Any] = {
     "consolidation_max_memories_per_round": 100,
     # Overrides the live bank had been given outside the template, now the template's.
     "consolidation_llm_batch_size": 8,
+    "consolidation_llm_parallelism": 1,
     "consolidation_source_facts_max_tokens": 4096,
     "consolidation_source_facts_max_tokens_per_observation": 256,
     "max_observations_per_scope": -1,
@@ -251,7 +252,7 @@ def test_the_template_pins_the_settings_atlas_relies_on_and_imports_them(
     manifest = cast(dict[str, Any], TEMPLATE_FILE["manifest"])
     bank = cast(dict[str, Any], manifest["bank"])
 
-    assert TEMPLATE_FILE["template_version"] == "1.5.0"
+    assert TEMPLATE_FILE["template_version"] == "1.6.0"
     assert {name: bank.get(name) for name in PINNED} == PINNED
     # Each pinned setting is a field the recorded schema names, and the manifest validates.
     assert set(PINNED) <= set(SCHEMA["$defs"]["BankTemplateConfig"]["properties"])
@@ -264,7 +265,7 @@ def test_the_template_pins_the_settings_atlas_relies_on_and_imports_them(
     imports = fake.requests("POST", "import")
     assert [{name: body["bank"][name] for name in PINNED} for body in imports] == [PINNED] * 2
     [application] = applications(engine)
-    assert application["template_version"] == "1.5.0"
+    assert application["template_version"] == "1.6.0"
 
 
 @pytest.mark.parametrize(

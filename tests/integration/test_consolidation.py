@@ -171,7 +171,7 @@ def test_the_template_turns_auto_consolidation_off_within_the_recorded_schema(
     fake, _ = hindsight
     manifest = TEMPLATE_FILE["manifest"]
 
-    assert TEMPLATE_FILE["template_version"] == "1.5.0"  # 1.4.0 added it; 1.5.0 kept it
+    assert TEMPLATE_FILE["template_version"] == "1.6.0"  # 1.4.0 added it; 1.5.0 and 1.6.0 kept it
     assert manifest["bank"]["enable_auto_consolidation"] is False
     validator = validator_for(SCHEMA)(SCHEMA)
     assert list(validator.iter_errors(manifest)) == []

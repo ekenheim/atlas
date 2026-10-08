@@ -184,6 +184,17 @@ Each entry gives the date, the version or ticket, the hypothesis, the change and
   - Measured on one investigation-style recall: 45 of 113 source facts at the default and 117 of 117 at `max_tokens: -1`. Answer sections reached went from **5 to 9 of 17**.
   - **Kept** (gateway, 0.5.3).
   - Links: decisions.md, "Every observation's source facts in a recall".
+- **2026-10-08: consolidation review (read-only).**
+  - Hypothesis: the thin cross-company observations are a prompt or model issue.
+  - Method: read-only review of the bank's prompt preview, the upstream source of Hindsight 0.10.2 (`consolidator.py`, `prompts.py`, `config.py`) and a 60-observation sample (plus 700 for the cross-company count).
+  - Result:
+    - `observations_mission` replaces only the default mission line; the nine built-in rules stay in every call.
+    - `consolidation_llm_parallelism` 4 cuts batches to 8, 5, 3, 2, 1, 1, 1, 1 (about 20 calls a 100-fact round, mean about 5 facts, not 8).
+    - Each call sees one section of one document plus about 5 existing observations, so cross-company observations hardly form: 0 of 60, 0 to 1% of 700, whatever the model.
+    - MiniMax-M3 copied a sibling observation's figures into the text without linking its facts in 4 of 30 rewrites; qwen3.8 27B did so 0 times in its sample.
+  - Outcome: template **1.6.0** (`consolidation_llm_parallelism: 1`), three docs statements corrected, server-level caps proposed to the owner. Cross-company beliefs are reflect's and the mental models'.
+  - Open: re-consolidation and the model choice, measured on a throwaway bank first; the effect of full batches on rounds and quota.
+  - Links: decisions.md, "The bank template 1.6.0".
 - **Not pursued:**
   - News through TradingView into Memory (memory-quality 17, 18): **wontfix**, because news makes no Claim and no edge.
   - Embedding-model candidates the owner raised on 2026-10-07 (EmbeddingGemma, an arXiv paper, a 3090 to serve them): discussed only (session record, not in repo). **Parked.**

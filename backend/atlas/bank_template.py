@@ -23,11 +23,13 @@ the template without the field (`without_auto_consolidation_setting`), as before
 It must also pin the server defaults Atlas's memory relies on (memory-quality ticket 23,
 template 1.5.0): the temporal, graph, keyword and rerank arms of recall, the stored document
 text, free-form entities, the extraction mode, the chunk size and a consolidation round's
-size are each set explicitly, so a change of the server's defaults (by the owner or a
+size are each set explicitly so a change of the server's defaults (by the owner or a
 Hindsight upgrade) cannot change Atlas's memory silently. So are the four overrides the live
 bank had been given outside the template (the consolidation batch size, its two source-fact
 token limits and `max_observations_per_scope`): the template owns every override the bank
 has. A template that leaves one out, or sets it to null (the server's default), is invalid.
+Template 1.6.0 adds `consolidation_llm_parallelism`, pinned at 1 so that a consolidation call
+gets the full batch (any other value is invalid).
 Replay and evaluation banks take them as the template sets them.
 """
 
@@ -97,6 +99,9 @@ class _Bank(BaseModel):
     consolidation_max_memories_per_round: int = Field(gt=0)
     # Set on the live bank outside the template before 1.5.0; now the template's own.
     consolidation_llm_batch_size: int = Field(gt=0)
+    # Pinned at 1 (template 1.6.0): with one tag group 0.10.2 fetches ceil(50 / parallelism)
+    # facts at a time, so the server default of 4 cut a round into batches of 8, 5, then 3, 2, 1...
+    consolidation_llm_parallelism: Literal[1]
     consolidation_source_facts_max_tokens: int = Field(gt=0)
     consolidation_source_facts_max_tokens_per_observation: int = Field(gt=0)
     max_observations_per_scope: int = Field(ge=-1)  # -1: no limit

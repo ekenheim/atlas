@@ -64,7 +64,7 @@ Dropped from the answer: the per-result scores (only the order is kept), the ent
 ### 5. The context and the missions under-describe the material (observed and documented)
 
 - **Context:** Atlas sends `<title>: <heading or anchor>`. For a transcript that is "Q4 2026: chunk-004" on production: no company, no event, no speaker. Memories from transcripts read "Jordan Klein warned that…" with nothing to tell an analyst's question from the company's statement. The docs say to describe the source and who is speaking.
-- **`observations_mission` replaces the built-in rules entirely.** Atlas's is one sentence, so the defaults (durable, specific beliefs; changes tracked with their dates) are gone.
+- **`observations_mission` replaces the built-in rules entirely.** (**Corrected 2026-10-08:** not in 0.10.2. The mission replaces only the default mission line; the nine built-in processing rules, the decision guide and the output format stay in every call's system message, and the mission, in the user message, wins only where they conflict. `docs/decisions.md`, "The bank template 1.6.0".) As first written: Atlas's is one sentence, so the defaults (durable, specific beliefs; changes tracked with their dates) are gone.
 - **`retain_mission`** lists what to extract and nothing to ignore; the docs call the ignore list as important as the include list.
 - **One mission and the `concise` mode for everything.** Retain strategies allow a profile per document type (a transcript, a periodic report, an exhibit), and `dry-run-extract` compares them without storing anything.
 
