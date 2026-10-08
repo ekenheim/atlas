@@ -102,6 +102,31 @@ def test_control_and_capture_look_for_qualified_sources_and_customer_concentrati
     )
 
 
+def test_invalidation_looks_for_what_would_break_the_argument() -> None:
+    # Pilot-review R2-03: the invalidation Reader's `looks_for` listed capacity coming online
+    # and others' qualification, which Relief and Control record too; 96 of its 211 Facts
+    # argued for the thesis.
+    invalidation = {step.key: step for step in ARGUMENT_STEPS}["invalidation"]
+
+    assert invalidation.asks == (
+        "What would break the argument: evidence that supply has caught up or will, that"
+        " demand is slowing, or that another supplier or a substitute takes the scarce"
+        " capability."
+    )
+    looks_for = invalidation.looks_for
+    assert looks_for.startswith("Only what would weaken or break the argument:")
+    assert "supply caught up" in looks_for
+    assert "orders cancelled or pushed out" in looks_for
+    assert "Capacity the constrained company itself adds is relief: record it under `relief`" in (
+        looks_for
+    )
+    assert (
+        "A statement that repeats the constraint, a record quarter or a plan to expand is never"
+        " an invalidation Fact." in looks_for
+    )
+    assert looks_for.endswith("say in your summary what you searched for and did not find.")
+
+
 CURLY = "\N{RIGHT SINGLE QUOTATION MARK}"
 TEXT = (
     "Cover page.\n"

@@ -23,6 +23,22 @@ is unrelated to them is shown with the step's counterevidence but never disputes
 with no label (its call failed, or nothing judged it) counts as contradicting: unjudged, the
 step stays disputed and says so in `unchecked`.
 
+The invalidation step is decided apart (pilot-review R2-03; docs/decisions.md, "The
+invalidation step: found or nothing found"). Each invalidation Fact a Reader recorded is
+judged, in the Skeptic task, against the thesis it would break (up to `MAX_THESIS_FACTS`
+Facts of the constraint, demand and control steps about the same company, newest first; else
+the seeds' oldest constraint Facts), by the same counter-judge; its labels are recorded in the
+Skeptic task's artifacts (`invalidation_relations`, ...). The step is
+
+- `found`: an invalidation Fact contradicts, limits, dates or qualifies a thesis Fact
+  (`INVALIDATING`), or could not be judged, or a Skeptic Fact contradicts, limits or dates a
+  thesis Fact;
+- `nothing_found`: its Reader searched and recorded no such Fact; the step has no statement;
+- `unknown`: there was no invalidation Reader, or it never searched.
+
+A statement of the step citing an invalidation Fact judged to support the argument, or
+unrelated to it, is dropped (`NOT_INVALIDATING`).
+
 The Editor's own status is kept beside it (`editor_status`). The card keeps the research
 card's fields (no `findings`: each step's statements are its findings) with `plan` `argument`
 and its `steps`.
@@ -53,6 +69,7 @@ from atlas.investigations.model import (
     CardFactRelation,
     CardStepStatement,
     CardStepStatus,
+    EditorStepStatus,
     SourceSpan,
 )
 from atlas.investigations.reader import ReaderState
@@ -70,6 +87,26 @@ COUNTER_RELATIONS = "counter_relations"
 COUNTER_REASONS = "counter_relation_reasons"
 COUNTER_UNJUDGED = "counter_relations_unjudged"
 COUNTER_JUDGE_CALLS = "counter_judge_calls"
+# The same for the invalidation Readers' Facts, each judged against the thesis it would break
+# (pilot-review R2-03): an invalidation Fact -> each thesis Fact -> its relation (and reason);
+# the invalidation Facts left unjudged; how many calls were made.
+INVALIDATION_RELATIONS = "invalidation_relations"
+INVALIDATION_REASONS = "invalidation_reasons"
+INVALIDATION_UNJUDGED = "invalidation_unjudged"
+INVALIDATION_JUDGE_CALLS = "invalidation_judge_calls"
+# The steps whose Facts state the thesis an invalidation Fact would break, and how many of
+# them one is judged against.
+THESIS_STEPS: tuple[str, ...] = ("constraint", "demand_vs_supply", "control")
+MAX_THESIS_FACTS = 4
+# What an invalidation Fact does to a thesis Fact when it bears against the argument: it
+# contradicts, limits or dates it, or qualifies it (a second source, a substitute, relief).
+INVALIDATING = CONTRADICTING | {"qualifies"}
+NOT_INVALIDATING = "not_invalidating: cites Facts judged to support or be unrelated to the argument"
+INVALIDATION_FOUND = "invalidation: an observation against the argument was found"
+EDITOR_INVALIDATION_NOTE = (
+    "cite only the Facts listed for this step; the others were judged to support the argument"
+    " or to be unrelated"
+)
 
 
 @dataclass(frozen=True)
@@ -100,6 +137,67 @@ class ArgumentFacts:
     reasons: dict[uuid.UUID, dict[uuid.UUID, str]] = field(
         default_factory=dict[uuid.UUID, dict[uuid.UUID, str]]
     )
+    # An invalidation Reader Fact -> a thesis Fact -> the counter-judge's relation (and reason);
+    # an empty mapping: there was no thesis Fact to judge it against (unrelated).
+    invalidation: dict[uuid.UUID, dict[uuid.UUID, str]] = field(
+        default_factory=dict[uuid.UUID, dict[uuid.UUID, str]]
+    )
+    invalidation_reasons: dict[uuid.UUID, dict[uuid.UUID, str]] = field(
+        default_factory=dict[uuid.UUID, dict[uuid.UUID, str]]
+    )
+
+    def invalidating_of(self, fact_id: uuid.UUID) -> list[uuid.UUID]:
+        """The thesis Facts invalidation Fact `fact_id` bears against: those it contradicts,
+        limits, dates or qualifies (`INVALIDATING`), or could not be judged against."""
+        return [
+            thesis
+            for thesis, relation in self.invalidation.get(fact_id, {}).items()
+            if relation in INVALIDATING or relation == UNJUDGED
+        ]
+
+    def invalidation_verdict(self, fact_id: uuid.UUID) -> str:
+        """What the judge made of invalidation Fact `fact_id`: `invalidating` (a judged
+        relation in `INVALIDATING`), `unjudged` (no label recorded, or an unjudged pair and no
+        invalidating one) or `not_invalidating` (every pair `supports` or `unrelated`, or no
+        thesis Fact to judge it against)."""
+        if fact_id not in self.invalidation:
+            return "unjudged"
+        labels = set(self.invalidation[fact_id].values())
+        if labels & INVALIDATING:
+            return "invalidating"
+        if UNJUDGED in labels:
+            return "unjudged"
+        return "not_invalidating"
+
+    def invalidation_card_relations(self, fact_id: uuid.UUID) -> list[CardFactRelation]:
+        """What invalidation Fact `fact_id` does to each thesis Fact, for the card."""
+        return [
+            CardFactRelation(
+                fact_id=thesis,
+                relation=relation,
+                reason=self.invalidation_reasons.get(fact_id, {}).get(thesis),
+            )
+            for thesis, relation in self.invalidation.get(fact_id, {}).items()
+        ]
+
+    def reader_fact(self, row: RowMapping) -> CardFact:
+        """A Reader's Fact for the card; an invalidation Fact with the thesis Facts it bears
+        against (`against`) and what it does to each (`relations`)."""
+        if row["step"] != "invalidation":
+            return card_fact(row)
+        return card_fact(
+            row, self.invalidating_of(row["id"]), self.invalidation_card_relations(row["id"])
+        )
+
+    def not_invalidating(self, cited: set[uuid.UUID]) -> bool:
+        """Whether the cited Facts include an invalidation Reader Fact judged to support the
+        argument or to be unrelated to it (a statement of the invalidation step citing one is
+        dropped)."""
+        return any(
+            row["id"] in cited and self.invalidation_verdict(row["id"]) == "not_invalidating"
+            for row in self.supporting
+            if row["step"] == "invalidation"
+        )
 
     def relation(self, counter_id: uuid.UUID, fact_id: uuid.UUID) -> str:
         """What Skeptic Fact `counter_id` does to `fact_id`, one of the Facts it challenges:
@@ -141,6 +239,52 @@ def skeptic_relations(
 ) -> tuple[dict[uuid.UUID, dict[uuid.UUID, str]], dict[uuid.UUID, dict[uuid.UUID, str]]]:
     """The counter-judge's relations and reasons the investigation's Skeptic tasks recorded
     (every round's, or `round_`'s), by Skeptic Fact and challenged Fact."""
+    return _task_labels(connection, investigation_id, round_, COUNTER_RELATIONS, COUNTER_REASONS)
+
+
+def invalidation_relations(
+    connection: Connection, investigation_id: uuid.UUID, round_: int | None = None
+) -> tuple[dict[uuid.UUID, dict[uuid.UUID, str]], dict[uuid.UUID, dict[uuid.UUID, str]]]:
+    """The counter-judge's relations and reasons for the invalidation Readers' Facts the
+    investigation's Skeptic tasks recorded (every round's, or `round_`'s), by invalidation Fact
+    and thesis Fact."""
+    return _task_labels(
+        connection, investigation_id, round_, INVALIDATION_RELATIONS, INVALIDATION_REASONS
+    )
+
+
+def thesis_facts(
+    supporting: Sequence[RowMapping], fact: RowMapping, seed_ids: Sequence[uuid.UUID]
+) -> list[RowMapping]:
+    """The thesis Facts invalidation Fact `fact` is judged against: up to `MAX_THESIS_FACTS`
+    Reader Facts of the constraint, demand and control steps about the same company, newest
+    `available_at` first; if there are none, the seed companies' oldest constraint Facts."""
+    same = [
+        row
+        for row in supporting
+        if row["step"] in THESIS_STEPS
+        and row["subject_company_id"] == fact["subject_company_id"]
+        and row["id"] != fact["id"]
+    ]
+    if same:
+        return sorted(same, key=lambda row: row["available_at"], reverse=True)[:MAX_THESIS_FACTS]
+    seeds = set(seed_ids)
+    constraint = [
+        row
+        for row in supporting
+        if row["step"] == "constraint" and row["subject_company_id"] in seeds
+    ]
+    return sorted(constraint, key=lambda row: row["available_at"])[:MAX_THESIS_FACTS]
+
+
+def _task_labels(
+    connection: Connection,
+    investigation_id: uuid.UUID,
+    round_: int | None,
+    relations_key: str,
+    reasons_key: str,
+) -> tuple[dict[uuid.UUID, dict[uuid.UUID, str]], dict[uuid.UUID, dict[uuid.UUID, str]]]:
+    """A `{fact: {fact: label}}` pair of the Skeptic tasks' artifacts (relations, reasons)."""
     relations: dict[uuid.UUID, dict[uuid.UUID, str]] = {}
     reasons: dict[uuid.UUID, dict[uuid.UUID, str]] = {}
     rows = connection.execute(
@@ -153,7 +297,7 @@ def skeptic_relations(
     ).all()
     for (artifacts,) in rows:
         recorded = cast(dict[str, Any], artifacts) if isinstance(artifacts, dict) else {}
-        for target, source in ((relations, COUNTER_RELATIONS), (reasons, COUNTER_REASONS)):
+        for target, source in ((relations, relations_key), (reasons, reasons_key)):
             given: Any = recorded.get(source)
             if not isinstance(given, dict):
                 continue
@@ -203,6 +347,7 @@ def argument_facts(
                 against[fact.fact_id] = list(fact.challenged_fact_ids)
     rows = fact_rows(connection, list(roles), statements=statements)
     relations, reasons = skeptic_relations(connection, investigation_id)
+    invalidation, invalidation_reasons = invalidation_relations(connection, investigation_id)
     return ArgumentFacts(
         sessions=sessions,
         supporting=[row for row in rows if roles[row["id"]] == "reader"],
@@ -211,6 +356,8 @@ def argument_facts(
         rounds=rounds,
         relations=relations,
         reasons=reasons,
+        invalidation=invalidation,
+        invalidation_reasons=invalidation_reasons,
     )
 
 
@@ -351,7 +498,7 @@ class StepStatement:
     """What came of the Editor's statements for one step."""
 
     kept: list[KeptStatement]  # in the Editor's order; empty: none passed (or none was written)
-    editor_status: CardStepStatus | None
+    editor_status: EditorStepStatus | None
     unchecked: list[str]
 
 
@@ -366,13 +513,27 @@ def build_steps(
     steps: list[CardArgumentStep] = []
     readers = {s.step: s for s in facts.sessions if s.role == "reader"}  # the latest round's
     counter_ids = {row["id"] for row in facts.counter}
+    reader_ids = {row["id"] for row in facts.supporting}
+    thesis_ids = {row["id"] for row in facts.supporting if row["step"] in THESIS_STEPS}
 
     def counter_fact(row: RowMapping) -> CardFact:
         return card_fact(row, facts.against_of(row["id"]), facts.card_relations(row["id"]))
 
+    def shown_fact(row: RowMapping) -> CardFact:
+        return facts.reader_fact(row) if row["id"] in reader_ids else card_fact(row)
+
     for definition in ARGUMENT_STEPS:
+        invalidation = definition.key == "invalidation"
         said = statements.get(definition.key)
         kept = said.kept if said else []
+        if invalidation:
+            # A statement citing an invalidation Fact judged to support the argument, or
+            # unrelated to it, says nothing against it (pilot-review R2-03).
+            kept = [
+                each
+                for each in kept
+                if not facts.not_invalidating({refs[r]["id"] for r in each.cited if r in refs})
+            ]
         cited_ids = {refs[ref]["id"] for each in kept for ref in each.cited if ref in refs}
         supporting = [
             row
@@ -380,18 +541,41 @@ def build_steps(
             if row["step"] == definition.key or row["id"] in cited_ids
         ]
         ids = {row["id"] for row in supporting}
+        # The Skeptic's Facts that contradict, limit or date a thesis Fact also break the
+        # argument: the invalidation step shows them.
+        breaking = (
+            [row for row in facts.counter if set(facts.contradicted_by(row["id"])) & thesis_ids]
+            if invalidation
+            else []
+        )
         counter = [
             row
             for row in facts.counter
             if row["step"] == definition.key
             or set(facts.against.get(row["id"], [])) & ids
             or row["id"] in cited_ids
+            or any(row["id"] == each["id"] for each in breaking)
         ]
+        invalidation_facts = [row for row in supporting if row["step"] == "invalidation"]
+        against_argument = [
+            row
+            for row in invalidation_facts
+            if facts.invalidation_verdict(row["id"]) != "not_invalidating"
+        ]
+        unjudged_invalidation = [
+            row for row in invalidation_facts if facts.invalidation_verdict(row["id"]) == "unjudged"
+        ]
+        reader = readers.get(definition.key)
+        state = reader.state if reader else None
+        searches = len(state.searches) if state else 0
+        nothing_found = invalidation and not (against_argument or breaking) and searches > 0
+        if nothing_found:
+            kept = []
         shown = [
             CardStepStatement(
                 statement=each.statement,
                 facts=[
-                    card_fact(refs[ref])
+                    shown_fact(refs[ref])
                     for ref in each.cited
                     if ref in refs and refs[ref]["id"] not in counter_ids
                 ],
@@ -421,15 +605,33 @@ def build_steps(
         first = kept[0] if kept else None
         statement = first.statement if first else None
         status: CardStepStatus
-        if statement is None or not supporting:
+        if invalidation:
+            # Found, nothing found or unknown: never supported or disputed (R2-03).
+            if against_argument or breaking:
+                status = "found"
+            elif nothing_found:
+                status = "nothing_found"
+            else:
+                status = "unknown"
+        elif statement is None or not supporting:
             status = "unknown"
         elif disputing:
             status = "disputed"
         else:
             status = "supported"
         unchecked = list(said.unchecked) if said else []
-        if not supporting:
+        if nothing_found:
+            unchecked.append(
+                f"nothing found against the argument after {searches}"
+                f" search{'es' if searches != 1 else ''}"
+            )
+        elif not supporting and not breaking:
             unchecked.append("no Fact was recorded for this step")
+        if unjudged_invalidation:
+            unchecked.append(
+                f"{len(unjudged_invalidation)} invalidation"
+                f" Fact{'s' if len(unjudged_invalidation) != 1 else ''} could not be judged"
+            )
         if unjudged:
             unchecked.append(
                 f"{len(unjudged)} counter-Fact{'s' if len(unjudged) != 1 else ''}"
@@ -442,8 +644,6 @@ def build_steps(
                 if skeptic_ran
                 else "the Skeptic did not run, so nothing here was challenged"
             )
-        reader = readers.get(definition.key)
-        state = reader.state if reader else None
         steps.append(
             CardArgumentStep(
                 step=definition.key,
@@ -453,7 +653,7 @@ def build_steps(
                 editor_status=said.editor_status if said else None,
                 statement=statement,
                 statements=shown,
-                facts=[card_fact(row) for row in supporting],
+                facts=[facts.reader_fact(row) for row in supporting],
                 counterevidence=[counter_fact(row) for row in counter],
                 unchecked=list(dict.fromkeys(unchecked)),
                 grounded=True if first else None,

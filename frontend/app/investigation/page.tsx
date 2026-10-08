@@ -7,6 +7,7 @@ import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import {
   ApiError,
   api,
+  type CardArgumentStep,
   type CardFact,
   type Counterevidence,
   type EvidenceItem,
@@ -969,6 +970,13 @@ function Card({ card }: { card: ResearchCard | null }) {
  * does to them. */
 function ArgumentSteps({ card }: { card: ResearchCard }) {
   const steps = card.steps ?? [];
+  // The thesis an invalidation Fact is judged against: the other steps' Facts, by ID.
+  const thesis = new Map(
+    steps
+      .filter((step) => step.step !== "invalidation")
+      .flatMap((step) => step.facts)
+      .map((fact) => [fact.fact_id, fact] as const),
+  );
   return (
     <>
       {card.editor_failure && (
@@ -987,7 +995,9 @@ function ArgumentSteps({ card }: { card: ResearchCard }) {
           return (
             <li key={step.step}>
               <strong>{step.title}</strong>: {STEP_STATUS[step.status]}
-              {statements.length > 0 ? (
+              {step.status === "nothing_found" ? (
+                <NothingFound step={step} />
+              ) : statements.length > 0 ? (
                 <ul aria-label={`${step.title}: statements`}>
                   {statements.map((said, index) => {
                     const split = splitCounterevidence(
@@ -997,6 +1007,9 @@ function ArgumentSteps({ card }: { card: ResearchCard }) {
                     return (
                       <li key={index}>
                         {said.statement}
+                        {step.status === "found" && (
+                          <AgainstArgument facts={said.facts} thesis={thesis} />
+                        )}
                         <details>
                           <summary className="muted-small">
                             {citedTally(
@@ -1039,6 +1052,46 @@ function ArgumentSteps({ card }: { card: ResearchCard }) {
         })}
       </ol>
     </>
+  );
+}
+
+/** The invalidation step when its Reader searched and found nothing against the argument:
+ * what it searched for, and its summary. */
+function NothingFound({ step }: { step: CardArgumentStep }) {
+  const searched = step.searched ?? [];
+  return (
+    <div className="muted-small">
+      <p>Nothing found against the argument.</p>
+      {searched.length > 0 && (
+        <ul aria-label={`${step.title}: searched`}>
+          {searched.map((query, index) => (
+            <li key={index}>Searched: {query}</li>
+          ))}
+        </ul>
+      )}
+      {step.reader_summary && <p>{step.reader_summary}</p>}
+    </div>
+  );
+}
+
+/** What a found invalidation statement's Facts stand against: the thesis Facts each one
+ * contradicts, limits, dates or qualifies (or could not be judged against). */
+function AgainstArgument({ facts, thesis }: { facts: CardFact[]; thesis: Map<string, CardFact> }) {
+  const { against } = splitCounterevidence(facts, [...thesis.keys()]);
+  if (against.length === 0) return null;
+  return (
+    <ul className="muted-small" aria-label="Against the argument">
+      {against.map(({ fact, relation }) => (
+        <li key={fact.fact_id}>
+          Against{relation && ` (${relation})`}:{" "}
+          {(fact.against ?? [])
+            .map((id) => thesis.get(id))
+            .filter((each): each is CardFact => each !== undefined)
+            .map((each) => `${each.company_name}: ${each.statement}`)
+            .join("; ")}
+        </li>
+      ))}
+    </ul>
   );
 }
 

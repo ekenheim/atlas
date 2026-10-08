@@ -121,6 +121,13 @@ from atlas.investigations.argument import (
     COUNTER_REASONS,
     COUNTER_RELATIONS,
     COUNTER_UNJUDGED,
+    EDITOR_INVALIDATION_NOTE,
+    INVALIDATION_FOUND,
+    INVALIDATION_JUDGE_CALLS,
+    INVALIDATION_REASONS,
+    INVALIDATION_RELATIONS,
+    INVALIDATION_UNJUDGED,
+    NOT_INVALIDATING,
     SKEPTIC_CHALLENGED,
     ArgumentFacts,
     KeptStatement,
@@ -132,6 +139,7 @@ from atlas.investigations.argument import (
     judged_fact,
     quantity_text,
     step_counts,
+    thesis_facts,
     without_references,
 )
 from atlas.investigations.companies import FloorCandidate, document_floor, documents_in_order
@@ -1529,7 +1537,107 @@ class TaskRunner:
         }
         if outcome.status == "succeeded":
             outcome.artifacts |= self._judge_counter_facts(investigation, task, run_id, ids)
+            outcome.artifacts |= self._judge_invalidation_facts(investigation, task, run_id)
         return outcome
+
+    def _judge_invalidation_facts(
+        self, investigation: RowMapping, task: RowMapping, run_id: uuid.UUID
+    ) -> dict[str, JsonValue]:
+        """The counter-judge on each invalidation Fact the Readers recorded, any round, not yet
+        labelled (pilot-review R2-03): one `counter_judge` call per Fact (`k1`), against the
+        thesis it would break (`atlas.investigations.argument.thesis_facts`, `f1`, ...), in the
+        run. With no thesis Fact it is unrelated, without a call. A quarantined or cut-off
+        call, the run's budget spent, or a thesis Fact the answer leaves out leaves that pair
+        `unjudged`. Each label is written to the task's artifacts as it comes, so a paused or
+        retried task judges only the Facts not yet there; the task succeeds whatever the judge
+        does."""
+        with self._engine.connect() as connection:
+            prior: Any = connection.execute(
+                text("SELECT artifacts FROM investigation_task WHERE id = :id"),
+                {"id": task["id"]},
+            ).scalar_one()
+            facts = argument_facts(connection, investigation["id"])
+        recorded = cast(dict[str, Any], prior) if isinstance(prior, dict) else {}
+        relations = _labels(recorded.get(INVALIDATION_RELATIONS))
+        reasons = _labels(recorded.get(INVALIDATION_REASONS))
+        unjudged = [
+            str(each) for each in cast(list[Any], recorded.get(INVALIDATION_UNJUDGED) or [])
+        ]
+        calls = int(recorded.get(INVALIDATION_JUDGE_CALLS) or 0)
+
+        def artifacts() -> dict[str, JsonValue]:
+            return {
+                INVALIDATION_RELATIONS: cast(JsonValue, relations),
+                INVALIDATION_REASONS: cast(JsonValue, reasons),
+                INVALIDATION_UNJUDGED: list[JsonValue](unjudged),
+                INVALIDATION_JUDGE_CALLS: calls,
+            }
+
+        to_judge = [
+            row
+            for row in facts.supporting
+            if row["step"] == "invalidation"
+            and row["id"] not in facts.invalidation
+            and str(row["id"]) not in relations
+        ]
+        if not to_judge:
+            return artifacts()
+        question = self._question(investigation, task)
+        seeds = list(investigation["seed_company_ids"] or [])
+        spent = False
+        with self._caller(investigation) as caller:
+            for row in to_judge:
+                thesis = thesis_facts(facts.supporting, row, seeds)
+                sent = {f"f{index}": each for index, each in enumerate(thesis, start=1)}
+                labels = {str(each["id"]): UNJUDGED for each in thesis}
+                why: dict[str, str] = {}
+                if sent and not spent:
+                    item, quote = judged_fact(COUNTER_REF, row)
+                    items = {ref: judged_fact(ref, each) for ref, each in sent.items()}
+                    request = CounterJudgeRequest(
+                        research_question=question,
+                        counter=item,
+                        challenged=[each for each, _ in items.values()],
+                    )
+                    calls += 1
+                    try:
+                        judgement, _ = caller.call_recorded(
+                            COUNTER_JUDGE,
+                            request,
+                            run_id=run_id,
+                            retrieved=[quote, *(each for _, each in items.values())],
+                        )
+                    except TokenBudgetExhausted:
+                        spent = True
+                        why = dict.fromkeys(labels, "the run's token budget was spent")
+                    except RoleOutputQuarantined as failure:
+                        why = dict.fromkeys(labels, f"the judge's answer was unusable: {failure}")
+                    else:
+                        for each in judgement.relations:
+                            thesis_row = sent.get(each.ref)
+                            if thesis_row is None or labels[str(thesis_row["id"])] != UNJUDGED:
+                                continue
+                            if each.relation in RELATIONS:
+                                labels[str(thesis_row["id"])] = each.relation
+                                why[str(thesis_row["id"])] = each.reason
+                elif spent:
+                    why = dict.fromkeys(labels, "the run's token budget was spent")
+                for key, label in labels.items():
+                    if label == UNJUDGED:
+                        why.setdefault(key, "the judge gave no relation for this Fact")
+                relations[str(row["id"])] = labels
+                reasons[str(row["id"])] = why
+                if UNJUDGED in labels.values():
+                    unjudged.append(str(row["id"]))
+                with self._engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "UPDATE investigation_task SET artifacts = artifacts"
+                            " || CAST(:artifacts AS jsonb) WHERE id = :id"
+                        ),
+                        {"id": task["id"], "artifacts": _json(artifacts())},
+                    )
+        return artifacts()
 
     def _judge_counter_facts(
         self,
@@ -1709,6 +1817,7 @@ class TaskRunner:
                         else []
                     ),
                     reader_summary=(latest[step.key].state.summary if step.key in latest else None),
+                    note=EDITOR_INVALIDATION_NOTE if step.key == "invalidation" else None,
                 )
                 for step in ARGUMENT_STEPS
             ],
@@ -1803,6 +1912,9 @@ class TaskRunner:
             if each.step in STEPS and each.step not in drafts:
                 drafts[each.step] = each
         unsupported: list[UnsupportedFinding] = []
+        # Dropped from the invalidation step for citing a Fact judged not to bear against the
+        # argument: on the card with the others, but no reason for review (R2-03).
+        not_invalidating: list[UnsupportedFinding] = []
         checking: list[tuple[str, CardFindingDraft, list[str]]] = []
         to_name: list[list[str]] = []  # per statement: the companies of its supporting Facts
         for key, each in drafts.items():
@@ -1821,6 +1933,19 @@ class TaskRunner:
                     continue
                 if not cited:
                     continue  # a statement resting on no Fact says only that the step is unknown
+                if key == "invalidation" and facts.not_invalidating(
+                    {refs[ref]["id"] for ref in cited}
+                ):
+                    # It cites an invalidation Fact judged to support the argument or be
+                    # unrelated to it: it says nothing against the argument (R2-03).
+                    not_invalidating.append(
+                        UnsupportedFinding(
+                            statement=said.statement,
+                            claim_ids=[str(refs[r]["id"]) for r in cited],
+                            reason=NOT_INVALIDATING,
+                        )
+                    )
+                    continue
                 statement = without_references(said.statement, cited, refs)
                 if statement is None:
                     unsupported.append(
@@ -1907,6 +2032,9 @@ class TaskRunner:
         unjudged = meaning.counts["failed_first"] if meaning is not None else 0
         unknown_steps = [s.step for s in steps if s.status == "unknown"]
         disputed = [s.step for s in steps if s.status == "disputed"]
+        # The invalidation step found or nothing found is settled, neither unknown nor
+        # disputed (R2-03); a found one is named.
+        invalidation = {s.step: s.status for s in steps}.get("invalidation")
         if not facts.supporting:
             stop_reason = "no_new_independent_evidence"
             stop_detail = "no Fact: the Readers recorded none, so every step is unknown"
@@ -1918,7 +2046,12 @@ class TaskRunner:
             and not unjudged
         ):
             stop_reason = "answered"
-            stop_detail = "every step of the argument is supported by its Facts"
+            stop_detail = (
+                f"every other step of the argument is supported by its Facts; {INVALIDATION_FOUND}"
+                if invalidation == "found"
+                else "every step of the argument is supported by its Facts;"
+                " invalidation: nothing found against the argument"
+            )
         else:
             stop_reason = "needs_review"
             problems: list[str] = []
@@ -1926,6 +2059,8 @@ class TaskRunner:
                 problems.append(f"steps unknown: {', '.join(unknown_steps)}")
             if disputed:
                 problems.append(f"steps disputed: {', '.join(disputed)}")
+            if invalidation == "found":
+                problems.append(INVALIDATION_FOUND)
             if unsupported:
                 problems.append(f"{len(unsupported)} statements were dropped")
             if unjudged:
@@ -1936,7 +2071,7 @@ class TaskRunner:
         card = ResearchCard(
             **card_base,
             open_questions=draft.open_questions,
-            unsupported_findings=unsupported,
+            unsupported_findings=[*unsupported, *not_invalidating],
             editor_verdict=draft.verdict,
             editor_role_call_id=role_call_id,
             grounding_limit=GROUNDING_LIMIT + (JUDGE_LIMIT if meaning is not None else ""),
@@ -1951,7 +2086,8 @@ class TaskRunner:
                 "counterevidence": len(facts.counter),
                 "steps": step_counts(steps),
                 "statements_kept": statements_kept,
-                "unsupported_findings": len(unsupported),
+                "unsupported_findings": len(unsupported) + len(not_invalidating),
+                "not_invalidating": len(not_invalidating),
                 "grounding": {
                     "asked_again": checked.asked_again,
                     "repaired": checked.repaired,
@@ -2366,8 +2502,14 @@ def _step_refs(
     facts: ArgumentFacts, ref_of: Mapping[uuid.UUID, str], step: str
 ) -> tuple[list[str], list[str]]:
     """A step's Facts and the counterevidence against it (on the step, or against one of its
-    Facts), by the Editor's references."""
-    ids = {row["id"] for row in facts.supporting if row["step"] == step}
+    Facts), by the Editor's references. The invalidation step's Facts are only those judged to
+    bear against the argument, or not judged (pilot-review R2-03)."""
+    ids = {
+        row["id"]
+        for row in facts.supporting
+        if row["step"] == step
+        and (step != "invalidation" or facts.invalidation_verdict(row["id"]) != "not_invalidating")
+    }
     counter = [
         ref_of[row["id"]]
         for row in facts.counter

@@ -40,6 +40,7 @@ import {
   readingOutcome,
   saidBy,
   selectionSummary,
+  STEP_STATUS,
   splitCounterevidence,
   stepStatements,
   stepTally,
@@ -577,6 +578,23 @@ test("the argument's steps are counted by status", () => {
 
   expect(stepTally(steps)).toBe("1 supported, 1 disputed, 2 unknown");
   expect(stepTally([])).toBe("");
+});
+
+test("the invalidation step's found and nothing found are counted and named", () => {
+  // Pilot-review R2-03: the invalidation step is found, nothing found or unknown.
+  expect(STEP_STATUS.found).toBe("found");
+  expect(STEP_STATUS.nothing_found).toBe("nothing found");
+  const steps = ["unknown", "nothing_found", "supported", "disputed", "supported", "found"].map(
+    (status) => ({ status }) as unknown as CardArgumentStep,
+  );
+
+  expect(stepTally(steps)).toBe(
+    "2 supported, 1 found, 1 disputed, 1 nothing found, 1 unknown",
+  );
+  const settled = ["supported", "nothing_found"].map(
+    (status) => ({ status }) as unknown as CardArgumentStep,
+  );
+  expect(stepTally(settled)).toBe("1 supported, 1 nothing found");
 });
 
 test("a step lists the statements that stood, each with the Facts it cites", () => {

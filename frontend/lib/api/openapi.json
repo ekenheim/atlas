@@ -8289,7 +8289,9 @@
             "enum": [
               "supported",
               "disputed",
-              "unknown"
+              "unknown",
+              "found",
+              "nothing_found"
             ],
             "title": "Status"
           },
@@ -8437,7 +8439,7 @@
           "judged"
         ],
         "title": "CardArgumentStep",
-        "description": "One step of the argument (bottleneck-argument ticket 05): its status, the Editor's\nstatements (each held to its Facts' quotes by the grounding check and the finding judge\non its own; the ones that passed, `statements`; `statement` is the first of them, or None,\nkept for older readers), the Facts behind it, the Skeptic's counterevidence, and what\nremains unchecked. The status is code's: `unknown` without a statement that passed or\nwithout a Fact; `disputed` when a Skeptic Fact contradicts, limits or dates one of the\nstep's Facts (or the Facts its statements cite), or could not be judged against it; else\n`supported`. `contested`: a judged contradiction stands against the step's Facts, whatever\nits status. `editor_status` is what the Editor proposed."
+        "description": "One step of the argument (bottleneck-argument ticket 05): its status, the Editor's\nstatements (each held to its Facts' quotes by the grounding check and the finding judge\non its own; the ones that passed, `statements`; `statement` is the first of them, or None,\nkept for older readers), the Facts behind it, the Skeptic's counterevidence, and what\nremains unchecked. The status is code's: `unknown` without a statement that passed or\nwithout a Fact; `disputed` when a Skeptic Fact contradicts, limits or dates one of the\nstep's Facts (or the Facts its statements cite), or could not be judged against it; else\n`supported`. The invalidation step's is `found` when an invalidation Fact bears against a\nthesis Fact (or could not be judged) or a Skeptic Fact contradicts one, `nothing_found`\nwhen its Reader searched and found nothing against the argument (no statement), else\n`unknown` (pilot-review R2-03). `contested`: a judged contradiction stands against the\nstep's Facts, whatever its status. `editor_status` is what the Editor proposed."
       },
       "CardBearContext": {
         "properties": {
@@ -8974,7 +8976,7 @@
           "evidence_available_at"
         ],
         "title": "CardFact",
-        "description": "A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the\nquantity, period and status the Reader recorded, and its quote's span (`source_span`;\n`claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it\nspeaks against (`against`: those the counter-judge found it contradicts, limits or dates, or\ncould not judge) and what it does to each Fact it challenges (`relations`, pilot-review\nT3)."
+        "description": "A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the\nquantity, period and status the Reader recorded, and its quote's span (`source_span`;\n`claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it\nspeaks against (`against`: those the counter-judge found it contradicts, limits or dates, or\ncould not judge) and what it does to each Fact it challenges (`relations`, pilot-review\nT3). A Reader's invalidation Fact names the thesis Facts it bears against (`against`: those\nthe counter-judge found it contradicts, limits, dates or qualifies, or could not judge) and\nwhat it does to each thesis Fact it was judged against (`relations`, pilot-review R2-03)."
       },
       "CardFactQuantity": {
         "properties": {

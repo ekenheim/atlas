@@ -662,7 +662,11 @@ class CardCompanyClaims(BaseModel):
     claims: list[CardClaimSummary]
 
 
-CardStepStatus = Literal["supported", "disputed", "unknown"]
+# A step's status on the card: the invalidation step is `found`, `nothing_found` or `unknown`
+# (pilot-review R2-03), every other step `supported`, `disputed` or `unknown`.
+CardStepStatus = Literal["supported", "disputed", "unknown", "found", "nothing_found"]
+# The status the Editor proposes for a step (atlas.roles.editor.StepStatus).
+EditorStepStatus = Literal["supported", "disputed", "unknown"]
 
 
 class CardFactQuantity(BaseModel):
@@ -692,7 +696,9 @@ class CardFact(BaseModel):
     `claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it
     speaks against (`against`: those the counter-judge found it contradicts, limits or dates, or
     could not judge) and what it does to each Fact it challenges (`relations`, pilot-review
-    T3)."""
+    T3). A Reader's invalidation Fact names the thesis Facts it bears against (`against`: those
+    the counter-judge found it contradicts, limits, dates or qualifies, or could not judge) and
+    what it does to each thesis Fact it was judged against (`relations`, pilot-review R2-03)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -731,8 +737,11 @@ class CardArgumentStep(BaseModel):
     remains unchecked. The status is code's: `unknown` without a statement that passed or
     without a Fact; `disputed` when a Skeptic Fact contradicts, limits or dates one of the
     step's Facts (or the Facts its statements cite), or could not be judged against it; else
-    `supported`. `contested`: a judged contradiction stands against the step's Facts, whatever
-    its status. `editor_status` is what the Editor proposed."""
+    `supported`. The invalidation step's is `found` when an invalidation Fact bears against a
+    thesis Fact (or could not be judged) or a Skeptic Fact contradicts one, `nothing_found`
+    when its Reader searched and found nothing against the argument (no statement), else
+    `unknown` (pilot-review R2-03). `contested`: a judged contradiction stands against the
+    step's Facts, whatever its status. `editor_status` is what the Editor proposed."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -740,7 +749,7 @@ class CardArgumentStep(BaseModel):
     title: str
     asks: str
     status: CardStepStatus
-    editor_status: CardStepStatus | None
+    editor_status: EditorStepStatus | None
     statement: str | None
     statements: list[CardStepStatement] = Field(default_factory=list[CardStepStatement])
     facts: list[CardFact]

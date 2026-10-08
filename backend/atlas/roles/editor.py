@@ -315,6 +315,9 @@ class ArgumentStepItem(_Request):
     counter_refs: list[str]  # the Skeptic's Facts against this step's Facts, or on this step
     searched: list[str]  # the Reader's queries
     reader_summary: str | None
+    # What code says of the step's Facts: for invalidation, that only the Facts judged to bear
+    # against the argument (or not judged) are listed (pilot-review R2-03); None elsewhere.
+    note: str | None = None
 
 
 class EditorArgumentRequest(_Request):

@@ -10,15 +10,18 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import pytest
 from sqlalchemy import RowMapping
 
 from atlas.investigations.argument import (
     ArgumentFacts,
+    ArgumentSession,
     KeptStatement,
     StepStatement,
     build_steps,
 )
 from atlas.investigations.model import CardArgumentStep
+from atlas.investigations.reader import ReaderState
 
 COMPANY = uuid.UUID("00000000-0000-0000-0000-00000000c0c0")
 VERSION = uuid.UUID("00000000-0000-0000-0000-0000000000f1")
@@ -138,3 +141,147 @@ def test_a_counter_fact_filed_under_the_step_against_another_step_s_fact_does_no
     assert (control.status, control.contested) == ("supported", False)
     assert (relief.status, relief.contested) == ("disputed", True)
     assert [c.against for c in relief.counterevidence] == [[RELIEF["id"]]]
+
+
+# --- the invalidation step (pilot-review R2-03) ---------------------------------------------------
+#
+# On every reviewed card the invalidation step was `supported` by statements arguing for the
+# thesis: 96 of its 211 Facts said sold out, record or leading. Each invalidation Fact is now
+# judged against the thesis Facts it would break, and the step is `found`, `nothing_found` or
+# `unknown`.
+
+INVALIDATION = fact(
+    "invalidation", "Vantor plans to double its capacity.", "We plan to double our capacity."
+)
+INVALIDATION_STATEMENT = "Vantor plans to double its capacity."
+
+
+def reader_session(step: str, searches: int) -> ArgumentSession:
+    return ArgumentSession(
+        task_key=f"reader:{step}",
+        round=1,
+        role="reader",
+        step=step,
+        status="done",
+        state=ReaderState(
+            searches=[{"query": f"{step} query {n}"} for n in range(1, searches + 1)],
+            summary="searched for eased lead times and second sources; found none",
+        ),
+    )
+
+
+def invalidation_step(
+    relation: str | None,
+    *,
+    searches: int = 1,
+    session: bool = True,
+    skeptic: str | None = None,
+) -> CardArgumentStep:
+    """The invalidation step of an argument with a Control Fact (the thesis) and one
+    invalidation Fact judged against it with `relation` (None: no label recorded), cited by
+    the Editor's one statement of the step; the invalidation Reader made `searches` searches
+    (`session` False: there was no invalidation Reader). `skeptic`: the relation of a Skeptic
+    Fact challenging the Control Fact."""
+    facts = ArgumentFacts(
+        sessions=[reader_session("invalidation", searches)] if session else [],
+        supporting=[CONTROL, INVALIDATION],
+        counter=[COUNTER] if skeptic else [],
+        against={COUNTER["id"]: [CONTROL["id"]]} if skeptic else {},
+        relations={COUNTER["id"]: {CONTROL["id"]: skeptic}} if skeptic else {},
+        invalidation=({} if relation is None else {INVALIDATION["id"]: {CONTROL["id"]: relation}}),
+        invalidation_reasons=(
+            {} if relation is None else {INVALIDATION["id"]: {CONTROL["id"]: f"k1 {relation}"}}
+        ),
+    )
+    refs = {"c1": CONTROL, "c2": INVALIDATION, "c3": COUNTER}
+    statements = {
+        "invalidation": StepStatement(
+            kept=[KeptStatement(INVALIDATION_STATEMENT, ["c2"], True)],
+            editor_status="supported",
+            unchecked=[],
+        ),
+        "control": StepStatement(
+            kept=[KeptStatement("Vantor is the sole qualified supplier.", ["c1"], True)],
+            editor_status="supported",
+            unchecked=[],
+        ),
+    }
+    built = build_steps(
+        facts,
+        statements,
+        refs,
+        skeptic_checked={CONTROL["id"], INVALIDATION["id"]},
+        skeptic_ran=True,
+    )
+    return {step.step: step for step in built}["invalidation"]
+
+
+def test_an_invalidation_fact_judged_to_support_the_argument_leaves_the_step_nothing_found() -> (
+    None
+):
+    for relation in ("supports", "unrelated"):
+        step = invalidation_step(relation)
+
+        assert step.status == "nothing_found"
+        assert (step.statement, step.statements) == (None, [])
+        assert step.editor_status == "supported"
+        assert "nothing found against the argument after 1 search" in step.unchecked
+        # The Fact is still shown, with what it does to the thesis, against nothing.
+        [shown] = step.facts
+        assert (shown.fact_id, shown.against) == (INVALIDATION["id"], [])
+        assert [(r.fact_id, r.relation) for r in shown.relations] == [(CONTROL["id"], relation)]
+        assert step.searched == ["invalidation query 1"]
+    assert "nothing found against the argument after 3 searches" in (
+        invalidation_step("supports", searches=3).unchecked
+    )
+
+
+@pytest.mark.parametrize("relation", ["contradicts", "limits", "dates", "qualifies"])
+def test_an_invalidation_fact_that_contradicts_limits_dates_or_qualifies_a_thesis_fact_makes_the_step_found(  # noqa: E501
+    relation: str,
+) -> None:
+    step = invalidation_step(relation)
+
+    assert step.status == "found"
+    assert step.statement == INVALIDATION_STATEMENT
+    [said] = step.statements
+    [cited] = said.facts
+    assert cited.against == [CONTROL["id"]]
+    assert [(r.fact_id, r.relation, r.reason) for r in cited.relations] == [
+        (CONTROL["id"], relation, f"k1 {relation}")
+    ]
+    assert [f.against for f in step.facts] == [[CONTROL["id"]]]
+    assert not any("could not be judged" in note for note in step.unchecked)
+
+
+def test_an_unjudged_invalidation_fact_keeps_the_step_found_and_says_so_in_unchecked() -> None:
+    for relation in ("unjudged", None):
+        step = invalidation_step(relation)
+
+        assert step.status == "found"
+        assert step.statement == INVALIDATION_STATEMENT
+        assert "1 invalidation Fact could not be judged" in step.unchecked
+    # A labelled unjudged pair names the thesis Fact; no label at all names none.
+    assert invalidation_step("unjudged").facts[0].against == [CONTROL["id"]]
+    assert invalidation_step(None).facts[0].against == []
+
+
+def test_an_invalidation_reader_that_never_searched_leaves_the_step_unknown() -> None:
+    never = invalidation_step("supports", searches=0)
+    assert (never.status, never.statement, never.statements) == ("unknown", None, [])
+    assert invalidation_step("supports", session=False).status == "unknown"
+    # Searched or not, an invalidation Fact that bears against the argument is found.
+    assert invalidation_step("qualifies", searches=0).status == "found"
+
+
+def test_a_skeptic_contradiction_of_a_thesis_fact_also_makes_invalidation_found() -> None:
+    step = invalidation_step("supports", skeptic="contradicts")
+
+    assert step.status == "found"
+    assert [c.fact_id for c in step.counterevidence] == [COUNTER["id"]]
+    assert step.counterevidence[0].against == [CONTROL["id"]]
+    # The statement over the Reader's supporting Fact is still dropped.
+    assert step.statements == []
+    # A Skeptic Fact that only qualifies the thesis, or could not be judged, breaks nothing.
+    assert invalidation_step("supports", skeptic="qualifies").status == "nothing_found"
+    assert invalidation_step("supports", skeptic="unjudged").status == "nothing_found"

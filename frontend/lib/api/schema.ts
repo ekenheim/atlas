@@ -2129,8 +2129,11 @@ export interface components {
          *     remains unchecked. The status is code's: `unknown` without a statement that passed or
          *     without a Fact; `disputed` when a Skeptic Fact contradicts, limits or dates one of the
          *     step's Facts (or the Facts its statements cite), or could not be judged against it; else
-         *     `supported`. `contested`: a judged contradiction stands against the step's Facts, whatever
-         *     its status. `editor_status` is what the Editor proposed.
+         *     `supported`. The invalidation step's is `found` when an invalidation Fact bears against a
+         *     thesis Fact (or could not be judged) or a Skeptic Fact contradicts one, `nothing_found`
+         *     when its Reader searched and found nothing against the argument (no statement), else
+         *     `unknown` (pilot-review R2-03). `contested`: a judged contradiction stands against the
+         *     step's Facts, whatever its status. `editor_status` is what the Editor proposed.
          */
         CardArgumentStep: {
             /** Step */
@@ -2143,7 +2146,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "supported" | "disputed" | "unknown";
+            status: "supported" | "disputed" | "unknown" | "found" | "nothing_found";
             /** Editor Status */
             editor_status: ("supported" | "disputed" | "unknown") | null;
             /** Statement */
@@ -2396,7 +2399,9 @@ export interface components {
          *     `claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it
          *     speaks against (`against`: those the counter-judge found it contradicts, limits or dates, or
          *     could not judge) and what it does to each Fact it challenges (`relations`, pilot-review
-         *     T3).
+         *     T3). A Reader's invalidation Fact names the thesis Facts it bears against (`against`: those
+         *     the counter-judge found it contradicts, limits, dates or qualifies, or could not judge) and
+         *     what it does to each thesis Fact it was judged against (`relations`, pilot-review R2-03).
          */
         CardFact: {
             /**
