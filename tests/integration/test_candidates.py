@@ -305,7 +305,10 @@ def test_the_mention_extractor_reads_the_leads_as_quoted_data_in_its_own_run(
     assert scout["metadata"]["role"] == "scout"
     assert extractor["response_format"]["json_schema"]["name"] == "mention_extractor"
     assert extractor["response_format"]["json_schema"]["strict"] is True
-    assert extractor["messages"][0]["content"].endswith(PROMPT)
+    # The prompt, then the answer format (the role's schema; MiniMax ignores response_format).
+    system = extractor["messages"][0]["content"]
+    prompt_end = system.index(PROMPT) + len(PROMPT)
+    assert system[prompt_end:].lstrip().startswith("## Answer format")
     sent = json.loads(extractor["messages"][1]["content"])
     assert sent["request"] == {
         "theme_id": "photonics",
