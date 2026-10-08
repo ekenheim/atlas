@@ -252,7 +252,7 @@ def test_a_reader_searches_reads_records_facts_and_is_told_why_one_was_refused(
     assert assertion["quote"] == SHERMAN
     assert assertion["source_version_id"] == ten_k
     assert assertion["epistemic_type"] == "company_claim"
-    assert assertion["extractor_version"] == "reader.v2"
+    assert assertion["extractor_version"] == "reader.v3"
     assert atlas.parsed(ten_k)[assertion["span_start"] : assertion["span_end"]] == SHERMAN
     # Each refusal came back to the Reader in its next call, with the reason.
     calls = reader_requests(llm)
@@ -334,6 +334,10 @@ def test_two_invalid_answers_in_a_row_stop_the_reader(
     # The second call was told the first answer was set aside.
     second = asked(reader_requests(llm)[2])["request"]["results"][-1]
     assert (second["action"], second["ok"]) == ("invalid", False)
+    # The control step looks for qualified suppliers and the competitors the company names.
+    looks_for = asked(reader_requests(llm)[0])["request"]["step"]["looks_for"]
+    assert "how many suppliers the customers have qualified" in looks_for
+    assert "which competitors the company itself names" in looks_for
 
 
 def test_a_recall_lists_the_sections_memory_points_to_and_the_reader_reads_one(
@@ -489,3 +493,63 @@ def test_done_before_any_search_is_refused_and_counted_as_a_call(
     assert (refused["action"], refused["ok"]) == ("done", False)
     assert refused["message"].startswith("search first: ")
     assert asked(calls[1])["request"]["calls_left"] == 22
+
+
+# From the Coherent FY2026 10-K: the NVIDIA agreement entered, as a contiguous part of its
+# sentence (the rest, "to advance the development of ...", would say development is its aim).
+NVIDIA = "the Company entered into a multi-year strategic agreement with NVIDIA"
+NVIDIA_QUERY = "multi-year strategic agreement with NVIDIA"
+NVIDIA_STATEMENT = "Coherent entered into a multi-year strategic agreement with NVIDIA."
+
+
+def test_a_fact_whose_status_its_quote_contradicts_is_refused_and_the_reader_is_told_the_status_to_use(  # noqa: E501 (the ticket names it)
+    start: Callable[..., Atlas], llm: FakeLiteLLM
+) -> None:
+    atlas = start()
+    llm.script_role(
+        "reader",
+        ChatReply.json(
+            act("search_archive", query=NVIDIA_QUERY, company_slugs=["coherent"]),
+            tokens=(1500, 60),
+        ),
+        # An agreement recorded as development under way: refused, with the status to use.
+        fact(
+            lambda body: holding(body, NVIDIA),
+            NVIDIA,
+            step="capture",
+            statement=NVIDIA_STATEMENT,
+            status="in_development",
+        ),
+        # Recorded again with the status the refusal names.
+        fact(
+            lambda body: holding(body, NVIDIA),
+            NVIDIA,
+            step="capture",
+            statement=NVIDIA_STATEMENT,
+            status="planned",
+        ),
+        ChatReply.json(act("done", summary="the NVIDIA agreement's commitment"), tokens=(2000, 30)),
+    )
+
+    job_id = read_step(atlas, "capture")
+
+    artifacts = atlas.get(f"/api/v1/jobs/{job_id}")["artifacts"]
+    assert (artifacts["reader_status"], artifacts["calls"]) == ("done", 4)
+    [refused] = artifacts["refused"]
+    assert refused["reason_code"] == "status_agreement"
+    [recorded] = artifacts["facts"]
+    assert (recorded["step"], recorded["status"]) == ("capture", "planned")
+    [found] = atlas.get("/api/v1/facts", step="capture")["items"]
+    assert found["status"] == "planned"
+    assert found["assertion"]["quote"] == NVIDIA
+    assert found["assertion"]["extractor_version"] == "reader.v3"
+    calls = reader_requests(llm)
+    told = asked(calls[2])["request"]
+    assert told["refused"] == 1
+    last = told["results"][-1]
+    assert (last["action"], last["ok"]) == ("record_fact", False)
+    assert last["message"].startswith("refused (status_agreement)")
+    assert "`planned`" in last["message"]
+    # The step's request says what a researcher looks for in it: customer concentration too.
+    assert "customer concentration: customers over 10% of revenue" in (told["step"]["looks_for"])
+    assert "'accounted for'" in told["step"]["looks_for"]

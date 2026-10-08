@@ -198,6 +198,20 @@ def test_a_quantity_whose_number_is_not_in_the_quote_is_refused_and_nothing_is_r
     assert atlas.get("/api/v1/assertions")["total"] == 0
 
 
+def test_a_status_its_words_contradict_is_refused_and_nothing_is_recorded(atlas: Atlas) -> None:
+    statement = (
+        "Lumentum reported $1.01 billion of fourth-quarter net revenue under its supply agreements."
+    )
+
+    response = atlas.api.post(
+        "/api/v1/facts", json=atlas.body(status="in_development", statement=statement)
+    )
+
+    assert error_code(response) == "status_agreement"
+    assert atlas.get("/api/v1/facts")["total"] == 0
+    assert atlas.get("/api/v1/assertions")["total"] == 0
+
+
 def test_a_quote_that_is_not_at_its_span_is_refused(atlas: Atlas) -> None:
     response = atlas.api.post("/api/v1/facts", json=atlas.body(span_start=0, span_end=72))
 

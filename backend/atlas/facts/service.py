@@ -1,5 +1,6 @@
 """Recording and reading Facts (see `atlas.facts`)."""
 
+import re
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -158,6 +159,91 @@ def check_quantity(quote: str, quantity: Quantity) -> None:
         )
 
 
+# The status rules (pilot review of 0.5.3's argument plan, task T4): two refusals the reviewed
+# Facts support, measured on the 853 Facts of its five investigations (docs/decisions.md, "The
+# reading agent: two status refusals"). Each cue is matched case-insensitively from a word's
+# start.
+#
+# An agreement entered is `planned` for what it commits to, not `in_development`, unless the
+# quote or statement says development, sampling or qualification is under way.
+AGREEMENT_CUES: tuple[str, ...] = (
+    "agreement",
+    "entered into",
+    "agreed",
+    "commit",  # commit, commits, committed, commitment
+    "reserve",
+    "reservation",
+    "deposit",
+    "letter of intent",
+    "contract",
+)
+DEVELOPMENT_CUES: tuple[str, ...] = (
+    "develop",  # develop, developing, development (not in "development and supply")
+    "qualif",
+    "sampl",
+    "prototyp",
+    "pilot",
+    "trial",
+    "testing",
+    "evaluat",
+    "under way",
+    "underway",
+    "ongoing",
+)
+# An agreement's name or object, not development under way: "a Master Development and Supply
+# Agreement", "for the development and supply of".
+AGREEMENT_DEVELOPMENT_WORDING = r"\bdevelopment\s+(?:and|&)\s+supply\b"
+# A company that speaks of itself is not a third party; unless the words name another source.
+FIRST_PERSON = r"\b(?i:we|our|ours)\b|\b(?:us|Us)\b"  # "US" is the country
+THIRD_PARTY_CUES: tuple[str, ...] = (
+    "according to",
+    "analyst",
+    "industry sources",
+    "third-party",
+    "third party",
+    "customers say",
+    "market research",
+    "external",
+)
+
+
+def _cues(cues: tuple[str, ...]) -> re.Pattern[str]:
+    return re.compile(r"\b(?:" + "|".join(re.escape(cue) for cue in cues) + ")", re.IGNORECASE)
+
+
+_AGREEMENT = _cues(AGREEMENT_CUES)
+_DEVELOPMENT = _cues(DEVELOPMENT_CUES)
+_AGREEMENT_DEVELOPMENT = re.compile(AGREEMENT_DEVELOPMENT_WORDING, re.IGNORECASE)
+_FIRST_PERSON = re.compile(FIRST_PERSON)
+_THIRD_PARTY = _cues(THIRD_PARTY_CUES)
+
+
+def check_status(quote: str, statement: str, status: FactStatus) -> None:
+    """Raises `InvalidAssertion` when the Fact's status is one its words contradict:
+    `status_agreement` for an agreement recorded as `in_development` with no development under
+    way, `status_first_person` for the company's own words recorded as
+    `reported_by_third_party`. Each message names the status to use."""
+    words = f"{quote}\n{statement}"
+    if status == "in_development":
+        development = _AGREEMENT_DEVELOPMENT.sub(" ", words)
+        if _AGREEMENT.search(words) and not _DEVELOPMENT.search(development):
+            raise InvalidAssertion(
+                "status_agreement",
+                "an agreement entered is `planned` for what it commits to; use"
+                " `in_development` only for development, sampling or qualification under way",
+            )
+    if (
+        status == "reported_by_third_party"
+        and _FIRST_PERSON.search(quote)
+        and not _THIRD_PARTY.search(words)
+    ):
+        raise InvalidAssertion(
+            "status_first_person",
+            "the company speaks for itself: use the status its words give (in_effect for an"
+            " estimate it states, planned for an expectation)",
+        )
+
+
 _SELECT = """
     SELECT f.assertion_id, f.investigation_id, f.created_at, a.value_json
     FROM fact f JOIN assertion a ON a.id = f.assertion_id
@@ -268,6 +354,7 @@ class Facts:
             ).assertion
             if value.quantity is not None:
                 check_quantity(request.quote, value.quantity)
+            check_status(request.quote, value.statement, value.status)
             connection.execute(
                 text(
                     "INSERT INTO fact (assertion_id, investigation_id, step, status)"
