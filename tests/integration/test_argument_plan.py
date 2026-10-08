@@ -973,10 +973,49 @@ INVALIDATION_STATEMENT = "Coherent is expanding its Sherman, Texas, manufacturin
 COMPETITION_STATEMENT = "Coherent says it may encounter increased competition."
 
 
+# The rest of the NVIDIA paragraph of the 10-K, and the Sherman sentence from its start: each
+# step's Reader quotes its own words (one Fact per span, ticket 10: the same span for two steps
+# is one Fact).
+INVESTMENT = "Separately, on March 2, 2026, NVIDIA made a $2 billion investment in the Company"
+INVESTMENT_STATEMENT = "NVIDIA made a $2 billion investment in Coherent on March 2, 2026."
+PROCEEDS = (
+    "The proceeds from the investment will be used to support research and development, future"
+    " capacity and operations as we build out our manufacturing capabilities"
+)
+PROCEEDS_STATEMENT = (
+    "Coherent will use the proceeds of the investment to build out its manufacturing capabilities."
+)
+# The agreement's sentence further on: it overlaps the constraint Fact's span, with another
+# status (planned: what the agreement commits to), so it is a Fact of its own.
+AGREEMENT_CAPACITY = f"{AGREEMENT}, including manufacturing capacity and research and development"
+CAPACITY_STATEMENT = "Coherent's agreement with NVIDIA includes manufacturing capacity."
+DURING_SHERMAN = (
+    "During fiscal 2026, we announced the expansion of our Sherman, Texas, manufacturing facility"
+)
+# What each Reader of `reading_every_step` records: quote, statement, status, period.
+EVERY_STEP: dict[str, tuple[str, str, str, str | None]] = {
+    "constraint": (AGREEMENT, AGREEMENT_STATEMENT, "in_development", "March 2, 2026"),
+    "demand_vs_supply": (INVESTMENT, INVESTMENT_STATEMENT, "in_effect", "March 2, 2026"),
+    "control": (PROCEEDS, PROCEEDS_STATEMENT, "planned", None),
+    "capture": (AGREEMENT_CAPACITY, CAPACITY_STATEMENT, "planned", "March 2, 2026"),
+    "relief": (
+        SHERMAN,
+        "Coherent announced the expansion of its Sherman, Texas, manufacturing facility during"
+        " fiscal 2026.",
+        "planned",
+        "fiscal 2026",
+    ),
+    # The Sherman sentence from its start, read as an expansion under way: it overlaps the
+    # relief Fact's span, with another status and statement, so it is a Fact of its own.
+    "invalidation": (DURING_SHERMAN, INVALIDATION_STATEMENT, "in_effect", "fiscal 2026"),
+}
+
+
 def reading_every_step(body: dict[str, Any]) -> JsonValue:
-    """Six Readers each recording one Fact: the NVIDIA agreement under constraint, demand,
-    control and capture, the Sherman expansion under relief, and under invalidation the
-    seed's own capacity plan (the Sherman expansion again)."""
+    """Six Readers each recording one Fact (`EVERY_STEP`): the NVIDIA agreement, investment and
+    its proceeds under constraint, demand, control and capture, the Sherman expansion under
+    relief, and under invalidation the seed's own capacity plan (the Sherman sentence again,
+    read as under way)."""
     request = asked(body)["request"]
     step = request["step"]["key"]
     searched, recorded = request["searched"], request["recorded"]
@@ -985,24 +1024,8 @@ def reading_every_step(body: dict[str, Any]) -> JsonValue:
         query = SHERMAN_QUERY if sherman else AGREEMENT_QUERY
         return act("search_archive", query=query, company_slugs=["coherent"])
     if not recorded:
-        if sherman:
-            return record(
-                body,
-                SHERMAN,
-                step=step,
-                statement="Coherent announced the expansion of its Sherman, Texas,"
-                " manufacturing facility during fiscal 2026.",
-                status="planned",
-                period="fiscal 2026",
-            )
-        return record(
-            body,
-            AGREEMENT,
-            step=step,
-            statement=AGREEMENT_STATEMENT,
-            status="in_development",
-            period="March 2, 2026",
-        )
+        quote, statement, status, period = EVERY_STEP[step]
+        return record(body, quote, step=step, statement=statement, status=status, period=period)
     return act("done", summary=f"{step}: one Fact recorded")
 
 
@@ -1100,7 +1123,7 @@ def test_invalidation_facts_are_judged_against_the_thesis_and_a_supporting_one_i
     llm.script_role("counter_judge", ChatReply.answer(relating("supports"), tokens=(600, 60)))
     llm.script_role("finding_judge", *(SUPPORTED,) * 5)
     thesis = {
-        step: AGREEMENT_STATEMENT
+        step: EVERY_STEP[step][1]
         for step in ("constraint", "demand_vs_supply", "control", "capture")
     }
     investigation = run_argument(
@@ -1132,8 +1155,14 @@ def test_invalidation_facts_are_judged_against_the_thesis_and_a_supporting_one_i
         "demand_vs_supply",
     ]
     quoted = {each["id"]: each for each in asked(judged)["retrieved_data"]}
-    assert quoted["k1"]["text"] == SHERMAN
-    assert {quoted[each["ref"]]["text"] for each in request["challenged"]} == {AGREEMENT}
+    assert quoted["k1"]["text"] == DURING_SHERMAN
+    assert {quoted[each["ref"]]["text"] for each in request["challenged"]} == {
+        AGREEMENT,
+        INVESTMENT,
+        PROCEEDS,
+    }
+    # Six Facts, one per step: none of them is a duplicate.
+    assert sorted(f["step"] for f in facts) == sorted(STEPS)
     assert {each["trust"] for each in quoted.values()} == {"low"}
     skeptic = tasks["skeptic"]["artifacts"]
     thesis_ids = {by_step[step] for step in ("constraint", "demand_vs_supply", "control")}
@@ -1852,3 +1881,167 @@ def test_the_editor_and_the_judge_are_sent_a_fact_s_resolved_period_and_the_card
     assert [f["period_resolved"] for f in said["facts"]] == [resolved]
     [control] = steps["control"]["facts"]
     assert control["period_resolved"] is None
+
+
+# --- one Fact per span (ticket 10) ----------------------------------------------------------------
+#
+# On 0.5.5's question 1 one sentence was recorded 8 times across 5 steps; 31% of the 1,840
+# reviewed Facts overlapped an earlier one. A span another Reader recorded counts for both steps
+# as one Fact, and the Skeptic cannot file a Reader's Fact as counterevidence.
+
+SHERMAN_STATEMENT = (
+    "Coherent announced the expansion of its Sherman, Texas, manufacturing facility during"
+    " fiscal 2026."
+)
+
+
+def reading_sherman_twice(body: dict[str, Any]) -> JsonValue:
+    """The constraint and relief Readers each search and quote the Sherman sentence for their
+    own step; the other Readers search and record nothing."""
+    request = asked(body)["request"]
+    step = request["step"]["key"]
+    searched, recorded = request["searched"], request["recorded"]
+    if step in ("constraint", "relief"):
+        if not searched:
+            return act("search_archive", query=SHERMAN_QUERY, company_slugs=["coherent"])
+        if not recorded:
+            return record(
+                body,
+                SHERMAN,
+                step=step,
+                statement=SHERMAN_STATEMENT,
+                status="planned",
+                period="fiscal 2026",
+            )
+    if not searched:
+        return act("search_archive", query=f"{step} wafers per month", company_slugs=["coherent"])
+    return act("done", summary=f"{step}: done")
+
+
+def test_a_span_two_readers_record_is_one_fact_listed_for_both_steps(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("reader", *(ChatReply.answer(reading_sherman_twice, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging_nothing, tokens=(1200, 60)),) * 2)
+    llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    investigation = run_argument(
+        atlas,
+        llm,
+        searxng,
+        editing_every_step(
+            {"constraint": RELIEF_STATEMENT, "relief": RELIEF_STATEMENT}, "needs_review"
+        ),
+    )
+
+    found = atlas.get(f"/api/v1/investigations/{investigation}")
+    tasks = {task["key"]: task for task in found["tasks"]}
+    assert {key: task["status"] for key, task in tasks.items()} == {
+        key: "succeeded" for key in PLAN
+    }
+    # One Fact row, recorded by whichever of the two Readers ran first (they run in either
+    # order).
+    [fact] = atlas.get("/api/v1/facts", investigation_id=investigation)["items"]
+    assert fact["assertion"]["quote"] == SHERMAN
+    readers = {step: tasks[f"reader:{step}"]["artifacts"] for step in ("constraint", "relief")}
+    first_step = fact["step"]
+    [second_step] = {"constraint", "relief"} - {first_step}
+    first, second = readers[first_step], readers[second_step]
+    assert (first["facts_recorded"], first["facts_reused"]) == (1, 0)
+    # The second Reader recorded nothing: the Fact counts for its step, reused.
+    assert (second["facts_recorded"], second["facts_reused"]) == (0, 1)
+    assert (second["facts_refused"], second["duplicates_refused"]) == (0, 0)
+    [reused] = second["facts"]
+    assert (reused["fact_id"], reused["step"]) == (fact["id"], second_step)
+    assert (reused["reused"], reused["reused_from_step"]) == (True, first_step)
+    assert second["facts_by_part"] == {"none": 1}
+    # The second Reader was told whose Fact it is and the reference it counts by.
+    told = next(
+        asked(b)["request"]["results"][-1]
+        for b in llm.chat_requests()
+        if b["metadata"]["role"] == "reader"
+        and asked(b)["request"]["step"]["key"] == second_step
+        and asked(b)["request"]["recorded"]
+    )
+    assert (told["action"], told["ok"]) == ("record_fact", True)
+    assert told["message"] == (
+        f"already recorded as Fact {fact['id'][:8]} by the {first_step} Reader"
+        " (coherent, planned); it counts for your step as r1"
+    )
+    # The Skeptic was sent it once.
+    skeptic_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "skeptic")
+    assert [f["step"] for f in asked(skeptic_call)["request"]["challenge"]] == [first_step]
+    # The Editor was sent it under both steps, by one reference.
+    editor_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "editor")
+    editor = asked(editor_call)["request"]
+    sent = {s["step"]: s for s in editor["steps"]}
+    [ref] = sent["constraint"]["fact_refs"]
+    assert sent["relief"]["fact_refs"] == [ref]
+    assert [f["ref"] for f in editor["facts"]] == [ref]
+    # The card lists it under both steps, each supported by its statement.
+    steps = {step["step"]: step for step in found["research_card"]["steps"]}
+    for step in ("constraint", "relief"):
+        assert [f["fact_id"] for f in steps[step]["facts"]] == [fact["id"]]
+        assert steps[step]["status"] == "supported"
+        [said] = steps[step]["statements"]
+        assert [f["fact_id"] for f in said["facts"]] == [fact["id"]]
+
+
+def challenging_with_a_reader_s_quote(body: dict[str, Any]) -> JsonValue:
+    """The Skeptic: searches, files the Control Reader's own quote as counterevidence against
+    it (refused), then stops."""
+    request = asked(body)["request"]
+    if not request["searched"]:
+        return act("search_archive", query=AGREEMENT_QUERY, company_slugs=["coherent"])
+    if not request["refused"]:
+        [control] = [f["ref"] for f in request["challenge"] if f["step"] == "control"]
+        # The hit it was sent (the challenged Facts' quotes are sent too, as f<n>).
+        [hit] = [
+            each["id"]
+            for each in asked(body)["retrieved_data"]
+            if AGREEMENT in each["text"] and each["id"].startswith("h")
+        ]
+        answer = record(
+            body,
+            AGREEMENT,
+            step="control",
+            statement="Coherent's agreement with NVIDIA is still in development.",
+            status="hedged",
+            challenges=[control],
+        )
+        cast(dict[str, Any], answer["record_fact"])["passage_id"] = hit
+        return answer
+    return act("done", summary="nothing denies the Readers' Facts")
+
+
+def test_the_skeptic_cannot_record_a_reader_s_fact_as_counterevidence(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
+    llm.script_role(
+        "skeptic", *(ChatReply.answer(challenging_with_a_reader_s_quote, tokens=(1200, 60)),) * 3
+    )
+    llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    investigation = run_argument(atlas, llm, searxng, editing)
+
+    found = atlas.get(f"/api/v1/investigations/{investigation}")
+    tasks = {task["key"]: task for task in found["tasks"]}
+    assert tasks["skeptic"]["status"] == "succeeded"
+    # No counter-Fact: the two Readers' Facts only.
+    facts = atlas.get("/api/v1/facts", investigation_id=investigation)["items"]
+    assert sorted(f["assertion"]["quote"] for f in facts) == sorted([SHERMAN, AGREEMENT])
+    # Refused, naming the Fact the Skeptic was sent to challenge by its reference.
+    skeptic_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "skeptic")
+    [control] = [
+        f["ref"] for f in asked(skeptic_call)["request"]["challenge"] if f["step"] == "control"
+    ]
+    skeptic = tasks["skeptic"]["artifacts"]
+    assert [(r["reason_code"], r["reason"]) for r in skeptic["refused"]] == [
+        (
+            "already_recorded",
+            f"that is Fact {control}, which you were sent to challenge, not counterevidence:"
+            " quote other words",
+        )
+    ]
+    assert (skeptic["facts_recorded"], skeptic["duplicates_refused"]) == (0, 1)
+    control_step = {step["step"]: step for step in found["research_card"]["steps"]}["control"]
+    assert control_step["counterevidence"] == []

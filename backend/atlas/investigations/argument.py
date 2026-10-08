@@ -43,6 +43,11 @@ The Editor's own status is kept beside it (`editor_status`). The card keeps the 
 card's fields (no `findings`: each step's statements are its findings) with `plan` `argument`
 and its `steps`.
 
+A Fact belongs to the step it was recorded for and to each step another Reader reused it for
+(one Fact per span, ticket 10; `ArgumentFacts.steps_of`): it is listed under each, for the
+Editor and on the card, and is one Fact everywhere else (one row, challenged once). Its `step`
+stays the recorded one.
+
 What each Reader and the Skeptic recorded is read from their sessions (`reader_session`): the
 Facts (by ID, with the Facts a Skeptic's speaks against), the queries, the windows read, the
 refusals and why each stopped.
@@ -152,6 +157,13 @@ class ArgumentFacts:
     invalidation_reasons: dict[uuid.UUID, dict[uuid.UUID, str]] = field(
         default_factory=dict[uuid.UUID, dict[uuid.UUID, str]]
     )
+    # A Reader's Fact -> the steps it counts for: the step it was recorded for and each step a
+    # Reader reused it for (one Fact per span, ticket 10). A Fact not listed counts for its own.
+    steps_of: dict[uuid.UUID, set[str]] = field(default_factory=dict[uuid.UUID, set[str]])
+
+    def counts_for(self, row: Mapping[Any, Any], step: str) -> bool:
+        """Whether Reader Fact `row` counts for `step`: recorded for it, or reused for it."""
+        return step in self.steps_of.get(row["id"], {row["step"]})
 
     def invalidating_of(self, fact_id: uuid.UUID) -> list[uuid.UUID]:
         """The thesis Facts invalidation Fact `fact_id` bears against: those it contradicts,
@@ -346,13 +358,28 @@ def argument_facts(
     roles: dict[uuid.UUID, str] = {}
     rounds: dict[uuid.UUID, int] = {}
     against: dict[uuid.UUID, list[uuid.UUID]] = {}
+    steps_of: dict[uuid.UUID, set[str]] = {}
+    # A Fact's role and round are its recorder's; a Reader that reused it (ticket 10) only adds
+    # the step it counts for.
     for session in sessions:
         for fact in session.state.facts:
+            if session.role == "reader":
+                steps_of.setdefault(fact.fact_id, set()).add(fact.step)
+            if fact.reused:
+                continue
             roles[fact.fact_id] = session.role
             rounds[fact.fact_id] = session.round
             if session.role == "skeptic":
                 against[fact.fact_id] = list(fact.challenged_fact_ids)
+    for session in sessions:
+        for fact in session.state.facts:
+            if fact.reused and fact.fact_id not in roles:  # no session recorded it
+                roles[fact.fact_id] = session.role
+                rounds[fact.fact_id] = session.round
     rows = fact_rows(connection, list(roles), statements=statements)
+    for row in rows:
+        if row["id"] in steps_of:
+            steps_of[row["id"]].add(row["step"])
     relations, reasons = skeptic_relations(connection, investigation_id)
     invalidation, invalidation_reasons = invalidation_relations(connection, investigation_id)
     return ArgumentFacts(
@@ -365,6 +392,7 @@ def argument_facts(
         reasons=reasons,
         invalidation=invalidation,
         invalidation_reasons=invalidation_reasons,
+        steps_of=steps_of,
     )
 
 
@@ -583,7 +611,7 @@ def build_steps(
         supporting = [
             row
             for row in facts.supporting
-            if row["step"] == definition.key or row["id"] in cited_ids
+            if facts.counts_for(row, definition.key) or row["id"] in cited_ids
         ]
         ids = {row["id"] for row in supporting}
         # The Skeptic's Facts that contradict, limit or date a thesis Fact also break the

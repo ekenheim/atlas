@@ -642,3 +642,52 @@ def test_a_fact_whose_period_contradicts_the_document_s_date_is_refused_and_the_
     # The Reader is told the resolution with the Fact it recorded.
     [summary] = asked(calls[3])["request"]["recorded"]
     assert summary["period_resolved"] == detail["period_resolved"]
+
+
+def test_the_same_span_recorded_twice_by_one_reader_gives_one_fact_and_the_reader_is_told_its_ref(
+    start: Callable[..., Atlas], llm: FakeLiteLLM
+) -> None:
+    # Ticket 10: on 0.5.5's question 2 one Reader recorded "might not be enough" three times.
+    atlas = start()
+    llm.script_role(
+        "reader",
+        ChatReply.json(
+            act("search_archive", query=SHERMAN_QUERY, company_slugs=["coherent"]),
+            tokens=(1500, 60),
+        ),
+        fact(
+            lambda body: holding(body, SHERMAN),
+            SHERMAN,
+            statement="Coherent announced the expansion of its Sherman, Texas, manufacturing"
+            " facility.",
+            status="planned",
+        ),
+        # The same span again, for another step: one Fact per span, whatever the step.
+        fact(
+            lambda body: holding(body, SHERMAN),
+            SHERMAN,
+            step="constraint",
+            statement="Coherent is expanding its Sherman facility.",
+            status="in_effect",
+        ),
+        ChatReply.json(act("done", summary="the Sherman expansion, once"), tokens=(2000, 30)),
+    )
+
+    job_id = read_step(atlas)
+
+    artifacts = atlas.get(f"/api/v1/jobs/{job_id}")["artifacts"]
+    assert (artifacts["reader_status"], artifacts["calls"]) == ("done", 4)
+    # One Fact row.
+    [found] = atlas.get("/api/v1/facts")["items"]
+    assert (found["step"], found["assertion"]["quote"]) == ("relief", SHERMAN)
+    [recorded] = artifacts["facts"]
+    assert (recorded["ref"], recorded["fact_id"], recorded["reused"]) == ("r1", found["id"], False)
+    # The second was refused as a duplicate, and the Reader was told the Fact's reference.
+    assert [r["reason_code"] for r in artifacts["refused"]] == ["already_recorded"]
+    assert (artifacts["facts_recorded"], artifacts["facts_reused"]) == (1, 0)
+    assert (artifacts["facts_refused"], artifacts["duplicates_refused"]) == (1, 1)
+    told = asked(reader_requests(llm)[3])["request"]["results"][-1]
+    assert (told["action"], told["ok"]) == ("record_fact", False)
+    assert told["message"].startswith(
+        "refused (already_recorded): this quote is already recorded as r1 (relief, planned)"
+    )

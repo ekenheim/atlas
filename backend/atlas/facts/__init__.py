@@ -11,6 +11,10 @@ Recorded with the document's date and the company's fiscal year end, a Fact's re
 ("this calendar year", "the current quarter") are resolved by code and a period the date
 contradicts is refused (`periods`; R2-02).
 
+A Fact the investigation holds already is not recorded again (`duplicates`, ticket 10): the
+same span or folded quote, or an overlapping span with the same status and an alike statement,
+of the same company and Source Version.
+
 Recording is insert-only and audited (`fact.created`, with the Assertion's own
 `assertion.created`, in one transaction). Review of a Fact is its Assertion's review.
 """
@@ -27,6 +31,7 @@ from atlas.facts.service import (
     FactValue,
     PeriodBasis,
     Quantity,
+    facts_of_version,
     get_fact,
     list_facts,
 )
@@ -43,6 +48,7 @@ __all__ = [
     "Facts",
     "PeriodBasis",
     "Quantity",
+    "facts_of_version",
     "get_fact",
     "list_facts",
 ]

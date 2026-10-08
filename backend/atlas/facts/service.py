@@ -348,6 +348,72 @@ def list_facts(
     return [_build(connection, row) for row in rows], total
 
 
+_ASSERTION_COLUMNS = (
+    "id",
+    "subject_company_id",
+    "predicate",
+    "object_company_id",
+    "value_json",
+    "source_version_id",
+    "quote",
+    "span_start",
+    "span_end",
+    "page_or_anchor",
+    "event_start",
+    "event_end",
+    "epistemic_type",
+    "independence_family_id",
+    "extracted_at",
+    "extractor_version",
+    "created_by",
+    "parser_version",
+    "reviewer_id",
+    "reviewed_at",
+    "superseded_by",
+)
+
+
+def facts_of_version(
+    connection: Connection, investigation_id: uuid.UUID, source_version_id: uuid.UUID
+) -> list[Fact]:
+    """The investigation's Facts quoting the Source Version, oldest first (one query): what a
+    new Fact of that version is checked against for duplicates (`atlas.facts.duplicates`)."""
+    columns = ", ".join(f"a.{column}" for column in _ASSERTION_COLUMNS)
+    rows = connection.execute(
+        text(
+            f"SELECT {columns}, a.verification_status AS review_state,"  # noqa: S608 (constant columns)
+            " f.investigation_id AS fact_investigation_id, f.created_at AS fact_created_at"
+            " FROM fact f JOIN assertion a ON a.id = f.assertion_id"
+            " WHERE f.investigation_id = :investigation AND a.source_version_id = :version"
+            " ORDER BY f.created_at, f.assertion_id"
+        ),
+        {"investigation": investigation_id, "version": source_version_id},
+    ).mappings()
+    facts: list[Fact] = []
+    for row in rows:
+        assertion = Assertion.model_validate(
+            {key: row[key] for key in (*_ASSERTION_COLUMNS, "review_state")}
+        )
+        value = FactValue.model_validate(row["value_json"])
+        facts.append(
+            Fact(
+                id=assertion.id,
+                investigation_id=row["fact_investigation_id"],
+                step=value.step,
+                status=value.status,
+                statement=value.statement,
+                quantity=value.quantity,
+                period=value.period,
+                part=value.part,
+                period_resolved=value.period_resolved,
+                period_basis=value.period_basis,
+                created_at=row["fact_created_at"],
+                assertion=assertion,
+            )
+        )
+    return facts
+
+
 class Facts:
     """The write side: record a Fact, audited, in one transaction."""
 

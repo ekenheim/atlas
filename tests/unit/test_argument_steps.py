@@ -285,3 +285,46 @@ def test_a_skeptic_contradiction_of_a_thesis_fact_also_makes_invalidation_found(
     # A Skeptic Fact that only qualifies the thesis, or could not be judged, breaks nothing.
     assert invalidation_step("supports", skeptic="qualifies").status == "nothing_found"
     assert invalidation_step("supports", skeptic="unjudged").status == "nothing_found"
+
+
+def test_a_fact_reused_by_another_step_counts_for_both_in_build_steps() -> None:
+    # One Fact per span (ticket 10): the Control Fact, recorded for control, reused by the
+    # capture Reader.
+    def built(
+        steps_of: dict[uuid.UUID, set[str]], capture: bool = False
+    ) -> dict[str, CardArgumentStep]:
+        facts = ArgumentFacts(
+            sessions=[], supporting=[CONTROL, RELIEF], counter=[], steps_of=steps_of
+        )
+        said = StepStatement(
+            kept=[KeptStatement("Vantor is the sole qualified supplier.", ["c1"], True)],
+            editor_status="supported",
+            unchecked=[],
+        )
+        statements = {"control": said, **({"capture": said} if capture else {})}
+        steps = build_steps(
+            facts,
+            statements,
+            {"c1": CONTROL, "c2": RELIEF},
+            skeptic_checked={CONTROL["id"], RELIEF["id"]},
+            skeptic_ran=True,
+        )
+        return {step.step: step for step in steps}
+
+    reused = {CONTROL["id"]: {"control", "capture"}, RELIEF["id"]: {"relief"}}
+    shared = built(reused)
+
+    # Listed under both steps, though no statement cites it under capture.
+    assert [f.fact_id for f in shared["control"].facts] == [CONTROL["id"]]
+    assert [f.fact_id for f in shared["capture"].facts] == [CONTROL["id"]]
+    assert [f.step for f in shared["capture"].facts] == ["control"]  # the recorded step
+    assert shared["control"].status == "supported"
+    assert shared["capture"].status == "unknown"  # no kept statement
+    assert "no Fact was recorded for this step" not in shared["capture"].unchecked
+    # Without the reuse, capture has no Fact.
+    assert built({})["capture"].facts == []
+    # A kept statement citing it under capture: both steps are supported by the one Fact.
+    both = built(reused, capture=True)
+    assert (both["control"].status, both["capture"].status) == ("supported", "supported")
+    assert [f.fact_id for f in both["capture"].facts] == [CONTROL["id"]]
+    assert [[f.fact_id for f in s.facts] for s in both["capture"].statements] == [[CONTROL["id"]]]
