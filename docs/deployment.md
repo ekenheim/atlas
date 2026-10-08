@@ -81,3 +81,7 @@ In the same settings page, check that **Manage Actions access** lists `ekenheim/
 ### Deploying a release
 
 Renovate in home-ops sees the new `X.Y.Z` tag and opens a bump PR. Automerge is off for Atlas, so the owner merges the PR to deploy (spec Part B: Releases).
+
+### The worker's lease
+
+The worker renews its job's lease while the job runs (`docs/runbooks.md`, "The worker's lease"), so `ATLAS_JOB_LEASE_SECONDS` only sets how soon a crashed worker's job is reclaimed. The home-ops override `ATLAS_JOB_LEASE_SECONDS=1800` can be removed once the release containing the heartbeat is deployed; the default of 300 s then reclaims a crashed worker's job within 5 minutes.

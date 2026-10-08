@@ -6,14 +6,14 @@ import os
 import socket
 import threading
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import timedelta
 
 from sqlalchemy.exc import OperationalError
 
 from atlas.jobs.handlers import HandlerRegistry, Schedule
 from atlas.jobs.pacing import Requeue, classify_failure
-from atlas.jobs.queue import Job, JobQueue
+from atlas.jobs.queue import Artifacts, Job, JobQueue
 
 log = logging.getLogger("atlas.worker")
 
@@ -30,12 +30,14 @@ class Worker:
         worker_id: str | None = None,
         lease: timedelta = timedelta(minutes=5),
         schedules: Sequence[Schedule] = (),
+        heartbeat: bool = True,
     ) -> None:
         self.queue = queue
         self.registry = registry
         self.worker_id = worker_id or default_worker_id()
         self.lease = lease
         self.schedules = list(schedules)
+        self.heartbeat = heartbeat
 
     def run_once(self) -> int:
         """Enqueue what the schedules say is due, then process jobs until none is runnable;
@@ -78,30 +80,67 @@ class Worker:
             log.error(error, extra=context)
             self.queue.fail(job, self.worker_id, error, retry=False)
             return
+        stop = threading.Event()
+        beat: threading.Thread | None = None
+        if self.heartbeat:
+            beat = threading.Thread(
+                target=self._heartbeat, args=(job, stop), name="lease-heartbeat", daemon=True
+            )
+            beat.start()
+        failure: Exception | None = None
+        artifacts: Artifacts = {}
         try:
             artifacts = handler(job) or {}
             json.dumps(artifacts)  # unserializable artifacts fail the attempt, not the worker
-        except Requeue as error:
+        except Exception as error:
+            failure = error
+        finally:
+            # Whatever the outcome, the heartbeat ends before the job is completed, requeued,
+            # paused or failed, so a renewal never races the row's final update.
+            stop.set()
+            if beat is not None:
+                beat.join()
+        if failure is None:
+            self._succeeded(job, artifacts, context)
+        else:
+            self._failed(job, failure, context)
+
+    def _heartbeat(self, job: Job, stop: threading.Event) -> None:
+        """Renew the job's lease every third of its length while the handler runs."""
+        interval = (self.lease / 3).total_seconds()
+        context = {"job_id": str(job.id), "kind": job.kind, "attempt": job.attempts}
+        while not stop.wait(interval):
+            try:
+                held = self.queue.extend_lease(job, self.worker_id, self.lease)
+            except OperationalError as error:
+                log.error(f"lease renewal failed: {_first_line(error)}", extra=context)
+                continue
+            if not held:
+                log.warning("lease lost; heartbeat stopped", extra=context)
+                break
+
+    def _failed(self, job: Job, error: Exception, context: Mapping[str, object]) -> None:
+        if isinstance(error, Requeue):
             # Not a failure: the job goes back to the queue with its attempt, nothing paused.
             log.info(f"job requeued: {error}", extra=context)
             self.queue.requeue(job, self.worker_id, f"{type(error).__name__}: {error}")
             return
-        except Exception as error:
-            message = f"{type(error).__name__}: {error}"
-            failure_class = classify_failure(error)
-            if failure_class is not None and self.registry.pausable(job.kind):
-                # Quota or outage: not the job's fault. Pause, and requeue it untouched.
-                pause, _ = self.queue.pause(
-                    job, self.worker_id, message, failure_class, self.registry.pausable_kinds()
-                )
-                log.warning(
-                    f"queue paused ({failure_class}) until {pause.resume_after}: {message}",
-                    extra=context | {"pause_level": pause.level},
-                )
-                return
-            log.exception("job attempt failed", extra=context)
-            self.queue.fail(job, self.worker_id, message)
+        message = f"{type(error).__name__}: {error}"
+        failure_class = classify_failure(error)
+        if failure_class is not None and self.registry.pausable(job.kind):
+            # Quota or outage: not the job's fault. Pause, and requeue it untouched.
+            pause, _ = self.queue.pause(
+                job, self.worker_id, message, failure_class, self.registry.pausable_kinds()
+            )
+            log.warning(
+                f"queue paused ({failure_class}) until {pause.resume_after}: {message}",
+                extra={**context, "pause_level": pause.level},
+            )
             return
+        log.error("job attempt failed", exc_info=error, extra=context)
+        self.queue.fail(job, self.worker_id, message)
+
+    def _succeeded(self, job: Job, artifacts: Artifacts, context: Mapping[str, object]) -> None:
         if self.queue.complete(job, self.worker_id, artifacts):
             log.info("job succeeded", extra=context)
             if self.registry.pausable(job.kind) and self.queue.clear_pause():

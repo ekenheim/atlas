@@ -342,8 +342,10 @@ class TaskRunner:
         except TokenBudgetExhausted as error:
             outcome = _Outcome("budget_exhausted", detail=_budget_detail(task["role"], error))
         except Exception as error:
-            self._failed(job, investigation["id"], task, error)
-            raise
+            settled = self._failed(job, investigation["id"], task, error)
+            if settled is None:
+                raise
+            return settled
         with self._engine.begin() as connection:
             self._finish(connection, investigation["id"], task_id, job, outcome)
         return {
@@ -476,12 +478,49 @@ class TaskRunner:
 
     def _failed(
         self, job: Job, investigation_id: uuid.UUID, task: RowMapping, error: Exception
-    ) -> None:
+    ) -> Artifacts | None:
+        """Record a failed attempt. Returns artifacts (the job then succeeds) when the attempt
+        was late: another attempt finished the task, or the investigation stopped meanwhile.
+        None means the failure stands and the caller re-raises."""
         message = f"{type(error).__name__}: {error}"[:_ERROR_LIMIT]
         failure_class = classify_failure(error)
         with self._engine.begin() as connection:
-            lock(connection, investigation_id)
+            current = lock(connection, investigation_id)
+            task = _task(connection, task["id"], for_update=True)
             where = {"round": task["round"], "task_key": task["key"]}
+            if task["status"] != "running" or task["job_id"] != job.id:
+                return {
+                    "task_id": str(task["id"]),
+                    "investigation_id": str(investigation_id),
+                    "status": task["status"],
+                    "ran": False,
+                    "reason": "superseded",
+                }
+            if current["status"] != "running":
+                _set_status(
+                    connection,
+                    task["id"],
+                    "skipped",
+                    detail=(
+                        f"the investigation stopped ({current['stop_reason']}) before this"
+                        f" attempt finished: {message}"
+                    ),
+                )
+                event(
+                    connection,
+                    investigation_id,
+                    "task_skipped",
+                    **where,
+                    reason="investigation_stopped",
+                    error=message,
+                )
+                return {
+                    "task_id": str(task["id"]),
+                    "investigation_id": str(investigation_id),
+                    "status": "skipped",
+                    "ran": True,
+                    "reason": "investigation_stopped",
+                }
             if failure_class is not None:
                 # The worker pauses the queue and requeues the job without using the attempt.
                 _set_status(connection, task["id"], "queued")

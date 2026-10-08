@@ -10,6 +10,7 @@ actor: the configured one, or the system actor for work Atlas schedules itself),
 queue pause entered and cleared (`queue.paused`, `queue.pause_cleared`). Claims, leases,
 retries, requeues and completions are not: they are operational churn, kept in the job
 row's own history (`attempts`, `failures`, `lease_owner`, timestamps; docs/decisions.md).
+That includes a worker's lease renewals while a handler runs (`extend_lease`).
 """
 
 import json
@@ -324,6 +325,28 @@ class JobQueue:
         with self._engine.begin() as connection:
             sweep(connection, now)
             return holds(window_usage(connection, budgets, now).values())
+
+    def extend_lease(self, job: Job, owner: str, lease: timedelta) -> bool:
+        """Renew the lease of `job` for `lease` from now, as the worker's heartbeat does while
+        a handler runs. True iff `owner` still holds the running attempt's lease; False means
+        it was lost (reclaimed, reassigned or finished) and the lease is left alone. Not
+        audited: operational churn, like claims."""
+        with self._engine.begin() as connection:
+            result = connection.execute(
+                text(
+                    "UPDATE job SET lease_expires_at = now() + make_interval(secs => :lease), "
+                    "updated_at = now() "
+                    "WHERE id = :id AND lease_owner = :owner AND status = 'running' "
+                    "  AND attempts = :attempt RETURNING id"
+                ),
+                {
+                    "id": job.id,
+                    "owner": owner,
+                    "attempt": job.attempts,
+                    "lease": lease.total_seconds(),
+                },
+            )
+            return result.first() is not None
 
     def complete(self, job: Job, owner: str, artifacts: Artifacts) -> bool:
         """Record success. False if `owner` no longer holds this attempt's lease."""

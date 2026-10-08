@@ -36,6 +36,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from atlas.investigations.pointers import round_reading
+from atlas.investigations.service import lock, stop
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
@@ -5071,3 +5072,82 @@ def test_a_company_the_skeptic_was_left_no_document_for_is_listed_as_not_checked
         " the Skeptic did not check Coherent, so nothing said of it was challenged"
         " (see the card's skeptic_coverage)"
     )
+
+
+# --- a late attempt (bottleneck-argument ticket 09) -----------------------------------------------
+
+
+def test_a_task_attempt_failing_after_its_investigation_stopped_is_skipped_not_queued(
+    services: Services, llm: FakeLiteLLM
+) -> None:
+    atlas = services.start(ingest=False)
+    started = seeded(atlas, "coherent")
+
+    stopped: list[tuple[int, str]] = []
+
+    def stop_then_garbage(body: dict[str, Any]) -> JsonValue:
+        # The investigation stops while the Scout's role call is in flight; the answer is
+        # unusable, so the attempt fails after the stop.
+        investigation_id = uuid.UUID(started["id"])
+        with atlas.engine.begin() as connection:
+            lock(connection, investigation_id)
+            stop(connection, investigation_id, "premise_disproven", "stopped by another attempt")
+        stopped.append((200, ""))
+        return {"unexpected": "shape"}
+
+    llm.script_role("scout", ChatReply.answer(stop_then_garbage), ChatReply.text("not json"))
+
+    atlas.worker_pass()
+
+    assert [code for code, _ in stopped][:1] == [200], stopped
+    found = investigation(atlas, started["id"])
+    assert (found["status"], found["stop_reason"]) == ("stopped", "premise_disproven")
+    scout = tasks(found)["scout"]
+    assert scout["status"] == "skipped"
+    assert scout["detail"].startswith(
+        "the investigation stopped (premise_disproven) before this attempt finished: "
+    )
+    scout_events = [e for e in events(atlas, started["id"]) if e["task_key"] == "scout"]
+    kinds = [e["type"] for e in scout_events]
+    assert "task_skipped" in kinds
+    assert "task_attempt_failed" not in kinds
+    skipped = next(e for e in scout_events if e["type"] == "task_skipped")
+    assert skipped["detail"]["reason"] == "investigation_stopped"
+    assert "error" in skipped["detail"]
+    job = atlas.get(f"/api/v1/jobs/{scout['job_id']}")
+    assert job["status"] == "succeeded"
+    assert job["attempts"] == 1
+    assert job["artifacts"]["reason"] == "investigation_stopped"
+    assert not {"queued", "running"} & set(statuses(found).values())
+
+
+def test_a_late_attempt_of_a_task_another_attempt_already_finished_changes_nothing(
+    services: Services, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    atlas = services.start()
+    started = seeded(atlas, "coherent", "lumentum")
+    script_parallel(llm)
+    llm.script_chat(
+        scout_reply(),
+        ChatReply.answer(quoting(supply_claim(atlas)), tokens=(9000, 700)),
+        ChatReply.answer(editing(), tokens=(3000, 400)),
+        REVIEWED,
+    )
+    script_searches(searxng)
+    atlas.worker_pass()
+    before = investigation(atlas, started["id"])
+    assert (before["status"], before["stop_reason"]) == ("stopped", "answered")
+    events_before = events(atlas, started["id"])
+    editor_job = JobQueue(atlas.engine).get(uuid.UUID(tasks(before)["editor"]["job_id"]))
+    assert editor_job is not None
+    handler = builtin_registry(atlas.settings()).get("investigation_task")
+    assert handler is not None
+
+    late = handler(editor_job)
+
+    assert late is not None
+    assert late["ran"] is False
+    after = investigation(atlas, started["id"])
+    assert tasks(after)["editor"]["status"] == "succeeded"
+    assert after["research_card"] == before["research_card"]
+    assert events(atlas, started["id"]) == events_before
