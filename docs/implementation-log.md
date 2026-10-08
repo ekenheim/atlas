@@ -3873,3 +3873,26 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Added size per call (Answer format section, chars, tokens = chars/4):** reader 6,488 (1,622), skeptic-argument 6,488 (1,622), editor-hypothesis 3,691 (922), financial-analyst 3,498 (874), skeptic 3,419 (854), investigator 2,950 (737), editor-argument 2,548 (637), finding-judge 2,100 (525), reviewer 1,897 (474), editor 1,864 (466), mention-extractor 1,797 (449), triage 1,660 (415), scout 1,569 (392), counter-judge 1,275 (318), skeptic-plan 1,247 (311), editor-revise 1,184 (296), triage-judge 1,051 (262), editor-reground 1,014 (253). The Reader is called about 140 times an investigation: about 227,000 input tokens (about 15% on top of its 13,856-character prompt per call).
 - **Fixture only:** nothing was run live in this change; the live probe results that motivate it are in `docs/decisions.md`. The effect on repairs and quarantines needs the next pilot.
 - **Deviations:** a migration (the only visible place for the format version without storing it in the role's request).
+
+## R3-03: the judge's basis check accepts source and date clauses; a rewrite cannot add limitations (8 October)
+
+- **What:** `meaning.verify_bases(judgement, quotes, *, metadata=())` verifies a clause naming only a cited document's source or date (`metadata_only`, `METADATA_WORDS`); `checked`, `Voting.ballot`/`__call__` and `_ballot` take and pass `metadata`; `judge_findings` builds it per finding (`finding_metadata`: each cited row's `subject_name`, `source_title` and `date_texts(source_day(row))`) for both attempts and for the card's `unverified`. A revised draft keeps limitations only if the finding was drafted with some. `JUDGE_LIMIT` names the rule. No prompt change.
+- **Files:** `backend/atlas/investigations/meaning.py`; `tests/unit/test_finding_meaning.py`, `tests/integration/test_argument_plan.py`; `.scratch/tools/judge_bases_replay.py` (replaces the diagnostician's `judge_bases_sim.py`, which was never committed); `docs/decisions.md`.
+- **Tests (actual, WSL, local Postgres):** `tests/unit/test_finding_meaning.py` 15 passed (new: `test_a_clause_naming_only_the_quote_s_source_or_date_needs_no_basis`, `test_a_clause_with_a_word_beyond_the_metadata_still_needs_a_basis`, `test_a_date_or_title_of_a_document_the_finding_does_not_cite_is_not_metadata`, `test_a_rewrite_cannot_add_limitations_to_a_finding_that_had_none`; `test_a_clause_whose_basis_is_not_in_its_quote_makes_the_finding_misstated` unchanged and passing); `tests/integration/test_argument_plan.py` 17 passed (new: `test_a_statement_naming_its_fact_s_date_is_kept_when_the_judge_bases_the_date_on_the_request`). With the metadata rule switched off, the first new unit test and the integration test failed (red checked). ruff format and check clean, pyright 0 errors.
+- **Replay** (`uv run python .scratch/tools/judge_bases_replay.py --data <live-runs>/pilot-0.5.4-arg --data <live-runs>/pilot-0.5.5-arg`, WSL, saved cards):
+
+      pilot-0.5.4-arg/inv-1: first-attempt send-backs avoided 2 of 2; drops rescued 0 of 0
+      pilot-0.5.4-arg/inv-2: first-attempt send-backs avoided 2 of 4; drops rescued 1 of 8
+      pilot-0.5.4-arg/inv-5: first-attempt send-backs avoided 0 of 1; drops rescued 0 of 4
+      pilot-0.5.5-arg/inv-1: first-attempt send-backs avoided 10 of 12; drops rescued 0 of 2
+      pilot-0.5.5-arg/inv-2: first-attempt send-backs avoided 9 of 12; drops rescued 11 of 11
+      pilot-0.5.5-arg/inv-3: first-attempt send-backs avoided 14 of 15; drops rescued 11 of 13
+      TOTAL: first-attempt send-backs avoided 37 of 46; drops rescued 23 of 38
+
+  (acceptance: at least 29 of 46 and 22 of 38). The cards do not save quotes, so the replay takes a clause with a basis as its first check found it and re-checks only the ones the card listed as unverified; a clause that is one of a rewrite's limitations is not counted when the finding was drafted without.
+- **Fixture only:** everything; no live call.
+- **Deviations:**
+  - A month, day, year or ISO date is metadata only when it is one of the cited documents' dates (`date_texts`), not any date: acceptance 3 ("(August 27, 2026)" with metadata of another date is unverified) needs it, and the replay still clears 37 and 23.
+  - Tokens also take `_`, so the literal `source_date` is one token (the spec's letters, digits, `-` and `.` would split it).
+  - A two-digit fiscal year (`fy26`) is a period token too.
+- **Next:** a pilot re-run; the judge's own `misstated` verdicts on such preambles (e.g. "(Q4 2025)" in 0.5.5 Q3) are untouched.

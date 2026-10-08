@@ -8,11 +8,11 @@ are synthetic, shaped like the pilot's; none is production text.
 
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
-from atlas.investigations.grounding import CheckedFinding
-from atlas.investigations.meaning import judge_findings
+from atlas.investigations.grounding import CheckedFinding, date_texts
+from atlas.investigations.meaning import checked, judge_findings, verify_bases
 from atlas.roles.caller import RoleOutputQuarantined, TokenBudgetExhausted
 from atlas.roles.contract import QuotedText
 from atlas.roles.editor import (
@@ -492,3 +492,120 @@ def test_a_vote_whose_basis_is_unverified_counts_as_misstated_under_either_rule(
         assert judged.reason.startswith("basis unverified: ")
     judged = voting(scripted(wrong, right), 2, "all")(request, quotes)[0]
     assert judged.verdict == "supported"
+
+
+# --- R3-03: a clause naming only its quote's source or date is metadata ---------------------------
+
+
+def fact_metadata(company: str, title: str, day: str) -> list[str]:
+    """A cited Fact's metadata as `judge_findings` builds it: its company, its source's title
+    and the ways a statement names its document's date."""
+    return [company, title, *date_texts(date.fromisoformat(day))]
+
+
+def test_a_clause_naming_only_the_quote_s_source_or_date_needs_no_basis() -> None:
+    quotes = [QuotedText(id="c2", source="v#1-2", text=CALL)]
+    cases = [
+        ("(Q3 2026 call)", fact_metadata("Fabrinet", "Q3 2026", "2026-05-04")),
+        (
+            "In its 10-Q filed August 13, 2026,",
+            fact_metadata("Lumentum Holdings", "Lumentum 10-Q", "2026-08-13"),
+        ),
+        (
+            "At the Deutsche Bank 2026 Technology Conference (August 27, 2026), Lumentum's CEO"
+            " said:",
+            fact_metadata(
+                "Lumentum", "Lumentum at the Deutsche Bank 2026 Technology Conference", "2026-08-27"
+            ),
+        ),
+        ("(source_date 2025-11-04)", fact_metadata("AXT", "AXT Q3 2025 call", "2025-11-04")),
+    ]
+    for text, metadata in cases:
+        for ref, basis in ((None, None), ("c2", "a call held in a quarter")):
+            vote = supported(
+                clause(text, ref, basis),
+                clause("demand exceeds its supply", "c2", "demand exceeds our supply"),
+            )
+            assert verify_bases(vote, quotes, metadata=metadata) == [], text
+            assert checked(vote, quotes, metadata) == vote, text
+        # Without the cited document's metadata the same clause still needs a basis.
+        assert verify_bases(supported(clause(text, None, None)), quotes) == [text]
+
+    # Through `judge_findings`, the metadata is the cited Claims' own: c1's 8-K of May 14, 2026.
+    preamble = "In an 8-K filed May 14, 2026, Zephyr Optics disclosed:"
+    statement = f"{preamble} an agreement with Halcyon Networks for 200G EMLs."
+    vote = supported(
+        clause(preamble, None, None),
+        clause(
+            "an agreement with Halcyon Networks for 200G EMLs",
+            "c1",
+            "Agreement with Halcyon Networks for 200G EMLs",
+        ),
+    )
+    result = judge_findings(
+        [finding(statement, "c1")], CLAIMS, QUESTION, [], Judge({statement: vote}), never
+    )
+    [verdict] = result.judgements
+    assert (verdict.verdict, verdict.outcome, verdict.unverified) == ("supported", "kept", [])
+    assert result.outcomes[0].kept
+
+
+def test_a_clause_with_a_word_beyond_the_metadata_still_needs_a_basis() -> None:
+    quotes = [QuotedText(id="c2", source="v#1-2", text=CALL)]
+    metadata = fact_metadata("AXT", "AXT Q3 2026 call", "2026-10-30")
+    content = "(Q3 2026 call) InP substrate prices rose"
+    limitation = "The cited quote does not characterize this as a gross margin compression"
+    vote = supported(clause(content, None, None), clause(limitation, None, None))
+
+    assert verify_bases(vote, quotes, metadata=metadata) == [content, limitation]
+    assert checked(vote, quotes, metadata).verdict == "misstated"
+
+
+def test_a_date_or_title_of_a_document_the_finding_does_not_cite_is_not_metadata() -> None:
+    quotes = [QuotedText(id="c2", source="v#1-2", text=CALL)]
+    # The cited document is of May 14, 2026; the clauses date and name another one.
+    metadata = fact_metadata("Lumentum", "Lumentum Q3 2026 call", "2026-05-14")
+    for text in ("(August 27, 2026)", "At the Deutsche Bank Technology Conference"):
+        vote = supported(clause(text, None, None))
+        assert verify_bases(vote, quotes, metadata=metadata) == [text]
+
+
+def test_a_rewrite_cannot_add_limitations_to_a_finding_that_had_none() -> None:
+    added = ["The quote does not say supply has begun."]
+
+    def revise(
+        request: EditorReviseRequest, quotes: list[QuotedText]
+    ) -> tuple[RevisedFindings, uuid.UUID]:
+        return (
+            RevisedFindings(
+                findings=[
+                    RevisedFinding(finding=each.finding, statement=REWRITTEN, limitations=added)
+                    for each in request.findings
+                ]
+            ),
+            uuid.uuid4(),
+        )
+
+    # An argument statement: drafted with no limitations, judged again with none.
+    bare = CheckedFinding(
+        CardFindingDraft(
+            statement=MISSTATED_STATEMENT, claim_refs=["c1"], limitations=[], open_questions=[]
+        ),
+        ["c1"],
+        [],
+    )
+    judge = Judge({MISSTATED_STATEMENT: misstated(), REWRITTEN: supported()})
+    result = judge_findings([bare], CLAIMS, QUESTION, [], judge, revise)
+    second, _ = judge.asked[1]
+    assert (second.finding.statement, second.finding.limitations) == (REWRITTEN, [])
+    assert result.outcomes[0].draft.limitations == []
+    assert result.judgements[-1].limitations == []
+
+    # A default-plan finding with limitations keeps the rewritten ones.
+    judge = Judge({MISSTATED_STATEMENT: misstated(), REWRITTEN: supported()})
+    result = judge_findings(
+        [finding(MISSTATED_STATEMENT, "c1")], CLAIMS, QUESTION, [], judge, revise
+    )
+    second, _ = judge.asked[1]
+    assert second.finding.limitations == added
+    assert result.outcomes[0].draft.limitations == added

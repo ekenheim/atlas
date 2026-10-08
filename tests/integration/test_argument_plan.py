@@ -1477,6 +1477,95 @@ def test_the_judge_and_the_editor_are_told_each_fact_s_document_date(
     assert steps["relief"]["statement"] == RELIEF_REWRITTEN
 
 
+# --- R3-03: a clause naming the quote's date needs no basis ------------------------------------
+
+
+def editing_with_source_date(body: dict[str, Any]) -> JsonValue:
+    """The Relief statement naming its Fact's `source_date`, as the Editor is told to."""
+    card = cast(dict[str, Any], editing(body))
+    [fact] = [f for f in asked(body)["request"]["facts"] if f["step"] == "relief"]
+    for step in card["steps"]:
+        if step["step"] == "relief":
+            step["statement"] = (
+                RELIEF_STATEMENT.removesuffix(".") + f" (source_date {fact['source_date']})."
+            )
+    return card
+
+
+def judging_the_date_without_basis(body: dict[str, Any]) -> JsonValue:
+    """The judge: supported; a statement's `(source_date ...)` clause tied to no quote (the
+    date is the request's, not a quote's), the rest to the first quote, whole."""
+    request = asked(body)
+    statement = request["request"]["finding"]["statement"]
+    if "source_date" not in statement:
+        return supporting(body)
+    head, _, tail = statement.partition(" (source_date")
+    quote = request["retrieved_data"][0]
+    return {
+        "clauses": [
+            {"text": head, "ref": quote["id"], "basis": quote["text"]},
+            {"text": "(source_date" + tail, "ref": None, "basis": None},
+        ],
+        "verdict": "supported",
+        "beyond": [],
+        "kinds": [],
+        "reason": "the quote states it; the date is the request's source_date",
+    }
+
+
+def test_a_statement_naming_its_fact_s_date_is_kept_when_the_judge_bases_the_date_on_the_request(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", *(ChatReply.answer(judging_the_date_without_basis),) * 2)
+    llm.script_role("question_planner", PLANNED)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing_with_source_date, tokens=(3000, 400)),  # the Editor
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    started = response.json()
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{started['id']}")
+    card = found["research_card"]
+    steps = {step["step"]: step for step in card["steps"]}
+    relief = steps["relief"]["statement"]
+    assert relief.startswith(RELIEF_STATEMENT.removesuffix(".") + " (source_date 20")
+    assert card["unsupported_findings"] == []
+    # The judge's own verdict stands: the date clause, tied to no quote, needs no basis.
+    [judged] = [j for j in card["judged"] if j["statement"] == relief]
+    assert (judged["verdict"], judged["outcome"], judged["unverified"]) == (
+        "supported",
+        "kept",
+        [],
+    )
+    assert judged["clauses"][1]["basis"] is None
+    editor = next(t for t in found["tasks"] if t["key"] == "editor")["artifacts"]
+    assert editor["meaning"]["misstated"] == 0
+    assert editor["meaning"]["revise_role_call_id"] is None
+    # No rewrite was asked: the Editor's only call is its card.
+    roles = [body["metadata"]["role"] for body in llm.chat_requests()]
+    assert roles.count("editor") == 1
+    assert roles.count("finding_judge") == 2
+
+
 # --- the question's parts (pilot-review R2-01) -------------------------------------------------
 
 OFF_QUESTION_QUERY = "capacity expansion plans"  # names none of the planned parts' terms
