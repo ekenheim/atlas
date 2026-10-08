@@ -1,10 +1,13 @@
 """The Fact's quantity rule and value validation (no database)."""
 
+from datetime import date
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
 from atlas.assertions import InvalidAssertion
-from atlas.facts import FactValue, Quantity
+from atlas.facts import FactValue, PeriodBasis, Quantity
 from atlas.facts.service import check_quantity, check_status
 
 
@@ -65,6 +68,44 @@ def test_a_fact_value_carries_an_optional_part() -> None:
     assert tagged.part == "zr_demand"
     assert tagged.model_dump(mode="json", exclude_none=True)["part"] == "zr_demand"
     assert "part" not in FactValue.model_validate(good).model_dump(mode="json", exclude_none=True)
+
+
+def test_a_fact_value_carries_its_resolved_period_and_basis() -> None:
+    stored: dict[str, Any] = {
+        "step": "capture",
+        "statement": "Vantor Photonics will double capacity by Q4 of calendar 2026.",
+        "period": "by Q4 of this calendar year",
+        "status": "planned",
+        "period_resolved": "this calendar year = calendar 2026; document dated 2026-02-04",
+        "period_basis": {
+            "document_date": "2026-02-04",
+            "fiscal_year_end": "06-30",
+            "assumed_calendar": False,
+        },
+    }
+    value = FactValue.model_validate(stored)
+
+    assert value.period_resolved == stored["period_resolved"]
+    assert value.period_basis == PeriodBasis(
+        document_date=date(2026, 2, 4), fiscal_year_end="06-30", assumed_calendar=False
+    )
+    # It round-trips as the Assertion stores it (JSON, None left out).
+    assert value.model_dump(mode="json", exclude_none=True) == stored
+    # A value stored before periods were resolved still reads, with neither.
+    older = FactValue.model_validate(
+        {k: v for k, v in stored.items() if not k.startswith("period_")}
+    )
+    assert (older.period_resolved, older.period_basis) == (None, None)
+    # The basis is a date and a fiscal year end, nothing more.
+    for bad in (
+        stored | {"period_basis": {"fiscal_year_end": "06-30"}},
+        stored | {"period_basis": stored["period_basis"] | {"extra": 1}},
+    ):
+        with pytest.raises(ValidationError):
+            FactValue.model_validate(bad)
+    # A calendar-year filer's basis says it was assumed.
+    assumed = PeriodBasis(document_date=date(2026, 2, 4), assumed_calendar=True)
+    assert assumed.fiscal_year_end is None
 
 
 AGREEMENT = (

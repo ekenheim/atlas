@@ -187,6 +187,8 @@ class ReaderFactSummary(_Request):
     statement: str
     quantity: str | None  # "3 x InP capacity" as value, unit and metric
     period: str | None
+    # What code resolved the quote's relative phrases to on the document's date, else null.
+    period_resolved: str | None = None
     challenges: list[str]  # the Skeptic's: the Facts it speaks against
     part: str | None  # the question's part it answers; None: background
 
@@ -202,6 +204,7 @@ class ChallengedFact(_Request):
     status: str
     quantity: str | None
     period: str | None
+    period_resolved: str | None = None  # what code resolved the quote's relative phrases to
     source_title: str
 
 

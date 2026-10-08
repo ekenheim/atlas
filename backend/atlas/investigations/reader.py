@@ -70,7 +70,7 @@ import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, ValidationError
 from sqlalchemy import Connection, Engine, text
@@ -114,6 +114,9 @@ from atlas.roles.reader import (
 from atlas.roles.records import run_usage
 from atlas.runs import RunNotFound, RunRecorder
 from atlas.settings import Settings
+
+if TYPE_CHECKING:
+    from atlas.facts.periods import FiscalYearEnd
 
 READER_ACTOR = Actor("atlas-reader")
 READ_STEP_KIND = "read_step"
@@ -182,6 +185,7 @@ class RecordedFact(_Model):
     statement: str
     quantity: dict[str, JsonValue] | None
     period: str | None
+    period_resolved: str | None = None
     quote: str
     challenges: list[str] = Field(default_factory=list[str])
     part: str | None = None  # the question's part it answers (R2-01)
@@ -419,6 +423,7 @@ class Reader:
         self._max_calls = max_calls
         self._max_passages = max_passages
         self._documents: dict[uuid.UUID, _Document | None] = {}
+        self._fiscal_year_ends: dict[uuid.UUID, FiscalYearEnd | None] = {}
 
     def run(self, session: Session, setup: ReaderSetup) -> ReaderOutcome:
         state = session.state
@@ -523,6 +528,7 @@ class Reader:
                     statement=fact.statement,
                     quantity=_quantity_text(fact.quantity),
                     period=fact.period,
+                    period_resolved=fact.period_resolved,
                     challenges=fact.challenges,
                     part=fact.part,
                 )
@@ -991,7 +997,10 @@ class Reader:
             return "invalid_fact", details
         try:
             recorded = Facts(self._engine, self._archive, self._actor).create(
-                request, extractor_version=self._extractor_version
+                request,
+                extractor_version=self._extractor_version,
+                document_date=document.available_at.date(),
+                fiscal_year_end=self._fiscal_year_end(document.company_id or company.id),
             )
         except AssertionRefused as refused:
             return refused.code, refused.message
@@ -1011,6 +1020,7 @@ class Reader:
                 proposed.quantity.model_dump(mode="json") if proposed.quantity is not None else None
             ),
             period=proposed.period,
+            period_resolved=recorded.fact.period_resolved,
             quote=quote,
             challenges=challenges,
             part=proposed.part,
@@ -1024,6 +1034,17 @@ class Reader:
         return fact
 
     # --- documents --------------------------------------------------------------------------
+
+    def _fiscal_year_end(self, company_id: uuid.UUID) -> "FiscalYearEnd | None":
+        """The fiscal year end of the company whose calendar the document's relative periods
+        use, looked up once for the session (None: the company has no annual observations)."""
+        # Imported here: atlas.facts imports this package (the grounding check).
+        from atlas.financials.calendar import fiscal_year_end
+
+        if company_id not in self._fiscal_year_ends:
+            with self._engine.connect() as connection:
+                self._fiscal_year_ends[company_id] = fiscal_year_end(connection, company_id)
+        return self._fiscal_year_ends[company_id]
 
     def _document(self, version_id: uuid.UUID) -> _Document | None:
         """The Source Version's current parse and what the Reader shows of it, or None when it

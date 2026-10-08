@@ -65,6 +65,7 @@ class JudgedFactItem(_Request):
     status: str
     quantity: str | None
     period: str | None
+    period_resolved: str | None = None  # what code resolved the quote's relative phrases to
     source_title: str
 
 

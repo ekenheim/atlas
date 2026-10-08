@@ -7,6 +7,9 @@ edge from it. The quote is held to the Assertion's span check, unchanged
 (`atlas.assertions.check_quote`). A quantity's number must occur in the quote (the number rule
 of `atlas.investigations.grounding`). The status keeps the tense of the source ("planned",
 "hedged", ...) from the start, so a plan or a risk is never recorded as a present fact.
+Recorded with the document's date and the company's fiscal year end, a Fact's relative periods
+("this calendar year", "the current quarter") are resolved by code and a period the date
+contradicts is refused (`periods`; R2-02).
 
 Recording is insert-only and audited (`fact.created`, with the Assertion's own
 `assertion.created`, in one transaction). Review of a Fact is its Assertion's review.
@@ -22,6 +25,7 @@ from atlas.facts.service import (
     FactStatus,
     FactStep,
     FactValue,
+    PeriodBasis,
     Quantity,
     get_fact,
     list_facts,
@@ -37,6 +41,7 @@ __all__ = [
     "FactStep",
     "FactValue",
     "Facts",
+    "PeriodBasis",
     "Quantity",
     "get_fact",
     "list_facts",

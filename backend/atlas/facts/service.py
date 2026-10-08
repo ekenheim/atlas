@@ -2,7 +2,7 @@
 
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal, Self
 
@@ -20,6 +20,7 @@ from atlas.assertions import (
     get_assertion,
 )
 from atlas.audit import Actor, content_hash, record
+from atlas.facts.periods import FiscalYearEnd, check_period, resolve, resolved_text
 from atlas.investigations.grounding import grounds, number_occurs
 
 FACT_PREDICATE = "fact"
@@ -61,6 +62,19 @@ class Quantity(BaseModel):
     _not_blank = field_validator("unit", "metric")(_not_blank)
 
 
+class PeriodBasis(BaseModel):
+    """What code resolved the period's relative phrases against (R2-02): the document's date
+    and the company's fiscal year end (`MM-DD`), or the calendar year assumed for want of one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    document_date: date
+    fiscal_year_end: str | None = Field(
+        default=None, description='"06-30": the month and day the fiscal year ends'
+    )
+    assumed_calendar: bool = False
+
+
 class FactValue(BaseModel):
     """The `value_json` of a Fact's Assertion."""
 
@@ -79,6 +93,10 @@ class FactValue(BaseModel):
         default=None,
         description="the key of the question's part it answers (an argument Reader's; R2-01)",
     )
+    # Set by code (`Facts.create`), never by the model: what the period's relative phrases mean
+    # on this document, and the date and fiscal calendar that meaning rests on.
+    period_resolved: str | None = None
+    period_basis: PeriodBasis | None = None
 
     _statement = field_validator("statement")(_not_blank)
 
@@ -112,6 +130,10 @@ class FactCreate(BaseModel):
     period: str | None = None
     status: FactStatus
     part: str | None = None  # the question's part it answers (stored in `value_json`)
+    # Computed by code when the Fact is recorded with the document's date; a value given here
+    # is overwritten.
+    period_resolved: str | None = None
+    period_basis: PeriodBasis | None = None
 
     @model_validator(mode="after")
     def _valid(self) -> Self:
@@ -128,6 +150,8 @@ class FactCreate(BaseModel):
             period=self.period,
             status=self.status,
             part=self.part,
+            period_resolved=self.period_resolved,
+            period_basis=self.period_basis,
         )
 
 
@@ -141,6 +165,8 @@ class Fact(BaseModel):
     statement: str
     quantity: Quantity | None
     period: str | None
+    period_resolved: str | None = None
+    period_basis: PeriodBasis | None = None
     created_at: datetime
     assertion: Assertion
     part: str | None = None  # the question's part it answers; None: background, or before R2-01
@@ -275,6 +301,8 @@ def _build(connection: Connection, row: Any) -> Fact:
         quantity=value.quantity,
         period=value.period,
         part=value.part,
+        period_resolved=value.period_resolved,
+        period_basis=value.period_basis,
         created_at=row.created_at,
         assertion=assertion,
     )
@@ -328,8 +356,40 @@ class Facts:
         self._assertions = Assertions(engine, archive, actor)
         self._actor = actor
 
-    def create(self, request: FactCreate, *, extractor_version: str = "manual") -> FactRecorded:
+    def create(
+        self,
+        request: FactCreate,
+        *,
+        extractor_version: str = "manual",
+        document_date: date | None = None,
+        fiscal_year_end: FiscalYearEnd | None = None,
+    ) -> FactRecorded:
+        """Record the Fact. With the document's date (and the company's fiscal year end, None
+        for a calendar-year filer) its relative periods are resolved and checked by code
+        (`atlas.facts.periods`): the resolution and what it rests on are stored, whatever the
+        request carried, and a period the document's date contradicts is refused."""
         value = request.value()
+        if document_date is None:
+            value = value.model_copy(update={"period_resolved": None, "period_basis": None})
+        else:
+            value = value.model_copy(
+                update={
+                    "period_resolved": resolved_text(
+                        resolve(request.quote, document_date, fiscal_year_end),
+                        document_date,
+                        fiscal_year_end,
+                    ),
+                    "period_basis": PeriodBasis(
+                        document_date=document_date,
+                        fiscal_year_end=(
+                            None
+                            if fiscal_year_end is None
+                            else f"{fiscal_year_end[0]:02d}-{fiscal_year_end[1]:02d}"
+                        ),
+                        assumed_calendar=fiscal_year_end is None,
+                    ),
+                }
+            )
         assertion_request = AssertionCreate(
             subject_company_id=request.subject_company_id,
             predicate=FACT_PREDICATE,
@@ -363,6 +423,10 @@ class Facts:
             if value.quantity is not None:
                 check_quantity(request.quote, value.quantity)
             check_status(request.quote, value.statement, value.status)
+            if document_date is not None:
+                check_period(
+                    request.quote, value.statement, value.period, document_date, fiscal_year_end
+                )
             connection.execute(
                 text(
                     "INSERT INTO fact (assertion_id, investigation_id, step, status)"

@@ -68,6 +68,9 @@ class JudgedClaim(_Request):
     # `hedged`, `in_development`, ...), period, quantity and statement. None for a Claim.
     status: str | None = None
     period: str | None = None
+    # What code resolved the quote's relative phrases to on the document's date (a reading to
+    # hold the statement's dates to, beside the quote); null for a Claim or a plain period.
+    period_resolved: str | None = None
     quantity: str | None = None
     reading: str | None = None
 

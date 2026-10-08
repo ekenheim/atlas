@@ -710,6 +710,9 @@ class CardFact(BaseModel):
     statement: str
     quantity: CardFactQuantity | None
     period: str | None
+    # What code resolved the quote's relative phrases to on the document's date and the
+    # company's fiscal calendar (R2-02), else None.
+    period_resolved: str | None = None
     source_title: str
     source_span: SourceSpan
     evidence_available_at: datetime

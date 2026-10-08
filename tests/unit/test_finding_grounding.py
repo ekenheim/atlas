@@ -195,6 +195,33 @@ def test_a_finding_is_held_to_its_cited_claims_subjects_objects_and_sources() ->
     ) == ["Zurich"]
 
 
+def test_a_cited_fact_s_resolved_period_grounds_the_year_a_statement_names() -> None:
+    quote = "we are on track to double our capacity by the fourth quarter of this calendar year"
+    resolved = (
+        "this calendar year = calendar 2026; document dated 2026-02-04 (fiscal year ends 06-30)"
+    )
+    fact = {
+        "quote": quote,
+        "subject_name": "Zephyr",
+        "source_title": "Zephyr Optics Q2 2026 Earnings Call",
+        "value_json": {"period": "by Q4 of this calendar year", "period_resolved": resolved},
+    }
+    statement = "Zephyr is on track to double capacity by Q4 of calendar 2026."
+    question = "Is capacity the constraint?"
+    assert ungrounded(statement, claim_grounds(question, [fact])) == []
+    # The resolved text is read from the row itself too.
+    direct = {"quote": quote, "subject_name": "Zephyr", "period_resolved": resolved}
+    assert ungrounded(statement, claim_grounds(question, [direct])) == []
+    # Without it the year is the model's own; the year it guessed is still ungrounded; and the
+    # basis (the document's date, the fiscal year end) is not a figure a statement may use.
+    assert ungrounded(
+        statement, claim_grounds(question, [{"quote": quote, "subject_name": "Zephyr"}])
+    ) == ["2026"]
+    guessed = "Zephyr is on track to double capacity by Q4 of calendar 2025."
+    assert ungrounded(guessed, claim_grounds(question, [fact])) == ["2025"]
+    assert ungrounded("Zephyr has a 06-30 fiscal year end.", claim_grounds(question, [fact]))
+
+
 # --- punctuation, claim labels and nested quotes (pilot-fixes ticket 33) -------------------------
 
 SUPPLY = (

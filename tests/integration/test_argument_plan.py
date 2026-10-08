@@ -1737,3 +1737,111 @@ def test_a_failed_planner_falls_back_to_the_question_s_clauses(
         "unanswered",
         "unanswered",
     ]
+
+
+# A sentence of the Coherent FY2026 10-K (filed in August 2026) with a relative phrase.
+CURRENT_YEAR = (
+    "The decrease in revenues during the current fiscal year was primarily attributable to the"
+    " divestitures of our aerospace and defense business"
+)
+CURRENT_YEAR_QUERY = "decrease in revenues current fiscal year divestitures aerospace defense"
+CURRENT_YEAR_STATEMENT = (
+    "Coherent's revenues decreased during the current fiscal year, attributable to the"
+    " divestitures of its aerospace and defense business."
+)
+RESOLVED_PREFIX = "the current fiscal year = FY2027 or FY2026; document dated 2026-"
+
+
+def reading_current_year(body: dict[str, Any]) -> JsonValue:
+    """`reading`, but the Relief Reader records the sentence with the relative phrase."""
+    request = asked(body)["request"]
+    if request["step"]["key"] != "relief":
+        return reading(body)
+    if not request["searched"]:
+        return act("search_archive", query=CURRENT_YEAR_QUERY, company_slugs=["coherent"])
+    if not request["recorded"]:
+        return record(
+            body,
+            CURRENT_YEAR,
+            step="relief",
+            statement="Coherent's revenues decreased during the current fiscal year, attributable"
+            " to the divestitures of its aerospace and defense business.",
+            status="in_effect",
+            period="the current fiscal year",
+        )
+    return act("done", summary="relief: the divestitures")
+
+
+def editing_current_year(body: dict[str, Any]) -> JsonValue:
+    answer = cast(dict[str, Any], editing(body))
+    for step in answer["steps"]:
+        if step["step"] == "relief":
+            step["statement"] = CURRENT_YEAR_STATEMENT
+    return answer
+
+
+def test_the_editor_and_the_judge_are_sent_a_fact_s_resolved_period_and_the_card_shows_it(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("reader", *(ChatReply.answer(reading_current_year, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", *(SUPPORTED,) * 2)
+    llm.script_role("question_planner", PLANNED)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing_current_year, tokens=(3000, 400)),  # the Editor
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    atlas.worker_pass()
+
+    # The Fact carries what code resolved its phrase to (Coherent's fiscal year ends June 30,
+    # the 10-K was filed in August 2026).
+    [fact] = [
+        f
+        for f in atlas.get("/api/v1/facts", investigation_id=response.json()["id"])["items"]
+        if f["step"] == "relief"
+    ]
+    resolved = fact["period_resolved"]
+    assert resolved.startswith(RESOLVED_PREFIX)
+    assert resolved.endswith("(fiscal year ends 06-30)")
+    assert fact["period_basis"]["fiscal_year_end"] == "06-30"
+    # The Editor was sent it beside the period, for the Fact with a phrase and no other.
+    editor_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "editor")
+    sent = {f["step"]: f for f in asked(editor_call)["request"]["facts"]}
+    assert (sent["relief"]["period"], sent["relief"]["period_resolved"]) == (
+        "the current fiscal year",
+        resolved,
+    )
+    assert sent["control"]["period_resolved"] is None
+    # So was the finding judge, with the Fact it was asked to hold the statement to.
+    judge_calls = [b for b in llm.chat_requests() if b["metadata"]["role"] == "finding_judge"]
+    judged = [claim for b in judge_calls for claim in asked(b)["request"]["claims"]]
+    assert sorted(c["period_resolved"] or "" for c in judged if c["period"]) == sorted(
+        [resolved, ""]
+    )
+    # The card shows it on the Fact.
+    found = atlas.get(f"/api/v1/investigations/{response.json()['id']}")
+    steps = {step["step"]: step for step in found["research_card"]["steps"]}
+    [shown] = steps["relief"]["facts"]
+    assert shown["period_resolved"] == resolved
+    [said] = steps["relief"]["statements"]
+    assert said["statement"] == CURRENT_YEAR_STATEMENT
+    assert [f["period_resolved"] for f in said["facts"]] == [resolved]
+    [control] = steps["control"]["facts"]
+    assert control["period_resolved"] is None

@@ -10,7 +10,9 @@ their trust gate, counter-Facts) are committed. The quotes are licensed transcri
 live only in `--data` (`inv-<n>/facts.json`, else the 400-character cut in
 `inv-<n>/review/facts-compact.json`; `inv-<n>/investigation.json` for the question), so this joins them locally and runs every deterministic check Atlas has:
 
-- Facts: `atlas.facts.service.check_status` and `check_quantity`, each Fact against its quote.
+- Facts: `atlas.facts.service.check_status`, `check_quantity` and (R2-02) `check_period`, each
+  Fact against its quote (`check_period` also against its document's date and fiscal calendar,
+  joined from `inv-<n>/facts.json` and `role-calls.json`; skipped without them).
   Refusals are counted by the reviewers' verdict. A check that refuses right Facts is a regression.
 - Statements: `atlas.investigations.grounding.ungrounded` against the grounds of the Facts a
   statement cites (and the question), and `atlas.investigations.argument.without_references`.
@@ -32,13 +34,17 @@ import json
 import sys
 from collections import Counter
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import period_regression  # noqa: E402
 from atlas.assertions import InvalidAssertion  # noqa: E402
+from atlas.facts.periods import FiscalYearEnd  # noqa: E402
 from atlas.facts import service as facts_service  # noqa: E402
 from atlas.investigations import argument as argument_module  # noqa: E402
 from atlas.investigations import grounding  # noqa: E402
@@ -100,22 +106,55 @@ def _fact_available(fact: dict[str, Any], quote: str) -> dict[str, Any]:
     return available
 
 
+def join_documents(
+    labels: dict[str, Any], data: Path
+) -> dict[tuple[int, str], tuple[date, FiscalYearEnd | None]]:
+    """The document date and fiscal year end of each Fact, from `inv-<n>/facts.json` and the
+    Reader's result items in `inv-<n>/role-calls.json` (R2-02's `period_regression.py` joins
+    them the same way); empty when the folder holds neither."""
+    found: dict[tuple[int, str], tuple[date, FiscalYearEnd | None]] = {}
+    for n in sorted({f["investigation"] for f in labels["facts"]}):
+        listing, calls = data / f"inv-{n}" / "facts.json", data / f"inv-{n}" / "role-calls.json"
+        if not (listing.exists() and calls.exists()):
+            continue
+        dated = period_regression.documents(_load(calls))
+        for item in _load(listing)["items"]:
+            version = item["assertion"]["source_version_id"]
+            if version in dated:
+                day, slug = dated[version]
+                found[(n, item["id"])] = (day, period_regression.FISCAL_YEAR_ENDS.get(slug))
+    return found
+
+
 def fact_check_rows(
-    labels: dict[str, Any], quotes: dict[tuple[int, str], str]
+    labels: dict[str, Any],
+    quotes: dict[tuple[int, str], str],
+    documents: dict[tuple[int, str], tuple[date, FiscalYearEnd | None]] | None = None,
 ) -> tuple[list[tuple[str, str | dict[str, tuple[int, int]]]], int]:
     """Per Fact check: `skipped (why)` or {verdict: (refused, tested)}. And right Facts refused."""
     rows: list[tuple[str, str | dict[str, tuple[int, int]]]] = []
     right_refused = 0
-    for name, needs in (("check_status", None), ("check_quantity", "quantity")):
+    documents = documents or {}
+    for name, needs in (
+        ("check_status", None),
+        ("check_quantity", "quantity"),
+        ("check_period", "document_date"),
+    ):
         check = getattr(facts_service, name, None)
         if check is None:
             rows.append((name, "skipped (not in atlas.facts.service yet)"))
+            continue
+        if needs == "document_date" and not documents:
+            rows.append((name, "skipped (no document dates: needs facts.json and role-calls.json)"))
             continue
         refused: Counter[str] = Counter()
         tested: Counter[str] = Counter()
         unsupported = False
         for fact in labels["facts"]:
             available = _fact_available(fact, quotes[(fact["investigation"], fact["fact_id"])])
+            document = documents.get((fact["investigation"], fact["fact_id"]))
+            if document is not None:
+                available["document_date"], available["fye"] = document
             if needs and needs not in available:
                 continue
             arguments = _bind(check, available)
@@ -229,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
     labels = _load(args.labels)
     quotes, questions = join_quotes(labels, args.data)
 
-    fact_rows, right_refused = fact_check_rows(labels, quotes)
+    fact_rows, right_refused = fact_check_rows(labels, quotes, join_documents(labels, args.data))
     statement_rows, pass_flagged = statement_flags(labels, quotes, questions)
     for line in render(fact_rows, statement_rows, step_replay_row()):
         print(line)

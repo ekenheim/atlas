@@ -3785,3 +3785,71 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The answered `stop_detail` says "every step of the argument is supported by its Facts; invalidation: nothing found against the argument" (or "every other step ...; invalidation: an observation against the argument was found"). `not_invalidating` drops do not block `answered`.
   - The tests were written alongside the code rather than strictly before it.
 - **Next:** a pilot re-run on the argument plan to see what the new `looks_for` records and what the judge makes of it.
+## R2-02: periods resolved in code from the document's date and the company's fiscal calendar (8 October)
+
+- **Files:**
+  - `backend/atlas/facts/periods.py` (new, pure): `fiscal_quarter`, `RELATIVE_PHRASES`, `resolve` (`Resolution`, `Candidate`), `resolved_text`, `check_period` (`period_misresolved`, `period_other_document`).
+  - `backend/atlas/financials/calendar.py` (new): `fiscal_year_end(connection, company_id)`.
+  - `backend/atlas/facts/service.py` (`PeriodBasis`; `period_resolved`/`period_basis` on `FactValue`, `FactCreate` and `Fact`; `Facts.create(document_date=, fiscal_year_end=)`), `backend/atlas/facts/__init__.py`, `backend/atlas/api/facts.py` (`POST /api/v1/facts` passes the version's date and the fiscal year end), `frontend/lib/api/{openapi.json,schema.ts}` (regenerated).
+  - `backend/atlas/investigations/reader.py` (`_recorded` passes the document's date and the company's fiscal year end, looked up once per company; `RecordedFact.period_resolved`; the summary sent on later calls), `backend/atlas/roles/reader.py` (`ReaderFactSummary`, `ChallengedFact`), `backend/atlas/roles/editor.py` (`ArgumentFactItem`), `backend/atlas/roles/finding_judge.py` (`JudgedClaim`), `backend/atlas/roles/counter_judge.py` (`JudgedFactItem`), `backend/atlas/investigations/{tasks,argument,model,grounding}.py` (filled from the Fact's value; `CardFact.period_resolved`; `claim_grounds` adds a cited Fact's resolved readings).
+  - `tests/unit/test_fact_periods.py` (new, 16), `tests/unit/test_facts.py`, `tests/unit/test_finding_grounding.py`, `tests/integration/test_fiscal_calendar.py` (new, 3), `tests/integration/test_reader.py`, `tests/integration/test_argument_plan.py`.
+  - `.scratch/tools/period_regression.py` (new), `.scratch/tools/argument_regression.py` (adds the `check_period` row; skipped without `facts.json` and `role-calls.json` in `--data`), `docs/decisions.md`, `AGENTS.md`.
+- **Tests (actual, WSL, local Postgres):**
+  - `tests/unit`: 1,164 passed, 2 skipped (the two committed-labels tests, `labels.json` not in the tree).
+  - `tests/integration/test_facts.py`, `test_reader.py`, `test_argument_plan.py`, `test_fiscal_calendar.py`, `test_quota_pacing.py`, `test_queue_pause.py`: 59 passed.
+  - ruff format and check clean; pyright strict 0 errors.
+  - Acceptance tests by name: the seven `test_fact_periods.py` ones (fiscal quarters, candidates, a contradicting year, a year in the quote or the document's own year, ambiguous "this year", a document label, another document's date), `test_facts.py::test_a_fact_value_carries_its_resolved_period_and_basis`, `test_fiscal_calendar.py::test_the_fiscal_year_end_is_the_modal_fy_period_end_normalised_to_a_month_end`, `test_reader.py::test_a_fact_whose_period_contradicts_the_document_s_date_is_refused_and_the_resolution_recorded`, `test_argument_plan.py::test_the_editor_and_the_judge_are_sent_a_fact_s_resolved_period_and_the_card_shows_it`, `test_finding_grounding.py::test_a_cited_fact_s_resolved_period_grounds_the_year_a_statement_names`.
+- **Measured (local data, no live call)** with `period_regression.py --data pilot-0.5.3-arg --data pilot-0.5.4-arg` on the eight folders (1,421 Facts: 1,035 right, 176 wrong, 210 off-question):
+
+  | refused | right | wrong | off-question |
+  |---|---|---|---|
+  | `period_misresolved` | 0 | 3 | 1 |
+  | `period_other_document` | 0 | 3 | 0 |
+
+  - 6 of the 7 listed wrong Facts refused: 8772cec7, 5279bc05, a577e6e8 (`period_misresolved`), 896e96dc, 2c853d91, 7beff226 (`period_other_document`). a9f32c39 is not refused: its period's quarter ("that quarter (Q2 fiscal 2026)") is a reading of "this quarter" on 2026-02-04, and the 2025 in its statement ("by the end of calendar 2025") is a calendar year of that quarter's months (Oct–Dec 2025). The one off-question Fact is 50e4ccd3 (period "2030 timeframe" beside "earlier this year"). Right Facts refused: 0 (max 2). 214 Facts hold a relative phrase and get a `period_resolved` text.
+  - Output of `period_regression.py --data pilot-0.5.3-arg --data pilot-0.5.4-arg --quiet --min-listed 6` (exit 0; the data folders are in the main checkout's `.scratch/live-runs`; each listed Fact's quote is left out here, since call transcripts are licensed and this repository is public):
+
+    Facts joined: 1421 (1035 right, 176 wrong, 210 off-question)
+    Refused                            right         wrong  off-question
+      period_misresolved                   0             3             1
+      period_other_document                0             3             0
+    
+    period_misresolved [off-question] 50e4ccd3 (pilot-0.5.3-arg/inv-2, coherent, 2026-08-12): 'this year' on a document of 2026-08-12 is calendar 2026 or FY2027 or FY2026, not 2030
+        period='2030 timeframe'
+    period_misresolved [wrong] 8772cec7 (pilot-0.5.3-arg/inv-5, coherent, 2026-02-04): 'this calendar year' on a document of 2026-02-04 is calendar 2026, not 2025
+        period='Q2 fiscal 2026; by Q4 calendar 2025'
+    period_misresolved [wrong] 5279bc05 (pilot-0.5.3-arg/inv-5, coherent, 2026-05-06): 'this calendar year' on a document of 2026-05-06 is calendar 2026, not 2025
+        period='end of calendar 2025 (one quarter earlier than planned); end of calendar 2027'
+    period_misresolved [wrong] a577e6e8 (pilot-0.5.3-arg/inv-5, coherent, 2026-02-04): 'this calendar year' on a document of 2026-02-04 is calendar 2026, not 2025
+        period='by Q4 calendar 2025'
+    period_other_document [wrong] 896e96dc (pilot-0.5.4-arg/inv-1, lumentum, 2023-05-09): the period dates a document 2026-08-17 but this document is dated 2023-05-09 (1196 days apart): a period names the quoted document, or a date its quote writes
+        period='10-K filed 2026-08-17'
+    period_other_document [wrong] 2c853d91 (pilot-0.5.4-arg/inv-2, axt, 2024-10-31): the period dates a document October 30, 2025 but this document is dated 2024-10-31 (364 days apart): a period names the quoted document, or a date its quote writes
+        period='Q3 2025 (Q3 2025 call, October 30, 2025)'
+    period_other_document [wrong] 7beff226 (pilot-0.5.4-arg/inv-2, axt, 2025-08-13): the period dates a document November 13, 2025 but this document is dated 2025-08-13 (92 days apart): a period names the quoted document, or a date its quote writes
+        period='as of the 10-Q filing (November 13, 2025)'
+    
+    listed wrong Facts refused: 6 of 7
+      8772cec7: refused
+      5279bc05: refused
+      a577e6e8: refused
+      a9f32c39: NOT refused
+      896e96dc: refused
+      2c853d91: refused
+      7beff226: refused
+    
+    right Facts refused: 0 (max 2)
+    OK
+  - `argument_regression.py` (labels and data of `pilot-0.5.3-arg`): the new row `check_period` refused 0 of 608 right, 4 of 127 wrong, 1 of 118 off-question before the review fix; a9f32c39 (0.5.3 inv-5, wrong) is no longer refused, so 3 of 127 wrong by the same check (not re-run: `labels.json` is not in the tree). It still reports `check_status` refusing 1 right Fact (the 0.5.4 release's known 1 of 608, unrelated to this change), so it exits 1 at its default `--max-right 0` as at 0.5.4.
+  - The first cut refused 2 right Facts ("last quarter" on Coherent's November 2025 call, recorded as the quarter before the one reported); widening the quarter readings by the quarter before and after fixed that. The review then found that leaving a quarter's other calendar year out of the readings (which caught a9f32c39, by accident) refused right periods such as "quarter ended December 31, 2025" on a February call of a June filer; the years of a quarter's months are now a reading (`_misresolved` allows every `Candidate.years`), `test_a_quarter_s_calendar_months_are_a_reading_of_the_phrase` pins it, and a9f32c39 goes uncaught.
+- **Fixture only:** everything. The fiscal year end was read from the recorded Coherent EDGAR fixtures (06-30) and from seeded rows; the Reader and the argument plan ran on the scripted LiteLLM; no MiniMax call, so whether the Reader now writes right periods is for the next pilot.
+- **Deviations:**
+  - The fiscal calendar is the **document company's** (the company that wrote the document, else the Fact's subject), not the subject's: "the current quarter" is the speaker's quarter. The Reader uses `document.company_id`; the API the version's `source_document.company_id`.
+  - A quarter phrase reads as the quarter it says, the quarter before and the one after (the task's three, centred on the phrase's own rather than on the containing quarter, so "last quarter" also reads two quarters back); a year check allows every calendar year a reading gives, a quarter's months included, so a9f32c39 (the task's seventh listed Fact) is not refused: 6 of 7 listed wrong Facts are. In a fiscal year's first quarter "this fiscal year" and a fiscal filer's "this year" also read as the year just closed, and an unqualified half said past its midpoint may be the coming one; the Coherent 10-K filed in August 2026 needed the first (the integration test), and an off-question Fact of a Lumentum call in November 2024 ("second half of the calendar year") was refused without the second.
+  - The fiscal year end weights each period end by its observation rows and breaks a tie to the later year end; the task did not say.
+  - `claim_grounds` adds the resolved readings without the "document dated ..., fiscal year ends ..." clause (its dates and `06-30` would ground numbers a statement may not use); the clause stays in what the Editor and the judges see.
+  - `document_calendar` (the API's lookup) sits in `api/facts.py`, not in `atlas.facts`: `atlas.financials.calendar` imports `atlas.facts.periods`, so `atlas.facts` cannot import it back.
+  - `Facts.create` without a `document_date` stores neither field (a caller-supplied value is cleared), as with one.
+  - The Skeptic's `ChallengedFact` carries `period_resolved` too (the task lists `challenged`).
+- **Watch:** `period_other_document` as specified would refuse a right "10-K for fiscal year ended June 30, 2025" on a filing made over 45 days after year end unless the quote writes the date; none of the saved Facts has that form.
+- **Next:** a pilot re-run reads what the Reader writes with the refusals in its results; `period_regression.py` on the new folders shows whether any right Fact is refused.

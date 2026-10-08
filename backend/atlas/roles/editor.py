@@ -308,6 +308,9 @@ class ArgumentFactItem(_Request):
     status: str  # in_effect, planned, in_development, hedged, regulatory, ...
     quantity: str | None
     period: str | None
+    # What code resolved the quote's relative phrases to on the document's date and the
+    # company's fiscal calendar ("this calendar year = calendar 2026; ..."), else null.
+    period_resolved: str | None = None
     source_title: str
     # The day the Fact's document became available (ISO date): a call's or filing's date.
     source_date: str

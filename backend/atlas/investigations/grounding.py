@@ -50,7 +50,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, cast
 
 from atlas.claims.predicates import fold
 from atlas.roles.caller import RoleOutputQuarantined, TokenBudgetExhausted
@@ -585,8 +585,9 @@ def claim_grounds(
 ) -> Grounds:
     """The grounds of a finding citing `cited` accepted Claims (rows with their `quote`,
     `subject_name`, `object_name`, `object_text` and `source_title`; the source's title
-    dates a call or a report): those texts, the date of each one's document when its row has
-    `available_at` (its year, month and day, `date_texts`; R2-04) and the research question."""
+    dates a call or a report; a Fact's resolved period, `period_resolved`): those texts, the
+    date of each one's document when its row has `available_at` (its year, month and day,
+    `date_texts`; R2-04) and the research question."""
     texts = [question]
     for claim in cited:
         texts.extend(
@@ -597,7 +598,22 @@ def claim_grounds(
         day = source_day(claim)
         if day:
             texts.extend(date_texts(day))
+        resolved = _resolved_period(claim)
+        if resolved:
+            texts.append(resolved)
     return grounds(texts, aliases)
+
+
+def _resolved_period(fact: Mapping[Any, Any]) -> str | None:
+    """What code resolved a cited Fact's relative period to (`atlas.facts.periods`: "this
+    calendar year = calendar 2026"), given directly or in the Fact's `value_json`; a statement
+    may write the year it resolves to. The basis clause ("document dated ...") is left out: its
+    dates are not figures a statement may use."""
+    resolved: object = fact.get("period_resolved")
+    value: object = fact.get("value_json")
+    if not resolved and isinstance(value, Mapping):
+        resolved = cast(Mapping[str, object], value).get("period_resolved")
+    return str(resolved).split("; document dated ")[0] if resolved else None
 
 
 # --- the research card's findings, checked and asked again ------------------------------------

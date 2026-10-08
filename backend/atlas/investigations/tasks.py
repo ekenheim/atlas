@@ -2617,6 +2617,7 @@ def _argument_item(ref: str, row: RowMapping, against: list[str]) -> ArgumentFac
         status=str(value.get("status", "")),
         quantity=quantity_text(row),
         period=value.get("period"),
+        period_resolved=value.get("period_resolved"),
         source_title=row["source_title"],
         source_date=source_date_text(row) or "",
         against=against,
@@ -2646,10 +2647,12 @@ def _judged_fact(ref: str, row: Mapping[Any, Any]) -> JudgedClaim:
     raw: Any = row["value_json"]
     value = cast(dict[str, Any], raw) if isinstance(raw, dict) else {}
     status, period, reading = value.get("status"), value.get("period"), value.get("statement")
+    resolved = value.get("period_resolved")
     return judged_claim(ref, row).model_copy(
         update={
             "status": str(status) if status else None,
             "period": str(period) if period else None,
+            "period_resolved": str(resolved) if resolved else None,
             "quantity": quantity_text(cast(RowMapping, row)),
             "reading": str(reading) if reading else None,
         }

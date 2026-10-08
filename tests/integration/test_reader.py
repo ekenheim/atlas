@@ -559,3 +559,86 @@ def test_a_fact_whose_status_its_quote_contradicts_is_refused_and_the_reader_is_
     # The step's request says what a researcher looks for in it: customer concentration too.
     assert "customer concentration: customers over 10% of revenue" in (told["step"]["looks_for"])
     assert "'accounted for'" in told["step"]["looks_for"]
+
+
+CURRENT_YEAR = (
+    "The decrease in revenues during the current fiscal year was primarily attributable to the"
+    " divestitures of our aerospace and defense business"
+)
+CURRENT_YEAR_QUERY = "decrease in revenues current fiscal year divestitures aerospace defense"
+CURRENT_YEAR_STATEMENT = (
+    "Coherent's Industrial revenues decreased in the current fiscal year after the divestiture of"
+    " its aerospace and defense business."
+)
+
+
+def test_a_fact_whose_period_contradicts_the_document_s_date_is_refused_and_the_resolution_recorded(
+    start: Callable[..., Atlas], llm: FakeLiteLLM
+) -> None:
+    atlas = start()
+    llm.script_role(
+        "reader",
+        ChatReply.json(
+            act("search_archive", query=CURRENT_YEAR_QUERY, company_slugs=["coherent"]),
+            tokens=(1500, 60),
+        ),
+        # "The current fiscal year" of the FY2026 10-K recorded as fiscal 2024: refused.
+        fact(
+            lambda body: holding(body, CURRENT_YEAR),
+            CURRENT_YEAR,
+            step="demand_vs_supply",
+            statement=CURRENT_YEAR_STATEMENT,
+            status="in_effect",
+            period="fiscal 2024",
+        ),
+        # Recorded again with the year the refusal names.
+        fact(
+            lambda body: holding(body, CURRENT_YEAR),
+            CURRENT_YEAR,
+            step="demand_vs_supply",
+            statement=CURRENT_YEAR_STATEMENT,
+            status="in_effect",
+            period="the current fiscal year (fiscal 2026)",
+        ),
+        ChatReply.json(
+            act("done", summary="Industrial revenue fell on the divestitures"), tokens=(2000, 30)
+        ),
+    )
+
+    job_id = read_step(atlas, "demand_vs_supply")
+
+    artifacts = atlas.get(f"/api/v1/jobs/{job_id}")["artifacts"]
+    assert (artifacts["reader_status"], artifacts["calls"]) == ("done", 4)
+    [refused] = artifacts["refused"]
+    assert refused["reason_code"] == "period_misresolved"
+    [recorded] = artifacts["facts"]
+    # The refusal came back to the Reader in its next result, with the resolution.
+    calls = reader_requests(llm)
+    last = asked(calls[2])["request"]["results"][-1]
+    assert (last["action"], last["ok"]) == ("record_fact", False)
+    assert last["message"].startswith("refused (period_misresolved)")
+    assert "'the current fiscal year' on a document of 2026-" in last["message"]
+    # Filed in August, a month into fiscal 2027: the year that began, or the one just closed.
+    assert "is FY2027 or FY2026, not 2024" in last["message"]
+    # Nothing was recorded for the refused Fact.
+    [found] = atlas.get("/api/v1/facts", step="demand_vs_supply")["items"]
+    assert found["id"] == recorded["fact_id"]
+    # The recorded one carries the resolution and what it rests on: the version's date and
+    # the fiscal year end the XBRL observations of Coherent's annual reports give.
+    detail = atlas.get(f"/api/v1/facts/{found['id']}")
+    version = atlas.get(f"/api/v1/source-versions/{detail['assertion']['source_version_id']}")
+    document_date = version["available_at"][:10]
+    assert detail["period"] == "the current fiscal year (fiscal 2026)"
+    assert detail["period_resolved"] == (
+        f"the current fiscal year = FY2027 or FY2026; document dated {document_date}"
+        " (fiscal year ends 06-30)"
+    )
+    assert detail["period_basis"] == {
+        "document_date": document_date,
+        "fiscal_year_end": "06-30",
+        "assumed_calendar": False,
+    }
+    assert detail["assertion"]["value_json"]["period_resolved"] == detail["period_resolved"]
+    # The Reader is told the resolution with the Fact it recorded.
+    [summary] = asked(calls[3])["request"]["recorded"]
+    assert summary["period_resolved"] == detail["period_resolved"]

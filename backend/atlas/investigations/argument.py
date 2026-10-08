@@ -422,6 +422,7 @@ def challenged(facts: Sequence[RowMapping]) -> tuple[list[ChallengedFact], list[
             status=str(_value(row).get("status", "")),
             quantity=quantity_text(row),
             period=_value(row).get("period"),
+            period_resolved=_value(row).get("period_resolved"),
             source_title=row["source_title"],
         )
         for index, row in enumerate(chosen, start=1)
@@ -449,6 +450,7 @@ def judged_fact(ref: str, row: RowMapping) -> tuple[JudgedFactItem, QuotedText]:
             status=str(value.get("status", "")),
             quantity=quantity_text(row),
             period=value.get("period"),
+            period_resolved=value.get("period_resolved"),
             source_title=row["source_title"],
         ),
         QuotedText(
@@ -475,6 +477,7 @@ def card_fact(
         statement=str(value.get("statement", "")),
         quantity=CardFactQuantity.model_validate(quantity) if isinstance(quantity, dict) else None,
         period=value.get("period"),
+        period_resolved=value.get("period_resolved"),
         source_title=row["source_title"],
         source_span=SourceSpan(
             claim_id=row["id"],
