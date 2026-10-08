@@ -1013,7 +1013,10 @@ def reading_with_competition(body: dict[str, Any]) -> JsonValue:
     if request["step"]["key"] != "invalidation":
         return reading(body)
     if not request["searched"]:
-        return act("search_archive", query=COMPETITION_QUERY, company_slugs=["coherent"])
+        # A Reader's query names one of the question's terms (R2-01): "customers".
+        return act(
+            "search_archive", query=f"{COMPETITION_QUERY} customers", company_slugs=["coherent"]
+        )
     if not request["recorded"]:
         return record(
             body,
@@ -1065,6 +1068,7 @@ def editing_every_step(statements: dict[str, str], verdict: str) -> Any:
 def run_argument(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG, editor: Any) -> str:
     """An argument investigation of Coherent, the Scout and the Editor scripted (the Readers,
     the Skeptic, the judges and the Analyst by the test), run to its end; its ID."""
+    llm.script_role("question_planner", PLANNED)
     llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
     llm.script_chat(
         ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
@@ -1758,7 +1762,10 @@ def reading_current_year(body: dict[str, Any]) -> JsonValue:
     if request["step"]["key"] != "relief":
         return reading(body)
     if not request["searched"]:
-        return act("search_archive", query=CURRENT_YEAR_QUERY, company_slugs=["coherent"])
+        # A Reader's query names one of the question's terms (R2-01): "customers".
+        return act(
+            "search_archive", query=f"{CURRENT_YEAR_QUERY} customers", company_slugs=["coherent"]
+        )
     if not request["recorded"]:
         return record(
             body,

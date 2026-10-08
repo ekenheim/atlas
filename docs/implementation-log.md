@@ -3733,6 +3733,7 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Fixture only:** nothing ran on MiniMax. Whether `finding_judge.v4` catches the merges needs a pilot re-run.
 - **Deviations:** (1) the ticket counts 9 of 28 failures with 2+ documents (8 over 60 days); the script counts 10 (9): it also finds 0.5.4 question 2 control#3 (AXT 10-K and 10-Q, 149 days apart), which the ticket's list omits. (2) The ticket's second date-dropped statement (0.5.4 question 2, the judge's "this year" versus 2026) was dropped by the judge, not the grounding check, so only the judge's v4 prompt can change it; it is not replayable offline. (3) The script reads dates from the cards' `evidence_available_at` (every Fact carries it) rather than `role-calls.json`, which has none before this change; it falls back to the Editor request's `source_date` for later cards. (4) The grounding replay uses rows without the Fact's statement as `object_text`, as the Editor's grounding does. (5) Existing tests naming `finding_judge.v3` and `("editor-revise", 1)` now name v4 and 2.
 - **Next:** R2-01 may add a sentence on `source_date` to `editor-argument`; a pilot re-run measures the judge.
+
 ## R2-01: the question's parts reach each Reader, bind its searches, and the card reports which parts it answered (8 October)
 
 - **Why:** on question 5, 27% of 0.5.4's Facts (54 of 200) were off the question; 6 of 24 Reader queries named one of the question's terms. Rules in `docs/decisions.md`, "Reading that follows the question: parts, terms and the card's account".
@@ -3760,6 +3761,7 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - `parts_answered(plan, supporting, statements)` takes each kept statement as the set of Fact IDs it cites (pure, no references).
   - The Editor-failure card also carries `question_parts` (every part `facts_only` or `unanswered`).
 - **Next:** rerun pilot question 5 on the argument plan and compare `question_parts_eval.py`'s counts and the off-question share.
+
 ## Pilot-review R2-03: the invalidation step looks for what would break the argument, found or nothing found (8 October)
 
 - **Why:** on all 7 reviewed argument cards (0.5.3, 0.5.4) the invalidation step was `supported` (one `disputed` by the Skeptic) with 3 to 6 statements arguing for the thesis; 96 of its 211 Facts on the 8 saved runs read for the thesis by a cue proxy, 23 against.
@@ -3785,6 +3787,7 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The answered `stop_detail` says "every step of the argument is supported by its Facts; invalidation: nothing found against the argument" (or "every other step ...; invalidation: an observation against the argument was found"). `not_invalidating` drops do not block `answered`.
   - The tests were written alongside the code rather than strictly before it.
 - **Next:** a pilot re-run on the argument plan to see what the new `looks_for` records and what the judge makes of it.
+
 ## R2-02: periods resolved in code from the document's date and the company's fiscal calendar (8 October)
 
 - **Files:**
@@ -3853,3 +3856,13 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The Skeptic's `ChallengedFact` carries `period_resolved` too (the task lists `challenged`).
 - **Watch:** `period_other_document` as specified would refuse a right "10-K for fiscal year ended June 30, 2025" on a filing made over 45 days after year end unless the quote writes the date; none of the saved Facts has that form.
 - **Next:** a pilot re-run reads what the Reader writes with the refusals in its results; `period_regression.py` on the new folders shows whether any right Fact is refused.
+
+## Round-2 integration: R2-04, R2-01, R2-03 and R2-02 on one branch (8 October)
+
+- **Branch:** `integrate/fable-round-2` from main `914827b`: R2-04, R2-01 and R2-03 merged (`--no-ff`) in that order; R2-02 brought in as one squashed commit, its log entry without the quotes of the listed Facts (call transcripts are licensed and the repository is public).
+- **Conflicts:** `AGENTS.md` (each fix appended to the argument-plan line; all kept, word-merged); `frontend/lib/workbench.ts` and `frontend/unit/workbench.test.ts` (R2-04's dated Fact line and R2-01's question parts, both kept); `tests/unit/test_argument_editor.py` (`editor-argument` v3, R2-04's `source_date` test given R2-01's `part`); `backend/atlas/facts/service.py` (`part` and `period_resolved`/`period_basis`, both kept); `backend/atlas/investigations/grounding.py` (`claim_grounds` grounds a document's date and a Fact's resolved period); `tests/unit/test_facts.py`, `tests/integration/test_argument_plan.py` (both sides' tests kept); `frontend/lib/api` regenerated.
+- **Semantic fixes:** R2-01 plans the question in the Scout task and holds each Reader's query to the plan's terms, so the tests R2-03, R2-04 and R2-02 wrote alone now script the `question_planner` (`PLANNED`), and the invalidation Reader's and the resolved-period test's queries name a term of the plan ("customers").
+- **Prompts:** `reader.v4`, `editor-argument.v3`, `question_plan.v1` (R2-01); `finding_judge.v4`, `editor-revise.v2` (R2-04); R2-03 and R2-02 changed none. No two branches made a version of the same prompt. As R2-04's "Next" asked, `editor-argument.v3` (unreleased) also lists each Fact's `source_date`, says a cited Fact's `source_date` may be named, and that Facts of documents over 90 days apart are named by date or kept apart.
+- **Tests (actual, WSL, local Postgres):** `tests/unit` 1,192 passed, 2 skipped (the labels tests); `tests/integration/test_argument_plan.py`, `test_reader.py`, `test_facts.py`, `test_investigations.py`, `test_fiscal_calendar.py`, `test_queue_pause.py`, `test_quota_pacing.py`: 124 passed; ruff format and check clean, pyright 0 errors; frontend lint, typecheck and 116 unit tests passed.
+- **Fixture only:** everything; no live call.
+- **Next:** the runners' full suite, then a pilot re-run on the argument plan.

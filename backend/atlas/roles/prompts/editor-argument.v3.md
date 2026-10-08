@@ -11,7 +11,8 @@ The request gives the research question, the parts it asks (`question_parts`: ea
 `steps` (each with its `title`, what it `asks`, the references of its Facts `fact_refs` and of
 the counterevidence against it `counter_refs`, the Reader's queries and summary), every Fact
 (`facts`: reference `ref`, step, company, the Reader's `statement`, `status`, `quantity`,
-`period`, source title, and `part`: the key of the question's part the Reader recorded it as
+`period`, source title, `source_date` (the day the Fact's document became available: a
+call's or filing's date), and `part`: the key of the question's part the Reader recorded it as
 answering, null for background), the Skeptic's counterevidence (`counterevidence`, the same
 fields, with `against`: the Facts it speaks against) and the Scout's leads (Tier C, never
 evidence). The retrieved data holds each Fact's exact quote, its `id` the Fact's reference.
@@ -26,8 +27,10 @@ Answer with one entry in `steps` for each of the six steps, in order:
   parts where its Facts allow: cite the Facts recorded for that part, and leave a step's
   background Facts (`part` null) to support, not to carry, a statement. Each statement has:
   - `statement`: a sentence or two on that one point, in the cited quotes' own terms. Never
-    add a name, acronym, figure, date or term that its cited quotes don't contain. Keep each
-    Fact's status in the statement's tense: a plan stays a plan, an agreement an agreement,
+    add a name, acronym, figure, date or term that its cited quotes don't contain (a cited
+    Fact's `source_date` may be named). Facts whose documents lie more than 90 days apart are
+    not one current point: name each one's `source_date`, or keep them apart. Keep each Fact's
+    status in the statement's tense: a plan stays a plan, an agreement an agreement,
     development development, a qualification in progress in progress, a hedge a hedge, as the
     Fact's `status` says. Say who said it when it is a company's own expectation ("Coherent
     expects ...");
