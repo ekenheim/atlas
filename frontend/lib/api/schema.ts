@@ -2432,6 +2432,8 @@ export interface components {
             against?: string[];
             /** Relations */
             relations?: components["schemas"]["CardFactRelation"][];
+            /** Part */
+            part?: string | null;
         };
         /** CardFactQuantity */
         CardFactQuantity: {
@@ -2568,6 +2570,27 @@ export interface components {
             query: string;
             /** Purpose */
             purpose: string | null;
+        };
+        /**
+         * CardQuestionPart
+         * @description One part of the round's question (its question plan; pilot-review R2-01) and what the
+         *     card says of it: `answered` when a kept statement cites a Fact recorded for it, `facts_only`
+         *     when Facts were recorded for it but no kept statement cites one, else `unanswered`.
+         */
+        CardQuestionPart: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+            /** Facts */
+            facts: number;
+            /** Statements */
+            statements: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "answered" | "facts_only" | "unanswered";
         };
         /**
          * CardReading
@@ -4150,6 +4173,8 @@ export interface components {
              * @enum {string}
              */
             status: "in_effect" | "planned" | "in_development" | "hedged" | "regulatory" | "reported_by_third_party";
+            /** Part */
+            part?: string | null;
         };
         /** FactRecorded */
         FactRecorded: {
@@ -7479,6 +7504,8 @@ export interface components {
             plan: "default" | "argument";
             /** Steps */
             steps?: components["schemas"]["CardArgumentStep"][];
+            /** Question Parts */
+            question_parts?: components["schemas"]["CardQuestionPart"][];
         };
         /** ResearchScope */
         ResearchScope: {
@@ -9104,6 +9131,8 @@ export interface components {
              */
             created_at: string;
             assertion: components["schemas"]["Assertion"];
+            /** Part */
+            part?: string | null;
         };
         /** Citation */
         atlas__hypotheses__export__Citation: {

@@ -288,7 +288,10 @@ EDITOR_REVISE = Role(
 # v2: several statements per step, each on one point citing the few Facts it uses, each
 # checked on its own (0.5.2's argument run: one merged statement per step, dropped whole for
 # one bad clause, left four of six steps unknown).
-EDITOR_ARGUMENT_PROMPT_VERSION = 2
+# v3: the question's parts (pilot-review R2-01): each Fact names the part it answers, each
+# statement answers one where its Facts allow, and the open questions name the unanswered parts
+# first.
+EDITOR_ARGUMENT_PROMPT_VERSION = 3
 # At most this many statements of a step are checked and kept (the prompt asks for 1 to 6).
 MAX_STEP_STATEMENTS = 6
 
@@ -305,6 +308,14 @@ class ArgumentFactItem(_Request):
     period: str | None
     source_title: str
     against: list[str]  # counterevidence: the references of the Facts it speaks against
+    part: str | None  # the question's part it answers (the Reader's; R2-01); None: background
+
+
+class EditorQuestionPart(_Request):
+    """One part of the question (the round's question plan)."""
+
+    key: str
+    text: str  # the question's own words for it
 
 
 class ArgumentStepItem(_Request):
@@ -321,6 +332,7 @@ class EditorArgumentRequest(_Request):
     theme_id: str
     theme_title: str
     research_question: str
+    question_parts: list[EditorQuestionPart]  # empty without a plan
     steps: list[ArgumentStepItem]
     facts: list[ArgumentFactItem]  # the Readers'
     counterevidence: list[ArgumentFactItem]  # the Skeptic's

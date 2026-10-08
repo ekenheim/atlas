@@ -41,6 +41,16 @@ with the reason, so the agent can correct it):
 - `done {summary}`: the step is finished; but a `done` before the session has made a search or
   a recall is refused ("search first: ...") and counted as a call, not a stop.
 
+**The question's parts** (pilot-review R2-01; `atlas.investigations.question`). An argument
+investigation's Readers are given the round's question plan (`ReaderSetup.plan`): each request
+carries the parts (`question_parts`: key, words, terms) and the step's focus for this question
+(`step.focus`). A search whose query names no term of any part (`names_a_part`) is refused
+without a search ("name one of the question's terms in the query: ..."; a call, no passage
+spent), and a search made records the part its query named (`part`). Each Fact names the part
+it answers (`part`; null for background); a key that isn't one of the plan's is refused
+`unknown_part`, and so is any part without a plan (the standalone Reader and the argument
+Skeptic, whose searches are not constrained). Recall is not constrained.
+
 **Bounds.** At most `max_calls` calls (`reader_max_calls`) and `max_passages` passages sent
 (`reader_max_passages`: hits and windows; memories are not passages). A search or read past
 the passage budget is refused. The run's token budget bounds every call: when it is spent the
@@ -73,6 +83,7 @@ from atlas.claims.selection import cut_windows
 from atlas.claims.speakers import TRANSCRIPT_SOURCE_TYPE, SpeakerRefusal, transcript_speaker
 from atlas.companies import load_universe
 from atlas.hindsight import HindsightGateway
+from atlas.investigations.question import QuestionPlan, names_a_part, terms_to_name
 from atlas.jobs.queue import Artifacts, Job
 from atlas.ledger.reads import current_parse
 from atlas.research.service import RecallResponse, Research, ResearchScope, reading_index_recall
@@ -92,6 +103,7 @@ from atlas.roles.reader import (
     ReaderAction,
     ReaderCompany,
     ReaderFactSummary,
+    ReaderQuestionPart,
     ReaderRequest,
     ReaderResult,
     ReaderStep,
@@ -172,6 +184,7 @@ class RecordedFact(_Model):
     period: str | None
     quote: str
     challenges: list[str] = Field(default_factory=list[str])
+    part: str | None = None  # the question's part it answers (R2-01)
     # The argument Skeptic's: the IDs of the Facts its `challenges` name.
     challenged_fact_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
 
@@ -343,6 +356,9 @@ class ReaderSetup:
     challenge: list[ChallengedFact] = field(default_factory=list[ChallengedFact])
     challenge_quotes: list[QuotedText] = field(default_factory=list[QuotedText])
     challenge_ids: dict[str, uuid.UUID] = field(default_factory=dict[str, uuid.UUID])
+    # The round's question plan (an argument investigation's Readers; R2-01): the parts its
+    # searches must name and its Facts answer. None: no constraint, and no Fact has a part.
+    plan: QuestionPlan | None = None
 
 
 @dataclass(frozen=True)
@@ -475,11 +491,20 @@ class Reader:
 
     def _request(self, state: ReaderState) -> ReaderRequest:
         step = self._setup.step
+        plan = self._setup.plan
         return ReaderRequest(
             research_question=self._setup.question,
+            question_parts=[
+                ReaderQuestionPart(key=part.key, text=part.text, terms=part.terms)
+                for part in (plan.parts if plan is not None else [])
+            ],
             as_of=self._as_of.astimezone(UTC).isoformat(),
             step=ReaderStep(
-                key=step.key, title=step.title, asks=step.asks, looks_for=step.looks_for
+                key=step.key,
+                title=step.title,
+                asks=step.asks,
+                looks_for=step.looks_for,
+                focus=plan.step_focus.get(step.key) if plan is not None else None,
             ),
             companies=[
                 ReaderCompany(slug=c.slug, name=c.display_name, layer=c.layer, seed=c.seed)
@@ -499,6 +524,7 @@ class Reader:
                     quantity=_quantity_text(fact.quantity),
                     period=fact.period,
                     challenges=fact.challenges,
+                    part=fact.part,
                 )
                 for fact in state.facts
             ],
@@ -569,9 +595,19 @@ class Reader:
         companies = {c.slug: c for c in self._setup.companies}
         unknown = [slug for slug in slugs if slug not in companies]
         left = self._passages_left(state)
+        plan = self._setup.plan
+        if plan is not None and not any(each.terms for each in plan.parts):
+            plan = None  # a plan with no term binds nothing (a question of stopwords alone)
+        part = names_a_part(query, plan) if plan is not None else None
         refusal: str | None = None
         if not query.strip():
             refusal = "the query is empty"
+        elif plan is not None and part is None:
+            # The question's parts bind the search (R2-01): on 0.5.4's question 5, 18 of 24
+            # Reader queries named none of the question's terms and found the theme's story.
+            refusal = "name one of the question's terms in the query: " + ", ".join(
+                terms_to_name(plan)
+            )
         elif unknown:
             refusal = f"unknown company slugs: {', '.join(unknown)} (use the slugs listed)"
         elif left == 0:
@@ -621,6 +657,7 @@ class Reader:
                 "company_slugs": list[JsonValue](c.slug for c in chosen),
                 "documents_searched": found.documents_searched,
                 "hits": list[JsonValue](item.id for item in items),
+                "part": part,
                 "line": f'"{query}" in {searched}: {len(items)} hits',
             }
         )
@@ -880,6 +917,18 @@ class Reader:
             if unknown:
                 return "unknown_fact", f"no Fact {', '.join(unknown)} to challenge"
             challenges = list(dict.fromkeys(proposed.challenges))
+        plan = self._setup.plan
+        if proposed.part is not None and (plan is None or proposed.part not in plan.keys()):
+            if plan is None:
+                return (
+                    "unknown_part",
+                    f"no part {proposed.part!r}: this question has no parts, so `part` is null",
+                )
+            return (
+                "unknown_part",
+                f"no part {proposed.part!r} of the question: use one of"
+                f" {', '.join(plan.keys())}, or null for background",
+            )
         document = self._document(passage.source_version_id)
         if document is None:
             return "unknown_passage", "the passage's document is no longer readable"
@@ -932,6 +981,7 @@ class Reader:
                 ),
                 period=proposed.period,
                 status=proposed.status,
+                part=proposed.part,
             )
         except ValidationError as error:
             details = "; ".join(
@@ -963,6 +1013,7 @@ class Reader:
             period=proposed.period,
             quote=quote,
             challenges=challenges,
+            part=proposed.part,
             challenged_fact_ids=[
                 self._setup.challenge_ids[ref]
                 for ref in challenges
@@ -1094,6 +1145,18 @@ def _quantity_text(quantity: dict[str, Any] | None) -> str | None:
     return f"{quantity.get('value')} {quantity.get('unit')} ({quantity.get('metric')})"
 
 
+NO_PART = "none"  # `facts_by_part`'s key for the Facts that answer no part
+
+
+def facts_by_part(facts: Sequence[RecordedFact]) -> dict[str, JsonValue]:
+    """How many Facts answer each part of the question (`NO_PART`: none)."""
+    counted: dict[str, int] = {}
+    for fact in facts:
+        key = fact.part or NO_PART
+        counted[key] = counted.get(key, 0) + 1
+    return dict[str, JsonValue](counted)
+
+
 def artifacts(
     session_id: uuid.UUID, setup: ReaderSetup, state: ReaderState, status: SessionStatus
 ) -> dict[str, JsonValue]:
@@ -1113,6 +1176,7 @@ def artifacts(
                 "company_slugs": each["company_slugs"],
                 "documents_searched": each["documents_searched"],
                 "hits": len(each["hits"]) if isinstance(each["hits"], list) else 0,
+                "part": each.get("part"),
             }
             for each in state.searches
         ],
@@ -1141,9 +1205,11 @@ def artifacts(
                 "statement": fact.statement,
                 "source_version_id": str(fact.source_version_id),
                 "challenges": list[JsonValue](str(each) for each in fact.challenged_fact_ids),
+                "part": fact.part,
             }
             for fact in state.facts
         ],
+        "facts_by_part": facts_by_part(state.facts),
         "refused": [
             {"reason_code": each.reason_code, "reason": each.reason, "quote": each.quote}
             for each in state.refused

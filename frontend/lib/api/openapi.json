@@ -8957,6 +8957,17 @@
             },
             "type": "array",
             "title": "Relations"
+          },
+          "part": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part"
           }
         },
         "type": "object",
@@ -9312,6 +9323,45 @@
         ],
         "title": "CardQuery",
         "description": "One query the Scout searched."
+      },
+      "CardQuestionPart": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts"
+          },
+          "statements": {
+            "type": "integer",
+            "title": "Statements"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "answered",
+              "facts_only",
+              "unanswered"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "text",
+          "facts",
+          "statements",
+          "status"
+        ],
+        "title": "CardQuestionPart",
+        "description": "One part of the round's question (its question plan; pilot-review R2-01) and what the\ncard says of it: `answered` when a kept statement cites a Fact recorded for it, `facts_only`\nwhen Facts were recorded for it but no kept statement cites one, else `unanswered`."
       },
       "CardReading": {
         "properties": {
@@ -13651,6 +13701,17 @@
               "reported_by_third_party"
             ],
             "title": "Status"
+          },
+          "part": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part"
           }
         },
         "additionalProperties": false,
@@ -23214,6 +23275,13 @@
             },
             "type": "array",
             "title": "Steps"
+          },
+          "question_parts": {
+            "items": {
+              "$ref": "#/components/schemas/CardQuestionPart"
+            },
+            "type": "array",
+            "title": "Question Parts"
           }
         },
         "type": "object",
@@ -27365,6 +27433,17 @@
           },
           "assertion": {
             "$ref": "#/components/schemas/Assertion"
+          },
+          "part": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part"
           }
         },
         "type": "object",

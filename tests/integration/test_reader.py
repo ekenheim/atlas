@@ -238,6 +238,10 @@ def test_a_reader_searches_reads_records_facts_and_is_told_why_one_was_refused(
         "quantity_not_in_quote",
     ]
     assert (artifacts["facts_recorded"], artifacts["facts_refused"]) == (1, 2)
+    # The standalone Reader has no question plan (pilot-review R2-01): its search is not held
+    # to the question's terms, and its Fact answers no part.
+    assert (searched["part"], recorded["part"]) == (None, None)
+    assert artifacts["facts_by_part"] == {"none": 1}
     # The Fact, through the Facts API: the quote at its archived span, its status kept.
     facts = atlas.get("/api/v1/facts", step="relief")["items"]
     [found] = facts
@@ -248,11 +252,12 @@ def test_a_reader_searches_reads_records_facts_and_is_told_why_one_was_refused(
         None,
     )
     assert found["investigation_id"] is None
+    assert found["part"] is None
     assertion = found["assertion"]
     assert assertion["quote"] == SHERMAN
     assert assertion["source_version_id"] == ten_k
     assert assertion["epistemic_type"] == "company_claim"
-    assert assertion["extractor_version"] == "reader.v3"
+    assert assertion["extractor_version"] == "reader.v4"
     assert atlas.parsed(ten_k)[assertion["span_start"] : assertion["span_end"]] == SHERMAN
     # Each refusal came back to the Reader in its next call, with the reason.
     calls = reader_requests(llm)
@@ -267,6 +272,7 @@ def test_a_reader_searches_reads_records_facts_and_is_told_why_one_was_refused(
     # The request tells it the step, the companies (the seed first) and what it has done.
     request = asked(calls[1])["request"]
     assert request["step"]["key"] == "relief"
+    assert (request["question_parts"], request["step"]["focus"]) == ([], None)
     assert request["companies"][0] == {
         "slug": "coherent",
         "name": "Coherent",
@@ -542,7 +548,7 @@ def test_a_fact_whose_status_its_quote_contradicts_is_refused_and_the_reader_is_
     [found] = atlas.get("/api/v1/facts", step="capture")["items"]
     assert found["status"] == "planned"
     assert found["assertion"]["quote"] == NVIDIA
-    assert found["assertion"]["extractor_version"] == "reader.v3"
+    assert found["assertion"]["extractor_version"] == "reader.v4"
     calls = reader_requests(llm)
     told = asked(calls[2])["request"]
     assert told["refused"] == 1

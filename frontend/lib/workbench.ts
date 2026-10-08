@@ -5,6 +5,7 @@
 import type {
   CardArgumentStep,
   CardFact,
+  CardQuestionPart,
   CardReading,
   CardSkepticCompany,
   CardStepStatement,
@@ -37,6 +38,33 @@ export const STEP_STATUS: Record<CardArgumentStep["status"], string> = {
   disputed: "disputed",
   unknown: "unknown",
 };
+
+/** What the card says of a part of the question (pilot-review R2-01). */
+export const PART_STATUS: Record<CardQuestionPart["status"], string> = {
+  answered: "answered",
+  facts_only: "Facts, no statement",
+  unanswered: "unanswered",
+};
+
+/** A part of the question in a line: its words, what the card says of it, and its counts. */
+export function partLine(part: CardQuestionPart): string {
+  const counts: string[] = [];
+  if (part.statements > 0) {
+    counts.push(`${part.statements} statement${part.statements === 1 ? "" : "s"}`);
+  }
+  counts.push(`${part.facts} Fact${part.facts === 1 ? "" : "s"}`);
+  return `${part.text}: ${PART_STATUS[part.status]} (${counts.join(", ")})`;
+}
+
+/** The question's parts counted by what the card says of them: "1 answered, 1 unanswered". */
+export function partTally(parts: CardQuestionPart[]): string {
+  const order: CardQuestionPart["status"][] = ["answered", "facts_only", "unanswered"];
+  return order
+    .map((status) => ({ status, count: parts.filter((part) => part.status === status).length }))
+    .filter(({ count }) => count > 0)
+    .map(({ status, count }) => `${count} ${PART_STATUS[status]}`)
+    .join(", ");
+}
 
 /** A Fact in a line: its statement, then its quantity, period and status as recorded. */
 export function factLine(fact: CardFact): string {

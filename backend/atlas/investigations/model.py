@@ -709,6 +709,26 @@ class CardFact(BaseModel):
     evidence_available_at: datetime
     against: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
     relations: list[CardFactRelation] = Field(default_factory=list[CardFactRelation])
+    # The key of the question's part the Reader recorded it as answering (pilot-review R2-01);
+    # None: background, a Skeptic's Fact, or recorded before the question had parts.
+    part: str | None = None
+
+
+CardQuestionPartStatus = Literal["answered", "facts_only", "unanswered"]
+
+
+class CardQuestionPart(BaseModel):
+    """One part of the round's question (its question plan; pilot-review R2-01) and what the
+    card says of it: `answered` when a kept statement cites a Fact recorded for it, `facts_only`
+    when Facts were recorded for it but no kept statement cites one, else `unanswered`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    text: str  # the question's own words for it
+    facts: int  # the Readers' Facts recorded for it
+    statements: int  # the kept statements citing one of them
+    status: CardQuestionPartStatus
 
 
 class CardStepStatement(BaseModel):
@@ -811,6 +831,9 @@ class ResearchCard(BaseModel):
     # card has no `findings`: each step's statement is its finding).
     plan: PlanName = "default"
     steps: list[CardArgumentStep] = Field(default_factory=list[CardArgumentStep])
+    # The argument plan's question parts, each with what the card says of it (pilot-review
+    # R2-01); empty on the default plan's cards and on cards drawn before it.
+    question_parts: list[CardQuestionPart] = Field(default_factory=list[CardQuestionPart])
 
 
 class EvidenceItem(BaseModel):

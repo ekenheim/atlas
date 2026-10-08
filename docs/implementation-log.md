@@ -3713,3 +3713,31 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Release:** `v0.5.4` at `3081dd4`. Release run 37784647221 (`verified`, `publish` success); image `ghcr.io/ekenheim/atlas:0.5.4`. No migrations. One new setting with a default (`ATLAS_FINDING_JUDGE_VOTE_RULE=any`).
 - **Deploy:** home-ops-upgrade#7334, for the owner to merge. The cluster was having issues at release time.
 - **Fixture only:** none of the role changes has run on MiniMax. Their live effect needs a pilot re-run.
+
+## R2-01: the question's parts reach each Reader, bind its searches, and the card reports which parts it answered (8 October)
+
+- **Why:** on question 5, 27% of 0.5.4's Facts (54 of 200) were off the question; 6 of 24 Reader queries named one of the question's terms. Rules in `docs/decisions.md`, "Reading that follows the question: parts, terms and the card's account".
+- **Files:**
+  - `backend/atlas/roles/question_planner.py` (new: `QUESTION_PLANNER`, `QuestionPlannerRequest`, `PlannerStep`, `QuestionPlanDraft`, `QuestionPartDraft`, `StepFocus`, `snake_case`), `backend/atlas/roles/prompts/question_plan.v1.md` (new).
+  - `backend/atlas/investigations/question.py` (new: `QuestionPlan`, `QuestionPart`, `planned`, `fallback_plan`, `load_plan`, `names_a_part`, `terms_to_name`).
+  - `backend/atlas/roles/reader.py` (`READER_PROMPT_VERSION` 4; `ReaderStep.focus`, `ReaderQuestionPart`, `ReaderRequest.question_parts`, `ReaderFactSummary.part`, `RecordFact.part` defaulting to null), `backend/atlas/roles/prompts/reader.v4.md` (new; v3 kept).
+  - `backend/atlas/investigations/reader.py` (`ReaderSetup.plan`; the request's parts and focus; the search refusal and the search's `part`; `unknown_part`; `RecordedFact.part`; artifacts' `part` per search and Fact and `facts_by_part`).
+  - `backend/atlas/facts/service.py` (`FactValue.part`, `FactCreate.part`, `Fact.part`).
+  - `backend/atlas/roles/editor.py` (`EDITOR_ARGUMENT_PROMPT_VERSION` 3; `EditorQuestionPart`, `EditorArgumentRequest.question_parts`, `ArgumentFactItem.part`), `backend/atlas/roles/prompts/editor-argument.v3.md` (new; v2 kept).
+  - `backend/atlas/investigations/model.py` (`CardQuestionPart`, `ResearchCard.question_parts`, `CardFact.part`), `backend/atlas/investigations/argument.py` (`fact_part`, `parts_answered`; `card_fact` keeps the part).
+  - `backend/atlas/investigations/tasks.py` (`_plan_question` in the Scout task of the argument plan; the Readers load the round's plan; the argument Editor sends the parts and puts `question_parts` on the card, the Editor-failure card included, with counts in its artifacts).
+  - `frontend/lib/workbench.ts` (`PART_STATUS`, `partLine`, `partTally`), `frontend/app/investigation/page.tsx` (the parts above the steps), `frontend/lib/api/client.ts` (`CardQuestionPart`), `frontend/lib/api/{openapi.json,schema.ts}` regenerated, `frontend/unit/workbench.test.ts`.
+  - Tests: `tests/unit/test_question_plan.py` (new, 6), `tests/unit/test_reader.py` (v4 pin and `test_the_role_is_v4_and_asks_for_the_part_of_each_fact`), `tests/unit/test_facts.py` (`test_a_fact_value_carries_an_optional_part`), `tests/unit/test_argument_editor.py` and `tests/unit/test_bottleneck_prompts.py` (v3 pins), `tests/integration/test_argument_plan.py` (the planner scripted once in every argument test; `test_the_question_s_parts_reach_each_reader_and_the_card_reports_them`, `test_a_failed_planner_falls_back_to_the_question_s_clauses`), `tests/integration/test_reader.py` (`read_step` without a plan: no refusal, `part` null).
+  - `.scratch/tools/question_parts_eval.py` (new), `docs/decisions.md`, `AGENTS.md`.
+- **Tests (actual, WSL, local Postgres):** ruff format/check clean, pyright 0 errors (463 files); unit suite 1,154 passed, 2 skipped; `test_argument_plan.py`, `test_reader.py`, `test_facts.py` and `test_archive_search.py` 35 passed (`test_argument_plan.py` 11 of them); `test_investigations.py` 59 passed; after the last edit (a plan with no term binds nothing) `test_argument_plan.py`, `test_reader.py` and the two unit modules rerun: 50 passed; frontend lint and typecheck clean, unit tests 114 passed; `scripts/gen_api_client.sh --check` current.
+- **Measured offline** (`question_parts_eval.py` over the lead's `pilot-0.5.{3,4}-arg` folders, before the change): question 5, 0.5.4, the reviewers' terms: 6 of 24 queries; Facts carrying one: right 59 of 128, off-question 10 of 54, wrong 7 of 18; 0.5.3: 6 of 23 queries. Question 1, 0.5.4: 20 of 22 (with the seed companies' names as terms, which every Fact's statement carries); 0.5.3: 26 of 26. Code's fallback plan of question 5 names 11 of 24 queries (its terms include "supply" and "demand").
+- **Fixture only:** `question_plan.v1`, `reader.v4` and `editor-argument.v3` have not been called on MiniMax.
+- **Deviations:**
+  - The planner's response is `QuestionPlanDraft` (the stored plan is `atlas.investigations.question.QuestionPlan`, also the fallback's), and its `step_focus` is a list of `{step, focus}`: a strict JSON schema has no open-keyed object. An answer that writes it as an object keyed by step is read as the list; the stored plan keys it by step as specified.
+  - A part's `terms` must hold 1 to 12 (blank and repeated terms dropped): the prompt asks 3 to 12, but a part with two good terms isn't worth a quarantine and the fallback. A part's key is made snake_case rather than refused.
+  - The planner runs only in the argument plan's Scout task: the default plan has no Readers to bind.
+  - A plan with no term at all (a question of stopwords alone, through the fallback) binds no search, so a Reader is never left unable to search.
+  - A refused search is not recorded among `searches` (as the other search refusals aren't), so it doesn't count as the search a `done` needs.
+  - `parts_answered(plan, supporting, statements)` takes each kept statement as the set of Fact IDs it cites (pure, no references).
+  - The Editor-failure card also carries `question_parts` (every part `facts_only` or `unanswered`).
+- **Next:** rerun pilot question 5 on the argument plan and compare `question_parts_eval.py`'s counts and the off-question share.
