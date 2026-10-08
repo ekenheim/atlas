@@ -8415,6 +8415,11 @@
             "type": "boolean",
             "title": "Skeptic Checked",
             "default": false
+          },
+          "contested": {
+            "type": "boolean",
+            "title": "Contested",
+            "default": false
           }
         },
         "type": "object",
@@ -8432,7 +8437,7 @@
           "judged"
         ],
         "title": "CardArgumentStep",
-        "description": "One step of the argument (bottleneck-argument ticket 05): its status, the Editor's\nstatements (each held to its Facts' quotes by the grounding check and the finding judge\non its own; the ones that passed, `statements`; `statement` is the first of them, or None,\nkept for older readers), the Facts behind it, the Skeptic's counterevidence, and what\nremains unchecked. The status is code's: `unknown` without a statement that passed or\nwithout a Fact; `disputed` when counterevidence stands against the step; else\n`supported`. `editor_status` is what the Editor proposed."
+        "description": "One step of the argument (bottleneck-argument ticket 05): its status, the Editor's\nstatements (each held to its Facts' quotes by the grounding check and the finding judge\non its own; the ones that passed, `statements`; `statement` is the first of them, or None,\nkept for older readers), the Facts behind it, the Skeptic's counterevidence, and what\nremains unchecked. The status is code's: `unknown` without a statement that passed or\nwithout a Fact; `disputed` when a Skeptic Fact contradicts, limits or dates one of the\nstep's Facts (or the Facts its statements cite), or could not be judged against it; else\n`supported`. `contested`: a judged contradiction stands against the step's Facts, whatever\nits status. `editor_status` is what the Editor proposed."
       },
       "CardBearContext": {
         "properties": {
@@ -8945,6 +8950,13 @@
             },
             "type": "array",
             "title": "Against"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/CardFactRelation"
+            },
+            "type": "array",
+            "title": "Relations"
           }
         },
         "type": "object",
@@ -8962,7 +8974,7 @@
           "evidence_available_at"
         ],
         "title": "CardFact",
-        "description": "A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the\nquantity, period and status the Reader recorded, and its quote's span (`source_span`;\n`claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it\nspeaks against (`against`)."
+        "description": "A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the\nquantity, period and status the Reader recorded, and its quote's span (`source_span`;\n`claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it\nspeaks against (`against`: those the counter-judge found it contradicts, limits or dates, or\ncould not judge) and what it does to each Fact it challenges (`relations`, pilot-review\nT3)."
       },
       "CardFactQuantity": {
         "properties": {
@@ -8986,6 +8998,38 @@
           "metric"
         ],
         "title": "CardFactQuantity"
+      },
+      "CardFactRelation": {
+        "properties": {
+          "fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Fact Id"
+          },
+          "relation": {
+            "type": "string",
+            "title": "Relation"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fact_id",
+          "relation",
+          "reason"
+        ],
+        "title": "CardFactRelation",
+        "description": "What a Skeptic Fact does to one Fact it challenges, as the counter-judge labelled it\n(`atlas.roles.counter_judge`): `contradicts`, `limits`, `dates`, `qualifies`, `supports`,\n`unrelated`, or `unjudged` when no label could be had (its call failed, or it was never\nasked)."
       },
       "CardFinding": {
         "properties": {

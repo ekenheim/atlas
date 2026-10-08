@@ -37,6 +37,7 @@ import {
   openQuestions,
   outputParts,
   pointedOutcome,
+  type CounterLine,
   type PointerGroup,
   pointerGroups,
   pointerQueryLabel,
@@ -48,6 +49,7 @@ import {
   readingOutcome,
   saidBy,
   selectionSummary,
+  splitCounterevidence,
   STEP_STATUS,
   statusText,
   stepStatements,
@@ -962,7 +964,9 @@ function Card({ card }: { card: ResearchCard | null }) {
 }
 
 /** The argument plan's card: each step's status and statements, each statement's cited Facts
- * one click deeper, then all the step's Facts and counterevidence. */
+ * one click deeper, then all the step's Facts and counterevidence: "Against", the Skeptic's
+ * Facts that contradict, limit or date them, and "Also found", the rest, each with what it
+ * does to them. */
 function ArgumentSteps({ card }: { card: ResearchCard }) {
   const steps = card.steps ?? [];
   return (
@@ -976,23 +980,38 @@ function ArgumentSteps({ card }: { card: ResearchCard }) {
       <ol aria-label="The argument">
         {steps.map((step) => {
           const statements = stepStatements(step);
+          const all = splitCounterevidence(
+            step.counterevidence,
+            step.facts.map((fact) => fact.fact_id),
+          );
           return (
             <li key={step.step}>
               <strong>{step.title}</strong>: {STEP_STATUS[step.status]}
               {statements.length > 0 ? (
                 <ul aria-label={`${step.title}: statements`}>
-                  {statements.map((said, index) => (
-                    <li key={index}>
-                      {said.statement}
-                      <details>
-                        <summary className="muted-small">
-                          {citedTally(said.facts, said.counterevidence)}
-                        </summary>
-                        <StepFacts title="Evidence" facts={said.facts} />
-                        <StepFacts title="Against" facts={said.counterevidence} />
-                      </details>
-                    </li>
-                  ))}
+                  {statements.map((said, index) => {
+                    const split = splitCounterevidence(
+                      said.counterevidence,
+                      said.facts.map((fact) => fact.fact_id),
+                    );
+                    return (
+                      <li key={index}>
+                        {said.statement}
+                        <details>
+                          <summary className="muted-small">
+                            {citedTally(
+                              said.facts,
+                              split.against.map((each) => each.fact),
+                              split.alsoFound.length,
+                            )}
+                          </summary>
+                          <StepFacts title="Evidence" facts={said.facts} />
+                          <CounterFacts title="Against" lines={split.against} />
+                          <CounterFacts title="Also found" lines={split.alsoFound} />
+                        </details>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="muted-small">No statement: {step.asks}</p>
@@ -1000,10 +1019,16 @@ function ArgumentSteps({ card }: { card: ResearchCard }) {
               {step.facts.length + step.counterevidence.length > 0 && (
                 <details>
                   <summary className="muted-small">
-                    All: {citedTally(step.facts, step.counterevidence)}
+                    All:{" "}
+                    {citedTally(
+                      step.facts,
+                      all.against.map((each) => each.fact),
+                      all.alsoFound.length,
+                    )}
                   </summary>
                   <StepFacts title="Evidence" facts={step.facts} />
-                  <StepFacts title="Against" facts={step.counterevidence} />
+                  <CounterFacts title="Against" lines={all.against} />
+                  <CounterFacts title="Also found" lines={all.alsoFound} />
                 </details>
               )}
               {step.unchecked.length > 0 && (
@@ -1024,6 +1049,23 @@ function StepFacts({ title, facts }: { title: string; facts: CardFact[] }) {
       {facts.map((fact) => (
         <li key={fact.fact_id}>
           {title}: {fact.company_name}: {factLine(fact)}{" "}
+          <Link href={routes.span(fact.source_span.source_version_id, fact.fact_id)}>
+            {fact.source_title}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CounterFacts({ title, lines }: { title: string; lines: CounterLine[] }) {
+  if (lines.length === 0) return null;
+  return (
+    <ul className="muted-small" aria-label={title}>
+      {lines.map(({ fact, relation }) => (
+        <li key={fact.fact_id}>
+          {title}
+          {relation && ` (${relation})`}: {fact.company_name}: {factLine(fact)}{" "}
           <Link href={routes.span(fact.source_span.source_version_id, fact.fact_id)}>
             {fact.source_title}
           </Link>

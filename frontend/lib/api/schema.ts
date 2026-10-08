@@ -2127,8 +2127,10 @@ export interface components {
          *     on its own; the ones that passed, `statements`; `statement` is the first of them, or None,
          *     kept for older readers), the Facts behind it, the Skeptic's counterevidence, and what
          *     remains unchecked. The status is code's: `unknown` without a statement that passed or
-         *     without a Fact; `disputed` when counterevidence stands against the step; else
-         *     `supported`. `editor_status` is what the Editor proposed.
+         *     without a Fact; `disputed` when a Skeptic Fact contradicts, limits or dates one of the
+         *     step's Facts (or the Facts its statements cite), or could not be judged against it; else
+         *     `supported`. `contested`: a judged contradiction stands against the step's Facts, whatever
+         *     its status. `editor_status` is what the Editor proposed.
          */
         CardArgumentStep: {
             /** Step */
@@ -2176,6 +2178,11 @@ export interface components {
              * @default false
              */
             skeptic_checked: boolean;
+            /**
+             * Contested
+             * @default false
+             */
+            contested: boolean;
         };
         /**
          * CardBearContext
@@ -2387,7 +2394,9 @@ export interface components {
          * @description A Fact (`atlas.facts`) as the argument card shows it: what its quote states, with the
          *     quantity, period and status the Reader recorded, and its quote's span (`source_span`;
          *     `claim_id` and `assertion_id` are both the Fact's ID). A Skeptic's Fact names the Facts it
-         *     speaks against (`against`).
+         *     speaks against (`against`: those the counter-judge found it contradicts, limits or dates, or
+         *     could not judge) and what it does to each Fact it challenges (`relations`, pilot-review
+         *     T3).
          */
         CardFact: {
             /**
@@ -2421,6 +2430,8 @@ export interface components {
             evidence_available_at: string;
             /** Against */
             against?: string[];
+            /** Relations */
+            relations?: components["schemas"]["CardFactRelation"][];
         };
         /** CardFactQuantity */
         CardFactQuantity: {
@@ -2430,6 +2441,24 @@ export interface components {
             unit: string;
             /** Metric */
             metric: string;
+        };
+        /**
+         * CardFactRelation
+         * @description What a Skeptic Fact does to one Fact it challenges, as the counter-judge labelled it
+         *     (`atlas.roles.counter_judge`): `contradicts`, `limits`, `dates`, `qualifies`, `supports`,
+         *     `unrelated`, or `unjudged` when no label could be had (its call failed, or it was never
+         *     asked).
+         */
+        CardFactRelation: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Relation */
+            relation: string;
+            /** Reason */
+            reason: string | null;
         };
         /**
          * CardFinding

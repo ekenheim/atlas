@@ -64,11 +64,54 @@ export function stepStatements(step: CardArgumentStep): CardStepStatement[] {
   ];
 }
 
-/** Facts and counterevidence in a few words: "2 Facts, 1 against". */
-export function citedTally(facts: CardFact[], against: CardFact[]): string {
+/** Facts and counterevidence in a few words: "2 Facts, 1 against, 3 also found". */
+export function citedTally(facts: CardFact[], against: CardFact[], alsoFound = 0): string {
   const parts = [`${facts.length} ${facts.length === 1 ? "Fact" : "Facts"}`];
   if (against.length > 0) parts.push(`${against.length} against`);
+  if (alsoFound > 0) parts.push(`${alsoFound} also found`);
   return parts.join(", ");
+}
+
+/** A Skeptic Fact as a step or a statement shows it, with what it does to the Facts there. */
+export interface CounterLine {
+  fact: CardFact;
+  relation: string; // "contradicts", "qualifies, supports", "": none recorded (an older card)
+}
+
+/** A step's (or a statement's) counterevidence split by the counter-judge's labels (pilot-review
+ * T3): "Against", the Skeptic Facts that contradict, limit or date one of `factIds` (or could
+ * not be judged against one), with that relation; "Also found", the rest, with what they do
+ * (to these Facts, or to another step's). A card written before the labels has none: a Fact
+ * against one of `factIds` is against, with no relation shown. */
+export function splitCounterevidence(
+  counter: CardFact[],
+  factIds: string[],
+): { against: CounterLine[]; alsoFound: CounterLine[] } {
+  const here = new Set(factIds);
+  const against: CounterLine[] = [];
+  const alsoFound: CounterLine[] = [];
+  for (const fact of counter) {
+    const relations = fact.relations ?? [];
+    const named = (fact.against ?? []).filter((id) => here.has(id));
+    if (named.length > 0) {
+      const labels = relations.filter((each) => named.includes(each.fact_id));
+      against.push({ fact, relation: unique(labels.map((each) => each.relation)) });
+      continue;
+    }
+    const onHere = relations.filter((each) => here.has(each.fact_id));
+    const relation =
+      onHere.length > 0
+        ? unique(onHere.map((each) => each.relation))
+        : relations.length > 0
+          ? `${unique(relations.map((each) => each.relation))} another step's Fact`
+          : "names no Fact";
+    alsoFound.push({ fact, relation });
+  }
+  return { against, alsoFound };
+}
+
+function unique(values: string[]): string {
+  return [...new Set(values)].join(", ");
 }
 
 /** The argument's steps counted by status: "2 supported, 1 disputed, 3 unknown". */

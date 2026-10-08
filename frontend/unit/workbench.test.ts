@@ -40,6 +40,7 @@ import {
   readingOutcome,
   saidBy,
   selectionSummary,
+  splitCounterevidence,
   stepStatements,
   stepTally,
 } from "../lib/workbench";
@@ -613,4 +614,38 @@ test("a step lists the statements that stood, each with the Facts it cites", () 
   expect(stepStatements(none)).toEqual([]);
   expect(citedTally([fact("a")], [])).toBe("1 Fact");
   expect(citedTally([fact("a"), fact("b")], [fact("c")])).toBe("2 Facts, 1 against");
+  expect(citedTally([fact("a")], [], 2)).toBe("1 Fact, 2 also found");
+});
+
+test("a step's counterevidence is split into what stands against its Facts and what was also found", () => {
+  const relation = (factId: string, label: string) => ({
+    fact_id: factId,
+    relation: label,
+    reason: null,
+  });
+  const counter = (id: string, against: string[], relations: ReturnType<typeof relation>[]) =>
+    ({ fact_id: id, against, relations }) as unknown as CardFact;
+  const contradicting = counter("k1", ["a"], [relation("a", "contradicts")]);
+  const qualifying = counter("k2", [], [relation("a", "qualifies"), relation("b", "supports")]);
+  const unjudged = counter("k3", ["b"], [relation("b", "unjudged")]);
+  const elsewhere = counter("k4", ["z"], [relation("z", "limits")]);
+  const unnamed = counter("k5", [], []);
+
+  const { against, alsoFound } = splitCounterevidence(
+    [contradicting, qualifying, unjudged, elsewhere, unnamed],
+    ["a", "b"],
+  );
+
+  expect(against.map((each) => [each.fact.fact_id, each.relation])).toEqual([
+    ["k1", "contradicts"],
+    ["k3", "unjudged"],
+  ]);
+  expect(alsoFound.map((each) => [each.fact.fact_id, each.relation])).toEqual([
+    ["k2", "qualifies, supports"],
+    ["k4", "limits another step's Fact"],
+    ["k5", "names no Fact"],
+  ]);
+  // A card written before the counter-judge: a Fact against one of these is against, unlabelled.
+  const older = { fact_id: "k6", against: ["a"] } as unknown as CardFact;
+  expect(splitCounterevidence([older], ["a"]).against).toEqual([{ fact: older, relation: "" }]);
 });
