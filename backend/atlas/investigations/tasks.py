@@ -1662,6 +1662,7 @@ class TaskRunner:
                 drafts[each.step] = each
         unsupported: list[UnsupportedFinding] = []
         checking: list[tuple[str, CardFindingDraft, list[str]]] = []
+        to_name: list[list[str]] = []  # per statement: the companies of its supporting Facts
         for key, each in drafts.items():
             for said in each.statements[:MAX_STEP_STATEMENTS]:
                 cited = list(dict.fromkeys([*said.fact_refs, *said.counter_refs]))
@@ -1692,12 +1693,16 @@ class TaskRunner:
                     statement=statement, claim_refs=cited, limitations=[], open_questions=[]
                 )
                 checking.append((key, finding, cited))
+                to_name.append(
+                    _companies_to_name([refs[ref] for ref in said.fact_refs if ref in refs])
+                )
         checked = check_findings(
             [(finding, cited) for _, finding, cited in checking],
             refs,
             investigation["question"],
             self._company_names(),
             lambda again, quotes: self._ask_editor_again(investigation, run_id, again, quotes),
+            required=to_name,
         )
         kept: dict[str, list[KeptStatement]] = {}
         grounded: list[tuple[str, CheckedFinding]] = []
@@ -2199,6 +2204,13 @@ def _step_of(key: str) -> ArgumentStep:
     if step not in STEPS:
         raise RoleCallFailed(f"no argument step {step!r} for task {key!r}")
     return STEPS[step].key
+
+
+def _companies_to_name(cited: Sequence[Mapping[Any, Any]]) -> list[str]:
+    """The display names of the companies the cited Facts belong to when there are several (a
+    statement citing them must name each); else none."""
+    names = list(dict.fromkeys(str(each["subject_name"]) for each in cited))
+    return names if len(names) > 1 else []
 
 
 def _step_refs(

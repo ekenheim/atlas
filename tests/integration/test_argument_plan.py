@@ -632,3 +632,69 @@ def test_the_default_plan_stays_the_default(atlas: Atlas) -> None:
         json={"theme": "photonics", "question": QUESTION, "plan": "freeform"},
     )
     assert refused.status_code == 422
+
+
+RELIEF_DOMAIN = (
+    "Coherent announced only the expansion of its Sherman, Texas, manufacturing facility"
+    " for gallium arsenide."
+)
+
+
+def editing_with_domain_term(body: dict[str, Any]) -> JsonValue:
+    """The v2 Editor: on Relief one statement that adds a domain term and a scope word its quote
+    lacks, and one that stands; the other steps unknown."""
+    request = asked(body)["request"]
+    steps: list[JsonValue] = []
+    for step in request["steps"]:
+        if step["step"] == "relief":
+            facts = step["fact_refs"]
+            statements: list[JsonValue] = [
+                {"statement": RELIEF_DOMAIN, "fact_refs": facts, "counter_refs": []},
+                {"statement": RELIEF_STATEMENT, "fact_refs": facts, "counter_refs": []},
+            ]
+            status = "supported"
+        else:
+            statements = [{"statement": UNKNOWN_STATEMENT, "fact_refs": [], "counter_refs": []}]
+            status = "unknown"
+        steps.append(
+            {"step": step["step"], "status": status, "statements": statements, "unchecked": []}
+        )
+    return {"steps": steps, "open_questions": [], "verdict": "needs_review"}
+
+
+def test_a_statement_adding_a_domain_term_or_qualifier_its_quotes_lack_is_sent_back_then_dropped(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", *(ChatReply.json(SUPPORTED, tokens=(400, 40)),) * 2)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing_with_domain_term, tokens=(3000, 400)),  # the Editor
+        ChatReply.answer(regrounding_unchanged, tokens=(800, 100)),  # asked again, once
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{response.json()['id']}")
+    card = found["research_card"]
+    [dropped] = card["unsupported_findings"]
+    assert dropped["statement"] == RELIEF_DOMAIN
+    assert dropped["reason"] == "ungrounded: gallium arsenide, only"
+    relief = next(step for step in card["steps"] if step["step"] == "relief")
+    assert [s["statement"] for s in relief["statements"]] == [RELIEF_STATEMENT]

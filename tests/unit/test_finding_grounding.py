@@ -6,9 +6,18 @@ function of text. The quotes are synthetic, shaped like the pilot's (a call tran
 results release, an 8-K); none is production text.
 """
 
+import uuid
 from collections.abc import Sequence
+from typing import Any
 
-from atlas.investigations.grounding import claim_grounds, grounds, ungrounded
+from atlas.investigations.grounding import check_findings, claim_grounds, grounds, ungrounded
+from atlas.roles.contract import QuotedText
+from atlas.roles.editor import (
+    CardFindingDraft,
+    EditorRegroundRequest,
+    RegroundedFinding,
+    RegroundedFindings,
+)
 
 RELEASE = (
     "Net proceeds from the offering were $412.5 million, and we issued 18,250,000 new shares"
@@ -240,3 +249,75 @@ def test_an_ellipsis_and_a_bracketed_letter_still_split_a_phrase_into_pieces() -
         check('It says "[o]ur wafers come from Orchid... our sole source foundry,"', SUPPLY) == []
     )
     assert check('It says "wafers come from Orchid... our only foundry,"', SUPPLY) != []
+
+
+# --- domain terms, scope qualifiers and cited companies (pilot 0.5.3, ticket T1) ---------
+
+
+def test_a_domain_term_in_any_case_must_occur_in_a_cited_quote() -> None:
+    quote = "Coherent is expanding InP capacity."
+    statement = "Coherent converts the fab from gallium arsenide to indium phosphide."
+    assert check(statement, quote) == ["gallium arsenide"]
+    assert check("Its InP fab is expanding.", "The indium phosphide fab is expanding.") == []
+    assert check("Demand for Data Center Interconnect grows.", "Demand grows.") == [
+        "Data Center Interconnect"
+    ]
+    assert check("Demand for DCI grows.", "Demand for data-center interconnect grows.") == []
+
+
+def test_a_scope_or_period_qualifier_must_occur_in_a_cited_quote() -> None:
+    assert check(
+        "Lumentum will commit only about $70 million.", "Lumentum will commit $70 million."
+    ) == ["only"]
+    assert check("Cash at the end of the fiscal year.", "Cash at the end of year.") == ["fiscal"]
+    assert check("Revenue rose in fiscal 2027.", "Revenue rose in FY2027.") == []
+    assert check("Revenue rose in calendar 2027.", "Revenue rose in CY2027.") == []
+    assert check("Costs, including freight, rose.", "Costs, including freight, rose.") == []
+    assert check("Costs, including freight, rose.", "Costs rose.") == []
+
+
+def _claim(subject: str, quote: str) -> dict[str, Any]:
+    return {
+        "id": uuid.uuid4(),
+        "quote": quote,
+        "subject_name": subject,
+        "object_name": None,
+        "object_text": "lasers",
+        "source_title": "10-K",
+        "predicate": "supplies",
+        "product": None,
+        "layer": None,
+        "epistemic_type": "stated",
+        "source_version_id": uuid.uuid4(),
+        "span_start": 0,
+        "span_end": len(quote),
+    }
+
+
+def test_a_required_name_missing_from_the_statement_is_reported() -> None:
+    claims = {
+        "c1": _claim("Lumentum", "Lumentum ships lasers."),
+        "c2": _claim("Coherent", "Coherent ships lasers."),
+    }
+    draft = CardFindingDraft(
+        statement="Lumentum ships lasers.",
+        claim_refs=["c1", "c2"],
+        limitations=[],
+        open_questions=[],
+    )
+    seen: list[list[str]] = []
+
+    def ask(
+        request: EditorRegroundRequest, quotes: list[QuotedText]
+    ) -> tuple[RegroundedFindings, uuid.UUID]:
+        seen.append(request.findings[0].ungrounded)
+        answer = RegroundedFinding(finding="f1", statement="Lumentum and Coherent ship lasers.")
+        return RegroundedFindings(findings=[answer]), uuid.uuid4()
+
+    checked = check_findings(
+        [(draft, ["c1", "c2"])], claims, "", [], ask, required=[["Coherent", "Lumentum"]]
+    )
+    assert seen == [["company not named: Coherent"]]
+    [only] = checked.findings
+    assert only.ungrounded == []
+    assert (checked.asked_again, checked.repaired) == (1, 1)

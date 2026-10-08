@@ -29,9 +29,19 @@ What is matched, and how:
   Editor's own claim labels such as "(c10, c15)", are handled before); an ellipsis splits it
   into pieces that must each occur.
 
+Three more checks look at lower-case words the rules above never see (pilot 0.5.3, ticket T1):
+- A **domain term** (each group of `ALIASES`, in any case, as a whole word, plural allowed:
+  "gallium arsenide", "data center interconnect") that the statement uses must have one of its
+  forms in the grounds; it is reported as the statement writes it.
+- A **scope or period qualifier** (`QUALIFIERS`: "only", "all", "each", "fiscal", ...) that the
+  statement uses must occur in the grounds; an "FY2027" there grounds "fiscal", a "CY2027"
+  "calendar".
+- A **cited company**: `check_findings` takes, per finding, the names a statement citing Facts
+  of several companies must all contain (`company not named: <name>`).
+
 What is not checked: the logic of a sentence (who did what to whom, a plan written as a fact,
-two agreements written as one). The check holds names and figures; the rest stays the
-reviewer's (`docs/decisions.md`, "A finding says only what its Claims say").
+two agreements written as one). The check holds names, figures, terms and scope words; the rest
+stays the reviewer's (`docs/decisions.md`, "A finding says only what its Claims say").
 """
 
 import re
@@ -77,6 +87,28 @@ ALIASES: tuple[tuple[str, ...], ...] = (
     ("U.S.", "US", "USA", "U.S.A.", "United States"),
     ("U.K.", "UK", "United Kingdom"),
     ("EU", "European Union"),
+    ("DCI", "data center interconnect", "data-center interconnect"),
+    ("NPO", "near-packaged optics"),
+    ("LPO", "linear pluggable optics"),
+    ("OCS", "optical circuit switch"),
+)
+
+# Scope and period words a statement may not add: each one it uses must occur in the grounds
+# (an "FY" token there grounds "fiscal", a "CY" token "calendar").
+QUALIFIERS: tuple[str, ...] = (
+    "fiscal",
+    "calendar",
+    "only",
+    "all",
+    "every",
+    "each",
+    "entire",
+    "entirely",
+    "sole",
+    "solely",
+    "exclusively",
+    "never",
+    "always",
 )
 
 # Capitalised words that are never a name: articles, pronouns, conjunctions, prepositions and
@@ -182,8 +214,10 @@ _EDGE = "'."  # the statement is folded: its quotation marks are ASCII
 
 # What the card says about this check (`ResearchCard.grounding_limit`; pilot-fixes ticket 25).
 GROUNDING_LIMIT = (
-    "A finding is checked for the names, figures and quoted phrases it uses, which must occur"
-    " in the Claims it cites. Direction (who did what to whom), tense (a plan written as a"
+    "A finding is checked for the names, figures, quoted phrases, domain terms and scope"
+    " qualifiers (only, all, each, fiscal, ...) it uses, which must occur in the Claims it"
+    " cites, and a statement citing the Claims of several companies must name them all."
+    " Direction (who did what to whom), tense (a plan written as a"
     " fact) and the merging of two facts into one are not checked: a finding that passed can"
     " still misstate its Claims."
 )
@@ -220,6 +254,10 @@ def grounds(texts: Iterable[str], aliases: Iterable[Sequence[str]] = ()) -> Grou
         names = list(dict.fromkeys([*written, *(_SUFFIX.sub("", name) for name in written)]))
         if any(_named(name, joined, lowered) for name in names):
             extra.extend(names)
+    for token in _TOKEN.findall(joined):
+        period = _FISCAL_YEAR.match(token.strip(_EDGE))
+        if period:
+            extra.append("fiscal" if token.lower().startswith("fy") else "calendar")
     if extra:
         joined = joined + "\n" + "\n".join(extra)
     numbers = tuple(_numbers(joined)) + tuple(_word_numbers(joined))
@@ -245,7 +283,40 @@ def ungrounded(statement: str, ground: Grounds) -> list[str]:
         if fiscal and not any(_same(_year(fiscal.group(1)), n) for n in ground.numbers):
             found.append(token.strip(_EDGE))
     found.extend(_names(text, ground))
+    found.extend(_domain_terms(text, ground))
+    found.extend(_qualifiers(text, ground))
     return list(dict.fromkeys(found))
+
+
+def _written(term: str, text: str) -> str | None:
+    """How `term` is written in `text` as a whole word (a plural or possessive "s" allowed), or
+    None; a short acronym keeps its case."""
+    body = re.escape(term).replace("\\ ", r"\s+")
+    flags = 0 if _acronym(term) else re.IGNORECASE
+    found = re.search(r"(?<![\w])(" + body + r")(?:'?s|')?(?![\w])", text, flags)
+    return found.group(1) if found else None
+
+
+def _domain_terms(text: str, ground: Grounds) -> list[str]:
+    """The domain terms the statement uses of which no form occurs in the grounds, as the
+    statement writes them."""
+    missing: list[str] = []
+    for group in ALIASES:
+        forms = [_normal(name) for name in group]
+        written = next((w for w in (_written(form, text) for form in forms) if w), None)
+        if written and not any(_named(form, ground.cased, ground.text) for form in forms):
+            missing.append(written)
+    return missing
+
+
+def _qualifiers(text: str, ground: Grounds) -> list[str]:
+    """The scope and period words the statement uses that the grounds don't."""
+    lowered = text.lower()
+    return [
+        word
+        for word in QUALIFIERS
+        if re.search(rf"(?<![\w-]){word}(?![\w-])", lowered) and not _occurs(word, ground.text)
+    ]
 
 
 def number_occurs(value: Decimal, ground: Grounds) -> bool:
@@ -437,6 +508,21 @@ def _grounded(part: str, ground: Grounds) -> bool:
     return any(_named(each, ground.cased, ground.text) for each in candidates)
 
 
+def _names_in(name: str, statement: str, aliases: Sequence[Sequence[str]]) -> bool:
+    """Whether `statement` names `name` or another name of it (`aliases`, `ALIASES`, the name
+    without its company suffix)."""
+    text = _normal(statement)
+    wanted = _normal(name)
+    bare = _SUFFIX.sub("", wanted)
+    forms = [wanted, bare]
+    for group in (*aliases, *ALIASES):
+        written = [_normal(each) for each in group if each.strip()]
+        stripped = [_SUFFIX.sub("", each) for each in written]
+        if wanted in written or wanted in stripped or bare in stripped:
+            forms.extend([*written, *stripped])
+    return any(_named(form, text, text.lower()) for form in dict.fromkeys(forms) if form)
+
+
 def claim_grounds(
     question: str, cited: Iterable[Mapping[Any, Any]], aliases: Iterable[Sequence[str]] = ()
 ) -> Grounds:
@@ -480,18 +566,31 @@ def check_findings(
     question: str,
     aliases: Sequence[Sequence[str]],
     ask: Ask,
+    required: Sequence[Sequence[str]] = (),
 ) -> CheckedFindings:
     """Check each finding (its draft and the references of the Claims it cites, each one a
     key of `claims`) against its cited Claims; send every ungrounded one back to the Editor in
     one call (`ask`), and check its new statement the same way. A finding the answer leaves
     out keeps its first statement and its ungrounded terms; a call that fails (its answer
-    quarantined, or the run's token budget spent) leaves them all ungrounded."""
+    quarantined, or the run's token budget spent) leaves them all ungrounded. `required` lists,
+    per draft, names its statement must contain (`company not named: <name>`)."""
+    needed = [list(each) for each in required] or [[] for _ in drafts]
+
+    def terms(index: int, statement: str) -> list[str]:
+        found = ungrounded(statement, grounds_of[index])
+        found.extend(
+            f"company not named: {name}"
+            for name in needed[index]
+            if not _names_in(name, statement, aliases)
+        )
+        return found
+
     grounds_of = [
         claim_grounds(question, [claims[ref] for ref in cited], aliases) for _, cited in drafts
     ]
     first = [
-        CheckedFinding(draft, cited, ungrounded(draft.statement, ground))
-        for (draft, cited), ground in zip(drafts, grounds_of, strict=True)
+        CheckedFinding(draft, cited, terms(index, draft.statement))
+        for index, (draft, cited) in enumerate(drafts)
     ]
     again = {f"f{index + 1}": index for index, each in enumerate(first) if each.ungrounded}
     if not again:
@@ -546,7 +645,6 @@ def check_findings(
         if index is None or checked[index] is not first[index]:
             continue  # not a finding it was asked about, or answered twice: the first stands
         draft = first[index].draft.model_copy(update={"statement": each.statement})
-        terms = ungrounded(each.statement, grounds_of[index])
-        checked[index] = CheckedFinding(draft, first[index].cited, terms)
+        checked[index] = CheckedFinding(draft, first[index].cited, terms(index, each.statement))
     repaired = sum(1 for index in again.values() if not checked[index].ungrounded)
     return CheckedFindings(checked, len(again), repaired, role_call_id, None)

@@ -1439,3 +1439,13 @@ Hindsight returns an observation's source facts within `include.source_facts.max
   - An answer still unusable (quarantined) makes the task `skipped`, with the reason (`analyst_failed` in its artifacts), not `failed`. The Editor writes the card without the proposal, in both plans. Any other role's last failed attempt still stops the investigation.
   - Before the grounding check, each argument statement goes through `without_references`. A reference it cites, whose Fact names a company, becomes that company's name. A statement naming a reference it doesn't cite is dropped to `unsupported_findings` with the reason `internal_reference`.
 - **Why:** the Analyst only proposes scenario inputs; a Hypothesis's scenarios can be made without them (a request's own `assumptions`). Losing the card for it inverted the plan's priorities. A reference is a transport detail of the Editor call and must never reach the owner.
+
+
+## The grounding check holds domain terms, scope qualifiers and cited companies (8 October)
+
+The finding judge passed all 17 statements the reviewers failed on 0.5.3, and about half of them added a lower-case term, a scope word or a referent that no cited quote carries ("gallium arsenide", "only", "each", "fiscal", a second company's Fact folded into one company's sentence). Three rules, in `atlas.investigations.grounding`:
+- **Domain terms.** Each group of `ALIASES` (now also DCI, NPO, LPO, OCS) one of whose forms the statement uses as a whole word, in any case, plural allowed, must have a form in the grounds; reported as the statement writes it. DSP is not a group (it flagged passes).
+- **Qualifiers.** `QUALIFIERS` ("fiscal", "calendar", "only", "all", "every", "each", "entire", "entirely", "sole", "solely", "exclusively", "never", "always"): each one the statement uses must occur in the grounds; an `FY`/`CY` token there grounds "fiscal"/"calendar". "including" is not a qualifier.
+- **Cited companies.** `check_findings(..., required=)` takes per statement the names it must contain (aliases applied); a miss is `company not named: <name>` in its `ungrounded` list, so it goes back to the Editor in the same reground call. The argument Editor requires the display names of the companies of a statement's **supporting** Facts when they are several; counterevidence Facts are not counted (a rival's risk against a Fact is not a Fact the sentence must name; counting them flagged 13 passes on 0.5.3). The default plan passes nothing.
+
+Measured on the 130 statements of the four 0.5.3 cards: 7 of the 17 failed ones caught, 1 of the 113 passes flagged. Not included: a rule on statements citing more than four Facts (flags 5 passes). Direction, tense and merged facts are still the judge's and the reviewer's.

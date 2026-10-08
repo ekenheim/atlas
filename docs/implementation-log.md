@@ -3610,3 +3610,12 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
   - The integration test runs in CI's suite only: no local Docker.
 - **Fixture only:** neither change has run on MiniMax. The normalizer's cases are the two shapes recorded on pilot question 2's role calls (`.scratch/live-runs/pilot-0.5.3-arg/inv-2/role-calls.json`, not in git).
 - **Next:** release after pilot questions 4 and 5 finish on 0.5.3, so the pilot compares one version.
+
+
+## Grounding: domain terms, scope qualifiers and cited companies (T1, 8 October)
+
+- **Files:** `backend/atlas/investigations/grounding.py` (`ALIASES` +4 groups, `QUALIFIERS`, the domain-term and qualifier checks in `ungrounded`, `FY`/`CY` ground "fiscal"/"calendar", `check_findings(required=)`, `GROUNDING_LIMIT` and the docstring), `backend/atlas/investigations/tasks.py` (`_argument_editor` passes `required`; `_companies_to_name`), `tests/unit/test_finding_grounding.py` (3 new tests), `tests/integration/test_argument_plan.py` (1 new), `docs/decisions.md`.
+- **Tests (actual, WSL):** `tests/unit/test_finding_grounding.py` and `tests/integration/test_argument_plan.py` 32 passed together; ruff format/check and pyright clean. Measured with a throwaway script over `.scratch/live-runs/pilot-0.5.3-arg/inv-{1,3,4,5}` (statements, their Facts' quotes, `review/workflow-result.json` `card.statements[].trust_gate`): 7 of 17 failed statements caught, 1 of 113 passes flagged (inv-5 control 2: "indium phosphide" in a Fact's statement but not its quote).
+- **Fixture only:** no live call; the 0.5.3 data is local review data, not in git.
+- **Deviations:** the cited-company rule counts the statement's supporting Facts (`fact_refs`) only, not counterevidence (`counter_refs`): counting both flagged 13 passes. It catches inv-5 invalidation 6 but not the 0.5.3 fail the task named as Q5 constraint 2 (caught by the domain rule instead).
+- **Next:** the lead reruns the argument pilot and compares the reviewers' fails with the grounding drops.
