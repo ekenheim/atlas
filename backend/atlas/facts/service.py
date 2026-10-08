@@ -192,10 +192,10 @@ def check_quantity(quote: str, quantity: Quantity) -> None:
         )
 
 
-# The status rules (pilot review of 0.5.3's argument plan, task T4): two refusals the reviewed
-# Facts support, measured on the 853 Facts of its five investigations (docs/decisions.md, "The
-# reading agent: two status refusals"). Each cue is matched case-insensitively from a word's
-# start.
+# The status rules (pilot review of 0.5.3's argument plan, task T4, and R3-04): three refusals
+# the reviewed Facts support (`status_agreement`, `status_first_person`, `status_regulatory`;
+# docs/decisions.md, "The reading agent: two status refusals", and its third). Each cue is
+# matched case-insensitively from a word's start.
 #
 # An agreement entered is `planned` for what it commits to, not `in_development`, unless the
 # quote or statement says development, sampling or qualification is under way.
@@ -244,7 +244,30 @@ def _cues(cues: tuple[str, ...]) -> re.Pattern[str]:
     return re.compile(r"\b(?:" + "|".join(re.escape(cue) for cue in cues) + ")", re.IGNORECASE)
 
 
+# `regulatory` is for a permit, a licence, an export control or a rule and its timing. Funding,
+# an award or a grant is not one (measured on 1,840 reviewed Facts: the four wrong `regulatory`
+# Facts with no such word refused, 0 of 1,368 right Facts refused).
+REGULATORY_CUES: tuple[str, ...] = (
+    "permit",
+    "licence",
+    "license",
+    "export control",
+    "export restriction",
+    "export ban",
+    "regulat",  # regulation, regulatory, regulated
+    "tariff",
+    "sanction",
+    "rule",
+    "approval by",
+    "approved by the",
+    "government approval",
+    "mofcom",
+    "bis",
+    "customs",
+)
+
 _AGREEMENT = _cues(AGREEMENT_CUES)
+_REGULATORY = _cues(REGULATORY_CUES)
 _DEVELOPMENT = _cues(DEVELOPMENT_CUES)
 _AGREEMENT_DEVELOPMENT = re.compile(AGREEMENT_DEVELOPMENT_WORDING, re.IGNORECASE)
 _FIRST_PERSON = re.compile(FIRST_PERSON)
@@ -255,7 +278,8 @@ def check_status(quote: str, statement: str, status: FactStatus) -> None:
     """Raises `InvalidAssertion` when the Fact's status is one its words contradict:
     `status_agreement` for an agreement recorded as `in_development` with no development under
     way, `status_first_person` for the company's own words recorded as
-    `reported_by_third_party`. Each message names the status to use."""
+    `reported_by_third_party`, `status_regulatory` for `regulatory` with no permit, licence,
+    export control or rule word. Each message names the status to use."""
     words = f"{quote}\n{statement}"
     if status == "in_development":
         development = _AGREEMENT_DEVELOPMENT.sub(" ", words)
@@ -274,6 +298,13 @@ def check_status(quote: str, statement: str, status: FactStatus) -> None:
             "status_first_person",
             "the company speaks for itself: use the status its words give (in_effect for an"
             " estimate it states, planned for an expectation)",
+        )
+    if status == "regulatory" and not _REGULATORY.search(words):
+        raise InvalidAssertion(
+            "status_regulatory",
+            "regulatory is for a permit, a licence, an export control or a rule and its timing;"
+            " funding, an award or a grant is in_effect when received or announced as done,"
+            " planned for what it is to fund",
         )
 
 

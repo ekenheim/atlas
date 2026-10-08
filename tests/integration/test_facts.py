@@ -211,6 +211,15 @@ def test_a_status_its_words_contradict_is_refused_and_nothing_is_recorded(atlas:
     assert atlas.get("/api/v1/facts")["total"] == 0
     assert atlas.get("/api/v1/assertions")["total"] == 0
 
+    statement = "Lumentum received a $1.01 billion CHIPS Act grant under its supply agreements."
+    response = atlas.api.post(
+        "/api/v1/facts", json=atlas.body(status="regulatory", statement=statement)
+    )
+
+    assert error_code(response) == "status_regulatory"
+    assert atlas.get("/api/v1/facts")["total"] == 0
+    assert atlas.get("/api/v1/assertions")["total"] == 0
+
 
 def test_a_quote_that_is_not_at_its_span_is_refused(atlas: Atlas) -> None:
     response = atlas.api.post("/api/v1/facts", json=atlas.body(span_start=0, span_end=72))

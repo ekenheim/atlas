@@ -10,6 +10,7 @@ review folder (`tests/fixtures/pilot-0.5.3-argument/sample-review/`, invented te
 import importlib.util
 import json
 import re
+import shutil
 import sys
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
@@ -383,6 +384,47 @@ def test_the_regression_script_flags_a_passing_statement_that_a_check_newly_fail
     capsys.readouterr()
     # One passing statement flagged; the failing one is a catch, not a regression.
     assert script.main([*arguments, "1"]) == 0
+
+
+def test_the_regression_check_pools_several_label_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    script = _tool("argument_regression")
+    single: dict[str, Any] = _tool("argument_labels").build(SAMPLE)
+    folders: list[Path] = []
+    for name in ("run-a", "run-b"):
+        folder = tmp_path / name
+        shutil.copytree(SAMPLE, folder)
+        folders.append(folder)
+    pooled_labels: list[Path] = []
+    for name in ("labels-a.json", "labels-b.json"):
+        path = tmp_path / name
+        path.write_text(json.dumps(single), "utf-8")
+        pooled_labels.append(path)
+
+    arguments = [
+        "--data",
+        str(folders[0]),
+        "--data",
+        str(folders[1]),
+        "--labels",
+        str(pooled_labels[0]),
+        "--labels",
+        str(pooled_labels[1]),
+    ]
+    assert script.main(arguments) == 0
+    table = capsys.readouterr().out
+    assert f"runs: {pooled_labels[0]}, {pooled_labels[1]}" in table
+    assert table.count("Facts (refused / tested)") == 1
+
+    # One run alone and the pool of two: the tested counts double.
+    assert script.main(["--data", str(folders[0]), "--labels", str(pooled_labels[0])]) == 0
+    single_table = capsys.readouterr().out
+    count = re.search(r"quantity\s+(\S+ / \d+)", single_table)
+    pooled = re.search(r"quantity\s+(\S+ / \d+)", table)
+    assert count and pooled
+    single_tested = int(count.group(1).split("/")[1])
+    assert int(pooled.group(1).split("/")[1]) == 2 * single_tested
 
 
 def test_the_regression_script_skips_a_check_that_does_not_exist_yet(
