@@ -37,6 +37,7 @@ from atlas.investigations.grounding import (
     CheckedFinding,
     claim_grounds,
     phrase_occurs,
+    source_date_text,
     ungrounded,
 )
 from atlas.investigations.model import CardClause, CardJudgement
@@ -224,6 +225,7 @@ def judged_claim(ref: str, claim: Mapping[Any, Any]) -> JudgedClaim:
         object=_object(claim),
         epistemic_type=claim["epistemic_type"],
         source_title=claim["source_title"],
+        source_date=source_date_text(claim),
     )
 
 
@@ -363,6 +365,7 @@ def judge_findings(
                     epistemic_type=claims[ref]["epistemic_type"],
                     source_title=claims[ref]["source_title"],
                     source_version_id=str(claims[ref]["source_version_id"]),
+                    source_date=source_date_text(claims[ref]),
                 )
                 for ref in refs
             ],

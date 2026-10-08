@@ -8,6 +8,7 @@ are synthetic, shaped like the pilot's; none is production text.
 
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from atlas.investigations.grounding import CheckedFinding
@@ -15,6 +16,7 @@ from atlas.investigations.meaning import judge_findings
 from atlas.roles.caller import RoleOutputQuarantined, TokenBudgetExhausted
 from atlas.roles.contract import QuotedText
 from atlas.roles.editor import (
+    EDITOR_REVISE,
     CardFindingDraft,
     EditorReviseRequest,
     RevisedFinding,
@@ -44,6 +46,7 @@ CLAIMS: dict[str, dict[str, Any]] = {
         "source_version_id": VERSION,
         "span_start": 10,
         "span_end": 10 + len(AGREEMENT),
+        "available_at": datetime(2026, 5, 14, 20, 5, tzinfo=UTC),
     },
     "c2": {
         "id": uuid.UUID("7f1c2b3a-0000-4000-8000-000000000002"),
@@ -59,6 +62,7 @@ CLAIMS: dict[str, dict[str, Any]] = {
         "source_version_id": VERSION,
         "span_start": 400,
         "span_end": 400 + len(CALL),
+        "available_at": datetime(2025, 11, 5, 21, 30, tzinfo=UTC),
     },
 }
 
@@ -174,7 +178,7 @@ def test_a_supported_finding_is_kept_and_its_verdict_recorded() -> None:
         "kept",
     )
     assert verdict.claim_ids == [CLAIMS["c2"]["id"]]
-    assert verdict.judge == "finding_judge.v3"
+    assert verdict.judge == "finding_judge.v4"
 
 
 def test_a_misstated_finding_is_rewritten_with_the_judge_s_reason_and_kept_when_supported() -> None:
@@ -219,6 +223,20 @@ def test_a_misstated_finding_is_rewritten_with_the_judge_s_reason_and_kept_when_
     ]
     assert result.counts["rewritten_kept"] == 1
     assert result.counts["dropped"] == 0
+
+
+def test_the_revise_request_carries_each_claim_s_source_date_and_the_prompt_is_v2() -> None:
+    judge = Judge({MISSTATED_STATEMENT: misstated(), REWRITTEN: supported()})
+    asked, revise = revising(("f1", REWRITTEN))
+
+    judge_findings([finding(MISSTATED_STATEMENT, "c1")], CLAIMS, QUESTION, [], judge, revise)
+
+    # The judge and the Editor's rewrite are both sent the day c1's document became available.
+    assert [c.source_date for c in judge.asked[0][0].claims] == ["2026-05-14"]
+    [request] = asked
+    assert [c.source_date for c in request.claims] == ["2026-05-14"]
+    assert (EDITOR_REVISE.prompt.name, EDITOR_REVISE.prompt.version) == ("editor-revise", 2)
+    assert "source_date" in EDITOR_REVISE.prompt.text
 
 
 def test_a_finding_still_misstated_after_its_rewrite_is_dropped_with_the_reason() -> None:

@@ -14,13 +14,13 @@ from atlas.roles.finding_judge import (
 )
 
 
-def test_the_role_is_v3_and_its_strict_schema_requires_the_clauses() -> None:
+def test_the_role_is_v4_and_its_strict_schema_requires_the_clauses() -> None:
     assert (FINDING_JUDGE.name, FINDING_JUDGE.prompt.name, FINDING_JUDGE.prompt.version) == (
         "finding_judge",
         "finding_judge",
-        3,
+        4,
     )
-    assert FINDING_JUDGE_VERSION == "finding_judge.v3"
+    assert FINDING_JUDGE_VERSION == "finding_judge.v4"
     schema = FINDING_JUDGE.response_schema()
     assert sorted(schema["required"]) == ["beyond", "clauses", "kinds", "reason", "verdict"]
     clause = schema["$defs"]["JudgedClause"]
@@ -72,3 +72,26 @@ def test_a_judged_fact_carries_its_status_period_quantity_and_reading() -> None:
         "quantity": None,
         "reading": None,
     }
+
+
+def test_a_judged_claim_carries_its_source_date_and_the_prompt_is_v4() -> None:
+    claim_schema = FindingJudgeRequest.model_json_schema()["$defs"]["JudgedClaim"]
+    assert "source_date" in claim_schema["properties"]
+    assert FINDING_JUDGE_VERSION == "finding_judge.v4"
+    assert "source_date" in FINDING_JUDGE.prompt.text
+    assert "90 days" in FINDING_JUDGE.prompt.text
+    claim = JudgedClaim(
+        ref="c1",
+        subject="Zephyr Optics",
+        predicate="capacity_constrained",
+        object="CW lasers",
+        epistemic_type="company_claim",
+        source_title="Q3 2026",
+        source_date="2025-11-05",
+    )
+    request = FindingJudgeRequest(
+        research_question="q",
+        finding=JudgedFinding(statement="s", limitations=[], claim_refs=["c1"]),
+        claims=[claim],
+    )
+    assert request.model_dump(mode="json")["claims"][0]["source_date"] == "2025-11-05"

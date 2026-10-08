@@ -38,13 +38,15 @@ export const STEP_STATUS: Record<CardArgumentStep["status"], string> = {
   unknown: "unknown",
 };
 
-/** A Fact in a line: its statement, then its quantity, period and status as recorded. */
+/** A Fact in a line: its statement, then its quantity, period, the day its document became
+ * available (YYYY-MM-DD) and status as recorded. */
 export function factLine(fact: CardFact): string {
   const parts: string[] = [];
   if (fact.quantity) {
     parts.push(`${fact.quantity.value} ${fact.quantity.unit} (${fact.quantity.metric})`);
   }
   if (fact.period) parts.push(fact.period);
+  if (fact.evidence_available_at) parts.push(fact.evidence_available_at.slice(0, 10));
   parts.push(fact.status.split("_").join(" "));
   return `${fact.statement} [${parts.join("; ")}]`;
 }

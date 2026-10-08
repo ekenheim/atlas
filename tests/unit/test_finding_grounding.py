@@ -8,6 +8,7 @@ results release, an 8-K); none is production text.
 
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from atlas.investigations.grounding import check_findings, claim_grounds, grounds, ungrounded
@@ -321,3 +322,31 @@ def test_a_required_name_missing_from_the_statement_is_reported() -> None:
     [only] = checked.findings
     assert only.ungrounded == []
     assert (checked.asked_again, checked.repaired) == (1, 1)
+
+
+def test_a_cited_claim_s_document_date_grounds_the_year_month_or_date_a_statement_names() -> None:
+    claim = {
+        "quote": "Demand for our lasers continues to exceed our supply.",
+        "subject_name": "Zephyr Optics",
+        "object_name": None,
+        "object_text": None,
+        "source_title": "Q3 call",
+        "available_at": datetime(2025, 11, 5, 21, 30, tzinfo=UTC),
+    }
+    found = claim_grounds("", [claim], [])
+
+    assert (
+        ungrounded("Zephyr Optics said in its November 2025 call that demand exceeds supply", found)
+        == []
+    )
+    assert ungrounded("Zephyr Optics said demand exceeds supply (2025)", found) == []
+    assert ungrounded("Zephyr Optics said on 2025-11-05 that demand exceeds supply", found) == []
+    assert (
+        ungrounded("Zephyr Optics said on 5 November 2025 that demand exceeds supply", found) == []
+    )
+    assert ungrounded("Zephyr Optics said in 2024 that demand exceeds supply", found) == ["2024"]
+    # A row with no date grounds no year.
+    undated = {k: v for k, v in claim.items() if k != "available_at"}
+    assert ungrounded(
+        "Zephyr Optics said in 2025 demand exceeds supply", claim_grounds("", [undated], [])
+    ) == ["2025"]

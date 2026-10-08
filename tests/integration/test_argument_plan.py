@@ -20,11 +20,13 @@ live is called.
 
 import json
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import JsonValue
+from sqlalchemy import text
 
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
@@ -263,7 +265,7 @@ def editing(body: dict[str, Any]) -> JsonValue:
 
 
 def supporting(body: dict[str, Any]) -> JsonValue:
-    """The finding judge (`finding_judge.v3`): supported, the statement one clause whose basis
+    """The finding judge (`finding_judge.v4`): supported, the statement one clause whose basis
     is the first cited quote, whole (code checks it occurs there)."""
     request = asked(body)
     statement = request["request"]["finding"]["statement"]
@@ -761,7 +763,7 @@ def test_the_argument_plan_asks_the_judge_as_many_votes_as_configured(
     first = card["judged"][0]
     assert first["clauses"][0]["basis"] == SHERMAN
     assert first["unverified"] == []
-    assert first["judge"] == "finding_judge.v3"
+    assert first["judge"] == "finding_judge.v4"
     steps = {step["step"]: step for step in card["steps"]}
     assert [s["statement"] for s in steps["relief"]["statements"]] == [RELIEF_REWRITTEN]
     # Every judge call was sent the cited Fact's reading: its status, period and statement.
@@ -992,3 +994,103 @@ def test_a_statement_adding_a_domain_term_or_qualifier_its_quotes_lack_is_sent_b
     assert dropped["reason"] == "ungrounded: gallium arsenide, only"
     relief = next(step for step in card["steps"] if step["step"] == "relief")
     assert [s["statement"] for s in relief["statements"]] == [RELIEF_STATEMENT]
+
+
+# --- the judge and the Editor are told each Fact's document date (R2-04) -------------------------
+
+
+def dated(body: dict[str, Any]) -> str:
+    """The Relief statement naming the month of its Fact's document, as the request gives it."""
+    [fact] = [f for f in asked(body)["request"]["facts"] if f["step"] == "relief"]
+    day = datetime.strptime(fact["source_date"], "%Y-%m-%d")
+    return RELIEF_STATEMENT.removesuffix(".") + f" in its filing of {day:%B %Y}."
+
+
+def editing_with_dates(body: dict[str, Any]) -> JsonValue:
+    card = cast(dict[str, Any], editing(body))
+    for step in card["steps"]:
+        if step["step"] == "relief":
+            step["statement"] = dated(body)
+    return card
+
+
+def judging_dated_misstated(body: dict[str, Any]) -> JsonValue:
+    statement = asked(body)["request"]["finding"]["statement"]
+    if "filing of" not in statement:
+        return supporting(body)
+    return {
+        "clauses": [{"text": "announced the expansion", "ref": None, "basis": None}],
+        "verdict": "misstated",
+        "beyond": ["announced the expansion"],
+        "kinds": ["merged"],
+        "reason": "c1 and c2 are of different dates",
+    }
+
+
+def test_the_judge_and_the_editor_are_told_each_fact_s_document_date(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("reader", *(ChatReply.answer(reading, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging, tokens=(1200, 60)),) * 3)
+    llm.script_role("counter_judge", ChatReply.answer(relating("contradicts"), tokens=(600, 60)))
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", *(ChatReply.answer(judging_dated_misstated),) * 6)
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing_with_dates, tokens=(3000, 400)),  # the Editor
+        ChatReply.answer(revising, tokens=(800, 100)),  # its rewrite of the misstated one
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    started = response.json()
+    atlas.worker_pass()
+
+    found = atlas.get(f"/api/v1/investigations/{started['id']}")
+    facts = atlas.get("/api/v1/facts", investigation_id=started["id"])["items"]
+    by_quote = {f["assertion"]["quote"]: f["assertion"]["source_version_id"] for f in facts}
+    with atlas.engine.connect() as connection:
+        available = {
+            str(version): moment.date().isoformat()
+            for version, moment in connection.execute(
+                text("SELECT id, available_at FROM source_version WHERE id = ANY(:ids)"),
+                {"ids": list(by_quote.values())},
+            )
+        }
+    expected = {quote: available[str(version)] for quote, version in by_quote.items()}
+    month = datetime.strptime(expected[SHERMAN], "%Y-%m-%d").strftime("%B %Y")
+    requests = llm.chat_requests()
+
+    # The Editor is sent every Fact's source date.
+    editor = next(b for b in requests if b["metadata"]["role"] == "editor")
+    sent = asked(editor)["request"]
+    assert sorted(f["source_date"] for f in sent["facts"] + sent["counterevidence"]) == sorted(
+        expected.values()
+    )
+    # The judge is sent the date of each quote it is given; so is the Editor's rewrite.
+    judged = [b for b in requests if b["metadata"]["role"] == "finding_judge"]
+    assert judged
+    for body in judged:
+        quotes = {q["id"]: q["text"] for q in asked(body)["retrieved_data"]}
+        for each in asked(body)["request"]["claims"]:
+            assert each["source_date"] == expected[quotes[each["ref"]]]
+    revise = next(b for b in requests if b["metadata"]["role"] == "editor" and b is not editor)
+    assert [c["source_date"] for c in asked(revise)["request"]["claims"]] == [expected[SHERMAN]]
+    # A statement naming the document's month passed the grounding check (the judge, not the
+    # grounding check, sent it back) and the rewrite stands.
+    card = found["research_card"]
+    assert not any("ungrounded" in str(each) for each in card["unsupported_findings"])
+    assert month in judged[0]["messages"][1]["content"]
+    steps = {step["step"]: step for step in card["steps"]}
+    assert steps["relief"]["statement"] == RELIEF_REWRITTEN
