@@ -25,19 +25,26 @@ The judge shows its basis (`finding_judge.v3`, pilot 0.5.3): the statement split
 each tied to a cited quote by that quote's own words. Code checks every basis
 (`verify_bases`): a `supported` verdict with a clause whose reference isn't cited or whose
 words aren't its quote's is a misstatement (`unstated`, the clauses `beyond`), rewritten like
-any other. It applies to every vote, before the votes are counted (`voting`).
+any other. It applies to every vote, before the votes are counted (`voting`). A clause that
+names only a cited quote's source or date ("(Q3 2026 call)", "In its 10-Q filed August 13,
+2026,") needs no basis: the Editor is told to write it and no quote holds it (`metadata_only`,
+R3-03). A rewrite cannot add limitations to a statement drafted without them.
 """
 
+import re
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from atlas.claims.predicates import fold
 from atlas.investigations.grounding import (
     CheckedFinding,
     claim_grounds,
+    date_texts,
     phrase_occurs,
     source_date_text,
+    source_day,
     ungrounded,
 )
 from atlas.investigations.model import CardClause, CardJudgement
@@ -65,30 +72,120 @@ type Revise = Callable[[EditorReviseRequest, list[QuotedText]], tuple[RevisedFin
 type VoteRule = Literal["any", "all"]
 
 
-def verify_bases(judgement: FindingJudgement, quotes: Sequence[QuotedText]) -> list[str]:
+# The words a clause naming only a quote's source or date may use besides the cited documents'
+# own metadata (their companies, titles and dates): verbs of attribution, kinds of document and
+# event, the officers who speak, company suffixes and the forms' names (R3-03).
+METADATA_WORDS = (
+    *("says", "said", "states", "stated", "reports", "reported", "notes", "noted"),
+    *("disclosed", "according", "in", "its", "the", "on", "a", "an", "at", "their", "to"),
+    *("that", "also", "separately", "earlier", "later", "by", "then"),
+    *("call", "conference", "filing", "filed", "transcript", "release", "results", "earnings"),
+    *("quarter", "fiscal", "calendar", "year", "annual", "half"),
+    *("first", "second", "third", "fourth", "with", "of", "and", "for", "from"),
+    *("ceo", "cfo", "cto", "coo", "president", "chairman", "executive", "officer", "chief"),
+    *("vp", "inc", "corp", "corporation", "holdings", "ltd", "plc", "co", "company"),
+    *("10-k", "10-q", "8-k", "20-f", "6-k"),
+)
+_METADATA_WORDS = frozenset(METADATA_WORDS)
+_MONTH_NAMES = (
+    *("january", "february", "march", "april", "may", "june", "july", "august"),
+    *("september", "october", "november", "december"),
+)
+# A month's name, or its three- or four-letter abbreviation, as the month's full name.
+_MONTH = {
+    **{name[:3]: name for name in _MONTH_NAMES},
+    **{name[:4]: name for name in _MONTH_NAMES},
+    **{name: name for name in _MONTH_NAMES},
+}
+_PERIOD = re.compile(r"(?:fy|cy)(?:\d{2}|\d{4})?|q[1-4]|h[12]")
+_DAY = re.compile(r"((?:[1-9]|[12]\d|3[01]))(?:st|nd|rd|th)?")
+
+
+def _metadata_tokens(text: str) -> list[str]:
+    """`text`'s words as a metadata clause is read: folded, lower case, a trailing `'s`
+    dropped, runs of letters, digits, `-` and `.` (and `_`, for `source_date`) with the
+    punctuation at their ends dropped, a month's abbreviation as its full name and a day
+    number without its `st`/`nd`/`rd`/`th`."""
+    flat = re.sub(r"'s\b", "", fold(text).lower())
+    tokens: list[str] = []
+    for word in re.findall(r"[a-z0-9_][a-z0-9_.\-]*", flat):
+        word = word.strip(".-")
+        if not word:
+            continue
+        day = _DAY.fullmatch(word)
+        if day is not None:
+            word = day.group(1)
+        tokens.append(_MONTH.get(word) or word)
+    return tokens
+
+
+def metadata_only(text: str, metadata: Sequence[str]) -> bool:
+    """Whether a judge's clause names only a cited quote's source or date, so needs no basis
+    (R3-03): every word of it is a word of the cited documents' `metadata` (their companies,
+    titles and dates, as `date_texts` writes them), `source_date`, a fiscal or quarter period
+    (`fy`, `q3`, `h1`, `fy2026`) or one of `METADATA_WORDS`. A month, day, year or ISO date
+    is not a word of its own: it must be a cited document's (the date of a document the
+    finding does not cite is a claim, which its quotes must hold). An empty clause names
+    nothing beyond them."""
+    allowed = {token for each in metadata for token in _metadata_tokens(each)}
+    return all(
+        word in allowed
+        or word in _METADATA_WORDS
+        or word == "source_date"
+        or _PERIOD.fullmatch(word) is not None
+        for word in _metadata_tokens(text)
+    )
+
+
+def verify_bases(
+    judgement: FindingJudgement, quotes: Sequence[QuotedText], *, metadata: Sequence[str] = ()
+) -> list[str]:
     """The judge's clauses whose basis code can't verify, as it wrote them, in order: a clause
     whose `ref` is not one of the cited quotes' (`quotes`, by `id`), or whose `basis` does not
     occur in that quote (folded, lower case, whitespace single, quotation marks and end
     punctuation dropped: `atlas.investigations.grounding.phrase_occurs`). A clause with no
-    reference or basis (one the judge says goes beyond the quotes) is among them."""
+    reference or basis (one the judge says goes beyond the quotes) is among them, unless it
+    names only a cited quote's source or date (`metadata_only`, `metadata` the cited
+    documents' companies, titles and dates): the Editor is told to name them, and no quote
+    holds them (R3-03)."""
     texts = {quote.id: quote.text for quote in quotes}
     return [
         clause.text
         for clause in judgement.clauses
-        if clause.ref is None
-        or clause.ref not in texts
-        or clause.basis is None
-        or not phrase_occurs(clause.basis, texts[clause.ref])
+        if (
+            clause.ref is None
+            or clause.ref not in texts
+            or clause.basis is None
+            or not phrase_occurs(clause.basis, texts[clause.ref])
+        )
+        and not metadata_only(clause.text, metadata)
     ]
 
 
-def checked(judgement: FindingJudgement, quotes: Sequence[QuotedText]) -> FindingJudgement:
+def finding_metadata(refs: Sequence[str], claims: Mapping[str, Mapping[Any, Any]]) -> list[str]:
+    """The metadata of the documents a finding cites, for `verify_bases`: each cited Claim's
+    or Fact's subject, source title and the ways a statement names its document's date
+    (`atlas.investigations.grounding.date_texts`)."""
+    texts: list[str] = []
+    for ref in refs:
+        claim = claims[ref]
+        texts.extend(str(claim[key]) for key in ("subject_name", "source_title") if claim.get(key))
+        day = source_day(claim)
+        if day is not None:
+            texts.extend(date_texts(day))
+    return texts
+
+
+def checked(
+    judgement: FindingJudgement, quotes: Sequence[QuotedText], metadata: Sequence[str] = ()
+) -> FindingJudgement:
     """`judgement` with its bases checked: a `supported` verdict with an unverified clause is
     `misstated` (`unstated`, the clauses `beyond`, the reason naming them); any other is as
-    the judge gave it."""
+    the judge gave it. A clause naming only a cited document's source or date (`metadata`)
+    needs no basis."""
     if judgement.verdict != "supported":
         return judgement
-    unverified = verify_bases(judgement, quotes)
+    unverified = verify_bases(judgement, quotes, metadata=metadata)
     if not unverified:
         return judgement
     named = "; ".join(f'"{text}"' for text in unverified)
@@ -123,11 +220,16 @@ class Voting:
         self.votes = max(1, votes)
         self.rule: VoteRule = rule
 
-    def ballot(self, request: FindingJudgeRequest, quotes: list[QuotedText]) -> Ballot:
+    def ballot(
+        self,
+        request: FindingJudgeRequest,
+        quotes: list[QuotedText],
+        metadata: Sequence[str] = (),
+    ) -> Ballot:
         asked: list[tuple[FindingJudgement, uuid.UUID]] = []
         for _ in range(self.votes):
             judgement, role_call_id = self.judge(request, quotes)
-            asked.append((checked(judgement, quotes), role_call_id))
+            asked.append((checked(judgement, quotes, metadata), role_call_id))
             if self.rule == "all" and asked[-1][0].verdict == "supported":
                 break
         wanted = "misstated" if self.rule == "any" else "supported"
@@ -135,9 +237,12 @@ class Voting:
         return Ballot(asked, decided)
 
     def __call__(
-        self, request: FindingJudgeRequest, quotes: list[QuotedText]
+        self,
+        request: FindingJudgeRequest,
+        quotes: list[QuotedText],
+        metadata: Sequence[str] = (),
     ) -> tuple[FindingJudgement, uuid.UUID]:
-        ballot = self.ballot(request, quotes)
+        ballot = self.ballot(request, quotes, metadata)
         return ballot.votes[ballot.decided]
 
 
@@ -159,11 +264,16 @@ def voting(judge: Judge, votes: int, rule: VoteRule) -> Voting:
     return Voting(judge, votes, rule)
 
 
-def _ballot(judge: Judge, request: FindingJudgeRequest, quotes: list[QuotedText]) -> Ballot:
+def _ballot(
+    judge: Judge,
+    request: FindingJudgeRequest,
+    quotes: list[QuotedText],
+    metadata: Sequence[str] = (),
+) -> Ballot:
     if isinstance(judge, Voting):
-        return judge.ballot(request, quotes)
+        return judge.ballot(request, quotes, metadata)
     judgement, role_call_id = judge(request, quotes)
-    return Ballot([(checked(judgement, quotes), role_call_id)], 0)
+    return Ballot([(checked(judgement, quotes, metadata), role_call_id)], 0)
 
 
 # What the card says of the trust gate when the judge ran (beside `GROUNDING_LIMIT`).
@@ -171,7 +281,8 @@ JUDGE_LIMIT = (
     " Each finding that passed was then compared with its quotes by a judge model for tense"
     " and status, direction, figures and dates, attribution and merged facts, clause by"
     " clause, each clause tied to the quote words that state it, and code checked that every"
-    " such basis occurs in its quote (the card's `judged`, every vote); a misstated finding,"
+    " such basis occurs in its quote (the card's `judged`, every vote; a clause naming only a"
+    " cited quote's source or date needs no basis); a misstated finding,"
     " or one with a clause whose basis code could not find, was rewritten once and dropped if"
     " still misstated. The judge is a model: a finding it passed can still be wrong."
 )
@@ -256,7 +367,9 @@ def judge_findings(
             claims=[describe(ref, claims[ref]) for ref in cited],
         )
         try:
-            ballot = _ballot(judge, request, _quotes(cited, claims))
+            ballot = _ballot(
+                judge, request, _quotes(cited, claims), finding_metadata(cited, claims)
+            )
         except RoleOutputQuarantined as failure:
             return None, failure.role_call_id, str(failure), None
         except TokenBudgetExhausted as failure:
@@ -293,6 +406,7 @@ def judge_findings(
             )
             return
         quotes = _quotes(cited, claims)
+        metadata = finding_metadata(cited, claims)
         for index, (verdict, vote_call_id) in enumerate(ballot.votes):
             judgements.append(
                 CardJudgement(
@@ -314,7 +428,7 @@ def judge_findings(
                         CardClause(text=each.text, ref=each.ref, basis=each.basis)
                         for each in verdict.clauses
                     ],
-                    unverified=verify_bases(verdict, quotes),
+                    unverified=verify_bases(verdict, quotes, metadata=metadata),
                 )
             )
 
@@ -391,6 +505,10 @@ def judge_findings(
             )
             continue
         statement, limitations = revised[key]
+        # A rewrite cannot add limitations: a statement drafted without (the argument plan's;
+        # its card never shows them) is judged again without; the default plan's keep theirs.
+        if not findings[index].draft.limitations:
+            limitations = []
         draft = findings[index].draft.model_copy(
             update={"statement": statement, "limitations": limitations}
         )
