@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import JsonValue
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from atlas.api.app import create_app
 from atlas.jobs import HandlerRegistry, Job, JobQueue, Worker, builtin_registry
@@ -353,3 +353,109 @@ def test_an_enqueue_is_audited_once_and_claims_and_leases_are_not(
     assert audit_events(database_url) == [("local-researcher", "job.enqueued", "job", first["id"])]
     verified = run_atlas(["audit", "verify"], env, tmp_path)
     assert verified.returncode == 0, verified.stdout + verified.stderr
+
+
+# --- the heartbeat (bottleneck-argument ticket 09) ------------------------------------------------
+
+
+def run_in_thread(worker: Worker) -> threading.Thread:
+    thread = threading.Thread(target=worker.run_once)
+    thread.start()
+    return thread
+
+
+def test_a_running_job_renews_its_lease_so_a_second_worker_does_not_claim_it(
+    queue: JobQueue,
+) -> None:
+    job_id = queue.enqueue("slow", "long-running").job.id
+    started = threading.Event()
+
+    def slow(job: Job) -> dict[str, JsonValue]:
+        started.set()
+        time.sleep(3)  # longer than the 2 s lease
+        return {"done": True}
+
+    registry = HandlerRegistry()
+    registry.register("slow", slow)
+    lease = timedelta(seconds=2)
+    first = Worker(queue, registry, worker_id="worker-a", lease=lease)
+    second = Worker(queue, registry, worker_id="worker-b", lease=lease)
+
+    thread = run_in_thread(first)
+    assert started.wait(timeout=10)
+    claimed = queue.get(job_id)
+    assert claimed is not None and claimed.lease_expires_at is not None
+    began = time.monotonic()
+    renewed_at_1_5 = None
+    while thread.is_alive():
+        assert second.run_once() == 0
+        if renewed_at_1_5 is None and time.monotonic() - began >= 1.5:
+            renewed_at_1_5 = queue.get(job_id)
+        time.sleep(0.2)
+    thread.join(timeout=10)
+
+    assert renewed_at_1_5 is not None and renewed_at_1_5.lease_expires_at is not None
+    assert renewed_at_1_5.lease_expires_at > claimed.lease_expires_at
+    job = queue.get(job_id)
+    assert job is not None
+    assert (job.status, job.attempts, job.failures) == ("succeeded", 1, [])
+
+
+def test_a_worker_built_without_a_heartbeat_does_not_extend_its_lease(queue: JobQueue) -> None:
+    job_id = queue.enqueue("slow", "no-heartbeat").job.id
+    started = threading.Event()
+
+    def slow(job: Job) -> dict[str, JsonValue]:
+        started.set()
+        time.sleep(2.5)
+        return {}
+
+    registry = HandlerRegistry()
+    registry.register("slow", slow)
+    lease = timedelta(seconds=1)
+    first = Worker(queue, registry, worker_id="worker-a", lease=lease, heartbeat=False)
+    thread = run_in_thread(first)
+    assert started.wait(timeout=10)
+    time.sleep(1.3)  # past the lease
+
+    reclaimed = queue.claim("worker-b", lease=timedelta(minutes=5))
+    thread.join(timeout=10)
+
+    assert reclaimed is not None and reclaimed.id == job_id
+    assert reclaimed.attempts == 2
+
+
+def test_a_lost_lease_stops_the_heartbeat_and_the_late_result_is_discarded(
+    queue: JobQueue, database_url: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    job_id = queue.enqueue("slow", "stolen").job.id
+    started = threading.Event()
+
+    def slow(job: Job) -> dict[str, JsonValue]:
+        started.set()
+        time.sleep(2.5)
+        return {"late": True}
+
+    registry = HandlerRegistry()
+    registry.register("slow", slow)
+    worker = Worker(queue, registry, worker_id="worker-a", lease=timedelta(seconds=1))
+    engine = create_engine(database_url)
+    with caplog.at_level("WARNING", logger="atlas.worker"):
+        thread = run_in_thread(worker)
+        assert started.wait(timeout=10)
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE job SET lease_owner = 'thief',"
+                    " lease_expires_at = now() + interval '1 hour' WHERE id = :id"
+                ),
+                {"id": job_id},
+            )
+        thread.join(timeout=15)
+    engine.dispose()
+
+    job = queue.get(job_id)
+    assert job is not None
+    assert (job.status, job.lease_owner, job.artifacts) == ("running", "thief", {})
+    lost = [r for r in caplog.records if "lease lost; heartbeat stopped" in r.getMessage()]
+    assert len(lost) == 1

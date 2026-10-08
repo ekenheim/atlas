@@ -641,3 +641,10 @@ Memory holds what intake holds (`docs/decisions.md`, "Memory holds the intake wi
 4. **Reading it.** A citation of a retired memory reads `unverified` with the reason `memory_retired`. `memory_retirement` (insert-only) has each section's memories, state, profile, run and what Hindsight answered. Nothing brings a section back: to hold a document again, ingest a new version of it.
 
 Not covered: retiring on a schedule as the window rolls.
+
+
+## The worker's lease (bottleneck-argument ticket 09)
+
+A worker leases the job it runs for `ATLAS_JOB_LEASE_SECONDS` (default 300) and, while the handler runs, renews the lease every third of that from a background heartbeat (`JobQueue.extend_lease`; not audited). A job longer than the lease is therefore not claimed by a second worker. A worker that dies stops renewing, and its job is reclaimed once the lease runs out (the lost attempt is recorded in the job's `failures`). A worker whose lease was lost anyway (reassigned, or a database outage longer than the lease) logs `lease lost; heartbeat stopped` and `job lease lost before completion; result discarded`; its result changes nothing.
+
+The home-ops override `ATLAS_JOB_LEASE_SECONDS=1800` (home-ops #7367) was a stopgap for jobs that outran the lease, at the price of waiting 30 minutes to reclaim a crashed worker's job. It can be removed once this ships: a crashed worker's job is reclaimed within 5 minutes. Rules in `docs/decisions.md`, "A worker renews its lease; a late attempt of a stopped investigation is skipped".
