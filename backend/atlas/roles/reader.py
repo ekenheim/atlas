@@ -111,10 +111,23 @@ ARGUMENT_STEPS: tuple[StepDefinition, ...] = (
     StepDefinition(
         "invalidation",
         "What would invalidate it",
-        "The observation that would invalidate the argument.",
-        "New entrants, capacity coming online, qualification of others, substitutes,"
-        " inventory build-up, cancellations or pushed-out orders, price cuts, financing"
-        " needs; said by the companies or their customers and suppliers.",
+        # Pilot-review R2-03: only what bears against the argument; what the constrained
+        # company adds is Relief's (atlas.investigations.argument judges each Fact).
+        "What would break the argument: evidence that supply has caught up or will, that"
+        " demand is slowing, or that another supplier or a substitute takes the scarce"
+        " capability.",
+        "Only what would weaken or break the argument: the constrained company's own words"
+        " that the constraint eased (lead times normalising, 'no longer constrained', supply"
+        " caught up); customers' or the company's inventory build-up; orders cancelled or"
+        " pushed out; price cuts or falling ASPs; a competitor or second source qualified at a"
+        " named customer or shipping in volume; a substitute (another laser type, silicon"
+        " photonics, CPO, another material) displacing the constrained part in volume; demand"
+        " slowing in the companies' or their customers' filings and calls. Capacity the"
+        " constrained company itself adds is relief: record it under `relief`, not here. A"
+        " statement that repeats the constraint, a record quarter or a plan to expand is never"
+        " an invalidation Fact. Search for these in the seeds', their competitors', customers'"
+        " and suppliers' filings and calls; say in your summary what you searched for and did"
+        " not find.",
     ),
 )
 STEPS: dict[str, StepDefinition] = {step.key: step for step in ARGUMENT_STEPS}

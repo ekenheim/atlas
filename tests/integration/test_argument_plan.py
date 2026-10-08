@@ -478,6 +478,11 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     sent_steps = {s["step"]: s for s in editor["steps"]}
     assert len(sent_steps["relief"]["fact_refs"]) == 1
     assert len(sent_steps["control"]["counter_refs"]) == 1
+    assert sent_steps["invalidation"]["note"] == (
+        "cite only the Facts listed for this step; the others were judged to support the"
+        " argument or to be unrelated"
+    )
+    assert {s["note"] for k, s in sent_steps.items() if k != "invalidation"} == {None}
     [counter] = editor["counterevidence"]
     assert counter["against"] == sent_steps["control"]["fact_refs"]
     assert {e["text"] for e in asked(editor_call)["retrieved_data"]} >= {
@@ -502,7 +507,9 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
         "relief": "supported",
         "control": "disputed",
         "capture": "unknown",
-        "invalidation": "unknown",
+        # The Skeptic's Fact contradicts a thesis Fact (Control's): an observation against the
+        # argument was found (R2-03).
+        "invalidation": "found",
     }
     assert steps["relief"]["statement"] == RELIEF_STATEMENT
     assert (steps["relief"]["grounded"], steps["relief"]["judged"]) == (True, True)
@@ -550,10 +557,17 @@ def test_an_argument_investigation_reads_each_step_challenges_it_and_writes_the_
     assert card["open_questions"] == ["What is Coherent's InP capacity in wafers per month?"]
     assert card["unsupported_findings"] == []
     assert (found["status"], found["stop_reason"]) == ("stopped", "needs_review")
+    assert [c["source_span"]["quote"] for c in steps["invalidation"]["counterevidence"]] == [
+        COMPETITION
+    ]
     assert found["stop_detail"] == (
-        "steps unknown: constraint, demand_vs_supply, capture, invalidation;"
-        " steps disputed: control; the Editor asks for review"
+        "steps unknown: constraint, demand_vs_supply, capture;"
+        " steps disputed: control; invalidation: an observation against the argument was found;"
+        " the Editor asks for review"
     )
+    # No invalidation Fact was recorded, so none was judged.
+    skeptic = tasks["skeptic"]["artifacts"]
+    assert (skeptic["invalidation_relations"], skeptic["invalidation_judge_calls"]) == ({}, 0)
     # The workbench list shows the plan too.
     listed = atlas.get("/api/v1/investigations")["items"]
     assert [(i["id"], i["plan"]) for i in listed] == [(started["id"], "argument")]
@@ -639,7 +653,8 @@ def test_each_statement_of_a_step_is_checked_on_its_own(
     assert (editor["statements_kept"], editor["unsupported_findings"]) == (2, 2)
     assert editor["grounding"]["asked_again"] == 2
     assert found["stop_detail"] == (
-        "steps unknown: constraint, demand_vs_supply, control, capture, invalidation;"
+        "steps unknown: constraint, demand_vs_supply, control, capture;"
+        " invalidation: an observation against the argument was found;"
         " 2 statements were dropped; the Editor asks for review"
     )
 
@@ -942,6 +957,328 @@ def test_a_failed_counter_judge_call_leaves_the_relation_unjudged_and_the_step_d
     assert shown["against"] == [agreement]
     assert [r["relation"] for r in shown["relations"]] == ["unjudged"]
     assert "1 counter-Fact could not be judged" in control["unchecked"]
+
+
+# --- the invalidation step (pilot-review R2-03) -----------------------------------------------
+#
+# On every reviewed card the invalidation step was `supported`, its statements arguing for the
+# thesis. Each invalidation Fact is now judged against the thesis Facts it would break, and the
+# step is `found` or `nothing_found`.
+
+AGREEMENT_STATEMENT = (
+    "Coherent entered into a multi-year strategic agreement with NVIDIA to advance the"
+    " development of advanced optics technologies."
+)
+INVALIDATION_STATEMENT = "Coherent is expanding its Sherman, Texas, manufacturing facility."
+COMPETITION_STATEMENT = "Coherent says it may encounter increased competition."
+
+
+def reading_every_step(body: dict[str, Any]) -> JsonValue:
+    """Six Readers each recording one Fact: the NVIDIA agreement under constraint, demand,
+    control and capture, the Sherman expansion under relief, and under invalidation the
+    seed's own capacity plan (the Sherman expansion again)."""
+    request = asked(body)["request"]
+    step = request["step"]["key"]
+    searched, recorded = request["searched"], request["recorded"]
+    sherman = step in ("relief", "invalidation")
+    if not searched:
+        query = SHERMAN_QUERY if sherman else AGREEMENT_QUERY
+        return act("search_archive", query=query, company_slugs=["coherent"])
+    if not recorded:
+        if sherman:
+            return record(
+                body,
+                SHERMAN,
+                step=step,
+                statement="Coherent announced the expansion of its Sherman, Texas,"
+                " manufacturing facility during fiscal 2026.",
+                status="planned",
+                period="fiscal 2026",
+            )
+        return record(
+            body,
+            AGREEMENT,
+            step=step,
+            statement=AGREEMENT_STATEMENT,
+            status="in_development",
+            period="March 2, 2026",
+        )
+    return act("done", summary=f"{step}: one Fact recorded")
+
+
+def reading_with_competition(body: dict[str, Any]) -> JsonValue:
+    """The Readers of `reading`, but the invalidation Reader records the risk of competition
+    (a competitor's qualification would read like it) under invalidation."""
+    request = asked(body)["request"]
+    if request["step"]["key"] != "invalidation":
+        return reading(body)
+    if not request["searched"]:
+        return act("search_archive", query=COMPETITION_QUERY, company_slugs=["coherent"])
+    if not request["recorded"]:
+        return record(
+            body,
+            COMPETITION,
+            step="invalidation",
+            statement="Coherent says it may encounter increased competition.",
+            status="hedged",
+        )
+    return act("done", summary="increased competition; no customer cancellation found")
+
+
+def challenging_nothing(body: dict[str, Any]) -> JsonValue:
+    """The Skeptic: searches once and finds nothing to record."""
+    if not asked(body)["request"]["searched"]:
+        return act("search_archive", query=COMPETITION_QUERY, company_slugs=["coherent"])
+    return act("done", summary="nothing denies, limits or dates the Readers' Facts")
+
+
+def editing_every_step(statements: dict[str, str], verdict: str) -> Any:
+    """The v2 Editor writing one statement per step of `statements`, each citing the step's
+    Facts; the invalidation statement cites every invalidation Fact it was sent, listed for the
+    step or not."""
+
+    def answer(body: dict[str, Any]) -> JsonValue:
+        request = asked(body)["request"]
+        invalidation = [f["ref"] for f in request["facts"] if f["step"] == "invalidation"]
+        steps: list[JsonValue] = []
+        for step in request["steps"]:
+            refs = invalidation if step["step"] == "invalidation" else step["fact_refs"]
+            said = statements.get(step["step"])
+            entry: list[JsonValue] = (
+                [{"statement": said, "fact_refs": refs, "counter_refs": []}]
+                if said and refs
+                else [{"statement": UNKNOWN_STATEMENT, "fact_refs": [], "counter_refs": []}]
+            )
+            steps.append(
+                {
+                    "step": step["step"],
+                    "status": "supported" if said and refs else "unknown",
+                    "statements": entry,
+                    "unchecked": [],
+                }
+            )
+        return {"steps": steps, "open_questions": [], "verdict": verdict}
+
+    return answer
+
+
+def run_argument(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG, editor: Any) -> str:
+    """An argument investigation of Coherent, the Scout and the Editor scripted (the Readers,
+    the Skeptic, the judges and the Analyst by the test), run to its end; its ID."""
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editor, tokens=(3000, 400)),  # the Editor
+    )
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+    coherent = atlas.company("coherent")["id"]
+    response = atlas.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [coherent],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+    atlas.worker_pass()
+    return response.json()["id"]
+
+
+def test_invalidation_facts_are_judged_against_the_thesis_and_a_supporting_one_is_not_a_finding(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("reader", *(ChatReply.answer(reading_every_step, tokens=(1000, 50)),) * 18)
+    llm.script_role("skeptic", *(ChatReply.answer(challenging_nothing, tokens=(1200, 60)),) * 2)
+    llm.script_role("counter_judge", ChatReply.answer(relating("supports"), tokens=(600, 60)))
+    llm.script_role("finding_judge", *(SUPPORTED,) * 5)
+    thesis = {
+        step: AGREEMENT_STATEMENT
+        for step in ("constraint", "demand_vs_supply", "control", "capture")
+    }
+    investigation = run_argument(
+        atlas,
+        llm,
+        searxng,
+        editing_every_step(
+            {**thesis, "relief": RELIEF_STATEMENT, "invalidation": INVALIDATION_STATEMENT},
+            "answered",
+        ),
+    )
+
+    found = atlas.get(f"/api/v1/investigations/{investigation}")
+    tasks = {task["key"]: task for task in found["tasks"]}
+    assert {key: task["status"] for key, task in tasks.items()} == {
+        key: "succeeded" for key in PLAN
+    }
+    facts = atlas.get("/api/v1/facts", investigation_id=investigation)["items"]
+    by_step = {f["step"]: f["id"] for f in facts}
+    invalidation_fact = by_step["invalidation"]
+    # One judge call: the seed's capacity plan (k1) against the thesis, the seed's constraint,
+    # demand and control Facts (f1...), every quote as low-trust retrieved data.
+    [judged] = [b for b in llm.chat_requests() if b["metadata"]["role"] == "counter_judge"]
+    request = asked(judged)["request"]
+    assert (request["counter"]["ref"], request["counter"]["step"]) == ("k1", "invalidation")
+    assert sorted(each["step"] for each in request["challenged"]) == [
+        "constraint",
+        "control",
+        "demand_vs_supply",
+    ]
+    quoted = {each["id"]: each for each in asked(judged)["retrieved_data"]}
+    assert quoted["k1"]["text"] == SHERMAN
+    assert {quoted[each["ref"]]["text"] for each in request["challenged"]} == {AGREEMENT}
+    assert {each["trust"] for each in quoted.values()} == {"low"}
+    skeptic = tasks["skeptic"]["artifacts"]
+    thesis_ids = {by_step[step] for step in ("constraint", "demand_vs_supply", "control")}
+    assert skeptic["invalidation_relations"] == {
+        invalidation_fact: dict.fromkeys(thesis_ids, "supports")
+    }
+    assert skeptic["invalidation_unjudged"] == []
+    assert skeptic["invalidation_judge_calls"] == 1
+    assert skeptic["counter_judge_calls"] == 0
+
+    # The Editor was sent no invalidation Fact for the step, and told why.
+    editor_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "editor")
+    sent = {s["step"]: s for s in asked(editor_call)["request"]["steps"]}
+    assert sent["invalidation"]["fact_refs"] == []
+    assert sent["invalidation"]["note"].startswith("cite only the Facts listed for this step")
+
+    card = found["research_card"]
+    steps = {step["step"]: step for step in card["steps"]}
+    invalidation = steps["invalidation"]
+    assert (invalidation["status"], invalidation["statement"], invalidation["statements"]) == (
+        "nothing_found",
+        None,
+        [],
+    )
+    assert "nothing found against the argument after 1 search" in invalidation["unchecked"]
+    assert invalidation["searched"] == [SHERMAN_QUERY]
+    [shown] = invalidation["facts"]
+    assert (shown["fact_id"], shown["against"]) == (invalidation_fact, [])
+    assert {(r["fact_id"], r["relation"]) for r in shown["relations"]} == {
+        (each, "supports") for each in thesis_ids
+    }
+    [dropped] = card["unsupported_findings"]
+    assert dropped["statement"] == INVALIDATION_STATEMENT
+    assert dropped["reason"].startswith("not_invalidating")
+    assert dropped["claim_ids"] == [invalidation_fact]
+    assert {key: step["status"] for key, step in steps.items() if key != "invalidation"} == {
+        key: "supported" for key in STEPS if key != "invalidation"
+    }
+    # Found or nothing found, the invalidation step is settled: every other step is supported.
+    assert (found["status"], found["stop_reason"]) == ("stopped", "answered")
+    assert found["stop_detail"] == (
+        "every step of the argument is supported by its Facts;"
+        " invalidation: nothing found against the argument"
+    )
+    editor = tasks["editor"]["artifacts"]
+    assert (editor["steps"]["invalidation"], editor["not_invalidating"]) == ("nothing_found", 1)
+
+
+def test_a_competitor_s_qualification_recorded_under_invalidation_makes_the_step_found(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role(
+        "reader", *(ChatReply.answer(reading_with_competition, tokens=(1000, 50)),) * 15
+    )
+    llm.script_role("skeptic", *(ChatReply.answer(challenging_nothing, tokens=(1200, 60)),) * 2)
+    llm.script_role("counter_judge", ChatReply.answer(relating("qualifies"), tokens=(600, 60)))
+    llm.script_role("finding_judge", *(SUPPORTED,) * 3)
+    investigation = run_argument(
+        atlas,
+        llm,
+        searxng,
+        editing_every_step(
+            {
+                "relief": RELIEF_STATEMENT,
+                "control": AGREEMENT_STATEMENT,
+                "invalidation": COMPETITION_STATEMENT,
+            },
+            "needs_review",
+        ),
+    )
+
+    found = atlas.get(f"/api/v1/investigations/{investigation}")
+    facts = atlas.get("/api/v1/facts", investigation_id=investigation)["items"]
+    by_step = {f["step"]: f["id"] for f in facts}
+    competition, agreement = by_step["invalidation"], by_step["control"]
+    skeptic = next(t for t in found["tasks"] if t["key"] == "skeptic")["artifacts"]
+    assert skeptic["invalidation_relations"] == {competition: {agreement: "qualifies"}}
+    assert skeptic["invalidation_reasons"] == {competition: {agreement: "k1 qualifies it"}}
+    # The Editor was sent the Fact for the step: it bears against the argument.
+    editor_call = next(b for b in llm.chat_requests() if b["metadata"]["role"] == "editor")
+    sent = {s["step"]: s for s in asked(editor_call)["request"]["steps"]}
+    assert len(sent["invalidation"]["fact_refs"]) == 1
+
+    invalidation = {s["step"]: s for s in found["research_card"]["steps"]}["invalidation"]
+    assert invalidation["status"] == "found"
+    assert invalidation["statement"] == COMPETITION_STATEMENT
+    [said] = invalidation["statements"]
+    assert said["judged"] is True
+    [cited] = said["facts"]
+    assert (cited["fact_id"], cited["against"]) == (competition, [agreement])
+    assert [(r["fact_id"], r["relation"], r["reason"]) for r in cited["relations"]] == [
+        (agreement, "qualifies", "k1 qualifies it")
+    ]
+    [shown] = invalidation["facts"]
+    assert shown["against"] == [agreement]
+    assert found["research_card"]["unsupported_findings"] == []
+    assert "invalidation: an observation against the argument was found" in found["stop_detail"]
+
+
+def test_a_failed_invalidation_judge_call_leaves_the_fact_unjudged_and_the_step_found_with_the_note(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    unusable = ChatReply.json(
+        {"relations": [{"ref": "f1", "relation": "denies", "reason": "?"}]}, tokens=(600, 60)
+    )
+    llm.script_role(
+        "reader", *(ChatReply.answer(reading_with_competition, tokens=(1000, 50)),) * 15
+    )
+    llm.script_role("skeptic", *(ChatReply.answer(challenging_nothing, tokens=(1200, 60)),) * 2)
+    llm.script_role("counter_judge", unusable, unusable)  # the answer and its repair
+    llm.script_role("finding_judge", *(SUPPORTED,) * 3)
+    investigation = run_argument(
+        atlas,
+        llm,
+        searxng,
+        editing_every_step(
+            {
+                "relief": RELIEF_STATEMENT,
+                "control": AGREEMENT_STATEMENT,
+                "invalidation": COMPETITION_STATEMENT,
+            },
+            "needs_review",
+        ),
+    )
+
+    found = atlas.get(f"/api/v1/investigations/{investigation}")
+    tasks = {task["key"]: task for task in found["tasks"]}
+    # The quarantine is the Fact's label, not the task's failure.
+    assert tasks["skeptic"]["status"] == "succeeded"
+    facts = atlas.get("/api/v1/facts", investigation_id=investigation)["items"]
+    by_step = {f["step"]: f["id"] for f in facts}
+    competition, agreement = by_step["invalidation"], by_step["control"]
+    skeptic = tasks["skeptic"]["artifacts"]
+    assert skeptic["invalidation_unjudged"] == [competition]
+    assert skeptic["invalidation_relations"] == {competition: {agreement: "unjudged"}}
+    assert skeptic["invalidation_reasons"][competition][agreement].startswith(
+        "the judge's answer was unusable"
+    )
+    assert skeptic["invalidation_judge_calls"] == 1
+    calls = atlas.get(f"/api/v1/runs/{found['run_id']}/role-calls")["role_calls"]
+    assert [c["status"] for c in calls if c["role"] == "counter_judge"] == ["quarantined"]
+
+    invalidation = {s["step"]: s for s in found["research_card"]["steps"]}["invalidation"]
+    assert invalidation["status"] == "found"
+    assert invalidation["statement"] == COMPETITION_STATEMENT
+    assert "1 invalidation Fact could not be judged" in invalidation["unchecked"]
+    [shown] = invalidation["facts"]
+    assert shown["against"] == [agreement]
+    assert [r["relation"] for r in shown["relations"]] == ["unjudged"]
 
 
 def test_the_default_plan_stays_the_default(atlas: Atlas) -> None:

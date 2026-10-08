@@ -37,6 +37,10 @@ export const STEP_STATUS: Record<CardArgumentStep["status"], string> = {
   supported: "supported",
   disputed: "disputed",
   unknown: "unknown",
+  // The invalidation step (pilot-review R2-03): an observation against the argument was
+  // found, or its Reader searched and found none.
+  found: "found",
+  nothing_found: "nothing found",
 };
 
 /** What the card says of a part of the question (pilot-review R2-01). */
@@ -144,9 +148,15 @@ function unique(values: string[]): string {
   return [...new Set(values)].join(", ");
 }
 
-/** The argument's steps counted by status: "2 supported, 1 disputed, 3 unknown". */
+/** The argument's steps counted by status: "4 supported, 1 nothing found, 1 unknown". */
 export function stepTally(steps: CardArgumentStep[]): string {
-  const order: CardArgumentStep["status"][] = ["supported", "disputed", "unknown"];
+  const order: CardArgumentStep["status"][] = [
+    "supported",
+    "found",
+    "disputed",
+    "nothing_found",
+    "unknown",
+  ];
   return order
     .map((status) => ({ status, count: steps.filter((step) => step.status === status).length }))
     .filter(({ count }) => count > 0)
