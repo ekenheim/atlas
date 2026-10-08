@@ -282,11 +282,11 @@ Each question's section in `.scratch/pilot/results.md` has the detail. Facts are
 | Question | Precision, 0.4.6 → 0.5.3 | Saved work | Trust gate | Baseline coverage | Researcher's facts on the card | Latency |
 |---|---|---|---|---|---|---|
 | 1, laser chips | 67% → **78%** | 23 | fails (4 of 34) | 40% → **90%** | 4 → **8** (+7 in Facts) | 13.3 min |
-| 2, InP substrates | 58% → **73%** | **0: no card** | — | 20% → 60% in Facts | 5 → 0 (22 in Facts) | 9.7 min |
+| 2, InP substrates | 58% → **72%** | **0: no card** | — | 20% → 60% in Facts | 5 → 0 (22 in Facts) | 9.7 min |
 | 3, module assembly | 69% → **76%** | 19 | fails (6 of 30) | 30% → **60%** | 1 → **7** (+5 in Facts) | 10.7 min |
 | 4, DSP and drivers | 39% → **75%** | 19 | fails (2 of 34) | 10% → **70%** | 1 → **6** (+7 in Facts) | 44 min wall (≈25 queued) |
 | 5, coherent optics | 66% → 59% (88% true to quote; 29% off-question) | 21 | fails (5 of 32) | 10% → 33% | 5 → **6** (+4 in Facts) | 15.5 min |
-| **Pooled** | 63% → **72%** | 82 | fails on 4 of 4 cards (17 of 130) | 22% → **63%** | 16 → **27** of 145 (72 in Facts or on a card) | 10–16 min |
+| **Pooled** | 63% → **71%** | 82 | fails on 4 of 4 cards (17 of 130) | 22% → **63%** | 16 → **27** of 145 (72 in Facts or on a card) | 10–16 min |
 
 Findings so far:
 - **Reading is fixed:** most of the researcher's facts are now among the Facts (Q2: 22 of 32).

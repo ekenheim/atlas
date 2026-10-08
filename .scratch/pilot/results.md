@@ -469,7 +469,7 @@ The owner authorized 8M MiniMax tokens to run the five questions on the argument
 
 | Measure | 0.4.6 | **0.5.3 argument** | Bar |
 |---|---|---|---|
-| Precision (Facts or Claims right) | 58% | **73%** (138 of 188) | ≥ 80% |
+| Precision (Facts or Claims right) | 58% | **72%** (136 of 188; two labels corrected 2026-10-08, below) | ≥ 80% |
 | Saved work | 2 | **0: no card** | ≥ 3 |
 | Trust gate | fails (2) | **no statements** | holds |
 | Baseline coverage | 20% | **60% in the Facts** (6 of 10, 4 more in substance); 0 on a card | ≥ 50% |
@@ -612,7 +612,7 @@ The owner authorized 8M MiniMax tokens to run the five questions on the argument
 
 | Measure (pooled over 5) | 0.4.6 (default plan) | **0.5.3 (argument plan)** | Bar |
 |---|---|---|---|
-| Precision | 63% (228 of 364 Claims) | **72%** (610 of 853 Facts) | ≥ 80% per question |
+| Precision | 63% (228 of 364 Claims) | **71%** (608 of 853 Facts) | ≥ 80% per question |
 | Saved work | 3 findings | **82 statements** (23, 0, 19, 19, 21) | ≥ 3 per question |
 | Trust gate | fails in 4 of 5 | **fails in 4 of 4 cards**: 17 of 130 statements | holds |
 | Baseline coverage | 22% (11 of 50) | **63%** (31 of 49) | ≥ 50% |
@@ -633,3 +633,5 @@ The owner authorized 8M MiniMax tokens to run the five questions on the argument
   6. An optional role that sank a whole card (question 2; fixed on main as ticket 07, not yet released).
 
 By the rule agreed with the owner, the argument plan replaces the default plan: it beats 0.4.6 on researcher facts held, archive hits covered and precision. The default plan's retirement is next-session priority 7.
+
+**Label correction (2026-10-08).** The regression check (`.scratch/tools/argument_regression.py`) found two question 2 Facts, `8db4f309` and `d65b0dd3`, that both reviewers labelled right. They are twins of `f8fc66fa`, which the lead adjudicated wrong: AXT's own market-share estimate labelled `reported_by_third_party`. The lead corrected both to wrong for consistency. Question 2 goes to 72% and the pooled figure to 71% (608 of 853).
