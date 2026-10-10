@@ -14,7 +14,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
-    "pypdf==6.19.0",
+    "pypdf==6.20.0",
     "python-json-logger>=2.0",
     "pyyaml>=6.0",
     "sqlalchemy>=2.0",
