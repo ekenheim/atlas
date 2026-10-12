@@ -12,6 +12,9 @@ const DEPENDS = {
     "For many products, a particular contract manufacturer may be the sole source of the" +
     " finished good products.",
 };
+// `seed_beliefs` in scripts/e2e.py: a proven constraint and a flagged, unproven relief.
+const PROVEN = "Lumentum's laser demand is outrunning its capacity.";
+const FLAGGED = "Lumentum can add laser capacity faster than demand grows.";
 const COMPETES = "Lumentum competes_with Coherent";
 const MANUFACTURES = "Lumentum manufactures optical and photonic products";
 
@@ -34,8 +37,20 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   ]);
   await themes.getByRole("link", { name: THEME }).click();
 
-  // The map: companies by layer, upstream to downstream.
+  // The assessment first: what Atlas believes, by step, above the companies and the edges.
   await expect(page.getByRole("heading", { level: 1, name: THEME })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("What Atlas believes");
+  const believed = page.getByRole("region", { name: "What Atlas believes" });
+  const constraint = believed.getByRole("region", { name: "Constraint" });
+  await expect(constraint.getByRole("listitem", { name: PROVEN })).toContainText("Proven 80%");
+  const relief = believed.getByRole("region", { name: "Relief" });
+  await expect(relief.getByRole("listitem", { name: FLAGGED })).toContainText("Unproven");
+  await expect(relief.getByRole("listitem", { name: FLAGGED })).toContainText("1 flag");
+  await expect(believed.getByRole("region", { name: "Control" })).toContainText(
+    "Nothing believed yet.",
+  );
+
+  // The map: companies by layer, upstream to downstream.
   await expect(page.getByRole("heading", { level: 3 })).toHaveText([
     "Substrate",
     "Epi",
@@ -75,6 +90,18 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   // The dossier: identity, listings, Relationships, financials, sources.
   await chips.getByRole("link", { name: "Lumentum" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
+  // The company's Beliefs come first, each with Lumentum's exposure: its own Facts back both.
+  await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("What Atlas believes");
+  const companyBeliefs = page.getByRole("region", { name: "What Atlas believes" });
+  await expect(companyBeliefs).toContainText("Holds the position: 2");
+  const proven = companyBeliefs
+    .getByRole("region", { name: "Constraint" })
+    .getByRole("listitem", { name: PROVEN });
+  await expect(proven).toContainText("Holds the position");
+  await expect(proven).toContainText("Proven 80%");
+  await expect(
+    companyBeliefs.getByRole("region", { name: "Relief" }).getByRole("listitem", { name: FLAGGED }),
+  ).toContainText("1 flag");
   // The reader's page folds the records away; open them.
   await page.locator("summary", { hasText: "Records" }).click();
   const identity = page.getByRole("table", { name: "Identity" });

@@ -283,6 +283,7 @@ def list_beliefs(
     status: str | None = None,
     flagged: bool | None = None,
     as_of: datetime | None = None,
+    ids: list[uuid.UUID] | None = None,
     limit: int,
     offset: int,
 ) -> tuple[list[BeliefSummary], int]:
@@ -296,12 +297,14 @@ def list_beliefs(
         "status": status,
         "flagged": flagged,
         "as_of": as_of,
+        "ids": ids,
         "limit": limit,
         "offset": offset,
     }
     where = (
         " WHERE (CAST(:theme AS text) IS NULL OR b.theme = :theme)"
         " AND (CAST(:step AS text) IS NULL OR b.step = :step)"
+        " AND (CAST(:ids AS uuid[]) IS NULL OR b.id = ANY(:ids))"
         " AND (CAST(:status AS text) IS NULL OR b.status = :status)"
         " AND (CAST(:judgement AS text) IS NULL OR j.judgement = :judgement)"
         " AND (CAST(:company AS uuid) IS NULL OR EXISTS (SELECT FROM belief_company bc"
@@ -398,6 +401,12 @@ class Beliefs:
     # --- writes -------------------------------------------------------------------------------
 
     def propose(self, request: BeliefPropose) -> Belief:
+        with self._engine.begin() as connection:
+            return self.propose_within(connection, request)
+
+    def propose_within(self, connection: Connection, request: BeliefPropose) -> Belief:
+        """Propose in the caller's transaction (the pipeline's Editor task stores its card and
+        its Beliefs together)."""
         if not any(
             each.weight == "load_bearing" and each.signed() > 0 for each in request.citations
         ):
@@ -407,77 +416,81 @@ class Beliefs:
             )
         belief_id = uuid.uuid4()
         who = request.actor or self._actor.name
-        with self._engine.begin() as connection:
-            companies = list(dict.fromkeys(request.company_ids))
-            if companies and connection.execute(
-                text("SELECT count(*) FROM company WHERE id = ANY(:ids)"), {"ids": companies}
-            ).scalar_one() != len(companies):
-                raise BeliefRefused("unknown_company", "a company is not in the universe")
-            if (
-                request.session_id is not None
-                and not connection.execute(
-                    text("SELECT EXISTS (SELECT FROM research_session WHERE id = :id)"),
-                    {"id": request.session_id},
-                ).scalar_one()
-            ):
-                raise BeliefRefused("unknown_session", "the research session does not exist")
+        companies = list(dict.fromkeys(request.company_ids))
+        if companies and connection.execute(
+            text("SELECT count(*) FROM company WHERE id = ANY(:ids)"), {"ids": companies}
+        ).scalar_one() != len(companies):
+            raise BeliefRefused("unknown_company", "a company is not in the universe")
+        if (
+            request.session_id is not None
+            and not connection.execute(
+                text("SELECT EXISTS (SELECT FROM research_session WHERE id = :id)"),
+                {"id": request.session_id},
+            ).scalar_one()
+        ):
+            raise BeliefRefused("unknown_session", "the research session does not exist")
+        connection.execute(
+            text(
+                "INSERT INTO belief (id, statement, theme, step, as_of, produced_by,"
+                " created_by) VALUES (:id, :statement, :theme, :step, :as_of, :session,"
+                " :actor)"
+            ),
+            {
+                "id": belief_id,
+                "statement": request.statement,
+                "theme": request.theme,
+                "step": request.step,
+                "as_of": request.as_of,
+                "session": request.session_id,
+                "actor": who,
+            },
+        )
+        for company in companies:
             connection.execute(
-                text(
-                    "INSERT INTO belief (id, statement, theme, step, as_of, produced_by,"
-                    " created_by) VALUES (:id, :statement, :theme, :step, :as_of, :session,"
-                    " :actor)"
-                ),
-                {
-                    "id": belief_id,
-                    "statement": request.statement,
-                    "theme": request.theme,
-                    "step": request.step,
-                    "as_of": request.as_of,
-                    "session": request.session_id,
-                    "actor": who,
-                },
+                text("INSERT INTO belief_company (belief_id, company_id) VALUES (:b, :c)"),
+                {"b": belief_id, "c": company},
             )
-            for company in companies:
-                connection.execute(
-                    text("INSERT INTO belief_company (belief_id, company_id) VALUES (:b, :c)"),
-                    {"b": belief_id, "c": company},
-                )
-            connection.execute(
-                text(
-                    "INSERT INTO belief_judgement (id, belief_id, judgement, confidence, actor,"
-                    " reason) VALUES (:id, :belief, 'unproven', 0, :actor, 'proposed')"
-                ),
-                {"id": uuid.uuid4(), "belief": belief_id, "actor": who},
-            )
-            for citation in request.citations:
-                self._cite(connection, belief_id, citation)
-            belief = get_belief(connection, belief_id)
-            assert belief is not None
-            record(
-                connection,
-                self._actor,
-                "belief.proposed",
-                entity_type="belief",
-                entity_id=str(belief_id),
-                new_hash=content_hash(belief.model_dump(mode="json")),
-            )
+        connection.execute(
+            text(
+                "INSERT INTO belief_judgement (id, belief_id, judgement, confidence, actor,"
+                " reason) VALUES (:id, :belief, 'unproven', 0, :actor, 'proposed')"
+            ),
+            {"id": uuid.uuid4(), "belief": belief_id, "actor": who},
+        )
+        for citation in request.citations:
+            self._cite(connection, belief_id, citation)
+        belief = get_belief(connection, belief_id)
+        assert belief is not None
+        record(
+            connection,
+            self._actor,
+            "belief.proposed",
+            entity_type="belief",
+            entity_id=str(belief_id),
+            new_hash=content_hash(belief.model_dump(mode="json")),
+        )
         return belief
 
     def cite(self, belief_id: uuid.UUID, citation: CitationIn) -> Belief:
         with self._engine.begin() as connection:
-            before = self._lock_active(connection, belief_id)
-            self._cite(connection, belief_id, citation)
-            belief = get_belief(connection, belief_id)
-            assert belief is not None
-            record(
-                connection,
-                self._actor,
-                "belief.cited",
-                entity_type="belief",
-                entity_id=str(belief_id),
-                old_hash=before,
-                new_hash=content_hash(belief.model_dump(mode="json")),
-            )
+            return self.cite_within(connection, belief_id, citation)
+
+    def cite_within(
+        self, connection: Connection, belief_id: uuid.UUID, citation: CitationIn
+    ) -> Belief:
+        before = self._lock_active(connection, belief_id)
+        self._cite(connection, belief_id, citation)
+        belief = get_belief(connection, belief_id)
+        assert belief is not None
+        record(
+            connection,
+            self._actor,
+            "belief.cited",
+            entity_type="belief",
+            entity_id=str(belief_id),
+            old_hash=before,
+            new_hash=content_hash(belief.model_dump(mode="json")),
+        )
         return belief
 
     def judge(self, belief_id: uuid.UUID, request: BeliefJudge) -> Belief:

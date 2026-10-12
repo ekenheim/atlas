@@ -27,6 +27,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from sqlalchemy import Connection, text
 
+from atlas.beliefs.exposure import ThemeBelief, theme_beliefs
 from atlas.candidates import Candidate, list_candidates
 from atlas.claims.predicates import LAYERS
 from atlas.companies import Layer, SourcePath, Universe, company_id_for
@@ -86,6 +87,10 @@ class ThemeSummary(BaseModel):
 
 class ThemeMap(BaseModel):
     theme: ThemeSummary
+    beliefs: list[ThemeBelief] = Field(
+        description="what Atlas believes about the theme: its active Beliefs, oldest first (the"
+        " page groups them by step and judgement)"
+    )
     layers: list[ThemeLayer] = Field(description="upstream to downstream, empty ones included")
     unlayered: list[ThemeCompany] = Field(description="companies with no layer set")
     relationships: list[Relationship] = Field(
@@ -176,6 +181,7 @@ def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMa
     )
     return ThemeMap(
         theme=summary,
+        beliefs=theme_beliefs(connection, theme_id),
         layers=layers,
         unlayered=[c for c in companies if c.layer is None],
         relationships=relationships,

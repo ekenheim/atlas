@@ -556,3 +556,105 @@ def test_the_dossier_of_an_unknown_company_is_not_found(atlas: ExplorerAtlas) ->
     bad = atlas.api.get(f"/api/v1/companies/{uuid.uuid4()}/dossier", params={"as_of": "2026-09-29"})
     assert bad.status_code == 422
     assert bad.json()["error"]["code"] == "invalid_request"
+
+
+# --- Beliefs (atlas-beliefs ticket 03) ----------------------------------------------------------
+
+
+def record_fact(atlas: ExplorerAtlas, subject: str, quote: str) -> str:
+    """A Fact quoting `quote` of Lumentum's 10-K, stated for company `subject`; its ID."""
+    version = atlas.version(LITE_10K)["id"]
+    start = atlas.parsed(version).index(quote)
+    response = atlas.api.post(
+        "/api/v1/facts",
+        json={
+            "subject_company_id": atlas.ids()[subject],
+            "source_version_id": version,
+            "quote": quote,
+            "span_start": start,
+            "span_end": start + len(quote),
+            "epistemic_type": "company_claim",
+            "step": "context",
+            "statement": quote,
+            "status": "hedged",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["fact"]["id"]
+
+
+def propose_belief(
+    atlas: ExplorerAtlas, statement: str, step: str, companies: list[str], fact: str
+) -> dict[str, Any]:
+    response = atlas.api.post(
+        "/api/v1/beliefs",
+        json={
+            "statement": statement,
+            "theme": "photonics",
+            "step": step,
+            "company_ids": [atlas.ids()[slug] for slug in companies],
+            "as_of": NOW,
+            "actor": "claude-session",
+            "citations": [{"ref_id": fact, "valence": 0.9, "weight": "load_bearing"}],
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_the_map_and_the_dossier_lead_with_the_beliefs_and_the_company_s_exposure(
+    atlas: ExplorerAtlas,
+) -> None:
+    atlas.seed()
+    atlas.ingest_lumentum()
+    lumentum_says = record_fact(atlas, "lumentum", SOLE_SOURCE)
+    fabrinet_says = record_fact(atlas, "fabrinet", COMPETITIVE)
+    held = propose_belief(
+        atlas,
+        "Lumentum depends on one contract manufacturer.",
+        "constraint",
+        ["lumentum"],
+        lumentum_says,
+    )
+    # Named for Coherent, but the evidence is Fabrinet's words.
+    reliant = propose_belief(
+        atlas,
+        "Coherent has a second source for finished goods.",
+        "relief",
+        ["coherent"],
+        fabrinet_says,
+    )
+    replaced = propose_belief(
+        atlas, "An older view of the same constraint.", "constraint", ["lumentum"], lumentum_says
+    )
+    response = atlas.api.post(
+        f"/api/v1/beliefs/{replaced['id']}/supersede",
+        json={"by": [held["id"]], "reason": "restated", "actor": "claude-session"},
+    )
+    assert response.status_code == 200, response.text
+    atlas.api.post(
+        f"/api/v1/beliefs/{held['id']}/judge",
+        json={"actor": "owner", "judgement": "proven", "confidence": 0.8, "reason": "checked"},
+    ).raise_for_status()
+
+    beliefs = atlas.map()["beliefs"]
+    # The theme's active Beliefs (the superseded one is the history of another), oldest first,
+    # each with the companies whose Facts it cites.
+    assert [(b["step"], b["judgement"]["judgement"]) for b in beliefs] == [
+        ("constraint", "proven"),
+        ("relief", "unproven"),
+    ]
+    assert [[c["slug"] for c in b["cited_companies"]] for b in beliefs] == [
+        ["lumentum"],
+        ["fabrinet"],
+    ]
+
+    def exposure(slug: str) -> dict[str, str]:
+        return {b["statement"]: b["exposure"] for b in atlas.dossier(slug, as_of=NOW)["beliefs"]}
+
+    assert exposure("lumentum") == {held["statement"]: "holder"}
+    assert exposure("coherent") == {reliant["statement"]: "dependent"}
+    assert exposure("fabrinet") == {reliant["statement"]: "supplier"}
+    assert exposure("nvidia") == {}
+    [shown] = atlas.dossier("lumentum", as_of=NOW)["beliefs"]
+    assert (shown["judgement"]["judgement"], shown["citation_count"]) == ("proven", 1)

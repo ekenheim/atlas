@@ -77,6 +77,8 @@ export type SnapshotRecord = Schemas["ResearchSnapshotRecord"];
 export type ResearchSnapshot = Schemas["ResearchSnapshot"];
 export type Belief = Schemas["Belief"];
 export type BeliefSummary = Schemas["BeliefSummary"];
+export type ThemeBelief = Schemas["ThemeBelief"];
+export type CompanyBelief = Schemas["CompanyBelief"];
 export type BeliefJudge = Schemas["BeliefJudge"];
 /** The Beliefs list's filters (the page is added here). */
 export type BeliefQuery = Omit<
@@ -337,7 +339,7 @@ export const api = {
     post(
       "/api/v1/hypotheses/{hypothesis_id}/publish-version",
       { path: { hypothesis_id: id } },
-      { version },
+      { version, override_beliefs: false },
     ),
   /** A lifecycle change (`reviewed` only by publishing). */
   transitionHypothesis: (id: string, to: HypothesisStatus) =>

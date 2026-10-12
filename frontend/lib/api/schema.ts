@@ -2637,6 +2637,8 @@ export interface components {
              * @default false
              */
             contested: boolean;
+            /** Belief Ids */
+            belief_ids?: string[];
         };
         /**
          * CardBearContext
@@ -3655,6 +3657,49 @@ export interface components {
              */
             observed_at: string;
         };
+        /** CompanyBelief */
+        CompanyBelief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Statement */
+            statement: string;
+            /** Theme */
+            theme: string;
+            step: components["schemas"]["Step"];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            status: components["schemas"]["Status"];
+            /** Companies */
+            companies: components["schemas"]["CompanyRef"][];
+            /** @description the judgement current at the read's time */
+            judgement: components["schemas"]["JudgementRecord"];
+            /** Open Flags */
+            open_flags: number;
+            /** Citation Count */
+            citation_count: number;
+            /** Produced By */
+            produced_by: string | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Cited Companies
+             * @description the companies whose Facts the Belief cites, by name
+             */
+            cited_companies: components["schemas"]["CompanyRef"][];
+            /** @description holder: the Belief names the company and its own load-bearing Fact backs it; dependent: it names the company but others' Facts carry it; supplier: it names another company and cites this one's Fact */
+            exposure: components["schemas"]["Exposure"];
+        };
         /** CompanyDossier */
         CompanyDossier: {
             company: components["schemas"]["Company"];
@@ -3663,6 +3708,11 @@ export interface components {
              * @description the themes the company belongs to
              */
             themes: components["schemas"]["ThemeRef"][];
+            /**
+             * Beliefs
+             * @description the active Beliefs that name the company or cite its Facts, each with the company's Exposure to it (holder, supplier or dependent)
+             */
+            beliefs: components["schemas"]["CompanyBelief"][];
             /**
              * Pending Identity Reviews
              * @description identity mappings awaiting the owner, oldest first
@@ -4703,6 +4753,8 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** @enum {string} */
+        Exposure: "holder" | "supplier" | "dependent";
         /**
          * FactCreate
          * @description A new Fact: the Assertion's span fields and the Fact's own.
@@ -5202,6 +5254,11 @@ export interface components {
             relationship_ids: string[];
             /** Assertion Ids */
             assertion_ids: string[];
+            /**
+             * Belief Ids
+             * @description `belief_not_proven`: the load-bearing Beliefs that are not proven
+             */
+            belief_ids?: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -6028,7 +6085,6 @@ export interface components {
             classification?: ("quota" | "unavailable" | "error" | "lease_expired" | "requeued") | null;
         };
         JsonValue: unknown;
-<<<<<<< HEAD
         /** JudgeRequest */
         JudgeRequest: {
             /** Question */
@@ -6075,7 +6131,7 @@ export interface components {
             ref: string | null;
             /** Basis */
             basis: string | null;
-=======
+        };
         /** @enum {string} */
         Judgement: "proven" | "disproven" | "unproven" | "undecidable";
         /** JudgementRecord */
@@ -6097,7 +6153,6 @@ export interface components {
              * Format: date-time
              */
             at: string;
->>>>>>> origin/integrate/sessions
         };
         /**
          * LLMAttempt
@@ -7325,6 +7380,14 @@ export interface components {
             version: number;
             /** Note */
             note?: string | null;
+            /**
+             * Override Beliefs
+             * @description publish although a Belief the version rests on load-bearingly is not proven (the owner's explicit override; `override_reason` is required and recorded in the audit)
+             * @default false
+             */
+            override_beliefs: boolean;
+            /** Override Reason */
+            override_reason?: string | null;
         };
         /**
          * Quantity
@@ -7832,7 +7895,6 @@ export interface components {
             /** Keep Trace */
             keep_trace: boolean;
         };
-<<<<<<< HEAD
         /** RelateRequest */
         RelateRequest: {
             /** Question */
@@ -7850,10 +7912,8 @@ export interface components {
             /** Run Id */
             run_id?: string | null;
         };
-=======
         /** @enum {string} */
         Relation: "contradicts" | "limits" | "dates" | "qualifies" | "supports";
->>>>>>> origin/integrate/sessions
         /** Relationship */
         Relationship: {
             /**
@@ -9589,6 +9649,47 @@ export interface components {
              */
             updated_at: string;
         };
+        /** ThemeBelief */
+        ThemeBelief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Statement */
+            statement: string;
+            /** Theme */
+            theme: string;
+            step: components["schemas"]["Step"];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            status: components["schemas"]["Status"];
+            /** Companies */
+            companies: components["schemas"]["CompanyRef"][];
+            /** @description the judgement current at the read's time */
+            judgement: components["schemas"]["JudgementRecord"];
+            /** Open Flags */
+            open_flags: number;
+            /** Citation Count */
+            citation_count: number;
+            /** Produced By */
+            produced_by: string | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Cited Companies
+             * @description the companies whose Facts the Belief cites, by name
+             */
+            cited_companies: components["schemas"]["CompanyRef"][];
+        };
         /** ThemeCompany */
         ThemeCompany: {
             /**
@@ -9671,6 +9772,11 @@ export interface components {
         /** ThemeMapView */
         ThemeMapView: {
             theme: components["schemas"]["ThemeSummary"];
+            /**
+             * Beliefs
+             * @description what Atlas believes about the theme: its active Beliefs, oldest first (the page groups them by step and judgement)
+             */
+            beliefs: components["schemas"]["ThemeBelief"][];
             /**
              * Layers
              * @description upstream to downstream, empty ones included

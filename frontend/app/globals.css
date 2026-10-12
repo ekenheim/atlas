@@ -644,6 +644,13 @@ nav[aria-label="Site"] .nav-ops {
   text-transform: uppercase;
 }
 
+/* The name of an argument step above its Beliefs (a label, not a heading of the page). */
+.reader-step {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 1.25rem 0 0.4rem;
+}
+
 /* A status pill: outlined, coloured by one of the state classes below. */
 .reader-pill {
   border: 1px solid currentColor;
