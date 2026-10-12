@@ -12,6 +12,12 @@
         [--seeds slug,slug] [--model <name>] [--actor <name>]
     python atlas_tools.py session close --id <id> [--usage usage.json] [--card card.json]
         [--markdown card.md]
+    python atlas_tools.py issue open --title "<text>" [--theme photonics] [--kind question|step|read]
+        [--priority <n>] [--body "<text>"] [--companies slug,slug] [--narrows <id>] [--requires id,id]
+        [--session <id>]
+    python atlas_tools.py issue narrow --id <id> --parent <id> [--requires]
+    python atlas_tools.py issue complete --id <id> [--fact <id>] [--belief <id>] [--abandon]
+    python atlas_tools.py issue next [--theme photonics]
     python atlas_tools.py recall --q "<question>" --as-of <ISO> [--theme photonics] [--companies slug,slug]
         [--max-tokens 4096]
     python atlas_tools.py fact <id>
@@ -384,6 +390,54 @@ def cmd_session_close(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_issue_open(args: argparse.Namespace) -> None:
+    """Open an Issue (a question, a step or a read), optionally under the Issue it narrows."""
+    body = {
+        "title": args.title,
+        "body": args.body or "",
+        "theme": args.theme,
+        "kind": args.kind,
+        "priority": args.priority,
+        "company_ids": [company_id(s.strip()) for s in (args.companies or "").split(",") if s.strip()],
+        "produced_by": args.session,
+        "narrows": args.narrows,
+        "requires": [i.strip() for i in (args.requires or "").split(",") if i.strip()],
+    }
+    status, answer = post("/issues", body)
+    if status != 201:
+        out({"opened": False, "http": status, "answer": answer})
+        sys.exit(1)
+    print(answer["id"])
+
+
+def cmd_issue_narrow(args: argparse.Namespace) -> None:
+    """Link an Issue under a parent it narrows (or, with --requires, behind one it requires)."""
+    kind = "requires" if args.requires else "narrows"
+    status, answer = post(f"/issues/{args.id}/edges", {"kind": kind, "parent_id": args.parent})
+    out({"linked": status == 200, "http": status, "answer": None if status == 200 else answer})
+    if status != 200:
+        sys.exit(1)
+
+
+def cmd_issue_complete(args: argparse.Namespace) -> None:
+    """Record what the Issue produced (a Fact or a Belief), then complete (or abandon) it."""
+    for key, value in (("fact_id", args.fact), ("belief_id", args.belief)):
+        if value:
+            status, answer = post(f"/issues/{args.id}/produced", {key: value})
+            if status != 200:
+                out({"produced": False, "http": status, "answer": answer})
+                sys.exit(1)
+    status, answer = post(f"/issues/{args.id}/{'abandon' if args.abandon else 'complete'}", {})
+    out({"closed": status == 200, "http": status, "status": answer.get("status"), "answer": None if status == 200 else answer})
+    if status != 200:
+        sys.exit(1)
+
+
+def cmd_issue_next(args: argparse.Namespace) -> None:
+    """The next Issue by Atlas's rule: a step with no Belief, then flagged or disputed, then priority, then age."""
+    out(get("/issues/next?" + urllib.parse.urlencode({"theme": args.theme})))
+
+
 def cmd_fact(args: argparse.Namespace) -> None:
     out(get(f"/facts/{args.id}"))
 
@@ -442,6 +496,32 @@ def main() -> None:
     p.add_argument("--card", default=None, help="a JSON file: the research_card")
     p.add_argument("--markdown", default=None, help="the card's markdown file")
     p.set_defaults(run=cmd_session_close)
+    issue = sub.add_parser("issue").add_subparsers(dest="action", required=True)
+    p = issue.add_parser("open")
+    p.add_argument("--title", required=True)
+    p.add_argument("--theme", default="photonics")
+    p.add_argument("--kind", default="read", choices=["question", "step", "read"])
+    p.add_argument("--priority", type=int, default=0)
+    p.add_argument("--body", default=None)
+    p.add_argument("--companies", default=None)
+    p.add_argument("--narrows", default=None, help="the id of the Issue this one narrows")
+    p.add_argument("--requires", default=None, help="ids of Issues to finish first, comma-separated")
+    p.add_argument("--session", default=None)
+    p.set_defaults(run=cmd_issue_open)
+    p = issue.add_parser("narrow")
+    p.add_argument("--id", required=True)
+    p.add_argument("--parent", required=True)
+    p.add_argument("--requires", action="store_true", help="link as a prerequisite, not as a narrowing")
+    p.set_defaults(run=cmd_issue_narrow)
+    p = issue.add_parser("complete")
+    p.add_argument("--id", required=True)
+    p.add_argument("--fact", default=None)
+    p.add_argument("--belief", default=None)
+    p.add_argument("--abandon", action="store_true")
+    p.set_defaults(run=cmd_issue_complete)
+    p = issue.add_parser("next")
+    p.add_argument("--theme", default="photonics")
+    p.set_defaults(run=cmd_issue_next)
     p = sub.add_parser("recall")
     p.add_argument("--q", required=True)
     p.add_argument("--as-of", required=True)

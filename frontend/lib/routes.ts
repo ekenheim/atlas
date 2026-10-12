@@ -27,6 +27,8 @@ export const routes = {
   sessions: "/sessions/",
   /** One research session: its card, Facts and usage. */
   session: withId("session"),
+  /** The research frontier: open Issues, the next action first; `search` is the filters. */
+  issues: (search = "") => (search ? `/issues/?${search}` : "/issues/"),
   /** One investigation: its plan, events, Evidence tray, contradictions and actions. */
   investigation: withId("investigation"),
   /** Every Hypothesis, newest first. */

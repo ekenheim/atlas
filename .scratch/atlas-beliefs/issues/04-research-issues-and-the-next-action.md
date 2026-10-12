@@ -1,7 +1,7 @@
 # 04: Issues: the research frontier, narrowing and requiring, the next action by rule, the Issues page
 
 Type: build
-Status: ready-for-agent
+Status: done
 Blocked by: 08
 
 ## Parent
@@ -14,6 +14,6 @@ Tables `issue` (title, body, theme, kind `question|step|read`, priority, status 
 
 ## Acceptance criteria
 
-- [ ] API tests: create, narrow, require, complete, the acyclicity refusal, `next` under each rule branch, the Issues a session's close creates.
-- [ ] Frontend unit test of the ordering; Playwright e2e of the page, seeded.
-- [ ] Migration chained; log entry.
+- [x] API tests: create, narrow, require, complete, the acyclicity refusal, `next` under each rule branch, the Issues a session's close creates.
+- [x] Frontend unit test of the ordering; Playwright e2e of the page, seeded.
+- [x] Migration chained; log entry.

@@ -66,6 +66,7 @@ from atlas.assertions import AssertionCreate, Assertions
 from atlas.audit import Actor
 from atlas.db.migrate import upgrade
 from atlas.facts import FactCreate, Facts
+from atlas.issues import IssueCreate, Issues, list_issues
 from atlas.jobs import HandlerRegistry, JobQueue, Worker
 from atlas.ledger import SourceLedger
 from atlas.relationships import (
@@ -343,6 +344,7 @@ LUMENTUM_Q4_RELEASE = (
     "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm"
 )
 SESSION_QUESTION = "Is laser capacity the constraint on AI optics?"
+ISSUE_STEP_TITLE = "Relief: who else can supply the lasers?"
 SESSION_FACTS: tuple[tuple[str, str, str, float, str], ...] = (
     # (quote, statement, period, value, metric)
     (
@@ -434,6 +436,26 @@ def seed_session(database_url: str, archive_root: Path) -> None:
             "open_questions": ["Who else makes indium phosphide lasers?"],
         }
         sessions.close(opened.id, SessionClose(usage={"calls": 9, "tokens": 12345}, card=card))
+        # The close opened the question's Issues; the frontier also gets a step no Belief
+        # was produced for, narrowing the same question.
+        issues = Issues(engine, actor)
+        with engine.connect() as connection:
+            listed, _ = list_issues(connection, theme="photonics", limit=100, offset=0)
+        root = next(
+            item.id for item in listed if item.kind == "question" and item.title == SESSION_QUESTION
+        )
+        issues.create(
+            IssueCreate(
+                title=ISSUE_STEP_TITLE,
+                body="relief: unknown",
+                theme="photonics",
+                kind="step",
+                priority=1,
+                company_ids=[lumentum],
+                narrows=root,
+                produced_by=opened.id,
+            )
+        )
     finally:
         engine.dispose()
 
