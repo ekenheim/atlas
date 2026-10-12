@@ -1,7 +1,7 @@
 # 02: Beliefs: propose, cite, judge, supersede, flag; the Belief page and the theme's Beliefs
 
 Type: build
-Status: ready-for-agent
+Status: done
 Blocked by: 08
 
 ## Parent
@@ -14,6 +14,6 @@ Tables `belief`, `belief_judgement` (insert-only), `belief_citation` (Fact or As
 
 ## Acceptance criteria
 
-- [ ] API tests at the seam for every route and refusal, the flags through the triggers, the as-of read of a past judgement.
-- [ ] Frontend unit tests of the pure parts; Playwright e2e of both pages, seeded.
-- [ ] Glossary and ADR; migration chained; log entry.
+- [x] API tests at the seam for every route and refusal, the flags through the triggers, the as-of read of a past judgement.
+- [x] Frontend unit tests of the pure parts; Playwright e2e of both pages, seeded.
+- [x] Glossary and ADR; migration chained; log entry.

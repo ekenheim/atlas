@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import Connection, text
 
+from atlas.beliefs.flags import cites_earlier_version, flag_assertion_reviewed
 from atlas.jobs.queue import JobQueue
 
 if TYPE_CHECKING:
@@ -91,6 +92,7 @@ _DEPENDS = (
 
 
 def on_assertion_reviewed(connection: Connection, assertion_id: uuid.UUID, state: str) -> None:
+    flag_assertion_reviewed(connection, assertion_id, state)  # Beliefs citing it (ticket 02)
     if state in CONTRADICTING_STATES and _depends(connection, "assertion", assertion_id):
         _enqueue(connection, "assertion_reviewed", assertion_id, state)
 
@@ -113,7 +115,8 @@ def on_source_revised(connection: Connection, source_version_id: uuid.UUID) -> N
         ),
         {"id": source_version_id},
     ).scalar_one()
-    if revises:
+    if revises or cites_earlier_version(connection, source_version_id):
+        # The job compares the quotes; it flags the Beliefs citing a withdrawn one too.
         _enqueue(connection, "source_revised", source_version_id)
 
 

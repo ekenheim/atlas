@@ -25,6 +25,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <Link href={routes.home}>Research</Link>
               </li>
               <li>
+                <Link href={routes.beliefs()}>Beliefs</Link>
+              </li>
+              <li>
                 <Link href={routes.hypotheses}>Hypotheses</Link>
               </li>
               <li>

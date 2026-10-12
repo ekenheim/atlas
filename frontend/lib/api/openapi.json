@@ -2006,6 +2006,508 @@
         }
       }
     },
+    "/api/v1/beliefs": {
+      "get": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Beliefs",
+        "operationId": "beliefs_api_v1_beliefs_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Step"
+            }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "judgement",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Judgement"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "flagged",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Flagged"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_BeliefSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Propose",
+        "operationId": "propose_api_v1_beliefs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeliefPropose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}": {
+      "get": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Belief",
+        "operationId": "belief_api_v1_beliefs__belief_id__get",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}/cite": {
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Cite",
+        "operationId": "cite_api_v1_beliefs__belief_id__cite_post",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CitationIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}/judge": {
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Judge",
+        "operationId": "judge_api_v1_beliefs__belief_id__judge_post",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeliefJudge"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}/supersede": {
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Supersede",
+        "operationId": "supersede_api_v1_beliefs__belief_id__supersede_post",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeliefSupersede"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/api/v1/source-versions/{version_id}/memory": {
       "get": {
         "tags": [
@@ -7933,6 +8435,412 @@
         ],
         "title": "BackfillWindowStatus"
       },
+      "Belief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "step": {
+            "$ref": "#/components/schemas/Step"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/JudgementRecord",
+            "description": "the judgement current at the read's time"
+          },
+          "open_flags": {
+            "type": "integer",
+            "title": "Open Flags"
+          },
+          "citation_count": {
+            "type": "integer",
+            "title": "Citation Count"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationRecord"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "counterevidence": {
+            "items": {
+              "$ref": "#/components/schemas/CitationRecord"
+            },
+            "type": "array",
+            "title": "Counterevidence",
+            "description": "the citations with valence < 0"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/FlagRecord"
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/JudgementRecord"
+            },
+            "type": "array",
+            "title": "History",
+            "description": "every judgement, oldest first"
+          },
+          "supersedes": {
+            "items": {
+              "$ref": "#/components/schemas/BeliefLink"
+            },
+            "type": "array",
+            "title": "Supersedes"
+          },
+          "superseded_by": {
+            "items": {
+              "$ref": "#/components/schemas/BeliefLink"
+            },
+            "type": "array",
+            "title": "Superseded By"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "theme",
+          "step",
+          "as_of",
+          "status",
+          "companies",
+          "judgement",
+          "open_flags",
+          "citation_count",
+          "produced_by",
+          "created_by",
+          "created_at",
+          "citations",
+          "counterevidence",
+          "flags",
+          "history",
+          "supersedes",
+          "superseded_by",
+          "session"
+        ],
+        "title": "Belief"
+      },
+      "BeliefJudge": {
+        "properties": {
+          "actor": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Actor",
+            "description": "the author setting the judgement"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/Judgement"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "actor",
+          "judgement",
+          "confidence",
+          "reason"
+        ],
+        "title": "BeliefJudge"
+      },
+      "BeliefLink": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "actor",
+          "reason",
+          "at"
+        ],
+        "title": "BeliefLink"
+      },
+      "BeliefPropose": {
+        "properties": {
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Statement"
+          },
+          "theme": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Theme"
+          },
+          "step": {
+            "$ref": "#/components/schemas/Step"
+          },
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Company Ids"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor",
+            "description": "who proposes; default: the caller"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationIn"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "statement",
+          "theme",
+          "step",
+          "as_of"
+        ],
+        "title": "BeliefPropose"
+      },
+      "BeliefSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "step": {
+            "$ref": "#/components/schemas/Step"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/JudgementRecord",
+            "description": "the judgement current at the read's time"
+          },
+          "open_flags": {
+            "type": "integer",
+            "title": "Open Flags"
+          },
+          "citation_count": {
+            "type": "integer",
+            "title": "Citation Count"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "theme",
+          "step",
+          "as_of",
+          "status",
+          "companies",
+          "judgement",
+          "open_flags",
+          "citation_count",
+          "produced_by",
+          "created_by",
+          "created_at"
+        ],
+        "title": "BeliefSummary"
+      },
+      "BeliefSupersede": {
+        "properties": {
+          "by": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "By",
+            "description": "the Beliefs that replace it"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "by",
+          "reason"
+        ],
+        "title": "BeliefSupersede"
+      },
       "Bottlenecks": {
         "properties": {
           "status": {
@@ -10245,6 +11153,82 @@
         "title": "Check",
         "description": "One gold expectation, what was observed, and whether it held."
       },
+      "CitationIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "assertion"
+            ],
+            "title": "Kind",
+            "default": "fact"
+          },
+          "ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ref Id",
+            "description": "the Fact's ID (its Assertion's), or an Assertion's"
+          },
+          "valence": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": -1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valence"
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Relation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the counter-judge's relation; sets a default valence"
+          },
+          "weight": {
+            "$ref": "#/components/schemas/Weight",
+            "default": "context"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor",
+            "description": "who cites; default: the caller"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ref_id"
+        ],
+        "title": "CitationIn"
+      },
       "CitationKind": {
         "type": "string",
         "enum": [
@@ -10253,6 +11237,141 @@
           "quote",
           "mental_model"
         ]
+      },
+      "CitationRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "assertion"
+            ],
+            "title": "Kind"
+          },
+          "ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ref Id"
+          },
+          "valence": {
+            "type": "number",
+            "title": "Valence"
+          },
+          "weight": {
+            "$ref": "#/components/schemas/Weight"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "statement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement",
+            "description": "the Fact's statement; none for an Assertion"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "type": "integer",
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "title": "Span End"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Title"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "review_state": {
+            "type": "string",
+            "title": "Review State"
+          },
+          "stands": {
+            "type": "boolean",
+            "title": "Stands",
+            "description": "the cited statement is neither disputed nor withdrawn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "ref_id",
+          "valence",
+          "weight",
+          "note",
+          "actor",
+          "created_at",
+          "company_id",
+          "company_name",
+          "statement",
+          "quote",
+          "span_start",
+          "span_end",
+          "source_version_id",
+          "source_title",
+          "available_at",
+          "review_state",
+          "stands"
+        ],
+        "title": "CitationRecord"
       },
       "CitationSource": {
         "properties": {
@@ -11218,6 +12337,30 @@
           "one_entity"
         ],
         "title": "CompanyEntities"
+      },
+      "CompanyRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "display_name"
+        ],
+        "title": "CompanyRef"
       },
       "CompanyRole": {
         "type": "string",
@@ -14961,6 +16104,63 @@
         ],
         "title": "FindingEdit"
       },
+      "FlagKind": {
+        "type": "string",
+        "enum": [
+          "counterevidence_stands",
+          "source_revised",
+          "assertion_reviewed",
+          "fact_superseded"
+        ]
+      },
+      "FlagRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FlagKind"
+          },
+          "ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ref Id"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "raised_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Raised At"
+          },
+          "cleared_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "ref_id",
+          "detail",
+          "raised_at",
+          "cleared_by"
+        ],
+        "title": "FlagRecord"
+      },
       "FollowUp": {
         "properties": {
           "round": {
@@ -16966,6 +18166,54 @@
         "title": "JobFailure"
       },
       "JsonValue": {},
+      "Judgement": {
+        "type": "string",
+        "enum": [
+          "proven",
+          "disproven",
+          "unproven",
+          "undecidable"
+        ]
+      },
+      "JudgementRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/Judgement"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "judgement",
+          "confidence",
+          "actor",
+          "reason",
+          "at"
+        ],
+        "title": "JudgementRecord"
+      },
       "LLMAttempt": {
         "properties": {
           "attempt": {
@@ -19064,6 +20312,37 @@
           "offset"
         ],
         "title": "Page[Assertion]"
+      },
+      "Page_BeliefSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BeliefSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[BeliefSummary]"
       },
       "Page_Candidate_": {
         "properties": {
@@ -21879,6 +23158,16 @@
         ],
         "title": "RefreshTrigger",
         "description": "When and how the model is refreshed, as the bank template defines it."
+      },
+      "Relation": {
+        "type": "string",
+        "enum": [
+          "contradicts",
+          "limits",
+          "dates",
+          "qualifies",
+          "supports"
+        ]
       },
       "Relationship": {
         "properties": {
@@ -26405,6 +27694,25 @@
         ],
         "title": "SourcedInput"
       },
+      "Status": {
+        "type": "string",
+        "enum": [
+          "active",
+          "superseded",
+          "withdrawn"
+        ]
+      },
+      "Step": {
+        "type": "string",
+        "enum": [
+          "constraint",
+          "demand_vs_supply",
+          "relief",
+          "control",
+          "capture",
+          "invalidation"
+        ]
+      },
       "TagMatch": {
         "type": "string",
         "enum": [
@@ -28057,6 +29365,13 @@
           "available_at"
         ],
         "title": "VersionSample"
+      },
+      "Weight": {
+        "type": "string",
+        "enum": [
+          "load_bearing",
+          "context"
+        ]
       },
       "XbrlSource": {
         "properties": {

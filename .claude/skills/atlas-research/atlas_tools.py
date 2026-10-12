@@ -388,6 +388,67 @@ def cmd_fact(args: argparse.Namespace) -> None:
     out(get(f"/facts/{args.id}"))
 
 
+RELATIONS = ("contradicts", "limits", "dates", "qualifies", "supports")
+
+
+def citation_body(fact_id: str, how: str, weight: str, note: str | None = None, actor: str | None = None) -> dict:
+    """A Belief citation: `how` is a signed valence (-1..1) or the counter-judge's relation, which
+    Atlas maps to a default valence (contradicts -1, limits/dates -0.5, qualifies -0.25, supports +0.5)."""
+    body: dict = {"kind": "fact", "ref_id": fact_id, "weight": weight, "note": note, "actor": actor}
+    if how in RELATIONS:
+        body["relation"] = how
+    else:
+        try:
+            body["valence"] = float(how)
+        except ValueError:
+            raise SystemExit(f"valence must be a number in -1..1 or one of {', '.join(RELATIONS)}: {how}")
+    return body
+
+
+def belief_result(status: int, answer: dict, ok: int) -> None:
+    if status != ok:
+        out({"http": status, "answer": answer})
+        sys.exit(1)
+    out(
+        {
+            "id": answer["id"],
+            "statement": answer["statement"],
+            "judgement": answer["judgement"]["judgement"],
+            "status": answer["status"],
+            "citations": answer["citation_count"],
+            "open_flags": answer["open_flags"],
+        }
+    )
+
+
+def cmd_belief_propose(args: argparse.Namespace) -> None:
+    """Propose a Belief: one falsifiable proposition in your words, citing Facts. Atlas refuses one
+    with no load-bearing citation of positive valence. It is born unproven; an author judges it."""
+    body = {
+        "statement": args.statement,
+        "theme": args.theme,
+        "step": args.step,
+        "company_ids": [company_id(s.strip()) for s in (args.companies or "").split(",") if s.strip()],
+        "as_of": args.as_of,
+        "session_id": args.session,
+        "actor": args.actor,
+        "citations": [citation_body(fact, how, weight, actor=args.actor) for fact, how, weight in args.cite],
+    }
+    status, answer = post("/beliefs", body)
+    belief_result(status, answer, 201)
+
+
+def cmd_belief_cite(args: argparse.Namespace) -> None:
+    status, answer = post(f"/beliefs/{args.id}/cite", citation_body(args.fact, args.how, args.weight, args.note, args.actor))
+    belief_result(status, answer, 200)
+
+
+def cmd_belief_supersede(args: argparse.Namespace) -> None:
+    """The old Belief keeps its citations and history; the Beliefs in `--by` replace it."""
+    status, answer = post(f"/beliefs/{args.id}/supersede", {"by": args.by, "reason": args.reason, "actor": args.actor})
+    belief_result(status, answer, 200)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -452,6 +513,31 @@ def main() -> None:
     p = sub.add_parser("fact")
     p.add_argument("id")
     p.set_defaults(run=cmd_fact)
+    belief = sub.add_parser("belief").add_subparsers(dest="action", required=True)
+    p = belief.add_parser("propose")
+    p.add_argument("--statement", required=True)
+    p.add_argument("--theme", default="photonics")
+    p.add_argument("--step", required=True, choices=["constraint", "demand_vs_supply", "relief", "control", "capture", "invalidation"])
+    p.add_argument("--as-of", required=True)
+    p.add_argument("--companies", default=None, help="comma-separated slugs")
+    p.add_argument("--session", default=None, help="the session ID")
+    p.add_argument("--actor", default=None)
+    p.add_argument("--cite", nargs=3, action="append", required=True, metavar=("FACT_ID", "VALENCE|RELATION", "load_bearing|context"))
+    p.set_defaults(run=cmd_belief_propose)
+    p = belief.add_parser("cite")
+    p.add_argument("id")
+    p.add_argument("--fact", required=True)
+    p.add_argument("--how", required=True, help="a valence in -1..1 or a counter-judge relation")
+    p.add_argument("--weight", default="context", choices=["load_bearing", "context"])
+    p.add_argument("--note", default=None)
+    p.add_argument("--actor", default=None)
+    p.set_defaults(run=cmd_belief_cite)
+    p = belief.add_parser("supersede")
+    p.add_argument("id")
+    p.add_argument("--by", nargs="+", required=True, help="the replacing Belief IDs")
+    p.add_argument("--reason", required=True)
+    p.add_argument("--actor", default=None)
+    p.set_defaults(run=cmd_belief_supersede)
     args = parser.parse_args()
     try:
         args.run(args)

@@ -1,0 +1,68 @@
+import { expect, test } from "@playwright/test";
+
+// The Beliefs pages, against the database `scripts/e2e.py` seeds (`seed_beliefs`): two
+// photonics Beliefs about Lumentum citing the session's two Facts. One is a constraint the
+// owner proved (80%); the other is an unproven relief whose second Fact stands against it, so
+// code flagged it. Expected values are the seed's.
+const PROVEN = "Lumentum's laser demand is outrunning its capacity.";
+const FLAGGED = "Lumentum can add laser capacity faster than demand grows.";
+const AGAINST_QUOTE = "Net revenue for the fourth quarter of fiscal year 2025 was $480.7 million";
+
+test("the Beliefs list reads by step, filters to the flagged and opens a Belief at its span", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Beliefs" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Beliefs" })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("2 beliefs");
+
+  // The assessment first: each step of the argument, the verdict on each Belief.
+  const constraint = page.getByRole("region", { name: "Constraint" });
+  const proven = constraint.getByRole("listitem", { name: PROVEN });
+  await expect(proven).toContainText("Proven 80%");
+  await expect(proven).toContainText("Lumentum");
+  await expect(proven).toContainText("as of 2026-09-30");
+  await expect(proven).toContainText("2 citations");
+  const relief = page.getByRole("region", { name: "Relief" });
+  const flagged = relief.getByRole("listitem", { name: FLAGGED });
+  await expect(flagged).toContainText("Unproven");
+  await expect(flagged).toContainText("1 flag");
+  await expect(page.getByRole("region", { name: "Control" })).toContainText("Nothing believed yet.");
+
+  // The filters live in the URL.
+  await page.getByLabel("Flagged only").check();
+  await expect(page).toHaveURL(/flagged=true/);
+  await expect(page.getByRole("status")).toContainText("1 belief");
+  await expect(page.getByRole("listitem", { name: PROVEN })).toHaveCount(0);
+  await expect(page.getByRole("listitem", { name: FLAGGED })).toBeVisible();
+
+  // The Belief: its verdict, then why it needs a second look, then the evidence.
+  await flagged.getByRole("link", { name: FLAGGED }).click();
+  await expect(page.getByRole("heading", { level: 1, name: FLAGGED })).toBeVisible();
+  const doubt = page.getByRole("region", { name: "Needs a second look" });
+  await expect(doubt).toContainText("A load-bearing citation against it stands");
+  const against = page.getByRole("region", { name: "Evidence against it" });
+  await expect(against.getByText(AGAINST_QUOTE)).toBeVisible();
+  await expect(against).toContainText("against (-1), load-bearing");
+  await expect(page.getByRole("region", { name: "Evidence for it" })).toContainText("Lumentum");
+
+  // A citation opens the source viewer at its span.
+  await against.getByRole("link", { name: "Source" }).click();
+  const mark = page.getByRole("region", { name: "Parsed text" }).locator("mark");
+  await expect(mark).toHaveText(AGAINST_QUOTE);
+  await expect(mark).toBeInViewport();
+});
+
+test("a proven Belief shows who judged it and its history", async ({ page }) => {
+  await page.goto("/beliefs/?step=constraint");
+  await page.getByRole("link", { name: PROVEN }).click();
+  await expect(page.getByRole("heading", { level: 1, name: PROVEN })).toBeVisible();
+  await expect(page.getByText("Judged by e2e-owner")).toBeVisible();
+  await expect(page.getByText("two quarters agree").first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Needs a second look" })).toHaveCount(0);
+  await expect(page.getByText("Nothing cited against it.")).toBeVisible();
+
+  // The records are one click deeper: the history keeps the first, unproven judgement.
+  await page.getByText("Records").first().click();
+  await expect(page.getByRole("list", { name: "Judgement history" }).getByRole("listitem")).toHaveCount(2);
+});
