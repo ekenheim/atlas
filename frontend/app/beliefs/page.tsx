@@ -140,7 +140,7 @@ function Beliefs() {
             <input
               id="filter-flagged"
               type="checkbox"
-              checked={state.flagged}
+              checked={flagged}
               onChange={(event) =>
                 show({ ...state, flagged: event.target.checked })
               }
