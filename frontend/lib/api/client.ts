@@ -75,6 +75,14 @@ export type ScenarioInput = Schemas["ScenarioInputView"];
 export type ScenarioOutputs = Schemas["ScenarioOutputs"];
 export type SnapshotRecord = Schemas["ResearchSnapshotRecord"];
 export type ResearchSnapshot = Schemas["ResearchSnapshot"];
+export type Belief = Schemas["Belief"];
+export type BeliefSummary = Schemas["BeliefSummary"];
+export type BeliefJudge = Schemas["BeliefJudge"];
+/** The Beliefs list's filters (the page is added here). */
+export type BeliefQuery = Omit<
+  NonNullable<Params<"/api/v1/beliefs">["query"]>,
+  "limit" | "offset" | "as_of"
+>;
 export type SessionSummary = Schemas["SessionSummary"];
 export type ResearchSession = Schemas["ResearchSession"];
 export type Issue = Schemas["Issue"];
@@ -251,6 +259,13 @@ export const api = {
   session: (id: string) => get("/api/v1/sessions/{session_id}", { path: { session_id: id } }),
   /** The research frontier: every Issue (the page filters and orders them). */
   issues: () => get("/api/v1/issues", { query: { limit: 500, offset: 0 } }),
+  /** A theme's Beliefs (the first 500), filtered as `query` says. */
+  beliefs: (query: BeliefQuery) => get("/api/v1/beliefs", { query: { ...query, ...PAGE } }),
+  belief: (id: string) =>
+    get("/api/v1/beliefs/{belief_id}", { path: { belief_id: id }, query: {} }),
+  /** The author's judgement: who, what, how sure and why; it clears the Belief's flags. */
+  judgeBelief: (id: string, body: BeliefJudge) =>
+    post("/api/v1/beliefs/{belief_id}/judge", { path: { belief_id: id } }, body),
   investigations: () => get("/api/v1/investigations", { query: PAGE }),
   /** Start an investigation: its fixed plan is queued at once. */
   startInvestigation: (body: InvestigationCreate) => post("/api/v1/investigations", {}, body),

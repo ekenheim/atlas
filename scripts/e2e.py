@@ -64,6 +64,7 @@ from atlas.api.app import create_app
 from atlas.archive import open_archive
 from atlas.assertions import AssertionCreate, Assertions
 from atlas.audit import Actor
+from atlas.beliefs.service import BeliefJudge, BeliefPropose, Beliefs, CitationIn
 from atlas.db.migrate import upgrade
 from atlas.facts import FactCreate, Facts
 from atlas.issues import IssueCreate, Issues, list_issues
@@ -460,8 +461,64 @@ def seed_session(database_url: str, archive_root: Path) -> None:
                 produced_by=opened.id,
             )
         )
+        seed_beliefs(
+            engine, actor, opened.id, lumentum, [uuid.UUID(str(c["fact_id"])) for c in cited]
+        )
     finally:
         engine.dispose()
+
+
+BELIEF_PROVEN = "Lumentum's laser demand is outrunning its capacity."
+BELIEF_FLAGGED = "Lumentum can add laser capacity faster than demand grows."
+
+
+def seed_beliefs(
+    engine: Engine,
+    actor: Actor,
+    session_id: uuid.UUID,
+    company_id: uuid.UUID,
+    facts: list[uuid.UUID],
+) -> None:
+    """Two photonics Beliefs citing the session's two Facts: a constraint the owner proved, and
+    a relief left unproven whose second Fact stands against it (a flag, raised by code)."""
+    beliefs = Beliefs(engine, actor)
+    as_of = datetime(2026, 9, 30, tzinfo=UTC)
+    proven = beliefs.propose(
+        BeliefPropose(
+            statement=BELIEF_PROVEN,
+            theme="photonics",
+            step="constraint",
+            company_ids=[company_id],
+            as_of=as_of,
+            session_id=session_id,
+            actor="e2e-researcher",
+            citations=[
+                CitationIn(ref_id=facts[0], valence=0.9, weight="load_bearing"),
+                CitationIn(ref_id=facts[1], valence=0.5, weight="context"),
+            ],
+        )
+    )
+    beliefs.judge(
+        proven.id,
+        BeliefJudge(
+            actor="e2e-owner", judgement="proven", confidence=0.8, reason="two quarters agree"
+        ),
+    )
+    beliefs.propose(
+        BeliefPropose(
+            statement=BELIEF_FLAGGED,
+            theme="photonics",
+            step="relief",
+            company_ids=[company_id],
+            as_of=as_of,
+            session_id=session_id,
+            actor="e2e-researcher",
+            citations=[
+                CitationIn(ref_id=facts[0], valence=0.6, weight="load_bearing"),
+                CitationIn(ref_id=facts[1], relation="contradicts", weight="load_bearing"),
+            ],
+        )
+    )
 
 
 @contextmanager

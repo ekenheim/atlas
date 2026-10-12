@@ -23,6 +23,10 @@ export const routes = {
   theme: withId("theme"),
   /** The research workbench: start an investigation, and every investigation so far. */
   workbench: "/workbench/",
+  /** A theme's Beliefs by argument step; `search` is the filters (`listSearch`). */
+  beliefs: (search = "") => (search ? `/beliefs/?${search}` : "/beliefs/"),
+  /** One Belief: its judgement, citations at their spans, flags and history. */
+  belief: withId("belief"),
   /** Every research session, newest first. */
   sessions: "/sessions/",
   /** One research session: its card, Facts and usage. */
