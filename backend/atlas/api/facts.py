@@ -6,7 +6,7 @@
   quote's relative phrases and the document's date contradict is 422 `period_misresolved`, one
   that dates another document `period_other_document`; the resolved period and its basis
   (the version's date, the company's fiscal year end) are computed and stored (R2-02)
-- `GET /facts?company_id=&step=&investigation_id=` (oldest first), `GET /facts/{id}`
+- `GET /facts?company_id=&step=&investigation_id=&session_id=` (oldest first), `GET /facts/{id}`
 """
 
 import uuid
@@ -67,6 +67,7 @@ def facts_router(engine: Engine, archive: Archive, actor: Actor) -> APIRouter:
         company_id: uuid.UUID | None = None,
         step: FactStep | None = None,
         investigation_id: uuid.UUID | None = None,
+        session_id: uuid.UUID | None = None,
     ) -> Page[Fact]:
         with engine.connect() as connection:
             items, total = list_facts(
@@ -74,6 +75,7 @@ def facts_router(engine: Engine, archive: Archive, actor: Actor) -> APIRouter:
                 company_id=company_id,
                 step=step,
                 investigation_id=investigation_id,
+                session_id=session_id,
                 limit=page.limit,
                 offset=page.offset,
             )

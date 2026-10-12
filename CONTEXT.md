@@ -96,6 +96,18 @@ _Avoid_: Contradiction, risk factor, bear case (the bear case is contradictions 
 An immutable, dated record of exactly what was considered and concluded at a decision time, including the Memory text as it was returned. It is the only exact mechanism for reproducing past beliefs.
 _Avoid_: Backup, export, replay
 
+**Belief**:
+One falsifiable proposition about a Bottleneck or a company's Exposure, stated in Atlas's words, with an author's judgement (`proven`, `disproven`, `unproven`, `undecidable`), a confidence and an as-of time. It cites Facts (and Assertions) with a signed valence and a weight (load-bearing or context) and nothing else. Its judgement is set only by an author, never computed; it is superseded without loss, and flagged by code, never silently changed, when a cited Fact's document is revised or a load-bearing Fact against it stands.
+_Avoid_: Finding, conclusion, claim (a Claim is the Investigator's proposed statement)
+
+**Issue**:
+A research question still to answer, kept as scheduled work: it narrows into finer Issues (a bottleneck question into its argument steps, a step into what it needs) and requires others before it can be worked. The next one to work is chosen by rule. It produces Beliefs and Facts.
+_Avoid_: Task (an investigation's task is a job of the pipeline), question (unqualified), ticket
+
+**Research Session**:
+One run of a researcher on a question as of a time, recorded with what it searched, recorded, proposed and spent, and closed with its card. A Claude session and the pipeline's argument plan are both Research Sessions; an investigation is the pipeline's kind of one.
+_Avoid_: Investigation (for a session in general), run (a run is the job queue's record), chat
+
 **Proposed Update**:
 A flag on a Hypothesis (and the Candidates it concerns) that later Evidence contradicts what a published version depends on, listing that Evidence. The owner accepts it, which starts a correction, or dismisses it with a reason. The published version and its Research Snapshot never change.
 _Avoid_: Amendment, alert

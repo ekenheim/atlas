@@ -1,0 +1,628 @@
+"""Proposing, citing, judging, superseding and reading Beliefs (beliefs ticket 02).
+
+Rules (the spec's "Beliefs"): a proposal carries at least one load-bearing citation with positive
+valence and is born `unproven`; the judgement is set only by `judge` (an author, named), is
+insert-only and clears the Belief's open flags; the valence is recorded, never computed (a
+citation may name the counter-judge's relation instead, which maps to a default valence);
+superseding keeps the old Belief's citations and history; every write is audited.
+"""
+
+import uuid
+from datetime import datetime
+from typing import Any, Literal, Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy import Connection, Engine, text
+
+from atlas.audit import Actor, content_hash, record
+from atlas.beliefs.flags import flag_counterevidence
+from atlas.sessions import SessionSummary, get_session
+
+type Step = Literal[
+    "constraint", "demand_vs_supply", "relief", "control", "capture", "invalidation"
+]
+type Judgement = Literal["proven", "disproven", "unproven", "undecidable"]
+type Weight = Literal["load_bearing", "context"]
+type Status = Literal["active", "superseded", "withdrawn"]
+type Relation = Literal["contradicts", "limits", "dates", "qualifies", "supports"]
+type FlagKind = Literal[
+    "counterevidence_stands", "source_revised", "assertion_reviewed", "fact_superseded"
+]
+
+# The counter-judge's relation to a default valence (a citation may set its own).
+RELATION_VALENCE: dict[str, float] = {
+    "contradicts": -1.0,
+    "limits": -0.5,
+    "dates": -0.5,
+    "qualifies": -0.25,
+    "supports": 0.5,
+}
+STANDING_STATES = ("unreviewed", "corroborated")
+
+
+class BeliefNotFound(Exception):
+    pass
+
+
+class BeliefNotActive(Exception):
+    pass
+
+
+class BeliefRefused(Exception):
+    """A request the rules refuse; `code` is the API error code."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+class CitationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["fact", "assertion"] = "fact"
+    ref_id: uuid.UUID = Field(description="the Fact's ID (its Assertion's), or an Assertion's")
+    valence: float | None = Field(default=None, ge=-1, le=1)
+    relation: Relation | None = Field(
+        default=None, description="the counter-judge's relation; sets a default valence"
+    )
+    weight: Weight = "context"
+    note: str | None = None
+    actor: str | None = Field(default=None, description="who cites; default: the caller")
+
+    @model_validator(mode="after")
+    def _signed(self) -> Self:
+        if self.valence is None and self.relation is None:
+            raise ValueError("a citation needs a valence or a relation")
+        return self
+
+    def signed(self) -> float:
+        return self.valence if self.valence is not None else RELATION_VALENCE[str(self.relation)]
+
+
+class BeliefPropose(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    statement: str = Field(min_length=1)
+    theme: str = Field(min_length=1)
+    step: Step
+    company_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
+    as_of: datetime
+    session_id: uuid.UUID | None = None
+    actor: str | None = Field(default=None, description="who proposes; default: the caller")
+    citations: list[CitationIn] = Field(default_factory=list[CitationIn])
+
+
+class BeliefJudge(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    actor: str = Field(min_length=1, description="the author setting the judgement")
+    judgement: Judgement
+    confidence: float = Field(ge=0, le=1)
+    reason: str = Field(min_length=1)
+
+
+class BeliefSupersede(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    by: list[uuid.UUID] = Field(min_length=1, description="the Beliefs that replace it")
+    reason: str = Field(min_length=1)
+    actor: str | None = None
+
+
+class CompanyRef(BaseModel):
+    id: uuid.UUID
+    slug: str
+    display_name: str
+
+
+class JudgementRecord(BaseModel):
+    id: uuid.UUID
+    judgement: Judgement
+    confidence: float
+    actor: str
+    reason: str
+    at: datetime
+
+
+class BeliefSummary(BaseModel):
+    id: uuid.UUID
+    statement: str
+    theme: str
+    step: Step
+    as_of: datetime
+    status: Status
+    companies: list[CompanyRef]
+    judgement: JudgementRecord = Field(description="the judgement current at the read's time")
+    open_flags: int
+    citation_count: int
+    produced_by: uuid.UUID | None
+    created_by: str
+    created_at: datetime
+
+
+class CitationRecord(BaseModel):
+    id: uuid.UUID
+    kind: Literal["fact", "assertion"]
+    ref_id: uuid.UUID
+    valence: float
+    weight: Weight
+    note: str | None
+    actor: str
+    created_at: datetime
+    company_id: uuid.UUID
+    company_name: str
+    statement: str | None = Field(description="the Fact's statement; none for an Assertion")
+    quote: str
+    span_start: int
+    span_end: int
+    source_version_id: uuid.UUID
+    source_title: str | None
+    available_at: datetime
+    review_state: str
+    stands: bool = Field(description="the cited statement is neither disputed nor withdrawn")
+
+
+class FlagRecord(BaseModel):
+    id: uuid.UUID
+    kind: FlagKind
+    ref_id: uuid.UUID
+    detail: str
+    raised_at: datetime
+    cleared_by: uuid.UUID | None
+
+
+class BeliefLink(BaseModel):
+    id: uuid.UUID
+    statement: str
+    actor: str
+    reason: str
+    at: datetime
+
+
+class Belief(BeliefSummary):
+    citations: list[CitationRecord]
+    counterevidence: list[CitationRecord] = Field(description="the citations with valence < 0")
+    flags: list[FlagRecord]
+    history: list[JudgementRecord] = Field(description="every judgement, oldest first")
+    supersedes: list[BeliefLink]
+    superseded_by: list[BeliefLink]
+    session: SessionSummary | None
+
+
+_SUMMARY = """
+    SELECT b.id, b.statement, b.theme, b.step, b.as_of, b.status, b.produced_by, b.created_by,
+           b.created_at, j.id AS j_id, j.judgement, j.confidence, j.actor AS j_actor,
+           j.reason AS j_reason, j.at AS j_at,
+           (SELECT count(*) FROM belief_flag f WHERE f.belief_id = b.id
+              AND f.cleared_by IS NULL) AS open_flags,
+           (SELECT count(*) FROM belief_citation c WHERE c.belief_id = b.id) AS citations
+    FROM belief b
+    JOIN LATERAL (
+        SELECT * FROM belief_judgement x WHERE x.belief_id = b.id
+            AND (CAST(:as_of AS timestamptz) IS NULL OR x.at <= :as_of)
+        ORDER BY x.at DESC, x.id DESC LIMIT 1
+    ) j ON true
+"""
+
+_CITATIONS = """
+    SELECT c.id, c.kind, c.ref_id, c.valence, c.weight, c.note, c.actor, c.created_at,
+           a.subject_company_id AS company_id, co.display_name AS company_name,
+           CASE WHEN f.assertion_id IS NULL THEN NULL
+                ELSE a.value_json->>'statement' END AS statement,
+           a.quote, a.span_start, a.span_end, a.source_version_id,
+           d.title AS source_title, v.available_at, a.verification_status AS review_state
+    FROM belief_citation c
+    JOIN assertion a ON a.id = c.ref_id
+    JOIN company co ON co.id = a.subject_company_id
+    JOIN source_version v ON v.id = a.source_version_id
+    JOIN source_document d ON d.id = v.source_document_id
+    LEFT JOIN fact f ON f.assertion_id = c.ref_id
+    WHERE c.belief_id = :id
+    ORDER BY v.available_at, c.created_at, c.id
+"""
+
+
+def _judgement(row: Any) -> JudgementRecord:
+    return JudgementRecord(
+        id=row.j_id,
+        judgement=row.judgement,
+        confidence=row.confidence,
+        actor=row.j_actor,
+        reason=row.j_reason,
+        at=row.j_at,
+    )
+
+
+def _companies(connection: Connection, belief_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[Any]]:
+    found: dict[uuid.UUID, list[Any]] = {each: [] for each in belief_ids}
+    rows = connection.execute(
+        text(
+            "SELECT bc.belief_id, c.id, c.slug, c.display_name FROM belief_company bc"
+            " JOIN company c ON c.id = bc.company_id WHERE bc.belief_id = ANY(:ids)"
+            " ORDER BY c.display_name"
+        ),
+        {"ids": belief_ids},
+    )
+    for row in rows:
+        found[row.belief_id].append(
+            CompanyRef(id=row.id, slug=row.slug, display_name=row.display_name)
+        )
+    return found
+
+
+def _summaries(connection: Connection, rows: list[Any]) -> list[BeliefSummary]:
+    companies = _companies(connection, [row.id for row in rows])
+    return [
+        BeliefSummary(
+            id=row.id,
+            statement=row.statement,
+            theme=row.theme,
+            step=row.step,
+            as_of=row.as_of,
+            status=row.status,
+            companies=companies[row.id],
+            judgement=_judgement(row),
+            open_flags=row.open_flags,
+            citation_count=row.citations,
+            produced_by=row.produced_by,
+            created_by=row.created_by,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+
+
+def list_beliefs(
+    connection: Connection,
+    *,
+    theme: str | None = None,
+    step: str | None = None,
+    company_id: uuid.UUID | None = None,
+    judgement: str | None = None,
+    status: str | None = None,
+    flagged: bool | None = None,
+    as_of: datetime | None = None,
+    limit: int,
+    offset: int,
+) -> tuple[list[BeliefSummary], int]:
+    """Oldest first. With `as_of`, each Belief's judgement is the one current then, and a
+    Belief with none yet is left out."""
+    params: dict[str, Any] = {
+        "theme": theme,
+        "step": step,
+        "company": company_id,
+        "judgement": judgement,
+        "status": status,
+        "flagged": flagged,
+        "as_of": as_of,
+        "limit": limit,
+        "offset": offset,
+    }
+    where = (
+        " WHERE (CAST(:theme AS text) IS NULL OR b.theme = :theme)"
+        " AND (CAST(:step AS text) IS NULL OR b.step = :step)"
+        " AND (CAST(:status AS text) IS NULL OR b.status = :status)"
+        " AND (CAST(:judgement AS text) IS NULL OR j.judgement = :judgement)"
+        " AND (CAST(:company AS uuid) IS NULL OR EXISTS (SELECT FROM belief_company bc"
+        "   WHERE bc.belief_id = b.id AND bc.company_id = :company))"
+        " AND (CAST(:flagged AS boolean) IS NULL OR :flagged = EXISTS (SELECT FROM belief_flag f"
+        "   WHERE f.belief_id = b.id AND f.cleared_by IS NULL))"
+    )
+    total = connection.execute(
+        text(f"SELECT count(*) FROM ({_SUMMARY} {where}) s"),  # noqa: S608 (constants)
+        params,
+    ).scalar_one()
+    rows = connection.execute(
+        text(f"{_SUMMARY} {where} ORDER BY b.created_at, b.id LIMIT :limit OFFSET :offset"),
+        params,
+    ).all()
+    return _summaries(connection, list(rows)), total
+
+
+def get_belief(
+    connection: Connection, belief_id: uuid.UUID, *, as_of: datetime | None = None
+) -> Belief | None:
+    row = connection.execute(
+        text(f"{_SUMMARY} WHERE b.id = :id"),
+        {"id": belief_id, "as_of": as_of},
+    ).one_or_none()
+    if row is None:
+        return None
+    [summary] = _summaries(connection, [row])
+    citations = [
+        CitationRecord(**each, stands=each["review_state"] in STANDING_STATES)
+        for each in connection.execute(text(_CITATIONS), {"id": belief_id}).mappings()
+    ]
+    flags = [
+        FlagRecord(**each)
+        for each in connection.execute(
+            text(
+                "SELECT id, kind, ref_id, detail, raised_at, cleared_by FROM belief_flag"
+                " WHERE belief_id = :id ORDER BY raised_at, id"
+            ),
+            {"id": belief_id},
+        ).mappings()
+    ]
+    history = [
+        JudgementRecord(**each)
+        for each in connection.execute(
+            text(
+                "SELECT id, judgement, confidence, actor, reason, at FROM belief_judgement"
+                " WHERE belief_id = :id ORDER BY at, id"
+            ),
+            {"id": belief_id},
+        ).mappings()
+    ]
+    link = (
+        "SELECT b.id, b.statement, s.actor, s.reason, s.at FROM belief_supersession s"
+        " JOIN belief b ON b.id = s.{other} WHERE s.{own} = :id ORDER BY s.at, b.id"
+    )
+    supersedes = [
+        BeliefLink(**each)
+        for each in connection.execute(
+            text(link.format(other="superseded_id", own="by_id")), {"id": belief_id}
+        ).mappings()
+    ]
+    superseded_by = [
+        BeliefLink(**each)
+        for each in connection.execute(
+            text(link.format(other="by_id", own="superseded_id")), {"id": belief_id}
+        ).mappings()
+    ]
+    session = None
+    if summary.produced_by is not None:
+        found = get_session(connection, summary.produced_by)
+        session = (
+            None
+            if found is None
+            else SessionSummary(**found.model_dump(exclude={"card", "card_markdown", "fact_items"}))
+        )
+    return Belief(
+        **summary.model_dump(),
+        citations=citations,
+        counterevidence=[each for each in citations if each.valence < 0],
+        flags=flags,
+        history=history,
+        supersedes=supersedes,
+        superseded_by=superseded_by,
+        session=session,
+    )
+
+
+class Beliefs:
+    def __init__(self, engine: Engine, actor: Actor) -> None:
+        self._engine = engine
+        self._actor = actor
+
+    # --- writes -------------------------------------------------------------------------------
+
+    def propose(self, request: BeliefPropose) -> Belief:
+        if not any(
+            each.weight == "load_bearing" and each.signed() > 0 for each in request.citations
+        ):
+            raise BeliefRefused(
+                "no_load_bearing_citation",
+                "a Belief needs at least one load-bearing citation with positive valence",
+            )
+        belief_id = uuid.uuid4()
+        who = request.actor or self._actor.name
+        with self._engine.begin() as connection:
+            companies = list(dict.fromkeys(request.company_ids))
+            if companies and connection.execute(
+                text("SELECT count(*) FROM company WHERE id = ANY(:ids)"), {"ids": companies}
+            ).scalar_one() != len(companies):
+                raise BeliefRefused("unknown_company", "a company is not in the universe")
+            if (
+                request.session_id is not None
+                and not connection.execute(
+                    text("SELECT EXISTS (SELECT FROM research_session WHERE id = :id)"),
+                    {"id": request.session_id},
+                ).scalar_one()
+            ):
+                raise BeliefRefused("unknown_session", "the research session does not exist")
+            connection.execute(
+                text(
+                    "INSERT INTO belief (id, statement, theme, step, as_of, produced_by,"
+                    " created_by) VALUES (:id, :statement, :theme, :step, :as_of, :session,"
+                    " :actor)"
+                ),
+                {
+                    "id": belief_id,
+                    "statement": request.statement,
+                    "theme": request.theme,
+                    "step": request.step,
+                    "as_of": request.as_of,
+                    "session": request.session_id,
+                    "actor": who,
+                },
+            )
+            for company in companies:
+                connection.execute(
+                    text("INSERT INTO belief_company (belief_id, company_id) VALUES (:b, :c)"),
+                    {"b": belief_id, "c": company},
+                )
+            connection.execute(
+                text(
+                    "INSERT INTO belief_judgement (id, belief_id, judgement, confidence, actor,"
+                    " reason) VALUES (:id, :belief, 'unproven', 0, :actor, 'proposed')"
+                ),
+                {"id": uuid.uuid4(), "belief": belief_id, "actor": who},
+            )
+            for citation in request.citations:
+                self._cite(connection, belief_id, citation)
+            belief = get_belief(connection, belief_id)
+            assert belief is not None
+            record(
+                connection,
+                self._actor,
+                "belief.proposed",
+                entity_type="belief",
+                entity_id=str(belief_id),
+                new_hash=content_hash(belief.model_dump(mode="json")),
+            )
+        return belief
+
+    def cite(self, belief_id: uuid.UUID, citation: CitationIn) -> Belief:
+        with self._engine.begin() as connection:
+            before = self._lock_active(connection, belief_id)
+            self._cite(connection, belief_id, citation)
+            belief = get_belief(connection, belief_id)
+            assert belief is not None
+            record(
+                connection,
+                self._actor,
+                "belief.cited",
+                entity_type="belief",
+                entity_id=str(belief_id),
+                old_hash=before,
+                new_hash=content_hash(belief.model_dump(mode="json")),
+            )
+        return belief
+
+    def judge(self, belief_id: uuid.UUID, request: BeliefJudge) -> Belief:
+        with self._engine.begin() as connection:
+            before = self._lock_active(connection, belief_id)
+            judgement_id = uuid.uuid4()
+            connection.execute(
+                text(
+                    "INSERT INTO belief_judgement (id, belief_id, judgement, confidence, actor,"
+                    " reason) VALUES (:id, :belief, :judgement, :confidence, :actor, :reason)"
+                ),
+                {
+                    "id": judgement_id,
+                    "belief": belief_id,
+                    "judgement": request.judgement,
+                    "confidence": request.confidence,
+                    "actor": request.actor,
+                    "reason": request.reason,
+                },
+            )
+            connection.execute(
+                text(
+                    "UPDATE belief_flag SET cleared_by = :judgement"
+                    " WHERE belief_id = :belief AND cleared_by IS NULL"
+                ),
+                {"judgement": judgement_id, "belief": belief_id},
+            )
+            belief = get_belief(connection, belief_id)
+            assert belief is not None
+            record(
+                connection,
+                self._actor,
+                "belief.judged",
+                entity_type="belief",
+                entity_id=str(belief_id),
+                old_hash=before,
+                new_hash=content_hash(belief.model_dump(mode="json")),
+            )
+        return belief
+
+    def supersede(self, belief_id: uuid.UUID, request: BeliefSupersede) -> Belief:
+        successors = list(dict.fromkeys(request.by))
+        if belief_id in successors:
+            raise BeliefRefused("invalid_successor", "a Belief cannot supersede itself")
+        who = request.actor or self._actor.name
+        with self._engine.begin() as connection:
+            before = self._lock_active(connection, belief_id)
+            found = {
+                row.id: row.status
+                for row in connection.execute(
+                    text("SELECT id, status FROM belief WHERE id = ANY(:ids)"),
+                    {"ids": successors},
+                )
+            }
+            for successor in successors:
+                if successor not in found:
+                    raise BeliefRefused("invalid_successor", f"Belief {successor} does not exist")
+                if found[successor] != "active":
+                    raise BeliefRefused(
+                        "invalid_successor", f"Belief {successor} is {found[successor]}"
+                    )
+            if connection.execute(
+                text(
+                    "SELECT EXISTS (SELECT FROM belief_supersession"
+                    " WHERE superseded_id = ANY(:successors) AND by_id = :belief)"
+                ),
+                {"successors": successors, "belief": belief_id},
+            ).scalar_one():
+                raise BeliefRefused("invalid_successor", "a successor already is superseded by it")
+            for successor in successors:
+                connection.execute(
+                    text(
+                        "INSERT INTO belief_supersession (superseded_id, by_id, actor, reason)"
+                        " VALUES (:old, :new, :actor, :reason)"
+                    ),
+                    {"old": belief_id, "new": successor, "actor": who, "reason": request.reason},
+                )
+            connection.execute(
+                text("UPDATE belief SET status = 'superseded' WHERE id = :id"), {"id": belief_id}
+            )
+            belief = get_belief(connection, belief_id)
+            assert belief is not None
+            record(
+                connection,
+                self._actor,
+                "belief.superseded",
+                entity_type="belief",
+                entity_id=str(belief_id),
+                old_hash=before,
+                new_hash=content_hash(belief.model_dump(mode="json")),
+            )
+        return belief
+
+    # --- helpers ------------------------------------------------------------------------------
+
+    def _lock_active(self, connection: Connection, belief_id: uuid.UUID) -> str:
+        """Lock the Belief; raises if it is unknown or no longer active. Its hash before."""
+        row = connection.execute(
+            text("SELECT status FROM belief WHERE id = :id FOR UPDATE"), {"id": belief_id}
+        ).one_or_none()
+        if row is None:
+            raise BeliefNotFound(str(belief_id))
+        if row.status != "active":
+            raise BeliefNotActive(str(belief_id))
+        before = get_belief(connection, belief_id)
+        assert before is not None
+        return content_hash(before.model_dump(mode="json"))
+
+    def _cite(self, connection: Connection, belief_id: uuid.UUID, citation: CitationIn) -> None:
+        if citation.kind == "fact":
+            exists = connection.execute(
+                text("SELECT EXISTS (SELECT FROM fact WHERE assertion_id = :id)"),
+                {"id": citation.ref_id},
+            ).scalar_one()
+        else:
+            exists = connection.execute(
+                text("SELECT EXISTS (SELECT FROM assertion WHERE id = :id)"),
+                {"id": citation.ref_id},
+            ).scalar_one()
+        if not exists:
+            raise BeliefRefused("unknown_citation", f"no {citation.kind} {citation.ref_id}")
+        if connection.execute(
+            text(
+                "SELECT EXISTS (SELECT FROM belief_citation"
+                " WHERE belief_id = :belief AND ref_id = :ref)"
+            ),
+            {"belief": belief_id, "ref": citation.ref_id},
+        ).scalar_one():
+            raise BeliefRefused("already_cited", "the Belief cites it already")
+        valence = citation.signed()
+        connection.execute(
+            text(
+                "INSERT INTO belief_citation (id, belief_id, kind, ref_id, valence, weight,"
+                " note, actor) VALUES (:id, :belief, :kind, :ref, :valence, :weight, :note,"
+                " :actor)"
+            ),
+            {
+                "id": uuid.uuid4(),
+                "belief": belief_id,
+                "kind": citation.kind,
+                "ref": citation.ref_id,
+                "valence": valence,
+                "weight": citation.weight,
+                "note": citation.note,
+                "actor": citation.actor or self._actor.name,
+            },
+        )
+        flag_counterevidence(connection, belief_id, citation.ref_id, valence, citation.weight)

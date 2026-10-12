@@ -7,7 +7,17 @@
     python atlas_tools.py record --version <id> --quote "<verbatim>" --step <step> --status <status>
         --statement "<one sentence>" --as-of <ISO> [--part <key>] [--period "<as the quote gives it>"]
         [--quantity <value> <unit> <metric>] [--epistemic direct_source_statement|third_party_report]
-        [--company <slug>] [--dry-run]
+        [--company <slug>] [--session <id>] [--dry-run]
+    python atlas_tools.py session open --question "<verbatim>" --as-of <ISO> [--theme photonics]
+        [--seeds slug,slug] [--model <name>] [--actor <name>]
+    python atlas_tools.py session close --id <id> [--usage usage.json] [--card card.json]
+        [--markdown card.md]
+    python atlas_tools.py issue open --title "<text>" [--theme photonics] [--kind question|step|read]
+        [--priority <n>] [--body "<text>"] [--companies slug,slug] [--narrows <id>] [--requires id,id]
+        [--session <id>]
+    python atlas_tools.py issue narrow --id <id> --parent <id> [--requires]
+    python atlas_tools.py issue complete --id <id> [--fact <id>] [--belief <id>] [--abandon]
+    python atlas_tools.py issue next [--theme photonics]
     python atlas_tools.py recall --q "<question>" --as-of <ISO> [--theme photonics] [--companies slug,slug]
         [--max-tokens 4096]
     python atlas_tools.py fact <id>
@@ -21,7 +31,7 @@ prints `supported` or `misstated` with the clause bases and the words that go be
 `limits`, `dates`, `qualifies`, `supports`, `unrelated`). A quota or outage answer (HTTP 503) is
 retried a few times with a pause.
 
-Every command prints JSON. `read` and `record` refuse a Source Version available after `--as-of`.
+Every command prints JSON (`session open` prints the session id alone). `read` and `record` refuse a Source Version available after `--as-of`.
 `locate` and `record` find the quote in the archived parse (code-point offsets), folding
 typographic quotes, dashes and spaces if the exact text does not occur; a quote occurring more
 than once, or not at all, is refused. `record` posts the Fact through `POST /api/v1/facts`, so
@@ -270,6 +280,7 @@ def cmd_record(args: argparse.Namespace) -> None:
         "status": args.status,
         "period": args.period,
         "part": args.part,
+        "session_id": args.session,
         "quantity": (
             {"value": float(args.quantity[0]), "unit": args.quantity[1], "metric": args.quantity[2]}
             if args.quantity
@@ -356,6 +367,97 @@ def cmd_recall(args: argparse.Namespace) -> None:
     )
 
 
+def cmd_session_open(args: argparse.Namespace) -> None:
+    """Register the session with Atlas; the Facts recorded with `--session <id>` belong to it."""
+    body = {
+        "question": args.question,
+        "theme": args.theme,
+        "seed_company_ids": [company_id(s.strip()) for s in (args.seeds or "").split(",") if s.strip()],
+        "as_of": args.as_of,
+        "kind": "claude",
+        "model": args.model,
+        "actor": args.actor,
+    }
+    status, answer = post("/sessions", body)
+    if status != 201:
+        out({"opened": False, "http": status, "answer": answer})
+        sys.exit(1)
+    print(answer["id"])
+
+
+def read_json(path: str | None) -> dict | None:
+    if not path:
+        return None
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def cmd_session_close(args: argparse.Namespace) -> None:
+    """Close the session with its usage, its card (the `research_card` of `investigation.json`)
+    and the card's markdown."""
+    markdown = None
+    if args.markdown:
+        with open(args.markdown, encoding="utf-8") as handle:
+            markdown = handle.read()
+    body = {
+        "usage": read_json(args.usage) or {},
+        "card": read_json(args.card),
+        "card_markdown": markdown,
+    }
+    status, answer = post(f"/sessions/{args.id}/close", body)
+    out({"closed": status == 200, "http": status, "facts": answer.get("facts"), "answer": None if status == 200 else answer})
+    if status != 200:
+        sys.exit(1)
+
+
+def cmd_issue_open(args: argparse.Namespace) -> None:
+    """Open an Issue (a question, a step or a read), optionally under the Issue it narrows."""
+    body = {
+        "title": args.title,
+        "body": args.body or "",
+        "theme": args.theme,
+        "kind": args.kind,
+        "priority": args.priority,
+        "company_ids": [company_id(s.strip()) for s in (args.companies or "").split(",") if s.strip()],
+        "produced_by": args.session,
+        "narrows": args.narrows,
+        "requires": [i.strip() for i in (args.requires or "").split(",") if i.strip()],
+    }
+    status, answer = post("/issues", body)
+    if status != 201:
+        out({"opened": False, "http": status, "answer": answer})
+        sys.exit(1)
+    print(answer["id"])
+
+
+def cmd_issue_narrow(args: argparse.Namespace) -> None:
+    """Link an Issue under a parent it narrows (or, with --requires, behind one it requires)."""
+    kind = "requires" if args.requires else "narrows"
+    status, answer = post(f"/issues/{args.id}/edges", {"kind": kind, "parent_id": args.parent})
+    out({"linked": status == 200, "http": status, "answer": None if status == 200 else answer})
+    if status != 200:
+        sys.exit(1)
+
+
+def cmd_issue_complete(args: argparse.Namespace) -> None:
+    """Record what the Issue produced (a Fact or a Belief), then complete (or abandon) it."""
+    for key, value in (("fact_id", args.fact), ("belief_id", args.belief)):
+        if value:
+            status, answer = post(f"/issues/{args.id}/produced", {key: value})
+            if status != 200:
+                out({"produced": False, "http": status, "answer": answer})
+                sys.exit(1)
+    status, answer = post(f"/issues/{args.id}/{'abandon' if args.abandon else 'complete'}", {})
+    out({"closed": status == 200, "http": status, "status": answer.get("status"), "answer": None if status == 200 else answer})
+    if status != 200:
+        sys.exit(1)
+
+
+def cmd_issue_next(args: argparse.Namespace) -> None:
+    """The next Issue by Atlas's rule: a step with no Belief, then flagged or disputed, then priority, then age."""
+    out(get("/issues/next?" + urllib.parse.urlencode({"theme": args.theme})))
+
+
 def cmd_fact(args: argparse.Namespace) -> None:
     out(get(f"/facts/{args.id}"))
 
@@ -388,6 +490,39 @@ def cmd_judge(args: argparse.Namespace) -> None:
     )
 
 
+RELATIONS = ("contradicts", "limits", "dates", "qualifies", "supports")
+
+
+def citation_body(fact_id: str, how: str, weight: str, note: str | None = None, actor: str | None = None) -> dict:
+    """A Belief citation: `how` is a signed valence (-1..1) or the counter-judge's relation, which
+    Atlas maps to a default valence (contradicts -1, limits/dates -0.5, qualifies -0.25, supports +0.5)."""
+    body: dict = {"kind": "fact", "ref_id": fact_id, "weight": weight, "note": note, "actor": actor}
+    if how in RELATIONS:
+        body["relation"] = how
+    else:
+        try:
+            body["valence"] = float(how)
+        except ValueError:
+            raise SystemExit(f"valence must be a number in -1..1 or one of {', '.join(RELATIONS)}: {how}")
+    return body
+
+
+def belief_result(status: int, answer: dict, ok: int) -> None:
+    if status != ok:
+        out({"http": status, "answer": answer})
+        sys.exit(1)
+    out(
+        {
+            "id": answer["id"],
+            "statement": answer["statement"],
+            "judgement": answer["judgement"]["judgement"],
+            "status": answer["status"],
+            "citations": answer["citation_count"],
+            "open_flags": answer["open_flags"],
+        }
+    )
+
+
 def cmd_relate(args: argparse.Namespace) -> None:
     body = {
         "question": args.question,
@@ -397,6 +532,34 @@ def cmd_relate(args: argparse.Namespace) -> None:
     }
     status, answer = post_retrying("/statements/relate", body)
     out(answer if status == 200 else {"http": status, "answer": answer})
+
+
+def cmd_belief_propose(args: argparse.Namespace) -> None:
+    """Propose a Belief: one falsifiable proposition in your words, citing Facts. Atlas refuses one
+    with no load-bearing citation of positive valence. It is born unproven; an author judges it."""
+    body = {
+        "statement": args.statement,
+        "theme": args.theme,
+        "step": args.step,
+        "company_ids": [company_id(s.strip()) for s in (args.companies or "").split(",") if s.strip()],
+        "as_of": args.as_of,
+        "session_id": args.session,
+        "actor": args.actor,
+        "citations": [citation_body(fact, how, weight, actor=args.actor) for fact, how, weight in args.cite],
+    }
+    status, answer = post("/beliefs", body)
+    belief_result(status, answer, 201)
+
+
+def cmd_belief_cite(args: argparse.Namespace) -> None:
+    status, answer = post(f"/beliefs/{args.id}/cite", citation_body(args.fact, args.how, args.weight, args.note, args.actor))
+    belief_result(status, answer, 200)
+
+
+def cmd_belief_supersede(args: argparse.Namespace) -> None:
+    """The old Belief keeps its citations and history; the Beliefs in `--by` replace it."""
+    status, answer = post(f"/beliefs/{args.id}/supersede", {"by": args.by, "reason": args.reason, "actor": args.actor})
+    belief_result(status, answer, 200)
 
 
 def main() -> None:
@@ -434,9 +597,51 @@ def main() -> None:
     p.add_argument("--quantity", nargs=3, metavar=("VALUE", "UNIT", "METRIC"), default=None)
     p.add_argument("--epistemic", default="direct_source_statement", choices=["direct_source_statement", "third_party_report"])
     p.add_argument("--company", default=None)
+    p.add_argument("--session", default=None, help="the session id `session open` printed")
     p.add_argument("--parser-version", default=None)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(run=cmd_record)
+    session = sub.add_parser("session").add_subparsers(dest="action", required=True)
+    p = session.add_parser("open")
+    p.add_argument("--question", required=True)
+    p.add_argument("--as-of", required=True)
+    p.add_argument("--theme", default="photonics")
+    p.add_argument("--seeds", default=None)
+    p.add_argument("--model", default=None)
+    p.add_argument("--actor", default=None)
+    p.set_defaults(run=cmd_session_open)
+    p = session.add_parser("close")
+    p.add_argument("--id", required=True)
+    p.add_argument("--usage", default=None, help="a JSON file: calls, searches, reads, records, ...")
+    p.add_argument("--card", default=None, help="a JSON file: the research_card")
+    p.add_argument("--markdown", default=None, help="the card's markdown file")
+    p.set_defaults(run=cmd_session_close)
+    issue = sub.add_parser("issue").add_subparsers(dest="action", required=True)
+    p = issue.add_parser("open")
+    p.add_argument("--title", required=True)
+    p.add_argument("--theme", default="photonics")
+    p.add_argument("--kind", default="read", choices=["question", "step", "read"])
+    p.add_argument("--priority", type=int, default=0)
+    p.add_argument("--body", default=None)
+    p.add_argument("--companies", default=None)
+    p.add_argument("--narrows", default=None, help="the id of the Issue this one narrows")
+    p.add_argument("--requires", default=None, help="ids of Issues to finish first, comma-separated")
+    p.add_argument("--session", default=None)
+    p.set_defaults(run=cmd_issue_open)
+    p = issue.add_parser("narrow")
+    p.add_argument("--id", required=True)
+    p.add_argument("--parent", required=True)
+    p.add_argument("--requires", action="store_true", help="link as a prerequisite, not as a narrowing")
+    p.set_defaults(run=cmd_issue_narrow)
+    p = issue.add_parser("complete")
+    p.add_argument("--id", required=True)
+    p.add_argument("--fact", default=None)
+    p.add_argument("--belief", default=None)
+    p.add_argument("--abandon", action="store_true")
+    p.set_defaults(run=cmd_issue_complete)
+    p = issue.add_parser("next")
+    p.add_argument("--theme", default="photonics")
+    p.set_defaults(run=cmd_issue_next)
     p = sub.add_parser("recall")
     p.add_argument("--q", required=True)
     p.add_argument("--as-of", required=True)
@@ -461,6 +666,31 @@ def main() -> None:
     p.add_argument("--question", required=True)
     p.add_argument("--run", default=None)
     p.set_defaults(run=cmd_relate)
+    belief = sub.add_parser("belief").add_subparsers(dest="action", required=True)
+    p = belief.add_parser("propose")
+    p.add_argument("--statement", required=True)
+    p.add_argument("--theme", default="photonics")
+    p.add_argument("--step", required=True, choices=["constraint", "demand_vs_supply", "relief", "control", "capture", "invalidation"])
+    p.add_argument("--as-of", required=True)
+    p.add_argument("--companies", default=None, help="comma-separated slugs")
+    p.add_argument("--session", default=None, help="the session ID")
+    p.add_argument("--actor", default=None)
+    p.add_argument("--cite", nargs=3, action="append", required=True, metavar=("FACT_ID", "VALENCE|RELATION", "load_bearing|context"))
+    p.set_defaults(run=cmd_belief_propose)
+    p = belief.add_parser("cite")
+    p.add_argument("id")
+    p.add_argument("--fact", required=True)
+    p.add_argument("--how", required=True, help="a valence in -1..1 or a counter-judge relation")
+    p.add_argument("--weight", default="context", choices=["load_bearing", "context"])
+    p.add_argument("--note", default=None)
+    p.add_argument("--actor", default=None)
+    p.set_defaults(run=cmd_belief_cite)
+    p = belief.add_parser("supersede")
+    p.add_argument("id")
+    p.add_argument("--by", nargs="+", required=True, help="the replacing Belief IDs")
+    p.add_argument("--reason", required=True)
+    p.add_argument("--actor", default=None)
+    p.set_defaults(run=cmd_belief_supersede)
     args = parser.parse_args()
     try:
         args.run(args)

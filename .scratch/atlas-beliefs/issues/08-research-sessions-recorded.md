@@ -1,7 +1,7 @@
 # 08: Research sessions recorded, with their Facts and card, and a sessions page
 
 Type: build
-Status: ready-for-agent
+Status: done
 Blocked by: none
 
 ## Parent
@@ -14,7 +14,7 @@ A `research_session` row (question, theme, seeds, `as_of`, kind `claude` or `pip
 
 ## Acceptance criteria
 
-- [ ] API tests: open, record Facts into, close and read a session; a pipeline investigation appears as a session after its Editor; the list filters by theme.
-- [ ] Frontend unit test of the pure parts; Playwright e2e of the two pages seeded through `scripts/e2e.py`.
-- [ ] The skill's tool and SKILL.md updated; a dry run of `session open`/`close` documented in the log.
-- [ ] Migration chained; audit entries for open and close; `docs/implementation-log.md` entry.
+- [x] API tests: open, record Facts into, close and read a session; a pipeline investigation appears as a session after its Editor; the list filters by theme.
+- [x] Frontend unit test of the pure parts; Playwright e2e of the two pages seeded through `scripts/e2e.py`.
+- [x] The skill's tool and SKILL.md updated; a dry run of `session open`/`close` documented in the log.
+- [x] Migration chained; audit entries for open and close; `docs/implementation-log.md` entry.

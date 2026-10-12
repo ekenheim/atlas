@@ -26,6 +26,8 @@ test.describe("the research index", () => {
       "Research",
       "Hypotheses",
       "Companies",
+      "Sessions",
+      "Issues",
     ]);
     await expect(nav.getByRole("list", { name: "Operations" }).getByRole("link")).toHaveText([
       "Memory",

@@ -431,6 +431,264 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sessions */
+        get: operations["sessions_api_v1_sessions_get"];
+        put?: never;
+        /** Open Session */
+        post: operations["open_session_api_v1_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Session */
+        get: operations["session_api_v1_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close */
+        post: operations["close_api_v1_sessions__session_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues */
+        get: operations["issues_api_v1_issues_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_issues_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/issues/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Next Action */
+        get: operations["next_action_api_v1_issues_next_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/issues/{issue_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issue */
+        get: operations["issue_api_v1_issues__issue_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/issues/{issue_id}/edges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Edge */
+        post: operations["add_edge_api_v1_issues__issue_id__edges_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/issues/{issue_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete */
+        post: operations["complete_api_v1_issues__issue_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/issues/{issue_id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Abandon */
+        post: operations["abandon_api_v1_issues__issue_id__abandon_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/issues/{issue_id}/produced": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Produced */
+        post: operations["produced_api_v1_issues__issue_id__produced_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/beliefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Beliefs */
+        get: operations["beliefs_api_v1_beliefs_get"];
+        put?: never;
+        /** Propose */
+        post: operations["propose_api_v1_beliefs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/beliefs/{belief_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Belief */
+        get: operations["belief_api_v1_beliefs__belief_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/beliefs/{belief_id}/cite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cite */
+        post: operations["cite_api_v1_beliefs__belief_id__cite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/beliefs/{belief_id}/judge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Judge */
+        post: operations["judge_api_v1_beliefs__belief_id__judge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/beliefs/{belief_id}/supersede": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Supersede */
+        post: operations["supersede_api_v1_beliefs__belief_id__supersede_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/source-versions/{version_id}/memory": {
         parameters: {
             query?: never;
@@ -1956,6 +2214,165 @@ export interface components {
             /** Next Open At */
             next_open_at: string | null;
         };
+        /** Belief */
+        Belief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Statement */
+            statement: string;
+            /** Theme */
+            theme: string;
+            step: components["schemas"]["Step"];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            status: components["schemas"]["Status"];
+            /** Companies */
+            companies: components["schemas"]["CompanyRef"][];
+            /** @description the judgement current at the read's time */
+            judgement: components["schemas"]["JudgementRecord"];
+            /** Open Flags */
+            open_flags: number;
+            /** Citation Count */
+            citation_count: number;
+            /** Produced By */
+            produced_by: string | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Citations */
+            citations: components["schemas"]["CitationRecord"][];
+            /**
+             * Counterevidence
+             * @description the citations with valence < 0
+             */
+            counterevidence: components["schemas"]["CitationRecord"][];
+            /** Flags */
+            flags: components["schemas"]["FlagRecord"][];
+            /**
+             * History
+             * @description every judgement, oldest first
+             */
+            history: components["schemas"]["JudgementRecord"][];
+            /** Supersedes */
+            supersedes: components["schemas"]["BeliefLink"][];
+            /** Superseded By */
+            superseded_by: components["schemas"]["BeliefLink"][];
+            session: components["schemas"]["SessionSummary"] | null;
+        };
+        /** BeliefJudge */
+        BeliefJudge: {
+            /**
+             * Actor
+             * @description the author setting the judgement
+             */
+            actor: string;
+            judgement: components["schemas"]["Judgement"];
+            /** Confidence */
+            confidence: number;
+            /** Reason */
+            reason: string;
+        };
+        /** BeliefLink */
+        BeliefLink: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Statement */
+            statement: string;
+            /** Actor */
+            actor: string;
+            /** Reason */
+            reason: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /** BeliefPropose */
+        BeliefPropose: {
+            /** Statement */
+            statement: string;
+            /** Theme */
+            theme: string;
+            step: components["schemas"]["Step"];
+            /** Company Ids */
+            company_ids?: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Session Id */
+            session_id?: string | null;
+            /**
+             * Actor
+             * @description who proposes; default: the caller
+             */
+            actor?: string | null;
+            /** Citations */
+            citations?: components["schemas"]["CitationIn"][];
+        };
+        /** BeliefSummary */
+        BeliefSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Statement */
+            statement: string;
+            /** Theme */
+            theme: string;
+            step: components["schemas"]["Step"];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            status: components["schemas"]["Status"];
+            /** Companies */
+            companies: components["schemas"]["CompanyRef"][];
+            /** @description the judgement current at the read's time */
+            judgement: components["schemas"]["JudgementRecord"];
+            /** Open Flags */
+            open_flags: number;
+            /** Citation Count */
+            citation_count: number;
+            /** Produced By */
+            produced_by: string | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** BeliefSupersede */
+        BeliefSupersede: {
+            /**
+             * By
+             * @description the Beliefs that replace it
+             */
+            by: string[];
+            /** Reason */
+            reason: string;
+            /** Actor */
+            actor?: string | null;
+        };
         /** Bottlenecks */
         Bottlenecks: {
             /** @description refreshed: `model.content` is the open gaps; otherwise why there are none */
@@ -2877,8 +3294,103 @@ export interface components {
             /** Passed */
             passed: boolean;
         };
+        /** CitationIn */
+        CitationIn: {
+            /**
+             * Kind
+             * @default fact
+             * @enum {string}
+             */
+            kind: "fact" | "assertion";
+            /**
+             * Ref Id
+             * Format: uuid
+             * @description the Fact's ID (its Assertion's), or an Assertion's
+             */
+            ref_id: string;
+            /** Valence */
+            valence?: number | null;
+            /** @description the counter-judge's relation; sets a default valence */
+            relation?: components["schemas"]["Relation"] | null;
+            /** @default context */
+            weight: components["schemas"]["Weight"];
+            /** Note */
+            note?: string | null;
+            /**
+             * Actor
+             * @description who cites; default: the caller
+             */
+            actor?: string | null;
+        };
         /** @enum {string} */
         CitationKind: "memory" | "chunk" | "quote" | "mental_model";
+        /** CitationRecord */
+        CitationRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "fact" | "assertion";
+            /**
+             * Ref Id
+             * Format: uuid
+             */
+            ref_id: string;
+            /** Valence */
+            valence: number;
+            weight: components["schemas"]["Weight"];
+            /** Note */
+            note: string | null;
+            /** Actor */
+            actor: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string;
+            /**
+             * Statement
+             * @description the Fact's statement; none for an Assertion
+             */
+            statement: string | null;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Source Title */
+            source_title: string | null;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Review State */
+            review_state: string;
+            /**
+             * Stands
+             * @description the cited statement is neither disputed nor withdrawn
+             */
+            stands: boolean;
+        };
         /**
          * CitationSource
          * @description A world fact resolved to the Source Version section it was extracted from.
@@ -3200,6 +3712,18 @@ export interface components {
             entities: components["schemas"]["EntityMatch"][];
             /** One Entity */
             one_entity: boolean;
+        };
+        /** CompanyRef */
+        CompanyRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Display Name */
+            display_name: string;
         };
         /** @enum {string} */
         CompanyRole: "researched" | "counterparty";
@@ -3633,6 +4157,8 @@ export interface components {
             /** Searched At */
             searched_at: string | null;
         };
+        /** @enum {string} */
+        EdgeKind: "narrows" | "requires";
         /** EntitiesHealth */
         EntitiesHealth: {
             /**
@@ -4220,6 +4746,11 @@ export interface components {
              */
             investigation_id?: string | null;
             /**
+             * Session Id
+             * @description the research session it was recorded in, if any
+             */
+            session_id?: string | null;
+            /**
              * Step
              * @enum {string}
              */
@@ -4592,6 +5123,31 @@ export interface components {
             limitations?: string[];
             /** Open Questions */
             open_questions?: string[];
+        };
+        /** @enum {string} */
+        FlagKind: "counterevidence_stands" | "source_revised" | "assertion_reviewed" | "fact_superseded";
+        /** FlagRecord */
+        FlagRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["FlagKind"];
+            /**
+             * Ref Id
+             * Format: uuid
+             */
+            ref_id: string;
+            /** Detail */
+            detail: string;
+            /**
+             * Raised At
+             * Format: date-time
+             */
+            raised_at: string;
+            /** Cleared By */
+            cleared_by: string | null;
         };
         /**
          * FollowUp
@@ -5274,6 +5830,131 @@ export interface components {
             /** Stopped At */
             stopped_at: string | null;
         };
+        /** Issue */
+        Issue: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Theme */
+            theme: string;
+            kind: components["schemas"]["IssueKind"];
+            /** Priority */
+            priority: number;
+            status: components["schemas"]["IssueStatus"];
+            /** Produced By */
+            produced_by: string | null;
+            /** Company Ids */
+            company_ids: string[];
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Parent Id
+             * @description the Issue it narrows
+             */
+            parent_id: string | null;
+            /** Parent Title */
+            parent_title: string | null;
+            /**
+             * Requires
+             * @description the Issues it requires
+             */
+            requires: string[];
+            /**
+             * Blocked
+             * @description a required Issue is still active
+             */
+            blocked: boolean;
+            /**
+             * Open Children
+             * @description active Issues narrowing it
+             */
+            open_children: number;
+            /** Products */
+            products: components["schemas"]["IssueProduct"][];
+        };
+        /** IssueCreate */
+        IssueCreate: {
+            /** Title */
+            title: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /** Theme */
+            theme: string;
+            /** @default read */
+            kind: components["schemas"]["IssueKind"];
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+            /** Company Ids */
+            company_ids?: string[];
+            /**
+             * Produced By
+             * @description the session that opened it
+             */
+            produced_by?: string | null;
+            /**
+             * Narrows
+             * @description the Issue it narrows (parent)
+             */
+            narrows?: string | null;
+            /**
+             * Requires
+             * @description Issues to finish before this one
+             */
+            requires?: string[];
+        };
+        /** IssueEdgeCreate */
+        IssueEdgeCreate: {
+            kind: components["schemas"]["EdgeKind"];
+            /**
+             * Parent Id
+             * Format: uuid
+             */
+            parent_id: string;
+        };
+        /** @enum {string} */
+        IssueKind: "question" | "step" | "read";
+        /** IssueProduct */
+        IssueProduct: {
+            /** Belief Id */
+            belief_id: string | null;
+            /** Fact Id */
+            fact_id: string | null;
+            /** Actor */
+            actor: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** IssueProductCreate */
+        IssueProductCreate: {
+            /** Belief Id */
+            belief_id?: string | null;
+            /** Fact Id */
+            fact_id?: string | null;
+        };
+        /** @enum {string} */
+        IssueStatus: "active" | "complete" | "abandoned" | "invalid";
         /** Job */
         Job: {
             /**
@@ -5347,6 +6028,7 @@ export interface components {
             classification?: ("quota" | "unavailable" | "error" | "lease_expired" | "requeued") | null;
         };
         JsonValue: unknown;
+<<<<<<< HEAD
         /** JudgeRequest */
         JudgeRequest: {
             /** Question */
@@ -5393,6 +6075,29 @@ export interface components {
             ref: string | null;
             /** Basis */
             basis: string | null;
+=======
+        /** @enum {string} */
+        Judgement: "proven" | "disproven" | "unproven" | "undecidable";
+        /** JudgementRecord */
+        JudgementRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            judgement: components["schemas"]["Judgement"];
+            /** Confidence */
+            confidence: number;
+            /** Actor */
+            actor: string;
+            /** Reason */
+            reason: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+>>>>>>> origin/integrate/sessions
         };
         /**
          * LLMAttempt
@@ -5942,6 +6647,14 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** NextIssue */
+        NextIssue: {
+            /** @description None: nothing is active and unblocked */
+            issue: components["schemas"]["Issue"] | null;
+            reason: components["schemas"]["NextReason"] | null;
+        };
+        /** @enum {string} */
+        NextReason: "step_without_belief" | "flagged_or_disputed" | "priority";
         /** ObservationScopesHealth */
         ObservationScopesHealth: {
             /**
@@ -5999,6 +6712,17 @@ export interface components {
         Page_Assertion_: {
             /** Items */
             items: components["schemas"]["Assertion"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[BeliefSummary] */
+        Page_BeliefSummary_: {
+            /** Items */
+            items: components["schemas"]["BeliefSummary"][];
             /** Total */
             total: number;
             /** Limit */
@@ -6149,6 +6873,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[Issue] */
+        Page_Issue_: {
+            /** Items */
+            items: components["schemas"]["Issue"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[Lead] */
         Page_Lead_: {
             /** Items */
@@ -6208,6 +6943,17 @@ export interface components {
         Page_ResearchSnapshotRecord_: {
             /** Items */
             items: components["schemas"]["ResearchSnapshotRecord"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[SessionSummary] */
+        Page_SessionSummary_: {
+            /** Items */
+            items: components["schemas"]["SessionSummary"][];
             /** Total */
             total: number;
             /** Limit */
@@ -7086,6 +7832,7 @@ export interface components {
             /** Keep Trace */
             keep_trace: boolean;
         };
+<<<<<<< HEAD
         /** RelateRequest */
         RelateRequest: {
             /** Question */
@@ -7103,6 +7850,10 @@ export interface components {
             /** Run Id */
             run_id?: string | null;
         };
+=======
+        /** @enum {string} */
+        Relation: "contradicts" | "limits" | "dates" | "qualifies" | "supports";
+>>>>>>> origin/integrate/sessions
         /** Relationship */
         Relationship: {
             /**
@@ -7690,6 +8441,56 @@ export interface components {
              * @description a supply-chain layer (`substrate`, `epi`, `chip-laser`, ...): a recall is also limited to the facts labelled with it, the scope AND the layer's label tag (a compound tag filter); a reflect refuses it
              */
             layer?: string | null;
+        };
+        /** ResearchSession */
+        ResearchSession: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Question */
+            question: string;
+            /** Theme */
+            theme: string;
+            /** Seed Company Ids */
+            seed_company_ids: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            kind: components["schemas"]["SessionKind"];
+            /** Model */
+            model: string | null;
+            /** Actor */
+            actor: string;
+            /** Investigation Id */
+            investigation_id: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Usage */
+            usage: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Facts
+             * @description the Facts recorded in it
+             */
+            facts: number;
+            /** Card */
+            card: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Card Markdown */
+            card_markdown: string | null;
+            /** Fact Items */
+            fact_items: components["schemas"]["atlas__facts__service__Fact"][];
         };
         /**
          * ResearchSnapshot
@@ -8300,6 +9101,93 @@ export interface components {
                 [key: string]: string | null;
             };
         };
+        /** SessionClose */
+        SessionClose: {
+            /** Usage */
+            usage?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Card
+             * @description the argument plan's card shape: steps, question parts, ...
+             */
+            card?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Card Markdown */
+            card_markdown?: string | null;
+        };
+        /** @enum {string} */
+        SessionKind: "claude" | "pipeline";
+        /** SessionOpen */
+        SessionOpen: {
+            /** Question */
+            question: string;
+            /** Theme */
+            theme: string;
+            /** Seed Company Ids */
+            seed_company_ids?: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Kind
+             * @default claude
+             * @constant
+             */
+            kind: "claude";
+            /** Model */
+            model?: string | null;
+            /**
+             * Actor
+             * @description who researches; default: the caller
+             */
+            actor?: string | null;
+        };
+        /** SessionSummary */
+        SessionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Question */
+            question: string;
+            /** Theme */
+            theme: string;
+            /** Seed Company Ids */
+            seed_company_ids: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            kind: components["schemas"]["SessionKind"];
+            /** Model */
+            model: string | null;
+            /** Actor */
+            actor: string;
+            /** Investigation Id */
+            investigation_id: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Usage */
+            usage: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Facts
+             * @description the Facts recorded in it
+             */
+            facts: number;
+        };
         /** SkippedVersion */
         SkippedVersion: {
             /**
@@ -8640,6 +9528,10 @@ export interface components {
              */
             run_id: string;
         };
+        /** @enum {string} */
+        Status: "active" | "superseded" | "withdrawn";
+        /** @enum {string} */
+        Step: "constraint" | "demand_vs_supply" | "relief" | "control" | "capture" | "invalidation";
         /** @enum {string} */
         TagMatch: "any_strict" | "all_strict";
         /**
@@ -9289,6 +10181,8 @@ export interface components {
              */
             available_at: string;
         };
+        /** @enum {string} */
+        Weight: "load_bearing" | "context";
         /** XbrlSource */
         XbrlSource: {
             /**
@@ -9314,6 +10208,8 @@ export interface components {
             id: string;
             /** Investigation Id */
             investigation_id: string | null;
+            /** Session Id */
+            session_id?: string | null;
             /**
              * Step
              * @enum {string}
@@ -10349,6 +11245,7 @@ export interface operations {
                 company_id?: string | null;
                 step?: ("constraint" | "demand_vs_supply" | "relief" | "control" | "capture" | "invalidation" | "context") | null;
                 investigation_id?: string | null;
+                session_id?: string | null;
                 /** @description page size */
                 limit?: number;
                 /** @description items to skip */
@@ -10435,6 +11332,786 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    sessions_api_v1_sessions_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SessionSummary_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    open_session_api_v1_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionOpen"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummary"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    session_api_v1_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchSession"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    close_api_v1_sessions__session_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionClose"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchSession"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    issues_api_v1_issues_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+                status?: components["schemas"]["IssueStatus"] | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Issue_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_api_v1_issues_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    next_action_api_v1_issues_next_get: {
+        parameters: {
+            query: {
+                theme: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NextIssue"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    issue_api_v1_issues__issue_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    add_edge_api_v1_issues__issue_id__edges_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueEdgeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    complete_api_v1_issues__issue_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    abandon_api_v1_issues__issue_id__abandon_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    produced_api_v1_issues__issue_id__produced_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueProductCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    beliefs_api_v1_beliefs_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+                step?: string | null;
+                company_id?: string | null;
+                judgement?: string | null;
+                status?: string | null;
+                flagged?: boolean | null;
+                as_of?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_BeliefSummary_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    propose_api_v1_beliefs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeliefPropose"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Belief"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    belief_api_v1_beliefs__belief_id__get: {
+        parameters: {
+            query?: {
+                as_of?: string | null;
+            };
+            header?: never;
+            path: {
+                belief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Belief"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    cite_api_v1_beliefs__belief_id__cite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                belief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CitationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Belief"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    judge_api_v1_beliefs__belief_id__judge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                belief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeliefJudge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Belief"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    supersede_api_v1_beliefs__belief_id__supersede_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                belief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeliefSupersede"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Belief"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -124,6 +124,9 @@ class FactCreate(BaseModel):
     investigation_id: uuid.UUID | None = Field(
         default=None, description="the investigation it was found for, if any"
     )
+    session_id: uuid.UUID | None = Field(
+        default=None, description="the research session it was recorded in, if any"
+    )
     step: FactStep
     statement: str = Field(min_length=1)
     quantity: Quantity | None = None
@@ -160,6 +163,7 @@ class Fact(BaseModel):
 
     id: uuid.UUID
     investigation_id: uuid.UUID | None
+    session_id: uuid.UUID | None = None
     step: FactStep
     status: FactStatus
     statement: str
@@ -309,13 +313,14 @@ def check_status(quote: str, statement: str, status: FactStatus) -> None:
 
 
 _SELECT = """
-    SELECT f.assertion_id, f.investigation_id, f.created_at, a.value_json
+    SELECT f.assertion_id, f.investigation_id, f.session_id, f.created_at, a.value_json
     FROM fact f JOIN assertion a ON a.id = f.assertion_id
 """
 _FILTER = """
     WHERE (CAST(:company AS uuid) IS NULL OR a.subject_company_id = :company)
       AND (CAST(:step AS text) IS NULL OR f.step = :step)
       AND (CAST(:investigation AS uuid) IS NULL OR f.investigation_id = :investigation)
+      AND (CAST(:session AS uuid) IS NULL OR f.session_id = :session)
 """
 
 
@@ -326,6 +331,7 @@ def _build(connection: Connection, row: Any) -> Fact:
     return Fact(
         id=row.assertion_id,
         investigation_id=row.investigation_id,
+        session_id=row.session_id,
         step=value.step,
         status=value.status,
         statement=value.statement,
@@ -353,14 +359,17 @@ def list_facts(
     company_id: uuid.UUID | None = None,
     step: FactStep | None = None,
     investigation_id: uuid.UUID | None = None,
+    session_id: uuid.UUID | None = None,
     limit: int,
     offset: int,
 ) -> tuple[list[Fact], int]:
-    """Facts oldest first. A company's are those whose subject it is."""
+    """Facts oldest first. A company's are those whose subject it is; a session's are those
+    recorded in it (the pipeline's session lists its investigation's instead)."""
     params: dict[str, Any] = {
         "company": company_id,
         "step": step,
         "investigation": investigation_id,
+        "session": session_id,
         "limit": limit,
         "offset": offset,
     }
@@ -512,6 +521,16 @@ class Facts:
                 raise InvalidAssertion(
                     "unknown_investigation", f"investigation {request.investigation_id} not found"
                 )
+            if (
+                request.session_id is not None
+                and not connection.execute(
+                    text("SELECT EXISTS (SELECT FROM research_session WHERE id = :id)"),
+                    {"id": request.session_id},
+                ).scalar_one()
+            ):
+                raise InvalidAssertion(
+                    "unknown_session", f"research session {request.session_id} not found"
+                )
             # The Assertion's own checks (company, version, parse, exact span) come first; a
             # refusal anywhere rolls the whole transaction back.
             assertion = self._assertions.create_within(
@@ -526,12 +545,13 @@ class Facts:
                 )
             connection.execute(
                 text(
-                    "INSERT INTO fact (assertion_id, investigation_id, step, status)"
-                    " VALUES (:id, :investigation, :step, :status)"
+                    "INSERT INTO fact (assertion_id, investigation_id, session_id, step, status)"
+                    " VALUES (:id, :investigation, :session, :step, :status)"
                 ),
                 {
                     "id": assertion.id,
                     "investigation": request.investigation_id,
+                    "session": request.session_id,
                     "step": value.step,
                     "status": value.status,
                 },
