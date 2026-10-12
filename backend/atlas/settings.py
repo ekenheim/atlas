@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # Hindsight; a JSON object in the env), the HTTP timeout, and each run's token ceiling
     # (input + output, spec §7.4), backstopped by the `atlas` key's maxBudget.
     llm_role_model: str = Field(default="MiniMax-M3", min_length=1)
+    # Per-role override of the model, by role name (`Role.name`) -> LiteLLM alias; a JSON
+    # object in the env. A role not named uses llm_role_model.
+    llm_role_models: dict[str, str] = Field(default_factory=dict)
     llm_role_extra_body: dict[str, JsonValue] = Field(
         default_factory=lambda: {"thinking": {"type": "disabled"}}
     )
@@ -341,6 +344,16 @@ class Settings(BaseSettings):
         # The repo lives on the Windows filesystem, so env files and exported values can
         # carry CRLF line endings; a stray "\r" must never reach a URL or a path.
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("llm_role_models")
+    @classmethod
+    def _role_models_are_named(cls, value: dict[str, str]) -> dict[str, str]:
+        for role, alias in value.items():
+            if not role.strip() or not alias.strip():
+                raise ValueError(
+                    "llm_role_models needs a role name and a model alias in each entry"
+                )
+        return value
 
     @field_validator("retain_extractor", mode="before")
     @classmethod
