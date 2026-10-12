@@ -284,7 +284,6 @@ from atlas.roles.reader import (
 )
 from atlas.runs import RunRecorder
 from atlas.scenarios.analyst import analyst_companies, analyst_context, keep_proposals
-from atlas.sessions import record_pipeline_session
 from atlas.settings import Settings
 
 _ERROR_LIMIT = 500
@@ -459,6 +458,9 @@ class TaskRunner:
                 # Beliefs ticket 08: the argument plan's run is a research session too.
                 run_id: uuid.UUID | None = investigation["run_id"]
                 spent = run_usage(connection, run_id) if run_id is not None else None
+                # Imported here: atlas.sessions imports the Facts, which import this package.
+                from atlas.sessions import record_pipeline_session
+
                 session_id = record_pipeline_session(
                     connection,
                     EDITOR_ACTOR,
