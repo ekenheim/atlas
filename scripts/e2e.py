@@ -339,33 +339,37 @@ def seed_relationships(database_url: str, archive_root: Path) -> None:
         engine.dispose()
 
 
-LUMENTUM_Q4_RELEASE = (
-    "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm"
+LUMENTUM_10Q = (
+    "https://www.sec.gov/Archives/edgar/data/1633978/000162828026030777/lite-20260328.htm"
 )
 SESSION_QUESTION = "Is laser capacity the constraint on AI optics?"
-SESSION_FACTS: tuple[tuple[str, str, str, float, str], ...] = (
-    # (quote, statement, period, value, metric)
+# Quotes of Lumentum's March 2026 10-Q, a document no other spec touches: a Fact is an
+# Assertion, and an Assertion elsewhere changes what the assertions spec sees on its version.
+SESSION_FACTS: tuple[tuple[str, str, str, float, str, str], ...] = (
+    # (quote, statement, period, value, unit, metric)
     (
-        "Net revenue for the third quarter of fiscal year 2026 was $808.4 million",
-        "Lumentum's third-quarter fiscal 2026 net revenue was $808.4 million.",
-        "Q3 FY2026",
-        808.4,
-        "net revenue",
+        "As of April 30, 2026, the Registrant had 77.8 million shares of common stock outstanding.",
+        "Lumentum had 77.8 million shares of common stock outstanding on April 30, 2026.",
+        "April 30, 2026",
+        77.8,
+        "million shares",
+        "shares outstanding",
     ),
     (
-        "Net revenue for the fourth quarter of fiscal year 2025 was $480.7 million",
-        "Lumentum's fourth-quarter fiscal 2025 net revenue was $480.7 million.",
-        "Q4 FY2025",
-        480.7,
+        "Net revenue\t$\t808.4",
+        "Lumentum's net revenue for the three months ended March 28, 2026 was $808.4 million.",
+        "three months ended March 28, 2026",
+        808.4,
+        "USD million",
         "net revenue",
     ),
 )
-SESSION_STATEMENT = "Lumentum's revenue grew between fiscal 2025 and fiscal 2026."
+SESSION_STATEMENT = "Lumentum reported quarterly net revenue and its shares outstanding."
 
 
 def seed_session(database_url: str, archive_root: Path) -> None:
-    """A Claude session with two Facts (quotes of Lumentum's Q4 FY26 release other than the
-    one the assertions spec selects) and a small card citing them, through the real services."""
+    """A Claude session with two Facts (quotes of Lumentum's March 2026 10-Q, which no other
+    spec touches) and a small card citing them, through the real services."""
     settings = Settings.model_validate(
         {"database_url": database_url, "actor": "e2e-smoke", "archive_root": archive_root}
     )
@@ -379,7 +383,7 @@ def seed_session(database_url: str, archive_root: Path) -> None:
                     " JOIN source_document d ON d.id = v.source_document_id"
                     " WHERE d.canonical_url = :url ORDER BY v.version_number DESC LIMIT 1"
                 ),
-                {"url": LUMENTUM_Q4_RELEASE},
+                {"url": LUMENTUM_10Q},
             ).one()
             lumentum = connection.execute(
                 text("SELECT id FROM company WHERE slug = 'lumentum'")
@@ -398,7 +402,7 @@ def seed_session(database_url: str, archive_root: Path) -> None:
             )
         )
         cited: list[dict[str, JsonValue]] = []
-        for quote, statement, period, value, metric in SESSION_FACTS:
+        for quote, statement, period, value, unit, metric in SESSION_FACTS:
             start = parsed.index(quote)
             recorded = facts.create(
                 FactCreate.model_validate(
@@ -412,7 +416,7 @@ def seed_session(database_url: str, archive_root: Path) -> None:
                         "session_id": opened.id,
                         "step": "constraint",
                         "statement": statement,
-                        "quantity": {"value": value, "unit": "USD million", "metric": metric},
+                        "quantity": {"value": value, "unit": unit, "metric": metric},
                         "period": period,
                         "status": "in_effect",
                     }

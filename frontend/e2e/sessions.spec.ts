@@ -1,12 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 // The sessions pages, against the database `scripts/e2e.py` seeds (`seed_session`): one
-// Claude session on Lumentum with two Facts quoted from its Q4 FY26 release and a small card
+// Claude session on Lumentum with two Facts quoted from its March 2026 10-Q and a small card
 // citing them. Expected values are the seed's.
 const QUESTION = "Is laser capacity the constraint on AI optics?";
-const STATEMENT = "Lumentum's revenue grew between fiscal 2025 and fiscal 2026.";
-const FIRST_QUOTE = "Net revenue for the third quarter of fiscal year 2026 was $808.4 million";
-const SECOND_FACT = "Lumentum's fourth-quarter fiscal 2025 net revenue was $480.7 million.";
+const STATEMENT = "Lumentum reported quarterly net revenue and its shares outstanding.";
+const FIRST_QUOTE =
+  "As of April 30, 2026, the Registrant had 77.8 million shares of common stock outstanding.";
+const SECOND_FACT =
+  "Lumentum's net revenue for the three months ended March 28, 2026 was $808.4 million.";
 
 test("the sessions list opens a session's card, its Facts and a Fact's source span", async ({
   page,

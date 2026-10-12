@@ -30,6 +30,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <li>
                 <Link href={routes.companies}>Companies</Link>
               </li>
+              <li>
+                <Link href={routes.sessions}>Sessions</Link>
+              </li>
             </ul>
             <ul className="nav-ops" aria-label="Operations">
               <li>
@@ -43,9 +46,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </li>
               <li>
                 <Link href={routes.workbench}>Research workbench</Link>
-              </li>
-              <li>
-                <Link href={routes.sessions}>Sessions</Link>
               </li>
               <li>
                 <Link href={routes.themes}>Themes</Link>
