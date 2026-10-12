@@ -669,6 +669,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/statements/judge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Judge */
+        post: operations["judge_api_v1_statements_judge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/statements/relate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Relate */
+        post: operations["relate_api_v1_statements_relate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/claims": {
         parameters: {
             query?: never;
@@ -3314,6 +3348,26 @@ export interface components {
             /** Counterevidence Id */
             counterevidence_id: string | null;
         };
+        /** CounterRelationOut */
+        CounterRelationOut: {
+            /**
+             * Counter Fact Id
+             * Format: uuid
+             */
+            counter_fact_id: string;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "contradicts" | "limits" | "dates" | "qualifies" | "supports" | "unrelated" | "unjudged";
+            /** Reason */
+            reason: string;
+        };
         /**
          * Counterevidence
          * @description One item the Skeptic proposed and its outcome (like a Claim). An accepted item is an
@@ -4191,6 +4245,25 @@ export interface components {
             fact: components["schemas"]["atlas__facts__service__Fact"];
             /** Audit Event Id */
             audit_event_id: number;
+        };
+        /** FactRelation */
+        FactRelation: {
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "contradicts" | "limits" | "dates" | "qualifies" | "supports" | "unrelated" | "unjudged";
+            /** Reason */
+            reason: string;
+            /** Judge */
+            judge: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Role Call Id */
+            role_call_id: string | null;
         };
         /** @enum {string} */
         FactType: "world" | "experience" | "observation";
@@ -5274,6 +5347,53 @@ export interface components {
             classification?: ("quota" | "unavailable" | "error" | "lease_expired" | "requeued") | null;
         };
         JsonValue: unknown;
+        /** JudgeRequest */
+        JudgeRequest: {
+            /** Question */
+            question: string;
+            /** Statement */
+            statement: string;
+            /** Fact Ids */
+            fact_ids: string[];
+            /**
+             * Counter Fact Ids
+             * @default []
+             */
+            counter_fact_ids: string[];
+            /**
+             * Votes
+             * @default 1
+             */
+            votes: number;
+            /** Run Id */
+            run_id?: string | null;
+        };
+        /** JudgeVote */
+        JudgeVote: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "misstated";
+            /** Reason */
+            reason: string;
+            /** Decided */
+            decided: boolean;
+            /**
+             * Role Call Id
+             * Format: uuid
+             */
+            role_call_id: string;
+        };
+        /** JudgedClauseOut */
+        JudgedClauseOut: {
+            /** Text */
+            text: string;
+            /** Ref */
+            ref: string | null;
+            /** Basis */
+            basis: string | null;
+        };
         /**
          * LLMAttempt
          * @description One chat completion: the routed model, its usage, its raw content, why it failed
@@ -6966,6 +7086,23 @@ export interface components {
             /** Keep Trace */
             keep_trace: boolean;
         };
+        /** RelateRequest */
+        RelateRequest: {
+            /** Question */
+            question: string;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Counter Fact Id
+             * Format: uuid
+             */
+            counter_fact_id: string;
+            /** Run Id */
+            run_id?: string | null;
+        };
         /** Relationship */
         Relationship: {
             /**
@@ -8469,6 +8606,39 @@ export interface components {
             kind: "sourced";
             /** Source */
             source: components["schemas"]["XbrlSource"] | components["schemas"]["AssertionSource"];
+        };
+        /** StatementJudgement */
+        StatementJudgement: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "misstated";
+            /** Clauses */
+            clauses: components["schemas"]["JudgedClauseOut"][];
+            /** Unverified */
+            unverified: string[];
+            /** Beyond */
+            beyond: string[];
+            /** Kinds */
+            kinds: string[];
+            /** Reason */
+            reason: string;
+            /** Refs */
+            refs: {
+                [key: string]: string;
+            };
+            /** Votes */
+            votes: components["schemas"]["JudgeVote"][];
+            /** Counter Relations */
+            counter_relations: components["schemas"]["CounterRelationOut"][];
+            /** Judge */
+            judge: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
         };
         /** @enum {string} */
         TagMatch: "any_strict" | "all_strict";
@@ -10898,6 +11068,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    judge_api_v1_statements_judge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JudgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatementJudgement"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    relate_api_v1_statements_relate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactRelation"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

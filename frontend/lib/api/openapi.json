@@ -2705,6 +2705,168 @@
         }
       }
     },
+    "/api/v1/statements/judge": {
+      "post": {
+        "tags": [
+          "statements"
+        ],
+        "summary": "Judge",
+        "operationId": "judge_api_v1_statements_judge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JudgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatementJudgement"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/statements/relate": {
+      "post": {
+        "tags": [
+          "statements"
+        ],
+        "summary": "Relate",
+        "operationId": "relate_api_v1_statements_relate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactRelation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/claims": {
       "get": {
         "tags": [
@@ -11403,6 +11565,45 @@
         ],
         "title": "Contradiction"
       },
+      "CounterRelationOut": {
+        "properties": {
+          "counter_fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Counter Fact Id"
+          },
+          "fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Fact Id"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "contradicts",
+              "limits",
+              "dates",
+              "qualifies",
+              "supports",
+              "unrelated",
+              "unjudged"
+            ],
+            "title": "Relation"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counter_fact_id",
+          "fact_id",
+          "relation",
+          "reason"
+        ],
+        "title": "CounterRelationOut"
+      },
       "Counterevidence": {
         "properties": {
           "id": {
@@ -13780,6 +13981,57 @@
           "audit_event_id"
         ],
         "title": "FactRecorded"
+      },
+      "FactRelation": {
+        "properties": {
+          "relation": {
+            "type": "string",
+            "enum": [
+              "contradicts",
+              "limits",
+              "dates",
+              "qualifies",
+              "supports",
+              "unrelated",
+              "unjudged"
+            ],
+            "title": "Relation"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "judge": {
+            "type": "string",
+            "title": "Judge"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Call Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "relation",
+          "reason",
+          "judge",
+          "run_id",
+          "role_call_id"
+        ],
+        "title": "FactRelation"
       },
       "FactType": {
         "type": "string",
@@ -16705,6 +16957,136 @@
         "title": "JobFailure"
       },
       "JsonValue": {},
+      "JudgeRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Statement"
+          },
+          "fact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Fact Ids"
+          },
+          "counter_fact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Counter Fact Ids",
+            "default": []
+          },
+          "votes": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Votes",
+            "default": 1
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "statement",
+          "fact_ids"
+        ],
+        "title": "JudgeRequest"
+      },
+      "JudgeVote": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "misstated"
+            ],
+            "title": "Verdict"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "decided": {
+            "type": "boolean",
+            "title": "Decided"
+          },
+          "role_call_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Role Call Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict",
+          "reason",
+          "decided",
+          "role_call_id"
+        ],
+        "title": "JudgeVote"
+      },
+      "JudgedClauseOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "ref",
+          "basis"
+        ],
+        "title": "JudgedClauseOut"
+      },
       "LLMAttempt": {
         "properties": {
           "attempt": {
@@ -21588,6 +21970,44 @@
         "title": "RefreshTrigger",
         "description": "When and how the model is refreshed, as the bank template defines it."
       },
+      "RelateRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question"
+          },
+          "fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Fact Id"
+          },
+          "counter_fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Counter Fact Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "fact_id",
+          "counter_fact_id"
+        ],
+        "title": "RelateRequest"
+      },
       "Relationship": {
         "properties": {
           "id": {
@@ -25754,6 +26174,96 @@
           "source"
         ],
         "title": "SourcedInput"
+      },
+      "StatementJudgement": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "misstated"
+            ],
+            "title": "Verdict"
+          },
+          "clauses": {
+            "items": {
+              "$ref": "#/components/schemas/JudgedClauseOut"
+            },
+            "type": "array",
+            "title": "Clauses"
+          },
+          "unverified": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unverified"
+          },
+          "beyond": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Beyond"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kinds"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "refs": {
+            "additionalProperties": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Refs"
+          },
+          "votes": {
+            "items": {
+              "$ref": "#/components/schemas/JudgeVote"
+            },
+            "type": "array",
+            "title": "Votes"
+          },
+          "counter_relations": {
+            "items": {
+              "$ref": "#/components/schemas/CounterRelationOut"
+            },
+            "type": "array",
+            "title": "Counter Relations"
+          },
+          "judge": {
+            "type": "string",
+            "title": "Judge"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict",
+          "clauses",
+          "unverified",
+          "beyond",
+          "kinds",
+          "reason",
+          "refs",
+          "votes",
+          "counter_relations",
+          "judge",
+          "run_id"
+        ],
+        "title": "StatementJudgement"
       },
       "TagMatch": {
         "type": "string",
