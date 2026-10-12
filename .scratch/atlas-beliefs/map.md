@@ -21,6 +21,7 @@ The revised method built, deployed and proven: a Claude session researches a bot
 
 - [The revision, proven](issues/05-the-atlas-research-skill.md) (2026-10-12): two Opus sessions with the `atlas-research` skill beat the pipeline on reading (Facts 100% and 93% right against 75%; 19 of the researcher's 32 facts on the card against 8; AXT reached as of 2025-08-31 with the early signal in substance) at a tenth of the tokens; the trust gate is the one measure not better, with no judge applied. The owner took the revision.
 - The judge (pilot-review ticket 25, 2026-10-12): on the same prompt and 130 labelled statements MiniMax catches 5 of 17 misstatements, luna 11, astra 14; luna judges, astra is parked; the per-role override `ATLAS_LLM_ROLE_MODELS` is on main.
+- [Statements judged before they become Beliefs](issues/07-the-sessions-statements-judged-and-the-disputed-rule.md) (2026-10-12, on main at a3f6778): `POST /api/v1/statements/judge` and `/relate` over the existing judges, the bridge's 500 classed transient, the skill's `judge` and `relate` with the judge loop and the `disputed` rule; 8 API tests.
 - The AXT replay (pilot-review ticket 26, 2026-10-12): both the session and the pipeline reached AXT; the session stated the point in substance, the pipeline did not; no leakage past the cutoff in either.
 
 ## Not yet specified

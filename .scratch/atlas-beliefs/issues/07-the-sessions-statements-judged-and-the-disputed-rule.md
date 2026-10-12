@@ -1,7 +1,7 @@
 # A session's statements are judged before they become Beliefs; `disputed` needs a contradiction
 
 Type: build
-Status: ready-for-agent
+Status: done
 Blocked by: none
 
 ## Why
@@ -16,5 +16,5 @@ The proof sessions (`.scratch/pilot/results.md`, "The proof sessions") read and 
 
 ## Done when
 
-- [ ] The route and the skill command, with tests at the API seam (the judge scripted in the fake).
+- [x] The routes and the skill commands, with tests at the API seam (commit e39deb9, main a3f6778).
 - [ ] Question 2 re-run as a session with the judge: the trust gate at or below the pipeline's rate, recorded in `.scratch/pilot/results.md`.
