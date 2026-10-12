@@ -75,6 +75,8 @@ export type ScenarioInput = Schemas["ScenarioInputView"];
 export type ScenarioOutputs = Schemas["ScenarioOutputs"];
 export type SnapshotRecord = Schemas["ResearchSnapshotRecord"];
 export type ResearchSnapshot = Schemas["ResearchSnapshot"];
+export type SessionSummary = Schemas["SessionSummary"];
+export type ResearchSession = Schemas["ResearchSession"];
 export type ExportFormat = NonNullable<
   NonNullable<Params<"/api/v1/hypotheses/{hypothesis_id}/export">["query"]>["format"]
 >;
@@ -242,6 +244,9 @@ export const api = {
       body,
     ),
   /** Investigations, newest first (the workbench's first 500). */
+  /** Every research session, newest first (Claude sessions and the pipeline's runs). */
+  sessions: () => get("/api/v1/sessions", { query: PAGE }),
+  session: (id: string) => get("/api/v1/sessions/{session_id}", { path: { session_id: id } }),
   investigations: () => get("/api/v1/investigations", { query: PAGE }),
   /** Start an investigation: its fixed plan is queued at once. */
   startInvestigation: (body: InvestigationCreate) => post("/api/v1/investigations", {}, body),

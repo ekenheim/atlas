@@ -33,6 +33,7 @@ from atlas.api.replay import replay_router
 from atlas.api.research import research_router
 from atlas.api.runs import runs_router
 from atlas.api.scenarios import scenarios_router
+from atlas.api.sessions import sessions_router
 from atlas.api.snapshots import snapshots_router
 from atlas.api.sources import sources_router
 from atlas.api.themes import themes_router
@@ -111,6 +112,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(facts_router(engine, archive, Actor.from_settings(settings)))
+    app.include_router(sessions_router(engine, Actor.from_settings(settings)))
     app.include_router(
         memory_router(
             engine,

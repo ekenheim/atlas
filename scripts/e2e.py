@@ -65,6 +65,7 @@ from atlas.archive import open_archive
 from atlas.assertions import AssertionCreate, Assertions
 from atlas.audit import Actor
 from atlas.db.migrate import upgrade
+from atlas.facts import FactCreate, Facts
 from atlas.jobs import HandlerRegistry, JobQueue, Worker
 from atlas.ledger import SourceLedger
 from atlas.relationships import (
@@ -75,6 +76,7 @@ from atlas.relationships import (
     list_relationships,
 )
 from atlas.roles import RoleCaller
+from atlas.sessions import SessionClose, SessionOpen, Sessions
 from atlas.settings import Settings
 from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 
@@ -235,6 +237,7 @@ def seed(database_url: str, archive: Path, workdir: Path) -> None:
             raise SystemExit(f"e2e: `atlas {' '.join(args)}` failed:\n{done.stderr}")
     seed_pdf(database_url, archive)
     seed_relationships(database_url, archive)
+    seed_session(database_url, archive)
 
 
 # Hedged sentences of Lumentum's FY2026 10-K (the recorded fixture's parsed text): each
@@ -332,6 +335,105 @@ def seed_relationships(database_url: str, archive_root: Path) -> None:
         Relationships(engine, actor).review(
             made.id, OwnerReview(review_state="approved", note="seeded by scripts/e2e.py")
         )
+    finally:
+        engine.dispose()
+
+
+LUMENTUM_Q4_RELEASE = (
+    "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm"
+)
+SESSION_QUESTION = "Is laser capacity the constraint on AI optics?"
+SESSION_FACTS: tuple[tuple[str, str, str, float, str], ...] = (
+    # (quote, statement, period, value, metric)
+    (
+        "Net revenue for the third quarter of fiscal year 2026 was $808.4 million",
+        "Lumentum's third-quarter fiscal 2026 net revenue was $808.4 million.",
+        "Q3 FY2026",
+        808.4,
+        "net revenue",
+    ),
+    (
+        "Net revenue for the fourth quarter of fiscal year 2025 was $480.7 million",
+        "Lumentum's fourth-quarter fiscal 2025 net revenue was $480.7 million.",
+        "Q4 FY2025",
+        480.7,
+        "net revenue",
+    ),
+)
+SESSION_STATEMENT = "Lumentum's revenue grew between fiscal 2025 and fiscal 2026."
+
+
+def seed_session(database_url: str, archive_root: Path) -> None:
+    """A Claude session with two Facts (quotes of Lumentum's Q4 FY26 release other than the
+    one the assertions spec selects) and a small card citing them, through the real services."""
+    settings = Settings.model_validate(
+        {"database_url": database_url, "actor": "e2e-smoke", "archive_root": archive_root}
+    )
+    engine = create_engine(database_url)
+    actor = Actor("e2e-smoke")
+    try:
+        with engine.connect() as connection:
+            version_id, parsed_uri = connection.execute(
+                text(
+                    "SELECT v.id, v.parsed_object_uri FROM source_version v"
+                    " JOIN source_document d ON d.id = v.source_document_id"
+                    " WHERE d.canonical_url = :url ORDER BY v.version_number DESC LIMIT 1"
+                ),
+                {"url": LUMENTUM_Q4_RELEASE},
+            ).one()
+            lumentum = connection.execute(
+                text("SELECT id FROM company WHERE slug = 'lumentum'")
+            ).scalar_one()
+        parsed = open_archive(settings).get(parsed_uri).decode("utf-8")
+        sessions = Sessions(engine, actor)
+        facts = Facts(engine, open_archive(settings), actor)
+        opened = sessions.open(
+            SessionOpen(
+                question=SESSION_QUESTION,
+                theme="photonics",
+                seed_company_ids=[lumentum],
+                as_of=datetime(2026, 9, 30, tzinfo=UTC),
+                model="claude-e2e",
+                actor="e2e-researcher",
+            )
+        )
+        cited: list[dict[str, JsonValue]] = []
+        for quote, statement, period, value, metric in SESSION_FACTS:
+            start = parsed.index(quote)
+            recorded = facts.create(
+                FactCreate.model_validate(
+                    {
+                        "subject_company_id": lumentum,
+                        "source_version_id": version_id,
+                        "quote": quote,
+                        "span_start": start,
+                        "span_end": start + len(quote),
+                        "epistemic_type": "company_claim",
+                        "session_id": opened.id,
+                        "step": "constraint",
+                        "statement": statement,
+                        "quantity": {"value": value, "unit": "USD million", "metric": metric},
+                        "period": period,
+                        "status": "in_effect",
+                    }
+                ),
+                document_date=None,
+                fiscal_year_end=None,
+            )
+            cited.append({"fact_id": str(recorded.fact.id), "statement": statement})
+        card: dict[str, Any] = {
+            "steps": [
+                {
+                    "step": "constraint",
+                    "title": "The constraint",
+                    "status": "supported",
+                    "statements": [{"statement": SESSION_STATEMENT, "facts": cited}],
+                    "unchecked": [],
+                }
+            ],
+            "open_questions": ["Who else makes indium phosphide lasers?"],
+        }
+        sessions.close(opened.id, SessionClose(usage={"calls": 9, "tokens": 12345}, card=card))
     finally:
         engine.dispose()
 

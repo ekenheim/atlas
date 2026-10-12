@@ -2134,3 +2134,25 @@ def test_the_skeptic_cannot_record_a_reader_s_fact_as_counterevidence(
     assert (skeptic["facts_recorded"], skeptic["duplicates_refused"]) == (0, 1)
     control_step = {step["step"]: step for step in found["research_card"]["steps"]}["control"]
     assert control_step["counterevidence"] == []
+
+
+def test_an_argument_investigation_is_a_pipeline_session_once_its_editor_has_written_the_card(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("counter_judge", ChatReply.answer(relating("qualifies"), tokens=(600, 60)))
+    investigation_id = start_argument(atlas, llm, searxng)
+
+    listed = atlas.api.get("/api/v1/sessions", params={"theme": "photonics"}).json()["items"]
+    assert [(s["kind"], s["investigation_id"]) for s in listed] == [("pipeline", investigation_id)]
+    assert atlas.api.get("/api/v1/sessions", params={"theme": "robotics"}).json()["total"] == 0
+    session = atlas.api.get("/api/v1/sessions/" + listed[0]["id"]).json()
+    assert session["question"] == QUESTION
+    assert session["finished_at"] is not None
+    assert session["usage"]["tokens_in"] > 0
+    assert session["card"]["steps"][0]["step"] == "constraint"
+    assert session["facts"] == len(session["fact_items"]) > 0
+    with atlas.engine.connect() as connection:
+        actions = connection.execute(
+            text("SELECT action FROM audit_event WHERE entity_id = :id"), {"id": session["id"]}
+        ).scalars()
+        assert list(actions) == ["research_session.recorded"]
