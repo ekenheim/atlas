@@ -6,7 +6,9 @@ import { expect, test } from "@playwright/test";
 // code flagged it. Expected values are the seed's.
 const PROVEN = "Lumentum's laser demand is outrunning its capacity.";
 const FLAGGED = "Lumentum can add laser capacity faster than demand grows.";
-const AGAINST_QUOTE = "Net revenue for the fourth quarter of fiscal year 2025 was $480.7 million";
+// The session seed's second Fact (scripts/e2e.py, SESSION_FACTS): a table row of the March 2026
+// 10-Q, whose tabs Playwright's text matching reads as spaces.
+const AGAINST_QUOTE = "Net revenue $ 808.4";
 
 test("the Beliefs list reads by step, filters to the flagged and opens a Belief at its span", async ({
   page,
