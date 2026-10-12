@@ -80,7 +80,7 @@ UNITS: dict[Provider, BudgetUnit] = {
 RetainExtractor = Literal["minimax"]
 EXTRACTOR_PROVIDERS: dict[RetainExtractor, Provider] = {"minimax": "hindsight_minimax"}
 # The kinds that follow the extractor: they submit, watch or resubmit a retain batch.
-RETAIN_KINDS = frozenset({"retain", "poll_operation", "reprocess"})
+RETAIN_KINDS = frozenset({"retain", "poll_operation", "reprocess", "retain_belief"})
 
 # Which provider's quota each LLM-backed job kind spends while no extractor is asked for
 # (`provider_kinds` gives the mapping in force). Kinds not listed (ingest, noop) spend
@@ -89,6 +89,7 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "retain": "codex",
     "poll_operation": "codex",
     "reprocess": "codex",
+    "retain_belief": "codex",
     "refresh_mental_model": "codex",
     "reflect": "codex",
     "replay": "codex",
@@ -106,6 +107,13 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "tradingview_catalog": "tradingview",
     "tradingview_transcripts": "tradingview",
 }
+# The bulk retention switch (`ATLAS_BULK_RETENTION=off`, beliefs ticket 06): the kinds that
+# retain the archive section by section are held like a spent budget. The ingest's section
+# retains, their reprocesses and triage wait for every class; the daily consolidation try
+# (backfill class) waits too, while one the owner asks for by hand still runs. Nothing already
+# submitted is touched (`poll_operation`), and a Belief's document (`retain_belief`) never waits.
+BULK_KINDS = ("retain", "reprocess", "triage")
+BULK_BACKFILL_KINDS = ("consolidate",)
 # Watches an operation already submitted and counted; holding it would only delay the result.
 BUDGET_EXEMPT_KINDS = frozenset({"poll_operation"})
 
@@ -116,6 +124,11 @@ _SWEEPS: dict[Provider, str] = {
         "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"
         " WHERE h.extractor IS NULL AND NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'codex' AND u.source_id = h.id)"
+        # A Belief's document retained (beliefs ticket 06): its operation, one unit.
+        " UNION ALL SELECT b.operation_id, 1 FROM belief_memory b"
+        " WHERE b.operation_id IS NOT NULL AND b.extractor IS NULL"
+        "   AND NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'codex' AND u.source_id = b.operation_id)"
         # A replay's retain batches and consolidation (atlas.replay), in its own bank.
         " UNION ALL SELECT r.operation_id, 1 FROM replay_operation r"
         " WHERE NOT EXISTS (SELECT FROM provider_usage u"
@@ -143,6 +156,10 @@ _SWEEPS: dict[Provider, str] = {
         "SELECT h.id AS source_id, 1 AS units FROM hindsight_operation h"
         " WHERE h.extractor = 'minimax' AND NOT EXISTS (SELECT FROM provider_usage u"
         "   WHERE u.provider = 'hindsight_minimax' AND u.source_id = h.id)"
+        " UNION ALL SELECT b.operation_id, 1 FROM belief_memory b"
+        " WHERE b.operation_id IS NOT NULL AND b.extractor = 'minimax'"
+        "   AND NOT EXISTS (SELECT FROM provider_usage u"
+        "   WHERE u.provider = 'hindsight_minimax' AND u.source_id = b.operation_id)"
     ),
     "minimax": (
         "SELECT c.id::text AS source_id, c.tokens_in + c.tokens_out AS units FROM llm_call c"
@@ -198,6 +215,8 @@ class Budgets:
     # `codex` kinds), and the routed retains' own budget, in force only with an extractor.
     retain_extractor: RetainExtractor | None = None
     retain_operations: int = 200
+    # False: the bulk retention kinds are held (`bulk_holds`).
+    bulk_retention: bool = True
 
     def __post_init__(self) -> None:
         if self.window <= timedelta(0):
@@ -225,6 +244,7 @@ class Budgets:
             interactive_reserve=settings.budget_interactive_reserve,
             retain_extractor=settings.retain_extractor,
             retain_operations=settings.retain_budget_operations,
+            bulk_retention=settings.bulk_retention == "on",
         )
 
     def providers(self) -> tuple[Provider, ...]:
@@ -324,9 +344,13 @@ def window_usage(
     return usage
 
 
-def holds(usage: Iterable[ProviderBudget]) -> Holds:
+def holds(usage: Iterable[ProviderBudget], budgets: Budgets | None = None) -> Holds:
+    """The kinds the windows hold, and with `budgets` the kinds bulk retention holds off."""
     all_classes: list[str] = []
     backfill: list[str] = []
+    if budgets is not None and not budgets.bulk_retention:
+        all_classes += BULK_KINDS
+        backfill += BULK_BACKFILL_KINDS
     for window in usage:
         if window.interactive_held:
             all_classes += window.kinds

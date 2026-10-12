@@ -13,6 +13,12 @@ from atlas.jobs.queue import Artifacts, Job
 from atlas.jobs.resources import hindsight_resources, run_recorder
 from atlas.retention.audit import AUDIT_KIND, TriageAuditor
 from atlas.retention.backfill import BACKFILL_KIND, Backfill, BackfillPayload
+from atlas.retention.beliefs import (
+    RETAIN_BELIEF_KIND,
+    BeliefRetention,
+    BeliefTimings,
+    RetainBeliefPayload,
+)
 from atlas.retention.retire import RETIRE_KIND, Retire, RetirePayload
 from atlas.retention.service import (
     POLL_KIND,
@@ -60,6 +66,20 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
         payload = RetirePayload.model_validate(job.payload)
         with hindsight_resources(settings) as (gateway, engine):
             return Retire(engine, gateway, Actor.from_settings(settings)).run(payload, job)
+
+    def retain_belief(job: Job) -> Artifacts:
+        payload = RetainBeliefPayload.model_validate(job.payload)
+        with hindsight_resources(settings) as (gateway, engine):
+            return BeliefRetention(
+                engine,
+                gateway,
+                Actor.from_settings(settings),
+                BeliefTimings(
+                    poll_timeout=settings.retain_poll_timeout_seconds,
+                    poll_interval=settings.retain_poll_interval_seconds,
+                ),
+                extractor=settings.retain_extractor,
+            ).run(payload.belief_id)
 
     def triage(job: Job) -> Artifacts:
         payload = RetainPayload.model_validate(job.payload)
@@ -113,6 +133,7 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
         RETAIN_KIND: retain,
         POLL_KIND: poll,
         REPROCESS_KIND: reprocess,
+        RETAIN_BELIEF_KIND: retain_belief,
         BACKFILL_KIND: backfill,
         RETIRE_KIND: retire,
         TRIAGE_KIND: triage,

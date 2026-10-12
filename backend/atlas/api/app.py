@@ -125,6 +125,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
             hindsight,
             lambda: load_universe(settings.themes_config),
             stuck_after_hours=settings.backfill_stuck_after_hours,
+            bulk_retention=settings.bulk_retention,
             window_days=settings.ingest_lookback_days,
         )
     )

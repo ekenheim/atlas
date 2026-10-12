@@ -83,7 +83,7 @@ from atlas.settings import Settings
 
 CONSOLIDATE_KIND = "consolidate"
 # The jobs that submit retains into the bank: while one is running, no consolidation.
-SUBMITTING_KINDS = (RETAIN_KIND, REPROCESS_KIND)
+SUBMITTING_KINDS = (RETAIN_KIND, REPROCESS_KIND, "retain_belief")
 # A scheduled try with one of these outcomes is followed by another, an hour later (one
 # stopped at the budget waits in the queue until the window allows it).
 RETRY_OUTCOMES = frozenset(
@@ -701,17 +701,26 @@ def sections_retained_since(connection: Connection, bank_id: str) -> int:
     """Sections of the bank retained (completed) or retired (their facts are deleted, so the
     observations that cited them need rebuilding) since the last completed consolidation was
     requested: what the next one would consolidate. Database times on both sides."""
-    return int(
-        connection.execute(
-            text(
-                "SELECT count(*) FROM memory_document m WHERE m.bank_id = :bank"
-                " AND m.retain_state IN ('completed', 'retired') AND m.updated_at > coalesce(("
-                "   SELECT max(c.requested_at) FROM memory_consolidation c"
-                "   WHERE c.bank_id = :bank AND c.status = 'completed'), '-infinity')"
-            ),
-            {"bank": bank_id},
-        ).scalar_one()
+    since = (
+        "coalesce((SELECT max(c.requested_at) FROM memory_consolidation c"
+        " WHERE c.bank_id = :bank AND c.status = 'completed'), '-infinity')"
     )
+    sections = connection.execute(
+        text(
+            "SELECT count(*) FROM memory_document m WHERE m.bank_id = :bank"  # noqa: S608 (constant)
+            f" AND m.retain_state IN ('completed', 'retired') AND m.updated_at > {since}"
+        ),
+        {"bank": bank_id},
+    ).scalar_one()
+    # A Belief's document retained or taken out counts too (beliefs ticket 06).
+    beliefs = connection.execute(
+        text(
+            "SELECT count(*) FROM belief_memory b WHERE b.bank_id = :bank"  # noqa: S608 (constant)
+            f" AND b.state IN ('completed', 'zero_fact', 'removed') AND b.updated_at > {since}"
+        ),
+        {"bank": bank_id},
+    ).scalar_one()
+    return int(sections) + int(beliefs)
 
 
 # --- the worker's handler and schedule ---------------------------------------------------------

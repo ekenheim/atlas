@@ -149,6 +149,12 @@ class RecallRequest(BaseModel):
         description="each observation's source facts in the same answer, so its provenance"
         " needs no request per observation",
     )
+    available_by: AwareDatetime | None = Field(
+        default=None,
+        description="drop the memories none of whose resolved sections (or Beliefs) were"
+        " available by this time, and count them in `dropped_future` (a hard filter, unlike"
+        " `query_timestamp`)",
+    )
     include_chunks: bool = Field(
         default=False,
         description="ask for the chunks the results came from, and locate each resolved"
@@ -223,6 +229,9 @@ class RecallResponse(BaseModel):
     # Asked for source facts: whether Hindsight's budget cut them short (the observations
     # whose sources were left out were resolved by asking for them); None otherwise.
     source_facts_truncated: bool | None = None
+    # `available_by` given: the memories dropped because nothing they resolve to was
+    # available by then (0 otherwise).
+    dropped_future: int = 0
 
 
 def recalled_memory(
@@ -244,6 +253,15 @@ def recalled_memory(
             RecalledEntity(name=name, entity_id=answer.entity_id(name)) for name in memory.entities
         ],
         chunk_id=memory.chunk_id,
+    )
+
+
+def _available_by(memory: RecalledMemory, by: datetime) -> bool:
+    """A memory stands when a section or a Belief it resolves to was available by `by` (a
+    Belief by its as-of time); one that resolves to neither is not known to have been."""
+    citation = memory.provenance
+    return any(source.available_at <= by for source in citation.sources) or any(
+        belief.as_of <= by for belief in citation.beliefs
     )
 
 
@@ -340,6 +358,10 @@ class Research:
         )
         resolver = ProvenanceResolver(self._engine, self._archive, self._gateway)
         memories = [recalled_memory(memory, result, resolver) for memory in result.memories]
+        dropped = 0
+        if request.available_by is not None:
+            kept = [m for m in memories if _available_by(m, request.available_by)]
+            dropped, memories = len(memories) - len(kept), kept
         provenance = [memory.provenance for memory in memories]
         if request.include_chunks:
             # Each resolved fact's chunk located in its section (memory-quality ticket 08).
@@ -353,6 +375,7 @@ class Research:
             counts=state_counts(provenance),
             evidence=evidence_from(provenance),
             source_facts_truncated=result.source_facts_truncated,
+            dropped_future=dropped,
         )
 
     # --- reflect -------------------------------------------------------------------------------

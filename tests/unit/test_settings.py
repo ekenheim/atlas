@@ -239,6 +239,46 @@ def test_an_unknown_retention_triage_mode_is_rejected_at_startup(tmp_path: Path)
         Settings.model_validate(_base(tmp_path) | {"retention_triage": "sometimes"})
 
 
+def test_bulk_retention_is_on_by_default_and_on_or_off(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from atlas.jobs.budget import Budgets
+
+    assert Settings.model_validate(_base(tmp_path)).bulk_retention == "on"
+    off = Settings.model_validate(_base(tmp_path) | {"bulk_retention": "off"})
+    assert off.bulk_retention == "off"
+    # The queue's budgets carry it, so the holds follow the setting.
+    assert Budgets.from_settings(off).bulk_retention is False
+    assert Budgets.from_settings(Settings.model_validate(_base(tmp_path))).bulk_retention is True
+
+    with pytest.raises(ValidationError, match="bulk_retention"):
+        Settings.model_validate(_base(tmp_path) | {"bulk_retention": "sometimes"})
+
+    required_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("ATLAS_BULK_RETENTION", "off")
+    assert Settings().bulk_retention == "off"  # pyright: ignore[reportCallIssue]
+
+
+def test_bulk_retention_off_holds_the_bulk_kinds_and_the_daily_consolidation_only() -> None:
+    from atlas.jobs.budget import Budgets, holds
+
+    on = holds([], Budgets())
+    assert (on.all_classes, on.backfill) == ([], [])
+    off = holds([], Budgets(bulk_retention=False))
+    assert off.all_classes == ["reprocess", "retain", "triage"]
+    assert off.backfill == ["consolidate"]  # an interactive (by hand) consolidation still runs
+    # A Belief's retain and the polls of operations already submitted are never held.
+    assert "retain_belief" not in off.all_classes + off.backfill
+    assert "poll_operation" not in off.all_classes + off.backfill
+
+
+def test_a_beliefs_retain_follows_the_retain_extractor() -> None:
+    from atlas.jobs.budget import Budgets
+
+    assert Budgets().provider_of("retain_belief") == "codex"
+    assert Budgets(retain_extractor="minimax").provider_of("retain_belief") == "hindsight_minimax"
+
+
 def test_role_models_default_to_none_and_parse_from_a_json_object(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

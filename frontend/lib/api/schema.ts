@@ -2373,6 +2373,23 @@ export interface components {
             /** Actor */
             actor?: string | null;
         };
+        /**
+         * BeliefsHealth
+         * @description The judged Beliefs Memory holds, per theme (beliefs ticket 06): what the research
+         *     bank holds of what Atlas found, apart from the archive's sections.
+         */
+        BeliefsHealth: {
+            /** In Memory */
+            in_memory: number;
+            /** Pending */
+            pending: number;
+            /** Failed */
+            failed: number;
+            /** Zero Fact */
+            zero_fact: number;
+            /** Themes */
+            themes: components["schemas"]["ThemeBeliefs"][];
+        };
         /** Bottlenecks */
         Bottlenecks: {
             /** @description refreshed: `model.content` is the open gaps; otherwise why there are none */
@@ -3439,7 +3456,29 @@ export interface components {
             chunk_char_end?: number | null;
         };
         /** @enum {string} */
-        CitationState: "resolved" | "unverified" | "broken";
+        CitationState: "resolved" | "belief" | "unverified" | "broken";
+        /**
+         * CitedBelief
+         * @description A judged Belief a memory was retained from (never Evidence).
+         */
+        CitedBelief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Statement */
+            statement: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Judgement */
+            judgement: string;
+            /** Status */
+            status: string;
+        };
         /**
          * Claim
          * @description One proposed Claim and its outcome. `proposed` is the Claim exactly as the model
@@ -6440,6 +6479,15 @@ export interface components {
         MemoryHealth: {
             /** Bank Id */
             bank_id: string;
+            /**
+             * Bulk Retention
+             * @description ATLAS_BULK_RETENTION: off holds the ingest's section retains, triage and the daily consolidation try; judged Beliefs still reach Memory
+             * @default on
+             * @enum {string}
+             */
+            bulk_retention: "on" | "off";
+            /** @description the judged Beliefs the bank holds, per theme */
+            beliefs?: components["schemas"]["BeliefsHealth"] | null;
             /** Company Id */
             company_id: string | null;
             /**
@@ -7632,6 +7680,11 @@ export interface components {
              */
             include_source_facts: boolean;
             /**
+             * Available By
+             * @description drop the memories none of whose resolved sections (or Beliefs) were available by this time, and count them in `dropped_future` (a hard filter, unlike `query_timestamp`)
+             */
+            available_by?: string | null;
+            /**
              * Include Chunks
              * @description ask for the chunks the results came from, and locate each resolved fact's chunk in its section (its span in `provenance.sources`; the chunk's text is not returned)
              * @default false
@@ -7653,6 +7706,11 @@ export interface components {
             evidence: components["schemas"]["Evidence"][];
             /** Source Facts Truncated */
             source_facts_truncated?: boolean | null;
+            /**
+             * Dropped Future
+             * @default 0
+             */
+            dropped_future: number;
         };
         /**
          * RecallScores
@@ -9690,6 +9748,31 @@ export interface components {
              */
             cited_companies: components["schemas"]["CompanyRef"][];
         };
+        /** ThemeBeliefs */
+        ThemeBeliefs: {
+            /** Theme */
+            theme: string;
+            /**
+             * In Memory
+             * @description judged Beliefs whose document Memory holds with facts
+             */
+            in_memory: number;
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Zero Fact
+             * @default 0
+             */
+            zero_fact: number;
+        };
         /** ThemeCompany */
         ThemeCompany: {
             /**
@@ -10429,6 +10512,8 @@ export interface components {
             /** Missing Memory Ids */
             missing_memory_ids: string[];
             quote: components["schemas"]["QuoteSpan"] | null;
+            /** Beliefs */
+            beliefs?: components["schemas"]["CitedBelief"][];
         };
     };
     responses: never;

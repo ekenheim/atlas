@@ -300,7 +300,7 @@ class JobQueue:
         budgets = self.pacing.budgets
         if budgets is None:
             return []
-        held = holds(self.budget_usage())
+        held = holds(self.budget_usage(), budgets)
         with self._engine.connect() as connection:
             rows = connection.execute(
                 text(
@@ -324,7 +324,7 @@ class JobQueue:
             return Holds([], [])
         with self._engine.begin() as connection:
             sweep(connection, now)
-            return holds(window_usage(connection, budgets, now).values())
+            return holds(window_usage(connection, budgets, now).values(), budgets)
 
     def extend_lease(self, job: Job, owner: str, lease: timedelta) -> bool:
         """Renew the lease of `job` for `lease` from now, as the worker's heartbeat does while

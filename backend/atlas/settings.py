@@ -191,6 +191,11 @@ class Settings(BaseSettings):
     # a 200 overlap read a section of up to ~13,300 characters in full (raised from six after
     # the first live audit missed a footnote in a 10-window chunk).
     retention_triage: Literal["auto", "on", "off"] = "auto"
+    # Bulk retention (beliefs ticket 06): `off` holds the ingest's section retains, triage and
+    # the daily consolidation try (the queue's holds, like a budget of 0); judged Beliefs still
+    # reach Memory. The owner switches it off once Beliefs feed Memory (docs/runbooks.md,
+    # "Bulk retention").
+    bulk_retention: Literal["on", "off"] = "on"
     triage_excerpt_chars: int = Field(default=1500, ge=200, le=20_000)
     triage_windows_per_section: int = Field(default=10, ge=1, le=50)
     triage_sections_per_call: int = Field(default=15, ge=1, le=50)

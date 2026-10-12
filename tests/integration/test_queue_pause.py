@@ -57,6 +57,7 @@ PAUSABLE_KINDS = [
     "replay",
     "reprocess",
     "retain",
+    "retain_belief",
     "review_relationships",
     "triage",
     "triage_audit",
