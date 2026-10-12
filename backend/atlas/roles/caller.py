@@ -149,6 +149,7 @@ class RoleCaller:
         api_key: str,
         *,
         model: str,
+        role_models: dict[str, str] | None = None,
         extra_body: dict[str, JsonValue],
         token_budget: int,
         timeout: float,
@@ -156,6 +157,7 @@ class RoleCaller:
     ) -> None:
         self._engine = engine
         self._model = model
+        self._role_models = dict(role_models or {})
         self._extra_body = extra_body
         self._token_budget = token_budget
         self._client = httpx2.Client(
@@ -177,11 +179,16 @@ class RoleCaller:
             settings.litellm_url,
             settings.litellm_api_key,
             model=settings.llm_role_model,
+            role_models=settings.llm_role_models,
             extra_body=settings.llm_role_extra_body,
             token_budget=settings.run_token_budget,
             timeout=settings.llm_role_timeout_seconds,
             transport=transport,
         )
+
+    def _model_for(self, role: Role[Any, Any]) -> str:
+        """The role's alias in `llm_role_models`, else the default role model."""
+        return self._role_models.get(role.name, self._model)
 
     def close(self) -> None:
         self._client.close()
@@ -279,7 +286,7 @@ class RoleCaller:
     ) -> tuple[_Completion, str | None]:
         body: dict[str, Any] = {
             **self._extra_body,
-            "model": self._model,
+            "model": self._model_for(role),
             "messages": messages,
             "response_format": {
                 "type": "json_schema",
@@ -348,7 +355,7 @@ class RoleCaller:
                     "prompt_version": role.prompt.version,
                     "prompt_sha256": role.prompt.sha256,
                     "answer_format_version": ANSWER_FORMAT_VERSION,
-                    "model": self._model,
+                    "model": self._model_for(role),
                     "request": json.dumps(request),
                     "retrieved": json.dumps(quoted),
                 },

@@ -237,3 +237,31 @@ def test_retention_triage_is_on_by_default_only_with_litellm(
 def test_an_unknown_retention_triage_mode_is_rejected_at_startup(tmp_path: Path) -> None:
     with pytest.raises(ValidationError, match="retention_triage"):
         Settings.model_validate(_base(tmp_path) | {"retention_triage": "sometimes"})
+
+
+def test_role_models_default_to_none_and_parse_from_a_json_object(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert Settings.model_validate(_base(tmp_path)).llm_role_models == {}
+
+    required_env(monkeypatch, tmp_path)
+    monkeypatch.setenv(
+        "ATLAS_LLM_ROLE_MODELS", '{"editor": "claude-opus", "finding_judge": "claude-opus"}'
+    )
+    assert Settings().llm_role_models == {  # pyright: ignore[reportCallIssue]
+        "editor": "claude-opus",
+        "finding_judge": "claude-opus",
+    }
+
+
+@pytest.mark.parametrize("value", [{"": "claude-opus"}, {"editor": ""}, {"editor": "  "}])
+def test_role_models_reject_an_empty_role_or_alias(tmp_path: Path, value: dict[str, str]) -> None:
+    with pytest.raises(ValidationError, match="llm_role_models"):
+        Settings.model_validate(_base(tmp_path) | {"llm_role_models": value})
+
+
+def test_role_models_reject_invalid_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    required_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("ATLAS_LLM_ROLE_MODELS", "{editor: opus")
+    with pytest.raises(Exception, match="llm_role_models"):
+        Settings()  # pyright: ignore[reportCallIssue]

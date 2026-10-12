@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict, JsonValue
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 
 from atlas.api.app import create_app
 from atlas.audit import Actor
@@ -57,6 +57,13 @@ class ExampleAnswer(RoleOutput):
 
 EXAMPLE = Role(
     name="example",
+    prompt=Prompt.load(PROMPTS, "example", 1),
+    request=ExampleRequest,
+    response=ExampleAnswer,
+    max_output_tokens=2000,
+)
+OTHER = Role(
+    name="other",
     prompt=Prompt.load(PROMPTS, "example", 1),
     request=ExampleRequest,
     response=ExampleAnswer,
@@ -625,6 +632,27 @@ def test_the_model_and_extra_body_are_config(engine: Engine, tmp_path: Path) -> 
     assert body["model"] == "MiniMax-M2.7"
     assert body["reasoning_effort"] == "none"
     assert "thinking" not in body
+
+
+def test_a_role_named_in_the_role_models_map_asks_for_its_alias_and_records_it(
+    engine: Engine, tmp_path: Path
+) -> None:
+    run = start_run(engine, tmp_path)
+    litellm = FakeLiteLLM().script_chat(ChatReply.json(ANSWER), ChatReply.json(ANSWER))
+    role_caller = caller(engine, tmp_path, litellm, llm_role_models={"example": "claude-opus"})
+
+    role_caller.call(EXAMPLE, QUESTION, run_id=run.id)
+    role_caller.call(OTHER, QUESTION, run_id=run.id)
+
+    named, other = litellm.chat_requests()
+    assert named["model"] == "claude-opus"
+    assert other["model"] == "MiniMax-M3"
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text("SELECT role, model FROM role_call WHERE run_id = :run"), {"run": run.id}
+        ).all()
+    recorded = {row[0]: row[1] for row in rows}
+    assert recorded == {"example": "claude-opus", "other": "MiniMax-M3"}
 
 
 def test_no_role_caller_without_litellm(engine: Engine, tmp_path: Path) -> None:
