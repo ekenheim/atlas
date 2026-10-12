@@ -102,6 +102,7 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 - `docs/agents/implementer-brief.md`: what the lead hands each implementer agent (test-first at the seams, local checks only, commit and report; the lead pushes and runs the runners).
 - `release-atlas` (skill): integrate ticket branches, chain migrations, release a tag and open the home-ops PR; the owner merges.
 - `pilot-review` (skill): run a pilot investigation on production and review every accepted Claim against its span; results in `.scratch/pilot/results.md`, defects as tickets.
+- `atlas-research` (skill, `.claude/skills/atlas-research/`): a Claude session researches a bottleneck question with Atlas's tools (`atlas_tools.py`: as-of archive search, read, locate, record a Fact through `POST /api/v1/facts`, recall filtered to sections available by the as-of time) and writes the argument with Beliefs; the method since the owner's revision of 2026-10-12 (`.scratch/atlas-beliefs/spec.md`; proof in `.scratch/pilot/results.md`, "The proof sessions"). The role pipeline is the bulk mode.
 
 ### Hindsight skills
 

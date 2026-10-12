@@ -711,3 +711,46 @@ Ticket 02's precision counts an off-question Fact as wrong. Across 0.5.3 to 0.5.
 | Judging | per question | pooled over the five questions, each question also reported |
 
 Against the proposed bar, 0.5.6: Q4 faithfulness 88% (fails), gate fails 4/29 = 14% (fails); Q5 faithfulness 95%, gate 4/28 = 14% (fails, and the Järfälla yield is a material failure). The restructuring does not make 0.5.6 pass; it names what to fix next: the trust gate's misattachments and the Readers' topic discipline, in that order.
+
+## The proof sessions (2026-10-12): a Claude session with Atlas's tools against the pipeline
+
+The owner's revision of the method (the review session of 2026-10-12; `.scratch/atlas-beliefs/spec.md`): a strong model researches with Atlas's tools and gates, Memory holds what was found, the MiniMax roles become the bulk mode. The proof: two Opus sessions with the `atlas-research` skill (`.claude/skills/atlas-research/`: as-of archive search, read, locate, record a Fact through `POST /api/v1/facts`, recall filtered to sections available by the as-of time; no web search), scored exactly as the pilot scores a card: two blind Opus reviewers per Fact (the lead adjudicating every disagreement, confirming every both-wrong verdict and a random tenth of the right ones), one card reviewer for the trust gate, saved work and the archive-search baseline, one comparison with the researcher's hour. Folders: `.scratch/live-runs/proof-claude/inv-2` and `inv-6`, `.scratch/live-runs/pipeline-axt/inv-6`.
+
+### Question 2 as of 2026-10-12 (seeds AXT, Coherent, Lumentum; recall allowed)
+
+- **Session:** 41 Facts in 73 tool calls, about 170k Claude tokens, 10 minutes. Thesis: InP substrate supply is tight through 2026 and held by a few makers; China's export permits, in place since February 2025, are the part that binds; a chokepoint for laser makers without secured supply, not a hard capacity limit (Coherent has more than five substrate suppliers and supply secured through 2027; AOI's CFO calls the shortage political).
+- **Facts:** both reviewers 41 right, 0 wrong, 0 off-question (agreement 41 of 41); the lead checked five, all right. One period Atlas resolved oddly ("the next year or so" said in May 2026 became 2027): the resolver, not the Fact.
+- **Trust gate:** 25 of 35 statements pass, 10 fail: a gloss the CEO did not draw ("a chip-fab capacity rather than substrates"), "substrates" taken from the context into a quote that lacks the word, a qualifier added ("before the 2026 demand surge"), "2024" and "merchant" added to a share estimate, "long-term" added to supply commitments, a statement resting on counterevidence it did not cite. Kinds the pipeline's Editor also makes; no judge was applied to the session's statements.
+- **Saved work:** 24 statements. **Baseline:** 12 hits judged, 10 on question, 5 covered and 4 in substance, 1 missed. **Step statuses:** 5 of 6 warranted; `constraint` was marked disputed on counterevidence that limits rather than contradicts.
+- **The researcher's hour:** 19 of the researcher's 32 facts are on the card and 1 more in the Facts; 12 absent, 5 of them web-only. The pipeline's best on this question (0.5.4): 8 on the card, 10 more in Facts.
+
+### The AXT replay as of 2025-08-31 (seeds Coherent and Lumentum; no recall)
+
+The question of pilot-review ticket 26: "Is indium phosphide substrate supply a bottleneck for datacom lasers, and who controls it?", with AXT to be reached, not given. The pipeline's argument plan ran the same question on production the same afternoon (investigation `da618842`, 1.93M MiniMax tokens in, `needs_review`: 29 judge calls lost to the run budget). No document available after the cutoff reached either run (every Fact's version, and the pipeline's 768 pointers, checked).
+
+| Measure | Session (Opus, 79 calls) | Pipeline (MiniMax argument plan) |
+|---|---|---|
+| Facts | 28 | 75 |
+| Precision (right of all) | **93%** (26; 0 wrong, 2 off-question) | 75% (56; 12 wrong, 7 off-question) |
+| True to the quote | **100%** | 84% |
+| Reviewer agreement | 27 of 28 | 63 of 75 |
+| Trust gate | 24 of 26 statements pass (2 fail) | 22 of 29 pass (7 fail) |
+| Saved work | 23 statements | 18 |
+| Baseline coverage (10 on-question hits) | 8 (5 + 3 in substance) | 10 (8 + 2) |
+| AXT reached | yes, from the seeds | yes |
+| The early signal | in substance: the 1 May call's "the other players both cannot keep up with capacity" (Fact `13166c3d`), under a step the session marked disputed | not stated |
+| Step statuses warranted | 4 of 6 (demand_vs_supply and capture marked disputed without a contradiction) | 5 of 6 (capture supported with no capture evidence) |
+| Cost | about 170k Claude tokens, 10 minutes | 1.93M MiniMax tokens, 15 minutes |
+
+- **Session thesis:** as of 31 August 2025 the archive shows InP substrate supply gated by China's export controls (substrates on the control list from 4 February 2025; AXT, which makes everything in China, unable to ship outside China until its first licence in June, with no date for a US permit by mid-August; AXT at perhaps 40 to 50% of the market beside Sumitomo and JX), while the shortage Lumentum describes is InP laser capacity, which Lumentum and Coherent are expanding. Not established: whether Coherent or Lumentum buy from AXT, Sumitomo's and JX's shares, buyer-side lead times.
+- **The pipeline's wrong Facts** are the familiar kinds: a plan folded into a past fact and labelled in effect, "will enhance" as in effect, an expectation as in effect, a revenue figure added, a mixed product list made InP-specific, a transition "opportunity" made an assertion.
+- **The session's two gate failures:** a clause taken from the counterevidence Fact into a statement that cited the 1 May Fact, joining two dates; "cut ... until its first export licence in June" when the June quote says only that initial orders shipped and the August 10-Q says US shipments still waited.
+
+### What the proof shows
+
+1. **Reading and recording:** the session is better on every measure that the researcher's hour exposed. Facts are 93 to 100% right against the pipeline's 75% on the same question and the pilot's 58 to 84%; the card holds 19 of the researcher's 32 facts against 8; at a tenth of the tokens.
+2. **Writing:** the trust gate is the one measure where the session is not clearly better (8% and 29% of statements fail; the pipeline 24% here and about 14 to 16% in the pilot). The kinds are the same, and no judge was applied to the session's statements. The judge measured the same day (luna catches 11 of 17 against MiniMax's 5) is the piece that belongs between the session's statements and a Belief.
+3. **Judgement of a step:** the session under-claims (disputed where the counterevidence only limits); the pipeline over-claims (supported with nothing). A rule for `disputed` (a judged contradiction only, as the pipeline's counter-judge already does) belongs in the skill.
+4. **The early call:** the session, given Coherent and Lumentum on 31 August 2025, reached AXT, recorded its permits, backlog, share and competitors, and stated in substance that the other players could not keep up; it did not quote the 31 July sentence, and it filed the point under a step it marked disputed. The pipeline reached AXT and did not state the point.
+
+The owner's revision is taken: the session with Atlas's tools is the research method; the pipeline is the bulk mode. Next: the judge on the session's statements before they become Beliefs, the `disputed` rule, then the Belief and Issue tables (`.scratch/atlas-beliefs/`, tickets 02, 04, 06, 07).

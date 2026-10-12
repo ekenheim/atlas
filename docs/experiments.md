@@ -353,3 +353,27 @@ Detail: `.scratch/pilot/results.md`, "0.5.4 against 0.5.3".
 **Not solved:** off-question Facts. Precision fell on both questions, and almost entirely through Facts that are true but off-topic (copper AEC DSPs, photodetectors, the datacom EML story on a coherent question). False Facts are at 5–12%. The question-parts planner (round 2) binds the Readers' searches to the question's terms, but the Readers still record what the passages hold.
 
 **Measurement note:** the bar's "precision" counts off-question as wrong. Separating faithfulness (true to the quote) from on-question share would show 0.5.6 at 88–95% faithful and 64–78% on-question. Proposed to the owner (ticket 02 revision).
+
+## 2026-10-12: a frontier model as the finding judge (pilot-review ticket 25)
+
+- **Hypothesis:** the trust gate's 13–14% failure rate is the judge's model, not its prompt (`finding_judge.v4`, unchanged in every run below).
+- **Method:** `.scratch/tools/finding_judge_eval.py --argument` on the 130 labelled 0.5.3 argument statements (17 misstated, 113 sound; the reviewers' labels), one vote per statement, the basis check applied as the Editor's task applies it; through LiteLLM with the `atlas-eval` key (home-ops-upgrade #7479, #7481). Stage 1: all 17 misstated plus 30 sound; stage 2: the other 83 sound. Bridge errors (LiteLLM's `chatgpt/` provider: HTTP 500 "Unknown items in responses API response", about 7% of calls) and my own rate-limit collisions were retried until every statement but one had a verdict. Reports: `.scratch/live-runs/20261012-judge-*`.
+- **Result (full set):**
+
+| Judge model | Caught of 17 misstated | Flagged of 113 sound | Bases the code check turned |
+|---|---|---|---|
+| MiniMax-M3 (production) | 5 | 11 | 4 of 47 (stage 1) |
+| gpt-5.6-luna (`chatgpt`) | 11 | 26 (1 unjudged) | 0 |
+| gpt-6-astra (`frontier-pool`) | 14 | 24 | 0 |
+
+  Stage 1 alone (the same 47 statements for all three): MiniMax 5 and 4 of 30; luna 11 and 4 of 30; astra 14 and 3 of 30. Luna's two runs agree on 39 of 42 shared verdicts.
+- **Reading the flags:** a sample of astra's 18 stage-2 flags shows most are the gate's own kinds of overstatement that the blind reviewers let pass (a dropped "probably", "will be" written as "is", two sources of different dates merged without saying so, an inference added to a faithful quote); a few are pedantic because the judge sees the quote without its context (a pronoun's referent). So the "flagged" column overstates false positives, and the regression labels have lenient passes that need a second adjudication before they are used as a target.
+- **Not needed:** the `chatgpt/` aliases answered non-streaming calls with the JSON schema and the MiniMax extra body, so the streaming branch (`ATLAS_LLM_ROLE_STREAM_MODELS`) stays in reserve.
+- **Decision:** the finding judge moves to luna (the cheap alias; twice MiniMax's catch rate, a different model family from the writer); astra is parked for the judge (three more catches at flagship rate). A frontier Editor is not measured here; the owner's direction the same afternoon moved the writing to Claude sessions (`.scratch/atlas-beliefs/spec.md`). Ships with the per-role override (`ATLAS_LLM_ROLE_MODELS`, branch `ticket/25-per-role-model`, CI green); production needs `chatgpt` on the `atlas` key (home-ops) and a transient classification of the bridge 500 so the caller retries it.
+
+## 2026-10-12: the proof sessions, a Claude session with Atlas's tools against the pipeline
+
+- **Hypothesis:** a strong model researching with Atlas's tools and gates (archive search as of a date, Facts at verbatim spans, recall as a tool) beats the MiniMax role pipeline on the pilot's own measures.
+- **Method:** two Opus sessions with the `atlas-research` skill, question 2 as of today and the AXT replay as of 2025-08-31 (pilot-review ticket 26); the pipeline's argument plan on the AXT question the same day; blind double review of every Fact, card review, baseline, researcher's-hour comparison. Detail in `.scratch/pilot/results.md`, "The proof sessions".
+- **Result:** Facts 100% and 93% right (pipeline 75% on the same question; the pilot 58 to 84%); 19 of the researcher's 32 facts on the card (pipeline 8); AXT reached from the seeds and the early signal stated in substance; a tenth of the tokens. The trust gate is not better (8% and 29% of statements fail) because no judge was applied to the session's statements; the step statuses err on the cautious side.
+- **Kept:** the revision of the method (`.scratch/atlas-beliefs/spec.md`); the skill; the pipeline as bulk mode. **Next:** luna as the judge on the session's statements, a rule for `disputed`, then Beliefs and Issues.
