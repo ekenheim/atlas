@@ -25,12 +25,20 @@ import json
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
 
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
-from atlas.beliefs.versions import record_version_beliefs, unproven_load_bearing
+from atlas.beliefs.versions import (
+    flagged_beliefs,
+    record_step_beliefs,
+    record_version_beliefs,
+    unproven_load_bearing,
+    unproven_step_beliefs,
+    version_beliefs,
+)
 from atlas.hypotheses.findings import ProposedFinding, resolve_findings
 from atlas.hypotheses.model import (
     DRAFT_HYPOTHESIS_KIND,
@@ -43,6 +51,7 @@ from atlas.hypotheses.model import (
     VersionProvenance,
     version_from_row,
 )
+from atlas.hypotheses.steps import step_belief_ids
 from atlas.investigations.skeptic import counterevidence_by_claim
 from atlas.investigations.tasks import accepted_claims
 from atlas.jobs.queue import JobQueue
@@ -208,6 +217,14 @@ def requires_proven_beliefs(
     """Every Belief the version rests on load-bearingly is `proven` by an author (atlas-beliefs
     ticket 03). The owner may override it, with a reason, in the publish request."""
     unproven = unproven_load_bearing(connection, dependent_assertion_ids(version))
+    # A Hypothesis over Beliefs (ticket 14) rests on every Belief of its steps: each must still
+    # be active and proven now, whatever it was when the version was drafted.
+    seen = {each["belief_id"] for each in unproven}
+    unproven += [
+        each
+        for each in unproven_step_beliefs(connection, step_belief_ids(version.content.steps))
+        if each["belief_id"] not in seen
+    ]
     if not unproven:
         return None
     listed = ", ".join(f"{each['belief_id']} ({each['judgement']})" for each in unproven)
@@ -218,12 +235,42 @@ def requires_proven_beliefs(
     )
 
 
+def requires_unflagged_beliefs(
+    connection: Connection, _hypothesis: RowMapping, version: HypothesisVersion
+) -> GateFailure | None:
+    """No Belief the version rests on load-bearingly has an open flag: code raised a doubt
+    (a cited statement disputed, a source revised) that no author has judged since. The owner
+    may override it with the Belief rule's override."""
+    resting = list(
+        dict.fromkeys(
+            [
+                *step_belief_ids(version.content.steps),
+                *(
+                    each["belief_id"]
+                    for each in version_beliefs(connection, dependent_assertion_ids(version))
+                    if each["load_bearing"]
+                ),
+            ]
+        )
+    )
+    flagged = flagged_beliefs(connection, resting)
+    if not flagged:
+        return None
+    listed = "; ".join(f"{each['belief_id']} ({each['detail']})" for each in flagged)
+    return GateFailure(
+        "belief_flagged",
+        f"a Belief the version rests on has an open flag no judgement has cleared: {listed}",
+        belief_ids=tuple(each["belief_id"] for each in flagged),
+    )
+
+
 DEFAULT_PUBLISH_GATE: tuple[PublishCheck, ...] = (
     requires_falsifier,
     requires_unresolved_question,
     requires_approved_relationships,
     requires_reviewed_assertions,
     requires_proven_beliefs,
+    requires_unflagged_beliefs,
 )
 
 
@@ -339,6 +386,108 @@ class Hypotheses:
             )
         return hypothesis_id
 
+    def create_from_beliefs(
+        self,
+        actor: Actor,
+        *,
+        theme: str,
+        session_ids: Sequence[uuid.UUID] = (),
+        question: str | None = None,
+        as_of: datetime | None = None,
+    ) -> uuid.UUID:
+        """Save a theme's proven Beliefs (those of `session_ids`, if any) as a `draft`
+        Hypothesis and enqueue its drafting (atlas.hypotheses.belief_drafting). Refused when no
+        active proven Belief matches: there is nothing to draft."""
+        wanted = list(dict.fromkeys(session_ids))
+        with self._engine.begin() as connection:
+            for each in wanted:
+                if (
+                    connection.execute(
+                        text("SELECT 1 FROM research_session WHERE id = :id"), {"id": each}
+                    ).scalar_one_or_none()
+                    is None
+                ):
+                    raise HypothesisNotFound(f"session not found: {each}")
+            beliefs = list(
+                connection.execute(
+                    text(
+                        "SELECT b.id, b.as_of FROM belief b JOIN LATERAL (SELECT x.judgement"
+                        " FROM belief_judgement x WHERE x.belief_id = b.id"
+                        " ORDER BY x.at DESC, x.id DESC LIMIT 1) j ON true"
+                        " WHERE b.theme = :theme AND b.status = 'active'"
+                        " AND j.judgement = 'proven'"
+                        " AND (CAST(:as_of AS timestamptz) IS NULL OR b.as_of <= :as_of)"
+                        " AND (cardinality(CAST(:sessions AS uuid[])) = 0"
+                        "  OR b.produced_by = ANY(CAST(:sessions AS uuid[])))"
+                    ),
+                    {"theme": theme, "sessions": wanted, "as_of": as_of},
+                ).all()
+            )
+            if not beliefs:
+                raise HypothesisConflict(
+                    f"no active proven Belief of theme {theme}"
+                    + (" from those sessions" if wanted else "")
+                    + ": there is nothing to draft from"
+                )
+            asked = (question or "").strip()
+            if not asked:
+                sessions = connection.execute(
+                    text(
+                        "SELECT question FROM research_session"
+                        " WHERE id = ANY(CAST(:ids AS uuid[])) ORDER BY started_at, id"
+                    ),
+                    {"ids": wanted},
+                ).scalars()
+                asked = " / ".join(dict.fromkeys(sessions)) or f"What does {theme} rest on?"
+            # The Beliefs the drafter takes are those as of this time, fixed here, once.
+            cutoff = as_of or max(each.as_of for each in beliefs)
+            hypothesis_id = uuid.uuid4()
+            job = self._queue.enqueue_within(
+                connection,
+                DRAFT_HYPOTHESIS_KIND,
+                f"hypothesis:{hypothesis_id}",
+                {"hypothesis_id": str(hypothesis_id)},
+            ).job
+            related = list(
+                connection.execute(
+                    text(
+                        "SELECT DISTINCT bc.company_id FROM belief_company bc"
+                        " WHERE bc.belief_id = ANY(CAST(:ids AS uuid[]))"
+                    ),
+                    {"ids": [each.id for each in beliefs]},
+                ).scalars()
+            )
+            row = (
+                connection.execute(
+                    text(
+                        "INSERT INTO hypothesis (id, theme_id, related_company_ids, author,"
+                        " draft_job_id, question, as_of, session_ids) VALUES (:id, :theme,"
+                        " :related, :author, :job, :question, :as_of, :sessions) RETURNING *"
+                    ),
+                    {
+                        "id": hypothesis_id,
+                        "theme": theme,
+                        "related": related,
+                        "author": actor.name,
+                        "job": job.id,
+                        "question": asked,
+                        "as_of": cutoff,
+                        "sessions": wanted,
+                    },
+                )
+                .mappings()
+                .one()
+            )
+            record(
+                connection,
+                actor,
+                "hypothesis.created",
+                entity_type="hypothesis",
+                entity_id=str(hypothesis_id),
+                new_hash=content_hash(dict(row)),
+            )
+        return hypothesis_id
+
     def transition(
         self, actor: Actor, hypothesis_id: uuid.UUID, to: HypothesisStatus, note: str | None
     ) -> None:
@@ -372,10 +521,14 @@ class Hypotheses:
             content = base.content
             findings = content.findings
             if correction.findings is not None:
-                run_id = connection.execute(
-                    text("SELECT run_id FROM investigation WHERE id = :id"),
-                    {"id": hypothesis["investigation_id"]},
-                ).scalar_one()
+                run_id = (
+                    None
+                    if hypothesis["investigation_id"] is None
+                    else connection.execute(
+                        text("SELECT run_id FROM investigation WHERE id = :id"),
+                        {"id": hypothesis["investigation_id"]},
+                    ).scalar_one()
+                )
                 claims = (
                     []
                     if run_id is None
@@ -462,10 +615,11 @@ class Hypotheses:
                 if (failure := check(connection, hypothesis, latest)) is not None
             ]
             if override_beliefs_reason is not None:
-                overridden = [each for each in failures if each.code == "belief_not_proven"]
-                failures = [each for each in failures if each.code != "belief_not_proven"]
+                covered = ("belief_not_proven", "belief_flagged")
+                overridden = [each for each in failures if each.code in covered]
+                failures = [each for each in failures if each.code not in covered]
                 if overridden:
-                    beliefs = list(overridden[0].belief_ids)
+                    beliefs = list(dict.fromkeys(b for each in overridden for b in each.belief_ids))
                     connection.execute(
                         text(
                             "INSERT INTO hypothesis_belief_override (hypothesis_version_id,"
@@ -525,6 +679,7 @@ class Hypotheses:
             # What it depends on: later Evidence against it proposes an update (ticket 21).
             record_dependencies(connection, latest)
             record_version_beliefs(connection, latest.id, dependent_assertion_ids(latest))
+            record_step_beliefs(connection, latest.id, step_belief_ids(latest.content.steps))
             for hook in self._hooks:
                 hook(connection, hypothesis, version_from_row(published), actor)
 

@@ -74,6 +74,14 @@ THESIS_V2 = (
     "Demand for advanced lasers in AI optics may outgrow qualified laser capacity, favouring"
     " Coherent, whose largest customer is also an investor."
 )
+BELIEF = "Coherent holds a multi-year supply agreement with NVIDIA for advanced lasers."
+BELIEF_STEP_STATEMENT = (
+    "Coherent entered into a strategic multi-year supply agreement with NVIDIA for advanced lasers."
+)
+BELIEF_THESIS = (
+    "Advanced-laser supply may be controlled by suppliers with long-term agreements, such as"
+    " Coherent."
+)
 REVENUE = "RevenueFromContractWithCustomerExcludingAssessedTax"
 SCENARIO_AS_OF = "2026-09-01T00:00:00Z"
 
@@ -453,7 +461,98 @@ def build(atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG) -> str:
     held = [(f["code"], f["relationship_ids"]) for f in gate["failures"]]
     if held != [("relationship_not_approved", [by_predicate["owns"]["id"]])]:
         raise SystemExit(f"e2e: version 2's gate isn't held by the owns edge alone: {gate}")
+    belief_hypothesis(atlas, llm, post, supply_span, company("coherent"))
     return hypothesis_id
+
+
+def belief_editor(body: dict[str, Any]) -> JsonValue:
+    """The Editor's draft from Beliefs: its thesis and its step cite the Belief it is sent."""
+    [belief] = asked(body)["request"]["beliefs"]
+    return {
+        "thesis_statement": BELIEF_THESIS,
+        "thesis_belief_refs": [belief["ref"]],
+        "mechanism": {
+            "demand_driver": "AI data-center optical interconnect deployments",
+            "possible_constraint": "Qualified advanced-laser capacity",
+            "economic_capture_question": None,
+        },
+        "measurable_predictions": ["Laser lead times stay elevated in 2027 filings"],
+        "catalysts": ["New multi-year supply agreements"],
+        "falsifiers": ["A qualified second laser source ships to NVIDIA"],
+        "required_evidence": ["An original document naming a second laser source"],
+        "alternative_explanations": ["Inventory build-up mimics demand"],
+        "unresolved_questions": ["Does NVIDIA qualify a second laser source?"],
+        "steps": [
+            {
+                "step": belief["step"],
+                "statement": BELIEF_STEP_STATEMENT,
+                "belief_refs": [belief["ref"]],
+            }
+        ],
+    }
+
+
+def belief_hypothesis(
+    atlas: Atlas,
+    llm: FakeLiteLLM,
+    post: Callable[[str, dict[str, Any], int], Any],
+    span: dict[str, Any],
+    coherent: str,
+) -> None:
+    """A Hypothesis over Beliefs (atlas-beliefs ticket 14): a Fact quoting the 10-K's supply
+    sentence, a Belief citing it, judged proven by the owner, and a Hypothesis drafted from it."""
+    fact = post(
+        "/api/v1/facts",
+        {
+            "subject_company_id": coherent,
+            "source_version_id": span["source_version_id"],
+            "quote": span["quote"],
+            "span_start": span["span_start"],
+            "span_end": span["span_end"],
+            "epistemic_type": "company_claim",
+            "step": "context",
+            "statement": BELIEF_STEP_STATEMENT,
+            "status": "in_effect",
+        },
+        201,
+    )["fact"]["id"]
+    belief = post(
+        "/api/v1/beliefs",
+        {
+            "statement": BELIEF,
+            "theme": "photonics",
+            "step": "control",
+            "company_ids": [coherent],
+            "as_of": "2026-09-01T00:00:00Z",
+            "actor": "e2e-session",
+            "citations": [{"ref_id": fact, "valence": 0.9, "weight": "load_bearing"}],
+        },
+        201,
+    )
+    post(
+        f"/api/v1/beliefs/{belief['id']}/judge",
+        {
+            "actor": "owner",
+            "judgement": "proven",
+            "confidence": 0.85,
+            "reason": "seeded by scripts/e2e.py",
+        },
+        200,
+    )
+    saved = post("/api/v1/hypotheses", {"theme": "photonics"}, 202)
+    llm.script_chat(ChatReply.answer(belief_editor, tokens=(4000, 600)))
+    drafted: dict[str, Any] = {}
+    for _ in range(5):
+        atlas.worker_pass()
+        drafted = atlas.get(f"/api/v1/hypotheses/{saved['id']}")
+        if drafted["draft_status"] != "queued":
+            break
+    if drafted["draft_status"] != "drafted":
+        raise SystemExit(f"e2e: the Belief-backed draft failed: {drafted['draft_error']}")
+    steps: list[dict[str, Any]] = drafted["versions"][0]["content"]["steps"]
+    [step] = steps
+    if step["statement"] != BELIEF_STEP_STATEMENT:
+        raise SystemExit(f"e2e: the step statement was set aside: {drafted['versions'][0]}")
 
 
 def scenario_table(atlas: Atlas, company_id: str, supply_span: dict[str, Any]) -> dict[str, Any]:

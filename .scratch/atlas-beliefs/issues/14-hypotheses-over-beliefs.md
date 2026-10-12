@@ -1,7 +1,7 @@
 # 14: A Hypothesis is its thesis and the Beliefs it rests on
 
 Type: build
-Status: ready-for-agent
+Status: done
 Blocked by: none
 
 ## What to build
@@ -10,5 +10,5 @@ Blocked by: none
 
 ## Acceptance criteria
 
-- [ ] API tests: a draft from proven Beliefs; the gate; the snapshot's steps; the read. Hypothesis e2e extended with a seeded Belief-backed version.
+- [x] API tests: a draft from proven Beliefs; the gate; the snapshot's steps; the read. Hypothesis e2e extended with a seeded Belief-backed version (written, not run locally: the runners run it).
 - [ ] One photonics Hypothesis published on production from the closing session's Beliefs plus one more session (the lead; `.scratch/pilot/results.md`), linked from the artifact page.

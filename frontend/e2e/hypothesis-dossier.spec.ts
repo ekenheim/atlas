@@ -29,6 +29,12 @@ const SUPPLY = {
     " networking products",
 };
 const INVESTMENT = "NVIDIA has invested $2 billion in Coherent.";
+const BELIEF = "Coherent holds a multi-year supply agreement with NVIDIA for advanced lasers.";
+const BELIEF_STEP =
+  "Coherent entered into a strategic multi-year supply agreement with NVIDIA for advanced lasers.";
+const BELIEF_THESIS =
+  "Advanced-laser supply may be controlled by suppliers with long-term agreements, such as" +
+  " Coherent.";
 const LIMIT =
   "the agreement no longer commits NVIDIA to purchase from Coherent after December 31, 2027";
 const OWNS = "NVIDIA owns Coherent";
@@ -43,7 +49,10 @@ test("a Hypothesis's versions, diff, gate, snapshots and scenarios, and a citati
     .click();
   await expect(page.getByRole("heading", { level: 1, name: "Hypotheses" })).toBeVisible();
   const list = page.getByRole("table", { name: "Hypotheses, newest first" });
-  await expect(list.locator("tbody").getByRole("row").getByRole("cell")).toHaveText([
+  // The seed holds a second Hypothesis, over Beliefs (the next test); this one's row is read.
+  await expect(
+    list.locator("tbody").getByRole("row").filter({ hasText: THESIS[2] }).getByRole("cell"),
+  ).toHaveText([
     THESIS[2],
     "Reviewed",
     "photonics",
@@ -170,4 +179,32 @@ test("a Hypothesis's versions, diff, gate, snapshots and scenarios, and a citati
   const mark = page.getByRole("region", { name: "Parsed text" }).locator("mark");
   await expect(mark).toHaveText(SUPPLY.quote);
   await expect(mark).toBeInViewport();
+});
+
+// The seed's second Hypothesis, drafted from a proven Belief: it leads with the thesis and the
+// steps, each Belief with its judgement and the Fact's quote, then the falsifiers.
+test("a Hypothesis over Beliefs leads with its thesis and steps, each Belief with its quote", async ({
+  page,
+}) => {
+  await page.goto("/hypotheses/");
+  await page.getByRole("link", { name: BELIEF_THESIS }).click();
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(BELIEF_THESIS);
+  const rests = page.getByRole("region", { name: "What it rests on" });
+  await expect(rests.getByRole("region", { name: "Control" })).toContainText(BELIEF_STEP);
+  const beliefs = rests.getByRole("list", { name: "Control beliefs" });
+  await expect(beliefs.getByRole("listitem", { name: BELIEF })).toContainText("Proven 85%");
+  await expect(beliefs.getByRole("link", { name: BELIEF })).toBeVisible();
+  await expect(beliefs.locator("blockquote")).toHaveText(SUPPLY.quote);
+  await expect(
+    page.getByRole("list", { name: "What would falsify it" }).getByRole("listitem"),
+  ).toHaveText(["A qualified second laser source ships to NVIDIA"]);
+  await expect(page.getByRole("heading", { level: 2, name: "Open Issues" })).toBeVisible();
+  // It has no investigation: the summary gives its question instead.
+  await expect(page.getByRole("row", { name: /^Investigation/ })).toHaveCount(0);
+
+  // The Belief's record, and the quote opened at its span.
+  await beliefs.getByRole("link", { name: "Source" }).click();
+  const mark = page.getByRole("region", { name: "Parsed text" }).locator("mark");
+  await expect(mark).toHaveText(SUPPLY.quote);
 });

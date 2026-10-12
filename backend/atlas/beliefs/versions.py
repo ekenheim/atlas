@@ -68,3 +68,69 @@ def record_version_beliefs(
                 "confidence": each["confidence"],
             },
         )
+
+
+def unproven_step_beliefs(
+    connection: Connection, belief_ids: Sequence[uuid.UUID]
+) -> list[dict[str, Any]]:
+    """The Beliefs a Hypothesis version's steps rest on (ticket 14) that are not `proven` now
+    or are no longer active (a superseded or withdrawn Belief is shown as its status)."""
+    if not belief_ids:
+        return []
+    rows = connection.execute(
+        text(
+            "SELECT b.id AS belief_id, b.status, j.judgement FROM belief b"
+            " JOIN LATERAL (SELECT * FROM belief_judgement x WHERE x.belief_id = b.id"
+            "   ORDER BY x.at DESC, x.id DESC LIMIT 1) j ON true"
+            " WHERE b.id = ANY(CAST(:ids AS uuid[])) ORDER BY b.created_at, b.id"
+        ),
+        {"ids": list(belief_ids)},
+    ).mappings()
+    return [
+        {
+            "belief_id": row["belief_id"],
+            "judgement": row["judgement"] if row["status"] == "active" else row["status"],
+        }
+        for row in rows
+        if row["status"] != "active" or row["judgement"] != "proven"
+    ]
+
+
+def flagged_beliefs(
+    connection: Connection, belief_ids: Sequence[uuid.UUID]
+) -> list[dict[str, Any]]:
+    """Of `belief_ids`, those with an open flag (raised by code, cleared by a judgement), with
+    the flags' details."""
+    if not belief_ids:
+        return []
+    rows = connection.execute(
+        text(
+            "SELECT b.id AS belief_id, string_agg(f.detail, '; ' ORDER BY f.raised_at) AS detail"
+            " FROM belief b JOIN belief_flag f ON f.belief_id = b.id AND f.cleared_by IS NULL"
+            " WHERE b.id = ANY(CAST(:ids AS uuid[])) GROUP BY b.id, b.created_at"
+            " ORDER BY b.created_at, b.id"
+        ),
+        {"ids": list(belief_ids)},
+    ).mappings()
+    return [dict(row) for row in rows]
+
+
+def record_step_beliefs(
+    connection: Connection, version_id: uuid.UUID, belief_ids: Sequence[uuid.UUID]
+) -> None:
+    """Record the Beliefs a version's steps rest on, load-bearing, with the judgement now (in
+    the publishing transaction); one already recorded through a finding is left as it is."""
+    if not belief_ids:
+        return
+    connection.execute(
+        text(
+            "INSERT INTO hypothesis_version_belief (hypothesis_version_id, belief_id,"
+            " load_bearing, judgement, confidence)"
+            " SELECT :version, b.id, true, j.judgement, j.confidence FROM belief b"
+            " JOIN LATERAL (SELECT * FROM belief_judgement x WHERE x.belief_id = b.id"
+            "   ORDER BY x.at DESC, x.id DESC LIMIT 1) j ON true"
+            " WHERE b.id = ANY(CAST(:ids AS uuid[]))"
+            " ON CONFLICT (hypothesis_version_id, belief_id) DO NOTHING"
+        ),
+        {"version": version_id, "ids": list(belief_ids)},
+    )

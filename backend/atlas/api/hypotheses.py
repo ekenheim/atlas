@@ -1,8 +1,13 @@
 """`/api/v1/hypotheses`: save an investigation's result as a Hypothesis and work with it.
 
-- `POST /hypotheses` (202, `{"investigation_id"}`): a `draft` Hypothesis for a stopped
-  investigation with a research card (one per investigation), and the `draft_hypothesis` job
-  in which the Editor drafts version 1. 503 when LiteLLM or Hindsight isn't configured.
+- `POST /hypotheses` (202, `{"investigation_id"}` or `{"theme", "session_ids"?, "question"?}`):
+  a `draft` Hypothesis for a stopped investigation with a research card (one per
+  investigation), or one over the theme's proven Beliefs (those of the sessions, if named; 409
+  when none is proven), and the `draft_hypothesis` job in which the Editor drafts version 1.
+  A Hypothesis over Beliefs has `investigation_id` null and `steps` in each version's content:
+  the argument's steps, each with the Beliefs it rests on (judgement, confidence, as-of and
+  the Facts' quotes at their spans) and the step's statement, grounded and judged
+  (atlas.hypotheses.belief_drafting). 503 when LiteLLM or Hindsight isn't configured.
 - `GET /hypotheses[?theme_id=&status=]`, `GET /hypotheses/{id}`: status and allowed
   transitions, the drafting's state, every version (content, content hash, provenance,
   publication) and the transitions.
@@ -83,7 +88,37 @@ _Text = Annotated[str, Field(min_length=1, max_length=4000, pattern=r"\S")]
 class HypothesisCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    investigation_id: uuid.UUID = Field(description="a stopped investigation with a research card")
+    investigation_id: uuid.UUID | None = Field(
+        default=None, description="a stopped investigation with a research card"
+    )
+    theme: str | None = Field(
+        default=None,
+        min_length=1,
+        description="draft from this theme's proven Beliefs instead (no investigation)",
+    )
+    session_ids: list[uuid.UUID] = Field(
+        default_factory=list[uuid.UUID],
+        description="with `theme`: only the Beliefs these research sessions produced"
+        " (empty: the theme's)",
+    )
+    as_of: datetime | None = Field(
+        default=None,
+        description="with `theme`: the version's cutoff; only Beliefs with an as-of time at or"
+        " before it are taken (default: the latest of the proven ones now)",
+    )
+    question: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="with `theme`: the question the Hypothesis answers (default: the sessions')",
+    )
+
+    @model_validator(mode="after")
+    def _one_basis(self) -> Self:
+        if (self.investigation_id is None) == (self.theme is None):
+            raise ValueError("give either investigation_id or theme, not both and not neither")
+        if self.investigation_id is not None and (self.session_ids or self.question or self.as_of):
+            raise ValueError("session_ids, question and as_of go with theme")
+        return self
 
 
 class TransitionRequest(BaseModel):
@@ -209,7 +244,17 @@ def hypotheses_router(
                 503, "hypotheses_not_configured", f"the Editor's draft needs {', '.join(missing)}"
             )
         try:
-            hypothesis_id = hypotheses.create(actor, request.investigation_id)
+            if request.theme is not None:
+                hypothesis_id = hypotheses.create_from_beliefs(
+                    actor,
+                    theme=request.theme,
+                    session_ids=request.session_ids,
+                    question=request.question,
+                    as_of=request.as_of,
+                )
+            else:
+                assert request.investigation_id is not None
+                hypothesis_id = hypotheses.create(actor, request.investigation_id)
         except HypothesisError as error:
             return failed(error)
         return found(hypothesis_id)

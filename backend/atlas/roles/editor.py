@@ -456,3 +456,68 @@ HYPOTHESIS_EDITOR = Role(
     response=HypothesisDraft,
     max_output_tokens=4096,
 )
+
+
+# --- the Hypothesis drafted from Beliefs (atlas-beliefs ticket 14) ------------------------------
+
+HYPOTHESIS_BELIEFS_EDITOR_PROMPT_VERSION = 1
+
+
+class BeliefItem(_Request):
+    """A proven Belief as the Hypothesis Editor is sent it, by a short reference (`b1`, ...)."""
+
+    ref: str
+    step: str
+    statement: str
+    judgement: str
+    confidence: float
+    as_of: str  # ISO date
+    companies: list[str]
+    # The retrieved-data ids of the Facts' exact quotes the Belief rests on load-bearingly
+    # (`b1.1`, `b1.2`, ...): the words the Belief's statement is held to.
+    quote_refs: list[str]
+
+
+class OpenIssueItem(_Request):
+    title: str
+    kind: str
+
+
+class HypothesisBeliefsRequest(_Request):
+    theme_id: str
+    theme_title: str
+    research_question: str
+    beliefs: list[BeliefItem]
+    open_issues: list[OpenIssueItem]  # the theme's open research Issues, for the open questions
+
+
+class BeliefStepStatement(RoleOutput):
+    """One step of the argument in a sentence or two, citing the Beliefs it rests on."""
+
+    step: str
+    statement: str
+    belief_refs: list[str]
+
+
+class HypothesisBeliefsDraft(RoleOutput):
+    thesis_statement: str
+    thesis_belief_refs: list[str]
+    mechanism: Mechanism
+    measurable_predictions: list[str]
+    catalysts: list[str]
+    falsifiers: list[str]
+    required_evidence: list[str]
+    alternative_explanations: list[str]
+    unresolved_questions: list[str]
+    steps: list[BeliefStepStatement]
+
+
+HYPOTHESIS_BELIEFS_EDITOR = Role(
+    name="editor",
+    prompt=Prompt.load(
+        PROMPTS_DIR, "editor-hypothesis-beliefs", HYPOTHESIS_BELIEFS_EDITOR_PROMPT_VERSION
+    ),
+    request=HypothesisBeliefsRequest,
+    response=HypothesisBeliefsDraft,
+    max_output_tokens=8192,
+)

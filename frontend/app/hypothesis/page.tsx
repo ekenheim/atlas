@@ -11,6 +11,7 @@ import {
   VersionContent,
   VersionDiff,
 } from "../../components/hypothesis";
+import { HypothesisSteps, OpenIssues } from "../../components/hypothesis-steps";
 import { edgeLabel } from "../../components/relationships";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import {
@@ -28,6 +29,7 @@ import {
   versionLabel,
   words,
 } from "../../lib/hypotheses";
+import { stepsOf } from "../../lib/hypothesis-steps";
 import { STATES } from "../../lib/relationships";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
@@ -129,6 +131,20 @@ function Body({
             <a href={api.exportUrl(hypothesis.id, "markdown", version.version)}>Markdown</a>{" "}
             <span className="muted-small">(with citations and run metadata)</span>
           </p>
+          {stepsOf(version).length > 0 && (
+            <>
+              <HypothesisSteps version={version} theme={hypothesis.theme_id} />
+              <section aria-labelledby="falsifiers-lead">
+                <h2 id="falsifiers-lead">What would falsify it</h2>
+                <ul aria-label="What would falsify it">
+                  {version.content.falsifiers.map((each, index) => (
+                    <li key={index}>{each}</li>
+                  ))}
+                </ul>
+              </section>
+              <OpenIssues theme={hypothesis.theme_id} />
+            </>
+          )}
           <VersionContent version={version} />
           <Findings hypothesisId={hypothesis.id} version={version} />
           <VersionDiff
@@ -166,9 +182,13 @@ function Summary({ hypothesis }: { hypothesis: Hypothesis }) {
         <Row name="Next review">
           <Timestamp value={hypothesis.next_review_at} />
         </Row>
-        <Row name="Investigation">
-          <Code>{hypothesis.investigation_id}</Code>
-        </Row>
+        {hypothesis.investigation_id === null ? (
+          <Row name="Question">{hypothesis.question}</Row>
+        ) : (
+          <Row name="Investigation">
+            <Code>{hypothesis.investigation_id}</Code>
+          </Row>
+        )}
       </tbody>
     </table>
   );
@@ -215,8 +235,9 @@ function Publish({
       <h2 id="publish">Lifecycle and publication</h2>
       <p>
         Status: <strong>{words(hypothesis.status)}</strong>. Publishing freezes the latest version
-        and its Research Snapshot; it needs at least one falsifier, one unresolved question, and the
-        owner’s approval of every Relationship the findings depend on.
+        and its Research Snapshot; it needs at least one falsifier, one unresolved question, every
+        Belief it rests on proven, and the owner’s approval of every Relationship the findings
+        depend on.
       </p>
       {hypothesis.allowed_transitions.length > 0 && (
         <p>

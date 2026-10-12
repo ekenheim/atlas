@@ -74,6 +74,9 @@ class ContradictionCheck:
         with self._engine.begin() as connection:
             if trigger == "source_revised":
                 flag_source_revised(connection, self._archive, ref)  # Beliefs (ticket 02)
+            if trigger == "belief_changed":
+                changed = self._belief_changed(connection, job, ref, key)
+                return {"proposed_update_ids": [str(each) for each in changed], "skipped": None}
             found, skipped = self._find(connection, trigger, ref)
             if found is None:
                 return {"proposed_update_ids": [], "skipped": skipped}
@@ -242,43 +245,158 @@ class ContradictionCheck:
                 },
             ).scalars()
         )
-        inserted = (
+        return _store(
+            connection,
+            job,
+            trigger,
+            key,
+            found.summary.format(version=version.version),
+            row,
+            version.id,
+            evidence,
+            affected,
+            candidates,
+        )
+
+    def _belief_changed(
+        self, connection: Connection, job: Job, belief_id: uuid.UUID, key: str
+    ) -> list[uuid.UUID]:
+        """A Belief the latest published version of a Hypothesis rests on is no longer as the
+        version recorded it (flagged, judged otherwise, superseded or withdrawn): one proposed
+        update each, naming the Belief and the steps it is in (ticket 14)."""
+        belief = (
             connection.execute(
                 text(
-                    "INSERT INTO proposed_update (id, hypothesis_id, hypothesis_version_id,"
-                    " trigger, trigger_key, summary, evidence, affected_findings, candidate_ids,"
-                    " detected_by_job_id) VALUES (:id, :hypothesis, :version, :trigger, :key,"
-                    " :summary, CAST(:evidence AS jsonb), CAST(:affected AS jsonb), :candidates,"
-                    " :job) ON CONFLICT (hypothesis_version_id, trigger_key) DO NOTHING"
-                    " RETURNING *"
+                    "SELECT b.id, b.statement, b.status, j.judgement,"
+                    " (SELECT count(*) FROM belief_flag f WHERE f.belief_id = b.id"
+                    "  AND f.cleared_by IS NULL) AS open_flags,"
+                    " (SELECT string_agg(f.detail, '; ' ORDER BY f.raised_at) FROM belief_flag f"
+                    "  WHERE f.belief_id = b.id AND f.cleared_by IS NULL) AS flag_details"
+                    " FROM belief b JOIN LATERAL (SELECT * FROM belief_judgement x"
+                    "  WHERE x.belief_id = b.id ORDER BY x.at DESC, x.id DESC LIMIT 1) j ON true"
+                    " WHERE b.id = :id"
                 ),
-                {
-                    "id": uuid.uuid4(),
-                    "hypothesis": row["hypothesis_id"],
-                    "version": version.id,
-                    "trigger": trigger,
-                    "key": key,
-                    "summary": found.summary.format(version=version.version),
-                    "evidence": _json([e.model_dump(mode="json") for e in evidence]),
-                    "affected": _json([a.model_dump(mode="json") for a in affected]),
-                    "candidates": candidates,
-                    "job": job.id,
-                },
+                {"id": belief_id},
             )
             .mappings()
-            .one_or_none()
+            .one()
         )
-        if inserted is None:
-            return None  # an earlier attempt proposed it
-        record(
-            connection,
-            DETECTOR_ACTOR,
-            "proposed_update.created",
-            entity_type="proposed_update",
-            entity_id=str(inserted["id"]),
-            new_hash=content_hash(dict(inserted)),
+        targets = list(
+            connection.execute(
+                text(
+                    "WITH latest AS (SELECT DISTINCT ON (hypothesis_id) * FROM hypothesis_version"
+                    "  WHERE published_at IS NOT NULL ORDER BY hypothesis_id, version DESC)"
+                    " SELECT l.*, r.judgement AS recorded_judgement FROM latest l"
+                    " JOIN hypothesis_version_belief r ON r.hypothesis_version_id = l.id"
+                    "  AND r.belief_id = :belief ORDER BY l.hypothesis_id"
+                ),
+                {"belief": belief_id},
+            ).mappings()
         )
-        return inserted["id"]
+        created: list[uuid.UUID] = []
+        statement = str(belief["statement"])
+        for row in targets:
+            reasons: list[str] = []
+            if belief["status"] != "active":
+                reasons.append(f"it is {belief['status']}")
+            if belief["judgement"] != row["recorded_judgement"]:
+                reasons.append(
+                    f"it is now judged {belief['judgement']} (it was {row['recorded_judgement']})"
+                )
+            if belief["open_flags"]:
+                reasons.append(f"it is flagged: {belief['flag_details']}")
+            if not reasons:
+                continue
+            version = version_from_row(row)
+            evidence = ContradictingEvidence(
+                kind="belief",
+                id=belief_id,
+                description=f"Belief {statement!r}: " + "; ".join(reasons),
+                state=str(belief["judgement"]),
+                note=None,
+                assertion_id=None,
+                source_version_id=None,
+                quote=None,
+                revises_source_version_id=None,
+                contradicts_assertion_ids=[],
+            )
+            affected = [
+                AffectedFinding(
+                    index=index,
+                    claim_text=f"{step.step}: {step.statement or statement}",
+                    assertion_ids=[],
+                )
+                for index, step in enumerate(version.content.steps)
+                if any(each.belief_id == belief_id for each in step.beliefs)
+            ]
+            proposed = _store(
+                connection,
+                job,
+                "belief_changed",
+                key,
+                f"A Belief version {version.version} rests on changed: {reasons[0]}.",
+                row,
+                version.id,
+                [evidence],
+                affected,
+                [],
+            )
+            if proposed is not None:
+                created.append(proposed)
+        return created
+
+
+def _store(
+    connection: Connection,
+    job: Job,
+    trigger: Trigger,
+    key: str,
+    summary: str,
+    row: RowMapping,
+    version_id: uuid.UUID,
+    evidence: Sequence[ContradictingEvidence],
+    affected: Sequence[AffectedFinding],
+    candidates: Sequence[uuid.UUID],
+) -> uuid.UUID | None:
+    """Insert one proposed update (unique per version and event); its ID, or None when an
+    earlier attempt proposed it. Audited."""
+    inserted = (
+        connection.execute(
+            text(
+                "INSERT INTO proposed_update (id, hypothesis_id, hypothesis_version_id,"
+                " trigger, trigger_key, summary, evidence, affected_findings, candidate_ids,"
+                " detected_by_job_id) VALUES (:id, :hypothesis, :version, :trigger, :key,"
+                " :summary, CAST(:evidence AS jsonb), CAST(:affected AS jsonb), :candidates,"
+                " :job) ON CONFLICT (hypothesis_version_id, trigger_key) DO NOTHING"
+                " RETURNING *"
+            ),
+            {
+                "id": uuid.uuid4(),
+                "hypothesis": row["hypothesis_id"],
+                "version": version_id,
+                "trigger": trigger,
+                "key": key,
+                "summary": summary,
+                "evidence": _json([e.model_dump(mode="json") for e in evidence]),
+                "affected": _json([a.model_dump(mode="json") for a in affected]),
+                "candidates": list(candidates),
+                "job": job.id,
+            },
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if inserted is None:
+        return None
+    record(
+        connection,
+        DETECTOR_ACTOR,
+        "proposed_update.created",
+        entity_type="proposed_update",
+        entity_id=str(inserted["id"]),
+        new_hash=content_hash(dict(inserted)),
+    )
+    return inserted["id"]
 
 
 def _reviewed_assertion(

@@ -12,7 +12,7 @@ from sqlalchemy import Connection, RowMapping, text
 from atlas.proposed_updates.triggers import Trigger
 
 ProposedUpdateState = Literal["open", "accepted", "dismissed"]
-EvidenceKind = Literal["assertion", "relationship", "source_version", "counterevidence"]
+EvidenceKind = Literal["assertion", "relationship", "source_version", "counterevidence", "belief"]
 
 
 class ContradictingEvidence(BaseModel):
@@ -23,7 +23,7 @@ class ContradictingEvidence(BaseModel):
     kind: EvidenceKind
     id: uuid.UUID = Field(
         description="the Assertion reviewed, the Relationship rejected, the revised Source"
-        " Version, or the counterevidence item"
+        " Version, the counterevidence item, or the Belief that changed"
     )
     description: str
     state: str | None = Field(description="the Assertion's or Relationship's review state")
@@ -42,7 +42,10 @@ class ContradictingEvidence(BaseModel):
 class AffectedFinding(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    index: int = Field(description="the finding's position in the version, from 0")
+    index: int = Field(
+        description="the finding's position in the version, from 0 (for a Belief's change, the"
+        " step's)"
+    )
     claim_text: str
     assertion_ids: list[uuid.UUID] = Field(description="its contradicted Assertions")
 

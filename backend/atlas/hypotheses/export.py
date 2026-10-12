@@ -97,7 +97,8 @@ class ExportRoleCall(BaseModel):
 class RunMetadata(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    investigation: ExportInvestigation
+    # null for a Hypothesis drafted from Beliefs (ticket 14): it has no investigation
+    investigation: ExportInvestigation | None
     runs: list[Run]
     role_calls: list[ExportRoleCall]
 
@@ -215,30 +216,32 @@ def _citation(connection: Connection, number: int, span: SourceSpan) -> Citation
 
 def _run_metadata(connection: Connection, version: HypothesisVersion) -> RunMetadata:
     provenance = version.provenance
-    row = (
-        connection.execute(
-            text("SELECT * FROM investigation WHERE id = :id"),
-            {"id": provenance.investigation_id},
+    investigation: ExportInvestigation | None = None
+    if provenance.investigation_id is not None:
+        row = (
+            connection.execute(
+                text("SELECT * FROM investigation WHERE id = :id"),
+                {"id": provenance.investigation_id},
+            )
+            .mappings()
+            .one()
         )
-        .mappings()
-        .one()
-    )
-    investigation = ExportInvestigation(
-        id=row["id"],
-        theme=row["theme"],
-        question=row["question"],
-        as_of=row["as_of"],
-        stop_reason=row["stop_reason"],
-        stop_detail=row["stop_detail"],
-        budgets=Budgets(
-            max_rounds=row["max_rounds"],
-            max_leads=row["max_leads"],
-            max_documents=row["max_documents"],
-            max_companies=row["max_companies"],
-            token_budget=row["token_budget"],
-        ),
-        run_id=row["run_id"],
-    )
+        investigation = ExportInvestigation(
+            id=row["id"],
+            theme=row["theme"],
+            question=row["question"],
+            as_of=row["as_of"],
+            stop_reason=row["stop_reason"],
+            stop_detail=row["stop_detail"],
+            budgets=Budgets(
+                max_rounds=row["max_rounds"],
+                max_leads=row["max_leads"],
+                max_documents=row["max_documents"],
+                max_companies=row["max_companies"],
+                token_budget=row["token_budget"],
+            ),
+            run_id=row["run_id"],
+        )
     run_ids = [
         each
         for each in dict.fromkeys((provenance.investigation_run_id, provenance.draft_run_id))
@@ -319,6 +322,25 @@ def render_markdown(export: HypothesisExport) -> str:
         lines += [f"## {title}", ""]
         lines += [f"- {_one_line(item)}" for item in items] or ["- none"]
         lines.append("")
+    if content.steps:
+        lines += ["## Steps (the Beliefs the thesis rests on)", ""]
+        for step in content.steps:
+            lines.append(f"### {step.step}")
+            if step.statement:
+                lines.append(_one_line(step.statement))
+            for belief in step.beliefs:
+                lines.append(
+                    f"- Belief `{belief.belief_id}` ({belief.judgement}, confidence"
+                    f" {belief.confidence:.2f}, as of {_time(belief.as_of)}):"
+                    f" {_one_line(belief.statement)}"
+                )
+                for each in belief.citations:
+                    lines.append(
+                        f'  - "{_one_line(each.quote)}" ({_one_line(each.source_title or "")},'
+                        f" Source Version `{each.source_version_id}`, characters"
+                        f" {each.span_start}-{each.span_end}; Fact `{each.ref_id}`)"
+                    )
+            lines.append("")
     lines += ["## Findings", ""]
     if not export.findings:
         lines += ["No finding cites accepted Evidence.", ""]
@@ -371,14 +393,18 @@ def render_markdown(export: HypothesisExport) -> str:
         lines.append("None.")
     meta = export.run_metadata
     investigation = meta.investigation
-    lines += [
-        "",
-        "## Run metadata",
-        "",
-        f"- Investigation `{investigation.id}`: {_one_line(investigation.question)}"
-        f" (theme {investigation.theme}, as of {_time(investigation.as_of)}, stopped"
-        f" {investigation.stop_reason}; run `{investigation.run_id}`)",
-    ]
+    lines += ["", "## Run metadata", ""]
+    if investigation is not None:
+        lines.append(
+            f"- Investigation `{investigation.id}`: {_one_line(investigation.question)}"
+            f" (theme {investigation.theme}, as of {_time(investigation.as_of)}, stopped"
+            f" {investigation.stop_reason}; run `{investigation.run_id}`)"
+        )
+    else:
+        lines.append(
+            f"- Drafted from {len(version.provenance.belief_ids)} proven Beliefs of theme"
+            f" {export.theme_id}"
+        )
     for run in meta.runs:
         models = ", ".join(
             f"{alias} → {'/'.join(d.model for d in deployments) or 'unrouted'}"
