@@ -29,10 +29,10 @@ from tests.harness import LITE_10K, QUOTA_ERROR, Atlas, Clock, Metrics, at, scra
 
 FIVE_HOURS = timedelta(hours=5)
 # `consolidate` has a budget of its own, counted by rounds (memory-quality ticket 20).
-CODEX_KINDS = ["reflect", "refresh_mental_model", "replay", "reprocess", "retain"]
+CODEX_KINDS = ["reflect", "refresh_mental_model", "replay", "reprocess", "retain", "retain_belief"]
 # With ATLAS_RETAIN_EXTRACTOR set, retains leave the Codex budget for their own.
 CODEX_KINDS_WITHOUT_RETAINS = ["reflect", "refresh_mental_model", "replay"]
-ROUTED_RETAIN_KINDS = ["reprocess", "retain"]
+ROUTED_RETAIN_KINDS = ["reprocess", "retain", "retain_belief"]
 MINIMAX_KINDS = [
     "discover",
     "extract_claims",
