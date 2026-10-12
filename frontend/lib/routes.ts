@@ -23,6 +23,10 @@ export const routes = {
   theme: withId("theme"),
   /** The research workbench: start an investigation, and every investigation so far. */
   workbench: "/workbench/",
+  /** Every research session, newest first. */
+  sessions: "/sessions/",
+  /** One research session: its card, Facts and usage. */
+  session: withId("session"),
   /** One investigation: its plan, events, Evidence tray, contradictions and actions. */
   investigation: withId("investigation"),
   /** Every Hypothesis, newest first. */

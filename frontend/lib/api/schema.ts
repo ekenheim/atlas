@@ -431,6 +431,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sessions */
+        get: operations["sessions_api_v1_sessions_get"];
+        put?: never;
+        /** Open Session */
+        post: operations["open_session_api_v1_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Session */
+        get: operations["session_api_v1_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close */
+        post: operations["close_api_v1_sessions__session_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/source-versions/{version_id}/memory": {
         parameters: {
             query?: never;
@@ -4166,6 +4218,11 @@ export interface components {
              */
             investigation_id?: string | null;
             /**
+             * Session Id
+             * @description the research session it was recorded in, if any
+             */
+            session_id?: string | null;
+            /**
              * Step
              * @enum {string}
              */
@@ -6095,6 +6152,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[SessionSummary] */
+        Page_SessionSummary_: {
+            /** Items */
+            items: components["schemas"]["SessionSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[SourceDocument] */
         Page_SourceDocument_: {
             /** Items */
@@ -7554,6 +7622,56 @@ export interface components {
              */
             layer?: string | null;
         };
+        /** ResearchSession */
+        ResearchSession: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Question */
+            question: string;
+            /** Theme */
+            theme: string;
+            /** Seed Company Ids */
+            seed_company_ids: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            kind: components["schemas"]["SessionKind"];
+            /** Model */
+            model: string | null;
+            /** Actor */
+            actor: string;
+            /** Investigation Id */
+            investigation_id: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Usage */
+            usage: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Facts
+             * @description the Facts recorded in it
+             */
+            facts: number;
+            /** Card */
+            card: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Card Markdown */
+            card_markdown: string | null;
+            /** Fact Items */
+            fact_items: components["schemas"]["atlas__facts__service__Fact"][];
+        };
         /**
          * ResearchSnapshot
          * @description A snapshot read back and verified: `content` hashes to `sha256`.
@@ -8162,6 +8280,93 @@ export interface components {
             lines: {
                 [key: string]: string | null;
             };
+        };
+        /** SessionClose */
+        SessionClose: {
+            /** Usage */
+            usage?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Card
+             * @description the argument plan's card shape: steps, question parts, ...
+             */
+            card?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Card Markdown */
+            card_markdown?: string | null;
+        };
+        /** @enum {string} */
+        SessionKind: "claude" | "pipeline";
+        /** SessionOpen */
+        SessionOpen: {
+            /** Question */
+            question: string;
+            /** Theme */
+            theme: string;
+            /** Seed Company Ids */
+            seed_company_ids?: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Kind
+             * @default claude
+             * @constant
+             */
+            kind: "claude";
+            /** Model */
+            model?: string | null;
+            /**
+             * Actor
+             * @description who researches; default: the caller
+             */
+            actor?: string | null;
+        };
+        /** SessionSummary */
+        SessionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Question */
+            question: string;
+            /** Theme */
+            theme: string;
+            /** Seed Company Ids */
+            seed_company_ids: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            kind: components["schemas"]["SessionKind"];
+            /** Model */
+            model: string | null;
+            /** Actor */
+            actor: string;
+            /** Investigation Id */
+            investigation_id: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Usage */
+            usage: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Facts
+             * @description the Facts recorded in it
+             */
+            facts: number;
         };
         /** SkippedVersion */
         SkippedVersion: {
@@ -9144,6 +9349,8 @@ export interface components {
             id: string;
             /** Investigation Id */
             investigation_id: string | null;
+            /** Session Id */
+            session_id?: string | null;
             /**
              * Step
              * @enum {string}
@@ -10179,6 +10386,7 @@ export interface operations {
                 company_id?: string | null;
                 step?: ("constraint" | "demand_vs_supply" | "relief" | "control" | "capture" | "invalidation" | "context") | null;
                 investigation_id?: string | null;
+                session_id?: string | null;
                 /** @description page size */
                 limit?: number;
                 /** @description items to skip */
@@ -10261,6 +10469,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["atlas__facts__service__Fact"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    sessions_api_v1_sessions_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SessionSummary_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    open_session_api_v1_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionOpen"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummary"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    session_api_v1_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchSession"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    close_api_v1_sessions__session_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionClose"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchSession"];
                 };
             };
             /** @description Not Found */
