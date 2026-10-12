@@ -5338,11 +5338,14 @@ export interface components {
             id: string;
             /** Theme Id */
             theme_id: string;
-            /**
-             * Investigation Id
-             * Format: uuid
-             */
-            investigation_id: string;
+            /** Investigation Id */
+            investigation_id: string | null;
+            /** Question */
+            question: string | null;
+            /** As Of */
+            as_of: string | null;
+            /** Session Ids */
+            session_ids: string[];
             /** Related Company Ids */
             related_company_ids: string[];
             /**
@@ -5422,15 +5425,33 @@ export interface components {
             unsupported_findings: components["schemas"]["UnsupportedFinding"][];
             /** Contradictions */
             contradictions?: components["schemas"]["CardContradiction"][];
+            /** Steps */
+            steps?: components["schemas"]["HypothesisStep"][];
+            /** Thesis Belief Ids */
+            thesis_belief_ids?: string[];
         };
         /** HypothesisCreate */
         HypothesisCreate: {
             /**
              * Investigation Id
-             * Format: uuid
              * @description a stopped investigation with a research card
              */
-            investigation_id: string;
+            investigation_id?: string | null;
+            /**
+             * Theme
+             * @description draft from this theme's proven Beliefs instead (no investigation)
+             */
+            theme?: string | null;
+            /**
+             * Session Ids
+             * @description with `theme`: only the Beliefs these research sessions produced (empty: the theme's)
+             */
+            session_ids?: string[];
+            /**
+             * Question
+             * @description with `theme`: the question the Hypothesis answers (default: the sessions')
+             */
+            question?: string | null;
         };
         /** HypothesisDiff */
         HypothesisDiff: {
@@ -5493,6 +5514,22 @@ export interface components {
             /** Citations */
             citations: components["schemas"]["atlas__hypotheses__export__Citation"][];
             run_metadata: components["schemas"]["RunMetadata"];
+        };
+        /** HypothesisStep */
+        HypothesisStep: {
+            /** Step */
+            step: string;
+            /** Statement */
+            statement?: string | null;
+            /**
+             * Statement Belief Ids
+             * @default []
+             */
+            statement_belief_ids: string[];
+            /** Judged */
+            judged?: boolean | null;
+            /** Beliefs */
+            beliefs: components["schemas"]["StepBelief"][];
         };
         /** HypothesisTransition */
         HypothesisTransition: {
@@ -8895,7 +8932,7 @@ export interface components {
         };
         /** RunMetadata */
         RunMetadata: {
-            investigation: components["schemas"]["ExportInvestigation"];
+            investigation: components["schemas"]["ExportInvestigation"] | null;
             /** Runs */
             runs: components["schemas"]["Run"][];
             /** Role Calls */
@@ -9650,6 +9687,68 @@ export interface components {
         Status: "active" | "superseded" | "withdrawn";
         /** @enum {string} */
         Step: "constraint" | "demand_vs_supply" | "relief" | "control" | "capture" | "invalidation";
+        /** StepBelief */
+        StepBelief: {
+            /**
+             * Belief Id
+             * Format: uuid
+             */
+            belief_id: string;
+            /** Statement */
+            statement: string;
+            /** Judgement */
+            judgement: string;
+            /** Confidence */
+            confidence: number;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Judged By */
+            judged_by: string;
+            /** Companies */
+            companies: string[];
+            /** Citations */
+            citations: components["schemas"]["StepCitation"][];
+        };
+        /**
+         * StepCitation
+         * @description A load-bearing citation of a Belief: a Fact (or Assertion) and the words at its span.
+         */
+        StepCitation: {
+            /**
+             * Ref Id
+             * Format: uuid
+             */
+            ref_id: string;
+            /** Kind */
+            kind: string;
+            /** Valence */
+            valence: number;
+            /** Statement */
+            statement: string | null;
+            /** Quote */
+            quote: string;
+            /** Span Start */
+            span_start: number;
+            /** Span End */
+            span_end: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Source Title */
+            source_title: string | null;
+            /** Company Name */
+            company_name: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+        };
         /** @enum {string} */
         TagMatch: "any_strict" | "all_strict";
         /**
@@ -10341,19 +10440,20 @@ export interface components {
          *     call), and for the Editor's draft its own run and call.
          */
         VersionProvenance: {
-            /**
-             * Investigation Id
-             * Format: uuid
-             */
-            investigation_id: string;
+            /** Investigation Id */
+            investigation_id?: string | null;
             /** Investigation Run Id */
-            investigation_run_id: string | null;
+            investigation_run_id?: string | null;
             /** Research Card Role Call Id */
-            research_card_role_call_id: string | null;
+            research_card_role_call_id?: string | null;
             /** Draft Run Id */
-            draft_run_id: string | null;
+            draft_run_id?: string | null;
             /** Editor Role Call Id */
-            editor_role_call_id: string | null;
+            editor_role_call_id?: string | null;
+            /** Session Ids */
+            session_ids?: string[];
+            /** Belief Ids */
+            belief_ids?: string[];
         };
         /** VersionSample */
         VersionSample: {

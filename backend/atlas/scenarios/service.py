@@ -254,8 +254,9 @@ class Scenarios:
                 connection.execute(
                     text(
                         "SELECT h.id, h.investigation_id, h.related_company_ids,"
-                        " i.as_of AS investigation_as_of FROM hypothesis h"
-                        " JOIN investigation i ON i.id = h.investigation_id WHERE h.id = :id"
+                        " coalesce(i.as_of, h.as_of) AS investigation_as_of FROM hypothesis h"
+                        " LEFT JOIN investigation i ON i.id = h.investigation_id"
+                        " WHERE h.id = :id"
                     ),
                     {"id": hypothesis_id},
                 )

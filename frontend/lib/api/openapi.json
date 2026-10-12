@@ -17348,9 +17348,47 @@
             "title": "Theme Id"
           },
           "investigation_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Investigation Id"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "session_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Session Ids"
           },
           "related_company_ids": {
             "items": {
@@ -17501,6 +17539,9 @@
           "id",
           "theme_id",
           "investigation_id",
+          "question",
+          "as_of",
+          "session_ids",
           "related_company_ids",
           "status",
           "allowed_transitions",
@@ -17591,6 +17632,21 @@
             },
             "type": "array",
             "title": "Contradictions"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/HypothesisStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "thesis_belief_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Thesis Belief Ids"
           }
         },
         "type": "object",
@@ -17612,17 +17668,56 @@
       "HypothesisCreate": {
         "properties": {
           "investigation_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Investigation Id",
             "description": "a stopped investigation with a research card"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme",
+            "description": "draft from this theme's proven Beliefs instead (no investigation)"
+          },
+          "session_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Session Ids",
+            "description": "with `theme`: only the Beliefs these research sessions produced (empty: the theme's)"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question",
+            "description": "with `theme`: the question the Hypothesis answers (default: the sessions')"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "investigation_id"
-        ],
         "title": "HypothesisCreate"
       },
       "HypothesisDiff": {
@@ -17775,6 +17870,58 @@
           "run_metadata"
         ],
         "title": "HypothesisExport"
+      },
+      "HypothesisStep": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "statement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement"
+          },
+          "statement_belief_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Statement Belief Ids",
+            "default": []
+          },
+          "judged": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judged"
+          },
+          "beliefs": {
+            "items": {
+              "$ref": "#/components/schemas/StepBelief"
+            },
+            "type": "array",
+            "title": "Beliefs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "beliefs"
+        ],
+        "title": "HypothesisStep"
       },
       "HypothesisTransition": {
         "properties": {
@@ -27350,7 +27497,14 @@
       "RunMetadata": {
         "properties": {
           "investigation": {
-            "$ref": "#/components/schemas/ExportInvestigation"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportInvestigation"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "runs": {
             "items": {
@@ -29406,6 +29560,143 @@
           "invalidation"
         ]
       },
+      "StepBelief": {
+        "properties": {
+          "belief_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Belief Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "judgement": {
+            "type": "string",
+            "title": "Judgement"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "judged_by": {
+            "type": "string",
+            "title": "Judged By"
+          },
+          "companies": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/StepCitation"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "belief_id",
+          "statement",
+          "judgement",
+          "confidence",
+          "as_of",
+          "judged_by",
+          "companies",
+          "citations"
+        ],
+        "title": "StepBelief"
+      },
+      "StepCitation": {
+        "properties": {
+          "ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ref Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "valence": {
+            "type": "number",
+            "title": "Valence"
+          },
+          "statement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "type": "integer",
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "title": "Span End"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Title"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref_id",
+          "kind",
+          "valence",
+          "statement",
+          "quote",
+          "span_start",
+          "span_end",
+          "source_version_id",
+          "source_title",
+          "company_name",
+          "available_at"
+        ],
+        "title": "StepCitation",
+        "description": "A load-bearing citation of a Belief: a Fact (or Assertion) and the words at its span."
+      },
       "TagMatch": {
         "type": "string",
         "enum": [
@@ -31107,8 +31398,15 @@
       "VersionProvenance": {
         "properties": {
           "investigation_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Investigation Id"
           },
           "investigation_run_id": {
@@ -31158,16 +31456,25 @@
               }
             ],
             "title": "Editor Role Call Id"
+          },
+          "session_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Session Ids"
+          },
+          "belief_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Belief Ids"
           }
         },
         "type": "object",
-        "required": [
-          "investigation_id",
-          "investigation_run_id",
-          "research_card_role_call_id",
-          "draft_run_id",
-          "editor_role_call_id"
-        ],
         "title": "VersionProvenance",
         "description": "Where a version came from: the investigation and its run (the research card's Editor\ncall), and for the Editor's draft its own run and call."
       },

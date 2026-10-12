@@ -20,6 +20,9 @@ One attempt:
    content hash and provenance (both runs, both Editor calls), the drafting is `drafted`, and
    the run is finished with its token totals.
 
+A Hypothesis with no investigation is drafted from proven Beliefs instead
+(atlas.hypotheses.belief_drafting).
+
 An LLM quota or outage re-raises (the kind is pausable: the queue pauses and the job is
 requeued). A spent token budget, or any other failure on the job's last attempt, marks the
 drafting `failed` with its reason and finishes the run; nothing is invented.
@@ -33,6 +36,7 @@ from sqlalchemy import Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
 from atlas.companies import load_universe
+from atlas.hypotheses.belief_drafting import BeliefHypothesisDrafter
 from atlas.hypotheses.findings import ProposedFinding, resolve_findings
 from atlas.hypotheses.model import RUN_KIND, HypothesisContent, Mechanism, VersionProvenance
 from atlas.hypotheses.service import insert_version
@@ -75,7 +79,9 @@ class HypothesisDrafter:
                 .one()
             )
             investigation = (
-                connection.execute(
+                None
+                if hypothesis["investigation_id"] is None
+                else connection.execute(
                     text("SELECT * FROM investigation WHERE id = :id"),
                     {"id": hypothesis["investigation_id"]},
                 )
@@ -86,7 +92,13 @@ class HypothesisDrafter:
             return _artifacts(hypothesis_id, hypothesis["draft_status"], drafted=False)
         run_id = self._run(hypothesis)
         try:
-            version = self._draft(hypothesis, investigation, run_id)
+            if investigation is None:
+                # Drafted from proven Beliefs (ticket 14), not from an investigation.
+                version = BeliefHypothesisDrafter(self._settings, self._engine, self._caller).draft(
+                    hypothesis, run_id
+                )
+            else:
+                version = self._draft(hypothesis, investigation, run_id)
         except TokenBudgetExhausted as error:
             self._fail(hypothesis_id, run_id, f"the draft's token budget ran out: {error}")
             return _artifacts(hypothesis_id, "failed", drafted=False)

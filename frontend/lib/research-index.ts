@@ -119,6 +119,8 @@ export function hypothesisByInvestigation(
 ): Map<string, HypothesisLine> {
   const map = new Map<string, HypothesisLine>();
   for (const h of hypotheses) {
+    // One drafted from Beliefs has no investigation: it answers no recorded run.
+    if (h.investigation_id === null) continue;
     const version =
       h.versions.find((v) => v.version === h.latest_version) ??
       [...h.versions].sort((a, b) => b.version - a.version)[0];

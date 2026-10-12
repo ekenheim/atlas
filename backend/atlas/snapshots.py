@@ -37,6 +37,13 @@ version was built from, frozen in the transaction that publishes it.
   Assertions of the version it cites; `belief_override`: the owner's reason, when the
   publish gate's Belief check was overridden (else null). Absent from snapshots
   written before the Beliefs effort.
+- `steps`: a Hypothesis drafted from Beliefs (ticket 14) has no investigation (`cutoff` is
+  its own question and as-of time, and the investigation-side sections are empty); its content
+  carries the steps as drafted, and this section the same steps with every Belief read again at
+  publication: statement, status, judgement, confidence, who judged it and when, its
+  load-bearing citations with the Facts' quotes and spans, and the judgement it was drafted
+  with. The Assertions those citations name are among `assertions`. Absent from snapshots
+  written before ticket 14.
 - `scenarios` attached to the version (inputs, assumption and output hashes, outputs) and the
   `financial_dataset`: the XBRL observations their inputs cite, and the SHA-256 of that list's
   canonical JSON.
@@ -67,9 +74,11 @@ from sqlalchemy import Connection, RowMapping, text
 
 from atlas.archive import Archive, ArchiveIntegrityError, Namespace, ObjectNotFound
 from atlas.audit import Actor, record
+from atlas.beliefs.service import get_belief
 from atlas.beliefs.versions import version_beliefs
 from atlas.hypotheses.model import HypothesisVersion
 from atlas.hypotheses.service import PublishHook, dependent_assertion_ids
+from atlas.hypotheses.steps import step_belief
 from atlas.scenarios.model import AssertionSource, AssumptionTable, SourcedInput, XbrlSource
 
 FORMAT = "atlas.research_snapshot.v1"
@@ -185,13 +194,18 @@ def build_snapshot(
     connection: Connection, hypothesis: RowMapping, version: HypothesisVersion
 ) -> dict[str, Any]:
     investigation = (
-        connection.execute(
+        None
+        if hypothesis["investigation_id"] is None
+        else connection.execute(
             text("SELECT * FROM investigation WHERE id = :id"),
             {"id": hypothesis["investigation_id"]},
         )
         .mappings()
         .one()
     )
+    # A Hypothesis over Beliefs (ticket 14) has no investigation: its cutoff and question are
+    # its own, and the investigation-side sections are empty.
+    investigation_ids = [] if investigation is None else [investigation["id"]]
     scenarios = _scenarios(connection, version.id)
     sources = [source for scenario in scenarios for source in _scenario_sources(scenario)]
     observation_ids = [s.observation_id for s in sources if isinstance(s, XbrlSource)]
@@ -204,10 +218,15 @@ def build_snapshot(
         observation_ids,
     )
     finding_assertions = dependent_assertion_ids(version)
+    steps = _steps(connection, version)
+    step_assertions = [
+        uuid.UUID(c["ref_id"]) for step in steps for b in step["beliefs"] for c in b["citations"]
+    ]
     assertion_ids = list(
         dict.fromkeys(
             [
                 *finding_assertions,
+                *step_assertions,
                 *(c.source_span.assertion_id for c in version.content.contradictions),
                 *(s.assertion_id for s in sources if isinstance(s, AssertionSource)),
             ]
@@ -252,7 +271,7 @@ def build_snapshot(
     # version, and those of the machine reviews and scenario proposals it relies on.
     core_runs = _ids(
         [
-            investigation["run_id"],
+            None if investigation is None else investigation["run_id"],
             *connection.execute(
                 text(
                     "SELECT (provenance ->> 'draft_run_id')::uuid FROM hypothesis_version"
@@ -338,7 +357,7 @@ def build_snapshot(
             "SELECT s.id, s.passages FROM skeptic_search s"
             " JOIN investigation_task t ON t.id = s.task_id"
             " WHERE s.investigation_id = ANY(CAST(:ids AS uuid[])) ORDER BY t.round, t.position",
-            [investigation["id"]],
+            investigation_ids,
         )
         for passage in search["passages"]
         if any(str(tag).startswith("pointer:") for tag in passage.get("selected_by", []))
@@ -355,7 +374,7 @@ def build_snapshot(
         " WHERE p.investigation_id = ANY(CAST(:ids AS uuid[]))"
         " ORDER BY p.round, t.position, p.query_index, p.rank, p.source_version_id,"
         " p.section_char_start, p.section_anchor",
-        [investigation["id"]],
+        investigation_ids,
     )
 
     considered = _ids(
@@ -403,7 +422,9 @@ def build_snapshot(
         "hypothesis": {
             "id": str(hypothesis["id"]),
             "theme_id": hypothesis["theme_id"],
-            "investigation_id": str(hypothesis["investigation_id"]),
+            "investigation_id": None
+            if hypothesis["investigation_id"] is None
+            else str(hypothesis["investigation_id"]),
             "version": version.version,
             "version_id": str(version.id),
             "content_sha256": version.content_sha256,
@@ -411,8 +432,12 @@ def build_snapshot(
             "published_by": published["published_by"],
         },
         "cutoff": {
-            "as_of": _plain(investigation["as_of"]),
-            "question": investigation["question"],
+            "as_of": _plain(
+                hypothesis["as_of"] if investigation is None else investigation["as_of"]
+            ),
+            "question": hypothesis["question"]
+            if investigation is None
+            else investigation["question"],
         },
         "source_versions": source_versions,
         "memory": {
@@ -430,6 +455,7 @@ def build_snapshot(
         "relationships": relationships,
         "beliefs": [_plain(each) for each in version_beliefs(connection, finding_assertions)],
         "belief_override": _plain(override) if override is not None else None,
+        "steps": steps,
         "scenarios": [_plain(scenario) for scenario in scenarios],
         "financial_dataset": {
             "sha256": hashlib.sha256(canonical_json(observations)).hexdigest(),
@@ -442,7 +468,7 @@ def build_snapshot(
             for call in role_calls
         ],
         "hindsight": {
-            "bank_id": investigation["bank_id"],
+            "bank_id": None if investigation is None else investigation["bank_id"],
             "versions": sorted({run["hindsight_version"] for run in runs}),
             "template_versions": sorted({run["template_version"] for run in runs}),
         },
@@ -451,6 +477,44 @@ def build_snapshot(
             "content_sha256": version.content_sha256,
         },
     }
+
+
+def _steps(connection: Connection, version: HypothesisVersion) -> list[dict[str, Any]]:
+    """A Hypothesis over Beliefs' steps (ticket 14), each Belief read again now, inside the
+    publishing transaction: its statement, status, judgement and confidence at publish time and
+    its load-bearing citations (the Facts' exact quotes at their spans), beside the judgement
+    the version was drafted with (`drafted_judgement`, `drafted_confidence`)."""
+    out: list[dict[str, Any]] = []
+    for step in version.content.steps:
+        beliefs: list[dict[str, Any]] = []
+        for drafted in step.beliefs:
+            belief = get_belief(connection, drafted.belief_id)
+            if belief is None:
+                continue
+            now = step_belief(belief).model_dump(mode="json")
+            beliefs.append(
+                {
+                    **now,
+                    "status": belief.status,
+                    "judged_at": _plain(belief.judgement.at),
+                    "judgement_reason": belief.judgement.reason,
+                    "drafted_judgement": drafted.judgement,
+                    "drafted_confidence": drafted.confidence,
+                    "citations": [
+                        {**each, "ref_id": str(each["ref_id"])} for each in now["citations"]
+                    ],
+                }
+            )
+        out.append(
+            {
+                "step": step.step,
+                "statement": step.statement,
+                "statement_belief_ids": [str(each) for each in step.statement_belief_ids],
+                "judged": step.judged,
+                "beliefs": beliefs,
+            }
+        )
+    return out
 
 
 def _scenarios(connection: Connection, version_id: uuid.UUID) -> list[dict[str, Any]]:

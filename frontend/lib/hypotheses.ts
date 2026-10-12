@@ -41,8 +41,8 @@ const GATE_EXPLANATIONS: Record<string, string> = {
     "The owner hasn't approved every Relationship the findings depend on (machine review is " +
     "not enough, and a rejected edge never is). Open each edge below and decide it.",
   belief_not_proven:
-    "A Belief the findings rest on is not proven. Prove it on its page, or publish with an " +
-    "explicit override and a reason.",
+    "A Belief the version rests on is not proven now. Prove it on its page, or publish with " +
+    "an explicit override and a reason.",
   relationship_review_pending:
     "Some Assertions the findings cite haven't been machine-reviewed into Relationships yet, " +
     "so they may still form an edge the owner hasn't seen. Run the relationship review first.",

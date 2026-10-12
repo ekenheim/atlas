@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, RowMapping, text
 
 from atlas.audit import content_hash
+from atlas.hypotheses.steps import HypothesisStep
 from atlas.investigations.model import CardContradiction, CardFinding, UnsupportedFinding
 
 DRAFT_HYPOTHESIS_KIND = "draft_hypothesis"
@@ -87,6 +88,11 @@ class HypothesisContent(BaseModel):
     findings: list[CardFinding]
     unsupported_findings: list[UnsupportedFinding]
     contradictions: list[CardContradiction] = Field(default_factory=list[CardContradiction])
+    # A Hypothesis drafted from proven Beliefs (ticket 14): its argument's steps, each with the
+    # Beliefs it rests on, and the Beliefs the thesis statement cites. Empty for one saved from
+    # an investigation, whose `findings` state the facts instead.
+    steps: list[HypothesisStep] = Field(default_factory=list[HypothesisStep])
+    thesis_belief_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
 
     def sha256(self) -> str:
         return content_hash(self.model_dump(mode="json"))
@@ -98,11 +104,14 @@ class VersionProvenance(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    investigation_id: uuid.UUID
-    investigation_run_id: uuid.UUID | None
-    research_card_role_call_id: uuid.UUID | None
-    draft_run_id: uuid.UUID | None
-    editor_role_call_id: uuid.UUID | None
+    investigation_id: uuid.UUID | None = None
+    investigation_run_id: uuid.UUID | None = None
+    research_card_role_call_id: uuid.UUID | None = None
+    draft_run_id: uuid.UUID | None = None
+    editor_role_call_id: uuid.UUID | None = None
+    # A Hypothesis drafted from Beliefs: the sessions asked for and the Beliefs it was sent.
+    session_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
+    belief_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
 
 
 class HypothesisVersion(BaseModel):
@@ -141,7 +150,12 @@ class Hypothesis(BaseModel):
 
     id: uuid.UUID
     theme_id: str
-    investigation_id: uuid.UUID
+    # The investigation it was saved from, or null for one drafted from Beliefs, which has
+    # its own `question`, cutoff (`as_of`) and `session_ids` instead (migration 0107).
+    investigation_id: uuid.UUID | None
+    question: str | None
+    as_of: datetime | None
+    session_ids: list[uuid.UUID]
     related_company_ids: list[uuid.UUID]
     status: HypothesisStatus
     allowed_transitions: list[HypothesisStatus]
