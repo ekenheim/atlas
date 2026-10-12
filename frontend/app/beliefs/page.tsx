@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 
 import { BeliefRow } from "../../components/beliefs";
 import { Load } from "../../components/ui";
@@ -42,6 +42,9 @@ function Beliefs() {
   const search = listSearch(state);
   const beliefs = useApi(search, loadBeliefs);
   const themes = useApi("themes", loadThemes);
+  // The checkbox follows the click at once; the URL catches up after the router replaces it.
+  const [clicked, setClicked] = useState({ from: state.flagged, value: state.flagged });
+  const flagged = clicked.from === state.flagged ? clicked.value : state.flagged;
   const show = (next: ListState) =>
     router.replace(routes.beliefs(listSearch(next)));
 
@@ -137,10 +140,11 @@ function Beliefs() {
             <input
               id="filter-flagged"
               type="checkbox"
-              checked={state.flagged}
-              onChange={(event) =>
-                show({ ...state, flagged: event.target.checked })
-              }
+              checked={flagged}
+              onChange={(event) => {
+                setClicked({ from: state.flagged, value: event.target.checked });
+                show({ ...state, flagged: event.target.checked });
+              }}
             />{" "}
             Flagged only
           </label>
