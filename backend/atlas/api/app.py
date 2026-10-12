@@ -23,6 +23,7 @@ from atlas.api.hypotheses import hypotheses_router
 from atlas.api.identity import identity_router
 from atlas.api.ingest_plans import ingest_plans_router
 from atlas.api.investigations import investigations_router
+from atlas.api.issues import issues_router
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
 from atlas.api.mental_models import mental_models_router
@@ -113,6 +114,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(facts_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(sessions_router(engine, Actor.from_settings(settings)))
+    app.include_router(issues_router(engine, Actor.from_settings(settings)))
     app.include_router(
         memory_router(
             engine,

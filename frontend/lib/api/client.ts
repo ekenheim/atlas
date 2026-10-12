@@ -77,6 +77,8 @@ export type SnapshotRecord = Schemas["ResearchSnapshotRecord"];
 export type ResearchSnapshot = Schemas["ResearchSnapshot"];
 export type SessionSummary = Schemas["SessionSummary"];
 export type ResearchSession = Schemas["ResearchSession"];
+export type Issue = Schemas["Issue"];
+export type NextIssue = Schemas["NextIssue"];
 export type ExportFormat = NonNullable<
   NonNullable<Params<"/api/v1/hypotheses/{hypothesis_id}/export">["query"]>["format"]
 >;
@@ -247,6 +249,8 @@ export const api = {
   /** Every research session, newest first (Claude sessions and the pipeline's runs). */
   sessions: () => get("/api/v1/sessions", { query: PAGE }),
   session: (id: string) => get("/api/v1/sessions/{session_id}", { path: { session_id: id } }),
+  /** The research frontier: every Issue (the page filters and orders them). */
+  issues: () => get("/api/v1/issues", { query: { limit: 500, offset: 0 } }),
   investigations: () => get("/api/v1/investigations", { query: PAGE }),
   /** Start an investigation: its fixed plan is queued at once. */
   startInvestigation: (body: InvestigationCreate) => post("/api/v1/investigations", {}, body),

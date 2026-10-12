@@ -10,6 +10,7 @@ from sqlalchemy import Connection, Engine, text
 
 from atlas.audit import Actor, content_hash, record
 from atlas.facts import Fact, list_facts
+from atlas.issues import create_session_issues
 
 type SessionKind = Literal["claude", "pipeline"]
 
@@ -211,6 +212,15 @@ class Sessions:
             )
             session = get_session(connection, session_id)
             assert session is not None
+            create_session_issues(
+                connection,
+                self._actor,
+                session_id=session_id,
+                question=session.question,
+                theme=session.theme,
+                seed_company_ids=session.seed_company_ids,
+                card=request.card,
+            )
             record(
                 connection,
                 self._actor,
