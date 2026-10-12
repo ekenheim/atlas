@@ -754,3 +754,29 @@ The question of pilot-review ticket 26: "Is indium phosphide substrate supply a 
 4. **The early call:** the session, given Coherent and Lumentum on 31 August 2025, reached AXT, recorded its permits, backlog, share and competitors, and stated in substance that the other players could not keep up; it did not quote the 31 July sentence, and it filed the point under a step it marked disputed. The pipeline reached AXT and did not state the point.
 
 The owner's revision is taken: the session with Atlas's tools is the research method; the pipeline is the bulk mode. Next: the judge on the session's statements before they become Beliefs, the `disputed` rule, then the Belief and Issue tables (`.scratch/atlas-beliefs/`, tickets 02, 04, 06, 07).
+
+## The closing measure (2026-10-12, evening): question 2 as a session with the judge loop, on v0.6.1
+
+Ticket 09 of the Beliefs effort (`.scratch/atlas-beliefs/map.md`). The same question, seeds and as-of as the proof session of the morning, now through the real routes on production: `POST /sessions`, Facts with the session, every statement judged by `POST /statements/judge` (the finding judge on gpt-5.6-luna) before the card, counterevidence related by `POST /statements/relate`, Beliefs proposed through `POST /beliefs`, the session closed with its card, Issues opened from it. Session `8e4dbf23` on production; files `.scratch/live-runs/proof-claude-2/inv-2/`; the same blind double review, card review and researcher comparison as the proof. The session reported a tool defect (`judge --run` clashed with the subcommand dispatch; fixed the same evening) and worked around it by calling the tool's functions directly, so its judge calls are not grouped under one run.
+
+| Measure | Proof session (morning, no judge) | **Closing session (judge loop)** | Pipeline, best on this question (0.5.4) |
+|---|---|---|---|
+| Facts | 41 | 31 | 174 |
+| Precision (right of all) | 100% | **87%** (27; 4 wrong, 0 off-question; reviewers agreed on 29 of 31) | 84.5% |
+| Statements on the card | 35 | 12 (14 judged: 7 supported at once, 7 rewritten, 5 of those passed, 2 dropped) | 25 |
+| Trust gate | 25 of 35 pass (29% fail) | **10 of 11 pass (9% fail)** | 21 of 25 pass (16% fail) |
+| Saved work | 24 | 10 | 18 |
+| Baseline coverage (10 on-question hits) | 9 (5 + 4 in substance) | 8 (4 + 4) | 7 |
+| Researcher's 32 facts on the card | 19 (+1 in Facts) | 11 (+4 in Facts) | 8 (+10 in Facts) |
+| Step statuses warranted | 5 of 6 | **6 of 6** | – |
+| Beliefs proposed | (file only) | 2, both judged `proven` by the lead with reasons (0.8 and 0.6) | – |
+| Issues opened | – | 13 (the question, its steps, the open questions, the unread companies) | – |
+| Tool calls | 73 | 120 (the bound) | – |
+
+- **What the judge loop did:** the trust gate fell from 29% to 9% of statements on the same question, below the pipeline's 16%. The one failure is a dropped hedge ("should have enough inventory minimum for almost one year" written as "about a year") in the invalidation statement. All six step statuses are warranted: with `relate`, four counterevidence pairs came back `qualifies`, so no step was wrongly disputed.
+- **What it cost:** a smaller card. The judge calls (about 25 of 120) and the rewrites took the budget that the morning session spent on reading: 31 Facts against 41, 12 statements against 35, 11 of the researcher's facts on the card against 19. The two statements the judge rejected twice were dropped rather than fixed.
+- **Fact precision fell to 87%** on four Facts of one kind: the Fact's *statement* carried a clause from the surrounding context ("a supplier that cannot meet lead times can lose share", "very long-term agreements") or dropped a hedge ("seem to be", "should have") that the quote keeps. The quotes themselves are verbatim. The rule the skill needs: the Fact's statement is held to its quote exactly as a card statement is, and a quote should be long enough to carry the clause the statement needs.
+- **Beliefs:** two proposed, both compound (two documents in one proposition); judged `proven` as stated, with the reason noting that each should later be superseded by atomic Beliefs. Their load-bearing Facts were judged right; the one context citation judged wrong bears no load.
+- **Missed, by the baseline:** AXT's US InP permits (no US permit by November 2025; only expected by March 2026): no Fact, and the card leaves it as its first open question, now an Issue.
+
+**Against the destination:** the trust gate is at or below the pipeline's rate (met); precision is below the proof's 100% (not met, 87%); the Beliefs are on the theme page in production with the lead's judgements (met). The method stands; the skill gains two rules (the Fact statement held to its quote; a longer quote over a context clause) and the session a larger call bound when the judge loop is on, since judging costs about a fifth of the calls.

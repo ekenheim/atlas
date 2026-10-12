@@ -473,7 +473,7 @@ def cmd_judge(args: argparse.Namespace) -> None:
         "fact_ids": [x for x in args.facts.split(",") if x],
         "counter_fact_ids": [x for x in (args.counter or "").split(",") if x],
         "votes": args.votes,
-        "run_id": args.run,
+        "run_id": args.run_id,
     }
     status, answer = post_retrying("/statements/judge", body)
     if status != 200:
@@ -532,7 +532,7 @@ def cmd_relate(args: argparse.Namespace) -> None:
         "question": args.question,
         "fact_id": args.fact,
         "counter_fact_id": args.counter,
-        "run_id": args.run,
+        "run_id": args.run_id,
     }
     status, answer = post_retrying("/statements/relate", body)
     out(answer if status == 200 else {"http": status, "answer": answer})
@@ -662,13 +662,13 @@ def main() -> None:
     p.add_argument("--facts", required=True, help="comma-separated Fact ids the statement cites")
     p.add_argument("--counter", default=None, help="comma-separated counterevidence Fact ids")
     p.add_argument("--votes", type=int, default=1)
-    p.add_argument("--run", default=None)
+    p.add_argument("--run", dest="run_id", default=None)
     p.set_defaults(run=cmd_judge)
     p = sub.add_parser("relate")
     p.add_argument("--fact", required=True)
     p.add_argument("--counter", required=True)
     p.add_argument("--question", required=True)
-    p.add_argument("--run", default=None)
+    p.add_argument("--run", dest="run_id", default=None)
     p.set_defaults(run=cmd_relate)
     belief = sub.add_parser("belief").add_subparsers(dest="action", required=True)
     p = belief.add_parser("propose")

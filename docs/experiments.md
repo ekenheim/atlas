@@ -377,3 +377,10 @@ Detail: `.scratch/pilot/results.md`, "0.5.4 against 0.5.3".
 - **Method:** two Opus sessions with the `atlas-research` skill, question 2 as of today and the AXT replay as of 2025-08-31 (pilot-review ticket 26); the pipeline's argument plan on the AXT question the same day; blind double review of every Fact, card review, baseline, researcher's-hour comparison. Detail in `.scratch/pilot/results.md`, "The proof sessions".
 - **Result:** Facts 100% and 93% right (pipeline 75% on the same question; the pilot 58 to 84%); 19 of the researcher's 32 facts on the card (pipeline 8); AXT reached from the seeds and the early signal stated in substance; a tenth of the tokens. The trust gate is not better (8% and 29% of statements fail) because no judge was applied to the session's statements; the step statuses err on the cautious side.
 - **Kept:** the revision of the method (`.scratch/atlas-beliefs/spec.md`); the skill; the pipeline as bulk mode. **Next:** luna as the judge on the session's statements, a rule for `disputed`, then Beliefs and Issues.
+
+## 2026-10-12: the closing measure, question 2 as a session with the judge loop (Beliefs ticket 09)
+
+- **Hypothesis:** Atlas's judge on a session's statements, before the card, brings the trust gate at or below the pipeline's rate without losing the proof's precision.
+- **Method:** the proof's question 2 session repeated on v0.6.1 through the real routes (session, judge, relate, Beliefs, Issues); the same review. Detail: `.scratch/pilot/results.md`, "The closing measure".
+- **Result:** trust gate 29% → 9% of statements (pipeline 16%); step statuses 6 of 6 warranted; Beliefs 2, judged proven by the lead; Fact precision 100% → 87% (four statements carrying a context clause or dropping a hedge); the card smaller (12 statements against 35) because judging took about a fifth of the call bound.
+- **Kept:** the judge loop and the `disputed` rule. **Next:** the Fact statement held to its quote in the skill; a longer call bound with the judge on; atomic Beliefs (one proposition) in the skill's rule; the tool's `--run` fix (done).
