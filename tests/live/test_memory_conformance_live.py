@@ -35,6 +35,7 @@ from atlas.conformance import (
     AtlasApi,
     ConformanceReport,
     KnownAnswersError,
+    check_beliefs_bank,
     load_known_answers,
     run_known_answers,
 )
@@ -54,6 +55,7 @@ from tests.live.conformance import (
 from tests.live.stack import DEFAULT_ADMIN_DATABASE_URL, live_mode
 
 DEFAULT_BASE_URL = "https://atlas.ekenhome.se"
+BELIEFS_TEMPLATE = Path("configs/hindsight/bank-template-beliefs.json")
 PARTS = ("known-answers", "behaviours")
 SETTLE_SECONDS = 3600.0  # the retains and the consolidation of the throwaway bank
 POLL_SECONDS = 5.0
@@ -102,8 +104,10 @@ def test_known_answers_on_the_live_bank(report: ConformanceReport) -> None:
             run_known_answers(AtlasApi(client), answers, probes, max_tokens=value)
             for value in budgets
         ]
+        report.beliefs_bank = check_beliefs_bank(AtlasApi(client), BELIEFS_TEMPLATE)
     report.known_answers, report.known_answers_sweep = reports[0], reports[1:]
     assert report.known_answers.verdict == "passed", report.known_answers.reason
+    assert report.beliefs_bank.verdict == "passed", report.beliefs_bank.reason
 
 
 @contextmanager

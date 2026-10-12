@@ -47,6 +47,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from sqlalchemy import Connection, text
 
+from atlas.bank_template import applied_template_version
 from atlas.companies import CompanyConfig, Universe
 from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightGateway
 from atlas.identity.normalize import normalize_name
@@ -222,9 +223,19 @@ class ThemeBeliefs(BaseModel):
 
 
 class BeliefsHealth(BaseModel):
-    """The judged Beliefs Memory holds, per theme (beliefs ticket 06): what the research
-    bank holds of what Atlas found, apart from the archive's sections."""
+    """The judged Beliefs Memory holds, per theme (beliefs tickets 06 and 12): what the
+    conclusions bank holds of what Atlas found, apart from the archive's sections in the
+    research bank."""
 
+    bank: str = Field(description="the conclusions bank (`ATLAS_HINDSIGHT_BELIEFS_BANK_ID`)")
+    template_version: str | None = Field(
+        default=None, description="the version of the template last applied to that bank"
+    )
+    in_research_bank: int = Field(
+        default=0,
+        description="judged Beliefs whose document still stands in the research bank (retained"
+        " before the conclusions bank existed; `atlas memory beliefs re-retain` moves them)",
+    )
     in_memory: int
     pending: int
     failed: int
@@ -232,7 +243,20 @@ class BeliefsHealth(BaseModel):
     themes: list[ThemeBeliefs]
 
 
-def belief_health(connection: Connection, bank_id: str) -> BeliefsHealth:
+def belief_health(
+    connection: Connection, bank_id: str, research_bank_id: str | None = None
+) -> BeliefsHealth:
+    """The Beliefs in `bank_id` (the conclusions bank); `research_bank_id`: the bank whose
+    leftover Belief documents are counted apart."""
+    leftover = 0
+    if research_bank_id is not None and research_bank_id != bank_id:
+        leftover = connection.execute(
+            text(
+                "SELECT count(*) FROM belief_memory WHERE bank_id = :bank"
+                " AND state IN ('pending', 'completed', 'zero_fact')"
+            ),
+            {"bank": research_bank_id},
+        ).scalar_one()
     rows = connection.execute(
         text(
             "SELECT b.theme, m.state, count(*) AS n FROM belief_memory m"
@@ -249,6 +273,9 @@ def belief_health(connection: Connection, bank_id: str) -> BeliefsHealth:
         return sum(counts.get(state, 0) for counts in themes.values())
 
     return BeliefsHealth(
+        bank=bank_id,
+        template_version=applied_template_version(connection, bank_id),
+        in_research_bank=leftover,
         in_memory=total("completed"),
         pending=total("pending"),
         failed=total("failed"),
@@ -321,6 +348,7 @@ def memory_health(
     stuck_after_hours: float,
     window_days: int | None = None,
     bulk_retention: Literal["on", "off"] = "on",
+    beliefs_bank_id: str | None = None,
 ) -> MemoryHealth | None:
     """The health read; None when `company_id` names no company. `stuck_after_hours`: how long
     a pending section under an older profile waits before it counts as stuck."""
@@ -373,7 +401,7 @@ def memory_health(
         company_id=company_id,
         generated_at=now,
         bulk_retention=bulk_retention,
-        beliefs=belief_health(connection, bank_id),
+        beliefs=belief_health(connection, beliefs_bank_id or bank_id, bank_id),
         sections=total,
         versions=count_versions(version_rows),
         companies=sorted(listed, key=lambda c: (c.slug is None, c.slug or "")),

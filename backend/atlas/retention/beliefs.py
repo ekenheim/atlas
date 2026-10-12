@@ -2,7 +2,8 @@
 found"; `docs/runbooks.md`, "Bulk retention").
 
 A Belief the owner or an author has judged (`proven`, `disproven`, `undecidable`) is retained
-into the research bank as a document of its own, `belief:<id>`, by a `retain_belief` job
+into the conclusions bank (`Settings.hindsight_beliefs_bank_id`, ticket 12; the research bank
+before it) as a document of its own, `belief:<id>`, by a `retain_belief` job
 (pausable; the retain kinds' provider: Codex, or MiniMax with `ATLAS_RETAIN_EXTRACTOR`). The
 document carries the statement, the as-of time, the judgement and confidence, the load-bearing
 Facts' statements and quotes and the session. It is tagged `belief`, `judgement:<value>`,
@@ -17,6 +18,10 @@ companies as entities; its observation scope is the theme, like every section's.
   retain's timeout; a job that times out resumes the same operation on its next attempt) and
   records the facts Hindsight stored. A quota or outage failure pauses the queue and leaves the
   row `pending` to be submitted again; any other failure is `failed` and recorded.
+- **Moving banks.** A Belief whose document still stands in the research bank (retained before
+  the conclusions bank existed) has it deleted there when the job next runs, recorded as a
+  `moved_bank` replacement; `atlas memory beliefs re-retain` enqueues that for every judged
+  Belief.
 - **Never Evidence.** The provenance resolver labels a memory from this document `belief` and
   resolves it to the Belief (`GET /api/v1/beliefs/{id}`), never to a section.
 """
@@ -38,7 +43,7 @@ from atlas.hindsight import (
 )
 from atlas.jobs.budget import RetainExtractor
 from atlas.jobs.pacing import TransientFailure
-from atlas.jobs.queue import Artifacts
+from atlas.jobs.queue import Artifacts, JobQueue
 from atlas.retention.context import ENTITY_TYPE
 from atlas.retention.service import EXTRACTOR_METADATA_KEY, retain_error_class
 
@@ -61,6 +66,32 @@ class RetainBeliefPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     belief_id: uuid.UUID
+
+
+def enqueue_reretain(engine: Engine, queue: JobQueue, run: str) -> list[uuid.UUID]:
+    """One `retain_belief` job for every judged Belief (any judgement but `unproven`), keyed by
+    the run: each retains the Belief into the conclusions bank, deleting its document from the
+    research bank first if it stands there (ticket 12). A rerun with the same key adds nothing.
+    Returns the Belief IDs."""
+    with engine.connect() as connection:
+        ids = list(
+            connection.execute(
+                text(
+                    "SELECT b.id FROM belief b JOIN LATERAL ("
+                    " SELECT judgement FROM belief_judgement x WHERE x.belief_id = b.id"
+                    " ORDER BY x.at DESC, x.id DESC LIMIT 1) j ON true"
+                    " WHERE j.judgement <> 'unproven' ORDER BY b.created_at, b.id"
+                )
+            ).scalars()
+        )
+    for belief_id in ids:
+        queue.enqueue(
+            RETAIN_BELIEF_KIND,
+            f"{RETAIN_BELIEF_KIND}:rebank:{run}:{belief_id}",
+            {"belief_id": str(belief_id)},
+            max_attempts=5,
+        )
+    return ids
 
 
 class BeliefTimings(BaseModel):
@@ -116,9 +147,14 @@ class BeliefRetention:
         timings: BeliefTimings,
         *,
         extractor: RetainExtractor | None = None,
+        legacy: HindsightGateway | None = None,
     ) -> None:
+        """`gateway` is the conclusions bank's; `legacy` the research bank's, where a Belief
+        retained before the conclusions bank existed has its document: it is deleted from
+        there (a `moved_bank` replacement) when the Belief is next retained."""
         self._engine = engine
         self._gateway = gateway
+        self._legacy = legacy if legacy is not None and legacy.bank_id != gateway.bank_id else None
         self._actor = actor
         self._timings = timings
         self._extractor = extractor
@@ -133,10 +169,19 @@ class BeliefRetention:
         with self._engine.connect() as connection:
             belief = get_belief(connection, belief_id)
             held = self._row(connection, belief_id)
+            old = (
+                self._row(connection, belief_id, self._legacy.bank_id)
+                if self._legacy is not None
+                else None
+            )
             names = _legal_names(connection)
         base: Artifacts = {"belief_id": str(belief_id)}
         if belief is None:
             return base | {"outcome": "missing"}
+        if old is not None and old["state"] != "removed" and self._legacy is not None:
+            self._settle_inflight(old, self._legacy)
+            self._delete(old, "moved_bank", self._legacy)
+            base |= {"moved_from": old["bank_id"]}
         current = belief.judgement
         wanted = current.judgement != "unproven"
         same = (
@@ -154,7 +199,7 @@ class BeliefRetention:
             held["state"] in ("completed", "zero_fact")
             or (held["state"] == "pending" and held["operation_id"] is not None)
         ):
-            self._settle_inflight(held)
+            self._settle_inflight(held, self._gateway)
             reason = (
                 "unproven"
                 if not wanted
@@ -162,7 +207,7 @@ class BeliefRetention:
                 if belief.status == "superseded" and held["belief_status"] != "superseded"
                 else "rejudged"
             )
-            self._delete(held, reason)
+            self._delete(held, reason, self._gateway)
             base |= {"replaced": reason}
         if not wanted:
             return base | {"outcome": "removed" if "replaced" in base else "nothing_to_retain"}
@@ -257,22 +302,22 @@ class BeliefRetention:
         )
         return {"outcome": state, "facts": count, "operation_id": operation_id}
 
-    def _settle_inflight(self, held: RowMapping) -> None:
+    def _settle_inflight(self, held: RowMapping, gateway: HindsightGateway) -> None:
         """A document still being retained is let finish before it is deleted."""
         if held["state"] != "pending" or held["operation_id"] is None:
             return
-        self._gateway.wait_for_operation(
+        gateway.wait_for_operation(
             held["operation_id"],
             timeout=self._timings.poll_timeout,
             poll_interval=self._timings.poll_interval,
         )
 
-    def _delete(self, held: RowMapping, reason: str) -> None:
+    def _delete(self, held: RowMapping, reason: str, gateway: HindsightGateway) -> None:
         """Delete the document (a document Hindsight no longer has is no error) and record
         the memories it held, in one transaction with the row's new state."""
         document = held["hindsight_document_id"]
         try:
-            self._gateway.delete_document(document)
+            gateway.delete_document(document)
         except HindsightNotFound:
             pass
         with self._engine.begin() as connection:
@@ -319,11 +364,13 @@ class BeliefRetention:
             metadata[EXTRACTOR_METADATA_KEY] = self._extractor
         return metadata
 
-    def _row(self, connection: Connection, belief_id: uuid.UUID) -> RowMapping | None:
+    def _row(
+        self, connection: Connection, belief_id: uuid.UUID, bank_id: str | None = None
+    ) -> RowMapping | None:
         return (
             connection.execute(
                 text("SELECT * FROM belief_memory WHERE belief_id = :id AND bank_id = :bank"),
-                {"id": belief_id, "bank": self.bank_id},
+                {"id": belief_id, "bank": bank_id or self.bank_id},
             )
             .mappings()
             .one_or_none()

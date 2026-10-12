@@ -63,6 +63,7 @@ def research_router(
     themes_config: Path,
     *,
     recall_latency: Histogram | None = None,
+    beliefs_gateway: HindsightGateway | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/memory", tags=["memory"])
 
@@ -70,7 +71,11 @@ def research_router(
     def universe() -> Universe:  # read on first use, so the app starts without it
         return load_universe(themes_config)
 
-    research = Research(engine, archive, gateway, actor, universe) if gateway is not None else None
+    research = (
+        Research(engine, archive, gateway, actor, universe, beliefs_gateway)
+        if gateway is not None
+        else None
+    )
 
     @router.post(
         "/recall", response_model=RecallResponse, responses={**INVALID, **HINDSIGHT_FAILURES}

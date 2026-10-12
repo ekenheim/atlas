@@ -1,0 +1,67 @@
+{
+  "template_version": "1.0.0",
+  "manifest": {
+    "version": "1",
+    "bank": {
+      "retain_mission": "Extract what a judged Belief says and what it rests on. A Belief is one falsifiable proposition about a supply-chain bottleneck or a company's exposure to one, with an author's judgement (proven, disproven, undecidable), a confidence, an as-of date, and the Facts it cites with their quotes. Keep the proposition as one statement, with its judgement and confidence, who judged it and as of when; keep which cited Facts are for it and which against, with each Fact's company, document and date; keep figures, units, currencies and reporting periods exactly as the quotes give them. A hedged or forward-looking quote stays hedged: a plan, an expectation or a risk is not an outcome. A Belief that was superseded keeps the proposition that replaced it. Do not turn a cited quote into a Belief of its own, and do not infer a judgement the document does not state.",
+      "entity_labels": [
+        {
+          "key": "layer",
+          "description": "The optical supply-chain layer or layers the fact concerns. Give every layer the fact is about, and none when it concerns none of them; a material named alone (indium phosphide, gallium arsenide, silicon photonics) is no layer, and neither is a raw material, metal or mineral (indium, gallium, germanium, rare earths) or its supply, prices or export controls: a layer is a product or a manufacturing step.",
+          "type": "multi-values",
+          "optional": true,
+          "tag": true,
+          "values": [
+            {
+              "value": "substrate",
+              "description": "bare wafers and substrates (InP, GaAs, SOI)"
+            },
+            {
+              "value": "epi",
+              "description": "epitaxial wafers grown on substrates"
+            },
+            {
+              "value": "chip-laser",
+              "description": "laser and photonic chips: EML, DML, CW and VCSEL lasers, PICs, photodiodes"
+            },
+            {
+              "value": "dsp",
+              "description": "DSPs, drivers, TIAs and other electrical ICs for optics"
+            },
+            {
+              "value": "module",
+              "description": "optical transceivers and modules"
+            },
+            {
+              "value": "contract-manufacturing",
+              "description": "assembly, test and contract manufacturing of optics"
+            },
+            {
+              "value": "system",
+              "description": "systems built from modules: optical transport, switches, AI clusters"
+            }
+          ]
+        }
+      ],
+      "enable_observations": true,
+      "enable_auto_consolidation": false,
+      "recall_include_chunks": false,
+      "enable_temporal_retrieval": true,
+      "enable_graph_retrieval": true,
+      "enable_text_search": true,
+      "enable_reranking": true,
+      "store_document_text": true,
+      "entities_allow_free_form": true,
+      "retain_extraction_mode": "concise",
+      "retain_chunk_size": 3000,
+      "consolidation_max_memories_per_round": 100,
+      "consolidation_llm_batch_size": 8,
+      "consolidation_llm_parallelism": 1,
+      "consolidation_source_facts_max_tokens": 4096,
+      "consolidation_source_facts_max_tokens_per_observation": 256,
+      "max_observations_per_scope": -1,
+      "audit_log_enabled": true
+    },
+    "mental_models": []
+  }
+}

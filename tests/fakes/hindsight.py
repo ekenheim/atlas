@@ -2157,7 +2157,10 @@ class RecordedHindsight:
     ) -> httpx2.Response | None:
         name = DERIVED_TEMPLATE_DRY_RUN if dry_run else DERIVED_TEMPLATE_IMPORT
         recording = self.recording(name)
-        if _without_models_and_bank(body) != _without_models_and_bank(recording.request_object()):
+        keeps = "directives" in body
+        if _without_models_and_bank(body, directives=keeps) != _without_models_and_bank(
+            recording.request_object(), directives=keeps
+        ):
             return None
         if not _bank_config_accepted(body):
             return None
@@ -2165,6 +2168,8 @@ class RecordedHindsight:
         ids: list[JsonValue] = [str(model["id"]) for model in models]
         response = copy.deepcopy(recording.response_object())
         response |= {"bank_id": bank, "mental_models_created": ids}
+        if "directives" not in body:
+            response |= {"directives_created": [], "directives_updated": []}
         if not dry_run:
             config = body.get("bank")
             if isinstance(config, dict):
@@ -2316,8 +2321,13 @@ class RecordedHindsight:
         model.seen_writes = self._writes()
 
 
-def _without_models_and_bank(body: dict[str, JsonValue]) -> dict[str, JsonValue]:
-    return {key: value for key, value in body.items() if key not in ("mental_models", "bank")}
+def _without_models_and_bank(
+    body: dict[str, JsonValue], *, directives: bool = True
+) -> dict[str, JsonValue]:
+    # A manifest with no `directives` key at all (the conclusions bank's template, beliefs
+    # ticket 12) is compared without the recorded request's; one that has the key is not.
+    skipped = ("mental_models", "bank") if directives else ("mental_models", "bank", "directives")
+    return {key: value for key, value in body.items() if key not in skipped}
 
 
 @functools.cache

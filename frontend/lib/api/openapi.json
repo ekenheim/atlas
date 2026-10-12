@@ -9513,6 +9513,29 @@
       },
       "BeliefsHealth": {
         "properties": {
+          "bank": {
+            "type": "string",
+            "title": "Bank",
+            "description": "the conclusions bank (`ATLAS_HINDSIGHT_BELIEFS_BANK_ID`)"
+          },
+          "template_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Version",
+            "description": "the version of the template last applied to that bank"
+          },
+          "in_research_bank": {
+            "type": "integer",
+            "title": "In Research Bank",
+            "description": "judged Beliefs whose document still stands in the research bank (retained before the conclusions bank existed; `atlas memory beliefs re-retain` moves them)",
+            "default": 0
+          },
           "in_memory": {
             "type": "integer",
             "title": "In Memory"
@@ -9539,6 +9562,7 @@
         },
         "type": "object",
         "required": [
+          "bank",
           "in_memory",
           "pending",
           "failed",
@@ -9546,7 +9570,7 @@
           "themes"
         ],
         "title": "BeliefsHealth",
-        "description": "The judged Beliefs Memory holds, per theme (beliefs ticket 06): what the research\nbank holds of what Atlas found, apart from the archive's sections."
+        "description": "The judged Beliefs Memory holds, per theme (beliefs tickets 06 and 12): what the\nconclusions bank holds of what Atlas found, apart from the archive's sections in the\nresearch bank."
       },
       "Bottlenecks": {
         "properties": {
@@ -24052,6 +24076,16 @@
             "title": "Include Source Facts",
             "description": "each observation's source facts in the same answer, so its provenance needs no request per observation",
             "default": false
+          },
+          "bank": {
+            "type": "string",
+            "enum": [
+              "research",
+              "beliefs"
+            ],
+            "title": "Bank",
+            "description": "`research`: the sections of the archive (the reading index); `beliefs`: the conclusions bank, the judged Beliefs and the Facts they rest on (ticket 12)",
+            "default": "research"
           },
           "available_by": {
             "anyOf": [

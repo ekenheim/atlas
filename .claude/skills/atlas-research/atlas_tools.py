@@ -19,7 +19,7 @@
     python atlas_tools.py issue complete --id <id> [--fact <id>] [--belief <id>] [--abandon]
     python atlas_tools.py issue next [--theme photonics]
     python atlas_tools.py recall --q "<question>" --as-of <ISO> [--theme photonics] [--companies slug,slug]
-        [--max-tokens 4096]
+        [--max-tokens 4096] [--bank beliefs|research]
     python atlas_tools.py fact <id>
     python atlas_tools.py judge --statement "<one statement>" --question "<verbatim>" --facts id,id
         [--counter id,id] [--votes 1] [--run <run id>]
@@ -319,6 +319,7 @@ def cmd_recall(args: argparse.Namespace) -> None:
         "max_tokens": args.max_tokens,
         "query_timestamp": args.as_of,
         "available_by": args.as_of,
+        "bank": args.bank,
         "include_source_facts": True,
     }
     status, answer = post("/memory/recall", body)
@@ -652,6 +653,12 @@ def main() -> None:
     p.add_argument("--theme", default="photonics")
     p.add_argument("--companies", default=None)
     p.add_argument("--max-tokens", type=int, default=4096)
+    p.add_argument(
+        "--bank",
+        choices=["beliefs", "research"],
+        default="beliefs",
+        help="beliefs: the judged Beliefs and their Facts (default); research: the legacy index of the archive's sections",
+    )
     p.set_defaults(run=cmd_recall)
     p = sub.add_parser("fact")
     p.add_argument("id")

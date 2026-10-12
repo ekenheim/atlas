@@ -11,23 +11,26 @@ and the requests the recorded Hindsight fake received. The CLI is not spawned (t
 applied and the ingest enqueued in process), so these run on any platform. Nothing live is called.
 """
 
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from atlas.api.app import create_app
 from atlas.audit import Actor
 from atlas.beliefs.memory_jobs import RETAIN_BELIEF_KIND as TRIGGER_KIND
-from atlas.cli import run_apply_template
+from atlas.cli import run_apply_template, run_beliefs_reretain
 from atlas.jobs import JobQueue, Worker, builtin_registry
 from atlas.jobs.pacing import Pacing
 from atlas.ledger.ingest import INGEST_KIND, ingest_payload
 from atlas.retention.beliefs import RETAIN_BELIEF_KIND
 from tests.fakes.hindsight import RecordedHindsight
-from tests.harness import TEMPLATE, Atlas
+from tests.harness import BANK, TEMPLATE, Atlas
 
 URL_EX991 = (
     "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm"
@@ -153,7 +156,12 @@ class Memory(Atlas):
     def recall_beliefs(self, **extra: Any) -> dict[str, Any]:
         response = self.api.post(
             "/api/v1/memory/recall",
-            json={"query": "laser capacity", "scope": {"theme_ids": ["photonics"]}, **extra},
+            json={
+                "query": "laser capacity",
+                "scope": {"theme_ids": ["photonics"]},
+                "bank": "beliefs",
+                **extra,
+            },
         )
         assert response.status_code == 200, response.text
         return response.json()
@@ -167,6 +175,26 @@ def atlas(
     fake.script_observation_scopes([])
     fake.script_entities([])
     harness = Memory(database_url, tmp_path, served.url)  # type: ignore[attr-defined]
+    harness.ingest_lumentum()
+    yield harness
+    harness.engine.dispose()
+
+
+@pytest.fixture
+def one_bank(
+    database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, object]
+) -> Iterator[Memory]:
+    """Beliefs and sections in one bank (the conclusions bank set to the research bank's ID):
+    an observation can then be consolidated from both, as before the conclusions bank."""
+    fake, served = hindsight
+    fake.script_observation_scopes([])
+    fake.script_entities([])
+    harness = Memory(
+        database_url,
+        tmp_path,
+        served.url,  # type: ignore[attr-defined]
+        hindsight_beliefs_bank_id=BANK,
+    )
     harness.ingest_lumentum()
     yield harness
     harness.engine.dispose()
@@ -346,8 +374,8 @@ def test_a_recalled_beliefs_memory_is_labelled_belief_and_resolves_to_the_belief
     assert answer["counts"]["belief"] == 1
     # Never Evidence: no section stands behind it.
     assert fact_id not in [m for e in answer["evidence"] for m in e["memory_ids"]]
-    others = [m for m in answer["memories"] if m["memory_id"] != fact_id]
-    assert others and all(m["provenance"]["state"] == "resolved" for m in others)
+    # The conclusions bank holds Beliefs only; the sections are in the research bank.
+    assert {m["provenance"]["state"] for m in answer["memories"]} == {"belief"}
     # The Belief it resolves to is the one the API serves.
     assert atlas.get(f"/api/v1/beliefs/{cited['id']}")["statement"] == BELIEF
 
@@ -358,8 +386,9 @@ def section_document(atlas: Memory) -> str:
 
 
 def test_an_observation_built_from_a_section_and_a_belief_stays_resolved_with_the_belief_listed(
-    atlas: Memory, fake: RecordedHindsight
+    one_bank: Memory, fake: RecordedHindsight
 ) -> None:
+    atlas = one_bank
     belief = atlas.propose(atlas.fact())
     atlas.judge(belief)
     atlas.drain()
@@ -380,8 +409,9 @@ def test_an_observation_built_from_a_section_and_a_belief_stays_resolved_with_th
 
 
 def test_a_replaced_beliefs_old_memory_reads_replaced_not_broken(
-    atlas: Memory, fake: RecordedHindsight
+    one_bank: Memory, fake: RecordedHindsight
 ) -> None:
+    atlas = one_bank
     belief = atlas.propose(atlas.fact())
     atlas.judge(belief)
     atlas.drain()
@@ -400,8 +430,9 @@ def test_a_replaced_beliefs_old_memory_reads_replaced_not_broken(
 
 
 def test_available_by_drops_memories_nothing_of_which_was_available_and_counts_them(
-    atlas: Memory, fake: RecordedHindsight
+    one_bank: Memory, fake: RecordedHindsight
 ) -> None:
+    atlas = one_bank
     belief = atlas.propose(atlas.fact())  # as of 2026-09-30
     atlas.judge(belief)
     atlas.drain()
@@ -509,3 +540,195 @@ def test_a_belief_retain_failing_for_quota_pauses_and_resubmits(
     assert (memory.state, memory.operation_id) == ("pending", None)
     (job,) = atlas.jobs()
     assert job.status == "queued"
+
+
+# --- the conclusions bank (beliefs ticket 12) -------------------------------------------------
+
+BELIEFS_BANK = "atlas-beliefs"
+BELIEFS_TEMPLATE = TEMPLATE.with_name("bank-template-beliefs.json")
+
+
+def bank_of(request: Any) -> str:
+    return str(request.url.path.split("/")[4])
+
+
+def deleted_from(fake: RecordedHindsight) -> list[tuple[str, str]]:
+    return [
+        (bank_of(request), unquote(request.url.path.rsplit("/documents/", 1)[1]))
+        for request in fake.calls
+        if request.method == "DELETE" and "/documents/" in request.url.path
+    ]
+
+
+def health_in(atlas: Memory, key: str) -> int:
+    return int(atlas.get("/api/v1/memory/health")["beliefs"][key])
+
+
+def test_a_judged_belief_is_retained_into_the_conclusions_bank_not_the_research_bank(
+    atlas: Memory, fake: RecordedHindsight
+) -> None:
+    belief = atlas.propose(atlas.fact())
+    atlas.judge(belief)
+    atlas.drain()
+
+    held = [item["document_id"] for batch in fake.retained(BELIEFS_BANK) for item in batch]
+    assert held == [f"belief:{belief}"]
+    in_research = [
+        item["document_id"]
+        for batch in fake.retained(BANK)
+        for item in batch
+        if item["document_id"].startswith("belief:")
+    ]
+    assert in_research == []
+    (row,) = atlas.rows("SELECT bank_id, state FROM belief_memory WHERE belief_id = :id", id=belief)
+    assert (row.bank_id, row.state) == (BELIEFS_BANK, "completed")
+
+
+def test_recall_takes_a_bank_and_defaults_to_the_research_bank(
+    atlas: Memory, fake: RecordedHindsight
+) -> None:
+    belief = atlas.propose(atlas.fact())
+    atlas.judge(belief)
+    atlas.drain()
+    fact_id = fake.derived_fact(f"belief:{belief}")
+
+    conclusions = atlas.recall_beliefs()
+    assert fact_id in [m["memory_id"] for m in conclusions["memories"]]
+    assert {m["provenance"]["state"] for m in conclusions["memories"]} == {"belief"}
+    assert bank_of(fake.calls[-1]) == BELIEFS_BANK
+
+    for extra in ({"bank": "research"}, {}):
+        body = {"query": "laser capacity", "scope": {"theme_ids": ["photonics"]}} | extra
+        response = atlas.api.post("/api/v1/memory/recall", json=body)
+        assert response.status_code == 200, response.text
+        research = response.json()
+        assert bank_of(fake.calls[-1]) == BANK
+        assert fact_id not in [m["memory_id"] for m in research["memories"]]
+        assert "belief" not in research["counts"]
+        assert research["memories"]
+
+    refused = atlas.api.post(
+        "/api/v1/memory/recall",
+        json={"query": "q", "scope": {"theme_ids": ["photonics"]}, "bank": "elsewhere"},
+    )
+    assert refused.status_code == 422
+
+
+def test_available_by_drops_a_belief_not_yet_known_in_the_conclusions_bank(
+    atlas: Memory, fake: RecordedHindsight
+) -> None:
+    belief = atlas.propose(atlas.fact())  # as of 2026-09-30
+    atlas.judge(belief)
+    atlas.drain()
+    fact_id = fake.derived_fact(f"belief:{belief}")
+
+    early = atlas.recall_beliefs(available_by="2026-09-01T00:00:00Z")
+    assert fact_id not in [m["memory_id"] for m in early["memories"]]
+    assert early["dropped_future"] >= 1
+    later = atlas.recall_beliefs(available_by="2026-10-01T00:00:00Z")
+    assert fact_id in [m["memory_id"] for m in later["memories"]]
+
+
+def test_health_reports_both_banks_and_the_template_applied_to_the_conclusions_bank(
+    atlas: Memory, fake: RecordedHindsight
+) -> None:
+    before = atlas.get("/api/v1/memory/health")
+    assert before["bank_id"] == BANK
+    assert before["beliefs"]["bank"] == BELIEFS_BANK
+    assert before["beliefs"]["template_version"] is None
+
+    assert run_apply_template(atlas.settings(), None, bank="beliefs") == 0
+
+    imports = [
+        request
+        for request in fake.calls
+        if request.method == "POST" and request.url.path.endswith("/import")
+    ]
+    assert {bank_of(request) for request in imports[-2:]} == {BELIEFS_BANK}  # dry run, import
+    belief = atlas.propose(atlas.fact())
+    atlas.judge(belief)
+    atlas.drain()
+    health = atlas.get("/api/v1/memory/health")
+    assert health["bank_id"] == BANK
+    assert health["beliefs"]["bank"] == BELIEFS_BANK
+    assert health["beliefs"]["template_version"] == "1.0.0"
+    assert health["beliefs"]["in_memory"] == 1
+    assert health["beliefs"]["in_research_bank"] == 0
+    applied = atlas.rows(
+        "SELECT bank_id, template_version FROM bank_template_application ORDER BY applied_at"
+    )
+    assert [(a.bank_id, a.template_version) for a in applied][-1] == (BELIEFS_BANK, "1.0.0")
+
+
+def test_re_retain_moves_judged_beliefs_to_the_conclusions_bank_and_records_the_replacement(
+    one_bank: Memory, fake: RecordedHindsight, capsys: pytest.CaptureFixture[str]
+) -> None:
+    atlas = one_bank
+    judged = atlas.propose(atlas.fact())
+    atlas.judge(judged, "proven", 0.8)
+    atlas.drain()
+    unjudged = atlas.propose(atlas.fact(YEAR), statement="Lumentum's laser capacity is sold out.")
+    old_fact = fake.derived_fact(f"belief:{judged}")
+    assert health_in(atlas, "in_memory") == 1
+    # The conclusions bank comes into use: the Belief's document stands in the research bank.
+    atlas.overrides["hindsight_beliefs_bank_id"] = BELIEFS_BANK
+    atlas.api = TestClient(create_app(atlas.settings()))
+    assert health_in(atlas, "in_research_bank") == 1
+
+    run_beliefs_reretain(atlas.settings(), "move-1")
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["bank"] == BELIEFS_BANK
+    assert printed["beliefs"] == [judged]  # the unproven one is not asked for
+    run_beliefs_reretain(atlas.settings(), "move-1")  # the same run adds nothing
+    atlas.drain()
+
+    assert deleted_from(fake) == [(BANK, f"belief:{judged}")]
+    held = [item["document_id"] for batch in fake.retained(BELIEFS_BANK) for item in batch]
+    assert held == [f"belief:{judged}"]
+    (replacement,) = atlas.rows(
+        "SELECT reason, bank_id, replaced_memory_ids FROM belief_memory_replacement"
+        " WHERE belief_id = :id",
+        id=judged,
+    )
+    assert (replacement.reason, replacement.bank_id) == ("moved_bank", BANK)
+    assert replacement.replaced_memory_ids == [old_fact]
+    memory_rows = atlas.rows(
+        "SELECT bank_id, state FROM belief_memory WHERE belief_id = :id", id=judged
+    )
+    assert {row.bank_id: row.state for row in memory_rows} == {
+        BANK: "removed",
+        BELIEFS_BANK: "completed",
+    }
+    assert atlas.rows("SELECT 1 FROM belief_memory WHERE belief_id = :id", id=unjudged) == []
+    assert health_in(atlas, "in_memory") == 1
+    assert health_in(atlas, "in_research_bank") == 0
+    # The judgement's job, then the move's (the rerun with the same key added none).
+    assert [job.status for job in atlas.jobs()] == ["succeeded", "succeeded"]
+
+
+def test_the_re_retain_command_is_on_the_cli_entry(
+    atlas: Memory, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from atlas.cli import main
+
+    belief = atlas.propose(atlas.fact())
+    atlas.judge(belief)
+    atlas.drain()
+    for name, value in {
+        "ATLAS_DATABASE_URL": atlas.database_url,
+        "ATLAS_ACTOR": "local-researcher",
+        "ATLAS_ARCHIVE_ROOT": str(atlas.archive),
+        "ATLAS_HINDSIGHT_URL": atlas.hindsight_url,
+        "ATLAS_HINDSIGHT_BANK_ID": BANK,
+    }.items():
+        monkeypatch.setenv(name, value)
+
+    main(["memory", "beliefs", "re-retain", "--key", "cli-run"])
+
+    printed = json.loads(capsys.readouterr().out)
+    assert printed == {"run": "cli-run", "bank": BELIEFS_BANK, "beliefs": [belief]}
+    (job,) = atlas.rows(
+        "SELECT idempotency_key FROM job WHERE kind = :kind AND idempotency_key LIKE '%rebank%'",
+        kind=RETAIN_BELIEF_KIND,
+    )
+    assert job.idempotency_key == f"retain_belief:rebank:cli-run:{belief}"
