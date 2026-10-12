@@ -11,6 +11,15 @@
     python atlas_tools.py recall --q "<question>" --as-of <ISO> [--theme photonics] [--companies slug,slug]
         [--max-tokens 4096]
     python atlas_tools.py fact <id>
+    python atlas_tools.py judge --statement "<one statement>" --question "<verbatim>" --facts id,id
+        [--counter id,id] [--votes 1] [--run <run id>]
+    python atlas_tools.py relate --fact <id> --counter <id> --question "<verbatim>" [--run <run id>]
+
+`judge` has Atlas's finding judge compare a statement with the quotes of the Facts it cites and
+prints `supported` or `misstated` with the clause bases and the words that go beyond the quotes;
+`relate` has the counter-judge say what a counterevidence Fact does to a Fact (`contradicts`,
+`limits`, `dates`, `qualifies`, `supports`, `unrelated`). A quota or outage answer (HTTP 503) is
+retried a few times with a pause.
 
 Every command prints JSON. `read` and `record` refuse a Source Version available after `--as-of`.
 `locate` and `record` find the quote in the archived parse (code-point offsets), folding
@@ -26,6 +35,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -75,6 +85,16 @@ def post(path: str, body: dict):
             return error.code, json.loads(text)
         except ValueError:
             return error.code, {"error": text[:1000]}
+
+
+def post_retrying(path: str, body: dict, tries: int = 4):
+    """`post`, again after a pause on a 503 (a quota or outage at the judge: transient)."""
+    for attempt in range(tries):
+        status, answer = post(path, body)
+        if status != 503 or attempt == tries - 1:
+            return status, answer
+        time.sleep(10 * (attempt + 1))
+    return status, answer
 
 
 def out(value) -> None:
@@ -340,6 +360,45 @@ def cmd_fact(args: argparse.Namespace) -> None:
     out(get(f"/facts/{args.id}"))
 
 
+def cmd_judge(args: argparse.Namespace) -> None:
+    body = {
+        "question": args.question,
+        "statement": args.statement,
+        "fact_ids": [x for x in args.facts.split(",") if x],
+        "counter_fact_ids": [x for x in (args.counter or "").split(",") if x],
+        "votes": args.votes,
+        "run_id": args.run,
+    }
+    status, answer = post_retrying("/statements/judge", body)
+    if status != 200:
+        out({"http": status, "answer": answer})
+        return
+    out(
+        {
+            "verdict": answer["verdict"],
+            "reason": answer["reason"],
+            "beyond": answer["beyond"],
+            "kinds": answer["kinds"],
+            "unverified": answer["unverified"],
+            "clauses": answer["clauses"],
+            "refs": answer["refs"],
+            "counter_relations": answer["counter_relations"],
+            "run_id": answer["run_id"],
+        }
+    )
+
+
+def cmd_relate(args: argparse.Namespace) -> None:
+    body = {
+        "question": args.question,
+        "fact_id": args.fact,
+        "counter_fact_id": args.counter,
+        "run_id": args.run,
+    }
+    status, answer = post_retrying("/statements/relate", body)
+    out(answer if status == 200 else {"http": status, "answer": answer})
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -388,6 +447,20 @@ def main() -> None:
     p = sub.add_parser("fact")
     p.add_argument("id")
     p.set_defaults(run=cmd_fact)
+    p = sub.add_parser("judge")
+    p.add_argument("--statement", required=True)
+    p.add_argument("--question", required=True)
+    p.add_argument("--facts", required=True, help="comma-separated Fact ids the statement cites")
+    p.add_argument("--counter", default=None, help="comma-separated counterevidence Fact ids")
+    p.add_argument("--votes", type=int, default=1)
+    p.add_argument("--run", default=None)
+    p.set_defaults(run=cmd_judge)
+    p = sub.add_parser("relate")
+    p.add_argument("--fact", required=True)
+    p.add_argument("--counter", required=True)
+    p.add_argument("--question", required=True)
+    p.add_argument("--run", default=None)
+    p.set_defaults(run=cmd_relate)
     args = parser.parse_args()
     try:
         args.run(args)

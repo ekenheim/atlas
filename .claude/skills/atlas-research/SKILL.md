@@ -43,6 +43,14 @@ Work the six steps of the argument, in this order, and record Facts under each (
 - The subject is the document's company unless the quote is one company speaking about another (`--company` the one the Fact is about only when the quote names it as the actor).
 - One Fact per span. Prefer the few Facts that carry the argument over many that repeat it. Record the counterevidence you find with the same care, under `invalidation` or the step it limits.
 
+## How to judge a statement
+
+Before a statement goes on the card, `judge --statement "<it>" --question "<verbatim>" --facts <id,id>` (its cited Facts only; add `--counter <id,id>` for the counterevidence). Atlas's judge compares it with the quotes. `supported`: keep it. `misstated`: it says more than its quotes (`beyond`, `kinds`, `unverified`); rewrite it yourself to what the quotes say, or drop it, and judge the rewrite. Never put a statement on the card, or in a Belief, that was not judged `supported`. The same `--run` id keeps the session's judge calls in one run.
+
+## When a step is disputed
+
+`relate --fact <id> --counter <id> --question "<verbatim>"` asks what a counterevidence Fact does to a Fact. A step is `disputed` only when a recorded counterevidence Fact is judged `contradicts` a cited Fact. `limits`, `dates` or `qualifies`: the step stays `supported` and the limitation goes into the statement (judge it again). Nothing established: `unknown`.
+
 ## Bounds
 
 Stay within the call bound your prompt gives (searches, reads, recalls and records together). Stop reading a step once its Facts answer it or three searches with different terms found nothing new; record that it found nothing. Do not read a document whose `available_at` is after the as-of time, ever.
@@ -68,7 +76,7 @@ Write these files to the output folder (create it; JSON, UTF-8):
                  "unchecked": "<what you did not get to>"}],
       "open_questions": ["..."], "unsupported_findings": []}}
    ```
-   A statement says only what its cited quotes say: no number, name, date or qualifier the quotes lack, no two dates merged, no plan written as a fact. Several short statements beat one long one. The `status` is yours: `supported` when the step's Facts establish it and nothing found contradicts them, `disputed` when a recorded Fact contradicts, `unknown` when you could not establish it.
+   A statement says only what its cited quotes say: no number, name, date or qualifier the quotes lack, no two dates merged, no plan written as a fact. Several short statements beat one long one. The `status`: `supported` when the step's Facts establish it and no counterevidence is judged `contradicts`, `disputed` only on a judged `contradicts` (above), `unknown` when you could not establish it.
 2. `facts.json`: `{"items": [<GET /facts/{id} of every Fact you recorded>]}` (fetch each with `fact <id>`).
 3. `beliefs.json`: your conclusions as atomic propositions, each `{"statement": "...", "step": "...", "companies": ["slug"], "judgement": "proven|disproven|unproven|undecidable", "confidence": 0.0-1.0, "as_of": "<T>", "cites": [{"fact_id": "...", "valence": -1.0..1.0, "weight": "load_bearing|context"}], "would_invalidate": "..."}`. One proposition per Belief; a Belief that a single load-bearing negative Fact would falsify should say so.
 4. `card.md`: the argument for a reader: the thesis in one sentence, then each step with its status, its statements and the quote behind each (title, date, quote), then the counterevidence, then what remains open. No prose that a quote does not back.

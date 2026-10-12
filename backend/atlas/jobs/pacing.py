@@ -89,7 +89,10 @@ _QUOTA = re.compile(
 _UNAVAILABLE = re.compile(
     r"\b(?:50[234]|529)\b|service[ _-]?unavailable|bad gateway|gateway[ _-]?time-?out"
     r"|connection (?:refused|reset|error|aborted)|APIConnectionError|overloaded"
-    r"|no healthy deployments|no deployments available",
+    r"|no healthy deployments|no deployments available"
+    # The ChatGPT bridge's HTTP 500 when the model's answer carries an item its responses API
+    # client does not know: it passes on retry (beliefs ticket 07).
+    r"|unknown items in responses api response",
     re.IGNORECASE,
 )
 

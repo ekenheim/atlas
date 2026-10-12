@@ -35,6 +35,7 @@ from atlas.api.runs import runs_router
 from atlas.api.scenarios import scenarios_router
 from atlas.api.snapshots import snapshots_router
 from atlas.api.sources import sources_router
+from atlas.api.statements import statements_router
 from atlas.api.themes import themes_router
 from atlas.api.tradingview import tradingview_router
 from atlas.api.triage import triage_router
@@ -138,6 +139,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
         mental_models_router(engine, archive, hindsight, settings.hindsight_template_path)
     )
     app.include_router(runs_router(engine))
+    app.include_router(statements_router(engine, settings))
     app.include_router(claims_router(engine))
     app.include_router(discovery_router(engine))
     app.include_router(tradingview_router(engine))
