@@ -141,9 +141,10 @@ function Beliefs() {
               id="filter-flagged"
               type="checkbox"
               checked={flagged}
-              onChange={(event) =>
-                show({ ...state, flagged: event.target.checked })
-              }
+              onChange={(event) => {
+                setClicked({ from: state.flagged, value: event.target.checked });
+                show({ ...state, flagged: event.target.checked });
+              }}
             />{" "}
             Flagged only
           </label>
