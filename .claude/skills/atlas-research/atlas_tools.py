@@ -7,12 +7,16 @@
     python atlas_tools.py record --version <id> --quote "<verbatim>" --step <step> --status <status>
         --statement "<one sentence>" --as-of <ISO> [--part <key>] [--period "<as the quote gives it>"]
         [--quantity <value> <unit> <metric>] [--epistemic direct_source_statement|third_party_report]
-        [--company <slug>] [--dry-run]
+        [--company <slug>] [--session <id>] [--dry-run]
+    python atlas_tools.py session open --question "<verbatim>" --as-of <ISO> [--theme photonics]
+        [--seeds slug,slug] [--model <name>] [--actor <name>]
+    python atlas_tools.py session close --id <id> [--usage usage.json] [--card card.json]
+        [--markdown card.md]
     python atlas_tools.py recall --q "<question>" --as-of <ISO> [--theme photonics] [--companies slug,slug]
         [--max-tokens 4096]
     python atlas_tools.py fact <id>
 
-Every command prints JSON. `read` and `record` refuse a Source Version available after `--as-of`.
+Every command prints JSON (`session open` prints the session id alone). `read` and `record` refuse a Source Version available after `--as-of`.
 `locate` and `record` find the quote in the archived parse (code-point offsets), folding
 typographic quotes, dashes and spaces if the exact text does not occur; a quote occurring more
 than once, or not at all, is refused. `record` posts the Fact through `POST /api/v1/facts`, so
@@ -250,6 +254,7 @@ def cmd_record(args: argparse.Namespace) -> None:
         "status": args.status,
         "period": args.period,
         "part": args.part,
+        "session_id": args.session,
         "quantity": (
             {"value": float(args.quantity[0]), "unit": args.quantity[1], "metric": args.quantity[2]}
             if args.quantity
@@ -336,6 +341,49 @@ def cmd_recall(args: argparse.Namespace) -> None:
     )
 
 
+def cmd_session_open(args: argparse.Namespace) -> None:
+    """Register the session with Atlas; the Facts recorded with `--session <id>` belong to it."""
+    body = {
+        "question": args.question,
+        "theme": args.theme,
+        "seed_company_ids": [company_id(s.strip()) for s in (args.seeds or "").split(",") if s.strip()],
+        "as_of": args.as_of,
+        "kind": "claude",
+        "model": args.model,
+        "actor": args.actor,
+    }
+    status, answer = post("/sessions", body)
+    if status != 201:
+        out({"opened": False, "http": status, "answer": answer})
+        sys.exit(1)
+    print(answer["id"])
+
+
+def read_json(path: str | None) -> dict | None:
+    if not path:
+        return None
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def cmd_session_close(args: argparse.Namespace) -> None:
+    """Close the session with its usage, its card (the `research_card` of `investigation.json`)
+    and the card's markdown."""
+    markdown = None
+    if args.markdown:
+        with open(args.markdown, encoding="utf-8") as handle:
+            markdown = handle.read()
+    body = {
+        "usage": read_json(args.usage) or {},
+        "card": read_json(args.card),
+        "card_markdown": markdown,
+    }
+    status, answer = post(f"/sessions/{args.id}/close", body)
+    out({"closed": status == 200, "http": status, "facts": answer.get("facts"), "answer": None if status == 200 else answer})
+    if status != 200:
+        sys.exit(1)
+
+
 def cmd_fact(args: argparse.Namespace) -> None:
     out(get(f"/facts/{args.id}"))
 
@@ -375,9 +423,25 @@ def main() -> None:
     p.add_argument("--quantity", nargs=3, metavar=("VALUE", "UNIT", "METRIC"), default=None)
     p.add_argument("--epistemic", default="direct_source_statement", choices=["direct_source_statement", "third_party_report"])
     p.add_argument("--company", default=None)
+    p.add_argument("--session", default=None, help="the session id `session open` printed")
     p.add_argument("--parser-version", default=None)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(run=cmd_record)
+    session = sub.add_parser("session").add_subparsers(dest="action", required=True)
+    p = session.add_parser("open")
+    p.add_argument("--question", required=True)
+    p.add_argument("--as-of", required=True)
+    p.add_argument("--theme", default="photonics")
+    p.add_argument("--seeds", default=None)
+    p.add_argument("--model", default=None)
+    p.add_argument("--actor", default=None)
+    p.set_defaults(run=cmd_session_open)
+    p = session.add_parser("close")
+    p.add_argument("--id", required=True)
+    p.add_argument("--usage", default=None, help="a JSON file: calls, searches, reads, records, ...")
+    p.add_argument("--card", default=None, help="a JSON file: the research_card")
+    p.add_argument("--markdown", default=None, help="the card's markdown file")
+    p.set_defaults(run=cmd_session_close)
     p = sub.add_parser("recall")
     p.add_argument("--q", required=True)
     p.add_argument("--as-of", required=True)

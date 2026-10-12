@@ -1615,6 +1615,23 @@
             }
           },
           {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -1731,6 +1748,237 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/atlas__facts__service__Fact"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Sessions",
+        "operationId": "sessions_api_v1_sessions_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SessionSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Open Session",
+        "operationId": "open_session_api_v1_sessions_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionOpen"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Session",
+        "operationId": "session_api_v1_sessions__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/close": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Close",
+        "operationId": "close_api_v1_sessions__session_id__close_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionClose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchSession"
                 }
               }
             }
@@ -13664,6 +13912,19 @@
             "title": "Investigation Id",
             "description": "the investigation it was found for, if any"
           },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the research session it was recorded in, if any"
+          },
           "step": {
             "type": "string",
             "enum": [
@@ -19393,6 +19654,37 @@
         ],
         "title": "Page[ResearchSnapshotRecord]"
       },
+      "Page_SessionSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[SessionSummary]"
+      },
       "Page_SourceDocument_": {
         "properties": {
           "items": {
@@ -23404,6 +23696,147 @@
         "type": "object",
         "title": "ResearchScope"
       },
+      "ResearchSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "seed_company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Seed Company Ids"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SessionKind"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "usage": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Usage"
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts",
+            "description": "the Facts recorded in it"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card"
+          },
+          "card_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Markdown"
+          },
+          "fact_items": {
+            "items": {
+              "$ref": "#/components/schemas/atlas__facts__service__Fact"
+            },
+            "type": "array",
+            "title": "Fact Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "theme",
+          "seed_company_ids",
+          "as_of",
+          "kind",
+          "model",
+          "actor",
+          "investigation_id",
+          "started_at",
+          "finished_at",
+          "usage",
+          "facts",
+          "card",
+          "card_markdown",
+          "fact_items"
+        ],
+        "title": "ResearchSession"
+      },
       "ResearchSnapshot": {
         "properties": {
           "id": {
@@ -24814,6 +25247,223 @@
           "lines"
         ],
         "title": "SensitivityRow"
+      },
+      "SessionClose": {
+        "properties": {
+          "usage": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Usage"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card",
+            "description": "the argument plan's card shape: steps, question parts, ..."
+          },
+          "card_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Markdown"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SessionClose"
+      },
+      "SessionKind": {
+        "type": "string",
+        "enum": [
+          "claude",
+          "pipeline"
+        ]
+      },
+      "SessionOpen": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question"
+          },
+          "theme": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Theme"
+          },
+          "seed_company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Seed Company Ids"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "kind": {
+            "type": "string",
+            "const": "claude",
+            "title": "Kind",
+            "default": "claude"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor",
+            "description": "who researches; default: the caller"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question",
+          "theme",
+          "as_of"
+        ],
+        "title": "SessionOpen"
+      },
+      "SessionSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "seed_company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Seed Company Ids"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SessionKind"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "usage": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Usage"
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts",
+            "description": "the Facts recorded in it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "theme",
+          "seed_company_ids",
+          "as_of",
+          "kind",
+          "model",
+          "actor",
+          "investigation_id",
+          "started_at",
+          "finished_at",
+          "usage",
+          "facts"
+        ],
+        "title": "SessionSummary"
       },
       "SkippedVersion": {
         "properties": {
@@ -27447,6 +28097,18 @@
               }
             ],
             "title": "Investigation Id"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
           },
           "step": {
             "type": "string",
