@@ -43,7 +43,12 @@ class FilesystemStore:
             with contextlib.suppress(FileExistsError):
                 os.link(temporary, path)
         finally:
-            os.unlink(temporary)
+            try:
+                os.unlink(temporary)
+            except PermissionError:
+                # Windows refuses to unlink a read-only file; make it writable first.
+                os.chmod(temporary, 0o666)
+                os.unlink(temporary)
 
     def is_ready(self) -> bool:
         return self._root.is_dir() and os.access(self._root, os.W_OK)
