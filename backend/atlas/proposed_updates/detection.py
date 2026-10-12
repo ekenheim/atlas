@@ -32,6 +32,7 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive, open_archive
 from atlas.audit import Actor, content_hash, record
+from atlas.beliefs.flags import flag_source_revised
 from atlas.db.engine import create_engine
 from atlas.hypotheses.model import version_from_row
 from atlas.jobs.handlers import HandlerRegistry
@@ -71,6 +72,8 @@ class ContradictionCheck:
         state = job.payload.get("state")
         key = trigger_key(trigger, ref, None if state is None else str(state))
         with self._engine.begin() as connection:
+            if trigger == "source_revised":
+                flag_source_revised(connection, self._archive, ref)  # Beliefs (ticket 02)
             found, skipped = self._find(connection, trigger, ref)
             if found is None:
                 return {"proposed_update_ids": [], "skipped": skipped}

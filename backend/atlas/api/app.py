@@ -11,6 +11,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Info, gene
 from atlas import __version__
 from atlas.api.archive_search import archive_search_router
 from atlas.api.assertions import assertions_router
+from atlas.api.beliefs import beliefs_router
 from atlas.api.candidates import candidates_router
 from atlas.api.claims import claims_router
 from atlas.api.common import invalid_request
@@ -23,6 +24,7 @@ from atlas.api.hypotheses import hypotheses_router
 from atlas.api.identity import identity_router
 from atlas.api.ingest_plans import ingest_plans_router
 from atlas.api.investigations import investigations_router
+from atlas.api.issues import issues_router
 from atlas.api.jobs import jobs_router
 from atlas.api.memory import memory_router
 from atlas.api.mental_models import mental_models_router
@@ -33,6 +35,7 @@ from atlas.api.replay import replay_router
 from atlas.api.research import research_router
 from atlas.api.runs import runs_router
 from atlas.api.scenarios import scenarios_router
+from atlas.api.sessions import sessions_router
 from atlas.api.snapshots import snapshots_router
 from atlas.api.sources import sources_router
 from atlas.api.statements import statements_router
@@ -112,6 +115,9 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(facts_router(engine, archive, Actor.from_settings(settings)))
+    app.include_router(sessions_router(engine, Actor.from_settings(settings)))
+    app.include_router(issues_router(engine, Actor.from_settings(settings)))
+    app.include_router(beliefs_router(engine, Actor.from_settings(settings)))
     app.include_router(
         memory_router(
             engine,

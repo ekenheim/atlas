@@ -1615,6 +1615,23 @@
             }
           },
           {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -1744,6 +1761,1247 @@
               }
             },
             "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Sessions",
+        "operationId": "sessions_api_v1_sessions_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SessionSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Open Session",
+        "operationId": "open_session_api_v1_sessions_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionOpen"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Session",
+        "operationId": "session_api_v1_sessions__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/close": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Close",
+        "operationId": "close_api_v1_sessions__session_id__close_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionClose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/issues": {
+      "get": {
+        "tags": [
+          "issues"
+        ],
+        "summary": "Issues",
+        "operationId": "issues_api_v1_issues_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/IssueStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Issue_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "issues"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_issues_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/issues/next": {
+      "get": {
+        "tags": [
+          "issues"
+        ],
+        "summary": "Next Action",
+        "operationId": "next_action_api_v1_issues_next_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Theme"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextIssue"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/issues/{issue_id}": {
+      "get": {
+        "tags": [
+          "issues"
+        ],
+        "summary": "Issue",
+        "operationId": "issue_api_v1_issues__issue_id__get",
+        "parameters": [
+          {
+            "name": "issue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Issue Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/issues/{issue_id}/edges": {
+      "post": {
+        "tags": [
+          "issues"
+        ],
+        "summary": "Add Edge",
+        "operationId": "add_edge_api_v1_issues__issue_id__edges_post",
+        "parameters": [
+          {
+            "name": "issue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Issue Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueEdgeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/issues/{issue_id}/complete": {
+      "post": {
+        "tags": [
+          "issues"
+        ],
+        "summary": "Complete",
+        "operationId": "complete_api_v1_issues__issue_id__complete_post",
+        "parameters": [
+          {
+            "name": "issue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Issue Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/issues/{issue_id}/abandon": {
+      "post": {
+        "tags": [
+          "issues"
+        ],
+        "summary": "Abandon",
+        "operationId": "abandon_api_v1_issues__issue_id__abandon_post",
+        "parameters": [
+          {
+            "name": "issue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Issue Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/issues/{issue_id}/produced": {
+      "post": {
+        "tags": [
+          "issues"
+        ],
+        "summary": "Produced",
+        "operationId": "produced_api_v1_issues__issue_id__produced_post",
+        "parameters": [
+          {
+            "name": "issue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Issue Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueProductCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs": {
+      "get": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Beliefs",
+        "operationId": "beliefs_api_v1_beliefs_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "step",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Step"
+            }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "judgement",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Judgement"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "flagged",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Flagged"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_BeliefSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Propose",
+        "operationId": "propose_api_v1_beliefs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeliefPropose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}": {
+      "get": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Belief",
+        "operationId": "belief_api_v1_beliefs__belief_id__get",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}/cite": {
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Cite",
+        "operationId": "cite_api_v1_beliefs__belief_id__cite_post",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CitationIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}/judge": {
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Judge",
+        "operationId": "judge_api_v1_beliefs__belief_id__judge_post",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeliefJudge"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}/supersede": {
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Supersede",
+        "operationId": "supersede_api_v1_beliefs__belief_id__supersede_post",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeliefSupersede"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -7847,6 +9105,412 @@
         ],
         "title": "BackfillWindowStatus"
       },
+      "Belief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "step": {
+            "$ref": "#/components/schemas/Step"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/JudgementRecord",
+            "description": "the judgement current at the read's time"
+          },
+          "open_flags": {
+            "type": "integer",
+            "title": "Open Flags"
+          },
+          "citation_count": {
+            "type": "integer",
+            "title": "Citation Count"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationRecord"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "counterevidence": {
+            "items": {
+              "$ref": "#/components/schemas/CitationRecord"
+            },
+            "type": "array",
+            "title": "Counterevidence",
+            "description": "the citations with valence < 0"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/FlagRecord"
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/JudgementRecord"
+            },
+            "type": "array",
+            "title": "History",
+            "description": "every judgement, oldest first"
+          },
+          "supersedes": {
+            "items": {
+              "$ref": "#/components/schemas/BeliefLink"
+            },
+            "type": "array",
+            "title": "Supersedes"
+          },
+          "superseded_by": {
+            "items": {
+              "$ref": "#/components/schemas/BeliefLink"
+            },
+            "type": "array",
+            "title": "Superseded By"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "theme",
+          "step",
+          "as_of",
+          "status",
+          "companies",
+          "judgement",
+          "open_flags",
+          "citation_count",
+          "produced_by",
+          "created_by",
+          "created_at",
+          "citations",
+          "counterevidence",
+          "flags",
+          "history",
+          "supersedes",
+          "superseded_by",
+          "session"
+        ],
+        "title": "Belief"
+      },
+      "BeliefJudge": {
+        "properties": {
+          "actor": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Actor",
+            "description": "the author setting the judgement"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/Judgement"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "actor",
+          "judgement",
+          "confidence",
+          "reason"
+        ],
+        "title": "BeliefJudge"
+      },
+      "BeliefLink": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "actor",
+          "reason",
+          "at"
+        ],
+        "title": "BeliefLink"
+      },
+      "BeliefPropose": {
+        "properties": {
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Statement"
+          },
+          "theme": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Theme"
+          },
+          "step": {
+            "$ref": "#/components/schemas/Step"
+          },
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Company Ids"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor",
+            "description": "who proposes; default: the caller"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationIn"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "statement",
+          "theme",
+          "step",
+          "as_of"
+        ],
+        "title": "BeliefPropose"
+      },
+      "BeliefSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "step": {
+            "$ref": "#/components/schemas/Step"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/JudgementRecord",
+            "description": "the judgement current at the read's time"
+          },
+          "open_flags": {
+            "type": "integer",
+            "title": "Open Flags"
+          },
+          "citation_count": {
+            "type": "integer",
+            "title": "Citation Count"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "theme",
+          "step",
+          "as_of",
+          "status",
+          "companies",
+          "judgement",
+          "open_flags",
+          "citation_count",
+          "produced_by",
+          "created_by",
+          "created_at"
+        ],
+        "title": "BeliefSummary"
+      },
+      "BeliefSupersede": {
+        "properties": {
+          "by": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "By",
+            "description": "the Beliefs that replace it"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "by",
+          "reason"
+        ],
+        "title": "BeliefSupersede"
+      },
       "Bottlenecks": {
         "properties": {
           "status": {
@@ -10159,6 +11823,82 @@
         "title": "Check",
         "description": "One gold expectation, what was observed, and whether it held."
       },
+      "CitationIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "assertion"
+            ],
+            "title": "Kind",
+            "default": "fact"
+          },
+          "ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ref Id",
+            "description": "the Fact's ID (its Assertion's), or an Assertion's"
+          },
+          "valence": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": -1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valence"
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Relation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the counter-judge's relation; sets a default valence"
+          },
+          "weight": {
+            "$ref": "#/components/schemas/Weight",
+            "default": "context"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor",
+            "description": "who cites; default: the caller"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ref_id"
+        ],
+        "title": "CitationIn"
+      },
       "CitationKind": {
         "type": "string",
         "enum": [
@@ -10167,6 +11907,141 @@
           "quote",
           "mental_model"
         ]
+      },
+      "CitationRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "assertion"
+            ],
+            "title": "Kind"
+          },
+          "ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ref Id"
+          },
+          "valence": {
+            "type": "number",
+            "title": "Valence"
+          },
+          "weight": {
+            "$ref": "#/components/schemas/Weight"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "statement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement",
+            "description": "the Fact's statement; none for an Assertion"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "span_start": {
+            "type": "integer",
+            "title": "Span Start"
+          },
+          "span_end": {
+            "type": "integer",
+            "title": "Span End"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "source_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Title"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "review_state": {
+            "type": "string",
+            "title": "Review State"
+          },
+          "stands": {
+            "type": "boolean",
+            "title": "Stands",
+            "description": "the cited statement is neither disputed nor withdrawn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "ref_id",
+          "valence",
+          "weight",
+          "note",
+          "actor",
+          "created_at",
+          "company_id",
+          "company_name",
+          "statement",
+          "quote",
+          "span_start",
+          "span_end",
+          "source_version_id",
+          "source_title",
+          "available_at",
+          "review_state",
+          "stands"
+        ],
+        "title": "CitationRecord"
       },
       "CitationSource": {
         "properties": {
@@ -11132,6 +13007,30 @@
           "one_entity"
         ],
         "title": "CompanyEntities"
+      },
+      "CompanyRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "display_name"
+        ],
+        "title": "CompanyRef"
       },
       "CompanyRole": {
         "type": "string",
@@ -12427,6 +14326,13 @@
         ],
         "title": "EdgarSearch",
         "description": "A query's EDGAR full-text search (atlas.discovery.edgar_fts)."
+      },
+      "EdgeKind": {
+        "type": "string",
+        "enum": [
+          "narrows",
+          "requires"
+        ]
       },
       "EntitiesHealth": {
         "properties": {
@@ -13865,6 +15771,19 @@
             "title": "Investigation Id",
             "description": "the investigation it was found for, if any"
           },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the research session it was recorded in, if any"
+          },
           "step": {
             "type": "string",
             "enum": [
@@ -14951,6 +16870,63 @@
           "claim_ids"
         ],
         "title": "FindingEdit"
+      },
+      "FlagKind": {
+        "type": "string",
+        "enum": [
+          "counterevidence_stands",
+          "source_revised",
+          "assertion_reviewed",
+          "fact_superseded"
+        ]
+      },
+      "FlagRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FlagKind"
+          },
+          "ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ref Id"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "raised_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Raised At"
+          },
+          "cleared_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "ref_id",
+          "detail",
+          "raised_at",
+          "cleared_by"
+        ],
+        "title": "FlagRecord"
       },
       "FollowUp": {
         "properties": {
@@ -16749,6 +18725,340 @@
         "title": "InvestigationSummary",
         "description": "An investigation as the workbench lists it."
       },
+      "Issue": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/IssueKind"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IssueStatus"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Company Ids"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id",
+            "description": "the Issue it narrows"
+          },
+          "parent_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Title"
+          },
+          "requires": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Requires",
+            "description": "the Issues it requires"
+          },
+          "blocked": {
+            "type": "boolean",
+            "title": "Blocked",
+            "description": "a required Issue is still active"
+          },
+          "open_children": {
+            "type": "integer",
+            "title": "Open Children",
+            "description": "active Issues narrowing it"
+          },
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/IssueProduct"
+            },
+            "type": "array",
+            "title": "Products"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "theme",
+          "kind",
+          "priority",
+          "status",
+          "produced_by",
+          "company_ids",
+          "created_by",
+          "created_at",
+          "closed_at",
+          "parent_id",
+          "parent_title",
+          "requires",
+          "blocked",
+          "open_children",
+          "products"
+        ],
+        "title": "Issue"
+      },
+      "IssueCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body",
+            "default": ""
+          },
+          "theme": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Theme"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/IssueKind",
+            "default": "read"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority",
+            "default": 0
+          },
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Company Ids"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By",
+            "description": "the session that opened it"
+          },
+          "narrows": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Narrows",
+            "description": "the Issue it narrows (parent)"
+          },
+          "requires": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Requires",
+            "description": "Issues to finish before this one"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "theme"
+        ],
+        "title": "IssueCreate"
+      },
+      "IssueEdgeCreate": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/EdgeKind"
+          },
+          "parent_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Parent Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "parent_id"
+        ],
+        "title": "IssueEdgeCreate"
+      },
+      "IssueKind": {
+        "type": "string",
+        "enum": [
+          "question",
+          "step",
+          "read"
+        ]
+      },
+      "IssueProduct": {
+        "properties": {
+          "belief_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Belief Id"
+          },
+          "fact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "belief_id",
+          "fact_id",
+          "actor",
+          "created_at"
+        ],
+        "title": "IssueProduct"
+      },
+      "IssueProductCreate": {
+        "properties": {
+          "belief_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Belief Id"
+          },
+          "fact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IssueProductCreate"
+      },
+      "IssueStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "complete",
+          "abandoned",
+          "invalid"
+        ]
+      },
       "Job": {
         "properties": {
           "id": {
@@ -17086,6 +19396,54 @@
           "basis"
         ],
         "title": "JudgedClauseOut"
+      },
+      "Judgement": {
+        "type": "string",
+        "enum": [
+          "proven",
+          "disproven",
+          "unproven",
+          "undecidable"
+        ]
+      },
+      "JudgementRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/Judgement"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "judgement",
+          "confidence",
+          "actor",
+          "reason",
+          "at"
+        ],
+        "title": "JudgementRecord"
       },
       "LLMAttempt": {
         "properties": {
@@ -19041,6 +21399,45 @@
         ],
         "title": "MissingInput"
       },
+      "NextIssue": {
+        "properties": {
+          "issue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Issue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None: nothing is active and unblocked"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "issue",
+          "reason"
+        ],
+        "title": "NextIssue"
+      },
+      "NextReason": {
+        "type": "string",
+        "enum": [
+          "step_without_belief",
+          "flagged_or_disputed",
+          "priority"
+        ]
+      },
       "ObservationScopesHealth": {
         "properties": {
           "status": {
@@ -19185,6 +21582,37 @@
           "offset"
         ],
         "title": "Page[Assertion]"
+      },
+      "Page_BeliefSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BeliefSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[BeliefSummary]"
       },
       "Page_Candidate_": {
         "properties": {
@@ -19589,6 +22017,37 @@
         ],
         "title": "Page[InvestigationSummary]"
       },
+      "Page_Issue_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Issue"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Issue]"
+      },
       "Page_Lead_": {
         "properties": {
           "items": {
@@ -19774,6 +22233,37 @@
           "offset"
         ],
         "title": "Page[ResearchSnapshotRecord]"
+      },
+      "Page_SessionSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[SessionSummary]"
       },
       "Page_SourceDocument_": {
         "properties": {
@@ -22008,6 +24498,16 @@
         ],
         "title": "RelateRequest"
       },
+      "Relation": {
+        "type": "string",
+        "enum": [
+          "contradicts",
+          "limits",
+          "dates",
+          "qualifies",
+          "supports"
+        ]
+      },
       "Relationship": {
         "properties": {
           "id": {
@@ -23824,6 +26324,147 @@
         "type": "object",
         "title": "ResearchScope"
       },
+      "ResearchSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "seed_company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Seed Company Ids"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SessionKind"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "usage": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Usage"
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts",
+            "description": "the Facts recorded in it"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card"
+          },
+          "card_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Markdown"
+          },
+          "fact_items": {
+            "items": {
+              "$ref": "#/components/schemas/atlas__facts__service__Fact"
+            },
+            "type": "array",
+            "title": "Fact Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "theme",
+          "seed_company_ids",
+          "as_of",
+          "kind",
+          "model",
+          "actor",
+          "investigation_id",
+          "started_at",
+          "finished_at",
+          "usage",
+          "facts",
+          "card",
+          "card_markdown",
+          "fact_items"
+        ],
+        "title": "ResearchSession"
+      },
       "ResearchSnapshot": {
         "properties": {
           "id": {
@@ -25235,6 +27876,223 @@
         ],
         "title": "SensitivityRow"
       },
+      "SessionClose": {
+        "properties": {
+          "usage": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Usage"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card",
+            "description": "the argument plan's card shape: steps, question parts, ..."
+          },
+          "card_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Markdown"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SessionClose"
+      },
+      "SessionKind": {
+        "type": "string",
+        "enum": [
+          "claude",
+          "pipeline"
+        ]
+      },
+      "SessionOpen": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question"
+          },
+          "theme": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Theme"
+          },
+          "seed_company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Seed Company Ids"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "kind": {
+            "type": "string",
+            "const": "claude",
+            "title": "Kind",
+            "default": "claude"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor",
+            "description": "who researches; default: the caller"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question",
+          "theme",
+          "as_of"
+        ],
+        "title": "SessionOpen"
+      },
+      "SessionSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "seed_company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Seed Company Ids"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SessionKind"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "usage": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Usage"
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts",
+            "description": "the Facts recorded in it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "theme",
+          "seed_company_ids",
+          "as_of",
+          "kind",
+          "model",
+          "actor",
+          "investigation_id",
+          "started_at",
+          "finished_at",
+          "usage",
+          "facts"
+        ],
+        "title": "SessionSummary"
+      },
       "SkippedVersion": {
         "properties": {
           "source_version_id": {
@@ -26264,6 +29122,25 @@
           "run_id"
         ],
         "title": "StatementJudgement"
+      },
+      "Status": {
+        "type": "string",
+        "enum": [
+          "active",
+          "superseded",
+          "withdrawn"
+        ]
+      },
+      "Step": {
+        "type": "string",
+        "enum": [
+          "constraint",
+          "demand_vs_supply",
+          "relief",
+          "control",
+          "capture",
+          "invalidation"
+        ]
       },
       "TagMatch": {
         "type": "string",
@@ -27918,6 +30795,13 @@
         ],
         "title": "VersionSample"
       },
+      "Weight": {
+        "type": "string",
+        "enum": [
+          "load_bearing",
+          "context"
+        ]
+      },
       "XbrlSource": {
         "properties": {
           "type": {
@@ -27957,6 +30841,18 @@
               }
             ],
             "title": "Investigation Id"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
           },
           "step": {
             "type": "string",

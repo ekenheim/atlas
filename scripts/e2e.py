@@ -64,7 +64,10 @@ from atlas.api.app import create_app
 from atlas.archive import open_archive
 from atlas.assertions import AssertionCreate, Assertions
 from atlas.audit import Actor
+from atlas.beliefs.service import BeliefJudge, BeliefPropose, Beliefs, CitationIn
 from atlas.db.migrate import upgrade
+from atlas.facts import FactCreate, Facts
+from atlas.issues import IssueCreate, Issues, list_issues
 from atlas.jobs import HandlerRegistry, JobQueue, Worker
 from atlas.ledger import SourceLedger
 from atlas.relationships import (
@@ -75,6 +78,7 @@ from atlas.relationships import (
     list_relationships,
 )
 from atlas.roles import RoleCaller
+from atlas.sessions import SessionClose, SessionOpen, Sessions
 from atlas.settings import Settings
 from atlas.sources import FetchedDocument, HttpValidators, SourceCandidate
 
@@ -235,6 +239,7 @@ def seed(database_url: str, archive: Path, workdir: Path) -> None:
             raise SystemExit(f"e2e: `atlas {' '.join(args)}` failed:\n{done.stderr}")
     seed_pdf(database_url, archive)
     seed_relationships(database_url, archive)
+    seed_session(database_url, archive)
 
 
 # Hedged sentences of Lumentum's FY2026 10-K (the recorded fixture's parsed text): each
@@ -334,6 +339,186 @@ def seed_relationships(database_url: str, archive_root: Path) -> None:
         )
     finally:
         engine.dispose()
+
+
+LUMENTUM_10Q = (
+    "https://www.sec.gov/Archives/edgar/data/1633978/000162828026030777/lite-20260328.htm"
+)
+SESSION_QUESTION = "Is laser capacity the constraint on AI optics?"
+ISSUE_STEP_TITLE = "Relief: who else can supply the lasers?"
+# Quotes of Lumentum's March 2026 10-Q, a document no other spec touches: a Fact is an
+# Assertion, and an Assertion elsewhere changes what the assertions spec sees on its version.
+SESSION_FACTS: tuple[tuple[str, str, str, float, str, str], ...] = (
+    # (quote, statement, period, value, unit, metric)
+    (
+        "As of April 30, 2026, the Registrant had 77.8 million shares of common stock outstanding.",
+        "Lumentum had 77.8 million shares of common stock outstanding on April 30, 2026.",
+        "April 30, 2026",
+        77.8,
+        "million shares",
+        "shares outstanding",
+    ),
+    (
+        "Net revenue\t$\t808.4",
+        "Lumentum's net revenue for the three months ended March 28, 2026 was $808.4 million.",
+        "three months ended March 28, 2026",
+        808.4,
+        "USD million",
+        "net revenue",
+    ),
+)
+SESSION_STATEMENT = "Lumentum reported quarterly net revenue and its shares outstanding."
+
+
+def seed_session(database_url: str, archive_root: Path) -> None:
+    """A Claude session with two Facts (quotes of Lumentum's March 2026 10-Q, which no other
+    spec touches) and a small card citing them, through the real services."""
+    settings = Settings.model_validate(
+        {"database_url": database_url, "actor": "e2e-smoke", "archive_root": archive_root}
+    )
+    engine = create_engine(database_url)
+    actor = Actor("e2e-smoke")
+    try:
+        with engine.connect() as connection:
+            version_id, parsed_uri = connection.execute(
+                text(
+                    "SELECT v.id, v.parsed_object_uri FROM source_version v"
+                    " JOIN source_document d ON d.id = v.source_document_id"
+                    " WHERE d.canonical_url = :url ORDER BY v.version_number DESC LIMIT 1"
+                ),
+                {"url": LUMENTUM_10Q},
+            ).one()
+            lumentum = connection.execute(
+                text("SELECT id FROM company WHERE slug = 'lumentum'")
+            ).scalar_one()
+        parsed = open_archive(settings).get(parsed_uri).decode("utf-8")
+        sessions = Sessions(engine, actor)
+        facts = Facts(engine, open_archive(settings), actor)
+        opened = sessions.open(
+            SessionOpen(
+                question=SESSION_QUESTION,
+                theme="photonics",
+                seed_company_ids=[lumentum],
+                as_of=datetime(2026, 9, 30, tzinfo=UTC),
+                model="claude-e2e",
+                actor="e2e-researcher",
+            )
+        )
+        cited: list[dict[str, JsonValue]] = []
+        for quote, statement, period, value, unit, metric in SESSION_FACTS:
+            start = parsed.index(quote)
+            recorded = facts.create(
+                FactCreate.model_validate(
+                    {
+                        "subject_company_id": lumentum,
+                        "source_version_id": version_id,
+                        "quote": quote,
+                        "span_start": start,
+                        "span_end": start + len(quote),
+                        "epistemic_type": "company_claim",
+                        "session_id": opened.id,
+                        "step": "constraint",
+                        "statement": statement,
+                        "quantity": {"value": value, "unit": unit, "metric": metric},
+                        "period": period,
+                        "status": "in_effect",
+                    }
+                ),
+                document_date=None,
+                fiscal_year_end=None,
+            )
+            cited.append({"fact_id": str(recorded.fact.id), "statement": statement})
+        card: dict[str, Any] = {
+            "steps": [
+                {
+                    "step": "constraint",
+                    "title": "The constraint",
+                    "status": "supported",
+                    "statements": [{"statement": SESSION_STATEMENT, "facts": cited}],
+                    "unchecked": [],
+                }
+            ],
+            "open_questions": ["Who else makes indium phosphide lasers?"],
+        }
+        sessions.close(opened.id, SessionClose(usage={"calls": 9, "tokens": 12345}, card=card))
+        # The close opened the question's Issues; the frontier also gets a step no Belief
+        # was produced for, narrowing the same question.
+        issues = Issues(engine, actor)
+        with engine.connect() as connection:
+            listed, _ = list_issues(connection, theme="photonics", limit=100, offset=0)
+        root = next(
+            item.id for item in listed if item.kind == "question" and item.title == SESSION_QUESTION
+        )
+        issues.create(
+            IssueCreate(
+                title=ISSUE_STEP_TITLE,
+                body="relief: unknown",
+                theme="photonics",
+                kind="step",
+                priority=1,
+                company_ids=[lumentum],
+                narrows=root,
+                produced_by=opened.id,
+            )
+        )
+        seed_beliefs(
+            engine, actor, opened.id, lumentum, [uuid.UUID(str(c["fact_id"])) for c in cited]
+        )
+    finally:
+        engine.dispose()
+
+
+BELIEF_PROVEN = "Lumentum's laser demand is outrunning its capacity."
+BELIEF_FLAGGED = "Lumentum can add laser capacity faster than demand grows."
+
+
+def seed_beliefs(
+    engine: Engine,
+    actor: Actor,
+    session_id: uuid.UUID,
+    company_id: uuid.UUID,
+    facts: list[uuid.UUID],
+) -> None:
+    """Two photonics Beliefs citing the session's two Facts: a constraint the owner proved, and
+    a relief left unproven whose second Fact stands against it (a flag, raised by code)."""
+    beliefs = Beliefs(engine, actor)
+    as_of = datetime(2026, 9, 30, tzinfo=UTC)
+    proven = beliefs.propose(
+        BeliefPropose(
+            statement=BELIEF_PROVEN,
+            theme="photonics",
+            step="constraint",
+            company_ids=[company_id],
+            as_of=as_of,
+            session_id=session_id,
+            actor="e2e-researcher",
+            citations=[
+                CitationIn(ref_id=facts[0], valence=0.9, weight="load_bearing"),
+                CitationIn(ref_id=facts[1], valence=0.5, weight="context"),
+            ],
+        )
+    )
+    beliefs.judge(
+        proven.id,
+        BeliefJudge(
+            actor="e2e-owner", judgement="proven", confidence=0.8, reason="two quarters agree"
+        ),
+    )
+    beliefs.propose(
+        BeliefPropose(
+            statement=BELIEF_FLAGGED,
+            theme="photonics",
+            step="relief",
+            company_ids=[company_id],
+            as_of=as_of,
+            session_id=session_id,
+            actor="e2e-researcher",
+            citations=[
+                CitationIn(ref_id=facts[0], valence=0.6, weight="load_bearing"),
+                CitationIn(ref_id=facts[1], relation="contradicts", weight="load_bearing"),
+            ],
+        )
+    )
 
 
 @contextmanager
