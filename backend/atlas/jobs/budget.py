@@ -217,6 +217,9 @@ class Budgets:
     retain_operations: int = 200
     # False: the bulk retention kinds are held (`bulk_holds`).
     bulk_retention: bool = True
+    # The conclusions bank whose template must be applied before `retain_belief` runs (None:
+    # no gate), so a first judgement cannot create the bank with the server's defaults.
+    beliefs_template_bank: str | None = None
 
     def __post_init__(self) -> None:
         if self.window <= timedelta(0):
@@ -245,6 +248,9 @@ class Budgets:
             retain_extractor=settings.retain_extractor,
             retain_operations=settings.retain_budget_operations,
             bulk_retention=settings.bulk_retention == "on",
+            beliefs_template_bank=(
+                settings.hindsight_beliefs_bank_id if settings.hindsight_url else None
+            ),
         )
 
     def providers(self) -> tuple[Provider, ...]:
@@ -342,6 +348,23 @@ def window_usage(
             provider, budgets, [(row[0], int(row[1])) for row in rows]
         )
     return usage
+
+
+BELIEFS_TEMPLATE_HOLD = "beliefs_template_not_applied"
+
+
+def template_hold(connection: Connection, budgets: Budgets | None) -> bool:
+    """Whether `retain_belief` is held because no template was applied to the conclusions
+    bank (beliefs ticket 12): `atlas hindsight apply-template --bank beliefs` lifts it."""
+    if budgets is None or budgets.beliefs_template_bank is None:
+        return False
+    return (
+        connection.execute(
+            text("SELECT 1 FROM bank_template_application WHERE bank_id = :bank LIMIT 1"),
+            {"bank": budgets.beliefs_template_bank},
+        ).first()
+        is None
+    )
 
 
 def holds(usage: Iterable[ProviderBudget], budgets: Budgets | None = None) -> Holds:

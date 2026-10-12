@@ -25,3 +25,16 @@ def upgrade() -> None:
         " ADD CONSTRAINT belief_memory_replacement_reason_check"
         " CHECK (reason IN ('rejudged', 'superseded', 'unproven', 'moved_bank'))"
     )
+
+
+def downgrade() -> None:
+    # Fails while a `moved_bank` row exists: the table is insert-only, so none is rewritten.
+    op.execute(
+        "ALTER TABLE belief_memory_replacement"
+        " DROP CONSTRAINT belief_memory_replacement_reason_check"
+    )
+    op.execute(
+        "ALTER TABLE belief_memory_replacement"
+        " ADD CONSTRAINT belief_memory_replacement_reason_check"
+        " CHECK (reason IN ('rejudged', 'superseded', 'unproven'))"
+    )

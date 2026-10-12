@@ -2391,6 +2391,11 @@ export interface components {
              */
             template_version?: string | null;
             /**
+             * Hold
+             * @description why `retain_belief` waits: `beliefs_template_not_applied` until `atlas hindsight apply-template --bank beliefs` has run (the jobs stay queued)
+             */
+            hold?: string | null;
+            /**
              * In Research Bank
              * @description judged Beliefs whose document still stands in the research bank (retained before the conclusions bank existed; `atlas memory beliefs re-retain` moves them)
              * @default 0

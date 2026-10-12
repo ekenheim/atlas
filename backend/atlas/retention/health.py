@@ -231,6 +231,11 @@ class BeliefsHealth(BaseModel):
     template_version: str | None = Field(
         default=None, description="the version of the template last applied to that bank"
     )
+    hold: str | None = Field(
+        default=None,
+        description="why `retain_belief` waits: `beliefs_template_not_applied` until"
+        " `atlas hindsight apply-template --bank beliefs` has run (the jobs stay queued)",
+    )
     in_research_bank: int = Field(
         default=0,
         description="judged Beliefs whose document still stands in the research bank (retained"
@@ -272,9 +277,11 @@ def belief_health(
     def total(state: str) -> int:
         return sum(counts.get(state, 0) for counts in themes.values())
 
+    template_version = applied_template_version(connection, bank_id)
     return BeliefsHealth(
         bank=bank_id,
-        template_version=applied_template_version(connection, bank_id),
+        template_version=template_version,
+        hold=None if template_version is not None else "beliefs_template_not_applied",
         in_research_bank=leftover,
         in_memory=total("completed"),
         pending=total("pending"),

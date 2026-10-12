@@ -319,9 +319,10 @@ def cmd_recall(args: argparse.Namespace) -> None:
         "max_tokens": args.max_tokens,
         "query_timestamp": args.as_of,
         "available_by": args.as_of,
-        "bank": args.bank,
         "include_source_facts": True,
     }
+    if args.bank:  # older Atlas versions refuse a field they do not know
+        body["bank"] = args.bank
     status, answer = post("/memory/recall", body)
     if status != 200:
         out({"http": status, "answer": answer})
@@ -656,8 +657,8 @@ def main() -> None:
     p.add_argument(
         "--bank",
         choices=["beliefs", "research"],
-        default="beliefs",
-        help="beliefs: the judged Beliefs and their Facts (default); research: the legacy index of the archive's sections",
+        default=None,
+        help="research (the default, nothing sent): the index of the archive's sections; beliefs: the conclusions bank, once the lead announces it",
     )
     p.set_defaults(run=cmd_recall)
     p = sub.add_parser("fact")

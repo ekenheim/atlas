@@ -53,7 +53,15 @@ def hindsight_fake() -> RecordedHindsight:
 
 
 class Memory(Atlas):
-    def __init__(self, database_url: str, tmp_path: Path, hindsight: str, **settings: Any) -> None:
+    def __init__(
+        self,
+        database_url: str,
+        tmp_path: Path,
+        hindsight: str,
+        *,
+        beliefs_template: bool = True,
+        **settings: Any,
+    ) -> None:
         super().__init__(
             database_url,
             tmp_path,
@@ -68,6 +76,9 @@ class Memory(Atlas):
             **settings,
         )
         assert run_apply_template(self.settings(), TEMPLATE) == 0
+        if beliefs_template and self.settings().hindsight_beliefs_bank_id != BANK:
+            # Until it is applied the queue holds `retain_belief` (the conclusions bank's gate).
+            assert run_apply_template(self.settings(), None, bank="beliefs") == 0
         self.actor = Actor("belief-memory-test")
 
     def worker_pass(self) -> int:
@@ -632,11 +643,6 @@ def test_available_by_drops_a_belief_not_yet_known_in_the_conclusions_bank(
 def test_health_reports_both_banks_and_the_template_applied_to_the_conclusions_bank(
     atlas: Memory, fake: RecordedHindsight
 ) -> None:
-    before = atlas.get("/api/v1/memory/health")
-    assert before["bank_id"] == BANK
-    assert before["beliefs"]["bank"] == BELIEFS_BANK
-    assert before["beliefs"]["template_version"] is None
-
     assert run_apply_template(atlas.settings(), None, bank="beliefs") == 0
 
     imports = [
@@ -672,6 +678,8 @@ def test_re_retain_moves_judged_beliefs_to_the_conclusions_bank_and_records_the_
     assert health_in(atlas, "in_memory") == 1
     # The conclusions bank comes into use: the Belief's document stands in the research bank.
     atlas.overrides["hindsight_beliefs_bank_id"] = BELIEFS_BANK
+    assert run_apply_template(atlas.settings(), None, bank="beliefs") == 0
+    capsys.readouterr()  # the template's summary
     atlas.api = TestClient(create_app(atlas.settings()))
     assert health_in(atlas, "in_research_bank") == 1
 
@@ -704,6 +712,119 @@ def test_re_retain_moves_judged_beliefs_to_the_conclusions_bank_and_records_the_
     assert health_in(atlas, "in_research_bank") == 0
     # The judgement's job, then the move's (the rerun with the same key added none).
     assert [job.status for job in atlas.jobs()] == ["succeeded", "succeeded"]
+    # A citation of a memory the move deleted says so, not that a retain profile changed.
+    from atlas.archive import open_archive
+    from atlas.hindsight import CitedMemory, HindsightGateway
+    from atlas.research.provenance import ProvenanceResolver
+
+    settings = atlas.settings()
+    gateway = HindsightGateway(str(settings.hindsight_url), BANK, None)
+    resolver = ProvenanceResolver(atlas.engine, open_archive(settings), gateway)
+    (citation,) = resolver.resolve_answer("", [CitedMemory(id=old_fact, text="x", type="world")])
+    gateway.close()
+    assert (citation.state, citation.reason) == ("unverified", "memory_replaced")
+    assert "moved to the conclusions bank" in (citation.detail or "")
+    assert "retain profile" not in (citation.detail or "")
+
+
+def test_a_failed_move_keeps_the_research_document_and_health_shows_the_failed_submit(
+    one_bank: Memory, fake: RecordedHindsight, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from atlas.hindsight import HindsightGateway
+
+    atlas = one_bank
+    belief = atlas.propose(atlas.fact())
+    atlas.judge(belief)
+    atlas.drain()
+    atlas.overrides["hindsight_beliefs_bank_id"] = BELIEFS_BANK
+    assert run_apply_template(atlas.settings(), None, bank="beliefs") == 0
+    atlas.api = TestClient(create_app(atlas.settings()))
+    original = HindsightGateway.retain_batch
+
+    def refusing(self: HindsightGateway, items: Any) -> Any:
+        if self.bank_id == BELIEFS_BANK:
+            raise RuntimeError("the submit was refused")
+        return original(self, items)
+
+    monkeypatch.setattr(HindsightGateway, "retain_batch", refusing)
+    run_beliefs_reretain(atlas.settings(), "move-fails")
+    for _ in range(8):  # until the job's attempts run out
+        atlas.drain()
+
+    assert [j.status for j in atlas.jobs()] == ["succeeded", "failed"]
+    assert deleted_from(fake) == []  # never in neither bank
+    (state,) = atlas.rows(
+        "SELECT state, error FROM belief_memory WHERE belief_id = :id AND bank_id = :bank",
+        id=belief,
+        bank=BELIEFS_BANK,
+    )
+    assert (state.state, state.error) == ("failed", "the submit was refused")
+    health = atlas.get("/api/v1/memory/health")["beliefs"]
+    assert (health["failed"], health["in_research_bank"], health["in_memory"]) == (1, 1, 0)
+
+    monkeypatch.undo()
+    run_beliefs_reretain(atlas.settings(), "move-again")
+    atlas.drain()
+    assert deleted_from(fake) == [(BANK, f"belief:{belief}")]
+    health = atlas.get("/api/v1/memory/health")["beliefs"]
+    assert (health["failed"], health["in_research_bank"], health["in_memory"]) == (0, 0, 1)
+
+
+def test_a_belief_judged_unproven_again_with_its_document_still_in_the_research_bank(
+    one_bank: Memory, fake: RecordedHindsight
+) -> None:
+    atlas = one_bank
+    belief = atlas.propose(atlas.fact())
+    atlas.judge(belief)
+    atlas.drain()
+    atlas.overrides["hindsight_beliefs_bank_id"] = BELIEFS_BANK
+    assert run_apply_template(atlas.settings(), None, bank="beliefs") == 0
+
+    atlas.judge(belief, "unproven", 0.0)
+    atlas.drain()
+
+    assert deleted_from(fake) == [(BANK, f"belief:{belief}")]
+    (replacement,) = atlas.rows(
+        "SELECT reason, bank_id FROM belief_memory_replacement WHERE belief_id = :id", id=belief
+    )
+    assert (replacement.reason, replacement.bank_id) == ("unproven", BANK)
+    assert [i for b in fake.retained(BELIEFS_BANK) for i in b] == []
+
+
+def test_retain_belief_waits_until_the_conclusions_banks_template_is_applied(
+    database_url: str, tmp_path: Path, hindsight: tuple[RecordedHindsight, Any]
+) -> None:
+    fake, served = hindsight
+    fake.script_observation_scopes([])
+    fake.script_entities([])
+    atlas = Memory(database_url, tmp_path, served.url, beliefs_template=False)
+    try:
+        atlas.ingest_lumentum()
+        belief = atlas.propose(atlas.fact())
+        atlas.judge(belief)
+        atlas.drain()
+
+        assert [j.status for j in atlas.jobs()] == ["queued"]
+        assert fake.retained(BELIEFS_BANK) == []  # the bank was not created with defaults
+        health = atlas.get("/api/v1/memory/health")["beliefs"]
+        assert (health["hold"], health["template_version"]) == (
+            "beliefs_template_not_applied",
+            None,
+        )
+        (pending,) = [
+            p for p in atlas.get("/api/v1/queue")["pending"] if p["kind"] == "retain_belief"
+        ]
+        assert pending["budget_held"] == pending["queued"] == 1
+
+        assert run_apply_template(atlas.settings(), None, bank="beliefs") == 0
+        atlas.drain()
+
+        assert [j.status for j in atlas.jobs()] == ["succeeded"]
+        assert len(belief_batches(fake, belief)) == 1
+        health = atlas.get("/api/v1/memory/health")["beliefs"]
+        assert (health["hold"], health["in_memory"]) == (None, 1)
+    finally:
+        atlas.engine.dispose()
 
 
 def test_the_re_retain_command_is_on_the_cli_entry(

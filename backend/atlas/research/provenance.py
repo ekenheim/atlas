@@ -333,7 +333,17 @@ class ProvenanceResolver:
         `memory_replaced` when a backfill deleted its document to retain the section again
         under the current profile (memory-quality ticket 12: the section is still in Memory,
         its facts have new IDs), else `broken`."""
-        document = self._replacement(memory_id) or self._belief_replacement(memory_id)
+        document = self._replacement(memory_id)
+        belief_move = None if document is not None else self._belief_replacement(memory_id)
+        if belief_move is not None and belief_move[1] == "moved_bank":
+            return _Outcome(
+                "unverified",
+                "memory_replaced",
+                f"{what} was deleted from this bank when its Belief's document {belief_move[0]}"
+                " moved to the conclusions bank (recall with bank=beliefs)",
+            )
+        if belief_move is not None:
+            document = belief_move[0]
         retired = None if document is not None else self._retirement(memory_id)
         if retired is not None:
             return _Outcome(
@@ -364,16 +374,18 @@ class ProvenanceResolver:
                 {"bank": self._gateway.bank_id, "memory": json.dumps([memory_id])},
             ).scalar_one_or_none()
 
-    def _belief_replacement(self, memory_id: str) -> str | None:
+    def _belief_replacement(self, memory_id: str) -> tuple[str, str] | None:
+        """(document, reason) of the Belief document that held this memory, if one was deleted."""
         with self._engine.connect() as connection:
-            return connection.execute(
+            row = connection.execute(
                 text(
-                    "SELECT hindsight_document_id FROM belief_memory_replacement"
+                    "SELECT hindsight_document_id, reason FROM belief_memory_replacement"
                     " WHERE bank_id = :bank AND replaced_memory_ids @> CAST(:memory AS jsonb)"
                     " ORDER BY created_at DESC LIMIT 1"
                 ),
                 {"bank": self._gateway.bank_id, "memory": json.dumps([memory_id])},
-            ).scalar_one_or_none()
+            ).one_or_none()
+        return (row[0], row[1]) if row is not None else None
 
     def _replacement(self, memory_id: str) -> str | None:
         with self._engine.connect() as connection:

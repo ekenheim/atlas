@@ -9530,6 +9530,18 @@
             "title": "Template Version",
             "description": "the version of the template last applied to that bank"
           },
+          "hold": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold",
+            "description": "why `retain_belief` waits: `beliefs_template_not_applied` until `atlas hindsight apply-template --bank beliefs` has run (the jobs stay queued)"
+          },
           "in_research_bank": {
             "type": "integer",
             "title": "In Research Bank",

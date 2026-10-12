@@ -178,10 +178,6 @@ class BeliefRetention:
         base: Artifacts = {"belief_id": str(belief_id)}
         if belief is None:
             return base | {"outcome": "missing"}
-        if old is not None and old["state"] != "removed" and self._legacy is not None:
-            self._settle_inflight(old, self._legacy)
-            self._delete(old, "moved_bank", self._legacy)
-            base |= {"moved_from": old["bank_id"]}
         current = belief.judgement
         wanted = current.judgement != "unproven"
         same = (
@@ -192,9 +188,11 @@ class BeliefRetention:
         )
         if same and held is not None:
             if held["state"] in ("completed", "zero_fact"):
+                base |= self._leave_research(old, "moved_bank")  # a move that stopped half way
                 return base | {"outcome": "already_retained", "state": held["state"]}
             if held["state"] == "pending" and held["operation_id"] is not None:
-                return base | self._finish(belief, held)  # resumes the operation
+                finished = self._finish(belief, held)  # resumes the operation
+                return base | self._leave_research(old, "moved_bank") | finished
         if held is not None and (
             held["state"] in ("completed", "zero_fact")
             or (held["state"] == "pending" and held["operation_id"] is not None)
@@ -210,7 +208,9 @@ class BeliefRetention:
             self._delete(held, reason, self._gateway)
             base |= {"replaced": reason}
         if not wanted:
-            return base | {"outcome": "removed" if "replaced" in base else "nothing_to_retain"}
+            base |= self._leave_research(old, "unproven")
+            removed = "replaced" in base or "moved_from" in base
+            return base | {"outcome": "removed" if removed else "nothing_to_retain"}
         item = RetainItem(
             content=belief_content(belief, names),
             document_id=belief_document_id(belief_id),
@@ -227,7 +227,13 @@ class BeliefRetention:
             resolve_entities=False if belief.companies else None,
             observation_scopes=[[f"theme:{belief.theme}"]],
         )
-        submitted = self._gateway.retain_batch([item])
+        try:
+            submitted = self._gateway.retain_batch([item])
+        except Exception as error:
+            # The research bank's document is still there: the Belief is in one bank at least,
+            # and health shows the failed submit (a retry or a rerun of the move submits again).
+            self._record_failed(belief, str(error))
+            raise
         with self._engine.begin() as connection:
             row = (
                 connection.execute(
@@ -257,7 +263,47 @@ class BeliefRetention:
                 .one()
             )
             self._audit(connection, "belief_memory.submitted", row)
+        # Submitted: only now does the research bank let go of its document.
+        base |= self._leave_research(old, "moved_bank")
         return base | self._finish(belief, row)
+
+    def _leave_research(self, old: RowMapping | None, reason: str) -> Artifacts:
+        """Delete the Belief's document from the research bank (the move's second half)."""
+        if old is None or old["state"] == "removed" or self._legacy is None:
+            return {}
+        self._settle_inflight(old, self._legacy)
+        self._delete(old, reason, self._legacy)
+        return {"moved_from": old["bank_id"]}
+
+    def _record_failed(self, belief: "Belief", error: str) -> None:
+        with self._engine.begin() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "INSERT INTO belief_memory (id, belief_id, bank_id, hindsight_document_id,"
+                        " state, judgement_id, belief_status, extractor, error)"
+                        " VALUES (:id, :belief, :bank, :document, 'failed', :judgement, :status,"
+                        " :extractor, :error)"
+                        " ON CONFLICT (belief_id, bank_id) DO UPDATE SET state = 'failed',"
+                        " judgement_id = :judgement, belief_status = :status, operation_id = NULL,"
+                        " error = :error, updated_at = now()"
+                        " RETURNING *"
+                    ),
+                    {
+                        "id": uuid.uuid4(),
+                        "belief": belief.id,
+                        "bank": self.bank_id,
+                        "document": belief_document_id(belief.id),
+                        "judgement": belief.judgement.id,
+                        "status": belief.status,
+                        "extractor": self._extractor,
+                        "error": error[:2000],
+                    },
+                )
+                .mappings()
+                .one()
+            )
+            self._audit(connection, "belief_memory.failed", row)
 
     # --- the operation -----------------------------------------------------------------------
 
