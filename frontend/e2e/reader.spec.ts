@@ -24,6 +24,7 @@ test.describe("the research index", () => {
     const nav = page.getByRole("navigation", { name: "Site" });
     await expect(nav.locator("ul.nav-reader").getByRole("link")).toHaveText([
       "Research",
+      "Beliefs",
       "Hypotheses",
       "Companies",
       "Sessions",
