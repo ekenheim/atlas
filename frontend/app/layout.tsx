@@ -45,6 +45,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <Link href={routes.workbench}>Research workbench</Link>
               </li>
               <li>
+                <Link href={routes.sessions}>Sessions</Link>
+              </li>
+              <li>
                 <Link href={routes.themes}>Themes</Link>
               </li>
             </ul>

@@ -13,6 +13,8 @@ The tools are one script: `python .claude/skills/atlas-research/atlas_tools.py <
 
 Your prompt gives: the **question** (verbatim), the **seed companies** (slugs), the **as-of time** (ISO), the **output folder**, whether **recall** is allowed, and a **call bound**. Start by listing the universe (`companies`): the question may need companies beyond the seeds, and a company's layer tells you where to look. Web search is not available in this session: the archive is the world.
 
+**Open a session first and close it last.** Before the first search: `session open --question "<verbatim>" --as-of <T> --seeds slug,slug --model <your model>` prints the session id; pass it to every `record` as `--session <id>`. When the files below are written: `session close --id <id> --usage usage.json --card card.json --markdown card.md` (`card.json` is the `research_card` object of `investigation.json`, `usage.json` its `usage`). Atlas lists the session with its Facts and card on the sessions page.
+
 ## The method: the bottleneck test
 
 Work the six steps of the argument, in this order, and record Facts under each (`--step`):
@@ -34,7 +36,7 @@ Work the six steps of the argument, in this order, and record Facts under each (
 
 ## How to record a Fact
 
-`record --version <id> --quote "<verbatim>" --step <step> --status <status> --statement "<one sentence>" --as-of <T> --part <key> [--period "..."] [--quantity <value> <unit> <metric>] [--epistemic ...] [--company <slug>]`
+`record --version <id> --quote "<verbatim>" --step <step> --status <status> --statement "<one sentence>" --as-of <T> --part <key> [--period "..."] [--quantity <value> <unit> <metric>] [--epistemic ...] [--company <slug>] --session <id>`
 
 - The **quote** is the archived text, verbatim, one speaker's words, long enough to carry its meaning (a sentence or two). The tool locates it in the parse (folding typographic quotes, dashes and spaces) and refuses a quote that occurs zero or several times; Atlas then checks the span, the status wording and the period against the document's date. A refusal comes back with its reason: fix the Fact, do not force it.
 - The **statement** is one sentence in your words saying what the quote establishes, with the actor, the tense and the certainty the quote has: a plan stays a plan, "could" stays hedged, an analyst's words are the analyst's.

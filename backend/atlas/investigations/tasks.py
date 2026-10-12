@@ -225,6 +225,7 @@ from atlas.roles import (
     RoleOutputQuarantined,
     RoleOutputTruncated,
     TokenBudgetExhausted,
+    run_usage,
 )
 from atlas.roles.counter_judge import (
     COUNTER_JUDGE,
@@ -283,9 +284,11 @@ from atlas.roles.reader import (
 )
 from atlas.runs import RunRecorder
 from atlas.scenarios.analyst import analyst_companies, analyst_context, keep_proposals
+from atlas.sessions import record_pipeline_session
 from atlas.settings import Settings
 
 _ERROR_LIMIT = 500
+EDITOR_ACTOR = Actor("atlas-editor")
 
 
 class InvestigationNotConfigured(RuntimeError):
@@ -452,6 +455,20 @@ class TaskRunner:
                 ),
                 {"id": investigation_id, "card": outcome.card.model_dump_json()},
             )
+            if task["role"] == "editor" and investigation["plan"] == "argument":
+                # Beliefs ticket 08: the argument plan's run is a research session too.
+                run_id: uuid.UUID | None = investigation["run_id"]
+                spent = run_usage(connection, run_id) if run_id is not None else None
+                record_pipeline_session(
+                    connection,
+                    EDITOR_ACTOR,
+                    investigation=investigation,
+                    card=outcome.card.model_dump(mode="json"),
+                    usage={
+                        "tokens_in": 0 if spent is None else spent.tokens_in,
+                        "tokens_out": 0 if spent is None else spent.tokens_out,
+                    },
+                )
         if investigation["status"] != "running":
             return
         for disproof in outcome.disproofs:
