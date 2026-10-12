@@ -13,7 +13,7 @@ The revised method built, deployed and proven: a Claude session researches a bot
 - **Who decides:** the owner delegated planning, scope and the review loop to the lead; the owner's own acts are merging home-ops PRs, credentials and keys, spending beyond the agreed budgets, judgements the owner wants to set personally, and every financial bet.
 - **Models and cost:** sessions run on the Claude subscription (Opus researches, the lead reviews; Sonnet implements); the judge on `chatgpt` (gpt-5.6-luna) through LiteLLM; MiniMax and the local GPU for volume; astra parked. The OpenAI 5 h window and the Claude week are the budgets to watch; a session is capped like the researcher's hour.
 - **Standing rules:** Memory is derived, never Evidence; a Belief cites Facts and Facts cite spans; only an author sets a judgement; pages are dark, terse, never show commands, and lead with the assessment; nothing depends on the owner's 5090.
-- **Order of work:** every ticket but 01 (the owner's) is done as of 2026-10-12; what follows graduates from the fog below.
+- **Order of work (the programme approved on 2026-10-12, `C:\\Users\\ekenh\\.claude\\plans\\sprightly-munching-karp.md`, copied as `programme.md`):** Phase A: 11, 12, 13, 14 (14 gates B). Phase B: 15, then 16 and 16b (the owner's decision) beside each other, then 17. Phase C: 18, 19, then 20. Phase D: 21 beside C once 14 exists; 22 last. The owner's decisions: a new bank for conclusions, an Atlas MCP server, one published photonics Hypothesis before the second theme, Claude cloud routines for scheduled agents.
 
 ## Decisions so far
 
@@ -29,8 +29,6 @@ The revised method built, deployed and proven: a Claude session researches a bot
 
 ## Not yet specified
 
-- **The skill's next rules** (from the closing measure): the Fact statement held to its quote as a card statement is; a quote long enough to carry the clause; one proposition per Belief; a call bound of about 150 with the judge on; the two judge-rejected statements kept as Issues rather than dropped.
-- **Ticket 06's production probe:** a recall of a judged Belief by a second session, and `ATLAS_BULK_RETENTION=off` after it.
 - **Scheduling sessions** (in the cluster's agent-lab or as cloud routines) once the judge loop and the pages exist; which questions a scheduled session takes (the Issue frontier) and how its output is reviewed before a judgement.
 - **Hypotheses and Beliefs.** A Hypothesis version's findings become Beliefs; whether the Hypothesis stays as the published, snapshotted bundle of Beliefs (likely) or merges into them; the publish gate's Belief rule in detail.
 - **Retiring the default plan and the pipeline's edge review** (57% right) once Beliefs are the record; what of Relationships survives as evidence for Beliefs.
