@@ -673,3 +673,26 @@ Pooled over the three:
 2. Reading that follows the question: decompose it into its parts and give each Reader the part for its step (question 5).
 3. Resolve periods in code from the document's date: fiscal against calendar, "this year".
 4. An invalidation step that looks for what would break the thesis.
+
+## 0.5.6 on questions 4 and 5
+
+0.5.6 carries Fable round 3 (a worker renews its job lease; one Fact per span; the judge's basis check accepts source and date preambles; `regulatory` needs a regulatory word). Questions 4 and 5 were created on 2026-10-08 but ran on 2026-10-12, after the weekly MiniMax reset, entirely on 0.5.6. Their first incarnations (`d85faae2`, `5e1088d7`) died on 2026-10-09 when MiniMax's weekly plan limit returned HTTP 402, which Atlas read as an ordinary error (tickets 11 and 12, fixed on main). Review files: `.scratch/live-runs/pilot-0.5.6-arg/inv-<n>/review/`; reviewer agreement kappa 0.86 and 0.80.
+
+| Measure | Q4 0.5.3 → **0.5.6** | Q5 0.5.5 → **0.5.6** | Bar |
+|---|---|---|---|
+| Precision | 75% → **65%** (70 of 107) | 64% → **58%** (56 of 96) | ≥ 80% |
+| True to the quote (right + off-question) | 90% → 88% | 91% → **95%** | reported |
+| Off-question share | 15% → 22% | 27% → **36%** | reported |
+| Trust gate | fails 2/34 → fails 4/29 | fails 4/30 → fails 4/28 | holds |
+| Saved work | 19 → 21 | 25 → 21 | ≥ 3 |
+| Baseline coverage | 70% → 70% | 11% → **56%** (+2 in substance) | ≥ 50% |
+| Researcher's facts on the card | 6 → **9** | 6 → **9** | reported |
+| Facts recorded | 138 → 107 | 200 → 96 | |
+| Tokens in | 1.52M → 1.93M | 1.89M → 1.93M | ≤ 2M |
+| Latency | 44 min (25 queued) → **15 min** | 12.7 → 19.6 min | ≤ 20 min |
+
+**What round 3 did:** fewer Facts (the dedup: 107 and 96, against 138 and 200), no duplicate Editor, fewer dropped statements (4 each, against 7–18), every part of each question reported `answered`, and the cards hold more of the researcher's facts (9 each, the most on either question). Question 5's baseline coverage went from 11% to 56%: the card now answers the coherent/DCI question it was asked.
+
+**What it didn't do:** precision fell on both questions, and almost entirely through off-question Facts, not false ones. Question 5 has only 5 wrong Facts of 96 (95% true to quote, the best of any run) but 35 off-question: the Readers still record the datacom EML/CW story beside the coherent one. Question 4's off-question Facts are copper AEC DSPs, photodetectors and risk factors. The trust gate fails 4 statements on each card; the kinds are the familiar ones (a yield attached to the wrong site, a product the quote doesn't name, a risk factor's "could" written as "are", an inference added to a faithful quote).
+
+**Assessment against the bar:** neither question meets 80% precision; both pass saved work and coverage; question 4 passes latency and question 5 just misses it; both are inside 2M. The questions now fail on topic discipline rather than truth: with off-question Facts set aside, 84% and 92% of the Facts that bear on the question are right. Whether that is what the bar should measure is the owner's decision (ticket 02; see "The bar, revisited" below).

@@ -340,3 +340,16 @@ Findings so far:
 - An invalidation step that looks for counterevidence.
 
 Detail: `.scratch/pilot/results.md`, "0.5.4 against 0.5.3".
+
+## 0.5.6 (Fable round 3) on questions 4 and 5
+
+| Question | Precision | True to quote | Off-question | Trust gate | Coverage | Researcher's facts on the card | Tokens in |
+|---|---|---|---|---|---|---|---|
+| 4, DSP and drivers | 75% → 65% | 88% | 22% | fails 4/29 | 70% | 6 → **9** | 1.93M |
+| 5, coherent optics | 64% → 58% | **95%** | 36% | fails 4/28 | 11% → **56%** | 6 → **9** | 1.93M |
+
+**Kept:** one Fact per span (107 and 96 Facts, against 138 and 200), the lease heartbeat (no duplicate Editor), the basis check (4 statements dropped each, against 7–18). Question 5 answers its own question for the first time (coverage 11% → 56%).
+
+**Not solved:** off-question Facts. Precision fell on both questions, and almost entirely through Facts that are true but off-topic (copper AEC DSPs, photodetectors, the datacom EML story on a coherent question). False Facts are at 5–12%. The question-parts planner (round 2) binds the Readers' searches to the question's terms, but the Readers still record what the passages hold.
+
+**Measurement note:** the bar's "precision" counts off-question as wrong. Separating faithfulness (true to the quote) from on-question share would show 0.5.6 at 88–95% faithful and 64–78% on-question. Proposed to the owner (ticket 02 revision).
