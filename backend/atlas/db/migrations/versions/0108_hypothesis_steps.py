@@ -7,14 +7,14 @@ Research Snapshot carries) and `session_ids` (the sessions whose Beliefs it was 
 empty: the theme's). A CHECK keeps exactly one basis. The steps themselves live in the version's
 content (JSON), so no other column changes.
 
-Revision ID: 0107
-Revises: 0106
+Revision ID: 0108
+Revises: 0107
 """
 
 from alembic import op
 
-revision = "0107"
-down_revision = "0106"
+revision = "0108"
+down_revision = "0107"
 branch_labels = None
 depends_on = None
 
