@@ -927,6 +927,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/statements/judge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Judge */
+        post: operations["judge_api_v1_statements_judge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/statements/relate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Relate */
+        post: operations["relate_api_v1_statements_relate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/claims": {
         parameters: {
             query?: never;
@@ -2339,6 +2373,23 @@ export interface components {
             /** Actor */
             actor?: string | null;
         };
+        /**
+         * BeliefsHealth
+         * @description The judged Beliefs Memory holds, per theme (beliefs ticket 06): what the research
+         *     bank holds of what Atlas found, apart from the archive's sections.
+         */
+        BeliefsHealth: {
+            /** In Memory */
+            in_memory: number;
+            /** Pending */
+            pending: number;
+            /** Failed */
+            failed: number;
+            /** Zero Fact */
+            zero_fact: number;
+            /** Themes */
+            themes: components["schemas"]["ThemeBeliefs"][];
+        };
         /** Bottlenecks */
         Bottlenecks: {
             /** @description refreshed: `model.content` is the open gaps; otherwise why there are none */
@@ -3403,7 +3454,29 @@ export interface components {
             chunk_char_end?: number | null;
         };
         /** @enum {string} */
-        CitationState: "resolved" | "unverified" | "broken";
+        CitationState: "resolved" | "belief" | "unverified" | "broken";
+        /**
+         * CitedBelief
+         * @description A judged Belief a memory was retained from (never Evidence).
+         */
+        CitedBelief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Statement */
+            statement: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Judgement */
+            judgement: string;
+            /** Status */
+            status: string;
+        };
         /**
          * Claim
          * @description One proposed Claim and its outcome. `proposed` is the Claim exactly as the model
@@ -3837,6 +3910,26 @@ export interface components {
             verification_status: string | null;
             /** Counterevidence Id */
             counterevidence_id: string | null;
+        };
+        /** CounterRelationOut */
+        CounterRelationOut: {
+            /**
+             * Counter Fact Id
+             * Format: uuid
+             */
+            counter_fact_id: string;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "contradicts" | "limits" | "dates" | "qualifies" | "supports" | "unrelated" | "unjudged";
+            /** Reason */
+            reason: string;
         };
         /**
          * Counterevidence
@@ -4722,6 +4815,25 @@ export interface components {
             fact: components["schemas"]["atlas__facts__service__Fact"];
             /** Audit Event Id */
             audit_event_id: number;
+        };
+        /** FactRelation */
+        FactRelation: {
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "contradicts" | "limits" | "dates" | "qualifies" | "supports" | "unrelated" | "unjudged";
+            /** Reason */
+            reason: string;
+            /** Judge */
+            judge: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Role Call Id */
+            role_call_id: string | null;
         };
         /** @enum {string} */
         FactType: "world" | "experience" | "observation";
@@ -5955,6 +6067,53 @@ export interface components {
             classification?: ("quota" | "unavailable" | "error" | "lease_expired" | "requeued") | null;
         };
         JsonValue: unknown;
+        /** JudgeRequest */
+        JudgeRequest: {
+            /** Question */
+            question: string;
+            /** Statement */
+            statement: string;
+            /** Fact Ids */
+            fact_ids: string[];
+            /**
+             * Counter Fact Ids
+             * @default []
+             */
+            counter_fact_ids: string[];
+            /**
+             * Votes
+             * @default 1
+             */
+            votes: number;
+            /** Run Id */
+            run_id?: string | null;
+        };
+        /** JudgeVote */
+        JudgeVote: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "misstated";
+            /** Reason */
+            reason: string;
+            /** Decided */
+            decided: boolean;
+            /**
+             * Role Call Id
+             * Format: uuid
+             */
+            role_call_id: string;
+        };
+        /** JudgedClauseOut */
+        JudgedClauseOut: {
+            /** Text */
+            text: string;
+            /** Ref */
+            ref: string | null;
+            /** Basis */
+            basis: string | null;
+        };
         /** @enum {string} */
         Judgement: "proven" | "disproven" | "unproven" | "undecidable";
         /** JudgementRecord */
@@ -6263,6 +6422,15 @@ export interface components {
         MemoryHealth: {
             /** Bank Id */
             bank_id: string;
+            /**
+             * Bulk Retention
+             * @description ATLAS_BULK_RETENTION: off holds the ingest's section retains, triage and the daily consolidation try; judged Beliefs still reach Memory
+             * @default on
+             * @enum {string}
+             */
+            bulk_retention: "on" | "off";
+            /** @description the judged Beliefs the bank holds, per theme */
+            beliefs?: components["schemas"]["BeliefsHealth"] | null;
             /** Company Id */
             company_id: string | null;
             /**
@@ -7447,6 +7615,11 @@ export interface components {
              */
             include_source_facts: boolean;
             /**
+             * Available By
+             * @description drop the memories none of whose resolved sections (or Beliefs) were available by this time, and count them in `dropped_future` (a hard filter, unlike `query_timestamp`)
+             */
+            available_by?: string | null;
+            /**
              * Include Chunks
              * @description ask for the chunks the results came from, and locate each resolved fact's chunk in its section (its span in `provenance.sources`; the chunk's text is not returned)
              * @default false
@@ -7468,6 +7641,11 @@ export interface components {
             evidence: components["schemas"]["Evidence"][];
             /** Source Facts Truncated */
             source_facts_truncated?: boolean | null;
+            /**
+             * Dropped Future
+             * @default 0
+             */
+            dropped_future: number;
         };
         /**
          * RecallScores
@@ -7709,6 +7887,23 @@ export interface components {
             exclude_mental_models: boolean;
             /** Keep Trace */
             keep_trace: boolean;
+        };
+        /** RelateRequest */
+        RelateRequest: {
+            /** Question */
+            question: string;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Counter Fact Id
+             * Format: uuid
+             */
+            counter_fact_id: string;
+            /** Run Id */
+            run_id?: string | null;
         };
         /** @enum {string} */
         Relation: "contradicts" | "limits" | "dates" | "qualifies" | "supports";
@@ -9353,6 +9548,39 @@ export interface components {
             /** Source */
             source: components["schemas"]["XbrlSource"] | components["schemas"]["AssertionSource"];
         };
+        /** StatementJudgement */
+        StatementJudgement: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "misstated";
+            /** Clauses */
+            clauses: components["schemas"]["JudgedClauseOut"][];
+            /** Unverified */
+            unverified: string[];
+            /** Beyond */
+            beyond: string[];
+            /** Kinds */
+            kinds: string[];
+            /** Reason */
+            reason: string;
+            /** Refs */
+            refs: {
+                [key: string]: string;
+            };
+            /** Votes */
+            votes: components["schemas"]["JudgeVote"][];
+            /** Counter Relations */
+            counter_relations: components["schemas"]["CounterRelationOut"][];
+            /** Judge */
+            judge: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+        };
         /** @enum {string} */
         Status: "active" | "superseded" | "withdrawn";
         /** @enum {string} */
@@ -9413,6 +9641,31 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** ThemeBeliefs */
+        ThemeBeliefs: {
+            /** Theme */
+            theme: string;
+            /**
+             * In Memory
+             * @description judged Beliefs whose document Memory holds with facts
+             */
+            in_memory: number;
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Zero Fact
+             * @default 0
+             */
+            zero_fact: number;
         };
         /** ThemeCompany */
         ThemeCompany: {
@@ -10148,6 +10401,8 @@ export interface components {
             /** Missing Memory Ids */
             missing_memory_ids: string[];
             quote: components["schemas"]["QuoteSpan"] | null;
+            /** Beliefs */
+            beliefs?: components["schemas"]["CitedBelief"][];
         };
     };
     responses: never;
@@ -12570,6 +12825,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    judge_api_v1_statements_judge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JudgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatementJudgement"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    relate_api_v1_statements_relate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactRelation"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

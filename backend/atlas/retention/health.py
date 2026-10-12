@@ -213,8 +213,69 @@ class EntitiesHealth(BaseModel):
     companies: list[CompanyEntities] = Field(default_factory=list[CompanyEntities])
 
 
+class ThemeBeliefs(BaseModel):
+    theme: str
+    in_memory: int = Field(description="judged Beliefs whose document Memory holds with facts")
+    pending: int = 0
+    failed: int = 0
+    zero_fact: int = 0
+
+
+class BeliefsHealth(BaseModel):
+    """The judged Beliefs Memory holds, per theme (beliefs ticket 06): what the research
+    bank holds of what Atlas found, apart from the archive's sections."""
+
+    in_memory: int
+    pending: int
+    failed: int
+    zero_fact: int
+    themes: list[ThemeBeliefs]
+
+
+def belief_health(connection: Connection, bank_id: str) -> BeliefsHealth:
+    rows = connection.execute(
+        text(
+            "SELECT b.theme, m.state, count(*) AS n FROM belief_memory m"
+            " JOIN belief b ON b.id = m.belief_id WHERE m.bank_id = :bank"
+            " AND m.state <> 'removed' GROUP BY b.theme, m.state ORDER BY b.theme"
+        ),
+        {"bank": bank_id},
+    )
+    themes: dict[str, dict[str, int]] = {}
+    for row in rows:
+        themes.setdefault(row.theme, {})[row.state] = row.n
+
+    def total(state: str) -> int:
+        return sum(counts.get(state, 0) for counts in themes.values())
+
+    return BeliefsHealth(
+        in_memory=total("completed"),
+        pending=total("pending"),
+        failed=total("failed"),
+        zero_fact=total("zero_fact"),
+        themes=[
+            ThemeBeliefs(
+                theme=theme,
+                in_memory=counts.get("completed", 0),
+                pending=counts.get("pending", 0),
+                failed=counts.get("failed", 0),
+                zero_fact=counts.get("zero_fact", 0),
+            )
+            for theme, counts in themes.items()
+        ],
+    )
+
+
 class MemoryHealth(BaseModel):
     bank_id: str
+    bulk_retention: Literal["on", "off"] = Field(
+        default="on",
+        description="ATLAS_BULK_RETENTION: off holds the ingest's section retains, triage and"
+        " the daily consolidation try; judged Beliefs still reach Memory",
+    )
+    beliefs: BeliefsHealth | None = Field(
+        default=None, description="the judged Beliefs the bank holds, per theme"
+    )
     company_id: uuid.UUID | None
     generated_at: datetime
     sections: SectionCounts
@@ -259,6 +320,7 @@ def memory_health(
     *,
     stuck_after_hours: float,
     window_days: int | None = None,
+    bulk_retention: Literal["on", "off"] = "on",
 ) -> MemoryHealth | None:
     """The health read; None when `company_id` names no company. `stuck_after_hours`: how long
     a pending section under an older profile waits before it counts as stuck."""
@@ -310,6 +372,8 @@ def memory_health(
         bank_id=bank_id,
         company_id=company_id,
         generated_at=now,
+        bulk_retention=bulk_retention,
+        beliefs=belief_health(connection, bank_id),
         sections=total,
         versions=count_versions(version_rows),
         companies=sorted(listed, key=lambda c: (c.slug is None, c.slug or "")),

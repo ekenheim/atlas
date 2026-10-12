@@ -29,6 +29,13 @@ Every citation gets one state:
   Hindsight no longer has it because its section's document was deleted and retained again
   under the current retain profile; `memory_replacement` records it, memory-quality ticket 12)
 - **broken**: the memory, or one of an observation's source memories, is gone
+- **belief** (beliefs ticket 06): the memory comes from the document `belief:<id>` of a
+  judged Belief that Atlas retained (`atlas.retention.beliefs`). It resolves to the Belief
+  (`beliefs`; `GET /api/v1/beliefs/{id}`), never to a section: a Belief is Atlas's own
+  conclusion and is never Evidence, so it is no `Evidence` and no quote is matched in it.
+  An observation built from sections and Beliefs reads `resolved` (its sections are the
+  Evidence; `beliefs` lists the Beliefs alongside), so the reading pointers still take it;
+  it reads `belief` only when no section stands behind it.
 
 An observation takes its worst hop's state (broken, then unverified). Only resolved
 citations are presented as `Evidence`.
@@ -41,7 +48,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import Archive
@@ -55,7 +62,7 @@ from atlas.hindsight import (
 )
 from atlas.research.quotes import extract_quotes, find_quote
 
-type CitationState = Literal["resolved", "unverified", "broken"]
+type CitationState = Literal["resolved", "belief", "unverified", "broken"]
 type CitationKind = Literal["memory", "chunk", "quote", "mental_model"]
 type UnresolvedReason = Literal[
     "mental_model",
@@ -71,11 +78,13 @@ type UnresolvedReason = Literal[
     "too_many_hops",
     "quote_mismatch",
 ]
+# The states every count lists; `belief` is listed only when a recall has one.
 CITATION_STATES: tuple[CitationState, ...] = ("resolved", "unverified", "broken")
+BELIEF_DOCUMENT_PREFIX = "belief:"
 
 # Observations of observations are followed this deep, then left unverified.
 MAX_HOPS = 3
-_SEVERITY: dict[CitationState, int] = {"resolved": 0, "unverified": 1, "broken": 2}
+_SEVERITY: dict[CitationState, int] = {"resolved": 0, "belief": 1, "unverified": 2, "broken": 3}
 
 
 class CitationSource(BaseModel):
@@ -118,6 +127,16 @@ class QuoteSpan(BaseModel):
     archived_text: str  # the parsed text at [char_start, char_end)
 
 
+class CitedBelief(BaseModel):
+    """A judged Belief a memory was retained from (never Evidence)."""
+
+    id: uuid.UUID
+    statement: str
+    as_of: datetime
+    judgement: str
+    status: str
+
+
 class Citation(BaseModel):
     kind: CitationKind
     state: CitationState
@@ -129,6 +148,9 @@ class Citation(BaseModel):
     sources: list[CitationSource]
     missing_memory_ids: list[str]
     quote: QuoteSpan | None
+    beliefs: list[CitedBelief] = Field(
+        default_factory=list[CitedBelief]
+    )  # the Beliefs it was retained from (state `belief`, or a resolved mix)
 
 
 class Evidence(BaseModel):
@@ -171,6 +193,8 @@ def evidence_from(citations: Sequence[Citation]) -> list[Evidence]:
 def state_counts(citations: Sequence[Citation]) -> dict[CitationState, int]:
     counts: dict[CitationState, int] = dict.fromkeys(CITATION_STATES, 0)
     for citation in citations:
+        if citation.state == "belief":
+            counts.setdefault("belief", 0)
         counts[citation.state] += 1
     return counts
 
@@ -182,6 +206,7 @@ class _Outcome:
     detail: str | None = None
     sources: list[CitationSource] = field(default_factory=list[CitationSource])
     missing: list[str] = field(default_factory=list[str])
+    beliefs: list[CitedBelief] = field(default_factory=list[CitedBelief])
 
 
 @dataclass(frozen=True)
@@ -308,7 +333,7 @@ class ProvenanceResolver:
         `memory_replaced` when a backfill deleted its document to retain the section again
         under the current profile (memory-quality ticket 12: the section is still in Memory,
         its facts have new IDs), else `broken`."""
-        document = self._replacement(memory_id)
+        document = self._replacement(memory_id) or self._belief_replacement(memory_id)
         retired = None if document is not None else self._retirement(memory_id)
         if retired is not None:
             return _Outcome(
@@ -334,6 +359,17 @@ class ProvenanceResolver:
                 text(
                     "SELECT hindsight_document_id FROM memory_retirement"
                     " WHERE bank_id = :bank AND retired_memory_ids @> CAST(:memory AS jsonb)"
+                    " ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"bank": self._gateway.bank_id, "memory": json.dumps([memory_id])},
+            ).scalar_one_or_none()
+
+    def _belief_replacement(self, memory_id: str) -> str | None:
+        with self._engine.connect() as connection:
+            return connection.execute(
+                text(
+                    "SELECT hindsight_document_id FROM belief_memory_replacement"
+                    " WHERE bank_id = :bank AND replaced_memory_ids @> CAST(:memory AS jsonb)"
                     " ORDER BY created_at DESC LIMIT 1"
                 ),
                 {"bank": self._gateway.bank_id, "memory": json.dumps([memory_id])},
@@ -380,12 +416,19 @@ class ProvenanceResolver:
                 hop = self._resolve(source, depth=depth + 1)
             combined.sources.extend(hop.sources)
             combined.missing.extend(hop.missing)
-            if _SEVERITY[hop.state] > _SEVERITY[combined.state]:
+            combined.beliefs.extend(hop.beliefs)
+            # A Belief hop adds to `beliefs` only: it never makes an observation that also
+            # reached a section read as less than resolved.
+            if hop.state != "belief" and _SEVERITY[hop.state] > _SEVERITY[combined.state]:
                 combined.state, combined.reason, combined.detail = hop.state, hop.reason, hop.detail
+        if combined.state == "resolved" and not combined.sources and combined.beliefs:
+            combined.state = "belief"  # no section stands behind it, only Beliefs
         return combined
 
     def _resolve_fact(self, memory: Memory) -> _Outcome:
         document_id = memory.document_id
+        if document_id and document_id.startswith(BELIEF_DOCUMENT_PREFIX):
+            return self._resolve_belief(memory, document_id)
         if not document_id or not document_id.startswith("srcv:"):
             return _Outcome(
                 "unverified",
@@ -414,6 +457,41 @@ class ProvenanceResolver:
             )
         source.chunk_id = memory.chunk_id
         return _Outcome("resolved", sources=[source])
+
+    def _resolve_belief(self, memory: Memory, document_id: str) -> _Outcome:
+        """A memory of a judged Belief's document: it resolves to the Belief."""
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT b.id, b.statement, b.as_of, b.status, j.judgement"
+                    " FROM belief_memory m JOIN belief b ON b.id = m.belief_id"
+                    " JOIN LATERAL (SELECT judgement FROM belief_judgement x"
+                    "   WHERE x.belief_id = b.id ORDER BY x.at DESC, x.id DESC LIMIT 1) j ON true"
+                    " WHERE m.hindsight_document_id = :document AND m.bank_id = :bank"
+                ),
+                {"document": document_id, "bank": self._gateway.bank_id},
+            ).one_or_none()
+        if row is None:
+            return _Outcome(
+                "unverified",
+                "unknown_document",
+                f"no Belief document {document_id!r} is recorded in the ledger",
+            )
+        claimed = memory.metadata.get("belief_id")
+        if claimed is not None and claimed != str(row.id):
+            return _Outcome(
+                "unverified",
+                "metadata_mismatch",
+                f"the memory metadata (belief_id={claimed!r}) disagrees with the ledger ({row.id})",
+            )
+        belief = CitedBelief(
+            id=row.id,
+            statement=row.statement,
+            as_of=row.as_of,
+            judgement=row.judgement,
+            status=row.status,
+        )
+        return _Outcome("belief", beliefs=[belief])
 
     def _section(self, document_id: str, memory_id: str) -> _Section | None:
         with self._engine.connect() as connection:
@@ -542,7 +620,8 @@ def _citation(
         memory_id=memory_id,
         memory_type=memory_type,
         text=text,
-        sources=outcome.sources if outcome.state == "resolved" else [],
+        sources=outcome.sources if outcome.state in ("resolved", "belief") else [],
         missing_memory_ids=outcome.missing,
         quote=None,
+        beliefs=outcome.beliefs if outcome.state in ("resolved", "belief") else [],
     )

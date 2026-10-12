@@ -1,7 +1,7 @@
 # 06: Memory holds judged Beliefs; recall takes `available_by`; bulk retention has a switch
 
 Type: build
-Status: ready-for-agent
+Status: done (the production probe waits for Beliefs on production)
 Blocked by: 02
 
 ## Parent
@@ -14,6 +14,6 @@ A `retain_belief` job (pausable, the research bank, `ATLAS_RETAIN_EXTRACTOR` hon
 
 ## Acceptance criteria
 
-- [ ] Worker tests with the Hindsight fake: retain on judgement, replace on re-judgement and supersession, the `belief` citation label on recall, `available_by`, bulk retention off.
+- [x] Worker tests with the Hindsight fake: retain on judgement, replace on re-judgement and supersession, the `belief` citation label on recall, `available_by`, bulk retention off.
 - [ ] A before/after probe on production recorded in `docs/experiments.md` once a few Beliefs exist.
-- [ ] Decisions and runbook entries; log entry.
+- [x] Decisions and runbook entries; log entry.

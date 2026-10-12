@@ -16,6 +16,7 @@ from sqlalchemy import Connection, Engine, text
 
 from atlas.audit import Actor, content_hash, record
 from atlas.beliefs.flags import flag_counterevidence
+from atlas.beliefs.memory_jobs import enqueue_retain_belief
 from atlas.sessions import SessionSummary, get_session
 
 type Step = Literal[
@@ -505,6 +506,7 @@ class Beliefs:
                 ),
                 {"judgement": judgement_id, "belief": belief_id},
             )
+            enqueue_retain_belief(connection, belief_id)
             belief = get_belief(connection, belief_id)
             assert belief is not None
             record(
@@ -558,6 +560,7 @@ class Beliefs:
             connection.execute(
                 text("UPDATE belief SET status = 'superseded' WHERE id = :id"), {"id": belief_id}
             )
+            enqueue_retain_belief(connection, belief_id)
             belief = get_belief(connection, belief_id)
             assert belief is not None
             record(

@@ -9511,6 +9511,43 @@
         ],
         "title": "BeliefSupersede"
       },
+      "BeliefsHealth": {
+        "properties": {
+          "in_memory": {
+            "type": "integer",
+            "title": "In Memory"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "zero_fact": {
+            "type": "integer",
+            "title": "Zero Fact"
+          },
+          "themes": {
+            "items": {
+              "$ref": "#/components/schemas/ThemeBeliefs"
+            },
+            "type": "array",
+            "title": "Themes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "in_memory",
+          "pending",
+          "failed",
+          "zero_fact",
+          "themes"
+        ],
+        "title": "BeliefsHealth",
+        "description": "The judged Beliefs Memory holds, per theme (beliefs ticket 06): what the research\nbank holds of what Atlas found, apart from the archive's sections."
+      },
       "Bottlenecks": {
         "properties": {
           "status": {
@@ -12174,9 +12211,46 @@
         "type": "string",
         "enum": [
           "resolved",
+          "belief",
           "unverified",
           "broken"
         ]
+      },
+      "CitedBelief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "judgement": {
+            "type": "string",
+            "title": "Judgement"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "as_of",
+          "judgement",
+          "status"
+        ],
+        "title": "CitedBelief",
+        "description": "A judged Belief a memory was retained from (never Evidence)."
       },
       "Claim": {
         "properties": {
@@ -20503,6 +20577,27 @@
             "type": "string",
             "title": "Bank Id"
           },
+          "bulk_retention": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off"
+            ],
+            "title": "Bulk Retention",
+            "description": "ATLAS_BULK_RETENTION: off holds the ingest's section retains, triage and the daily consolidation try; judged Beliefs still reach Memory",
+            "default": "on"
+          },
+          "beliefs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BeliefsHealth"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the judged Beliefs the bank holds, per theme"
+          },
           "company_id": {
             "anyOf": [
               {
@@ -23807,6 +23902,19 @@
             "description": "each observation's source facts in the same answer, so its provenance needs no request per observation",
             "default": false
           },
+          "available_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available By",
+            "description": "drop the memories none of whose resolved sections (or Beliefs) were available by this time, and count them in `dropped_future` (a hard filter, unlike `query_timestamp`)"
+          },
           "include_chunks": {
             "type": "boolean",
             "title": "Include Chunks",
@@ -23866,6 +23974,11 @@
               }
             ],
             "title": "Source Facts Truncated"
+          },
+          "dropped_future": {
+            "type": "integer",
+            "title": "Dropped Future",
+            "default": 0
           }
         },
         "type": "object",
@@ -29286,6 +29399,40 @@
         "title": "Task",
         "description": "One role task of the plan. `depends_on` names tasks of the same round by key; a task\nruns once each of them is done, and is cancelled when one of its premises is disproven or\nevery task it depends on was cancelled."
       },
+      "ThemeBeliefs": {
+        "properties": {
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "in_memory": {
+            "type": "integer",
+            "title": "In Memory",
+            "description": "judged Beliefs whose document Memory holds with facts"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "default": 0
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed",
+            "default": 0
+          },
+          "zero_fact": {
+            "type": "integer",
+            "title": "Zero Fact",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "theme",
+          "in_memory"
+        ],
+        "title": "ThemeBeliefs"
+      },
       "ThemeCompany": {
         "properties": {
           "id": {
@@ -31179,6 +31326,13 @@
                 "type": "null"
               }
             ]
+          },
+          "beliefs": {
+            "items": {
+              "$ref": "#/components/schemas/CitedBelief"
+            },
+            "type": "array",
+            "title": "Beliefs"
           }
         },
         "type": "object",

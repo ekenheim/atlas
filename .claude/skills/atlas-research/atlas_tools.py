@@ -305,9 +305,11 @@ def cmd_record(args: argparse.Namespace) -> None:
 
 def cmd_recall(args: argparse.Namespace) -> None:
     """Memory as a tool: the theme's memories for a question, each with the archived sections
-    it resolves to. Hindsight's `query_timestamp` is not a hard filter, so a memory is kept
-    only if one of its resolved sections was available by `--as-of`; the rest are dropped and
-    counted (`dropped_future`). Read a kept memory's section with `read` before relying on it."""
+    it resolves to, or the judged Belief it was retained from (citation state `belief`: Atlas's
+    own earlier conclusion, never evidence). Atlas drops the memories nothing of which was
+    available by `--as-of` (`available_by`, a hard filter; Hindsight's `query_timestamp` only
+    ranks) and counts them (`dropped_future`). Read a kept memory's section with `read` before
+    relying on it."""
     scope: dict = {"theme_ids": [args.theme]} if args.theme else {}
     if args.companies:
         scope["company_ids"] = [company_id(s.strip()) for s in args.companies.split(",") if s.strip()]
@@ -316,6 +318,7 @@ def cmd_recall(args: argparse.Namespace) -> None:
         "scope": scope,
         "max_tokens": args.max_tokens,
         "query_timestamp": args.as_of,
+        "available_by": args.as_of,
         "include_source_facts": True,
     }
     status, answer = post("/memory/recall", body)
@@ -339,30 +342,31 @@ def cmd_recall(args: argparse.Namespace) -> None:
                     )
                 }
             )
-    kept, dropped = [], 0
+    kept = []
     for m in answer.get("memories") or []:
-        sections = by_memory.get(m.get("memory_id"), [])
-        before = [x for x in sections if (x.get("available_at") or "9999") <= args.as_of]
-        if not before:
-            dropped += 1
-            continue
-        kept.append(
-            {
-                "memory_id": m.get("memory_id"),
-                "type": m.get("type"),
-                "text": m.get("text"),
-                "occurred": [m.get("occurred_start"), m.get("occurred_end")],
-                "sections": before,
-            }
-        )
+        provenance = m.get("provenance") or {}
+        beliefs = [
+            {k: b.get(k) for k in ("id", "statement", "judgement", "status", "as_of")}
+            for b in provenance.get("beliefs") or []
+        ]
+        entry = {
+            "memory_id": m.get("memory_id"),
+            "type": m.get("type"),
+            "text": m.get("text"),
+            "occurred": [m.get("occurred_start"), m.get("occurred_end")],
+            "sections": by_memory.get(m.get("memory_id"), []),
+        }
+        if beliefs:
+            entry["beliefs"] = beliefs
+        kept.append(entry)
     out(
         {
             "query": args.q,
             "as_of": args.as_of,
             "counts": answer.get("counts"),
             "memories": kept,
-            "dropped_future": dropped,
-            "note": "a memory is derived, never evidence: read its section and record a Fact from the archived text",
+            "dropped_future": answer.get("dropped_future", 0),
+            "note": "a memory is derived, never evidence: read its section and record a Fact from the archived text; a memory with `beliefs` is Atlas's earlier conclusion, to be tested against Facts, not cited",
         }
     )
 

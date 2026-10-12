@@ -12,7 +12,7 @@
 
 import uuid
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -41,6 +41,7 @@ def memory_router(
     *,
     stuck_after_hours: float,
     window_days: int | None = None,
+    bulk_retention: Literal["on", "off"] = "on",
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["memory"])
 
@@ -73,6 +74,7 @@ def memory_router(
                 company_id,
                 stuck_after_hours=stuck_after_hours,
                 window_days=window_days,
+                bulk_retention=bulk_retention,
             )
         return found if found is not None else not_found("company")
 
