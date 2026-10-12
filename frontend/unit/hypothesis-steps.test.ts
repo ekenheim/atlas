@@ -1,10 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-import type { HypothesisVersion, Issue } from "../lib/api/client";
+import type {
+  BeliefSummary,
+  HypothesisVersion,
+  Issue,
+} from "../lib/api/client";
 import {
   type Step,
   beliefCount,
   openIssues,
+  standingNow,
   stepViews,
 } from "../lib/hypothesis-steps";
 
@@ -30,7 +35,14 @@ test("the steps come in the argument's order, with the most confident Belief fir
         statement: null,
         beliefs: [belief("a", 0.6), belief("b", 0.9)],
       },
-      { step: "something_new", beliefs: [belief("d", 0.5)] },
+      {
+        step: "something_new",
+        statements: [
+          { statement: "One.", belief_ids: [], judged: null },
+          { statement: "Two.", belief_ids: [], judged: true },
+        ],
+        beliefs: [belief("d", 0.5)],
+      },
     ]),
   );
 
@@ -45,11 +57,15 @@ test("the steps come in the argument's order, with the most confident Belief fir
     "Something new",
   ]);
   expect(views[0]?.beliefs.map((each) => each.belief_id)).toEqual(["b", "a"]);
-  // A statement the Editor's draft lost shows as none; a judged one says so.
-  expect(views.map((each) => [each.statement, each.judged])).toEqual([
-    [null, null],
-    ["Capture.", true],
-    [null, null],
+  // A step whose statements were all set aside has none; a judged one says so, and several
+  // points of a step are all kept; a version drafted with the single form shows that one.
+  expect(views.map((each) => each.statements)).toEqual([
+    [],
+    [{ statement: "Capture.", judged: true }],
+    [
+      { statement: "One.", judged: null },
+      { statement: "Two.", judged: true },
+    ],
   ]);
 });
 
@@ -91,4 +107,30 @@ test("open Issues are the theme's active ones, the most pressing first", () => {
     "old",
     "newer",
   ]);
+});
+
+test("a Belief's standing now is told only when it differs from the draft", () => {
+  const drafted = {
+    judgement: "proven",
+    confidence: 0.8,
+  } as Step["beliefs"][number];
+  const now = (changes: Record<string, unknown>) =>
+    ({
+      status: "active",
+      open_flags: 0,
+      judgement: { judgement: "proven", confidence: 0.8 },
+      ...changes,
+    }) as unknown as BeliefSummary;
+
+  expect(standingNow(drafted, undefined)).toBeNull();
+  expect(standingNow(drafted, now({}))).toBeNull();
+  expect(
+    standingNow(
+      drafted,
+      now({ judgement: { judgement: "unproven", confidence: 0.3 } }),
+    ),
+  ).toBe("now unproven 30%");
+  expect(
+    standingNow(drafted, now({ open_flags: 2, status: "superseded" })),
+  ).toBe("superseded · 2 open flags");
 });

@@ -18,7 +18,10 @@ Draft the Hypothesis:
 - `thesis_statement`: one sentence stating what may be true and why it matters economically,
   naming the chokepoint and its layer. It is a proposition to test: say "may". Give the
   references of the Beliefs it rests on in `thesis_belief_refs` (at least one).
-- `steps`: for each step the Beliefs support, one entry `{"step", "statement", "belief_refs"}`.
+  Code checks the thesis against those Beliefs' quotes like a step statement: name only
+  companies, figures, dates and quoted phrases that the cited quotes or the research question
+  contain.
+- `steps`: for each step the Beliefs support, one or more entries (one per distinct point) `{"step", "statement", "belief_refs"}`.
   The `statement` is one or two sentences saying only what the cited Beliefs' quotes say: keep
   the direction (who supplies whom), the tense and status (planned is not in effect), the
   figures and dates as quoted, and never merge two quotes into a fact neither states. Cite

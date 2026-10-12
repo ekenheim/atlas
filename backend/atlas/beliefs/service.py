@@ -41,6 +41,14 @@ RELATION_VALENCE: dict[str, float] = {
 STANDING_STATES = ("unreviewed", "corroborated")
 
 
+def on_belief_changed(connection: Connection, belief_id: uuid.UUID, event: str) -> None:
+    """A published Hypothesis version resting on the Belief gets a proposed update (ticket 14).
+    Imported here: the proposed-updates package reads Hypotheses, which read Beliefs."""
+    from atlas.proposed_updates.triggers import on_belief_changed as hook
+
+    hook(connection, belief_id, event)
+
+
 class BeliefNotFound(Exception):
     pass
 
@@ -520,6 +528,7 @@ class Beliefs:
                 {"judgement": judgement_id, "belief": belief_id},
             )
             enqueue_retain_belief(connection, belief_id)
+            on_belief_changed(connection, belief_id, f"judged:{judgement_id}")
             belief = get_belief(connection, belief_id)
             assert belief is not None
             record(
@@ -574,6 +583,7 @@ class Beliefs:
                 text("UPDATE belief SET status = 'superseded' WHERE id = :id"), {"id": belief_id}
             )
             enqueue_retain_belief(connection, belief_id)
+            on_belief_changed(connection, belief_id, "superseded")
             belief = get_belief(connection, belief_id)
             assert belief is not None
             record(

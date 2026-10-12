@@ -133,7 +133,7 @@ function Body({
           </p>
           {stepsOf(version).length > 0 && (
             <>
-              <HypothesisSteps version={version} />
+              <HypothesisSteps version={version} theme={hypothesis.theme_id} />
               <section aria-labelledby="falsifiers-lead">
                 <h2 id="falsifiers-lead">What would falsify it</h2>
                 <ul aria-label="What would falsify it">

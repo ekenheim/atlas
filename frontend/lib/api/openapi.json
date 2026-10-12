@@ -8085,7 +8085,7 @@
           "index": {
             "type": "integer",
             "title": "Index",
-            "description": "the finding's position in the version, from 0"
+            "description": "the finding's position in the version, from 0 (for a Belief's change, the step's)"
           },
           "claim_text": {
             "type": "string",
@@ -13497,7 +13497,8 @@
               "assertion",
               "relationship",
               "source_version",
-              "counterevidence"
+              "counterevidence",
+              "belief"
             ],
             "title": "Kind"
           },
@@ -13505,7 +13506,7 @@
             "type": "string",
             "format": "uuid",
             "title": "Id",
-            "description": "the Assertion reviewed, the Relationship rejected, the revised Source Version, or the counterevidence item"
+            "description": "the Assertion reviewed, the Relationship rejected, the revised Source Version, the counterevidence item, or the Belief that changed"
           },
           "description": {
             "type": "string",
@@ -17702,6 +17703,19 @@
             "title": "Session Ids",
             "description": "with `theme`: only the Beliefs these research sessions produced (empty: the theme's)"
           },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of",
+            "description": "with `theme`: the version's cutoff; only Beliefs with an as-of time at or before it are taken (default: the latest of the proven ones now)"
+          },
           "question": {
             "anyOf": [
               {
@@ -17908,6 +17922,14 @@
             ],
             "title": "Judged"
           },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/StepStatement"
+            },
+            "type": "array",
+            "title": "Statements",
+            "default": []
+          },
           "beliefs": {
             "items": {
               "$ref": "#/components/schemas/StepBelief"
@@ -17921,7 +17943,8 @@
           "step",
           "beliefs"
         ],
-        "title": "HypothesisStep"
+        "title": "HypothesisStep",
+        "description": "`statements` are the points kept for the step (the card allows several); `statement`,\n`statement_belief_ids` and `judged` repeat the first for readers of the single form."
       },
       "HypothesisTransition": {
         "properties": {
@@ -23181,7 +23204,8 @@
               "assertion_reviewed",
               "relationship_rejected",
               "source_revised",
-              "counterevidence"
+              "counterevidence",
+              "belief_changed"
             ],
             "title": "Trigger"
           },
@@ -29696,6 +29720,40 @@
         ],
         "title": "StepCitation",
         "description": "A load-bearing citation of a Belief: a Fact (or Assertion) and the words at its span."
+      },
+      "StepStatement": {
+        "properties": {
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "belief_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Belief Ids"
+          },
+          "judged": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judged"
+          }
+        },
+        "type": "object",
+        "required": [
+          "statement",
+          "belief_ids"
+        ],
+        "title": "StepStatement",
+        "description": "One point of a step, citing the Beliefs it rests on."
       },
       "TagMatch": {
         "type": "string",

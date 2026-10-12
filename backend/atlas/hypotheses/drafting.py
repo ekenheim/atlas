@@ -36,7 +36,7 @@ from sqlalchemy import Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
 from atlas.companies import load_universe
-from atlas.hypotheses.belief_drafting import BeliefHypothesisDrafter
+from atlas.hypotheses.belief_drafting import BeliefHypothesisDrafter, DraftRefused
 from atlas.hypotheses.findings import ProposedFinding, resolve_findings
 from atlas.hypotheses.model import RUN_KIND, HypothesisContent, Mechanism, VersionProvenance
 from atlas.hypotheses.service import insert_version
@@ -94,11 +94,15 @@ class HypothesisDrafter:
         try:
             if investigation is None:
                 # Drafted from proven Beliefs (ticket 14), not from an investigation.
-                version = BeliefHypothesisDrafter(self._settings, self._engine, self._caller).draft(
+                extra = BeliefHypothesisDrafter(self._settings, self._engine, self._caller).draft(
                     hypothesis, run_id
                 )
             else:
-                version = self._draft(hypothesis, investigation, run_id)
+                extra = {"version": self._draft(hypothesis, investigation, run_id)}
+        except DraftRefused as error:
+            # The thesis is not held to its Beliefs: no retry would change that.
+            self._fail(hypothesis_id, run_id, f"the draft was refused: {error}"[:_ERROR_LIMIT])
+            return _artifacts(hypothesis_id, "failed", drafted=False) | error.artifacts
         except TokenBudgetExhausted as error:
             self._fail(hypothesis_id, run_id, f"the draft's token budget ran out: {error}")
             return _artifacts(hypothesis_id, "failed", drafted=False)
@@ -108,7 +112,7 @@ class HypothesisDrafter:
                 self._fail(hypothesis_id, run_id, message)
             raise
         self._finish_run(run_id)
-        return _artifacts(hypothesis_id, "drafted", drafted=True) | {"version": version}
+        return _artifacts(hypothesis_id, "drafted", drafted=True) | extra
 
     def _run(self, hypothesis: RowMapping) -> uuid.UUID:
         existing: uuid.UUID | None = hypothesis["draft_run_id"]

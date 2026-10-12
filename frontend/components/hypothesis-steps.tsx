@@ -5,7 +5,11 @@
 // judgement and the Facts' quotes at their spans; and the theme's open Issues.
 import Link from "next/link";
 
-import { api, type HypothesisVersion } from "../lib/api/client";
+import {
+  api,
+  type BeliefSummary,
+  type HypothesisVersion,
+} from "../lib/api/client";
 import {
   JUDGEMENTS,
   type JudgementName,
@@ -17,6 +21,7 @@ import {
   type Step,
   beliefCount,
   openIssues,
+  standingNow,
   stepViews,
 } from "../lib/hypothesis-steps";
 import { routes } from "../lib/routes";
@@ -26,9 +31,24 @@ import { Load } from "./ui";
 type StepBelief = Step["beliefs"][number];
 
 const loadIssues = () => api.issues();
+const loadBeliefs = (key: string) =>
+  api.beliefs({ theme: key.slice("beliefs:".length) });
 
 /** The steps, in the argument's order. Nothing for a version of an investigation. */
-export function HypothesisSteps({ version }: { version: HypothesisVersion }) {
+export function HypothesisSteps({
+  version,
+  theme,
+}: {
+  version: HypothesisVersion;
+  theme: string;
+}) {
+  // How each Belief stands now, beside how the version drafted it (a failed read shows none).
+  const current = useApi(`beliefs:${theme}`, loadBeliefs);
+  const now = new Map<string, BeliefSummary>(
+    current.state === "ready"
+      ? current.data.items.map((each: BeliefSummary) => [each.id, each])
+      : [],
+  );
   const steps = stepViews(version);
   if (steps.length === 0) return null;
   const count = beliefCount(version);
@@ -44,22 +64,30 @@ export function HypothesisSteps({ version }: { version: HypothesisVersion }) {
           <p className="reader-step">
             <strong>{step.title}</strong>
           </p>
-          {step.statement ? (
-            <p>
-              {step.statement}
-              {step.judged === true && (
-                <span className="muted-small">
-                  {" "}
-                  · checked against its quotes
-                </span>
-              )}
-            </p>
+          {step.statements.length > 0 ? (
+            <ul aria-label={`${step.title} statements`}>
+              {step.statements.map((one) => (
+                <li key={one.statement}>
+                  {one.statement}
+                  {one.judged === true && (
+                    <span className="muted-small">
+                      {" "}
+                      · checked against its quotes
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="muted">No statement of its own: read the Beliefs.</p>
           )}
           <ul className="reader-rows" aria-label={`${step.title} beliefs`}>
             {step.beliefs.map((belief) => (
-              <StepBeliefRow key={belief.belief_id} belief={belief} />
+              <StepBeliefRow
+                key={belief.belief_id}
+                belief={belief}
+                now={now.get(belief.belief_id)}
+              />
             ))}
           </ul>
         </section>
@@ -78,7 +106,14 @@ function pill(belief: StepBelief) {
   );
 }
 
-function StepBeliefRow({ belief }: { belief: StepBelief }) {
+function StepBeliefRow({
+  belief,
+  now,
+}: {
+  belief: StepBelief;
+  now: BeliefSummary | undefined;
+}) {
+  const changed = standingNow(belief, now);
   return (
     <li className="reader-row" aria-label={belief.statement}>
       <div>
@@ -89,6 +124,11 @@ function StepBeliefRow({ belief }: { belief: StepBelief }) {
           {belief.companies.join(", ") || "no company"} · as of{" "}
           {day(belief.as_of)} · judged by {belief.judged_by}
         </div>
+        {changed && (
+          <div className="reader-row-sub">
+            <strong>Since drafted:</strong> {changed}
+          </div>
+        )}
         {belief.citations.map((citation) => (
           <figure key={citation.ref_id} className="reader-quote">
             {citation.statement && <p>{citation.statement}</p>}

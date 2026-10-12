@@ -62,15 +62,29 @@ class StepBelief(BaseModel):
     citations: list[StepCitation]
 
 
+class StepStatement(BaseModel):
+    """One point of a step, citing the Beliefs it rests on."""
+
+    model_config = ConfigDict(frozen=True)
+
+    statement: str
+    belief_ids: list[uuid.UUID]
+    # True: the finding judge found the statement supported; None: not judged (the judge is
+    # off, or its call failed).
+    judged: bool | None = None
+
+
 class HypothesisStep(BaseModel):
+    """`statements` are the points kept for the step (the card allows several); `statement`,
+    `statement_belief_ids` and `judged` repeat the first for readers of the single form."""
+
     model_config = ConfigDict(frozen=True)
 
     step: str
     statement: str | None = None
     statement_belief_ids: list[uuid.UUID] = []
-    # True: the finding judge found the statement supported; None: not judged (the judge is
-    # off, or its call failed).
     judged: bool | None = None
+    statements: list[StepStatement] = []
     beliefs: list[StepBelief]
 
 

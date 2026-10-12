@@ -11,6 +11,7 @@ applied in process).
 """
 
 import json
+import shutil
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -48,7 +49,7 @@ CONSTRAINT_STATEMENT = (
 )
 CAPTURE_STATEMENT = "Lumentum reported net revenue of $3.01 billion for fiscal year 2026."
 REWRITTEN = "Lumentum reported net revenue of $3.01 billion in fiscal year 2026, up sharply."
-THESIS = "Laser capacity may bind AI optics, and Lumentum may capture the value of that."
+THESIS = "Lumentum may be straining its laser capacity as its revenue grows in fiscal year 2026."
 ACTOR = "claude-session"
 
 
@@ -78,6 +79,8 @@ class Beliefs:
     def __init__(
         self, database_url: str, tmp_path: Path, hindsight_url: str, litellm_url: str
     ) -> None:
+        self.fixtures = tmp_path / "edgar"
+        shutil.copytree(EDGAR_FIXTURES, self.fixtures)
         self.atlas = Atlas(
             database_url,
             tmp_path,
@@ -86,6 +89,7 @@ class Beliefs:
             finding_judge=True,
             hindsight_template_path=TEMPLATE,
         )
+        self.atlas.fixtures = self.fixtures
         self.engine = self.atlas.engine
         self.api: TestClient = self.atlas.api
         assert run_apply_template(self.atlas.settings(), None) == 0
@@ -95,12 +99,12 @@ class Beliefs:
             database_url=database_url,
             actor=ACTOR,
             themes_config=THEMES,
-            sec_fixtures_dir=EDGAR_FIXTURES,
+            sec_fixtures_dir=self.fixtures,
         )
-        queue = JobQueue(self.engine, actor=Actor(ACTOR))
-        queue.enqueue(INGEST_KIND, "lumentum", ingest_payload("lumentum", ["8-K"], None))
-        worker = Worker(queue, builtin_registry(plain))
-        assert worker.run_once() >= 1
+        self.plain = plain
+        self.queue = JobQueue(self.engine, actor=Actor(ACTOR))
+        self.queue.enqueue(INGEST_KIND, "lumentum", ingest_payload("lumentum", ["8-K"], None))
+        assert Worker(self.queue, builtin_registry(plain)).run_once() >= 1
 
     def get(self, path: str, **params: Any) -> Any:
         return self.atlas.get(path, **params)
@@ -180,6 +184,34 @@ class Beliefs:
     def create(self, **body: Any) -> dict[str, Any]:
         return self.post("/api/v1/hypotheses", {"theme": "photonics"} | body, status=202)
 
+    def revise(self, old: str, new: str) -> None:
+        """Serve revised bytes for the press release, with a new Last-Modified, ingest it and
+        let every job it starts run (the contradiction check, the Beliefs' flags, their
+        proposed updates)."""
+        path = self.fixtures / "lumentum" / "manifest.json"
+        manifest = json.loads(path.read_text())
+        entry = next(e for e in manifest["responses"] if e["url"] == URL_EX991)
+        entry["headers"]["last-modified"] = "Tue, 18 Aug 2026 20:24:36 GMT"
+        path.write_text(json.dumps(manifest, indent=2))
+        body = self.fixtures / "lumentum" / entry["file"]
+        original = body.read_bytes()
+        assert original.count(old.encode()) == 1
+        body.write_bytes(original.replace(old.encode(), new.encode()))
+        self.queue.enqueue(INGEST_KIND, "second", ingest_payload("lumentum", ["8-K"], None))
+        self.settle()
+
+    def settle(self) -> None:
+        worker = Worker(self.queue, builtin_registry(self.plain))
+        for _ in range(12):
+            if worker.run_once() == 0:
+                return
+
+    def draft_artifacts(self) -> dict[str, Any]:
+        with self.engine.connect() as connection:
+            return connection.execute(
+                text("SELECT artifacts FROM job WHERE kind = 'draft_hypothesis'")
+            ).scalar_one()
+
     def worker_pass(self) -> int:
         return self.atlas.worker_pass()
 
@@ -205,7 +237,12 @@ def asked(body: dict[str, Any]) -> dict[str, Any]:
     return json.loads(body["messages"][1]["content"])
 
 
-def editor(statements: dict[str, str]) -> Callable[[dict[str, Any]], JsonValue]:
+def editor(
+    statements: dict[str, str | list[str]],
+    *,
+    thesis: str = THESIS,
+    thesis_extra: tuple[str, ...] = (),
+) -> Callable[[dict[str, Any]], JsonValue]:
     """The Hypothesis Editor: it cites, per step, the Belief it is sent for that step by its
     short reference, with the statement written for that step in `statements`."""
 
@@ -214,8 +251,8 @@ def editor(statements: dict[str, str]) -> Callable[[dict[str, Any]], JsonValue]:
         by_step = {each["step"]: each["ref"] for each in request["beliefs"]}
         first = next(iter(by_step.values()))
         answer: dict[str, JsonValue] = {
-            "thesis_statement": THESIS,
-            "thesis_belief_refs": [first],
+            "thesis_statement": thesis,
+            "thesis_belief_refs": [first, *thesis_extra],
             "mechanism": {
                 "demand_driver": "AI optics deployments",
                 "possible_constraint": "laser capacity",
@@ -228,8 +265,9 @@ def editor(statements: dict[str, str]) -> Callable[[dict[str, Any]], JsonValue]:
             "alternative_explanations": ["Inventory build"],
             "unresolved_questions": ["Does revenue growth reflect scarcity or volume?"],
             "steps": [
-                {"step": step, "statement": statement, "belief_refs": [by_step[step]]}
-                for step, statement in statements.items()
+                {"step": step, "statement": each, "belief_refs": [by_step[step]]}
+                for step, said in statements.items()
+                for each in ([said] if isinstance(said, str) else said)
                 if step in by_step
             ],
         }
@@ -592,3 +630,277 @@ def test_a_superseded_step_belief_holds_the_gate(beliefs: Beliefs, llm: FakeLite
     [failure] = read["failures"]
     assert (failure["code"], failure["belief_ids"]) == ("belief_not_proven", [capture["id"]])
     assert f"{capture['id']} (superseded)" in failure["message"]
+
+
+# --- review fixes: several statements, the thesis, the cutoff, references ------------------------
+
+SECOND_POINT = "Lumentum's fiscal 2026 fourth-quarter net revenue was $1.01 billion."
+REWORDED = "Lumentum reported net revenue of $1.01 billion, up sharply, in fiscal year 2026."
+
+
+def test_several_statements_of_a_step_are_kept_and_a_rejected_one_is_recorded(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        "editor",
+        ChatReply.answer(
+            editor(
+                {
+                    "constraint": [
+                        CONSTRAINT_STATEMENT,
+                        SECOND_POINT,
+                        "Lumentum reported $1.01 billion.",
+                    ]
+                }
+            ),
+            tokens=(3000, 700),
+        ),
+        ChatReply.answer(rewriting(REWORDED), tokens=(800, 80)),
+    )
+    # The first two points are supported; the third is misstated, rewritten and misstated again.
+    llm.script_role(
+        "finding_judge",
+        ChatReply.answer(supporting, tokens=(400, 40)),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+        ChatReply.answer(misstating, tokens=(400, 40)),
+        ChatReply.answer(misstating, tokens=(400, 40)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    hypothesis = beliefs.hypothesis(saved["id"])
+    assert hypothesis["draft_status"] == "drafted", hypothesis["draft_error"]
+    content = hypothesis["versions"][0]["content"]
+    [step] = content["steps"]
+    assert [each["statement"] for each in step["statements"]] == [
+        CONSTRAINT_STATEMENT,
+        SECOND_POINT,
+    ]
+    assert [each["judged"] for each in step["statements"]] == [True, True]
+    assert step["statement"] == CONSTRAINT_STATEMENT  # the first, for the single form
+    [dropped] = content["unsupported_findings"]
+    assert dropped["statement"] == REWORDED
+    assert dropped["reason"].startswith("misstated after a rewrite")
+
+
+def test_an_ungrounded_thesis_is_asked_again_once_and_then_the_draft_is_refused(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        "editor",
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis="Lumentum may earn $9.99 billion."),
+            tokens=(3000, 700),
+        ),
+        ChatReply.answer(rewriting("Lumentum may earn $8.88 billion."), tokens=(800, 80)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    hypothesis = beliefs.hypothesis(saved["id"])
+    assert hypothesis["draft_status"] == "failed"
+    assert "thesis statement is ungrounded" in hypothesis["draft_error"]
+    assert hypothesis["versions"] == []
+    assert roles(llm) == ["editor", "editor"]  # the draft, and the one ask again
+
+
+def test_a_thesis_the_editor_repairs_when_asked_again_is_kept(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    repaired = "Lumentum may be straining its capacity as revenue reached $1.01 billion."
+    llm.script_role(
+        "editor",
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis="Lumentum may earn $9.99 billion."),
+            tokens=(3000, 700),
+        ),
+        ChatReply.answer(rewriting(repaired), tokens=(800, 80)),
+    )
+    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    hypothesis = beliefs.hypothesis(saved["id"])
+    assert hypothesis["draft_status"] == "drafted", hypothesis["draft_error"]
+    assert hypothesis["versions"][0]["content"]["thesis_statement"] == repaired
+
+
+def test_a_reference_the_editor_was_not_sent_is_recorded_in_the_drafts_artifacts(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        "editor",
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis_extra=("b9",)),
+            tokens=(3000, 700),
+        ),
+    )
+    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    hypothesis = beliefs.hypothesis(saved["id"])
+    assert hypothesis["draft_status"] == "drafted", hypothesis["draft_error"]
+    assert len(hypothesis["versions"][0]["content"]["thesis_belief_ids"]) == 1
+    assert beliefs.draft_artifacts()["unresolved_refs"] == ["b9"]
+
+
+def test_the_draft_takes_only_beliefs_as_of_the_versions_cutoff(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    later = beliefs.post(
+        "/api/v1/beliefs",
+        {
+            "statement": CAPTURE,
+            "theme": "photonics",
+            "step": "capture",
+            "company_ids": [beliefs.company_id()],
+            "as_of": "2026-10-20T00:00:00Z",
+            "actor": ACTOR,
+            "citations": [{"ref_id": beliefs.fact(YEAR), "valence": 0.9, "weight": "load_bearing"}],
+        },
+        status=201,
+    )
+    beliefs.judge(later["id"], "proven")
+    llm.script_role(
+        "editor",
+        ChatReply.answer(editor({"constraint": CONSTRAINT_STATEMENT}), tokens=(3000, 700)),
+    )
+    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+
+    saved = beliefs.create(as_of="2026-10-01T00:00:00Z")
+    beliefs.worker_pass()
+
+    hypothesis = beliefs.hypothesis(saved["id"])
+    assert hypothesis["draft_status"] == "drafted", hypothesis["draft_error"]
+    assert hypothesis["as_of"].startswith("2026-10-01")
+    [request] = [
+        asked(body)["request"]
+        for body in llm.chat_requests()
+        if body["metadata"]["role"] == "editor"
+    ]
+    assert [each["step"] for each in request["beliefs"]] == ["constraint"]
+    # Nothing as of that time and proven: nothing to draft from.
+    nothing = beliefs.api.post(
+        "/api/v1/hypotheses", json={"theme": "photonics", "as_of": "2026-01-01T00:00:00Z"}
+    )
+    assert nothing.status_code == 409
+
+
+def test_an_open_flag_on_a_step_belief_holds_the_gate_and_the_override_covers_it(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, constraint, _ = ready(beliefs, llm)
+    hypothesis_id = hypothesis["id"]
+    beliefs.api.post(
+        f"/api/v1/hypotheses/{hypothesis_id}/transitions", json={"to": "evidence_ready"}
+    )
+    fact = beliefs.get(f"/api/v1/beliefs/{constraint['id']}")["citations"][0]["ref_id"]
+    beliefs.post(f"/api/v1/assertions/{fact}/review", {"review_state": "disputed"})
+
+    read = beliefs.get(f"/api/v1/hypotheses/{hypothesis_id}/publish-gate")
+
+    [failure] = read["failures"]
+    assert (failure["code"], failure["belief_ids"]) == ("belief_flagged", [constraint["id"]])
+    refused = publish(beliefs, hypothesis_id)
+    assert refused.status_code == 422
+    assert [each["code"] for each in refused.json()["error"]["failures"]] == ["belief_flagged"]
+
+    overridden = publish(
+        beliefs, hypothesis_id, override_beliefs=True, override_reason="the dispute is noise"
+    )
+
+    assert overridden.status_code == 200, overridden.text
+    with beliefs.engine.connect() as connection:
+        [belief_ids] = connection.execute(
+            text("SELECT belief_ids FROM hypothesis_belief_override")
+        ).scalars()
+    assert [str(each) for each in belief_ids] == [constraint["id"]]
+
+
+def test_scenarios_on_a_hypothesis_over_beliefs_have_no_analyst_proposal(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, _, _ = ready(beliefs, llm)
+
+    response = beliefs.api.post(
+        f"/api/v1/hypotheses/{hypothesis['id']}/scenarios", json={"version": 1}
+    )
+
+    assert response.status_code == 409, response.text
+
+
+# --- a published version depends on its Beliefs --------------------------------------------------
+
+
+def published(beliefs: Beliefs, llm: FakeLiteLLM) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    hypothesis, constraint, capture = ready(beliefs, llm)
+    beliefs.api.post(
+        f"/api/v1/hypotheses/{hypothesis['id']}/transitions", json={"to": "evidence_ready"}
+    )
+    assert publish(beliefs, hypothesis["id"]).status_code == 200
+    return hypothesis["id"], constraint, capture
+
+
+def updates(beliefs: Beliefs, hypothesis_id: str) -> list[dict[str, Any]]:
+    return beliefs.get(f"/api/v1/hypotheses/{hypothesis_id}/proposed-updates")["items"]
+
+
+def test_a_belief_flagged_by_a_revised_source_proposes_an_update_to_the_published_version(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis_id, constraint, capture = published(beliefs, llm)
+    assert updates(beliefs, hypothesis_id) == []
+
+    beliefs.revise("$1.01 billion, with GAAP net loss", "$1.02 billion, with GAAP net loss")
+
+    [update] = updates(beliefs, hypothesis_id)
+    assert (update["trigger"], update["state"], update["hypothesis_version"]) == (
+        "belief_changed",
+        "open",
+        1,
+    )
+    [evidence] = update["evidence"]
+    assert (evidence["kind"], evidence["id"]) == ("belief", constraint["id"])
+    assert "flagged" in evidence["description"] and CONSTRAINT in evidence["description"]
+    # The steps the Belief is in; the other Belief's step is not.
+    [affected] = update["affected_findings"]
+    assert affected["claim_text"].startswith("constraint:")
+    assert affected["assertion_ids"] == []
+    assert update["summary"].startswith("A Belief version 1 rests on changed")
+    assert beliefs.get(f"/api/v1/beliefs/{capture['id']}")["open_flags"] == 0
+    # The published version is untouched.
+    assert beliefs.hypothesis(hypothesis_id)["versions"][0]["published"] is True
+
+
+def test_a_published_versions_belief_judged_otherwise_or_superseded_proposes_an_update(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis_id, constraint, capture = published(beliefs, llm)
+
+    # Judged again as it was: nothing changed, nothing proposed.
+    beliefs.judge(constraint["id"], "proven", 0.9)
+    beliefs.settle()
+    assert updates(beliefs, hypothesis_id) == []
+
+    beliefs.judge(constraint["id"], "unproven", 0.3)
+    beliefs.post(
+        f"/api/v1/beliefs/{capture['id']}/supersede",
+        {"by": [constraint["id"]], "reason": "restated", "actor": ACTOR},
+    )
+    beliefs.settle()
+
+    found = {each["evidence"][0]["id"]: each for each in updates(beliefs, hypothesis_id)}
+    assert set(found) == {constraint["id"], capture["id"]}
+    assert (
+        "judged unproven (it was proven)" in found[constraint["id"]]["evidence"][0]["description"]
+    )
+    assert "superseded" in found[capture["id"]]["evidence"][0]["description"]
+    # Each event once: a retried job adds nothing.
+    beliefs.settle()
+    assert len(updates(beliefs, hypothesis_id)) == 2

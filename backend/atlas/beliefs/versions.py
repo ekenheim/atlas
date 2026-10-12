@@ -96,6 +96,25 @@ def unproven_step_beliefs(
     ]
 
 
+def flagged_beliefs(
+    connection: Connection, belief_ids: Sequence[uuid.UUID]
+) -> list[dict[str, Any]]:
+    """Of `belief_ids`, those with an open flag (raised by code, cleared by a judgement), with
+    the flags' details."""
+    if not belief_ids:
+        return []
+    rows = connection.execute(
+        text(
+            "SELECT b.id AS belief_id, string_agg(f.detail, '; ' ORDER BY f.raised_at) AS detail"
+            " FROM belief b JOIN belief_flag f ON f.belief_id = b.id AND f.cleared_by IS NULL"
+            " WHERE b.id = ANY(CAST(:ids AS uuid[])) GROUP BY b.id, b.created_at"
+            " ORDER BY b.created_at, b.id"
+        ),
+        {"ids": list(belief_ids)},
+    ).mappings()
+    return [dict(row) for row in rows]
+
+
 def record_step_beliefs(
     connection: Connection, version_id: uuid.UUID, belief_ids: Sequence[uuid.UUID]
 ) -> None:

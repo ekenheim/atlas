@@ -101,6 +101,11 @@ class HypothesisCreate(BaseModel):
         description="with `theme`: only the Beliefs these research sessions produced"
         " (empty: the theme's)",
     )
+    as_of: datetime | None = Field(
+        default=None,
+        description="with `theme`: the version's cutoff; only Beliefs with an as-of time at or"
+        " before it are taken (default: the latest of the proven ones now)",
+    )
     question: str | None = Field(
         default=None,
         max_length=2000,
@@ -111,8 +116,8 @@ class HypothesisCreate(BaseModel):
     def _one_basis(self) -> Self:
         if (self.investigation_id is None) == (self.theme is None):
             raise ValueError("give either investigation_id or theme, not both and not neither")
-        if self.investigation_id is not None and (self.session_ids or self.question):
-            raise ValueError("session_ids and question go with theme")
+        if self.investigation_id is not None and (self.session_ids or self.question or self.as_of):
+            raise ValueError("session_ids, question and as_of go with theme")
         return self
 
 
@@ -245,6 +250,7 @@ def hypotheses_router(
                     theme=request.theme,
                     session_ids=request.session_ids,
                     question=request.question,
+                    as_of=request.as_of,
                 )
             else:
                 assert request.investigation_id is not None

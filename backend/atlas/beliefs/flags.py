@@ -41,6 +41,10 @@ def _flag(
     )
     if inserted.rowcount == 0:
         return False
+    # A published Hypothesis version resting on the Belief gets a proposed update (ticket 14).
+    from atlas.proposed_updates.triggers import on_belief_changed
+
+    on_belief_changed(connection, belief_id, f"flag:{flag_id}")
     record(
         connection,
         FLAGGER,

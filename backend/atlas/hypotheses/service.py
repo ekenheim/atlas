@@ -25,16 +25,19 @@ import json
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
 
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
 from atlas.beliefs.versions import (
+    flagged_beliefs,
     record_step_beliefs,
     record_version_beliefs,
     unproven_load_bearing,
     unproven_step_beliefs,
+    version_beliefs,
 )
 from atlas.hypotheses.findings import ProposedFinding, resolve_findings
 from atlas.hypotheses.model import (
@@ -232,12 +235,42 @@ def requires_proven_beliefs(
     )
 
 
+def requires_unflagged_beliefs(
+    connection: Connection, _hypothesis: RowMapping, version: HypothesisVersion
+) -> GateFailure | None:
+    """No Belief the version rests on load-bearingly has an open flag: code raised a doubt
+    (a cited statement disputed, a source revised) that no author has judged since. The owner
+    may override it with the Belief rule's override."""
+    resting = list(
+        dict.fromkeys(
+            [
+                *step_belief_ids(version.content.steps),
+                *(
+                    each["belief_id"]
+                    for each in version_beliefs(connection, dependent_assertion_ids(version))
+                    if each["load_bearing"]
+                ),
+            ]
+        )
+    )
+    flagged = flagged_beliefs(connection, resting)
+    if not flagged:
+        return None
+    listed = "; ".join(f"{each['belief_id']} ({each['detail']})" for each in flagged)
+    return GateFailure(
+        "belief_flagged",
+        f"a Belief the version rests on has an open flag no judgement has cleared: {listed}",
+        belief_ids=tuple(each["belief_id"] for each in flagged),
+    )
+
+
 DEFAULT_PUBLISH_GATE: tuple[PublishCheck, ...] = (
     requires_falsifier,
     requires_unresolved_question,
     requires_approved_relationships,
     requires_reviewed_assertions,
     requires_proven_beliefs,
+    requires_unflagged_beliefs,
 )
 
 
@@ -360,6 +393,7 @@ class Hypotheses:
         theme: str,
         session_ids: Sequence[uuid.UUID] = (),
         question: str | None = None,
+        as_of: datetime | None = None,
     ) -> uuid.UUID:
         """Save a theme's proven Beliefs (those of `session_ids`, if any) as a `draft`
         Hypothesis and enqueue its drafting (atlas.hypotheses.belief_drafting). Refused when no
@@ -382,10 +416,11 @@ class Hypotheses:
                         " ORDER BY x.at DESC, x.id DESC LIMIT 1) j ON true"
                         " WHERE b.theme = :theme AND b.status = 'active'"
                         " AND j.judgement = 'proven'"
+                        " AND (CAST(:as_of AS timestamptz) IS NULL OR b.as_of <= :as_of)"
                         " AND (cardinality(CAST(:sessions AS uuid[])) = 0"
                         "  OR b.produced_by = ANY(CAST(:sessions AS uuid[])))"
                     ),
-                    {"theme": theme, "sessions": wanted},
+                    {"theme": theme, "sessions": wanted, "as_of": as_of},
                 ).all()
             )
             if not beliefs:
@@ -404,7 +439,8 @@ class Hypotheses:
                     {"ids": wanted},
                 ).scalars()
                 asked = " / ".join(dict.fromkeys(sessions)) or f"What does {theme} rest on?"
-            cutoff = max(each.as_of for each in beliefs)
+            # The Beliefs the drafter takes are those as of this time, fixed here, once.
+            cutoff = as_of or max(each.as_of for each in beliefs)
             hypothesis_id = uuid.uuid4()
             job = self._queue.enqueue_within(
                 connection,
@@ -579,8 +615,9 @@ class Hypotheses:
                 if (failure := check(connection, hypothesis, latest)) is not None
             ]
             if override_beliefs_reason is not None:
-                overridden = [each for each in failures if each.code == "belief_not_proven"]
-                failures = [each for each in failures if each.code != "belief_not_proven"]
+                covered = ("belief_not_proven", "belief_flagged")
+                overridden = [each for each in failures if each.code in covered]
+                failures = [each for each in failures if each.code not in covered]
                 if overridden:
                     beliefs = list(dict.fromkeys(b for each in overridden for b in each.belief_ids))
                     connection.execute(

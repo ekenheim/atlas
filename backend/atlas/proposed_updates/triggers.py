@@ -15,7 +15,10 @@ detection), which exists only if the event commits:
   from (the job compares the quotes);
 - `on_counterevidence`: the Skeptic's accepted, independent contradiction of a Claim whose
   Assertion states a dependent span (the same Source Version and offsets). Bear context
-  contradicts no Claim, so it is never an event.
+  contradicts no Claim, so it is never an event;
+- `on_belief_changed` (atlas-beliefs ticket 14): a Belief a published version rests on
+  (`hypothesis_version_belief`) is flagged, judged again or superseded; the job proposes an
+  update when it is no longer as the version recorded it.
 """
 
 import uuid
@@ -32,7 +35,11 @@ if TYPE_CHECKING:
 
 CHECK_CONTRADICTIONS_KIND = "check_contradictions"
 Trigger = Literal[
-    "assertion_reviewed", "relationship_rejected", "source_revised", "counterevidence"
+    "assertion_reviewed",
+    "relationship_rejected",
+    "source_revised",
+    "counterevidence",
+    "belief_changed",
 ]
 # The review states that contradict what an Assertion stated (as the version diff reads them).
 CONTRADICTING_STATES = ("disputed", "rejected", "superseded")
@@ -140,6 +147,21 @@ def on_counterevidence(connection: Connection, counterevidence_id: uuid.UUID) ->
     ).scalar_one()
     if touches:
         _enqueue(connection, "counterevidence", counterevidence_id)
+
+
+def on_belief_changed(connection: Connection, belief_id: uuid.UUID, event: str) -> None:
+    """A Belief was flagged, judged or superseded: does a published version rest on it? `event`
+    names the event (`flag:<id>`, `judged:<id>`, `superseded`), one proposed update each."""
+    rests = connection.execute(
+        text(
+            "SELECT EXISTS (SELECT FROM hypothesis_version_belief b"
+            " JOIN hypothesis_version v ON v.id = b.hypothesis_version_id"
+            " WHERE b.belief_id = :belief AND v.published_at IS NOT NULL)"
+        ),
+        {"belief": belief_id},
+    ).scalar_one()
+    if rests:
+        _enqueue(connection, "belief_changed", belief_id, event)
 
 
 def _depends(connection: Connection, kind: str, ref: uuid.UUID) -> bool:

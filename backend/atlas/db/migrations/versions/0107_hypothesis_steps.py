@@ -19,7 +19,15 @@ branch_labels = None
 depends_on = None
 
 
+_TRIGGERS = "'assertion_reviewed', 'relationship_rejected', 'source_revised', 'counterevidence'"
+
+
 def upgrade() -> None:
+    op.execute("ALTER TABLE proposed_update DROP CONSTRAINT proposed_update_trigger_check")
+    op.execute(
+        "ALTER TABLE proposed_update ADD CONSTRAINT proposed_update_trigger_check"
+        f" CHECK (trigger IN ({_TRIGGERS}, 'belief_changed'))"
+    )
     op.execute("ALTER TABLE hypothesis ALTER COLUMN investigation_id DROP NOT NULL")
     op.execute("ALTER TABLE hypothesis ADD COLUMN question text")
     op.execute("ALTER TABLE hypothesis ADD COLUMN as_of timestamptz")
@@ -33,6 +41,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DELETE FROM proposed_update WHERE trigger = 'belief_changed'")
+    op.execute("ALTER TABLE proposed_update DROP CONSTRAINT proposed_update_trigger_check")
+    op.execute(
+        "ALTER TABLE proposed_update ADD CONSTRAINT proposed_update_trigger_check"
+        f" CHECK (trigger IN ({_TRIGGERS}))"
+    )
     op.execute("ALTER TABLE hypothesis DROP CONSTRAINT hypothesis_one_basis")
     op.execute("ALTER TABLE hypothesis DROP COLUMN session_ids")
     op.execute("ALTER TABLE hypothesis DROP COLUMN as_of")

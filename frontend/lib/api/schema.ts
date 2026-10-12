@@ -1848,7 +1848,7 @@ export interface components {
         AffectedFinding: {
             /**
              * Index
-             * @description the finding's position in the version, from 0
+             * @description the finding's position in the version, from 0 (for a Belief's change, the step's)
              */
             index: number;
             /** Claim Text */
@@ -3919,11 +3919,11 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "assertion" | "relationship" | "source_version" | "counterevidence";
+            kind: "assertion" | "relationship" | "source_version" | "counterevidence" | "belief";
             /**
              * Id
              * Format: uuid
-             * @description the Assertion reviewed, the Relationship rejected, the revised Source Version, or the counterevidence item
+             * @description the Assertion reviewed, the Relationship rejected, the revised Source Version, the counterevidence item, or the Belief that changed
              */
             id: string;
             /** Description */
@@ -5448,6 +5448,11 @@ export interface components {
              */
             session_ids?: string[];
             /**
+             * As Of
+             * @description with `theme`: the version's cutoff; only Beliefs with an as-of time at or before it are taken (default: the latest of the proven ones now)
+             */
+            as_of?: string | null;
+            /**
              * Question
              * @description with `theme`: the question the Hypothesis answers (default: the sessions')
              */
@@ -5515,7 +5520,11 @@ export interface components {
             citations: components["schemas"]["atlas__hypotheses__export__Citation"][];
             run_metadata: components["schemas"]["RunMetadata"];
         };
-        /** HypothesisStep */
+        /**
+         * HypothesisStep
+         * @description `statements` are the points kept for the step (the card allows several); `statement`,
+         *     `statement_belief_ids` and `judged` repeat the first for readers of the single form.
+         */
         HypothesisStep: {
             /** Step */
             step: string;
@@ -5528,6 +5537,11 @@ export interface components {
             statement_belief_ids: string[];
             /** Judged */
             judged?: boolean | null;
+            /**
+             * Statements
+             * @default []
+             */
+            statements: components["schemas"]["StepStatement"][];
             /** Beliefs */
             beliefs: components["schemas"]["StepBelief"][];
         };
@@ -7341,7 +7355,7 @@ export interface components {
              * Trigger
              * @enum {string}
              */
-            trigger: "assertion_reviewed" | "relationship_rejected" | "source_revised" | "counterevidence";
+            trigger: "assertion_reviewed" | "relationship_rejected" | "source_revised" | "counterevidence" | "belief_changed";
             /** Trigger Key */
             trigger_key: string;
             /** Summary */
@@ -9748,6 +9762,18 @@ export interface components {
              * Format: date-time
              */
             available_at: string;
+        };
+        /**
+         * StepStatement
+         * @description One point of a step, citing the Beliefs it rests on.
+         */
+        StepStatement: {
+            /** Statement */
+            statement: string;
+            /** Belief Ids */
+            belief_ids: string[];
+            /** Judged */
+            judged?: boolean | null;
         };
         /** @enum {string} */
         TagMatch: "any_strict" | "all_strict";
