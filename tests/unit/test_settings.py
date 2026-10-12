@@ -162,9 +162,9 @@ def test_the_backfill_window_accepts_several_ranges(tmp_path: Path) -> None:
         ({"backfill_window": "01:00-07:00,13:00"}, "HH:MM-HH:MM"),
         ({"backfill_window": "01:00-07:00,,13:00-15:00"}, "HH:MM-HH:MM"),
         ({"budget_window_hours": 0}, "greater than 0"),
-        ({"codex_budget_operations": 0}, "greater than or equal to 1"),
-        ({"minimax_budget_tokens": 0}, "greater than or equal to 1"),
-        ({"retain_budget_operations": 0}, "greater than or equal to 1"),
+        ({"codex_budget_operations": -1}, "greater than or equal to 0"),  # 0 holds the provider
+        ({"minimax_budget_tokens": -1}, "greater than or equal to 0"),  # 0 holds the provider
+        ({"retain_budget_operations": -1}, "greater than or equal to 0"),  # 0 holds the provider
         ({"budget_interactive_reserve": 1}, "less than 1"),
         ({"backfill_timezone": "Mars/Olympus"}, "unknown timezone"),
         ({"queue_pause_max_seconds": 7200}, "less than or equal to 3600"),
