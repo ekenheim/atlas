@@ -42,6 +42,7 @@ def memory_router(
     stuck_after_hours: float,
     window_days: int | None = None,
     bulk_retention: Literal["on", "off"] = "on",
+    beliefs_bank_id: str | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["memory"])
 
@@ -75,6 +76,7 @@ def memory_router(
                 stuck_after_hours=stuck_after_hours,
                 window_days=window_days,
                 bulk_retention=bulk_retention,
+                beliefs_bank_id=beliefs_bank_id,
             )
         return found if found is not None else not_found("company")
 

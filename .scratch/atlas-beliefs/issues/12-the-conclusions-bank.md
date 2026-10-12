@@ -1,7 +1,7 @@
 # 12: The conclusions bank: judged Beliefs in a Hindsight bank of their own
 
 Type: build
-Status: ready-for-agent
+Status: done (the production steps are the lead's)
 Blocked by: none
 
 ## What to build
@@ -10,6 +10,6 @@ A second Hindsight bank, `atlas-beliefs` (`Settings.hindsight_beliefs_bank_id`),
 
 ## Acceptance criteria
 
-- [ ] Worker tests with the Hindsight fake: retain into the beliefs bank, recall by bank, health per bank, the re-retain command; settings tests.
-- [ ] `docs/decisions.md` ("Memory holds what was found" extended: two banks, what each holds), `docs/runbooks.md` (applying the beliefs template; re-retain), `AGENTS.md`.
+- [x] Worker tests with the Hindsight fake: retain into the beliefs bank, recall by bank, health per bank, the re-retain command; settings tests.
+- [x] `docs/decisions.md` ("Memory holds what was found" extended: two banks, what each holds), `docs/runbooks.md` (applying the beliefs template; re-retain), `AGENTS.md`.
 - [ ] On production after the release (the lead): the template applied, the two Beliefs re-retained, a session's `recall --bank beliefs` returns one (ticket 06's probe, recorded in `docs/experiments.md`).

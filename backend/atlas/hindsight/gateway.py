@@ -110,14 +110,19 @@ class HindsightGateway:
 
     @classmethod
     def from_settings(
-        cls, settings: Settings, *, transport: httpx2.BaseTransport | None = None
+        cls,
+        settings: Settings,
+        *,
+        transport: httpx2.BaseTransport | None = None,
+        bank_id: str | None = None,
     ) -> "HindsightGateway | None":
-        """The gateway for the configured research bank, or None when Hindsight is disabled."""
+        """The gateway for the configured research bank (or `bank_id`: the conclusions bank's,
+        `settings.hindsight_beliefs_bank_id`), or None when Hindsight is disabled."""
         if not settings.hindsight_url:
             return None
         return cls(
             settings.hindsight_url,
-            settings.hindsight_bank_id,
+            bank_id or settings.hindsight_bank_id,
             settings.hindsight_api_key,
             transport=transport,
         )

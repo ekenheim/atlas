@@ -19,7 +19,7 @@
     python atlas_tools.py issue complete --id <id> [--fact <id>] [--belief <id>] [--abandon]
     python atlas_tools.py issue next [--theme photonics]
     python atlas_tools.py recall --q "<question>" --as-of <ISO> [--theme photonics] [--companies slug,slug]
-        [--max-tokens 4096]
+        [--max-tokens 4096] [--bank beliefs|research]
     python atlas_tools.py fact <id>
     python atlas_tools.py judge --statement "<one statement>" --question "<verbatim>" --facts id,id
         [--counter id,id] [--votes 1] [--run <run id>]
@@ -321,6 +321,8 @@ def cmd_recall(args: argparse.Namespace) -> None:
         "available_by": args.as_of,
         "include_source_facts": True,
     }
+    if args.bank:  # older Atlas versions refuse a field they do not know
+        body["bank"] = args.bank
     status, answer = post("/memory/recall", body)
     if status != 200:
         out({"http": status, "answer": answer})
@@ -652,6 +654,12 @@ def main() -> None:
     p.add_argument("--theme", default="photonics")
     p.add_argument("--companies", default=None)
     p.add_argument("--max-tokens", type=int, default=4096)
+    p.add_argument(
+        "--bank",
+        choices=["beliefs", "research"],
+        default=None,
+        help="research (the default, nothing sent): the index of the archive's sections; beliefs: the conclusions bank, once the lead announces it",
+    )
     p.set_defaults(run=cmd_recall)
     p = sub.add_parser("fact")
     p.add_argument("id")

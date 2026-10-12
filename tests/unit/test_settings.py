@@ -305,3 +305,29 @@ def test_role_models_reject_invalid_json(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setenv("ATLAS_LLM_ROLE_MODELS", "{editor: opus")
     with pytest.raises(Exception, match="llm_role_models"):
         Settings()  # pyright: ignore[reportCallIssue]
+
+
+def test_the_conclusions_bank_has_its_own_id_and_template_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = {
+        "database_url": "postgresql+psycopg://x@db/atlas",
+        "actor": "a",
+        "archive_root": tmp_path,
+    }
+    settings = Settings.model_validate(base)
+
+    assert settings.hindsight_beliefs_bank_id == "atlas-beliefs"
+    assert settings.hindsight_beliefs_bank_id != settings.hindsight_bank_id
+    assert settings.hindsight_beliefs_template_path == Path(
+        "configs/hindsight/bank-template-beliefs.json"
+    )
+    with pytest.raises(ValidationError):
+        Settings.model_validate(base | {"hindsight_beliefs_bank_id": ""})
+
+    required_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("ATLAS_HINDSIGHT_BELIEFS_BANK_ID", "conclusions")
+    monkeypatch.setenv("ATLAS_HINDSIGHT_BELIEFS_TEMPLATE_PATH", "/etc/atlas/beliefs.json")
+    configured = Settings()  # pyright: ignore[reportCallIssue]
+    assert configured.hindsight_beliefs_bank_id == "conclusions"
+    assert configured.hindsight_beliefs_template_path == Path("/etc/atlas/beliefs.json")

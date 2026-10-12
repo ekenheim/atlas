@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from atlas.archive import open_archive
 from atlas.audit import Actor
 from atlas.companies import extend_universe, load_universe
+from atlas.hindsight import HindsightGateway
 from atlas.jobs.handlers import HandlerRegistry
 from atlas.jobs.queue import Artifacts, Job
 from atlas.jobs.resources import hindsight_resources, run_recorder
@@ -69,17 +70,25 @@ def register_retention_handlers(registry: HandlerRegistry, settings: Settings) -
 
     def retain_belief(job: Job) -> Artifacts:
         payload = RetainBeliefPayload.model_validate(job.payload)
-        with hindsight_resources(settings) as (gateway, engine):
-            return BeliefRetention(
-                engine,
-                gateway,
-                Actor.from_settings(settings),
-                BeliefTimings(
-                    poll_timeout=settings.retain_poll_timeout_seconds,
-                    poll_interval=settings.retain_poll_interval_seconds,
-                ),
-                extractor=settings.retain_extractor,
-            ).run(payload.belief_id)
+        with hindsight_resources(settings) as (research, engine):
+            beliefs = HindsightGateway.from_settings(
+                settings, bank_id=settings.hindsight_beliefs_bank_id
+            )
+            assert beliefs is not None  # hindsight_resources raised if Hindsight is off
+            try:
+                return BeliefRetention(
+                    engine,
+                    beliefs,
+                    Actor.from_settings(settings),
+                    BeliefTimings(
+                        poll_timeout=settings.retain_poll_timeout_seconds,
+                        poll_interval=settings.retain_poll_interval_seconds,
+                    ),
+                    extractor=settings.retain_extractor,
+                    legacy=research,
+                ).run(payload.belief_id)
+            finally:
+                beliefs.close()
 
     def triage(job: Job) -> Artifacts:
         payload = RetainPayload.model_validate(job.payload)

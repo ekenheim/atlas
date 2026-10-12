@@ -124,3 +124,63 @@ def test_template_1_6_0_pins_consolidation_to_full_batches() -> None:
 def test_a_template_without_parallelism_one_is_invalid(tmp_path: Path, value: object) -> None:
     with pytest.raises(InvalidTemplate, match="consolidation_llm_parallelism"):
         BankTemplate.load(edited_template(tmp_path, value))
+
+
+# --- the conclusions bank's template (beliefs ticket 12) -----------------------------------
+
+BELIEFS_TEMPLATE = REPO / "configs" / "hindsight" / "bank-template-beliefs.json"
+
+
+def beliefs_bank() -> dict[str, Any]:
+    return cast(dict[str, Any], BankTemplate.load(BELIEFS_TEMPLATE).manifest["bank"])
+
+
+def test_the_beliefs_template_is_valid_under_the_research_banks_invariants() -> None:
+    # Loading checks the pinned server defaults and `enable_auto_consolidation: false`.
+    template = BankTemplate.load(BELIEFS_TEMPLATE)
+
+    assert template.template_version == "1.0.0"
+    assert template.manifest["mental_models"] == []
+    assert template.manifest_sha256 != BankTemplate.load(TEMPLATE).manifest_sha256
+    schema = recorded_schema()
+    validator = validator_for(schema)(schema)
+    assert [e.message for e in validator.iter_errors(template.manifest)] == []
+    defs = cast(dict[str, Any], schema["$defs"])
+    assert set(beliefs_bank()) <= set(defs["BankTemplateConfig"]["properties"])
+
+
+def test_the_beliefs_template_extracts_propositions_with_the_built_in_observation_rules() -> None:
+    config = beliefs_bank()
+
+    assert "Belief" in config["retain_mission"] and "proposition" in config["retain_mission"]
+    assert "observations_mission" not in config  # Hindsight's built-in rules
+    assert config["enable_observations"] is True
+    assert config["enable_auto_consolidation"] is False
+    assert config["audit_log_enabled"] is True
+
+
+def test_the_beliefs_template_labels_layers_and_pins_the_defaults_as_the_research_one_does() -> (
+    None
+):
+    assert beliefs_bank()["entity_labels"] == bank()["entity_labels"]
+    pinned = [
+        key
+        for key in bank()
+        if key.startswith(("enable_", "consolidation_", "retain_chunk", "retain_extraction"))
+        and key != "enable_observations"
+    ]
+    assert pinned
+    assert {key: beliefs_bank()[key] for key in pinned} == {key: bank()[key] for key in pinned}
+
+
+@pytest.mark.parametrize("field", ["enable_auto_consolidation", "retain_chunk_size"])
+def test_a_beliefs_template_that_leaves_out_a_pinned_setting_is_invalid(
+    tmp_path: Path, field: str
+) -> None:
+    edited = json.loads(BELIEFS_TEMPLATE.read_text(encoding="utf-8"))
+    del edited["manifest"]["bank"][field]
+    path = tmp_path / "beliefs.json"
+    path.write_text(json.dumps(edited), encoding="utf-8")
+
+    with pytest.raises(InvalidTemplate, match=field):
+        BankTemplate.load(path)

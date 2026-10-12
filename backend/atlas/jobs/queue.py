@@ -29,6 +29,7 @@ from atlas.jobs.budget import (
     ProviderBudget,
     holds,
     sweep,
+    template_hold,
     window_usage,
 )
 from atlas.jobs.pacing import Clock, FailureClass, JobClass, Pacing, utc_now
@@ -302,6 +303,7 @@ class JobQueue:
             return []
         held = holds(self.budget_usage(), budgets)
         with self._engine.connect() as connection:
+            held = self._with_template_hold(connection, held)
             rows = connection.execute(
                 text(
                     "SELECT kind, job_class, count(*) AS count FROM job WHERE status = 'queued'"
@@ -317,6 +319,11 @@ class JobQueue:
                 for row in rows
             ]
 
+    def _with_template_hold(self, connection: Connection, held: Holds) -> Holds:
+        if not template_hold(connection, self.pacing.budgets):
+            return held
+        return Holds(sorted({*held.all_classes, "retain_belief"}), held.backfill)
+
     def _budget_holds(self, now: datetime) -> Holds:
         """Count new provider usage, then the kinds the budgets hold (none without budgets)."""
         budgets = self.pacing.budgets
@@ -324,7 +331,8 @@ class JobQueue:
             return Holds([], [])
         with self._engine.begin() as connection:
             sweep(connection, now)
-            return holds(window_usage(connection, budgets, now).values(), budgets)
+            held = holds(window_usage(connection, budgets, now).values(), budgets)
+            return self._with_template_hold(connection, held)
 
     def extend_lease(self, job: Job, owner: str, lease: timedelta) -> bool:
         """Renew the lease of `job` for `lease` from now, as the worker's heartbeat does while

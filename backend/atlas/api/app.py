@@ -71,6 +71,9 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     archive = open_archive(settings)
     app.state.archive = archive
     hindsight = HindsightGateway.from_settings(settings)
+    beliefs_bank = HindsightGateway.from_settings(
+        settings, bank_id=settings.hindsight_beliefs_bank_id
+    )
     litellm = LiteLLMRoutes.from_settings(settings)
     queue = JobQueue(engine, pacing=Pacing.from_settings(settings), clock=clock)
     registry = CollectorRegistry()
@@ -127,6 +130,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
             stuck_after_hours=settings.backfill_stuck_after_hours,
             bulk_retention=settings.bulk_retention,
             window_days=settings.ingest_lookback_days,
+            beliefs_bank_id=settings.hindsight_beliefs_bank_id,
         )
     )
     app.include_router(
@@ -140,6 +144,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
             Actor.from_settings(settings),
             settings.themes_config,
             recall_latency=recall_latency(registry),
+            beliefs_gateway=beliefs_bank,
         )
     )
     app.include_router(

@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from atlas.conformance.behaviours import CheckResult
+from atlas.conformance.beliefs_bank import BeliefsBankReport
 from atlas.conformance.known_answers import KnownAnswersReport, Recall
 
 Mode = Literal["live", "rehearse"]
@@ -40,6 +41,7 @@ class ConformanceReport(BaseModel):
     # The same recalls at the other results budgets asked for (the first is `known_answers`,
     # which alone decides the verdict): the numbers for choosing ATLAS_POINTER_RECALL_MAX_TOKENS.
     known_answers_sweep: list[KnownAnswersReport] = Field(default_factory=list[KnownAnswersReport])
+    beliefs_bank: BeliefsBankReport | None = None  # the conclusions bank's known answer
     known_answers_error: str | None = None  # the half could not run (e.g. the file is invalid)
     behaviours: list[CheckResult] | None = None
     bank_id: str | None = None
@@ -53,6 +55,8 @@ class ConformanceReport(BaseModel):
             failed.append(f"known answers: {self.known_answers_error}")
         elif self.known_answers is not None and self.known_answers.verdict == "failed":
             failed.append(f"known answers: {self.known_answers.reason}")
+        if self.beliefs_bank is not None and self.beliefs_bank.verdict == "failed":
+            failed.append(f"beliefs bank: {self.beliefs_bank.reason}")
         if self.aborted:
             failed.append(f"behaviours aborted: {self.aborted}")
         if self.bank_deleted is False:
@@ -98,7 +102,7 @@ class ConformanceReport(BaseModel):
             lines.append(f"- {key}: `{value}`")
         for failure in self.failures():
             lines.append(f"- failure: {failure}")
-        lines += self._known_answers_lines() + self._behaviour_lines()
+        lines += self._known_answers_lines() + self._beliefs_bank_lines() + self._behaviour_lines()
         return "\n".join(lines) + "\n"
 
     def _known_answers_lines(self) -> list[str]:
@@ -153,6 +157,19 @@ class ConformanceReport(BaseModel):
                 f" {a.retain_state or 'no'} | {outcome.rank if outcome.rank else 'absent'} |"
             )
         return lines
+
+    def _beliefs_bank_lines(self) -> list[str]:
+        bank = self.beliefs_bank
+        if bank is None:
+            return []
+        return [
+            "",
+            "## The conclusions bank (read-only)",
+            "",
+            f"Bank `{bank.bank}`: template applied `{bank.applied_template_version}`, repository"
+            f" `{bank.expected_template_version}`. **{bank.verdict}**"
+            + (f": {bank.reason}" if bank.reason else ""),
+        ]
 
     def _behaviour_lines(self) -> list[str]:
         lines = ["", "## Behaviours (a throwaway bank)", ""]

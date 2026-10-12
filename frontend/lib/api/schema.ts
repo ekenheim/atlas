@@ -2375,10 +2375,32 @@ export interface components {
         };
         /**
          * BeliefsHealth
-         * @description The judged Beliefs Memory holds, per theme (beliefs ticket 06): what the research
-         *     bank holds of what Atlas found, apart from the archive's sections.
+         * @description The judged Beliefs Memory holds, per theme (beliefs tickets 06 and 12): what the
+         *     conclusions bank holds of what Atlas found, apart from the archive's sections in the
+         *     research bank.
          */
         BeliefsHealth: {
+            /**
+             * Bank
+             * @description the conclusions bank (`ATLAS_HINDSIGHT_BELIEFS_BANK_ID`)
+             */
+            bank: string;
+            /**
+             * Template Version
+             * @description the version of the template last applied to that bank
+             */
+            template_version?: string | null;
+            /**
+             * Hold
+             * @description why `retain_belief` waits: `beliefs_template_not_applied` until `atlas hindsight apply-template --bank beliefs` has run (the jobs stay queued)
+             */
+            hold?: string | null;
+            /**
+             * In Research Bank
+             * @description judged Beliefs whose document still stands in the research bank (retained before the conclusions bank existed; `atlas memory beliefs re-retain` moves them)
+             * @default 0
+             */
+            in_research_bank: number;
             /** In Memory */
             in_memory: number;
             /** Pending */
@@ -7679,6 +7701,13 @@ export interface components {
              * @default false
              */
             include_source_facts: boolean;
+            /**
+             * Bank
+             * @description `research`: the sections of the archive (the reading index); `beliefs`: the conclusions bank, the judged Beliefs and the Facts they rest on (ticket 12)
+             * @default research
+             * @enum {string}
+             */
+            bank: "research" | "beliefs";
             /**
              * Available By
              * @description drop the memories none of whose resolved sections (or Beliefs) were available by this time, and count them in `dropped_future` (a hard filter, unlike `query_timestamp`)

@@ -17,7 +17,7 @@ import json
 import uuid
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 from jsonschema.exceptions import SchemaError, ValidationError
 from jsonschema.validators import validator_for
@@ -148,6 +148,11 @@ class RecallRequest(BaseModel):
         default=False,
         description="each observation's source facts in the same answer, so its provenance"
         " needs no request per observation",
+    )
+    bank: Literal["research", "beliefs"] = Field(
+        default="research",
+        description="`research`: the sections of the archive (the reading index); `beliefs`:"
+        " the conclusions bank, the judged Beliefs and the Facts they rest on (ticket 12)",
     )
     available_by: AwareDatetime | None = Field(
         default=None,
@@ -300,10 +305,12 @@ class Research:
         gateway: HindsightGateway,
         actor: Actor,
         universe: Callable[[], Universe],
+        beliefs_gateway: HindsightGateway | None = None,
     ) -> None:
         self._engine = engine
         self._archive = archive
         self._gateway = gateway
+        self._beliefs_gateway = beliefs_gateway
         self._actor = actor
         self._universe = universe
 
@@ -345,7 +352,14 @@ class Research:
 
     def recall(self, request: RecallRequest) -> RecallResponse:
         scope = self.apply_scope(request.scope)
-        result = self._gateway.recall(
+        gateway = self._gateway
+        if request.bank == "beliefs":
+            if self._beliefs_gateway is None:
+                raise ResearchRefused(
+                    "beliefs_bank_not_configured", "the conclusions bank is not configured"
+                )
+            gateway = self._beliefs_gateway
+        result = gateway.recall(
             request.query,
             scope=_recall_scope(scope),
             budget=request.budget,
@@ -356,7 +370,7 @@ class Research:
             include_source_facts=request.include_source_facts,
             include_chunks=request.include_chunks,
         )
-        resolver = ProvenanceResolver(self._engine, self._archive, self._gateway)
+        resolver = ProvenanceResolver(self._engine, self._archive, gateway)
         memories = [recalled_memory(memory, result, resolver) for memory in result.memories]
         dropped = 0
         if request.available_by is not None:
@@ -365,7 +379,7 @@ class Research:
         provenance = [memory.provenance for memory in memories]
         if request.include_chunks:
             # Each resolved fact's chunk located in its section (memory-quality ticket 08).
-            placer = ChunkPlacer(self._engine, self._archive, self._gateway, result.chunks)
+            placer = ChunkPlacer(self._engine, self._archive, gateway, result.chunks)
             for citation in provenance:
                 placer.place_all(citation.sources)
         return RecallResponse(

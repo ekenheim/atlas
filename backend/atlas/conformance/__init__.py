@@ -3,6 +3,8 @@ documentation and Atlas's spec promise, before anything is benchmarked.
 
 - `known_answers`: the known-answers file, resolving each answer against a running Atlas and
   recalling the pilot's questions on the live bank (read-only, no LLM call).
+- `beliefs_bank`: the conclusions bank exists and carries the repository's template version
+  (beliefs ticket 12; read-only).
 - `behaviours`: the ten behaviour checks on a throwaway bank, each pending until its ticket
   is on the branch.
 - `report`: the report (`results.json`, `summary.md`) and the exit rule.
@@ -13,6 +15,7 @@ documentation and Atlas's spec promise, before anything is benchmarked.
 
 from atlas.conformance.api import AtlasApi, AtlasApiError
 from atlas.conformance.behaviours import CHECKS, BehaviourBank, Check, CheckResult, run_checks
+from atlas.conformance.beliefs_bank import BeliefsBankReport, check_beliefs_bank
 from atlas.conformance.known_answers import (
     DEFAULT_RECALL_MAX_TOKENS,
     HOPS,
@@ -35,6 +38,7 @@ __all__ = [
     "AtlasApi",
     "AtlasApiError",
     "BehaviourBank",
+    "BeliefsBankReport",
     "Check",
     "CheckResult",
     "ConformanceReport",
@@ -42,6 +46,7 @@ __all__ = [
     "KnownAnswersError",
     "KnownAnswersReport",
     "Usage",
+    "check_beliefs_bank",
     "find_sentence",
     "load_known_answers",
     "ranked_sections",

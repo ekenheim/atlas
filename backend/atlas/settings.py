@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     litellm_api_key: str | None = None
     # The research bank's versioned template, relative to the working directory (/app in the image).
     hindsight_template_path: Path = Path("configs/hindsight/bank-template.json")
+    # The conclusions bank (beliefs ticket 12): judged Beliefs, apart from the research bank's
+    # sections, with its own versioned template.
+    hindsight_beliefs_bank_id: str = Field(default="atlas-beliefs", min_length=1)
+    hindsight_beliefs_template_path: Path = Path("configs/hindsight/bank-template-beliefs.json")
     # LiteLLM aliases Atlas uses, named in config and never hard-coded (spec Part B).
     llm_extract_alias: str = Field(default="atlas-extract", min_length=1)
     llm_reflect_alias: str = Field(default="atlas-reflect", min_length=1)

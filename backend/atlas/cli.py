@@ -411,6 +411,36 @@ def run_memory_retire(
     )
 
 
+def run_beliefs_reretain(settings: Settings, key: str | None) -> None:
+    """`atlas memory beliefs re-retain`: one `retain_belief` job per judged Belief."""
+    import json
+    import uuid
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.jobs import JobQueue
+    from atlas.retention.beliefs import enqueue_reretain
+
+    if not settings.hindsight_url:
+        print("atlas: re-retaining needs ATLAS_HINDSIGHT_URL", file=sys.stderr)
+        raise SystemExit(2)
+    engine = create_engine(settings)
+    try:
+        run = key or f"reretain:{uuid.uuid4()}"
+        ids = enqueue_reretain(engine, JobQueue(engine, actor=Actor.from_settings(settings)), run)
+    finally:
+        engine.dispose()
+    print(
+        json.dumps(
+            {
+                "run": run,
+                "bank": settings.hindsight_beliefs_bank_id,
+                "beliefs": [str(belief_id) for belief_id in ids],
+            }
+        )
+    )
+
+
 def _print_enqueued(enqueued: "Enqueued") -> None:
     import json
 
@@ -1054,8 +1084,14 @@ def run_audit_verify(settings: Settings) -> int:
 
 
 def run_apply_template(
-    settings: Settings, template_path: Path | None, *, if_changed: bool = False
+    settings: Settings,
+    template_path: Path | None,
+    *,
+    if_changed: bool = False,
+    bank: str = "research",
 ) -> int:
+    """Apply a bank template: the research bank's (default), or with `bank="beliefs"` the
+    conclusions bank's (`ATLAS_HINDSIGHT_BELIEFS_TEMPLATE_PATH` and `_BANK_ID`)."""
     import json
 
     from sqlalchemy.exc import OperationalError
@@ -1066,11 +1102,20 @@ def run_apply_template(
     from atlas.hindsight import HINDSIGHT_NOT_CONFIGURED, HindsightError, HindsightGateway
 
     try:
-        template = BankTemplate.load(template_path or settings.hindsight_template_path)
+        template = BankTemplate.load(
+            template_path
+            or (
+                settings.hindsight_beliefs_template_path
+                if bank == "beliefs"
+                else settings.hindsight_template_path
+            )
+        )
     except InvalidTemplate as error:
         print(f"atlas: invalid bank template: {error}", file=sys.stderr)
         return 2
-    gateway = HindsightGateway.from_settings(settings)
+    gateway = HindsightGateway.from_settings(
+        settings, bank_id=settings.hindsight_beliefs_bank_id if bank == "beliefs" else None
+    )
     if gateway is None:
         print(f"atlas: {HINDSIGHT_NOT_CONFIGURED}", file=sys.stderr)
         return 2
@@ -1321,6 +1366,12 @@ def main(argv: list[str] | None = None) -> None:
         "--template", type=Path, help="template file (default: ATLAS_HINDSIGHT_TEMPLATE_PATH)"
     )
     apply.add_argument(
+        "--bank",
+        choices=["research", "beliefs"],
+        default="research",
+        help="which bank's template: research (default) or the conclusions bank (beliefs)",
+    )
+    apply.add_argument(
         "--if-changed",
         action="store_true",
         help="skip when this exact template is already the bank's latest application",
@@ -1381,6 +1432,14 @@ def main(argv: list[str] | None = None) -> None:
         help="retire at most N sections in this run (a rerun: the next); 0: count only",
     )
     retire.add_argument("--key", help="the run's key (default: a new run each time)")
+    beliefs = memory_commands.add_parser("beliefs", help="the conclusions bank")
+    beliefs_commands = beliefs.add_subparsers(dest="beliefs_command", required=True)
+    reretain = beliefs_commands.add_parser(
+        "re-retain",
+        help="retain every judged Belief into the conclusions bank, deleting its document from"
+        " the research bank first (recorded as a replacement)",
+    )
+    reretain.add_argument("--key", help="the run's key (default: a new run each time)")
     evaluate = commands.add_parser(
         "evaluate",
         help="run the gold evaluation cases and store the results (GET /api/v1/evaluations)",
@@ -1410,7 +1469,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "audit":
         raise SystemExit(run_audit_verify(settings))
     elif args.command == "hindsight":
-        raise SystemExit(run_apply_template(settings, args.template, if_changed=args.if_changed))
+        raise SystemExit(
+            run_apply_template(settings, args.template, if_changed=args.if_changed, bank=args.bank)
+        )
     elif args.command == "tradingview" and args.tradingview_command == "login":
         raise SystemExit(
             run_tradingview_login(
@@ -1499,6 +1560,8 @@ def main(argv: list[str] | None = None) -> None:
         run_memory_backfill(settings, args.companies, args.theme, args.max_sections, args.key)
     elif args.command == "memory" and args.memory_command == "retire":
         run_memory_retire(settings, args.before, args.companies, args.max_sections, args.key)
+    elif args.command == "memory" and args.memory_command == "beliefs":
+        run_beliefs_reretain(settings, args.key)
     elif args.command == "memory":
         enqueue_consolidate(settings, args.key, backfill=args.backfill)
     else:
