@@ -1,7 +1,7 @@
 # A session's statements are judged before they become Beliefs; `disputed` needs a contradiction
 
 Type: build
-Status: open
+Status: ready-for-agent
 Blocked by: none
 
 ## Why
@@ -10,9 +10,9 @@ The proof sessions (`.scratch/pilot/results.md`, "The proof sessions") read and 
 
 ## What to build
 
-1. `POST /api/v1/statements/judge` (or a `judge` command of the skill's tool over an existing route): a statement, its cited Facts' quotes and dates, the question; Atlas runs the finding judge (`finding_judge.v4`, the role's model from `ATLAS_LLM_ROLE_MODELS`, luna in production) and answers `supported` or `misstated` with the basis clauses, exactly as the Editor's task does. The session calls it on every statement before writing the card and rewrites a misstated one itself (the session is the writer; Atlas is the check). The bridge's HTTP 500 is classed transient and retried.
-2. The skill's rule for a step's status: `disputed` only when a recorded counterevidence Fact contradicts a cited Fact (the counter-judge's `contradicts`, through the same route with the two Facts), else `supported` with the limitation written into the statement; `unknown` when nothing was established.
-3. When Beliefs exist (ticket 02), a Belief may be proposed only from statements that passed the judge.
+1. `POST /api/v1/statements/judge`: the question, a statement, its cited Facts by ID (Atlas supplies their quotes, dates, status and period), optional counterevidence Fact IDs; Atlas runs the finding judge exactly as the Editor's task does (the role's prompt, the per-role model from `ATLAS_LLM_ROLE_MODELS`, the basis check in code), one vote by default (`votes` optional), and answers `supported` or `misstated` with the bases and the reason; recorded as a role call in a run of the caller's choosing (a `run_id` in the request, else a run per call). `POST /api/v1/statements/relate`: two Facts (a Fact and a counterevidence Fact), the counter-judge's relation (`contradicts`, `limits`, `dates`, `qualifies`, `supports`, `unrelated`). The bridge's HTTP 500 "Unknown items in responses API response" is classed transient so the caller retries it. The skill's tool gains `judge` and `relate`; SKILL.md: every statement is judged before the card and a misstated one rewritten by the session; a step is `disputed` only on a judged `contradicts`.
+2. Tests at the API seam with the judge and counter-judge scripted in the LiteLLM fake (supported, misstated with bases, the basis check turning an answer, the transient 500 retried, `relate` for each relation).
+3. (Ticket 02 then refuses a Belief from a `claude` session whose statement was not judged `supported`.)
 
 ## Done when
 
