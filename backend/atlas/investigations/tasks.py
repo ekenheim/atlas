@@ -108,6 +108,8 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import open_archive
 from atlas.audit import Actor
+from atlas.beliefs.pipeline import propose_from_card
+from atlas.beliefs.service import Beliefs
 from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND
 from atlas.claims.extraction import ExtractClaimsPayload
 from atlas.claims.handlers import claim_extractor
@@ -459,7 +461,7 @@ class TaskRunner:
                 # Beliefs ticket 08: the argument plan's run is a research session too.
                 run_id: uuid.UUID | None = investigation["run_id"]
                 spent = run_usage(connection, run_id) if run_id is not None else None
-                record_pipeline_session(
+                session_id = record_pipeline_session(
                     connection,
                     EDITOR_ACTOR,
                     investigation=investigation,
@@ -469,6 +471,40 @@ class TaskRunner:
                         "tokens_out": 0 if spent is None else spent.tokens_out,
                     },
                 )
+                # Atlas-beliefs ticket 03: one unproven Belief per kept step statement, in
+                # this transaction; the card's steps list them.
+                made = propose_from_card(
+                    connection,
+                    Beliefs(self._engine, EDITOR_ACTOR),
+                    steps=[s for s in outcome.card.steps if s.statements],
+                    theme=investigation["theme"],
+                    as_of=investigation["as_of"],
+                    session_id=session_id,
+                    actor=EDITOR_ACTOR.name,
+                )
+                if made:
+                    card = outcome.card.model_copy(
+                        update={
+                            "steps": [
+                                s.model_copy(update={"belief_ids": made.get(s.step, [])})
+                                for s in outcome.card.steps
+                            ]
+                        }
+                    )
+                    card_json = card.model_dump_json()
+                    connection.execute(
+                        text(
+                            "UPDATE investigation SET research_card = CAST(:card AS jsonb)"
+                            " WHERE id = :id"
+                        ),
+                        {"id": investigation_id, "card": card_json},
+                    )
+                    connection.execute(
+                        text(
+                            "UPDATE research_session SET card = CAST(:card AS jsonb) WHERE id = :id"
+                        ),
+                        {"id": session_id, "card": card_json},
+                    )
         if investigation["status"] != "running":
             return
         for disproof in outcome.disproofs:

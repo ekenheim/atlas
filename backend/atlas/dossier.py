@@ -15,6 +15,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from sqlalchemy import Connection
 
+from atlas.beliefs.exposure import CompanyBelief, company_beliefs
 from atlas.companies import Company, Universe, company_id_for, get_company
 from atlas.financials import FinancialFigures, MetricCatalog, financial_figures
 from atlas.identity.service import IdentityMapping, list_mappings
@@ -33,6 +34,10 @@ class ThemeRef(BaseModel):
 class CompanyDossier(BaseModel):
     company: Company
     themes: list[ThemeRef] = Field(description="the themes the company belongs to")
+    beliefs: list[CompanyBelief] = Field(
+        description="the active Beliefs that name the company or cite its Facts, each with the"
+        " company's Exposure to it (holder, supplier or dependent)"
+    )
     pending_identity_reviews: list[IdentityMapping] = Field(
         description="identity mappings awaiting the owner, oldest first"
     )
@@ -89,6 +94,7 @@ def company_dossier(
     return CompanyDossier(
         company=company,
         themes=themes,
+        beliefs=company_beliefs(connection, company_id),
         pending_identity_reviews=pending,
         sources=sources,
         source_total=source_total,

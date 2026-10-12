@@ -30,11 +30,11 @@
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Engine
 
 from atlas.api.common import (
@@ -98,6 +98,19 @@ class PublishRequest(BaseModel):
 
     version: int = Field(ge=1, description="the latest version, which must be unpublished")
     note: str | None = Field(default=None, max_length=2000)
+    override_beliefs: bool = Field(
+        default=False,
+        description="publish although a Belief the version rests on load-bearingly is not"
+        " proven (the owner's explicit override; `override_reason` is required and recorded"
+        " in the audit)",
+    )
+    override_reason: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def _override_has_a_reason(self) -> Self:
+        if self.override_beliefs and not (self.override_reason or "").strip():
+            raise ValueError("override_beliefs needs an override_reason")
+        return self
 
 
 class GateFailureView(BaseModel):
@@ -105,6 +118,10 @@ class GateFailureView(BaseModel):
     message: str
     relationship_ids: list[uuid.UUID]
     assertion_ids: list[uuid.UUID]
+    belief_ids: list[uuid.UUID] = Field(
+        default_factory=list[uuid.UUID],
+        description="`belief_not_proven`: the load-bearing Beliefs that are not proven",
+    )
 
 
 class PublishGateView(BaseModel):
@@ -278,7 +295,13 @@ def hypotheses_router(
         hypothesis_id: uuid.UUID, request: PublishRequest
     ) -> Hypothesis | JSONResponse:
         try:
-            hypotheses.publish(actor, hypothesis_id, request.version, _note(request.note))
+            hypotheses.publish(
+                actor,
+                hypothesis_id,
+                request.version,
+                _note(request.note),
+                (request.override_reason or "").strip() if request.override_beliefs else None,
+            )
         except PublishRefused as refused:
             body = PublishRefusalEnvelope(
                 error=PublishRefusal(
@@ -375,4 +398,5 @@ def _failure(failure: GateFailure) -> GateFailureView:
         message=failure.message,
         relationship_ids=list(failure.relationship_ids),
         assertion_ids=list(failure.assertion_ids),
+        belief_ids=list(failure.belief_ids),
     )

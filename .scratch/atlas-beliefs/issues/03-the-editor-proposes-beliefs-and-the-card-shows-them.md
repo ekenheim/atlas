@@ -1,7 +1,7 @@
 # 03: The theme and company pages lead with Beliefs; the pipeline proposes them too; the publish gate and snapshots carry them
 
 Type: build
-Status: ready-for-agent
+Status: done
 Blocked by: 02
 
 ## Parent
@@ -14,6 +14,6 @@ Blocked by: 02
 
 ## Acceptance criteria
 
-- [ ] API tests: the map and dossier additions; a harness investigation produces Beliefs on its card; the gate refuses and the override passes; the snapshot holds the Beliefs.
-- [ ] Playwright e2e of the theme and company pages with Beliefs first, seeded.
-- [ ] Log entry.
+- [x] API tests: the map and dossier additions; a harness investigation produces Beliefs on its card; the gate refuses and the override passes; the snapshot holds the Beliefs.
+- [ ] Playwright e2e (written, not run locally; the runners run it) of the theme and company pages with Beliefs first, seeded.
+- [x] Log entry.

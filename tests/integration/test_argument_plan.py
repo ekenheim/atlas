@@ -2156,3 +2156,48 @@ def test_an_argument_investigation_is_a_pipeline_session_once_its_editor_has_wri
             text("SELECT action FROM audit_event WHERE entity_id = :id"), {"id": session["id"]}
         ).scalars()
         assert list(actions) == ["research_session.recorded"]
+
+
+def test_the_editor_proposes_an_unproven_belief_per_kept_statement_citing_its_facts(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    llm.script_role("counter_judge", ChatReply.answer(relating("qualifies"), tokens=(600, 60)))
+    investigation_id = start_argument(atlas, llm, searxng)
+
+    found = atlas.get(f"/api/v1/investigations/{investigation_id}")
+    steps = {step["step"]: step for step in found["research_card"]["steps"]}
+    session = atlas.get("/api/v1/sessions", theme="photonics")["items"][0]
+    # One Belief per kept statement; the steps with none list none.
+    assert {k: len(v["belief_ids"]) for k, v in steps.items()} == {
+        "constraint": 0,
+        "demand_vs_supply": 0,
+        "relief": 1,
+        "control": 1,
+        "capture": 0,
+        "invalidation": 0,
+    }
+    assert atlas.get("/api/v1/beliefs", theme="photonics", limit=100)["total"] == 2
+    for step in ("relief", "control"):
+        [statement] = steps[step]["statements"]
+        belief = atlas.get(f"/api/v1/beliefs/{steps[step]['belief_ids'][0]}")
+        assert belief["statement"] == statement["statement"]
+        assert belief["step"] == step
+        assert belief["judgement"]["judgement"] == "unproven"
+        assert belief["status"] == "active"
+        assert belief["produced_by"] == session["id"]
+        assert belief["as_of"].startswith("2026-09-")
+        # Its Facts, load-bearing and +0.5, then what the counter-judge made of the Skeptic's.
+        cited = {(c["ref_id"], c["valence"], c["weight"]) for c in belief["citations"]}
+        facts = {(f["fact_id"], 0.5, "load_bearing") for f in statement["facts"]}
+        assert facts <= cited
+        assert len(facts) >= 1
+        for extra in cited - facts:
+            assert extra[1:] == (-0.25, "context")  # the counter-judge's "qualifies"
+    against = [
+        c
+        for step in ("relief", "control")
+        for c in atlas.get(f"/api/v1/beliefs/{steps[step]['belief_ids'][0]}")["counterevidence"]
+    ]
+    assert [(c["valence"], c["weight"], c["note"]) for c in against] == [
+        (-0.25, "context", "the counter-judge: qualifies")
+    ]

@@ -2,11 +2,13 @@ import { expect, test } from "@playwright/test";
 
 import type { Belief, BeliefSummary } from "../lib/api/client";
 import {
+  answeredSteps,
   apiQuery,
   citationsByCompany,
   companyNames,
   confidenceText,
   direction,
+  exposureTally,
   filterSummary,
   groupBySteps,
   judgedBy,
@@ -224,4 +226,28 @@ test("citations group by the company that spoke, oldest first", () => {
     "early",
     "late",
   ]);
+});
+
+test("a company's page lists only the steps its Beliefs answer, keeping each Belief's exposure", () => {
+  const groups = answeredSteps([
+    { ...belief({ id: "a", step: "capture" }), exposure: "holder" as const },
+    { ...belief({ id: "b", step: "constraint" }), exposure: "supplier" as const },
+  ]);
+  expect(groups.map((group) => group.step)).toEqual(["constraint", "capture"]);
+  expect(groups[0]?.beliefs[0]?.exposure).toBe("supplier");
+  expect(answeredSteps([])).toEqual([]);
+});
+
+test("a company's exposure is counted in the order holder, dependent, supplier", () => {
+  expect(
+    exposureTally([
+      { exposure: "supplier" },
+      { exposure: "holder" },
+      { exposure: "supplier" },
+    ]),
+  ).toEqual([
+    { exposure: "holder", count: 1 },
+    { exposure: "supplier", count: 2 },
+  ]);
+  expect(exposureTally([])).toEqual([]);
 });

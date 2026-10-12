@@ -3963,6 +3963,168 @@
         }
       }
     },
+    "/api/v1/statements/judge": {
+      "post": {
+        "tags": [
+          "statements"
+        ],
+        "summary": "Judge",
+        "operationId": "judge_api_v1_statements_judge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JudgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatementJudgement"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/statements/relate": {
+      "post": {
+        "tags": [
+          "statements"
+        ],
+        "summary": "Relate",
+        "operationId": "relate_api_v1_statements_relate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactRelation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/claims": {
       "get": {
         "tags": [
@@ -10086,6 +10248,14 @@
             "type": "boolean",
             "title": "Contested",
             "default": false
+          },
+          "belief_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Belief Ids"
           }
         },
         "type": "object",
@@ -12712,6 +12882,105 @@
         ],
         "title": "CompanyAlias"
       },
+      "CompanyBelief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "step": {
+            "$ref": "#/components/schemas/Step"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/JudgementRecord",
+            "description": "the judgement current at the read's time"
+          },
+          "open_flags": {
+            "type": "integer",
+            "title": "Open Flags"
+          },
+          "citation_count": {
+            "type": "integer",
+            "title": "Citation Count"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "cited_companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            },
+            "type": "array",
+            "title": "Cited Companies",
+            "description": "the companies whose Facts the Belief cites, by name"
+          },
+          "exposure": {
+            "$ref": "#/components/schemas/Exposure",
+            "description": "holder: the Belief names the company and its own load-bearing Fact backs it; dependent: it names the company but others' Facts carry it; supplier: it names another company and cites this one's Fact"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "theme",
+          "step",
+          "as_of",
+          "status",
+          "companies",
+          "judgement",
+          "open_flags",
+          "citation_count",
+          "produced_by",
+          "created_by",
+          "created_at",
+          "cited_companies",
+          "exposure"
+        ],
+        "title": "CompanyBelief"
+      },
       "CompanyDossier": {
         "properties": {
           "company": {
@@ -12724,6 +12993,14 @@
             "type": "array",
             "title": "Themes",
             "description": "the themes the company belongs to"
+          },
+          "beliefs": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyBelief"
+            },
+            "type": "array",
+            "title": "Beliefs",
+            "description": "the active Beliefs that name the company or cite its Facts, each with the company's Exposure to it (holder, supplier or dependent)"
           },
           "pending_identity_reviews": {
             "items": {
@@ -12782,6 +13059,7 @@
         "required": [
           "company",
           "themes",
+          "beliefs",
           "pending_identity_reviews",
           "sources",
           "source_total",
@@ -13301,6 +13579,45 @@
           "counterevidence_id"
         ],
         "title": "Contradiction"
+      },
+      "CounterRelationOut": {
+        "properties": {
+          "counter_fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Counter Fact Id"
+          },
+          "fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Fact Id"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "contradicts",
+              "limits",
+              "dates",
+              "qualifies",
+              "supports",
+              "unrelated",
+              "unjudged"
+            ],
+            "title": "Relation"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counter_fact_id",
+          "fact_id",
+          "relation",
+          "reason"
+        ],
+        "title": "CounterRelationOut"
       },
       "Counterevidence": {
         "properties": {
@@ -15472,6 +15789,14 @@
         ],
         "title": "ExportRoleCall"
       },
+      "Exposure": {
+        "type": "string",
+        "enum": [
+          "holder",
+          "supplier",
+          "dependent"
+        ]
+      },
       "FactCreate": {
         "properties": {
           "subject_company_id": {
@@ -15699,6 +16024,57 @@
           "audit_event_id"
         ],
         "title": "FactRecorded"
+      },
+      "FactRelation": {
+        "properties": {
+          "relation": {
+            "type": "string",
+            "enum": [
+              "contradicts",
+              "limits",
+              "dates",
+              "qualifies",
+              "supports",
+              "unrelated",
+              "unjudged"
+            ],
+            "title": "Relation"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "judge": {
+            "type": "string",
+            "title": "Judge"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Call Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "relation",
+          "reason",
+          "judge",
+          "run_id",
+          "role_call_id"
+        ],
+        "title": "FactRelation"
       },
       "FactType": {
         "type": "string",
@@ -16778,6 +17154,15 @@
             },
             "type": "array",
             "title": "Assertion Ids"
+          },
+          "belief_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Belief Ids",
+            "description": "`belief_not_proven`: the load-bearing Beliefs that are not proven"
           }
         },
         "type": "object",
@@ -19015,6 +19400,136 @@
         "title": "JobFailure"
       },
       "JsonValue": {},
+      "JudgeRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Statement"
+          },
+          "fact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Fact Ids"
+          },
+          "counter_fact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Counter Fact Ids",
+            "default": []
+          },
+          "votes": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Votes",
+            "default": 1
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "statement",
+          "fact_ids"
+        ],
+        "title": "JudgeRequest"
+      },
+      "JudgeVote": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "misstated"
+            ],
+            "title": "Verdict"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "decided": {
+            "type": "boolean",
+            "title": "Decided"
+          },
+          "role_call_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Role Call Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict",
+          "reason",
+          "decided",
+          "role_call_id"
+        ],
+        "title": "JudgeVote"
+      },
+      "JudgedClauseOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "ref",
+          "basis"
+        ],
+        "title": "JudgedClauseOut"
+      },
       "Judgement": {
         "type": "string",
         "enum": [
@@ -22788,6 +23303,24 @@
               }
             ],
             "title": "Note"
+          },
+          "override_beliefs": {
+            "type": "boolean",
+            "title": "Override Beliefs",
+            "description": "publish although a Belief the version rests on load-bearingly is not proven (the owner's explicit override; `override_reason` is required and recorded in the audit)",
+            "default": false
+          },
+          "override_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Reason"
           }
         },
         "additionalProperties": false,
@@ -24077,6 +24610,44 @@
         ],
         "title": "RefreshTrigger",
         "description": "When and how the model is refreshed, as the bank template defines it."
+      },
+      "RelateRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question"
+          },
+          "fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Fact Id"
+          },
+          "counter_fact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Counter Fact Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "fact_id",
+          "counter_fact_id"
+        ],
+        "title": "RelateRequest"
       },
       "Relation": {
         "type": "string",
@@ -28613,6 +29184,96 @@
         ],
         "title": "SourcedInput"
       },
+      "StatementJudgement": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "misstated"
+            ],
+            "title": "Verdict"
+          },
+          "clauses": {
+            "items": {
+              "$ref": "#/components/schemas/JudgedClauseOut"
+            },
+            "type": "array",
+            "title": "Clauses"
+          },
+          "unverified": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unverified"
+          },
+          "beyond": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Beyond"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kinds"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "refs": {
+            "additionalProperties": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Refs"
+          },
+          "votes": {
+            "items": {
+              "$ref": "#/components/schemas/JudgeVote"
+            },
+            "type": "array",
+            "title": "Votes"
+          },
+          "counter_relations": {
+            "items": {
+              "$ref": "#/components/schemas/CounterRelationOut"
+            },
+            "type": "array",
+            "title": "Counter Relations"
+          },
+          "judge": {
+            "type": "string",
+            "title": "Judge"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict",
+          "clauses",
+          "unverified",
+          "beyond",
+          "kinds",
+          "reason",
+          "refs",
+          "votes",
+          "counter_relations",
+          "judge",
+          "run_id"
+        ],
+        "title": "StatementJudgement"
+      },
       "Status": {
         "type": "string",
         "enum": [
@@ -28775,6 +29436,100 @@
         ],
         "title": "Task",
         "description": "One role task of the plan. `depends_on` names tasks of the same round by key; a task\nruns once each of them is done, and is cancelled when one of its premises is disproven or\nevery task it depends on was cancelled."
+      },
+      "ThemeBelief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "step": {
+            "$ref": "#/components/schemas/Step"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "judgement": {
+            "$ref": "#/components/schemas/JudgementRecord",
+            "description": "the judgement current at the read's time"
+          },
+          "open_flags": {
+            "type": "integer",
+            "title": "Open Flags"
+          },
+          "citation_count": {
+            "type": "integer",
+            "title": "Citation Count"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "cited_companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            },
+            "type": "array",
+            "title": "Cited Companies",
+            "description": "the companies whose Facts the Belief cites, by name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "theme",
+          "step",
+          "as_of",
+          "status",
+          "companies",
+          "judgement",
+          "open_flags",
+          "citation_count",
+          "produced_by",
+          "created_by",
+          "created_at",
+          "cited_companies"
+        ],
+        "title": "ThemeBelief"
       },
       "ThemeCompany": {
         "properties": {
@@ -28960,6 +29715,14 @@
           "theme": {
             "$ref": "#/components/schemas/ThemeSummary"
           },
+          "beliefs": {
+            "items": {
+              "$ref": "#/components/schemas/ThemeBelief"
+            },
+            "type": "array",
+            "title": "Beliefs",
+            "description": "what Atlas believes about the theme: its active Beliefs, oldest first (the page groups them by step and judgement)"
+          },
           "layers": {
             "items": {
               "$ref": "#/components/schemas/ThemeLayer"
@@ -29007,6 +29770,7 @@
         "type": "object",
         "required": [
           "theme",
+          "beliefs",
           "layers",
           "unlayered",
           "relationships",

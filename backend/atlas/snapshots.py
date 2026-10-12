@@ -31,6 +31,12 @@ version was built from, frozen in the transaction that publishes it.
 - `assertions`: the Assertions the findings, the counterevidence and the scenarios cite, with
   their exact quote spans and review state; `relationships`: those the version depends on,
   with the owner's approval.
+- `beliefs`: the active Beliefs the version rests on (they cite an Assertion its findings
+  rest on; atlas-beliefs ticket 03), each with its statement, step, whether it is
+  load-bearing for the version, the judgement and confidence then current, and the
+  Assertions of the version it cites; `belief_override`: the owner's reason, when the
+  publish gate's Belief check was overridden (else null). Absent from snapshots
+  written before the Beliefs effort.
 - `scenarios` attached to the version (inputs, assumption and output hashes, outputs) and the
   `financial_dataset`: the XBRL observations their inputs cite, and the SHA-256 of that list's
   canonical JSON.
@@ -61,6 +67,7 @@ from sqlalchemy import Connection, RowMapping, text
 
 from atlas.archive import Archive, ArchiveIntegrityError, Namespace, ObjectNotFound
 from atlas.audit import Actor, record
+from atlas.beliefs.versions import version_beliefs
 from atlas.hypotheses.model import HypothesisVersion
 from atlas.hypotheses.service import PublishHook, dependent_assertion_ids
 from atlas.scenarios.model import AssertionSource, AssumptionTable, SourcedInput, XbrlSource
@@ -227,6 +234,18 @@ def build_snapshot(
         "  WHERE assertion_id = ANY(CAST(:ids AS uuid[])))"
         " GROUP BY r.id ORDER BY r.id",
         finding_assertions,
+    )
+
+    override = (
+        connection.execute(
+            text(
+                "SELECT reason, belief_ids, actor, created_at FROM hypothesis_belief_override"
+                " WHERE hypothesis_version_id = :id"
+            ),
+            {"id": version.id},
+        )
+        .mappings()
+        .one_or_none()
     )
 
     # The runs behind the version: the investigation's, every Editor draft up to this
@@ -409,6 +428,8 @@ def build_snapshot(
         },
         "assertions": assertions,
         "relationships": relationships,
+        "beliefs": [_plain(each) for each in version_beliefs(connection, finding_assertions)],
+        "belief_override": _plain(override) if override is not None else None,
         "scenarios": [_plain(scenario) for scenario in scenarios],
         "financial_dataset": {
             "sha256": hashlib.sha256(canonical_json(observations)).hexdigest(),

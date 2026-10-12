@@ -65,6 +65,11 @@ test.describe("the company dossier", () => {
       .click();
     await page.getByRole("link", { name: "Lumentum" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
+    // The assessment leads: the company's Beliefs (seeded) come before what was found.
+    await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("What Atlas believes");
+    await expect(page.getByRole("region", { name: "What Atlas believes" })).toContainText(
+      "Lumentum's laser demand is outrunning its capacity.",
+    );
     await expect(page.getByRole("heading", { level: 2, name: "What Atlas found" })).toBeVisible();
 
     const finding = page.locator("button.finding-line").first();

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { BeliefSteps } from "../../components/beliefs";
 import { EdgeList } from "../../components/edge-list";
 import { Code, Load, Missing, Timestamp } from "../../components/ui";
 import {
@@ -43,6 +44,18 @@ function Theme() {
           <>
             <h1>{map.theme.title}</h1>
             {map.theme.description && <p>{map.theme.description}</p>}
+
+            <section aria-labelledby="believed">
+              <h2 className="reader-label" id="believed">
+                What Atlas believes
+              </h2>
+              <p className="muted-small">
+                By step of the argument, each Belief with its verdict.{" "}
+                <Link href={routes.beliefs(`theme=${encodeURIComponent(map.theme.id)}`)}>All Beliefs of this theme</Link>
+              </p>
+              <BeliefSteps beliefs={map.beliefs} all />
+            </section>
+
             <p>
               {map.theme.company_count} companies, {map.theme.companies_without_sources} without
               sources; {map.theme.relationship_count} Relationships between them;{" "}

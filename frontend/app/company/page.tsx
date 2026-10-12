@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 
+import { BeliefSteps } from "../../components/beliefs";
 import { QuestionRows } from "../../components/question-rows";
 import { EdgeList } from "../../components/edge-list";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
@@ -14,6 +15,7 @@ import {
   type SourceDocument,
 } from "../../lib/api/client";
 import { companyFindings, firstQuote, type Finding as FindingRow } from "../../lib/company-findings";
+import { EXPOSURE, exposureTally } from "../../lib/beliefs";
 import { SOURCE_ROWS, filterByType, typeChips, typeName } from "../../lib/company-sources";
 import { groupDigits, period } from "../../lib/format";
 import { companyRows, formatCount, plural } from "../../lib/memory";
@@ -78,6 +80,24 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
         <h1 className="reader-headline">{company.display_name}</h1>
         {facts.length > 0 && <p className="reader-meta">{facts.join(" · ")}</p>}
       </header>
+
+      <section aria-labelledby="believed">
+        <h2 className="reader-label" id="believed">
+          What Atlas believes
+        </h2>
+        {dossier.beliefs.length === 0 ? (
+          <p className="muted">Nothing believed about {company.display_name} yet.</p>
+        ) : (
+          <>
+            <p className="muted-small">
+              {exposureTally(dossier.beliefs)
+                .map((each) => `${EXPOSURE[each.exposure]}: ${each.count}`)
+                .join(" · ")}
+            </p>
+            <BeliefSteps beliefs={dossier.beliefs} />
+          </>
+        )}
+      </section>
 
       <InTheResearch companyId={company.id} />
 

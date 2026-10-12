@@ -1,7 +1,7 @@
 // The pure parts of the Beliefs pages: the vocabulary, the filters kept in the page's query
 // string (so a filtered list can be reloaded, bookmarked and linked), the grouping of a theme's
 // Beliefs by argument step and the reading of a Belief's citations.
-import type { Belief, BeliefSummary } from "./api/client";
+import type { Belief, BeliefSummary, CompanyBelief } from "./api/client";
 
 export type Step = BeliefSummary["step"];
 export type JudgementName = BeliefSummary["judgement"]["judgement"];
@@ -154,19 +154,51 @@ export function byStanding(a: BeliefSummary, b: BeliefSummary): number {
   );
 }
 
-export interface StepGroup {
+export interface StepGroup<T extends BeliefSummary = BeliefSummary> {
   step: Step;
   title: string;
-  beliefs: BeliefSummary[];
+  beliefs: T[];
 }
 
 /** Every step of the argument, in its order, with the Beliefs that answer it (maybe none). */
-export function groupBySteps(beliefs: readonly BeliefSummary[]): StepGroup[] {
+export function groupBySteps<T extends BeliefSummary>(
+  beliefs: readonly T[],
+): StepGroup<T>[] {
   return (Object.keys(STEPS) as Step[]).map((step) => ({
     step,
     title: STEPS[step],
     beliefs: beliefs.filter((belief) => belief.step === step).sort(byStanding),
   }));
+}
+
+/** Only the steps a list of Beliefs answers, in the argument's order. */
+export function answeredSteps<T extends BeliefSummary>(
+  beliefs: readonly T[],
+): StepGroup<T>[] {
+  return groupBySteps(beliefs).filter((group) => group.beliefs.length > 0);
+}
+
+// --- a company's exposure -------------------------------------------------------------------
+
+export type Exposure = CompanyBelief["exposure"];
+
+/** How a company stands to a Belief, in words (the API documents how it is derived). */
+export const EXPOSURE: Record<Exposure, string> = {
+  holder: "Holds the position",
+  dependent: "Depends on it",
+  supplier: "Its words are cited",
+};
+
+/** The Beliefs a company holds, depends on or is cited for, counted by exposure. */
+export function exposureTally(
+  beliefs: readonly Pick<CompanyBelief, "exposure">[],
+): { exposure: Exposure; count: number }[] {
+  return (Object.keys(EXPOSURE) as Exposure[])
+    .map((exposure) => ({
+      exposure,
+      count: beliefs.filter((belief) => belief.exposure === exposure).length,
+    }))
+    .filter((each) => each.count > 0);
 }
 
 /** "Lumentum, Coherent", or a word for a Belief about no one company. */

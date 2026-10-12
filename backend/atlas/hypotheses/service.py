@@ -30,6 +30,7 @@ from typing import Literal
 from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.audit import Actor, content_hash, record
+from atlas.beliefs.versions import record_version_beliefs, unproven_load_bearing
 from atlas.hypotheses.findings import ProposedFinding, resolve_findings
 from atlas.hypotheses.model import (
     DRAFT_HYPOTHESIS_KIND,
@@ -99,6 +100,7 @@ class GateFailure:
     # The Relationships (or, pending review, Assertions) the failure is about, if any.
     relationship_ids: tuple[uuid.UUID, ...] = ()
     assertion_ids: tuple[uuid.UUID, ...] = ()
+    belief_ids: tuple[uuid.UUID, ...] = ()
 
 
 # A check of the publish gate: it reads what it needs within the publishing transaction and
@@ -200,11 +202,28 @@ def requires_reviewed_assertions(
     )
 
 
+def requires_proven_beliefs(
+    connection: Connection, _hypothesis: RowMapping, version: HypothesisVersion
+) -> GateFailure | None:
+    """Every Belief the version rests on load-bearingly is `proven` by an author (atlas-beliefs
+    ticket 03). The owner may override it, with a reason, in the publish request."""
+    unproven = unproven_load_bearing(connection, dependent_assertion_ids(version))
+    if not unproven:
+        return None
+    listed = ", ".join(f"{each['belief_id']} ({each['judgement']})" for each in unproven)
+    return GateFailure(
+        "belief_not_proven",
+        f"a Belief the version rests on is not proven: {listed}",
+        belief_ids=tuple(each["belief_id"] for each in unproven),
+    )
+
+
 DEFAULT_PUBLISH_GATE: tuple[PublishCheck, ...] = (
     requires_falsifier,
     requires_unresolved_question,
     requires_approved_relationships,
     requires_reviewed_assertions,
+    requires_proven_beliefs,
 )
 
 
@@ -414,7 +433,12 @@ class Hypotheses:
         return number
 
     def publish(
-        self, actor: Actor, hypothesis_id: uuid.UUID, version_number: int, note: str | None
+        self,
+        actor: Actor,
+        hypothesis_id: uuid.UUID,
+        version_number: int,
+        note: str | None,
+        override_beliefs_reason: str | None = None,
     ) -> None:
         with self._engine.begin() as connection:
             hypothesis = _lock(connection, hypothesis_id)
@@ -437,6 +461,37 @@ class Hypotheses:
                 for check in self._gate
                 if (failure := check(connection, hypothesis, latest)) is not None
             ]
+            if override_beliefs_reason is not None:
+                overridden = [each for each in failures if each.code == "belief_not_proven"]
+                failures = [each for each in failures if each.code != "belief_not_proven"]
+                if overridden:
+                    beliefs = list(overridden[0].belief_ids)
+                    connection.execute(
+                        text(
+                            "INSERT INTO hypothesis_belief_override (hypothesis_version_id,"
+                            " reason, belief_ids, actor) VALUES (:version, :reason, :beliefs,"
+                            " :actor)"
+                        ),
+                        {
+                            "version": latest.id,
+                            "reason": override_beliefs_reason,
+                            "beliefs": beliefs,
+                            "actor": actor.name,
+                        },
+                    )
+                    record(
+                        connection,
+                        actor,
+                        "hypothesis.beliefs_overridden",
+                        entity_type="hypothesis_version",
+                        entity_id=str(latest.id),
+                        new_hash=content_hash(
+                            {
+                                "reason": override_beliefs_reason,
+                                "belief_ids": [str(each) for each in beliefs],
+                            }
+                        ),
+                    )
             if failures:
                 raise PublishRefused(version_number, failures)
             published = (
@@ -469,6 +524,7 @@ class Hypotheses:
             )
             # What it depends on: later Evidence against it proposes an update (ticket 21).
             record_dependencies(connection, latest)
+            record_version_beliefs(connection, latest.id, dependent_assertion_ids(latest))
             for hook in self._hooks:
                 hook(connection, hypothesis, version_from_row(published), actor)
 

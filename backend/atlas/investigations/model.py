@@ -791,6 +791,9 @@ class CardArgumentStep(BaseModel):
     skeptic_checked: bool = False
     # Whether a Skeptic Fact was judged to contradict, limit or date one of its Facts.
     contested: bool = False
+    # The Beliefs proposed from (or cited again by) its kept statements, in the card's
+    # transaction (atlas-beliefs ticket 03); empty on a card stored before then.
+    belief_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
 
 
 class ResearchCard(BaseModel):

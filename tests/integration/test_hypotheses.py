@@ -1549,3 +1549,127 @@ def test_a_published_snapshot_can_t_be_altered(
     path.write_bytes(original)
     assert atlas.get(f"/api/v1/snapshots/{record['id']}") == before
     assert atlas.api.get(f"/api/v1/snapshots/{uuid4()}").status_code == 404
+
+
+# --- Beliefs and the publish gate (atlas-beliefs ticket 03) -------------------------------------
+
+
+def ready_to_publish_with_a_belief(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> tuple[str, dict[str, Any]]:
+    """A Hypothesis the owner has approved the edges of, whose one finding's Assertion a Belief
+    cites load-bearingly."""
+    hypothesis = drafted(atlas, llm, searxng)
+    hypothesis_id = hypothesis["id"]
+    assert move(atlas, hypothesis_id, "evidence_ready").status_code == 200
+    approve_relationships(atlas)
+    [span] = hypothesis["versions"][0]["content"]["findings"][0]["source_spans"]
+    cited = {"kind": "assertion", "ref_id": span["assertion_id"]}
+    proposed = atlas.api.post(
+        "/api/v1/beliefs",
+        json={
+            "statement": "Coherent supplies NVIDIA, so its capacity gates NVIDIA's optics.",
+            "theme": "photonics",
+            "step": "constraint",
+            "as_of": "2026-09-30T00:00:00Z",
+            "actor": "claude-session",
+            "citations": [{**cited, "valence": 0.9, "weight": "load_bearing"}],
+        },
+    )
+    assert proposed.status_code == 201, proposed.text
+    return hypothesis_id, proposed.json()
+
+
+def test_the_publish_gate_refuses_an_unproven_load_bearing_belief_until_proven_or_overridden(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    hypothesis_id, belief = ready_to_publish_with_a_belief(atlas, llm, searxng)
+
+    refused = publish(atlas, hypothesis_id, 1)
+
+    assert refused.status_code == 422
+    error = refused.json()["error"]
+    assert error["code"] == "publish_gate_failed"
+    [failure] = error["failures"]
+    assert (failure["code"], failure["belief_ids"]) == ("belief_not_proven", [belief["id"]])
+    assert f"{belief['id']} (unproven)" in failure["message"]
+    # The gate read without publishing says the same.
+    read = atlas.get(f"/api/v1/hypotheses/{hypothesis_id}/publish-gate")
+    assert [(f["code"], f["belief_ids"]) for f in read["failures"]] == [
+        ("belief_not_proven", [belief["id"]])
+    ]
+    # An override needs its reason; a refusal leaves nothing behind.
+    assert publish(atlas, hypothesis_id, 1, override_beliefs=True).status_code == 422
+    assert get(atlas, hypothesis_id)["versions"][0]["published"] is False
+    assert atlas.get("/api/v1/snapshots", hypothesis_id=hypothesis_id)["items"] == []
+
+    overridden = publish(
+        atlas,
+        hypothesis_id,
+        1,
+        override_beliefs=True,
+        override_reason="The owner reads the Coherent filing as proof enough to publish.",
+    )
+
+    assert overridden.status_code == 200, overridden.text
+    with atlas.engine.connect() as connection:
+        [(reason, beliefs, actor)] = connection.execute(
+            text("SELECT reason, belief_ids, actor FROM hypothesis_belief_override")
+        ).all()
+    assert reason == "The owner reads the Coherent filing as proof enough to publish."
+    assert [str(each) for each in beliefs] == [belief["id"]]
+    assert actor == "local-researcher"
+    assert audit_actions(atlas, "hypothesis_version") == [
+        "hypothesis.version_drafted",
+        "hypothesis.beliefs_overridden",
+        "hypothesis.version_published",
+    ]
+    # The snapshot holds the Belief as it stood, and the override.
+    [record] = snapshots(atlas, hypothesis_id)
+    content = atlas.get(f"/api/v1/snapshots/{record['id']}")["content"]
+    [frozen] = content["beliefs"]
+    assert (frozen["belief_id"], frozen["statement"], frozen["step"]) == (
+        belief["id"],
+        belief["statement"],
+        "constraint",
+    )
+    assert (frozen["load_bearing"], frozen["judgement"], frozen["confidence"]) == (
+        True,
+        "unproven",
+        0,
+    )
+    assert content["belief_override"]["reason"] == reason
+
+
+def test_a_proven_belief_passes_the_gate_and_the_snapshot_carries_it(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    hypothesis_id, belief = ready_to_publish_with_a_belief(atlas, llm, searxng)
+    judged = atlas.api.post(
+        f"/api/v1/beliefs/{belief['id']}/judge",
+        json={"actor": "owner", "judgement": "proven", "confidence": 0.85, "reason": "checked"},
+    )
+    assert judged.status_code == 200, judged.text
+
+    published = publish(atlas, hypothesis_id, 1)
+
+    assert published.status_code == 200, published.text
+    [record] = snapshots(atlas, hypothesis_id)
+    content = atlas.get(f"/api/v1/snapshots/{record['id']}")["content"]
+    [frozen] = content["beliefs"]
+    assert (frozen["belief_id"], frozen["judgement"], frozen["confidence"]) == (
+        belief["id"],
+        "proven",
+        0.85,
+    )
+    assert frozen["judged_by"] == "owner"
+    assert content["belief_override"] is None
+    with atlas.engine.connect() as connection:
+        rows = connection.execute(
+            text("SELECT belief_id::text, load_bearing, judgement FROM hypothesis_version_belief")
+        ).all()
+        assert [tuple(r) for r in rows] == [(belief["id"], True, "proven")]
+        assert (
+            connection.execute(text("SELECT count(*) FROM hypothesis_belief_override")).scalar_one()
+            == 0
+        )
