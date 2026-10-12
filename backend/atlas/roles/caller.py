@@ -304,8 +304,10 @@ class RoleCaller:
             failure = classify_status(response.status_code)
             if failure is None and envelope.type == "budget_exceeded":
                 failure = "quota"  # the `atlas` key's maxBudget: it resets, like a quota
-            if failure is None and response.status_code >= 500:
-                failure = classify_error_text(envelope.message)
+            if failure is None:
+                # Any status: MiniMax's plan limit reaches us as a 402 whose error type is
+                # `insufficient_balance_error`; the type and the text are both matched.
+                failure = classify_error_text(f"{envelope.type or ''} {envelope.message}")
             if failure is not None:
                 raise TransientFailure(failure, message)
             raise RoleCallFailed(message)

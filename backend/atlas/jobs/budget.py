@@ -209,8 +209,8 @@ class Budgets:
             self.retain_operations,
             self.consolidation_rounds,
         )
-        if min(budgets) < 1:
-            raise ValueError("each provider's budget must be at least 1")
+        if min(budgets) < 0:
+            raise ValueError("each provider's budget must be at least 0 (0 holds the provider)")
         if not 0 <= self.interactive_reserve < 1:
             raise ValueError("the interactive reserve must be in [0, 1)")
 

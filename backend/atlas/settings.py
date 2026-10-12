@@ -34,9 +34,10 @@ class Settings(BaseSettings):
     # retain/reprocess operations and the role (MiniMax) kinds may spend
     # minimax_budget_tokens recorded LLM tokens. Backfill jobs stop short of the last
     # budget_interactive_reserve share of each budget, which is kept for interactive work.
+    # A budget of 0 holds the provider (nothing is claimed); 1 does not (the first call runs).
     budget_window_hours: float = Field(default=5.0, gt=0, le=24)
-    codex_budget_operations: int = Field(default=40, ge=1)
-    minimax_budget_tokens: int = Field(default=400_000, ge=1)
+    codex_budget_operations: int = Field(default=40, ge=0)
+    minimax_budget_tokens: int = Field(default=400_000, ge=0)
     budget_interactive_reserve: float = Field(default=0.3, ge=0, lt=1)
     # Which extractor Atlas's retains ask the shared Hindsight for (docs/decisions.md,
     # "Atlas's retains on MiniMax by metadata routing"). Unset (the default; an empty value
@@ -47,7 +48,7 @@ class Settings(BaseSettings):
     # leave the `codex` budget for their own (`hindsight_minimax`):
     # retain_budget_operations retain/reprocess operations per rolling window.
     retain_extractor: Literal["minimax"] | None = None
-    retain_budget_operations: int = Field(default=200, ge=1)
+    retain_budget_operations: int = Field(default=200, ge=0)
 
     # Archive backend: the filesystem (under archive_root, the dev default) or S3.
     # The S3 settings are required only when archive_backend is "s3".
@@ -225,7 +226,7 @@ class Settings(BaseSettings):
     # Consolidation rounds per rolling budget window (memory-quality ticket 20): Hindsight
     # consolidates a run in rounds, each its own operation; a run whose rounds reach the
     # window's limit is cancelled and recorded `stopped_at_budget`, and the next try picks up.
-    consolidate_budget_rounds: int = Field(default=40, ge=1)
+    consolidate_budget_rounds: int = Field(default=40, ge=0)
     # While a run is still going, the worker follows it again this long after the last look
     # (a follow-up job: not a daily try, never a new request), so at most one interval's
     # rounds run unwatched (Hindsight chains about 8 an hour).
@@ -321,7 +322,7 @@ class Settings(BaseSettings):
     tradingview_timeout_seconds: float = Field(default=60.0, gt=0)
     tradingview_rate_per_s: float = Field(default=0.5, gt=0, le=1)
     tradingview_max_calls_per_job: int = Field(default=20, ge=1, le=100)
-    tradingview_budget_requests: int = Field(default=200, ge=1)
+    tradingview_budget_requests: int = Field(default=200, ge=0)
     tradingview_lookback_days: int = Field(default=730, ge=1)
     tradingview_documents_limit: int = Field(default=100, ge=1, le=500)
     tradingview_news_limit: int = Field(default=50, ge=1, le=200)

@@ -518,10 +518,27 @@ MINIMAX_OVERLOADED = (
 )
 
 
+# What MiniMax answered on 2026-10-09 when the weekly plan limit was reached (investigations
+# d85faae2 and 5e1088d7): HTTP 402, the type `insufficient_balance_error`.
+MINIMAX_PLAN_LIMIT = (
+    "litellm.APIError: MinimaxException - "
+    '{"type":"error","error":{"type":"insufficient_balance_error","message":"The Token Plan'
+    ' usage limit has been reached. Please wait for the next reset."}}'
+)
+
+
 @pytest.mark.parametrize(
     ("reply", "failure_class"),
     [
         (ChatReply.error(429, "litellm.RateLimitError: MinimaxException - rate limit"), "quota"),
+        (
+            ChatReply.error(402, MINIMAX_PLAN_LIMIT, error_type="insufficient_balance_error"),
+            "quota",
+        ),
+        (
+            ChatReply.error(402, "limit reached", error_type="insufficient_balance_error"),
+            "quota",
+        ),
         (
             ChatReply.error(
                 400,
@@ -577,6 +594,19 @@ def test_any_other_failure_is_an_ordinary_error_that_doesn_t_pause(
     [stored] = role_calls(engine, tmp_path, run.id)["role_calls"]
     assert stored["status"] == "failed"
     assert "400" in stored["error"]
+
+
+def test_a_4xx_without_quota_or_outage_text_stays_an_ordinary_error(
+    engine: Engine, tmp_path: Path
+) -> None:
+    run = start_run(engine, tmp_path)
+    reply = ChatReply.error(402, "payment required for this model", error_type="invalid_request")
+    litellm = FakeLiteLLM().script_chat(reply)
+
+    with pytest.raises(RoleCallFailed) as raised:
+        caller(engine, tmp_path, litellm).call(EXAMPLE, QUESTION, run_id=run.id)
+
+    assert classify_failure(raised.value) is None
 
 
 def test_the_model_and_extra_body_are_config(engine: Engine, tmp_path: Path) -> None:

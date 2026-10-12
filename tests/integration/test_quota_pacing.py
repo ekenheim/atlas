@@ -569,6 +569,60 @@ def test_role_calls_are_held_by_their_recorded_minimax_tokens(
     atlas.engine.dispose()
 
 
+def test_a_minimax_budget_of_zero_holds_the_provider_and_one_does_not(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    role_fakes: tuple[FakeLiteLLM, Served, FakeSearXNG, Served],
+    clock: Clock,
+) -> None:
+    litellm, litellm_served, searxng, searxng_served = role_fakes
+    payload = json.dumps({"theme": "photonics", "question": "Who makes InP substrates?"})
+    scout = ChatReply.json({"queries": [{"query": QUERY, "purpose": None}]}, tokens=(900, 120))
+    litellm.script_chat(scout)
+    searxng.script(QUERY, SearchReply.of("no-results"))
+
+    def paced_with(budget: int) -> Paced:
+        atlas = Atlas(
+            database_url,
+            tmp_path,
+            hindsight[1].url,
+            litellm_served.url,
+            searxng_url=searxng_served.url,
+            minimax_budget_tokens=budget,
+        )
+        atlas.apply_template()
+        return Paced(atlas, clock)
+
+    # 0: held. Nothing is claimed (interactive or backfill), the read says so, and the queue
+    # is not paused: a hold is not an outage.
+    held = paced_with(0)
+    own = held.atlas.enqueue("jobs", "enqueue", "discover", "--key", "own", "--payload", payload)
+    backfill = held.atlas.enqueue(
+        "jobs", "enqueue", "discover", "--key", "bf", "--payload", payload, "--backfill"
+    )
+
+    held.worker_pass()
+
+    assert [held.job(i)["status"] for i in (own, backfill)] == ["queued", "queued"]
+    assert litellm.chat_requests() == []
+    minimax = held.budget("minimax")
+    assert (minimax["budget"], minimax["backfill_limit"]) == (0, 0)
+    assert (minimax["interactive_held"], minimax["backfill_held"]) == (True, True)
+    assert minimax["interactive_resumes_at"] is None
+    assert held.get("/api/v1/queue")["pause"]["paused"] is False
+    held.atlas.engine.dispose()
+
+    # 1 does not hold: used is 0 at the start of a window, so the first call runs.
+    one = paced_with(1)
+    one.worker_pass()
+
+    assert one.job(own)["status"] == "succeeded"
+    assert len(litellm.chat_requests()) == 1
+    assert one.budget("minimax")["interactive_held"] is True  # held only after it spent
+    one.atlas.engine.dispose()
+
+
 # --- the staged rollout: ingest plans and the retain cap --------------------------------------
 
 
