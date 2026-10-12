@@ -47,7 +47,7 @@ class FilesystemStore:
                 os.unlink(temporary)
             except PermissionError:
                 # Windows refuses to unlink a read-only file; make it writable first.
-                os.chmod(temporary, 0o666)
+                os.chmod(temporary, 0o600)
                 os.unlink(temporary)
 
     def is_ready(self) -> bool:
