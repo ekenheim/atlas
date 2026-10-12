@@ -696,3 +696,18 @@ Pooled over the three:
 **What it didn't do:** precision fell on both questions, and almost entirely through off-question Facts, not false ones. Question 5 has only 5 wrong Facts of 96 (95% true to quote, the best of any run) but 35 off-question: the Readers still record the datacom EML/CW story beside the coherent one. Question 4's off-question Facts are copper AEC DSPs, photodetectors and risk factors. The trust gate fails 4 statements on each card; the kinds are the familiar ones (a yield attached to the wrong site, a product the quote doesn't name, a risk factor's "could" written as "are", an inference added to a faithful quote).
 
 **Assessment against the bar:** neither question meets 80% precision; both pass saved work and coverage; question 4 passes latency and question 5 just misses it; both are inside 2M. The questions now fail on topic discipline rather than truth: with off-question Facts set aside, 84% and 92% of the Facts that bear on the question are right. Whether that is what the bar should measure is the owner's decision (ticket 02; see "The bar, revisited" below).
+
+## The bar, revisited (proposal, 2026-10-12; awaiting the owner)
+
+Ticket 02's precision counts an off-question Fact as wrong. Across 0.5.3 to 0.5.6 the false Facts fell (Q5: 95% true to the quote on 0.5.6) while the off-question share stayed or rose, so the one number no longer tells apart the two things it mixes: whether Atlas misreads its sources and whether it reads the right ones. Proposed restructuring, to be written as a revision of ticket 02 if the owner agrees:
+
+| Measure | Now | Proposed |
+|---|---|---|
+| Faithfulness (right + off-question, over all Facts) | not scored | ≥ 90% per question |
+| On-question share | folded into precision | reported, no threshold until the Readers' topic discipline is worked on |
+| Trust gate | holds (any failure fails) | ≤ 5% of statements dropped or misstated, and zero material failures (a figure, direction or site attached to the wrong thing) |
+| Saved work, baseline coverage, latency | ≥ 3, ≥ 50%, ≤ 20 min | unchanged |
+| Cost | ≤ 2M | ≤ 3M (the run budget since 0.5.4) |
+| Judging | per question | pooled over the five questions, each question also reported |
+
+Against the proposed bar, 0.5.6: Q4 faithfulness 88% (fails), gate fails 4/29 = 14% (fails); Q5 faithfulness 95%, gate 4/28 = 14% (fails, and the Järfälla yield is a material failure). The restructuring does not make 0.5.6 pass; it names what to fix next: the trust gate's misattachments and the Readers' topic discipline, in that order.
