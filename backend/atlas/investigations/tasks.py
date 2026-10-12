@@ -108,8 +108,6 @@ from sqlalchemy import Connection, Engine, RowMapping, text
 
 from atlas.archive import open_archive
 from atlas.audit import Actor
-from atlas.beliefs.pipeline import propose_from_card
-from atlas.beliefs.service import Beliefs
 from atlas.candidates.proposals import PROPOSE_CANDIDATES_KIND
 from atlas.claims.extraction import ExtractClaimsPayload
 from atlas.claims.handlers import claim_extractor
@@ -473,6 +471,11 @@ class TaskRunner:
                 )
                 # Atlas-beliefs ticket 03: one unproven Belief per kept step statement, in
                 # this transaction; the card's steps list them.
+                # Imported here, not at module level: atlas.beliefs.service imports the sessions,
+                # which import the Facts, which import this package (a cycle at import time).
+                from atlas.beliefs.pipeline import propose_from_card
+                from atlas.beliefs.service import Beliefs
+
                 made = propose_from_card(
                     connection,
                     Beliefs(self._engine, EDITOR_ACTOR),
