@@ -72,7 +72,7 @@ boilerplate:
 negation:
   # A regular expression each; applied to the folded text of the clause before the phrase.
   negators:
-    - \b(?:no|not|never|without|none|neither|nor|hardly|barely|rarely)\b
+    - \b(?:no(?!\.)|not|never|without|none|neither|nor|hardly|barely|rarely)\b
     - \b(?:do|does|did|is|are|was|were|have|has|had|will|would|should)n't\b
   # Text right after a negator that means the negator negates nothing ("not only", "no matter").
   exceptions:
@@ -81,7 +81,7 @@ negation:
   clause_breaks:
     - '[,;:()]'
     - \s-+\s
-    - \b(?:but|although|though|however|while|whereas|yet|because|since|so|which|when|if)\b
+    - \b(?:and|or|but|although|though|however|while|whereas|yet|because|since|so|which|when|if)\b
   window_words: 4  # a negator further than this many words from the phrase does not reach it
 ranking:
   max_per_document: 3

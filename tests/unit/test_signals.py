@@ -270,6 +270,23 @@ def test_a_negation_leaves_the_other_cues_of_the_sentence(scorer: SignalScorer) 
     assert (hit.families, hit.score) == (("lead_times_backlog",), 2.25)  # 1.5 + 0.75
 
 
+def test_a_negator_reaches_to_the_end_of_its_list_but_not_into_the_next_clause(
+    scorer: SignalScorer,
+) -> None:
+    list_ = "We have no capacity or supply constraints at any of our sites."
+    clause = "We have no capacity constraints and lead times have extended to 40 weeks."
+
+    assert scan(scorer, list_) == []
+    [hit] = scan(scorer, clause)
+    assert (hit.families, hit.score) == (("lead_times_backlog",), 2.25)  # 1.5 + 0.75
+
+
+def test_the_abbreviation_no_is_no_negator(scorer: SignalScorer) -> None:
+    sentence = "Line No. 5 is sold out through next year."
+
+    assert scored(scan(scorer, sentence)) == [(sentence, 4.2)]  # 2.0 + 1.2 + 1.0
+
+
 def test_a_negator_does_not_reach_across_a_clause_or_beyond_its_window(
     scorer: SignalScorer,
 ) -> None:
@@ -291,11 +308,11 @@ def test_not_only_and_no_matter_negate_nothing(scorer: SignalScorer) -> None:
 
 
 def test_a_phrase_that_carries_its_own_negation_stays_a_match(scorer: SignalScorer) -> None:
-    taking = "We have no stock left and are not taking orders."
+    taking = "No we are not taking orders for the second half."
     adequately = "The market cannot be adequately served by one supplier."
     second = "There is no second source for this substrate."
 
-    # "no" is four words before "not taking orders": a plain phrase would be negated.
+    # An answer's "No" two words before "not taking orders": a plain phrase would be negated.
     assert scored(scan(scorer, taking)) == [(taking, 2.0)]
     assert scored(scan(scorer, adequately)) == [(adequately, 2.0)]
     assert scored(scan(scorer, second)) == [(second, 1.6)]  # 2.0 x 0.8
