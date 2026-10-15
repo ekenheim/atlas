@@ -29,7 +29,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from functools import lru_cache
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import Engine, text
 
 from atlas.archive import Archive
@@ -96,7 +96,7 @@ class _Meta(BaseModel):
 _VERSIONS = """
     SELECT DISTINCT ON (d.id)
            v.id, d.company_id, c.slug, d.provider, d.title, d.canonical_url, d.form_type,
-           d.document_type, a.available_at
+           d.document_type, d.source_type, a.available_at
     FROM source_document d
     JOIN company c ON c.id = d.company_id
     JOIN source_version v ON v.source_document_id = d.id
@@ -206,6 +206,92 @@ def archive_search(
         documents_searched=len(documents),
         hits=hits,
     )
+
+
+class ArchiveDocument(BaseModel):
+    """One document of the archive at an as-of time: its latest version public by then."""
+
+    source_version_id: uuid.UUID
+    company_id: uuid.UUID
+    company: str
+    title: str
+    provider: str
+    form_type: str | None
+    document_type: str | None
+    source_type: str
+    available_at: datetime
+    parser_version: str
+
+
+class ArchiveDocuments(BaseModel):
+    as_of: datetime
+    since: datetime | None
+    total: int = Field(description="documents matching, before `limit`")
+    documents: list[ArchiveDocument] = Field(description="newest first")
+
+
+def archive_documents(
+    engine: Engine,
+    company_ids: Sequence[uuid.UUID],
+    as_of: datetime,
+    since: datetime | None = None,
+    kinds: Sequence[str] = (),
+    limit: int = 50,
+) -> ArchiveDocuments:
+    """The documents `archive_search` would search (module docstring: the latest version public
+    by `as_of`, with a parse that has text, in English), newest first by when each became
+    public, from `since` on (inclusive) and, with `kinds`, only those whose form type, document
+    type or source type is one of them (case-insensitive). Raises `UnknownCompany`."""
+    as_of = as_of if as_of.tzinfo else as_of.replace(tzinfo=UTC)
+    wanted = {each.strip().lower() for each in kinds if each.strip()}
+    found: list[ArchiveDocument] = []
+    with engine.connect() as connection:
+        known = {
+            row.id
+            for row in connection.execute(
+                text("SELECT id FROM company WHERE id = ANY(:ids)"), {"ids": list(company_ids)}
+            )
+        }
+        unknown = [str(each) for each in company_ids if each not in known]
+        if unknown:
+            raise UnknownCompany(f"unknown company: {', '.join(unknown)}")
+        rows = (
+            connection.execute(text(_VERSIONS), {"companies": list(company_ids), "as_of": as_of})
+            .mappings()
+            .all()
+        )
+        for row in rows:
+            available_at = row["available_at"].astimezone(UTC)
+            if since is not None and available_at < since:
+                continue
+            if wanted and not wanted & {
+                (row[key] or "").lower() for key in ("form_type", "document_type", "source_type")
+            }:
+                continue
+            parse = current_parse(connection, row["id"])
+            if (
+                parse is None
+                or parse.parse_status not in _WITH_TEXT
+                or parse.parsed_object_uri is None
+                or parse.language not in (None, "en")
+            ):
+                continue
+            found.append(
+                ArchiveDocument(
+                    source_version_id=row["id"],
+                    company_id=row["company_id"],
+                    company=row["slug"],
+                    title=row["title"] or row["canonical_url"],
+                    provider=row["provider"],
+                    form_type=row["form_type"],
+                    document_type=row["document_type"],
+                    source_type=row["source_type"],
+                    available_at=available_at,
+                    parser_version=parse.parser_version,
+                )
+            )
+    found.sort(key=lambda each: (each.available_at, str(each.source_version_id)), reverse=True)
+    return ArchiveDocuments(as_of=as_of, since=since, total=len(found), documents=found[:limit])
 
 
 @lru_cache(maxsize=TEXT_CACHE)

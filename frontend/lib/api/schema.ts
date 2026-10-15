@@ -293,6 +293,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/archive-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Documents */
+        get: operations["documents_api_v1_archive_documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{company_id}/financials": {
         parameters: {
             query?: never;
@@ -1922,6 +1939,61 @@ export interface components {
             tags_match: components["schemas"]["TagMatch"];
             /** Layer */
             layer?: string | null;
+        };
+        /**
+         * ArchiveDocument
+         * @description One document of the archive at an as-of time: its latest version public by then.
+         */
+        ArchiveDocument: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company */
+            company: string;
+            /** Title */
+            title: string;
+            /** Provider */
+            provider: string;
+            /** Form Type */
+            form_type: string | null;
+            /** Document Type */
+            document_type: string | null;
+            /** Source Type */
+            source_type: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Parser Version */
+            parser_version: string;
+        };
+        /** ArchiveDocuments */
+        ArchiveDocuments: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Since */
+            since: string | null;
+            /**
+             * Total
+             * @description documents matching, before `limit`
+             */
+            total: number;
+            /**
+             * Documents
+             * @description newest first
+             */
+            documents: components["schemas"]["ArchiveDocument"][];
         };
         /**
          * ArchiveHit
@@ -11283,6 +11355,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArchiveSearch"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    documents_api_v1_archive_documents_get: {
+        parameters: {
+            query: {
+                /** @description a company; repeat */
+                company_id: string[];
+                /** @description default: now */
+                as_of?: string | null;
+                /** @description only documents public at or after this time */
+                since?: string | null;
+                /** @description a form, document or source type to keep (10-Q, 8-K, transcript) */
+                kind?: string[] | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveDocuments"];
                 };
             };
             /** @description Unprocessable Entity */

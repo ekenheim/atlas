@@ -1,7 +1,7 @@
 # 16: The four agent prompts: Scout, Researcher, Skeptic, Editor
 
 Type: build
-Status: open
+Status: in-review
 Blocked by: 15
 
 ## What to build

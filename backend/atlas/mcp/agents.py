@@ -1,0 +1,400 @@
+"""The tools the Scout, Skeptic and Editor prompts need (atlas-beliefs ticket 16), on the same
+pattern as `atlas.mcp.tools`: typed arguments that forbid extras, the session's `session_id`,
+the as-of time taken from the session's row, each a projection of an existing route.
+
+- `newest_documents`: `GET /archive-documents` (the documents `GET /archive-search` searches);
+  `as_of` is the session's, so no document public after it is listed.
+- `list_beliefs`: `GET /beliefs`; a Belief whose own `as_of` is after the session's is not listed.
+- `get_belief`: `GET /beliefs/{id}`; a Belief after the session's time is refused
+  (`belief_after_as_of`), a citation of a document public after it is left out.
+- `list_issues`: `GET /issues` (an Issue is a question, not evidence: no time rule).
+- `draft_hypothesis`: `POST /hypotheses` with `theme`; the cutoff is the session's, so only Beliefs
+  with an as-of time at or before it are drafted from.
+- `get_hypothesis`: `GET /hypotheses/{id}` and `.../publish-gate`; a Hypothesis with no cutoff, or
+  one after the session's time, is refused.
+
+Two rules differ from what a route's own `as_of` means. The beliefs route's `as_of` is the time
+a *judgement* is read at, not a bound on the Belief's research time, so these tools never pass
+it and filter on the Belief's `as_of` here. And there is no publish tool: publishing is the
+owner's. Registered by importing this module (`atlas.mcp.server`).
+"""
+
+import uuid
+from datetime import datetime
+from typing import Any, Literal, cast
+
+from pydantic import AwareDatetime, Field
+
+from atlas.mcp.api import Refusal, obj, rows
+from atlas.mcp.tools import BeliefStep, Bound, Ctx, iso, issue_result, tool
+
+AGENT_TOOLS = (
+    "newest_documents",
+    "list_beliefs",
+    "get_belief",
+    "list_issues",
+    "draft_hypothesis",
+    "get_hypothesis",
+)
+SCAN_PAGE = 500  # the routes' largest page
+SCAN_LIMIT = 2_000  # Beliefs read through to find the visible ones: more is a refusal to guess
+
+type Judgement = Literal["proven", "disproven", "unproven", "undecidable"]
+type BeliefStatus = Literal["active", "superseded", "withdrawn"]
+
+
+async def theme_company_ids(ctx: Ctx, theme: str) -> list[str]:
+    """The researched companies of a theme, from its map."""
+    found = await ctx.api.get(f"/themes/{theme}/map")
+    companies = [each for layer in rows(found.get("layers")) for each in rows(layer["companies"])]
+    companies += rows(found.get("unlayered"))
+    return [each["id"] for each in companies if each.get("seeded", True)]
+
+
+# --- documents -----------------------------------------------------------------------------
+
+
+class NewestDocumentsArgs(Bound):
+    theme: str | None = Field(
+        default=None,
+        description="a theme: its researched companies. Default, when no company is named: the"
+        " session's theme",
+    )
+    companies: list[str] = Field(
+        default_factory=list[str], description="company slugs (instead of the theme)"
+    )
+    since: AwareDatetime | None = Field(
+        default=None, description="only documents public at or after this time (with an offset)"
+    )
+    kinds: list[str] = Field(
+        default_factory=list[str],
+        description="keep a form, document or source type: 10-K, 10-Q, 8-K, transcript..."
+        " (case-insensitive; empty: all)",
+    )
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+@tool(
+    "newest_documents",
+    "The parsed English documents of a theme's companies (or the named ones) that were public by"
+    " the session's as-of time, newest first, each with its Source Version id, title, form or"
+    " type, company and the time it became public. Never a document after the as-of time."
+    " Titles and dates only: `read` a version to see its text.",
+    NewestDocumentsArgs,
+)
+async def newest_documents(ctx: Ctx, args: NewestDocumentsArgs) -> dict[str, Any]:
+    theme = args.theme or (None if args.companies else ctx.bound.theme)
+    if theme is not None and args.companies:
+        raise Refusal("theme_or_companies", "name a theme or companies, not both")
+    ids = await ctx.company_ids(args.companies) if args.companies else None
+    if ids is None:
+        assert theme is not None
+        ids = await theme_company_ids(ctx, theme)
+    if not ids:
+        return {"as_of": ctx.as_of_iso, "total": 0, "documents": []}
+    params: dict[str, Any] = {
+        "company_id": ids,
+        "as_of": ctx.as_of_iso,
+        "since": iso(args.since) if args.since else None,
+        "kind": args.kinds or None,
+        "limit": args.limit,
+    }
+    answer = await ctx.api.get("/archive-documents", **params)
+    keys = (
+        "source_version_id",
+        "company",
+        "title",
+        "form_type",
+        "document_type",
+        "source_type",
+        "available_at",
+        "parser_version",
+    )
+    return {
+        "as_of": answer.get("as_of"),
+        "since": answer.get("since"),
+        "total": answer.get("total"),
+        "documents": [{key: each.get(key) for key in keys} for each in rows(answer["documents"])],
+    }
+
+
+# --- beliefs -------------------------------------------------------------------------------
+
+
+def belief_summary(each: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": each["id"],
+        "statement": each["statement"],
+        "theme": each["theme"],
+        "step": each["step"],
+        "as_of": each["as_of"],
+        "status": each["status"],
+        "companies": [company["slug"] for company in rows(each.get("companies"))],
+        "judgement": each["judgement"],
+        "open_flags": each["open_flags"],
+        "citation_count": each["citation_count"],
+        "produced_by": each.get("produced_by"),
+    }
+
+
+class ListBeliefsArgs(Bound):
+    theme: str | None = Field(default=None, description="default: the session's theme")
+    step: BeliefStep | None = None
+    judgement: Judgement | None = None
+    status: BeliefStatus | None = None
+    company: str | None = Field(default=None, description="a company slug the Belief names")
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+@tool(
+    "list_beliefs",
+    "The theme's Beliefs, oldest first, each with its current judgement (who judged it, when,"
+    " with what confidence), step, companies and citation count. A Belief whose own as-of time is"
+    " after the session's is not listed (`hidden_after_as_of` counts them). Judgements are an"
+    " author's: no tool sets one.",
+    ListBeliefsArgs,
+)
+async def list_beliefs(ctx: Ctx, args: ListBeliefsArgs) -> dict[str, Any]:
+    company = await ctx.company_id(args.company) if args.company else None
+    visible: list[dict[str, Any]] = []
+    hidden = scanned = 0
+    while scanned < SCAN_LIMIT:
+        page = await ctx.api.get(
+            "/beliefs",
+            theme=args.theme or ctx.bound.theme,
+            step=args.step,
+            judgement=args.judgement,
+            status=args.status,
+            company_id=company,
+            limit=SCAN_PAGE,
+            offset=scanned,
+        )
+        items = rows(page["items"])
+        for each in items:
+            if datetime.fromisoformat(each["as_of"]) > ctx.as_of:
+                hidden += 1
+            else:
+                visible.append(belief_summary(each))
+        scanned += len(items)
+        if not items or scanned >= page["total"]:
+            break
+    return {
+        "as_of": ctx.as_of_iso,
+        "total": len(visible),
+        "hidden_after_as_of": hidden,
+        "beliefs": visible[: args.limit],
+    }
+
+
+class GetBeliefArgs(Bound):
+    belief_id: uuid.UUID
+
+
+@tool(
+    "get_belief",
+    "One Belief with its citations (Fact id, valence, weight, who cited it and when; the quote,"
+    " span and the date its document became public), its counterevidence, open flags, judgement"
+    " history, supersession and session. Refused for a Belief after the session's as-of time; a"
+    " citation of a document public after it is left out (`hidden_citations`).",
+    GetBeliefArgs,
+)
+async def get_belief(ctx: Ctx, args: GetBeliefArgs) -> dict[str, Any]:
+    found = await ctx.api.get(f"/beliefs/{args.belief_id}")
+    if datetime.fromisoformat(found["as_of"]) > ctx.as_of:
+        raise Refusal(
+            "belief_after_as_of",
+            "that Belief's as-of time is after the session's",
+            belief=str(args.belief_id),
+            belief_as_of=found["as_of"],
+            as_of=ctx.as_of_iso,
+        )
+    hidden = 0
+    for key in ("citations", "counterevidence"):
+        kept = [
+            each
+            for each in rows(found.get(key))
+            if datetime.fromisoformat(each["available_at"]) <= ctx.as_of
+        ]
+        if key == "citations":
+            hidden = len(rows(found.get(key))) - len(kept)
+        found[key] = kept
+    found["hidden_citations"] = hidden
+    return found
+
+
+# --- issues --------------------------------------------------------------------------------
+
+
+class ListIssuesArgs(Bound):
+    theme: str | None = Field(default=None, description="default: the session's theme")
+    status: Literal["active", "complete", "abandoned", "invalid"] | None = "active"
+    kind: Literal["question", "step", "read"] | None = None
+    limit: int = Field(default=100, ge=1, le=500)
+
+
+@tool(
+    "list_issues",
+    "The theme's Issues on the research frontier (default: the active ones), in the route's"
+    " order: title, body, kind, priority, status, companies, what they narrow. Check it before"
+    " `open_issue` so a question is not opened twice.",
+    ListIssuesArgs,
+)
+async def list_issues(ctx: Ctx, args: ListIssuesArgs) -> dict[str, Any]:
+    page = await ctx.api.get(
+        "/issues",
+        theme=args.theme or ctx.bound.theme,
+        status=args.status,
+        limit=SCAN_PAGE,
+    )
+    slugs: dict[str, str] = {each["id"]: each["slug"] for each in await ctx.companies()}
+    items = [
+        {
+            **issue_result(each),
+            "body": each.get("body"),
+            "companies": [slugs.get(c, c) for c in cast(list[str], each.get("company_ids") or [])],
+            "parent_title": each.get("parent_title"),
+            "created_at": each.get("created_at"),
+        }
+        for each in rows(page["items"])
+        if args.kind is None or each["kind"] == args.kind
+    ]
+    return {"total": len(items), "of_theme": page["total"], "issues": items[: args.limit]}
+
+
+# --- hypotheses ----------------------------------------------------------------------------
+
+
+class DraftHypothesisArgs(Bound):
+    theme: str | None = Field(default=None, description="default: the session's theme")
+    question: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="the question it answers (default: the sessions')",
+    )
+    session_ids: list[uuid.UUID] = Field(
+        default_factory=list[uuid.UUID],
+        description="only the Beliefs these research sessions produced (empty: the theme's)",
+    )
+
+
+@tool(
+    "draft_hypothesis",
+    "Draft a Hypothesis from the theme's proven, active Beliefs whose as-of time is at or before"
+    " the session's (the cutoff is the session's). The draft is a job: this returns the"
+    " Hypothesis id at once with `draft_status: queued`; call `get_hypothesis` until it is"
+    " `drafted` or `failed`. Refused when no proven Belief matches. It cannot publish.",
+    DraftHypothesisArgs,
+)
+async def draft_hypothesis(ctx: Ctx, args: DraftHypothesisArgs) -> dict[str, Any]:
+    created = await ctx.api.post(
+        "/hypotheses",
+        {
+            "theme": args.theme or ctx.bound.theme,
+            "question": args.question,
+            "session_ids": [str(each) for each in args.session_ids],
+            "as_of": ctx.as_of_iso,
+        },
+    )
+    return {
+        "hypothesis_id": created["id"],
+        "theme": created["theme_id"],
+        "question": created["question"],
+        "as_of": created["as_of"],
+        "status": created["status"],
+        "draft_status": created["draft_status"],
+        "next": "call get_hypothesis until draft_status is drafted or failed",
+    }
+
+
+class GetHypothesisArgs(Bound):
+    hypothesis_id: uuid.UUID
+
+
+def step_view(step: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "step": step["step"],
+        "statements": [
+            {key: each.get(key) for key in ("statement", "belief_ids", "judged")}
+            for each in rows(step.get("statements"))
+        ],
+        "beliefs": [
+            {
+                key: each.get(key)
+                for key in ("belief_id", "statement", "judgement", "confidence", "as_of")
+            }
+            for each in rows(step.get("beliefs"))
+        ],
+    }
+
+
+@tool(
+    "get_hypothesis",
+    "A Hypothesis with its latest version's thesis, steps (each statement, whether the finding"
+    " judge found it supported, the Beliefs it rests on as they were judged when drafted) and"
+    " dropped statements, and its publish gate read now: `publishable`, what `blocked` it and"
+    " each failure (a Belief no longer proven, a flag open, an edge unapproved) with the Belief"
+    " ids. Refused for a Hypothesis with no cutoff or one after the session's as-of time.",
+    GetHypothesisArgs,
+)
+async def get_hypothesis(ctx: Ctx, args: GetHypothesisArgs) -> dict[str, Any]:
+    found = await ctx.api.get(f"/hypotheses/{args.hypothesis_id}")
+    cutoff = found.get("as_of")
+    if cutoff is None:
+        raise Refusal(
+            "hypothesis_without_cutoff",
+            "that Hypothesis was saved from an investigation, not drafted from Beliefs: it has"
+            " no as-of time to hold to the session's",
+        )
+    if datetime.fromisoformat(cutoff) > ctx.as_of:
+        raise Refusal(
+            "hypothesis_after_as_of",
+            "that Hypothesis's cutoff is after the session's as-of time",
+            hypothesis_as_of=cutoff,
+            as_of=ctx.as_of_iso,
+        )
+    gate = await ctx.api.get(f"/hypotheses/{args.hypothesis_id}/publish-gate")
+    latest = next(
+        (
+            each
+            for each in rows(found.get("versions"))
+            if each["version"] == found.get("latest_version")
+        ),
+        None,
+    )
+    version: dict[str, Any] | None = None
+    if latest is not None:
+        content = obj(latest["content"])
+        steps = [step_view(each) for each in rows(content.get("steps"))]
+        version = {
+            "version": latest["version"],
+            "origin": latest["origin"],
+            "published": latest["published"],
+            "thesis_statement": content.get("thesis_statement"),
+            "thesis_belief_ids": content.get("thesis_belief_ids"),
+            "steps": steps,
+            "steps_without_statement": [each["step"] for each in steps if not each["statements"]],
+            "unsupported_findings": rows(content.get("unsupported_findings")),
+            "falsifiers": content.get("falsifiers"),
+            "unresolved_questions": content.get("unresolved_questions"),
+        }
+    return {
+        "hypothesis_id": found["id"],
+        "theme": found["theme_id"],
+        "question": found["question"],
+        "as_of": cutoff,
+        "status": found["status"],
+        "draft_status": found["draft_status"],
+        "draft_error": found["draft_error"],
+        "latest_version": found["latest_version"],
+        "open_proposed_updates": found["open_proposed_updates"],
+        "version": version,
+        "publish_gate": {
+            key: gate.get(key) for key in ("version", "status", "publishable", "blocked")
+        }
+        | {
+            "failures": [
+                {key: each.get(key) for key in ("code", "message", "belief_ids")}
+                for each in rows(gate.get("failures"))
+            ]
+        },
+    }
