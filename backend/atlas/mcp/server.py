@@ -50,8 +50,10 @@ PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 INSTRUCTIONS = (
     "Atlas research tools. Call open_session first (question, as_of) and pass the session_id it"
     " returns to every other tool: the session's as-of time rules what you can search, read,"
-    " recall and cite, and Atlas counts your calls on it. Record Facts only from text you read"
-    " in the archive; Memory (recall) is an index, never evidence. Close the session last."
+    " recall and cite, and Atlas counts your calls on it. Then call prior_work: what Atlas"
+    " already holds for the question, so you build on it instead of restarting. Record Facts"
+    " only from text you read in the archive; Memory (recall) is an index, never evidence."
+    " Close the session last."
 )
 
 assert set(AGENT_TOOLS) <= set(TOOLS)  # importing `agents` registered them
@@ -72,14 +74,20 @@ def _session_row(engine: Engine, session_id: uuid.UUID) -> tuple[SessionRow, boo
     with engine.connect() as connection:
         row = connection.execute(
             text(
-                "SELECT id, question, theme, as_of, kind, finished_at FROM research_session"
-                " WHERE id = :id"
+                "SELECT id, question, theme, as_of, kind, finished_at, seed_company_ids"
+                " FROM research_session WHERE id = :id"
             ),
             {"id": session_id},
         ).one_or_none()
     if row is None:
         return None
-    session = SessionRow(id=row.id, question=row.question, theme=row.theme, as_of=row.as_of)
+    session = SessionRow(
+        id=row.id,
+        question=row.question,
+        theme=row.theme,
+        as_of=row.as_of,
+        seed_company_ids=tuple(row.seed_company_ids),
+    )
     return session, row.kind == "claude" and row.finished_at is None
 
 

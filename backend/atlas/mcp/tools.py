@@ -22,6 +22,13 @@ place:
   misstated, never refused); `propose_belief` refuses a compound Belief (`belief_compound`) and
   one that says more than its load-bearing quotes (`belief_beyond_quotes`).
 
+- **Atlas compounds across sessions** (ticket 26): `prior_work` (`atlas.mcp.agents`) is the
+  session's starting state; `record_fact` returns a span an earlier Fact of the same step, status
+  and alike statement already covers as `reused` instead of recording it again (a materially
+  different statement is recorded and names the earlier Fact, `same_span_as`); `examine_belief`
+  records that the session tested a Belief; a supporting Fact from a newer document shows on a
+  proven Belief as a `belief_confirmed` notice, never as a change of its judgement.
+
 A tool returns text only with the span it is in (`read`: the window and its offsets; `search`:
 passages with theirs); Memory's `recall` is labelled an index, never Evidence.
 """
@@ -61,6 +68,7 @@ class SessionRow:
     question: str
     theme: str
     as_of: datetime
+    seed_company_ids: tuple[uuid.UUID, ...] = ()
 
 
 @dataclass
@@ -422,6 +430,13 @@ class RecordFactArgs(Bound):
     dry_run: bool = False
 
 
+REUSED_NOTE = (
+    "An earlier Fact of the same step, status and statement already covers this span, so nothing"
+    " was recorded: use its fact_id (cite it, judge a statement on it). Record a new Fact for the"
+    " span only with a materially different statement or another step."
+)
+
+
 @tool(
     "record_fact",
     "Record a Fact: a verbatim quote at an archived span, with the argument step and status."
@@ -430,7 +445,10 @@ class RecordFactArgs(Bound):
     " compares the statement with the quote: `statement_beyond_quote` (with `beyond`, `kinds`,"
     " `reason`) means rewrite the statement to what the quote says, or quote more. `judged` in"
     " the answer: `supported`, or `unjudged` (the judge was unreachable: judge it yourself)."
-    " Refused for a version that became public after the session's as-of time.",
+    " A span an earlier Fact of the same step already covers is not recorded again: with the same"
+    " status and an alike statement the answer is `reused: true` and that Fact's id (nothing is"
+    " recorded); a materially different statement is recorded and names the earlier one in"
+    " `same_span_as`. Refused for a version that became public after the session's as-of time.",
     RecordFactArgs,
 )
 async def record_fact(ctx: Ctx, args: RecordFactArgs) -> dict[str, Any]:
@@ -467,12 +485,22 @@ async def record_fact(ctx: Ctx, args: RecordFactArgs) -> dict[str, Any]:
     if args.dry_run:
         return {"recorded": False, "dry_run": True, "body": body}
     answer = await ctx.api.post("/facts", body)
+    if answer.get("reused"):
+        return {
+            "recorded": False,
+            "reused": True,
+            "fact_id": answer["fact"]["id"],
+            "note": REUSED_NOTE,
+            "fact": answer["fact"],
+        }
     judgement = obj(answer["fact"].get("statement_judgement"))
+    same_span_as = answer["fact"].get("same_span_as")
     return {
         "recorded": True,
         "fact_id": answer["fact"]["id"],
         "judged": judgement.get("verdict"),
         **({"judge_note": judgement["reason"]} if judgement.get("verdict") == "unjudged" else {}),
+        **({"same_span_as": same_span_as} if same_span_as else {}),
         "fact": answer["fact"],
     }
 
@@ -609,6 +637,7 @@ def belief_result(answer: dict[str, Any]) -> dict[str, Any]:
         "status": answer["status"],
         "citations": answer["citation_count"],
         "open_flags": answer["open_flags"],
+        "open_notices": answer.get("open_notices", 0),
     }
 
 

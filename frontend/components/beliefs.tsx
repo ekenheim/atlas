@@ -6,9 +6,11 @@ import {
   EXPOSURE,
   FLAGS,
   JUDGEMENTS,
+  NOTICES,
   answeredSteps,
   companyNames,
   confidenceText,
+  confirmationText,
   day,
   direction,
   groupBySteps,
@@ -63,6 +65,14 @@ export function BeliefRow({
               </strong>
             </>
           )}
+          {belief.open_notices > 0 && (
+            <>
+              {" · "}
+              <span className="reader-pill reader-supported">
+                {confirmationText(belief)}
+              </span>
+            </>
+          )}
         </div>
       </div>
       <JudgementPill belief={belief} />
@@ -106,6 +116,29 @@ export function FlagList({ flags }: { flags: Belief["flags"] }) {
           <br />
           <span className="muted-small">
             {flag.detail} Raised {day(flag.raised_at)}.
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** What supports a Belief, the open notices first: no doubt, so apart from the flags. */
+export function NoticeList({ notices }: { notices: Belief["notices"] }) {
+  if (notices.length === 0)
+    return <p className="muted">Nothing new supports it.</p>;
+  const ordered = [...notices].sort(
+    (a, b) => Number(a.cleared_by !== null) - Number(b.cleared_by !== null),
+  );
+  return (
+    <ul aria-label="Notices">
+      {ordered.map((notice) => (
+        <li key={notice.id}>
+          <strong>{notice.cleared_by === null ? "Open" : "Cleared"}</strong>{" "}
+          {NOTICES[notice.kind]}
+          <br />
+          <span className="muted-small">
+            {notice.detail} Raised {day(notice.raised_at)}.
           </span>
         </li>
       ))}

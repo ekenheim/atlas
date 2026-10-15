@@ -83,6 +83,8 @@ TOOLS = {
     "draft_hypothesis",
     "get_hypothesis",
     "upcoming_reports",
+    "prior_work",
+    "examine_belief",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 
@@ -214,7 +216,7 @@ class Mcp:
             statement=extra.pop("statement", "Lumentum says so."),
             **extra,
         )
-        assert recorded["recorded"] is True
+        assert recorded["recorded"] is True or recorded["reused"] is True  # a repeat: reused
         return recorded["fact_id"]
 
     def calls(self, session: str) -> list[tuple[str, str, str | None]]:
@@ -1025,3 +1027,391 @@ def test_a_hypothesis_is_drafted_from_the_proven_beliefs_the_sessions_time_allow
     # There is no tool that publishes or judges.
     names = {each["name"] for each in mcp.rpc("tools/list").json()["result"]["tools"]}
     assert not {"publish_hypothesis", "publish_version", "judge_belief"} & names
+
+
+# --- research that compounds (ticket 26) -----------------------------------------------------
+
+LONG_REVENUE_QUOTE = (
+    "Net revenue for the fourth quarter of fiscal year 2026 was $1.01 billion, with GAAP net loss"
+    " of $7.2 billion, or $84.65 per diluted share."
+)
+LOSS_STATEMENT = "Lumentum recorded a GAAP net loss of $7.2 billion in its fourth quarter."
+SECOND_STATEMENT = "Lumentum's Q4 FY2026 net revenue was $1.01 billion."
+TENK_STATEMENT = "Lumentum had 89.7 million shares outstanding on 14 August 2026."
+MIDDLE = "2026-08-20T00:00:00Z"  # after the press release (11 August), before the 1 September
+SEPTEMBER = "2026-09-01T00:00:00Z"
+
+
+def record(
+    mcp: Mcp,
+    session: str,
+    url: str,
+    quote: str,
+    statement: str,
+    step: str = "context",
+    status: str = "in_effect",
+) -> dict[str, Any]:
+    """`record_fact` with its answer, whether the Fact was recorded or reused."""
+    return mcp.ok(
+        "record_fact",
+        session_id=session,
+        version_id=mcp.version(url),
+        quote=quote,
+        step=step,
+        status=status,
+        statement=statement,
+    )
+
+
+def test_prior_work_lists_what_earlier_sessions_left_within_the_sessions_as_of(mcp: Mcp) -> None:
+    early, middle, early_again = mcp.open(BEFORE_10K), mcp.open(LATER), mcp.open(BEFORE_10K)
+    revenue = record(mcp, early, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT, step="capture")
+    shares = record(mcp, early, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares.")
+    mcp.ok("read", session_id=early, version_id=mcp.version(URL_EX991), start=1604, end=1676)
+    belief = mcp.ok(
+        "propose_belief",
+        session_id=early,
+        statement="Lumentum reported $1.01 billion in revenue.",
+        step="capture",
+        companies=["lumentum"],
+        citations=[{"fact_id": revenue["fact_id"], "how": 1, "weight": "load_bearing"}],
+    )["id"]
+    judge_proven(mcp, belief)
+    tenk = record(mcp, middle, URL_10K, TENK_SHARES, TENK_STATEMENT)
+    mcp.ok("open_issue", session_id=early, title="Read Lumentum's 10-K", companies=["lumentum"])
+    mcp.ok("open_issue", session_id=middle, title="Is the count diluted?", companies=["lumentum"])
+    mcp.ok(
+        "close_session",
+        session_id=early,
+        card={"steps": [], "open_questions": ["Who else makes InP lasers?"]},
+    )
+    asker = mcp.open(LATER)
+
+    work = mcp.ok("prior_work", session_id=asker)  # the session's seeds: Lumentum
+
+    assert work["as_of"] == LATER and work["theme"] == "photonics"
+    assert work["companies"] == ["lumentum"]
+    # Facts: newest document first (the 10-K, the press release, the 10-Q).
+    assert work["facts"]["total"] == 3 and work["facts"]["beyond"] == 0
+    assert [(f["id"], f["step"]) for f in work["facts"]["items"]] == [
+        (tenk["fact_id"], "context"),
+        (revenue["fact_id"], "capture"),
+        (shares["fact_id"], "context"),
+    ]
+    assert [f["document_available_at"][:10] for f in work["facts"]["items"]] == [
+        "2026-08-17",
+        "2026-08-11",
+        "2026-05-06",
+    ]
+    assert work["facts"]["items"][0]["document_available_at"] == "2026-08-17T20:03:17Z"
+    assert work["facts"]["items"][1]["statement"] == REVENUE_STATEMENT
+    assert work["facts"]["items"][1]["company"] == "lumentum"
+    # Beliefs of any judgement, with who judged them and when they were last examined.
+    [held] = work["beliefs"]["items"]
+    assert (held["id"], held["judgement"], held["judged_by"], held["step"]) == (
+        belief,
+        "proven",
+        "lead",
+        "capture",
+    )
+    assert (held["last_examined_as_of"], held["examined_through"]) == (None, BEFORE_10K)
+    # Documents read, each with the as-of time of the sessions that read it.
+    assert [(d["source_version_id"], d["facts"]) for d in work["documents_read"]["items"]] == [
+        (mcp.version(URL_10K), 1),
+        (mcp.version(URL_EX991), 1),
+        (mcp.version(URL_10Q), 1),
+    ]
+    read_by = {
+        d["source_version_id"]: sorted((r["session_id"], r["session_as_of"]) for r in d["read_by"])
+        for d in work["documents_read"]["items"]
+    }
+    assert read_by[mcp.version(URL_10K)] == [(middle, LATER)]
+    assert read_by[mcp.version(URL_EX991)] == [(early, BEFORE_10K)]
+    assert work["latest_session_as_of"] == LATER
+    # Sessions with the open questions a card named; the Issues that touch the company.
+    assert {s["id"] for s in work["sessions"]["items"]} == {early, middle, early_again}
+    assert next(s for s in work["sessions"]["items"] if s["id"] == early)["open_questions"] == [
+        "Who else makes InP lasers?"
+    ]
+    assert all(s["same_question"] for s in work["sessions"]["items"])
+    titles = {i["title"] for i in work["issues"]["items"]}
+    assert {"Read Lumentum's 10-K", "Is the count diluted?", "Who else makes InP lasers?"} <= titles
+    # A step filter narrows the Facts; a cap says what it left out.
+    only = mcp.ok("prior_work", session_id=asker, steps=["capture"])
+    assert [f["id"] for f in only["facts"]["items"]] == [revenue["fact_id"]]
+    capped = mcp.ok("prior_work", session_id=asker, limit=2)
+    assert (capped["facts"]["total"], capped["facts"]["shown"], capped["facts"]["beyond"]) == (
+        3,
+        2,
+        1,
+    )
+
+    # The same question as of before the 10-K sees nothing that came after it.
+    view = mcp.ok("prior_work", session_id=early_again)
+    assert view["facts"]["total"] == 2
+    assert tenk["fact_id"] not in {f["id"] for f in view["facts"]["items"]}
+    assert [d["source_version_id"] for d in view["documents_read"]["items"]] == [
+        mcp.version(URL_EX991),
+        mcp.version(URL_10Q),
+    ]
+    assert view["latest_session_as_of"] == BEFORE_10K
+    assert [s["id"] for s in view["sessions"]["items"]] == [early]
+    assert view["hidden_sessions"] == 2  # the middle and the asker, both as of LATER
+    view_titles = {i["title"] for i in view["issues"]["items"]}
+    assert "Read Lumentum's 10-K" in view_titles and "Is the count diluted?" not in view_titles
+    assert "89.7" not in json.dumps(view) and "Is the count diluted?" not in json.dumps(view)
+
+
+def test_a_span_an_earlier_fact_covers_is_reused_not_recorded_again(mcp: Mcp) -> None:
+    first, second = mcp.open(BEFORE_10K), mcp.open(LATER)
+    recorded = record(mcp, first, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)
+    assert recorded["recorded"] is True and "same_span_as" not in recorded
+    original = recorded["fact_id"]
+
+    # The same span, the same step and status, an alike statement: the existing Fact comes back.
+    again = record(mcp, second, URL_EX991, REVENUE_QUOTE, SECOND_STATEMENT)
+    assert (again["recorded"], again["reused"], again["fact_id"]) == (False, True, original)
+    assert "nothing was recorded" in again["note"]
+    assert mcp.get("/api/v1/facts")["total"] == 1
+    assert mcp.get(f"/api/v1/sessions/{second}")["facts_reused"] == 1
+    assert mcp.get(f"/api/v1/sessions/{second}")["facts"] == 0
+    assert mcp.get(f"/api/v1/sessions/{first}")["facts_reused"] == 0
+
+    # A span that only overlaps (the longer sentence) with a materially different statement is a
+    # new Fact, flagged as covering the same span.
+    longer = record(mcp, second, URL_EX991, LONG_REVENUE_QUOTE, LOSS_STATEMENT)
+    assert longer["recorded"] is True and longer["same_span_as"] == original
+    assert longer["fact_id"] != original
+    assert mcp.get("/api/v1/facts")["total"] == 2
+    assert mcp.get(f"/api/v1/facts/{longer['fact_id']}")["same_span_as"] == original
+    # Another status is a different statement too.
+    hedged = record(mcp, second, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT, status="hedged")
+    assert hedged["recorded"] is True and hedged["same_span_as"] == original
+    # Another step is its own Fact: nothing overlaps it.
+    other = record(mcp, second, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT, step="capture")
+    assert other["recorded"] is True and "same_span_as" not in other
+    assert mcp.get("/api/v1/facts")["total"] == 4
+    # A longer quote of the same sentence, alike statement, same step: reused too.
+    longer_again = record(mcp, second, URL_EX991, LONG_REVENUE_QUOTE, LOSS_STATEMENT)
+    assert longer_again["reused"] is True and longer_again["fact_id"] == longer["fact_id"]
+    assert mcp.get(f"/api/v1/sessions/{second}")["facts_reused"] == 2
+
+    # The call is on the session, and the audit trail says the Fact was reused, not created.
+    calls = [(tool, outcome) for tool, outcome, _ in mcp.calls(second)]
+    assert calls.count(("record_fact", "ok")) == 5
+    with mcp.engine.connect() as connection:
+        actions = list(
+            connection.execute(
+                text("SELECT action FROM audit_event WHERE entity_id = :id ORDER BY id"),
+                {"id": original},
+            ).scalars()
+        )
+    assert (actions.count("fact.created"), actions.count("fact.reused")) == (1, 1)
+
+    # Over HTTP: a session's repeat is 200 with `reused`; a Fact with no session is recorded as
+    # before (201); a unknown session is refused before anything is reused.
+    body = {
+        "subject_company_id": mcp.get("/api/v1/facts/" + original)["assertion"][
+            "subject_company_id"
+        ],
+        "source_version_id": mcp.version(URL_EX991),
+        "quote": REVENUE_QUOTE,
+        "span_start": REVENUE_SPAN[0],
+        "span_end": REVENUE_SPAN[1],
+        "epistemic_type": "direct_source_statement",
+        "step": "context",
+        "statement": REVENUE_STATEMENT,
+        "status": "in_effect",
+    }
+    reused = mcp.api.post("/api/v1/facts", json=body | {"session_id": second})
+    assert reused.status_code == 200 and reused.json()["reused"] is True
+    assert reused.json()["fact"]["id"] == original
+    sessionless = mcp.api.post("/api/v1/facts", json=body)
+    assert sessionless.status_code == 201 and sessionless.json()["reused"] is False
+    assert sessionless.json()["fact"]["id"] != original
+    unknown = mcp.api.post("/api/v1/facts", json=body | {"session_id": NOBODY})
+    assert unknown.status_code == 422 and unknown.json()["error"]["code"] == "unknown_session"
+
+
+def test_examine_belief_sets_the_staleness_fields_and_list_beliefs_orders_by_them(
+    mcp: Mcp,
+) -> None:
+    older, newer = mcp.open(BEFORE_10K), mcp.open(MIDDLE)
+    _, first = believe(
+        mcp, older, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    _, second = believe(
+        mcp, newer, URL_EX991, LONG_REVENUE_QUOTE, "Lumentum reported a $7.2 billion GAAP loss."
+    )
+    judge_proven(mcp, first)
+    judge_proven(mcp, second)
+    asker = mcp.open(SEPTEMBER)
+
+    def order(session: str, **extra: Any) -> list[str]:
+        return [b["id"] for b in mcp.ok("list_beliefs", session_id=session, **extra)["beliefs"]]
+
+    # Never examined: stalest is the one whose own as-of time is older.
+    assert order(asker) == [first, second]
+    assert order(asker, sort="created") == [first, second]
+    assert mcp.ok("list_beliefs", session_id=asker)["beliefs"][0]["examined_through"] == BEFORE_10K
+
+    examined = mcp.ok(
+        "examine_belief", session_id=asker, belief_id=first, outcome="nothing_new", note="read 10-K"
+    )
+    assert examined["examined"] is True and examined["outcome"] == "nothing_new"
+    assert examined["last_examined_as_of"] == SEPTEMBER
+    assert (examined["judgement"], examined["open_flags"], examined["open_notices"]) == (
+        "proven",
+        0,
+        0,
+    )
+    # The examined Belief is now the fresher one: never-examined first, then oldest examined.
+    assert order(asker) == [second, first]
+    listed = {b["id"]: b for b in mcp.ok("list_beliefs", session_id=asker)["beliefs"]}
+    assert listed[first]["last_examined_outcome"] == "nothing_new"
+    assert listed[first]["last_examined_as_of"] == SEPTEMBER
+    assert listed[first]["examined_through"] == SEPTEMBER
+    assert listed[first]["last_examined_at"] is not None
+    assert (
+        listed[second]["last_examined_as_of"] is None
+        and listed[second]["examined_through"] == MIDDLE
+    )
+    over_http = mcp.get("/api/v1/beliefs", theme="photonics", sort="stalest")["items"]
+    assert [b["id"] for b in over_http] == [second, first]
+    assert over_http[1]["last_examined_as_of"] == SEPTEMBER
+
+    # The later examination, by a session as of LATER, moves it past the other.
+    mcp.ok("examine_belief", session_id=asker, belief_id=second, outcome="confirmed")
+    assert order(asker) == [first, second]  # both examined through SEPTEMBER: the older first
+    later = mcp.open(LATER)
+    mcp.ok("examine_belief", session_id=later, belief_id=first, outcome="qualified")
+    assert order(later) == [second, first]
+    again = mcp.get(f"/api/v1/beliefs/{first}")
+    assert (again["last_examined_as_of"], again["last_examined_outcome"]) == (LATER, "qualified")
+    assert [e["outcome"] for e in again["examinations"]] == ["nothing_new", "qualified"]
+    assert [e["as_of"] for e in again["examinations"]] == [SEPTEMBER, LATER]
+    assert again["judgement"]["judgement"] == "proven"  # an examination judges nothing
+    # An earlier session does not see an examination by a later one.
+    seen = mcp.ok("get_belief", session_id=newer, belief_id=first)
+    assert (seen["last_examined_as_of"], seen["hidden_examinations"], seen["examinations"]) == (
+        None,
+        2,
+        [],
+    )
+    blind = {b["id"]: b for b in mcp.ok("list_beliefs", session_id=newer)["beliefs"]}
+    assert blind[first]["last_examined_as_of"] is None
+
+    # Refusals: a session older than the Belief, an unknown session, a Belief that is not active.
+    mcp.refused(
+        "examine_belief",
+        "belief_after_as_of",
+        session_id=older,
+        belief_id=second,
+        outcome="confirmed",
+    )
+    refused = mcp.api.post(
+        f"/api/v1/beliefs/{first}/examine", json={"session_id": NOBODY, "outcome": "confirmed"}
+    )
+    assert refused.status_code == 422 and refused.json()["error"]["code"] == "unknown_session"
+    mcp.ok("supersede_belief", session_id=later, belief_id=first, by=[second], reason="narrowed")
+    gone = mcp.api.post(
+        f"/api/v1/beliefs/{first}/examine", json={"session_id": later, "outcome": "confirmed"}
+    )
+    assert gone.status_code == 409 and gone.json()["error"]["code"] == "belief_not_active"
+    with mcp.engine.connect() as connection:
+        actions = list(
+            connection.execute(
+                text("SELECT action FROM audit_event WHERE entity_id = :id ORDER BY id"),
+                {"id": first},
+            ).scalars()
+        )
+    assert actions.count("belief.examined") == 2
+
+
+def test_a_supporting_fact_from_a_newer_document_notices_a_proven_belief(
+    mcp: Mcp, llm: FakeLiteLLM
+) -> None:
+    early, late = mcp.open(BEFORE_10K), mcp.open(LATER)
+    revenue, belief = believe(
+        mcp, early, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    _, other_belief = believe(
+        mcp, early, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares in April."
+    )
+    tenk = record(mcp, late, URL_10K, TENK_SHARES, TENK_STATEMENT)["fact_id"]
+    tenq = record(mcp, late, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares.")["fact_id"]
+
+    def relate(fact: str, counter: str, relation: str) -> dict[str, Any]:
+        llm.script_role("counter_judge", ChatReply.answer(relating(relation)))
+        return mcp.ok("relate_facts", session_id=late, fact_id=fact, counter_fact_id=counter)
+
+    # An unproven Belief is not noticed: nothing is confirmed yet.
+    assert relate(revenue, tenk, "supports")["confirmed_beliefs"] == []
+    judge_proven(mcp, belief)
+    judge_proven(mcp, other_belief)
+    # Only `supports` confirms; a document older than the Belief's as-of time does not.
+    assert relate(revenue, tenk, "limits")["confirmed_beliefs"] == []
+    assert relate(revenue, tenq, "supports")["confirmed_beliefs"] == []
+    quiet = mcp.get(f"/api/v1/beliefs/{belief}")
+    assert (quiet["open_notices"], quiet["notices"]) == (0, [])
+
+    confirmed = relate(revenue, tenk, "supports")
+    assert (confirmed["relation"], confirmed["confirmed_beliefs"]) == ("supports", [belief])
+    noticed = mcp.get(f"/api/v1/beliefs/{belief}")
+    assert noticed["open_notices"] == 1 and noticed["open_flags"] == 0
+    assert noticed["judgement"]["judgement"] == "proven"  # a notice never changes the judgement
+    [notice] = noticed["notices"]
+    assert (notice["kind"], notice["ref_id"], notice["cleared_by"]) == (
+        "belief_confirmed",
+        tenk,
+        None,
+    )
+    assert "2026-08-17" in notice["detail"] and TENK_STATEMENT in notice["detail"]
+    # The same Fact does not notice it twice; the other Belief rests on another Fact.
+    assert relate(revenue, tenk, "supports")["confirmed_beliefs"] == []
+    assert mcp.get(f"/api/v1/beliefs/{belief}")["open_notices"] == 1
+    assert mcp.get(f"/api/v1/beliefs/{other_belief}")["open_notices"] == 0
+    # Notices are no flags: the flagged filter, the theme and the Belief list see no doubt.
+    assert mcp.get("/api/v1/beliefs", flagged="true")["total"] == 0
+    shown = {b["id"]: b for b in mcp.get("/api/v1/beliefs", theme="photonics")["items"]}
+    assert (shown[belief]["open_notices"], shown[belief]["open_flags"]) == (1, 0)
+    assert mcp.ok("get_belief", session_id=late, belief_id=belief)["open_notices"] == 1
+    on_map = mcp.get("/api/v1/themes/photonics/map")["beliefs"]
+    assert {b["id"]: b["open_notices"] for b in on_map}[belief] == 1
+
+    # Citing a Fact with the relation `supports` notices a proven Belief the same way.
+    cited = mcp.ok(
+        "cite_belief",
+        session_id=late,
+        belief_id=other_belief,
+        citation={"fact_id": tenk, "how": "supports", "weight": "context"},
+    )
+    assert (cited["open_notices"], cited["open_flags"]) == (1, 0)
+    # A plain positive valence is the author's own weighing: no notice.
+    third = mcp.ok(
+        "propose_belief",
+        session_id=early,
+        statement="Lumentum had 77.8 million shares in April.",
+        step="capture",
+        citations=[{"fact_id": tenq, "how": 1, "weight": "load_bearing"}],
+    )["id"]
+    judge_proven(mcp, third)
+    mcp.ok(
+        "cite_belief",
+        session_id=late,
+        belief_id=third,
+        citation={"fact_id": tenk, "how": 0.7, "weight": "context"},
+    )
+    assert mcp.get(f"/api/v1/beliefs/{third}")["open_notices"] == 0
+
+    # An earlier session cannot see a notice its document is after.
+    blind = mcp.ok("get_belief", session_id=early, belief_id=belief)
+    assert (blind["notices"], blind["hidden_notices"], blind["open_notices"]) == ([], 1, 0)
+    assert TENK_STATEMENT not in json.dumps(blind)
+
+    # Only a judgement clears it.
+    judge_proven(mcp, belief)
+    cleared = mcp.get(f"/api/v1/beliefs/{belief}")
+    assert cleared["open_notices"] == 0
+    assert cleared["notices"][0]["cleared_by"] == cleared["history"][-1]["id"]
+    assert mcp.get(f"/api/v1/beliefs/{other_belief}")["open_notices"] == 1

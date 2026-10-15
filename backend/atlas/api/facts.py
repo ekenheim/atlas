@@ -6,6 +6,12 @@
   quote's relative phrases and the document's date contradict is 422 `period_misresolved`, one
   that dates another document `period_other_document`; the resolved period and its basis
   (the version's date, the company's fiscal year end) are computed and stored (R2-02)
+- a Fact recorded with a `session_id` for a span that overlaps a standing Fact of the same Source
+  Version, company and step (ticket 26; `atlas.facts.reuse`) is not recorded again when that Fact
+  has the same status and an alike statement: the existing Fact comes back with 200 and
+  `reused: true`, no row is made, the session records the reuse (`facts_reused`) and the judge is
+  not asked. A materially different statement is recorded (201) and names the earlier Fact
+  (`same_span_as`). Every other check runs first, so a reuse never hides a refusal
 - a Fact recorded with a `session_id` (every Fact, under `ATLAS_FACT_STATEMENT_JUDGE=always`)
   has its statement judged against its own quote, source title and date after those checks
   (ticket 23; `atlas.judging`): misstated is 422 `statement_beyond_quote` (the error's `detail`
@@ -18,7 +24,7 @@ import uuid
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import Connection, Engine, text
 
@@ -104,18 +110,33 @@ def facts_router(engine: Engine, archive: Archive, actor: Actor, settings: Setti
             found = get_fact(connection, fact_id)
         return found if found is not None else not_found("fact")
 
-    @router.post("", status_code=201, response_model=FactRecorded, responses=INVALID)
-    def create(request: FactCreate) -> FactRecorded | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+    @router.post(
+        "",
+        status_code=201,
+        response_model=FactRecorded,
+        responses={200: {"model": FactRecorded, "description": "reused"}, **INVALID},
+    )
+    def create(request: FactCreate, response: Response) -> FactRecorded | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         with engine.connect() as connection:
             document_date, year_end = document_calendar(connection, request)
         judgement: FactJudgement | None = None
+        same_span_as: uuid.UUID | None = None
         try:
-            if judges.judges_fact(request.session_id):
+            judged = judges.judges_fact(request.session_id)
+            value = None
+            if judged or request.session_id is not None:
                 # Every other check first (nothing is recorded: a rolled-back transaction), so
-                # the judge is asked only about a Fact that would be recorded.
+                # neither the reuse nor the judge is asked about a Fact that would be refused.
                 value = service.check(
                     request, document_date=document_date, fiscal_year_end=year_end
                 )
+            if request.session_id is not None:
+                decision = service.decide_reuse(request)
+                if decision.kind == "reuse" and decision.fact_id is not None:
+                    response.status_code = 200
+                    return service.record_reuse(request, decision.fact_id)
+                same_span_as = decision.fact_id if decision.kind == "same_span" else None
+            if judged and value is not None:
                 with engine.connect() as connection:
                     question = fact_question(connection, request)
                     judgement, misstated = judge_fact(
@@ -125,7 +146,11 @@ def facts_router(engine: Engine, archive: Archive, actor: Actor, settings: Setti
                     code, message = fact_refusal(misstated)
                     return error_response(422, code, message, misstated.detail())
             return service.create(
-                request, document_date=document_date, fiscal_year_end=year_end, judgement=judgement
+                request,
+                document_date=document_date,
+                fiscal_year_end=year_end,
+                judgement=judgement,
+                same_span_as=same_span_as,
             )
         except AssertionNotFound:
             return not_found("fact")

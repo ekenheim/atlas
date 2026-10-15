@@ -20,7 +20,9 @@ from atlas.assertions import (
     get_assertion,
 )
 from atlas.audit import Actor, content_hash, record
+from atlas.facts.duplicates import FactSpan
 from atlas.facts.periods import FiscalYearEnd, check_period, resolve, resolved_text
+from atlas.facts.reuse import Decision, decide, overlapping
 from atlas.investigations.grounding import grounds, number_occurs
 
 FACT_PREDICATE = "fact"
@@ -195,11 +197,19 @@ class Fact(BaseModel):
     # The judge's verdict on the statement at record (a session's Facts; ticket 23); None: the
     # statement was not judged (no session, or the judge was off).
     statement_judgement: FactJudgement | None = None
+    # Ticket 26: the earlier Fact of the same step whose span this one overlaps, recorded anyway
+    # because its statement is materially different (`atlas.facts.reuse`); None: it overlaps none.
+    same_span_as: uuid.UUID | None = None
 
 
 class FactRecorded(BaseModel):
     fact: Fact
     audit_event_id: int
+    reused: bool = Field(
+        default=False,
+        description="the span overlaps an earlier Fact of the same step with the same status and"
+        " an alike statement: that Fact is returned, no row was made (ticket 26)",
+    )
 
 
 class FactNotFound(AssertionRefused):
@@ -334,7 +344,8 @@ def check_status(quote: str, statement: str, status: FactStatus) -> None:
 
 
 _SELECT = """
-    SELECT f.assertion_id, f.investigation_id, f.session_id, f.created_at, a.value_json
+    SELECT f.assertion_id, f.investigation_id, f.session_id, f.created_at, f.same_span_as,
+           a.value_json
     FROM fact f JOIN assertion a ON a.id = f.assertion_id
 """
 _FILTER = """
@@ -364,6 +375,7 @@ def _build(connection: Connection, row: Any) -> Fact:
         statement_judgement=value.statement_judgement,
         created_at=row.created_at,
         assertion=assertion,
+        same_span_as=row.same_span_as,
     )
 
 
@@ -444,7 +456,8 @@ def facts_of_version(
     rows = connection.execute(
         text(
             f"SELECT {columns}, a.verification_status AS review_state,"  # noqa: S608 (constant columns)
-            " f.investigation_id AS fact_investigation_id, f.created_at AS fact_created_at"
+            " f.investigation_id AS fact_investigation_id, f.created_at AS fact_created_at,"
+            " f.same_span_as AS fact_same_span_as"
             " FROM fact f JOIN assertion a ON a.id = f.assertion_id"
             " WHERE f.investigation_id = :investigation AND a.source_version_id = :version"
             " ORDER BY f.created_at, f.assertion_id"
@@ -472,6 +485,7 @@ def facts_of_version(
                 statement_judgement=value.statement_judgement,
                 created_at=row["fact_created_at"],
                 assertion=assertion,
+                same_span_as=row["fact_same_span_as"],
             )
         )
     return facts
@@ -532,12 +546,14 @@ class Facts:
         document_date: date | None = None,
         fiscal_year_end: FiscalYearEnd | None = None,
         judgement: FactJudgement | None = None,
+        same_span_as: uuid.UUID | None = None,
     ) -> FactRecorded:
         """Record the Fact. With the document's date (and the company's fiscal year end, None
         for a calendar-year filer) its relative periods are resolved and checked by code
         (`atlas.facts.periods`): the resolution and what it rests on are stored, whatever the
         request carried, and a period the document's date contradicts is refused. `judgement`
-        is the judge's verdict on the statement, stored with the Fact (`atlas.judging`)."""
+        is the judge's verdict on the statement, stored with the Fact (`atlas.judging`).
+        `same_span_as` names the earlier Fact whose span this one overlaps (`decide_reuse`)."""
         value = self.value_of(
             request,
             document_date=document_date,
@@ -546,8 +562,67 @@ class Facts:
         )
         with self._engine.begin() as connection:
             return self._record(
-                connection, request, value, extractor_version, document_date, fiscal_year_end
+                connection,
+                request,
+                value,
+                extractor_version,
+                document_date,
+                fiscal_year_end,
+                same_span_as,
             )
+
+    def decide_reuse(self, request: FactCreate) -> Decision:
+        """Whether recording the Fact would repeat one Atlas holds (`atlas.facts.reuse`): call
+        it after `check`, which has refused what is not a Fact."""
+        candidate = FactSpan(
+            fact_id=None,
+            source_version_id=request.source_version_id,
+            company_id=request.subject_company_id,
+            span_start=request.span_start,
+            span_end=request.span_end,
+            quote=request.quote,
+            status=request.status,
+            statement=request.statement,
+            step=request.step,
+            session_key=None,
+        )
+        with self._engine.connect() as connection:
+            return decide(candidate, overlapping(connection, candidate))
+
+    def record_reuse(self, request: FactCreate, fact_id: uuid.UUID) -> FactRecorded:
+        """Return the existing Fact for a repeated span and record on the session that it was
+        reused: no `fact` row, an insert-only `session_fact_reuse` row and a `fact.reused` audit
+        event (the Fact and the session in its hash)."""
+        assert request.session_id is not None
+        with self._engine.begin() as connection:
+            fact = get_fact(connection, fact_id)
+            if fact is None:
+                raise FactNotFound
+            connection.execute(
+                text(
+                    "INSERT INTO session_fact_reuse (id, session_id, fact_id, step, statement,"
+                    " span_start, span_end) VALUES (:id, :session, :fact, :step, :statement,"
+                    " :start, :end)"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "session": request.session_id,
+                    "fact": fact_id,
+                    "step": request.step,
+                    "statement": request.statement,
+                    "start": request.span_start,
+                    "end": request.span_end,
+                },
+            )
+            event = record(
+                connection,
+                self._actor,
+                "fact.reused",
+                entity_type="fact",
+                entity_id=str(fact_id),
+                new_hash=content_hash({"fact": fact_id, "session": request.session_id}),
+            )
+        return FactRecorded(fact=fact, audit_event_id=event.id, reused=True)
 
     def check(
         self,
@@ -579,6 +654,7 @@ class Facts:
         extractor_version: str,
         document_date: date | None,
         fiscal_year_end: FiscalYearEnd | None,
+        same_span_as: uuid.UUID | None = None,
     ) -> FactRecorded:
         assertion_request = AssertionCreate(
             subject_company_id=request.subject_company_id,
@@ -628,10 +704,12 @@ class Facts:
             )
         connection.execute(
             text(
-                "INSERT INTO fact (assertion_id, investigation_id, session_id, step, status)"
-                " VALUES (:id, :investigation, :session, :step, :status)"
+                "INSERT INTO fact (assertion_id, investigation_id, session_id, step, status,"
+                " same_span_as) VALUES (:id, :investigation, :session, :step, :status,"
+                " :same_span_as)"
             ),
             {
+                "same_span_as": same_span_as,
                 "id": assertion.id,
                 "investigation": request.investigation_id,
                 "session": request.session_id,

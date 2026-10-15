@@ -1,7 +1,7 @@
 # 26: Research that compounds: a question's state at session start, Facts reused, Beliefs examined by delta
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Why
@@ -18,5 +18,5 @@ The owner asked (2026-10-15) whether session-based LLMs make Atlas restart its q
 
 ## Acceptance criteria
 
-- [ ] HTTP-seam tests: `prior_work` lists Facts, Beliefs, documents read and Issues within the as-of bound; a same-span record returns the existing Fact; `examine_belief` sets the staleness fields and `list_beliefs` orders by them; a supporting Fact from a newer document raises `belief_confirmed`.
+- [x] HTTP-seam tests: `prior_work` lists Facts, Beliefs, documents read and Issues within the as-of bound; a same-span record returns the existing Fact; `examine_belief` sets the staleness fields and `list_beliefs` orders by them; a supporting Fact from a newer document raises `belief_confirmed`.
 - [ ] Question 2 once more as a session after deploy (the lead): at most 10 of its Facts from documents the earlier sessions cited, unless they cover a named gap; the gaps (germanium, the U.S. InP permits) attempted.

@@ -1829,6 +1829,16 @@
               }
             }
           },
+          "200": {
+            "description": "reused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactRecorded"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/json": {
@@ -2757,6 +2767,20 @@
             }
           },
           {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "created",
+                "stalest"
+              ],
+              "type": "string",
+              "default": "created",
+              "title": "Sort"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -3015,6 +3039,79 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/BeliefJudge"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Belief"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/beliefs/{belief_id}/examine": {
+      "post": {
+        "tags": [
+          "beliefs"
+        ],
+        "summary": "Examine",
+        "operationId": "examine_api_v1_beliefs__belief_id__examine_post",
+        "parameters": [
+          {
+            "name": "belief_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Belief Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeliefExamine"
               }
             }
           }
@@ -7271,6 +7368,151 @@
         }
       }
     },
+    "/api/v1/research/prior-work": {
+      "get": {
+        "tags": [
+          "research"
+        ],
+        "summary": "Get Prior Work",
+        "operationId": "get_prior_work_api_v1_research_prior_work_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "title": "As Of"
+            }
+          },
+          {
+            "name": "company_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company Ids"
+            }
+          },
+          {
+            "name": "steps",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "constraint",
+                      "demand_vs_supply",
+                      "relief",
+                      "control",
+                      "capture",
+                      "invalidation",
+                      "context"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Steps"
+            }
+          },
+          {
+            "name": "question",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Question"
+            }
+          },
+          {
+            "name": "exclude_session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exclude Session Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 40,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriorWork"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/api/v1/hypotheses/{hypothesis_id}/scenarios": {
       "post": {
         "tags": [
@@ -9575,6 +9817,11 @@
             "type": "integer",
             "title": "Open Flags"
           },
+          "open_notices": {
+            "type": "integer",
+            "title": "Open Notices",
+            "description": "notices beside the flags that are no doubt (`belief_confirmed`): cleared by a judgement like a flag, never counted in `open_flags`"
+          },
           "citation_count": {
             "type": "integer",
             "title": "Citation Count"
@@ -9600,6 +9847,42 @@
             "format": "date-time",
             "title": "Created At"
           },
+          "last_examined_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined At",
+            "description": "when a session last tested it (`examine`)"
+          },
+          "last_examined_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined As Of",
+            "description": "the furthest as-of time of the sessions that tested it: it has been tested against what was public by then, so the next test reads what came after. None: never tested (read from its own `as_of`)"
+          },
+          "last_examined_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExaminationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "citations": {
             "items": {
               "$ref": "#/components/schemas/CitationRecord"
@@ -9621,6 +9904,22 @@
             },
             "type": "array",
             "title": "Flags"
+          },
+          "notices": {
+            "items": {
+              "$ref": "#/components/schemas/NoticeRecord"
+            },
+            "type": "array",
+            "title": "Notices",
+            "description": "what supports it that a flag does not carry; shown beside the flags"
+          },
+          "examinations": {
+            "items": {
+              "$ref": "#/components/schemas/ExaminationRecord"
+            },
+            "type": "array",
+            "title": "Examinations",
+            "description": "every test by a session, oldest first"
           },
           "history": {
             "items": {
@@ -9666,19 +9965,70 @@
           "companies",
           "judgement",
           "open_flags",
+          "open_notices",
           "citation_count",
           "produced_by",
           "created_by",
           "created_at",
+          "last_examined_at",
+          "last_examined_as_of",
+          "last_examined_outcome",
           "citations",
           "counterevidence",
           "flags",
+          "notices",
+          "examinations",
           "history",
           "supersedes",
           "superseded_by",
           "session"
         ],
         "title": "Belief"
+      },
+      "BeliefExamine": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id",
+            "description": "the research session that tested it"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ExaminationOutcome",
+            "description": "confirmed: newer evidence supports it; qualified: newer evidence limits, dates or narrows it; contradicted: newer evidence contradicts it; nothing_new: it read what came after and found nothing that bears on it"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor",
+            "description": "who examines; default: the session's"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_id",
+          "outcome"
+        ],
+        "title": "BeliefExamine",
+        "description": "A session tested the Belief (ticket 26): what it found, against what was public by the\nsession's as-of time. It records no judgement; only an author's `judge` does that."
       },
       "BeliefJudge": {
         "properties": {
@@ -9859,6 +10209,11 @@
             "type": "integer",
             "title": "Open Flags"
           },
+          "open_notices": {
+            "type": "integer",
+            "title": "Open Notices",
+            "description": "notices beside the flags that are no doubt (`belief_confirmed`): cleared by a judgement like a flag, never counted in `open_flags`"
+          },
           "citation_count": {
             "type": "integer",
             "title": "Citation Count"
@@ -9883,6 +10238,42 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "last_examined_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined At",
+            "description": "when a session last tested it (`examine`)"
+          },
+          "last_examined_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined As Of",
+            "description": "the furthest as-of time of the sessions that tested it: it has been tested against what was public by then, so the next test reads what came after. None: never tested (read from its own `as_of`)"
+          },
+          "last_examined_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExaminationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -9896,10 +10287,14 @@
           "companies",
           "judgement",
           "open_flags",
+          "open_notices",
           "citation_count",
           "produced_by",
           "created_by",
-          "created_at"
+          "created_at",
+          "last_examined_at",
+          "last_examined_as_of",
+          "last_examined_outcome"
         ],
         "title": "BeliefSummary"
       },
@@ -10675,6 +11070,166 @@
           "rejected",
           "closed"
         ]
+      },
+      "Capped_DocumentRead_": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "shown": {
+            "type": "integer",
+            "title": "Shown"
+          },
+          "beyond": {
+            "type": "integer",
+            "title": "Beyond",
+            "description": "`total` - `shown`: what the cap left out"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentRead"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "shown",
+          "beyond",
+          "items"
+        ],
+        "title": "Capped[DocumentRead]"
+      },
+      "Capped_PriorBelief_": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "shown": {
+            "type": "integer",
+            "title": "Shown"
+          },
+          "beyond": {
+            "type": "integer",
+            "title": "Beyond",
+            "description": "`total` - `shown`: what the cap left out"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PriorBelief"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "shown",
+          "beyond",
+          "items"
+        ],
+        "title": "Capped[PriorBelief]"
+      },
+      "Capped_PriorFact_": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "shown": {
+            "type": "integer",
+            "title": "Shown"
+          },
+          "beyond": {
+            "type": "integer",
+            "title": "Beyond",
+            "description": "`total` - `shown`: what the cap left out"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PriorFact"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "shown",
+          "beyond",
+          "items"
+        ],
+        "title": "Capped[PriorFact]"
+      },
+      "Capped_PriorIssue_": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "shown": {
+            "type": "integer",
+            "title": "Shown"
+          },
+          "beyond": {
+            "type": "integer",
+            "title": "Beyond",
+            "description": "`total` - `shown`: what the cap left out"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PriorIssue"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "shown",
+          "beyond",
+          "items"
+        ],
+        "title": "Capped[PriorIssue]"
+      },
+      "Capped_PriorSession_": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "shown": {
+            "type": "integer",
+            "title": "Shown"
+          },
+          "beyond": {
+            "type": "integer",
+            "title": "Beyond",
+            "description": "`total` - `shown`: what the cap left out"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PriorSession"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "shown",
+          "beyond",
+          "items"
+        ],
+        "title": "Capped[PriorSession]"
       },
       "CardArgumentStep": {
         "properties": {
@@ -13540,6 +14095,11 @@
             "type": "integer",
             "title": "Open Flags"
           },
+          "open_notices": {
+            "type": "integer",
+            "title": "Open Notices",
+            "description": "notices beside the flags that are no doubt (`belief_confirmed`): cleared by a judgement like a flag, never counted in `open_flags`"
+          },
           "citation_count": {
             "type": "integer",
             "title": "Citation Count"
@@ -13565,6 +14125,42 @@
             "format": "date-time",
             "title": "Created At"
           },
+          "last_examined_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined At",
+            "description": "when a session last tested it (`examine`)"
+          },
+          "last_examined_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined As Of",
+            "description": "the furthest as-of time of the sessions that tested it: it has been tested against what was public by then, so the next test reads what came after. None: never tested (read from its own `as_of`)"
+          },
+          "last_examined_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExaminationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cited_companies": {
             "items": {
               "$ref": "#/components/schemas/CompanyRef"
@@ -13589,10 +14185,14 @@
           "companies",
           "judgement",
           "open_flags",
+          "open_notices",
           "citation_count",
           "produced_by",
           "created_by",
           "created_at",
+          "last_examined_at",
+          "last_examined_as_of",
+          "last_examined_outcome",
           "cited_companies",
           "exposure"
         ],
@@ -14943,6 +15543,69 @@
         ],
         "title": "DisproveRequest"
       },
+      "DocumentRead": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "form_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Type"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts",
+            "description": "the standing Facts recorded from it"
+          },
+          "read_by": {
+            "items": {
+              "$ref": "#/components/schemas/ReadBy"
+            },
+            "type": "array",
+            "title": "Read By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "company",
+          "title",
+          "form_type",
+          "available_at",
+          "facts",
+          "read_by"
+        ],
+        "title": "DocumentRead"
+      },
       "EdgarSearch": {
         "properties": {
           "query": {
@@ -16197,6 +16860,68 @@
         "title": "EvidenceItem",
         "description": "An accepted Claim of the investigation (the Evidence tray): the Assertion it became and\nits source span. `excluded`: read by a task whose premise was disproven, so the Editor\nleaves it out."
       },
+      "ExaminationOutcome": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "qualified",
+          "contradicted",
+          "nothing_new"
+        ]
+      },
+      "ExaminationRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ExaminationOutcome"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "outcome",
+          "as_of",
+          "actor",
+          "note",
+          "at"
+        ],
+        "title": "ExaminationRecord"
+      },
       "ExportCompany": {
         "properties": {
           "id": {
@@ -16699,6 +17424,12 @@
           "audit_event_id": {
             "type": "integer",
             "title": "Audit Event Id"
+          },
+          "reused": {
+            "type": "boolean",
+            "title": "Reused",
+            "description": "the span overlaps an earlier Fact of the same step with the same status and an alike statement: that Fact is returned, no row was made (ticket 26)",
+            "default": false
           }
         },
         "type": "object",
@@ -16747,6 +17478,15 @@
               }
             ],
             "title": "Role Call Id"
+          },
+          "confirmed_beliefs": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Confirmed Beliefs",
+            "description": "the proven Beliefs given a `belief_confirmed` notice: `supports` of a load-bearing Fact of theirs, by a session's Fact from a document newer than their as-of time (ticket 26). The judgement is not touched"
           }
         },
         "type": "object",
@@ -22481,6 +23221,58 @@
           "priority"
         ]
       },
+      "NoticeKind": {
+        "type": "string",
+        "const": "belief_confirmed"
+      },
+      "NoticeRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NoticeKind"
+          },
+          "ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ref Id"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "raised_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Raised At"
+          },
+          "cleared_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "ref_id",
+          "detail",
+          "raised_at",
+          "cleared_by"
+        ],
+        "title": "NoticeRecord"
+      },
       "ObservationScopesHealth": {
         "properties": {
           "status": {
@@ -23826,6 +24618,452 @@
         ],
         "title": "PriceHistory"
       },
+      "PriorBelief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "companies": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "judgement": {
+            "type": "string",
+            "title": "Judgement"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "judged_by": {
+            "type": "string",
+            "title": "Judged By"
+          },
+          "judged_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Judged At"
+          },
+          "open_flags": {
+            "type": "integer",
+            "title": "Open Flags"
+          },
+          "open_notices": {
+            "type": "integer",
+            "title": "Open Notices"
+          },
+          "last_examined_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined At"
+          },
+          "last_examined_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined As Of"
+          },
+          "last_examined_outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined Outcome"
+          },
+          "examined_through": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Examined Through",
+            "description": "the as-of time the Belief has been tested against: its last examination's, else its own. Documents public after it are new to it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "step",
+          "as_of",
+          "companies",
+          "judgement",
+          "confidence",
+          "judged_by",
+          "judged_at",
+          "open_flags",
+          "open_notices",
+          "last_examined_at",
+          "last_examined_as_of",
+          "last_examined_outcome",
+          "examined_through"
+        ],
+        "title": "PriorBelief"
+      },
+      "PriorFact": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company",
+            "description": "the slug of the company it is about"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "period_resolved": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Resolved"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "document_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Title"
+          },
+          "document_available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Document Available At"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "same_span_as": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Same Span As"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "company",
+          "step",
+          "status",
+          "statement",
+          "period",
+          "period_resolved",
+          "source_version_id",
+          "document_title",
+          "document_available_at",
+          "session_id",
+          "same_span_as",
+          "created_at"
+        ],
+        "title": "PriorFact"
+      },
+      "PriorIssue": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "companies": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "parent_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Title"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "priority",
+          "companies",
+          "parent_title",
+          "produced_by"
+        ],
+        "title": "PriorIssue"
+      },
+      "PriorSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "pipeline"
+            ],
+            "title": "Kind"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "same_question": {
+            "type": "boolean",
+            "title": "Same Question",
+            "description": "its question is this one, ignoring case and spacing"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts"
+          },
+          "open_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Open Questions",
+            "description": "what its card said it could not establish"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "question",
+          "same_question",
+          "as_of",
+          "actor",
+          "started_at",
+          "finished_at",
+          "facts",
+          "open_questions"
+        ],
+        "title": "PriorSession"
+      },
+      "PriorWork": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "companies": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Companies",
+            "description": "the slugs asked about"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Steps",
+            "description": "the steps asked about; empty: all"
+          },
+          "latest_session_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Session As Of",
+            "description": "the as-of time of the latest earlier session that read a document of these companies: documents public after it are new to Atlas (`newest_documents(since=...)`)"
+          },
+          "hidden_sessions": {
+            "type": "integer",
+            "title": "Hidden Sessions",
+            "description": "earlier sessions with an as-of time after this one"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/Capped_PriorFact_"
+          },
+          "beliefs": {
+            "$ref": "#/components/schemas/Capped_PriorBelief_"
+          },
+          "documents_read": {
+            "$ref": "#/components/schemas/Capped_DocumentRead_"
+          },
+          "sessions": {
+            "$ref": "#/components/schemas/Capped_PriorSession_"
+          },
+          "issues": {
+            "$ref": "#/components/schemas/Capped_PriorIssue_"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "theme",
+          "companies",
+          "steps",
+          "latest_session_as_of",
+          "hidden_sessions",
+          "facts",
+          "beliefs",
+          "documents_read",
+          "sessions",
+          "issues"
+        ],
+        "title": "PriorWork"
+      },
       "Proposal": {
         "properties": {
           "kind": {
@@ -24586,6 +25824,37 @@
         ],
         "title": "QuotedText",
         "description": "Retrieved text passed to a role: always quoted, always low-trust data (spec §7.5)."
+      },
+      "ReadBy": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id"
+          },
+          "session_as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Session As Of"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "first_read_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Read At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "session_as_of",
+          "question",
+          "first_read_at"
+        ],
+        "title": "ReadBy"
       },
       "ReadingPointer": {
         "properties": {
@@ -27581,6 +28850,12 @@
             "title": "Tool Calls",
             "description": "the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)"
           },
+          "facts_reused": {
+            "type": "integer",
+            "title": "Facts Reused",
+            "description": "the times it recorded a span an earlier Fact already covers and was given that Fact instead of a new one (`session_fact_reuse`, ticket 26)",
+            "default": 0
+          },
           "card": {
             "anyOf": [
               {
@@ -29256,6 +30531,12 @@
             "type": "integer",
             "title": "Tool Calls",
             "description": "the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)"
+          },
+          "facts_reused": {
+            "type": "integer",
+            "title": "Facts Reused",
+            "description": "the times it recorded a span an earlier Fact already covers and was given that Fact instead of a new one (`session_fact_reuse`, ticket 26)",
+            "default": 0
           }
         },
         "type": "object",
@@ -30281,6 +31562,15 @@
             "type": "array",
             "title": "Counter Relations"
           },
+          "confirmed_beliefs": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Confirmed Beliefs",
+            "description": "the Beliefs noticed by a `supports` among the counter relations"
+          },
           "judge": {
             "type": "string",
             "title": "Judge"
@@ -30682,6 +31972,11 @@
             "type": "integer",
             "title": "Open Flags"
           },
+          "open_notices": {
+            "type": "integer",
+            "title": "Open Notices",
+            "description": "notices beside the flags that are no doubt (`belief_confirmed`): cleared by a judgement like a flag, never counted in `open_flags`"
+          },
           "citation_count": {
             "type": "integer",
             "title": "Citation Count"
@@ -30707,6 +32002,42 @@
             "format": "date-time",
             "title": "Created At"
           },
+          "last_examined_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined At",
+            "description": "when a session last tested it (`examine`)"
+          },
+          "last_examined_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Examined As Of",
+            "description": "the furthest as-of time of the sessions that tested it: it has been tested against what was public by then, so the next test reads what came after. None: never tested (read from its own `as_of`)"
+          },
+          "last_examined_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExaminationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cited_companies": {
             "items": {
               "$ref": "#/components/schemas/CompanyRef"
@@ -30727,10 +32058,14 @@
           "companies",
           "judgement",
           "open_flags",
+          "open_notices",
           "citation_count",
           "produced_by",
           "created_by",
           "created_at",
+          "last_examined_at",
+          "last_examined_as_of",
+          "last_examined_outcome",
           "cited_companies"
         ],
         "title": "ThemeBelief"
@@ -32461,6 +33796,18 @@
                 "type": "null"
               }
             ]
+          },
+          "same_span_as": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Same Span As"
           }
         },
         "type": "object",

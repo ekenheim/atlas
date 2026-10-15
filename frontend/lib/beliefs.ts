@@ -7,6 +7,10 @@ export type Step = BeliefSummary["step"];
 export type JudgementName = BeliefSummary["judgement"]["judgement"];
 export type FlagKind = Belief["flags"][number]["kind"];
 export type BeliefStatus = BeliefSummary["status"];
+export type NoticeKind = Belief["notices"][number]["kind"];
+export type ExaminationOutcome = NonNullable<
+  BeliefSummary["last_examined_outcome"]
+>;
 type Citation = Belief["citations"][number];
 
 /** The argument's steps in the order the argument runs. */
@@ -39,6 +43,38 @@ export const FLAGS: Record<FlagKind, string> = {
   assertion_reviewed: "A cited statement was disputed or rejected",
   fact_superseded: "A cited Fact was superseded",
 };
+
+/** Notices sit beside the flags but are no doubt: what supports a Belief. */
+export const NOTICES: Record<NoticeKind, string> = {
+  belief_confirmed: "A newer document supports it",
+};
+
+export const OUTCOMES: Record<ExaminationOutcome, string> = {
+  confirmed: "confirmed",
+  qualified: "qualified",
+  contradicted: "contradicted",
+  nothing_new: "nothing new",
+};
+
+/** "1 confirmation", "2 confirmations"; empty when no notice is open. */
+export function confirmationText(
+  belief: Pick<BeliefSummary, "open_notices">,
+): string {
+  const count = belief.open_notices;
+  if (count <= 0) return "";
+  return `${count} ${count === 1 ? "confirmation" : "confirmations"}`;
+}
+
+/** Where a Belief stands in being tested again: the as-of time it was last tested
+ * against and what that found, else that it has not been tested since it was proposed. */
+export function testedText(
+  belief: Pick<BeliefSummary, "last_examined_as_of" | "last_examined_outcome">,
+): string {
+  if (!belief.last_examined_as_of || !belief.last_examined_outcome) {
+    return "Not tested since it was proposed";
+  }
+  return `Tested through ${day(belief.last_examined_as_of)}: ${OUTCOMES[belief.last_examined_outcome]}`;
+}
 
 /** The pill's colour class: proven green, disproven amber, the rest grey. */
 export function judgementTone(judgement: JudgementName): string {

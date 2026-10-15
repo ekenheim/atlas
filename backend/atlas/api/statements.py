@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Engine, RowMapping, text
 
 from atlas.api.common import INVALID, NOT_FOUND, error_response, error_responses, not_found
+from atlas.beliefs.notices import confirm_by_relation
 from atlas.investigations.argument import fact_rows, judged_fact
 from atlas.investigations.meaning import finding_metadata, verify_bases, voting
 from atlas.investigations.tasks import _judged_fact  # pyright: ignore[reportPrivateUsage]
@@ -100,6 +101,10 @@ class StatementJudgement(BaseModel):
     refs: dict[str, uuid.UUID]  # `c1`, ... as the clauses name them -> the cited Fact
     votes: list[JudgeVote]
     counter_relations: list[CounterRelationOut]
+    confirmed_beliefs: list[uuid.UUID] = Field(
+        default_factory=list[uuid.UUID],
+        description="the Beliefs noticed by a `supports` among the counter relations",
+    )
     judge: str
     run_id: uuid.UUID
 
@@ -117,6 +122,12 @@ class FactRelation(BaseModel):
     judge: str
     run_id: uuid.UUID
     role_call_id: uuid.UUID | None
+    confirmed_beliefs: list[uuid.UUID] = Field(
+        default_factory=list[uuid.UUID],
+        description="the proven Beliefs given a `belief_confirmed` notice: `supports` of a"
+        " load-bearing Fact of theirs, by a session's Fact from a document newer than their"
+        " as-of time (ticket 26). The judgement is not touched",
+    )
 
 
 class _Refused(Exception):
@@ -206,6 +217,14 @@ def statements_router(engine: Engine, settings: Settings) -> APIRouter:
                 out.append((row["id"], each.relation, each.reason, role_call_id))
         return out
 
+    def confirmed(fact_id: uuid.UUID, counter_fact_id: uuid.UUID, relation: str) -> list[uuid.UUID]:
+        """The Beliefs noticed because a session's Fact supports a Fact they rest on (ticket
+        26; `atlas.beliefs.notices`): none unless the counter-judge said `supports`."""
+        if relation != "supports":
+            return []
+        with engine.begin() as connection:
+            return confirm_by_relation(connection, fact_id, counter_fact_id)
+
     def failed(error: Exception) -> JSONResponse:
         if isinstance(error, TransientFailure):
             return error_response(
@@ -289,6 +308,14 @@ def statements_router(engine: Engine, settings: Settings) -> APIRouter:
                 for index, (vote, call_id) in enumerate(ballot.votes)
             ],
             counter_relations=relations,
+            confirmed_beliefs=list(
+                dict.fromkeys(
+                    belief
+                    for each in relations
+                    if each.relation == "supports"
+                    for belief in confirmed(each.fact_id, each.counter_fact_id, each.relation)
+                )
+            ),
             judge=FINDING_JUDGE_VERSION,
             run_id=run_id,
         )
@@ -317,6 +344,7 @@ def statements_router(engine: Engine, settings: Settings) -> APIRouter:
             judge=COUNTER_JUDGE_VERSION,
             run_id=run_id,
             role_call_id=call_id,
+            confirmed_beliefs=confirmed(body.fact_id, body.counter_fact_id, relation),
         )
 
     return router

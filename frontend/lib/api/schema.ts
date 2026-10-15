@@ -689,6 +689,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/beliefs/{belief_id}/examine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Examine */
+        post: operations["examine_api_v1_beliefs__belief_id__examine_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/beliefs/{belief_id}/supersede": {
         parameters: {
             query?: never;
@@ -1626,6 +1643,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/research/prior-work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Prior Work */
+        get: operations["get_prior_work_api_v1_research_prior_work_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hypotheses/{hypothesis_id}/scenarios": {
         parameters: {
             query?: never;
@@ -2327,6 +2361,11 @@ export interface components {
             judgement: components["schemas"]["JudgementRecord"];
             /** Open Flags */
             open_flags: number;
+            /**
+             * Open Notices
+             * @description notices beside the flags that are no doubt (`belief_confirmed`): cleared by a judgement like a flag, never counted in `open_flags`
+             */
+            open_notices: number;
             /** Citation Count */
             citation_count: number;
             /** Produced By */
@@ -2338,6 +2377,17 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Last Examined At
+             * @description when a session last tested it (`examine`)
+             */
+            last_examined_at: string | null;
+            /**
+             * Last Examined As Of
+             * @description the furthest as-of time of the sessions that tested it: it has been tested against what was public by then, so the next test reads what came after. None: never tested (read from its own `as_of`)
+             */
+            last_examined_as_of: string | null;
+            last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
             /** Citations */
             citations: components["schemas"]["CitationRecord"][];
             /**
@@ -2348,6 +2398,16 @@ export interface components {
             /** Flags */
             flags: components["schemas"]["FlagRecord"][];
             /**
+             * Notices
+             * @description what supports it that a flag does not carry; shown beside the flags
+             */
+            notices: components["schemas"]["NoticeRecord"][];
+            /**
+             * Examinations
+             * @description every test by a session, oldest first
+             */
+            examinations: components["schemas"]["ExaminationRecord"][];
+            /**
              * History
              * @description every judgement, oldest first
              */
@@ -2357,6 +2417,28 @@ export interface components {
             /** Superseded By */
             superseded_by: components["schemas"]["BeliefLink"][];
             session: components["schemas"]["SessionSummary"] | null;
+        };
+        /**
+         * BeliefExamine
+         * @description A session tested the Belief (ticket 26): what it found, against what was public by the
+         *     session's as-of time. It records no judgement; only an author's `judge` does that.
+         */
+        BeliefExamine: {
+            /**
+             * Session Id
+             * Format: uuid
+             * @description the research session that tested it
+             */
+            session_id: string;
+            /** @description confirmed: newer evidence supports it; qualified: newer evidence limits, dates or narrows it; contradicted: newer evidence contradicts it; nothing_new: it read what came after and found nothing that bears on it */
+            outcome: components["schemas"]["ExaminationOutcome"];
+            /** Note */
+            note?: string | null;
+            /**
+             * Actor
+             * @description who examines; default: the session's
+             */
+            actor?: string | null;
         };
         /** BeliefJudge */
         BeliefJudge: {
@@ -2438,6 +2520,11 @@ export interface components {
             judgement: components["schemas"]["JudgementRecord"];
             /** Open Flags */
             open_flags: number;
+            /**
+             * Open Notices
+             * @description notices beside the flags that are no doubt (`belief_confirmed`): cleared by a judgement like a flag, never counted in `open_flags`
+             */
+            open_notices: number;
             /** Citation Count */
             citation_count: number;
             /** Produced By */
@@ -2449,6 +2536,17 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Last Examined At
+             * @description when a session last tested it (`examine`)
+             */
+            last_examined_at: string | null;
+            /**
+             * Last Examined As Of
+             * @description the furthest as-of time of the sessions that tested it: it has been tested against what was public by then, so the next test reads what came after. None: never tested (read from its own `as_of`)
+             */
+            last_examined_as_of: string | null;
+            last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
         };
         /** BeliefSupersede */
         BeliefSupersede: {
@@ -2732,6 +2830,76 @@ export interface components {
         };
         /** @enum {string} */
         CandidateState: "lead" | "investigating" | "evidence_ready" | "needs_more_evidence" | "paper_tracking" | "rejected" | "closed";
+        /** Capped[DocumentRead] */
+        Capped_DocumentRead_: {
+            /** Total */
+            total: number;
+            /** Shown */
+            shown: number;
+            /**
+             * Beyond
+             * @description `total` - `shown`: what the cap left out
+             */
+            beyond: number;
+            /** Items */
+            items: components["schemas"]["DocumentRead"][];
+        };
+        /** Capped[PriorBelief] */
+        Capped_PriorBelief_: {
+            /** Total */
+            total: number;
+            /** Shown */
+            shown: number;
+            /**
+             * Beyond
+             * @description `total` - `shown`: what the cap left out
+             */
+            beyond: number;
+            /** Items */
+            items: components["schemas"]["PriorBelief"][];
+        };
+        /** Capped[PriorFact] */
+        Capped_PriorFact_: {
+            /** Total */
+            total: number;
+            /** Shown */
+            shown: number;
+            /**
+             * Beyond
+             * @description `total` - `shown`: what the cap left out
+             */
+            beyond: number;
+            /** Items */
+            items: components["schemas"]["PriorFact"][];
+        };
+        /** Capped[PriorIssue] */
+        Capped_PriorIssue_: {
+            /** Total */
+            total: number;
+            /** Shown */
+            shown: number;
+            /**
+             * Beyond
+             * @description `total` - `shown`: what the cap left out
+             */
+            beyond: number;
+            /** Items */
+            items: components["schemas"]["PriorIssue"][];
+        };
+        /** Capped[PriorSession] */
+        Capped_PriorSession_: {
+            /** Total */
+            total: number;
+            /** Shown */
+            shown: number;
+            /**
+             * Beyond
+             * @description `total` - `shown`: what the cap left out
+             */
+            beyond: number;
+            /** Items */
+            items: components["schemas"]["PriorSession"][];
+        };
         /**
          * CardArgumentStep
          * @description One step of the argument (bottleneck-argument ticket 05): its status, the Editor's
@@ -3864,6 +4032,11 @@ export interface components {
             judgement: components["schemas"]["JudgementRecord"];
             /** Open Flags */
             open_flags: number;
+            /**
+             * Open Notices
+             * @description notices beside the flags that are no doubt (`belief_confirmed`): cleared by a judgement like a flag, never counted in `open_flags`
+             */
+            open_notices: number;
             /** Citation Count */
             citation_count: number;
             /** Produced By */
@@ -3875,6 +4048,17 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Last Examined At
+             * @description when a session last tested it (`examine`)
+             */
+            last_examined_at: string | null;
+            /**
+             * Last Examined As Of
+             * @description the furthest as-of time of the sessions that tested it: it has been tested against what was public by then, so the next test reads what came after. None: never tested (read from its own `as_of`)
+             */
+            last_examined_as_of: string | null;
+            last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
             /**
              * Cited Companies
              * @description the companies whose Facts the Belief cites, by name
@@ -4352,6 +4536,32 @@ export interface components {
         DisproveRequest: {
             /** Reason */
             reason: string;
+        };
+        /** DocumentRead */
+        DocumentRead: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Company */
+            company: string;
+            /** Title */
+            title: string | null;
+            /** Form Type */
+            form_type: string | null;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /**
+             * Facts
+             * @description the standing Facts recorded from it
+             */
+            facts: number;
+            /** Read By */
+            read_by: components["schemas"]["ReadBy"][];
         };
         /**
          * EdgarSearch
@@ -4853,6 +5063,36 @@ export interface components {
             /** Speaker */
             speaker?: string | null;
         };
+        /** @enum {string} */
+        ExaminationOutcome: "confirmed" | "qualified" | "contradicted" | "nothing_new";
+        /** ExaminationRecord */
+        ExaminationRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            outcome: components["schemas"]["ExaminationOutcome"];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Actor */
+            actor: string;
+            /** Note */
+            note: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
         /** ExportCompany */
         ExportCompany: {
             /**
@@ -5034,6 +5274,12 @@ export interface components {
             fact: components["schemas"]["atlas__facts__service__Fact"];
             /** Audit Event Id */
             audit_event_id: number;
+            /**
+             * Reused
+             * @description the span overlaps an earlier Fact of the same step with the same status and an alike statement: that Fact is returned, no row was made (ticket 26)
+             * @default false
+             */
+            reused: boolean;
         };
         /** FactRelation */
         FactRelation: {
@@ -5053,6 +5299,11 @@ export interface components {
             run_id: string;
             /** Role Call Id */
             role_call_id: string | null;
+            /**
+             * Confirmed Beliefs
+             * @description the proven Beliefs given a `belief_confirmed` notice: `supports` of a load-bearing Fact of theirs, by a session's Fact from a document newer than their as-of time (ticket 26). The judgement is not touched
+             */
+            confirmed_beliefs?: string[];
         };
         /** @enum {string} */
         FactType: "world" | "experience" | "observation";
@@ -6981,6 +7232,31 @@ export interface components {
         };
         /** @enum {string} */
         NextReason: "step_without_belief" | "flagged_or_disputed" | "priority";
+        /** @constant */
+        NoticeKind: "belief_confirmed";
+        /** NoticeRecord */
+        NoticeRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["NoticeKind"];
+            /**
+             * Ref Id
+             * Format: uuid
+             */
+            ref_id: string;
+            /** Detail */
+            detail: string;
+            /**
+             * Raised At
+             * Format: date-time
+             */
+            raised_at: string;
+            /** Cleared By */
+            cleared_by: string | null;
+        };
         /** ObservationScopesHealth */
         ObservationScopesHealth: {
             /**
@@ -7501,6 +7777,192 @@ export interface components {
              */
             note: string;
         };
+        /** PriorBelief */
+        PriorBelief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Statement */
+            statement: string;
+            /** Step */
+            step: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Companies */
+            companies: string[];
+            /** Judgement */
+            judgement: string;
+            /** Confidence */
+            confidence: number;
+            /** Judged By */
+            judged_by: string;
+            /**
+             * Judged At
+             * Format: date-time
+             */
+            judged_at: string;
+            /** Open Flags */
+            open_flags: number;
+            /** Open Notices */
+            open_notices: number;
+            /** Last Examined At */
+            last_examined_at: string | null;
+            /** Last Examined As Of */
+            last_examined_as_of: string | null;
+            /** Last Examined Outcome */
+            last_examined_outcome: string | null;
+            /**
+             * Examined Through
+             * Format: date-time
+             * @description the as-of time the Belief has been tested against: its last examination's, else its own. Documents public after it are new to it
+             */
+            examined_through: string;
+        };
+        /** PriorFact */
+        PriorFact: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Company
+             * @description the slug of the company it is about
+             */
+            company: string;
+            /** Step */
+            step: string;
+            /** Status */
+            status: string;
+            /** Statement */
+            statement: string;
+            /** Period */
+            period: string | null;
+            /** Period Resolved */
+            period_resolved: string | null;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Document Title */
+            document_title: string | null;
+            /**
+             * Document Available At
+             * Format: date-time
+             */
+            document_available_at: string;
+            /** Session Id */
+            session_id: string | null;
+            /** Same Span As */
+            same_span_as: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PriorIssue */
+        PriorIssue: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Kind */
+            kind: string;
+            /** Priority */
+            priority: number;
+            /** Companies */
+            companies: string[];
+            /** Parent Title */
+            parent_title: string | null;
+            /** Produced By */
+            produced_by: string | null;
+        };
+        /** PriorSession */
+        PriorSession: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "claude" | "pipeline";
+            /** Question */
+            question: string;
+            /**
+             * Same Question
+             * @description its question is this one, ignoring case and spacing
+             */
+            same_question: boolean;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Actor */
+            actor: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Facts */
+            facts: number;
+            /**
+             * Open Questions
+             * @description what its card said it could not establish
+             */
+            open_questions: string[];
+        };
+        /** PriorWork */
+        PriorWork: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Theme */
+            theme: string;
+            /**
+             * Companies
+             * @description the slugs asked about
+             */
+            companies: string[];
+            /**
+             * Steps
+             * @description the steps asked about; empty: all
+             */
+            steps: string[];
+            /**
+             * Latest Session As Of
+             * @description the as-of time of the latest earlier session that read a document of these companies: documents public after it are new to Atlas (`newest_documents(since=...)`)
+             */
+            latest_session_as_of: string | null;
+            /**
+             * Hidden Sessions
+             * @description earlier sessions with an as-of time after this one
+             */
+            hidden_sessions: number;
+            facts: components["schemas"]["Capped_PriorFact_"];
+            beliefs: components["schemas"]["Capped_PriorBelief_"];
+            documents_read: components["schemas"]["Capped_DocumentRead_"];
+            sessions: components["schemas"]["Capped_PriorSession_"];
+            issues: components["schemas"]["Capped_PriorIssue_"];
+        };
         /**
          * Proposal
          * @description One identifier mapping the resolution supports: `cik`, `lei`, or a `listing`
@@ -7800,6 +8262,26 @@ export interface components {
              * @constant
              */
             trust: "low";
+        };
+        /** ReadBy */
+        ReadBy: {
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /**
+             * Session As Of
+             * Format: date-time
+             */
+            session_as_of: string;
+            /** Question */
+            question: string;
+            /**
+             * First Read At
+             * Format: date-time
+             */
+            first_read_at: string;
         };
         /**
          * ReadingPointer
@@ -8875,6 +9357,12 @@ export interface components {
              * @description the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)
              */
             tool_calls: number;
+            /**
+             * Facts Reused
+             * @description the times it recorded a span an earlier Fact already covers and was given that Fact instead of a new one (`session_fact_reuse`, ticket 26)
+             * @default 0
+             */
+            facts_reused: number;
             /** Card */
             card: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -9584,6 +10072,12 @@ export interface components {
              * @description the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)
              */
             tool_calls: number;
+            /**
+             * Facts Reused
+             * @description the times it recorded a span an earlier Fact already covers and was given that Fact instead of a new one (`session_fact_reuse`, ticket 26)
+             * @default 0
+             */
+            facts_reused: number;
         };
         /** SkippedVersion */
         SkippedVersion: {
@@ -9917,6 +10411,11 @@ export interface components {
             votes: components["schemas"]["JudgeVote"][];
             /** Counter Relations */
             counter_relations: components["schemas"]["CounterRelationOut"][];
+            /**
+             * Confirmed Beliefs
+             * @description the Beliefs noticed by a `supports` among the counter relations
+             */
+            confirmed_beliefs?: string[];
             /** Judge */
             judge: string;
             /**
@@ -10084,6 +10583,11 @@ export interface components {
             judgement: components["schemas"]["JudgementRecord"];
             /** Open Flags */
             open_flags: number;
+            /**
+             * Open Notices
+             * @description notices beside the flags that are no doubt (`belief_confirmed`): cleared by a judgement like a flag, never counted in `open_flags`
+             */
+            open_notices: number;
             /** Citation Count */
             citation_count: number;
             /** Produced By */
@@ -10095,6 +10599,17 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Last Examined At
+             * @description when a session last tested it (`examine`)
+             */
+            last_examined_at: string | null;
+            /**
+             * Last Examined As Of
+             * @description the furthest as-of time of the sessions that tested it: it has been tested against what was public by then, so the next test reads what came after. None: never tested (read from its own `as_of`)
+             */
+            last_examined_as_of: string | null;
+            last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
             /**
              * Cited Companies
              * @description the companies whose Facts the Belief cites, by name
@@ -10780,6 +11295,8 @@ export interface components {
             /** Part */
             part?: string | null;
             statement_judgement?: components["schemas"]["FactJudgement"] | null;
+            /** Same Span As */
+            same_span_as?: string | null;
         };
         /** Citation */
         atlas__hypotheses__export__Citation: {
@@ -11875,6 +12392,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description reused */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactRecorded"];
+                };
+            };
             /** @description Successful Response */
             201: {
                 headers: {
@@ -12450,6 +12976,7 @@ export interface operations {
                 status?: string | null;
                 flagged?: boolean | null;
                 as_of?: string | null;
+                sort?: "created" | "stalest";
                 /** @description page size */
                 limit?: number;
                 /** @description items to skip */
@@ -12621,6 +13148,59 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BeliefJudge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Belief"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    examine_api_v1_beliefs__belief_id__examine_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                belief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeliefExamine"];
             };
         };
         responses: {
@@ -15183,6 +15763,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_prior_work_api_v1_research_prior_work_get: {
+        parameters: {
+            query: {
+                theme: string;
+                as_of: string;
+                company_ids?: string[] | null;
+                steps?: ("constraint" | "demand_vs_supply" | "relief" | "control" | "capture" | "invalidation" | "context")[] | null;
+                question?: string | null;
+                exclude_session_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriorWork"];
                 };
             };
             /** @description Unprocessable Entity */

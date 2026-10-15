@@ -11,10 +11,11 @@ Read `.claude/skills/atlas-research/SKILL.md` and do what it says. It is the who
 - Seed companies: the companies the Issue names (slugs); if it names none, choose at most three with `companies` by the layer the question names.
 - As-of time: {{AS_OF}} (the start of this run; pass it to `open_session` unchanged)
 - Output folder: {{OUT_DIR}} (create it; write the files `SKILL.md` lists there)
+- Start: after `open_session`, call `prior_work` and follow `SKILL.md`'s "Start from what Atlas holds": spend your calls on documents public after its `latest_session_as_of` and on the gaps earlier sessions named, and cite an existing Fact rather than recording its span again. Call `examine_belief` for a Belief you tested.
 - Recall: allowed. `recall` with `bank: research` is an index to find sections to `read`, never evidence. `recall` with `bank: beliefs` is in use: it returns earlier sessions' judged conclusions and the Facts they rest on; test one against what you read and never cite it.
 - Call bound: {{CALL_BOUND}} (searches, reads, recalls, records, judges, relates and proposals together)
 
-Tools: open_session, close_session, companies, search, read, locate, record_fact, get_fact, judge_statement, relate_facts, propose_belief, cite_belief, supersede_belief, open_issue, narrow_issue, complete_issue, next_issue, recall
+Tools: open_session, close_session, companies, search, read, locate, record_fact, get_fact, judge_statement, relate_facts, propose_belief, cite_belief, supersede_belief, open_issue, narrow_issue, complete_issue, next_issue, prior_work, examine_belief, recall
 
 The tools are the Atlas MCP server's; your tool list names them with the prefix `mcp__atlas__`. You have no others except reading and writing files in the output folder.
 

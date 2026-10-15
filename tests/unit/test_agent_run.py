@@ -190,7 +190,8 @@ def test_the_skeptic_is_given_no_belief(run: Run):
     prompt = run.call("skeptic", "--dry-run").stdout.split("prompt:\n", 1)[1]
 
     assert "Belief id: none is given" in prompt
-    assert "oldest proven Belief" in prompt
+    assert "stalest proven Belief" in prompt
+    assert "examined_through" in prompt
 
 
 def test_dry_run_takes_the_environments_settings(run: Run):
