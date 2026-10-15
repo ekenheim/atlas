@@ -446,7 +446,7 @@ def main(argv: list[str] | None = None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     budget = Budget(limit)
     speakers: dict[str, str | None] | None = None
-    if args.speakers and args.argument:
+    if args.speakers and args.argument and not args.dry_run:  # a dry run touches nothing
         speakers = fetch_speakers(args.base_url, labelled)
         (out / "speakers.json").write_text(json.dumps(speakers, indent=1), "utf-8")
         print(f"{sum(1 for v in speakers.values() if v)} of {len(speakers)} spans have a speaker")
