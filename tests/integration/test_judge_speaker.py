@@ -16,7 +16,7 @@ import json
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import JsonValue
@@ -24,6 +24,7 @@ from pydantic import JsonValue
 from atlas.tradingview import TokenSet
 from tests.fakes.hindsight import RecordedHindsight
 from tests.fakes.litellm import ChatReply, FakeLiteLLM
+from tests.fakes.searxng import FakeSearXNG, SearchReply
 from tests.fakes.serve import Served, serve
 from tests.fakes.tradingview import ACCESS_TOKEN, REFRESH_TOKEN, FakeTradingView
 from tests.harness import Atlas
@@ -75,6 +76,18 @@ def tradingview() -> Iterator[tuple[FakeTradingView, Served]]:
     fake = FakeTradingView()
     with serve(fake.handle) as served:
         yield fake, served
+        served.raise_errors()
+
+
+@pytest.fixture
+def searxng() -> FakeSearXNG:
+    return FakeSearXNG()
+
+
+@pytest.fixture
+def searxng_served(searxng: FakeSearXNG) -> Iterator[Served]:
+    with serve(searxng.handle) as served:
+        yield served
         served.raise_errors()
 
 
@@ -130,6 +143,30 @@ def atlas(
     tradingview: tuple[FakeTradingView, Served],
 ) -> Iterator[Atlas]:
     harness = build(database_url, tmp_path, hindsight, litellm, tradingview, finding_judge=True)
+    yield harness
+    harness.engine.dispose()
+
+
+@pytest.fixture
+def researching(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    litellm: Served,
+    tradingview: tuple[FakeTradingView, Served],
+    searxng_served: Served,
+) -> Iterator[Atlas]:
+    """An Atlas that can run an investigation: SearXNG for the Scout, one Investigator call."""
+    harness = build(
+        database_url,
+        tmp_path,
+        hindsight,
+        litellm,
+        tradingview,
+        finding_judge=True,
+        searxng_url=searxng_served.url,
+        investigator_passages_per_call=50,
+    )
     yield harness
     harness.engine.dispose()
 
@@ -392,3 +429,241 @@ def test_a_statement_naming_the_speaker_is_grounded_and_judged_with_the_label(
     sent = judge_requests(llm)
     assert [each["request"]["claims"][0]["speaker"] for each in sent] == [CEO, CEO]
     assert [each["retrieved_data"][0]["text"] for each in sent] == [CEO_QUOTE, CEO_QUOTE]
+
+
+# --- the investigations' Editors judge with the speaker too -------------------------------------
+
+AS_OF = "2026-09-30T00:00:00Z"
+SUBSTRATE = "indium phosphide substrate capacity expansion 2026"
+SECOND_SOURCE = "InP laser second source qualification hyperscaler"
+SEARCH = "indium phosphide laser capacity constraint 1.6T transceiver shipments"
+QUERIES: list[JsonValue] = [
+    {"query": SUBSTRATE, "purpose": "capacity"},
+    {"query": SECOND_SOURCE, "purpose": "second sources"},
+]
+ACTIONS = ("search_archive", "recall", "read", "record_fact", "done")
+
+
+def script_searches(searxng: FakeSearXNG) -> None:
+    searxng.script(SUBSTRATE, SearchReply.of("inp-substrate-capacity"))
+    searxng.script(SECOND_SOURCE, SearchReply.of("inp-laser-second-source"))
+
+
+def act(name: str, **args: JsonValue) -> dict[str, JsonValue]:
+    answer: dict[str, JsonValue] = {"action": name}
+    answer.update({each: None for each in ACTIONS})
+    answer[name] = args
+    return answer
+
+
+def reading_the_ceo(body: dict[str, Any]) -> JsonValue:
+    """The six Readers: Constraint searches the archive and records the CEO's sentence as a
+    Fact; the others search once and stop."""
+    request = asked(body)["request"]
+    if not request["searched"]:
+        return act("search_archive", query=SEARCH, company_slugs=["lumentum"])
+    if request["step"]["key"] == "constraint" and not request["recorded"]:
+        [passage] = [each for each in asked(body)["retrieved_data"] if CEO_QUOTE in each["text"]]
+        return act(
+            "record_fact",
+            passage_id=passage["id"],
+            quote=CEO_QUOTE,
+            company_slug="lumentum",
+            step="constraint",
+            statement="Lumentum's CEO says laser capacity constrained 1.6T shipments.",
+            quantity=None,
+            period=None,
+            status="in_effect",
+            challenges=[],
+        )
+    return act("done", summary="nothing more found")
+
+
+def searching_once(body: dict[str, Any]) -> JsonValue:
+    request = asked(body)["request"]
+    if not request["searched"]:
+        return act("search_archive", query=SEARCH, company_slugs=["lumentum"])
+    return act("done", summary="nothing to challenge")
+
+
+def editing_the_argument(body: dict[str, Any]) -> JsonValue:
+    """The argument Editor: the CEO's statement for Constraint, citing its Fact; the other
+    steps unknown."""
+    steps: list[JsonValue] = []
+    for step in asked(body)["request"]["steps"]:
+        constraint = step["step"] == "constraint"
+        statement = CEO_STATEMENT if constraint else "The Facts do not establish this step."
+        steps.append(
+            {
+                "step": step["step"],
+                "status": "supported" if constraint else "unknown",
+                "statements": [
+                    {
+                        "statement": statement,
+                        "fact_refs": step["fact_refs"] if constraint else [],
+                        "counter_refs": [],
+                    }
+                ],
+                "unchecked": [],
+            }
+        )
+    return {"steps": steps, "open_questions": [], "verdict": "needs_review"}
+
+
+def judging_the_ceo(body: dict[str, Any]) -> JsonValue:
+    """The finding judge on `CEO_STATEMENT`: the words naming the speaker rest on the label (no
+    basis), the rest on the quote."""
+    [quote] = asked(body)["retrieved_data"]
+    return {
+        "clauses": [
+            {"text": "Alex Example, Lumentum's President and CEO", "ref": "c1", "basis": None},
+            {
+                "text": "indium phosphide laser capacity was the constraint on 1.6T transceiver"
+                " shipments",
+                "ref": "c1",
+                "basis": quote["text"].removeprefix("our "),
+            },
+        ],
+        "verdict": "supported",
+        "beyond": [],
+        "kinds": [],
+        "reason": "the quote states it and its label names the speaker",
+    }
+
+
+def test_the_argument_editor_s_statements_are_judged_with_the_speaker_of_a_transcript_fact(
+    researching: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    transcript(researching)
+    llm.script_role("reader", *(ChatReply.answer(reading_the_ceo, tokens=(1000, 50)),) * 14)
+    llm.script_role("skeptic", *(ChatReply.answer(searching_once, tokens=(1200, 60)),) * 3)
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", *(ChatReply.answer(judging_the_ceo, tokens=(400, 40)),) * 2)
+    llm.script_role(
+        "question_planner",
+        ChatReply.json(
+            {
+                "parts": [
+                    {
+                        "key": "inp_capacity",
+                        "text": "indium phosphide laser capacity the constraint",
+                        "terms": ["indium phosphide", "1.6T", "shipments"],
+                        "layer": "laser",
+                    },
+                    {
+                        "key": "second_source",
+                        "text": "second sources",
+                        "terms": ["second source", "hyperscaler"],
+                        "layer": None,
+                    },
+                ],
+                "step_focus": [],
+            },
+            tokens=(700, 150),
+        ),
+    )
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(editing_the_argument, tokens=(3000, 400)),  # the Editor
+    )
+    script_searches(searxng)
+    response = researching.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [researching.company("lumentum")["id"]],
+            "as_of": AS_OF,
+            "plan": "argument",
+        },
+    )
+    assert response.status_code == 202, response.text
+
+    researching.worker_pass()
+
+    found = researching.get(f"/api/v1/investigations/{response.json()['id']}")
+    steps = {each["step"]: each for each in found["research_card"]["steps"]}
+    # The statement naming the speaker was grounded, judged and kept.
+    assert steps["constraint"]["statement"] == CEO_STATEMENT
+    assert found["research_card"]["unsupported_findings"] == []
+    [sent] = judge_requests(llm)
+    assert [each["speaker"] for each in sent["request"]["claims"]] == [CEO]
+    assert [each["text"] for each in sent["retrieved_data"]] == [CEO_QUOTE]
+
+
+def test_the_default_card_s_findings_are_judged_with_the_speaker_of_a_transcript_claim(
+    researching: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    transcript(researching)
+    lumentum = researching.company("lumentum")["id"]
+
+    def investigating(body: dict[str, Any]) -> JsonValue:
+        [passage] = [each for each in asked(body)["retrieved_data"] if CEO_QUOTE in each["text"]]
+        start = passage["text"].index(CEO_QUOTE)
+        return {
+            "claims": [
+                {
+                    "subject_company_id": lumentum,
+                    "predicate": "capacity_constrained",
+                    "object_company_id": None,
+                    "object_name": None,
+                    "object_text": None,
+                    "product": None,
+                    "layer": None,
+                    "epistemic_type": "company_claim",
+                    "quote": CEO_QUOTE,
+                    "passage_id": passage["id"],
+                    "quote_start": start,
+                    "quote_end": start + len(CEO_QUOTE),
+                }
+            ]
+        }
+
+    def skeptic(body: dict[str, Any]) -> JsonValue:
+        return {"counterevidence": []} if "passages" in asked(body)["request"] else {"queries": []}
+
+    def editing(body: dict[str, Any]) -> JsonValue:
+        request = cast(dict[str, Any], asked(body)["request"])
+        return {
+            "findings": [
+                {
+                    "statement": CEO_STATEMENT,
+                    "claim_refs": [each["ref"] for each in request["claims"]],
+                    "limitations": [],
+                    "open_questions": [],
+                }
+            ],
+            "open_questions": [],
+            "verdict": "answered",
+        }
+
+    llm.script_role("skeptic", *(ChatReply.answer(skeptic, tokens=(500, 50)),) * 8)
+    llm.script_role("financial_analyst", ChatReply.json({"scenarios": []}, tokens=(1500, 200)))
+    llm.script_role("finding_judge", ChatReply.answer(judging_the_ceo, tokens=(400, 40)))
+    llm.script_chat(
+        ChatReply.json({"queries": QUERIES}, tokens=(900, 120)),  # the Scout
+        ChatReply.answer(investigating, tokens=(9000, 700)),
+        ChatReply.answer(editing, tokens=(3000, 400)),
+    )
+    script_searches(searxng)
+    response = researching.api.post(
+        "/api/v1/investigations",
+        json={
+            "theme": "photonics",
+            "question": QUESTION,
+            "seed_company_ids": [lumentum],
+            "as_of": AS_OF,
+        },
+    )
+    assert response.status_code == 202, response.text
+
+    researching.worker_pass()
+
+    found = researching.get(f"/api/v1/investigations/{response.json()['id']}")
+    [accepted] = researching.get("/api/v1/claims", outcome="accepted")["items"]
+    assert accepted["speaker"].startswith("Alex Example (")
+    card = found["research_card"]
+    [finding] = card["findings"]
+    assert finding["claim_text"] == CEO_STATEMENT and card["unsupported_findings"] == []
+    [sent] = judge_requests(llm)
+    assert [each["speaker"] for each in sent["request"]["claims"]] == [CEO]

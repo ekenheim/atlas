@@ -45,6 +45,13 @@ SpeakerRefusalCode = Literal["speaker_mixed", "analyst_speaking", "speaker_unkno
 
 _LABEL = re.compile(r"(?P<name>[^():\n]{1,80}?)(?:\s*\((?P<role>[^()\n]{1,200})\))?:\s")
 _ANALYST = re.compile(r"\banalyst\b", re.IGNORECASE)
+# A legal-form suffix that a firm's name may follow with a comma ("Lumentum Holdings, Inc."): the
+# last comma of a label's parenthetical is then inside the firm, not before it.
+_FIRM_SUFFIX = re.compile(
+    r"(?:inc|incorporated|ltd|limited|llc|llp|lp|corp|corporation|co|plc|ag|sa|nv|bv"
+    r"|gmbh|se|ab|oyj|kk)\.?",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -77,8 +84,11 @@ def speaker_label(line: str) -> str | None:
 def parse_label(label: str) -> Speaker | None:
     """`label` ("Name (Title, Firm)", "Operator") as its parts, or None if it is not a label.
     The firm is what follows the parenthetical's last comma (a title may hold commas: "VP of
-    Sales, Strategic Accounts, and Marketing, Example Photonics"); with no comma the whole
-    parenthetical is a title."""
+    Sales, Strategic Accounts, and Marketing, Example Photonics"), unless what follows it is a
+    legal-form suffix ("Inc.", "Ltd", "plc"), which belongs to the firm before it ("CEO, Example
+    Photonics, Inc." is the title "CEO" and the firm "Example Photonics, Inc."); with no comma
+    the whole parenthetical is a title. (`transcript_speaker` takes the firm from the first
+    comma, and so reads the whole of it either way.)"""
     match = _LABEL.match(label.strip() + ": ")
     if match is None:
         return None
@@ -89,6 +99,9 @@ def parse_label(label: str) -> Speaker | None:
     if not role:
         return Speaker(name, None, None)
     title, comma, firm = role.rpartition(",")
+    if comma and _FIRM_SUFFIX.fullmatch(firm.strip()):
+        title, comma, name_of_firm = title.rpartition(",")
+        firm = f"{name_of_firm.strip()}, {firm.strip()}"
     if not comma:
         return Speaker(name, role, None)
     return Speaker(name, title.strip() or None, firm.strip() or None)

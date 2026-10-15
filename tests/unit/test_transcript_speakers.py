@@ -119,6 +119,29 @@ def test_the_label_is_the_line_start_up_to_its_colon() -> None:
         ),
         ("Alex Example (CEO)", "Alex Example", "CEO", None),
         ("Operator", "Operator", None, None),
+        # A legal-form suffix after a comma belongs to the firm, not to a firm of its own.
+        (
+            "Alex Example (CEO, Lumentum Holdings, Inc.)",
+            "Alex Example",
+            "CEO",
+            "Lumentum Holdings, Inc.",
+        ),
+        (
+            "Robin Placeholder (VP of Sales, Strategic Accounts, and Marketing, Example"
+            " Photonics, Ltd)",
+            "Robin Placeholder",
+            "VP of Sales, Strategic Accounts, and Marketing",
+            "Example Photonics, Ltd",
+        ),
+        (
+            "Alex Example (CEO, Example Photonics, plc)",
+            "Alex Example",
+            "CEO",
+            "Example Photonics, plc",
+        ),
+        # No title before the suffixed firm: the whole parenthetical stays a title, as with
+        # any parenthetical without a comma.
+        ("Alex Example (Example Photonics, Inc.)", "Alex Example", "Example Photonics, Inc.", None),
     ],
 )
 def test_a_label_is_split_into_name_title_and_firm(
