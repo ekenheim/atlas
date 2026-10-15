@@ -553,8 +553,52 @@ def cmd_belief_propose(args: argparse.Namespace) -> None:
         "actor": args.actor,
         "citations": [citation_body(fact, how, weight, actor=args.actor) for fact, how, weight in args.cite],
     }
+    warn_joined_documents(args.statement, [fact for fact, how, _ in args.cite if supporting(how)])
     status, answer = post("/beliefs", body)
     belief_result(status, answer, 201)
+
+
+def supporting(how: str) -> bool:
+    if how in RELATIONS:
+        return how == "supports"
+    try:
+        return float(how) > 0
+    except ValueError:
+        return False
+
+
+JOINED_DAYS = 90  # the finding judge's `merged` rule: quotes this far apart need their dates
+
+
+def warn_joined_documents(statement: str, fact_ids: list[str]) -> None:
+    """One proposition per Belief: warn (stderr, never refuse) when the supporting Facts come from
+    documents more than 90 days apart and the statement doesn't name the year of each."""
+    dates: dict[str, str] = {}
+    for fact_id in fact_ids:
+        try:
+            held = version(get(f"/facts/{fact_id}")["assertion"]["source_version_id"])
+        except Exception:  # advisory only: an unreadable Fact never blocks the proposal
+            continue
+        day = (held.get("effective_available_at") or held.get("available_at") or "")[:10]
+        if day:
+            dates[day] = fact_id
+    if len(dates) < 2:
+        return
+    first, last = min(dates), max(dates)
+    apart = (time.mktime(time.strptime(last, "%Y-%m-%d")) - time.mktime(time.strptime(first, "%Y-%m-%d"))) / 86400
+    if apart <= JOINED_DAYS or (first[:4] != last[:4] and first[:4] in statement and last[:4] in statement):
+        return
+    print(
+        json.dumps(
+            {
+                "warning": "joins_dated_documents",
+                "documents": {first: dates[first], last: dates[last]},
+                "days_apart": round(apart),
+                "rule": "one proposition per Belief: split it, or name each document's date in the statement",
+            }
+        ),
+        file=sys.stderr,
+    )
 
 
 def cmd_belief_cite(args: argparse.Namespace) -> None:
