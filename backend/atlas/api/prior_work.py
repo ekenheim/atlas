@@ -19,7 +19,7 @@ from pydantic import AwareDatetime
 from sqlalchemy import Engine, text
 
 from atlas.api.common import INVALID, error_response
-from atlas.companies import Universe, company_id_for
+from atlas.companies import Universe, company_id_for, extend_universe
 from atlas.facts import FactStep
 from atlas.prior_work import DEFAULT_LIMIT, MAX_LIMIT, PriorWork, prior_work
 
@@ -46,7 +46,8 @@ def prior_work_router(engine: Engine, universe: Callable[[], Universe]) -> APIRo
             if known != len(asked):
                 return error_response(422, "unknown_company", "a company is not in the universe")
         else:
-            config = universe()
+            with engine.connect() as connection:
+                config = extend_universe(connection, universe())  # committed Candidates too
             if theme not in config.themes:
                 return error_response(422, "unknown_theme", f"no such theme: {theme}")
             asked = [
