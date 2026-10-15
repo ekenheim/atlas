@@ -27,6 +27,7 @@ a 5xx or an unreachable server raises `TradingViewUnavailable`; any other failur
 
 import json
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from typing import Any, Self, cast
@@ -34,6 +35,7 @@ from typing import Any, Self, cast
 import httpx2
 
 from atlas import __version__
+from atlas.jobs.pacing import FailedWithArtifacts
 from atlas.sources import TokenBucket
 from atlas.tradingview.tokens import LOGIN_HINT, TokenStore, TradingViewAuthError
 
@@ -51,6 +53,43 @@ class McpError(Exception):
 
 class McpToolError(McpError):
     """A tool call the server answered with `isError` (e.g. a view that isn't retrievable)."""
+
+
+UNPARSED_LIMIT = 4000
+# Consensus is not Atlas's to keep (the owner disallowed it, 2026-10-15), not even in the
+# answer a failed job leaves behind: a key that names it is taken out first.
+_CONSENSUS_KEY = re.compile(r"consensus|estimate|forecast|eps|revenue", re.IGNORECASE)
+
+
+def _without_consensus(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: _without_consensus(item)
+            for key, item in cast(dict[str, Any], value).items()
+            if not _CONSENSUS_KEY.search(key)
+        }
+    if isinstance(value, list):
+        return [_without_consensus(item) for item in cast(list[Any], value)]
+    return value
+
+
+class UnexpectedAnswer(McpError, FailedWithArtifacts):
+    """A tool's answer that isn't in a shape Atlas can use. The job fails at once (trying
+    again would get the same answer) and its artifacts keep the first `UNPARSED_LIMIT`
+    characters of the answer (`unparsed_answer`, consensus fields taken out), so the shape
+    can be fitted from one live call."""
+
+    def __init__(self, tool: str, detail: str, answer: Any) -> None:
+        shown = answer if isinstance(answer, str) else json.dumps(_without_consensus(answer))
+        FailedWithArtifacts.__init__(
+            self,
+            f"{tool}: unexpected answer: {detail}",
+            {
+                "status": "unexpected_answer",
+                "tool": tool,
+                "unparsed_answer": shown[:UNPARSED_LIMIT],
+            },
+        )
 
 
 class TradingViewUnavailable(McpError):
@@ -118,7 +157,7 @@ class McpClient:
         try:
             value = json.loads(text)
         except ValueError:
-            raise McpError(f"{name}: the text content isn't JSON") from None
+            raise UnexpectedAnswer(name, "the text content isn't JSON", text) from None
         return ToolResult(text=text, value=value)
 
     def request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:

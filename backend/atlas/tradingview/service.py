@@ -3,7 +3,8 @@
 Both run only with `ATLAS_TRADINGVIEW_ENABLED=true` (off by default: while off, a job fails
 at once without calling TradingView). Both are `tradingview` budget kinds, and each makes
 at most `ATLAS_TRADINGVIEW_MAX_CALLS_PER_JOB` tool calls, every one recorded in
-`tradingview_request` (the budget's units), paced at `ATLAS_TRADINGVIEW_RATE_PER_S`.
+`tradingview_request` (the budget's units), paced at `ATLAS_TRADINGVIEW_RATE_PER_S` and held
+to `ATLAS_TRADINGVIEW_MAX_PER_MINUTE` calls a minute over every process (`RequestCap`).
 
 **`tradingview_catalog`** (`{"company": "<slug>"}`): for the company's configured
 `tradingview_symbol`,
@@ -33,6 +34,8 @@ records `OWNER_OVERRIDE`.
 """
 
 import json
+import logging
+import time
 import uuid
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -65,6 +68,8 @@ from atlas.tradingview.model import OWNER_OVERRIDE, PROVIDER_ID, TRANSCRIPTS_KIN
 from atlas.tradingview.tokens import TokenStore
 
 STORY_BASE = "https://www.tradingview.com"
+
+log = logging.getLogger(__name__)
 
 # One limiter per rate in the process: every TradingView request waits for it.
 _LIMITERS: dict[float, TokenBucket] = {}
@@ -138,6 +143,63 @@ def call_recorder(engine: Engine, job_id: uuid.UUID | None) -> Callable[[str, st
     return record
 
 
+class RequestCap:
+    """One cap on TradingView's tool calls across every process and job (ticket 16c).
+
+    TradingView limits tool calls to about 100 a minute per user (https://www.tradingview.com/
+    mcp/docs), a limit the owner's own use shares. Before each call `wait` counts the
+    `tradingview_request` rows of the last 60 seconds, by the database's clock so every
+    process agrees, and waits until fewer than `ATLAS_TRADINGVIEW_MAX_PER_MINUTE` remain.
+    A call is recorded when it is done, so processes that count at the same moment can each
+    pass: at most one extra call per process in flight, which the margin to TradingView's
+    limit (the default is half of it) covers. The per-process pacing stays as a second bound.
+    """
+
+    def __init__(
+        self, engine: Engine, per_minute: int, *, sleep: Callable[[float], None] = time.sleep
+    ) -> None:
+        self._engine = engine
+        self._per_minute = per_minute
+        self._sleep = sleep
+
+    def seconds_to_wait(self) -> float:
+        """0 if fewer than the cap's worth of calls were made in the last minute, else the
+        time until the cap-th most recent one is a minute old."""
+        with self._engine.connect() as connection:
+            wait = connection.execute(
+                text(
+                    "SELECT GREATEST(EXTRACT(EPOCH FROM (called_at + interval '60 seconds'"
+                    " - now())), 0) FROM tradingview_request"
+                    " WHERE called_at > now() - interval '60 seconds'"
+                    " ORDER BY called_at DESC OFFSET :skip LIMIT 1"
+                ),
+                {"skip": self._per_minute - 1},
+            ).scalar()
+        return 0.0 if wait is None else float(wait)
+
+    def wait(self) -> None:
+        while (seconds := self.seconds_to_wait()) > 0:
+            log.info(
+                "TradingView: the cap of %d calls a minute; waiting %.1f s",
+                self._per_minute,
+                seconds,
+            )
+            self._sleep(seconds + 0.05)
+
+
+def tradingview_client(
+    mcp: McpClient, settings: Settings, engine: Engine, job_id: uuid.UUID | None
+) -> TradingViewClient:
+    """The client a TradingView job uses: bounded per job, every call recorded, and held to
+    the cross-process cap."""
+    return TradingViewClient(
+        mcp,
+        max_calls=settings.tradingview_max_calls_per_job,
+        on_call=call_recorder(engine, job_id),
+        before_call=RequestCap(engine, settings.tradingview_max_per_minute).wait,
+    )
+
+
 @dataclass(frozen=True)
 class SymbolCompany:
     slug: str
@@ -172,11 +234,7 @@ def run_catalog(settings: Settings, engine: Engine, job: Job, now: datetime) -> 
     new_documents = new_leads = headlines_listed = 0
     bounded = False
     with mcp_session(settings) as mcp:
-        client = TradingViewClient(
-            mcp,
-            max_calls=settings.tradingview_max_calls_per_job,
-            on_call=call_recorder(engine, job.id),
-        )
+        client = tradingview_client(mcp, settings, engine, job.id)
         try:
             documents = client.documents(
                 company.symbol,
@@ -368,11 +426,7 @@ def run_transcripts(settings: Settings, engine: Engine, job: Job, now: datetime)
     calls = 0
     if pending:
         with mcp_session(settings) as mcp:
-            client = TradingViewClient(
-                mcp,
-                max_calls=settings.tradingview_max_calls_per_job,
-                on_call=call_recorder(engine, job.id),
-            )
+            client = tradingview_client(mcp, settings, engine, job.id)
             for item in pending:
                 try:
                     answer, view = client.document_view(item.view_id)

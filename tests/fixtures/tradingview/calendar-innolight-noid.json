@@ -1,5 +1,5 @@
 {
-  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the earnings-calendar answer shape is unconfirmed; the item carries no event ID and is for the same fiscal period as Lumentum's, so the two share a fallback key",
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the answer's field names are Atlas's guess (TradingView documents only the arguments); the item carries no event ID and is for the same fiscal period as Lumentum's, so the two share a fallback key",
   "items": [
     {
       "symbol": "HKEX:3308",

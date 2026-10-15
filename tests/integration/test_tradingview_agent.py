@@ -10,6 +10,7 @@ shapes; nothing live is called.
 """
 
 import json
+import time
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -20,8 +21,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from atlas.db import create_engine
 from atlas.discovery.leads import store_headline
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
+from atlas.sources import TokenBucket
+from atlas.tradingview import service
+from atlas.tradingview.service import mcp_session, tradingview_client
 from tests.fakes.serve import Served, serve
 from tests.fakes.tradingview import ACCESS_TOKEN, FakeTradingView
 from tests.harness import Atlas, Clock
@@ -159,9 +164,9 @@ def test_the_calendar_becomes_tier_c_leads_marked_with_the_override(
         (
             "mcp-tv-get-earnings-calendar",
             {
-                "symbol": "NASDAQ:LITE",
-                "start_date": "2026-04-17T12:00:00Z",  # 120 days before the clock
-                "end_date": "2027-02-11T12:00:00Z",  # 180 days after it
+                "symbols": ["NASDAQ:LITE"],
+                "date_from": "2026-04-17",  # 120 days before the clock
+                "date_to": "2027-02-11",  # 180 days after it
             },
         )
     ]
@@ -464,9 +469,10 @@ def test_daily_closes_are_stored_by_a_job_and_read_by_a_route_that_calls_nothing
             "mcp-tv-get-ohlcv",
             {
                 "symbol": "NASDAQ:LITE",
-                "start_date": "2026-07-01T00:00:00Z",
-                "end_date": "2026-07-31T23:59:59Z",
                 "interval": "1D",
+                # The count runs back from the clock (Sat 15 Aug), not from `end`: the 33
+                # weekdays from Wed 1 Jul to it, so the window's first day is surely reached.
+                "count": 33,
             },
         )
     ]
@@ -536,3 +542,290 @@ def test_the_price_route_with_nothing_stored_and_bad_requests(agent: Agent) -> N
     assert backwards.json()["error"]["code"] == "invalid_range"
     unknown = agent.atlas.api.get(f"/api/v1/companies/{uuid.uuid4()}/price-history")
     assert unknown.status_code == 404
+
+
+# --- the calls as TradingView documents them (ticket 16c) ---------------------------------------
+
+CALENDAR_TOOL = "mcp-tv-get-earnings-calendar"
+OHLCV_TOOL = "mcp-tv-get-ohlcv"
+WINDOW = {"date_from": "2026-04-17", "date_to": "2027-02-11"}  # 120 days back, 180 ahead of NOW
+
+
+def test_the_calendar_batches_the_companies_into_calls_of_several_symbols(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].calendar = "-noid"  # one Q1 date each for Lumentum and Innolight
+    both = {"companies": ["lumentum", "innolight"]}
+
+    first = agent.run("tradingview_calendar", "both", both)
+
+    assert first["status"] == "succeeded", first["failures"]
+    assert tradingview[0].tool_calls == [
+        (CALENDAR_TOOL, {"symbols": ["NASDAQ:LITE", "HKEX:3308"]} | WINDOW)
+    ]
+    artifacts = first["artifacts"]
+    assert (artifacts["tool_calls"], artifacts["events"]) == (1, {"listed": 2, "new_leads": 2})
+    assert [(c["slug"], c["symbol"], c["listed"]) for c in artifacts["companies"]] == [
+        ("lumentum", "NASDAQ:LITE", 1),
+        ("innolight", "HKEX:3308", 1),
+    ]
+    leads = agent.leads()
+    assert {each["calendar"]["symbol"] for each in leads} == {"NASDAQ:LITE", "HKEX:3308"}
+    assert {each["calendar"]["event_at"] for each in leads} == {
+        "2026-11-05T21:00:00Z",  # Lumentum
+        "2026-11-07T21:00:00Z",  # Innolight
+    }
+
+    # A batch size of one makes a call a company; the dates are the same, so nothing is new.
+    agent.atlas.overrides |= {"tradingview_calendar_batch": 1}
+    again = agent.run("tradingview_calendar", "one-each", both)
+
+    assert again["artifacts"]["events"] == {"listed": 2, "new_leads": 0}
+    assert again["artifacts"]["tool_calls"] == 2
+    assert tradingview[0].tool_calls[1:] == [
+        (CALENDAR_TOOL, {"symbols": ["NASDAQ:LITE"]} | WINDOW),
+        (CALENDAR_TOOL, {"symbols": ["HKEX:3308"]} | WINDOW),
+    ]
+    assert len(agent.leads()) == 2
+
+
+def test_a_calendar_job_names_its_companies_one_way(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    cases: list[tuple[str, dict[str, Any]]] = [
+        ("both-ways", {"company": "lumentum", "companies": ["innolight"]}),
+        ("neither", {"theme": "photonics"}),
+        ("empty", {"companies": []}),
+    ]
+    for key, payload in cases:
+        job = agent.run("tradingview_calendar", key, payload)
+        assert job["status"] != "succeeded", key
+    assert tradingview[0].calls == []
+
+
+def test_consensus_in_the_calendar_answer_is_dropped_before_anything_is_stored(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    job = agent.run("tradingview_calendar", "lite")  # the upcoming dates carry made-up estimates
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert job["artifacts"]["events"] == {"listed": 3, "new_leads": 3}
+    stored = [json.dumps(job["artifacts"]), json.dumps(agent.leads(), default=str)]
+    with agent.atlas.engine.connect() as connection:
+        for table in ("lead", "tradingview_calendar_event", "tradingview_calendar_observation"):
+            stored += connection.execute(text(f"SELECT t::text FROM {table} t")).scalars().all()
+    assert len(stored) > 8  # the rows of three events in each of three tables, and the two JSONs
+    everything = "\n".join(stored)
+    for consensus in ("eps_estimate", "revenue_estimate", "consensus", "456000000", "455000000"):
+        assert consensus not in everything
+
+
+def test_a_calendar_answer_that_does_not_fit_is_kept_for_the_lead_and_nothing_is_stored(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].raw[CALENDAR_TOOL] = json.dumps(
+        {
+            "items": [
+                {
+                    "symbol": "NASDAQ:LITE",
+                    "date": "soon",
+                    "eps_estimate": 1.5,
+                    "consensus": {"eps": 1.2},
+                }
+            ]
+        }
+    )
+
+    job = agent.run("tradingview_calendar", "odd")
+
+    # Failed, not retried (the shape would not change), and the answer is in the artifacts
+    # with the consensus fields taken out of it.
+    assert job["status"] == "failed"
+    assert job["attempts"] == 1
+    assert job["artifacts"] == {
+        "status": "unexpected_answer",
+        "tool": CALENDAR_TOOL,
+        "unparsed_answer": '{"items": [{"symbol": "NASDAQ:LITE", "date": "soon"}]}',
+    }
+    assert "unexpected answer" in job["failures"][0]["error"]
+    assert agent.leads() == []
+    assert len(tradingview[0].tool_calls) == 1
+
+
+def test_an_answer_that_is_not_json_is_kept_too(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].raw[CALENDAR_TOOL] = "No earnings data for this symbol."
+
+    job = agent.run("tradingview_calendar", "prose")
+
+    assert job["status"] == "failed"
+    assert job["artifacts"] == {
+        "status": "unexpected_answer",
+        "tool": CALENDAR_TOOL,
+        "unparsed_answer": "No earnings data for this symbol.",
+    }
+
+
+def test_the_price_job_asks_for_the_count_to_its_start_and_keeps_the_window(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    # The fixture answers with five bars (30 Jun, 1, 2 and 6 Jul, 3 Aug), as a count-bounded
+    # answer would not be cut to the window.
+    job = agent.run(
+        "tradingview_prices",
+        "narrow",
+        {"company": "lumentum", "start": "2026-07-02", "end": "2026-07-05"},
+    )
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert job["artifacts"]["closes"] == 1
+    assert tradingview[0].tool_calls == [
+        (
+            OHLCV_TOOL,
+            {"symbol": "NASDAQ:LITE", "interval": "1D", "count": 32},
+        )  # Thu 2 Jul..Sat 15 Aug
+    ]
+    history = agent.atlas.get(
+        f"/api/v1/companies/{agent.atlas.company('lumentum')['id']}/price-history",
+        start="2026-06-01",
+        end="2026-08-31",
+    )
+    assert [(c["day"], c["close"]) for c in history["closes"]] == [("2026-07-02", 105.5)]
+
+
+def test_the_price_count_is_capped_at_what_the_tool_allows(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    job = agent.run(
+        "tradingview_prices",
+        "old",
+        {"company": "lumentum", "start": "2000-01-03", "end": "2000-12-29"},
+    )
+
+    assert job["status"] == "succeeded", job["failures"]
+    assert tradingview[0].tool_calls == [
+        (OHLCV_TOOL, {"symbol": "NASDAQ:LITE", "interval": "1D", "count": 5000})
+    ]
+    assert job["artifacts"]["closes"] == 0
+    assert job["artifacts"]["count_capped"] is True
+
+
+def test_a_price_answer_that_does_not_fit_is_kept_cut_to_4000_characters(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].raw[OHLCV_TOOL] = json.dumps(
+        {"bars": [{"t": "yesterday", "c": 1}], "padding": "x" * 5000}
+    )
+
+    job = agent.run("tradingview_prices", "odd", {"company": "lumentum"})
+
+    assert job["status"] == "failed"
+    kept = job["artifacts"]["unparsed_answer"]
+    assert len(kept) == 4000
+    assert kept.startswith('{"bars": [{"t": "yesterday", "c": 1}], "padding": "xxxx')
+    assert _price_rows(agent) == 0
+
+
+# --- one cap on TradingView's calls across processes --------------------------------------------
+
+
+@pytest.fixture
+def unpaced(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The per-process pacing (a request a second) out of the way, so that what the tests time
+    is the cap's wait alone."""
+    monkeypatch.setattr(service, "_LIMITERS", {1.0: TokenBucket(rate_per_s=1000)})
+
+
+def _age_requests(agent: Agent, seconds: int) -> float:
+    """Make every recorded call `seconds` old (by the database's clock); the monotonic time it
+    was done at."""
+    with agent.atlas.engine.begin() as connection:
+        connection.execute(
+            text("UPDATE tradingview_request SET called_at = now() - make_interval(secs => :s)"),
+            {"s": seconds},
+        )
+    return time.monotonic()
+
+
+def _one_call(settings: Any, engine: Any) -> None:
+    with mcp_session(settings) as mcp:
+        client = tradingview_client(mcp, settings, engine, None)
+        client.calendar(["NASDAQ:LITE"], start=NOW, end=NOW)
+
+
+def _arrivals(fake: FakeTradingView) -> list[float]:
+    """When each tool call reached the fake (the monotonic clock)."""
+    return [
+        fake.times[i]
+        for i, call in enumerate(fake.calls)
+        if call.url.path == "/mcp" and b'"tools/call"' in call.content
+    ]
+
+
+def test_two_clients_on_one_database_share_the_cap_on_calls_in_the_last_minute(
+    database_url: str,
+    tmp_path: Path,
+    tradingview: tuple[FakeTradingView, Served],
+    unpaced: None,
+) -> None:
+    fake, served = tradingview
+    atlas = Atlas(database_url, tmp_path, "http://127.0.0.1:9", **enabled(served, tmp_path))
+    atlas.overrides |= {"tradingview_max_per_minute": 2}
+    agent = Agent(atlas)
+    settings = atlas.settings()
+    other_process = create_engine(settings)
+    try:
+        _one_call(settings, atlas.engine)
+        _one_call(settings, other_process)  # a second process's call: the minute holds two
+        assert len(_arrivals(fake)) == 2
+
+        # Both are 58 s old: a third must wait for them to leave the minute (2 s).
+        aged = _age_requests(agent, 58)
+        _one_call(settings, other_process)
+
+        assert len(_arrivals(fake)) == 3
+        assert _arrivals(fake)[2] - aged >= 1.8
+
+        # Three calls in the minute (two 58 s old, one 1 s old) and a cap of two: the fourth
+        # waits for the second newest to age out (2 s), not for the newest (59 s).
+        aged = _age_requests(agent, 58)
+        with atlas.engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE tradingview_request SET called_at = now() - interval '1 second'"
+                    " WHERE id = (SELECT id FROM tradingview_request ORDER BY id LIMIT 1)"
+                )
+            )
+        _one_call(settings, atlas.engine)
+        waited = _arrivals(fake)[3] - aged
+        assert 1.8 <= waited < 20  # the 58 s old call ages out in 2 s; the 1 s old one in 59
+    finally:
+        other_process.dispose()
+        atlas.engine.dispose()
+
+
+def test_calls_older_than_a_minute_do_not_count_and_every_job_is_counted(
+    database_url: str,
+    tmp_path: Path,
+    tradingview: tuple[FakeTradingView, Served],
+    unpaced: None,
+) -> None:
+    fake, served = tradingview
+    atlas = Atlas(database_url, tmp_path, "http://127.0.0.1:9", **enabled(served, tmp_path))
+    atlas.overrides |= {"tradingview_max_per_minute": 1}
+    agent = Agent(atlas)
+    try:
+        assert agent.run("tradingview_calendar", "first")["status"] == "succeeded"
+        started = time.monotonic()
+        _age_requests(agent, 61)  # out of the minute: the cap is not reached
+        assert agent.run("tradingview_calendar", "second")["status"] == "succeeded"
+        assert _arrivals(fake)[1] - started < 20  # not held for a minute
+
+        # The second job's call is in the minute, and the cap is one: the next job waits.
+        aged = _age_requests(agent, 59)
+        third = agent.run("tradingview_prices", "third", {"company": "lumentum"})
+        assert third["status"] == "succeeded", third["failures"]
+        assert _arrivals(fake)[2] - aged >= 0.8
+    finally:
+        atlas.engine.dispose()

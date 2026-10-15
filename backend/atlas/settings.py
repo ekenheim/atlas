@@ -339,6 +339,14 @@ class Settings(BaseSettings):
     tradingview_login_port: int = Field(default=0, ge=0, le=65535)
     tradingview_timeout_seconds: float = Field(default=60.0, gt=0)
     tradingview_rate_per_s: float = Field(default=0.5, gt=0, le=1)
+    # TradingView limits tool calls to about 100 a minute per user (https://www.tradingview.com/
+    # mcp/docs, 2026-10-15), and the owner's own use shares that. The per-process pacing above
+    # cannot see the other processes, so before each tool call Atlas counts the
+    # `tradingview_request` rows of the last 60 seconds (every process, every job) and waits
+    # until fewer than this many remain: half the limit, the rest left to the owner.
+    tradingview_max_per_minute: int = Field(default=50, ge=1, le=100)
+    # The earnings calendar job puts up to this many companies' symbols in one call.
+    tradingview_calendar_batch: int = Field(default=20, ge=1, le=50)
     tradingview_max_calls_per_job: int = Field(default=20, ge=1, le=100)
     tradingview_budget_requests: int = Field(default=200, ge=0)
     tradingview_lookback_days: int = Field(default=730, ge=1)

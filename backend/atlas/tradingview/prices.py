@@ -9,7 +9,10 @@ no TradingView call is ever made while serving a request.
 **`tradingview_prices`** (`{"company": "<slug>", "start"?: "YYYY-MM-DD", "end"?: "YYYY-MM-DD"}`;
 by default the `ATLAS_TRADINGVIEW_PRICE_DAYS` days before now): one `get_ohlcv` call (daily
 bars) for the company's configured `tradingview_symbol`, a `tradingview` budget kind (not
-pausable) that fails at once while `ATLAS_TRADINGVIEW_ENABLED` is off. Each bar's close is
+pausable) that fails at once while `ATLAS_TRADINGVIEW_ENABLED` is off. The tool has no date
+range: it returns the last `count` bars counted back from now, so the job asks for the
+weekdays from `start` to today (at most 5,000, the tool's ceiling; `count_asked` and
+`count_capped` in the artifacts) and keeps the bars inside the window. Each bar's close is
 stored in `tradingview_price_bar` by company, day and fetch time (the day is the bar's UTC
 date), marked with the owner's override. The table is insert-only: a rerun that gets the close
 already held for a day adds nothing, one that gets a different close (an adjusted refresh) adds
@@ -17,11 +20,13 @@ a row, and the earlier value stays. A read takes each day's latest fetch, or, wi
 the latest fetched by then, so a settlement can be reproduced as it was made. Only the close is
 kept.
 
-The tool's name and answer shape are unconfirmed (`atlas.tradingview.client`).
+The call's arguments are TradingView's documented ones and the bars its documented
+`{t, o, h, l, c, v}`; an answer that doesn't fit fails the job with the first 4,000 characters
+in its artifacts (`unparsed_answer`; `atlas.tradingview.client`).
 """
 
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, Engine, text
@@ -29,13 +34,13 @@ from sqlalchemy import Connection, Engine, text
 from atlas.audit import Actor
 from atlas.jobs.queue import Artifacts, Job
 from atlas.settings import Settings
-from atlas.tradingview.client import CallBoundReached, TradingViewClient
+from atlas.tradingview.client import MAX_BARS, CallBoundReached, trading_days_back
 from atlas.tradingview.model import OWNER_OVERRIDE
 from atlas.tradingview.service import (
-    call_recorder,
     mcp_session,
     require_enabled,
     resolve_company,
+    tradingview_client,
 )
 
 PRICE_NOTE = (
@@ -76,20 +81,13 @@ def run_prices(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
     start = payload.start or end - timedelta(days=settings.tradingview_price_days)
     if start > end:
         raise ValueError(f"start {start} is after end {end}")
+    wanted = trading_days_back(start, now.date())
     closes: dict[date, float] = {}
     bounded = False
     with mcp_session(settings) as mcp:
-        client = TradingViewClient(
-            mcp,
-            max_calls=settings.tradingview_max_calls_per_job,
-            on_call=call_recorder(engine, job.id),
-        )
+        client = tradingview_client(mcp, settings, engine, job.id)
         try:
-            for bar in client.daily_bars(
-                company.symbol,
-                start=datetime.combine(start, time.min, UTC),
-                end=datetime.combine(end, time.max, UTC),
-            ):
+            for bar in client.daily_bars(company.symbol, start=start, end=end, today=now.date()):
                 closes[bar.at.date()] = bar.close  # a day listed twice: the last is kept
         except CallBoundReached:
             bounded = True
@@ -122,6 +120,8 @@ def run_prices(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
         "start": start.isoformat(),
         "end": end.isoformat(),
         "closes": len(closes),
+        "count_asked": min(wanted, MAX_BARS),
+        "count_capped": wanted > MAX_BARS,
         "tool_calls": calls,
         "bounded": bounded,
         "owner_override": OWNER_OVERRIDE,

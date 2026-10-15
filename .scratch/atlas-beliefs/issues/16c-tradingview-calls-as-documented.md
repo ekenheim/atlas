@@ -1,7 +1,7 @@
 # 16c: TradingView calls as documented, under one rate cap
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Why
@@ -22,5 +22,5 @@ TradingView's MCP documentation (https://www.tradingview.com/mcp/docs, read 2026
 
 ## Acceptance criteria
 
-- [ ] HTTP-seam tests against the TradingView fake: the calendar call carries `symbols[]`/`date_from`/`date_to` and batches; consensus fields in an answer are not stored; `get_ohlcv` carries `count` and the window is filtered; the global cap waits when the last minute holds the cap's worth of recorded calls (two clients sharing one database); a malformed answer lands in `unparsed_answer`.
+- [x] HTTP-seam tests against the TradingView fake: the calendar call carries `symbols[]`/`date_from`/`date_to` and batches; consensus fields in an answer are not stored; `get_ohlcv` carries `count` and the window is filtered; the global cap waits when the last minute holds the cap's worth of recorded calls (two clients sharing one database); a malformed answer lands in `unparsed_answer`.
 - [ ] One live calendar job and one price read on production after deploy, the shapes confirmed or fitted (the lead).
