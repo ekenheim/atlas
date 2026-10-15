@@ -1,7 +1,7 @@
 # 15: The Atlas MCP server
 
 Type: build
-Status: in-review
+Status: done
 Blocked by: 14
 
 ## What to build
@@ -11,4 +11,8 @@ Blocked by: 14
 ## Acceptance criteria
 
 - [x] HTTP-seam tests: the tool list, one call per tool against the fakes, the as-of refusal, the session's recorded calls.
-- [ ] A Claude Code session with the server configured runs question 2 without the script (the lead), scored.
+- [x] A Claude Code session with the server configured runs question 2 without the script (the lead), scored.
+
+## Answer
+
+2026-10-15: v0.6.3 on production; session `19c130c7` ran question 2 through the MCP tools only (headless `claude -p --strict-mcp-config`), 120 calls counted by Atlas, scored in `.scratch/pilot/results.md`, "The MCP session": precision 92%, trust gate 4%.

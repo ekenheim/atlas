@@ -780,3 +780,29 @@ Ticket 09 of the Beliefs effort (`.scratch/atlas-beliefs/map.md`). The same ques
 - **Missed, by the baseline:** AXT's US InP permits (no US permit by November 2025; only expected by March 2026): no Fact, and the card leaves it as its first open question, now an Issue.
 
 **Against the destination:** the trust gate is at or below the pipeline's rate (met); precision is below the proof's 100% (not met, 87%); the Beliefs are on the theme page in production with the lead's judgements (met). The method stands; the skill gains two rules (the Fact statement held to its quote; a longer quote over a context clause) and the session a larger call bound when the judge loop is on, since judging costs about a fifth of the calls.
+
+## The MCP session (2026-10-15): question 2 through the Atlas MCP server only, on v0.6.3
+
+Beliefs tickets 15 (box 2) and 11 (its measure). A headless Opus session (`claude -p --mcp-config ... --strict-mcp-config`): only the Atlas MCP server's tools, no shell, no script, no web. Same question, seeds (axt, coherent, lumentum) and as-of (2026-10-12) as the closing measure; bound 150 calls with the judge loop; recall the research bank only, since the conclusions bank holds this question's earlier answer. Session `19c130c7` on production; files `.scratch/live-runs/mcp-session-q2/` (`out/` the session's files, `review/` the scoring). The same procedure: two blind Opus Fact reviewers (agreed on 38 of 38; nothing to adjudicate), a card review, a Belief review, coverage against the researcher's 32 facts and the closing measure's 10 on-question baseline hits.
+
+| Measure | Proof session | Closing session (judge loop) | **MCP session (judge loop, skill rules of ticket 11)** |
+|---|---|---|---|
+| Facts | 41 | 31 | 38 |
+| Precision (right of all) | 100% | 87% | **92%** (35; 3 wrong, 0 off-question) |
+| Statements on the card | 35 | 12 | 28 |
+| Trust gate (card statements) | 29% fail | 9% fail | **4% fail** (27 of 28 pass; the thesis sentence fails) |
+| Saved work | 24 | 10 | 24 |
+| Baseline coverage (10 on-question hits) | 9 | 8 | 7 (3 + 4 in substance) |
+| Researcher's 32 facts on the card | 19 (+1) | 11 (+4) | **15 (+3 in Facts)** |
+| Step statuses warranted | 5 of 6 | 6 of 6 | 6 of 6 |
+| Beliefs proposed | (file) | 2 | 11 (5 atomic, 11 grounded) |
+| Tool calls | 73 | 120 | 120 (counted by Atlas: `session_tool_call`) |
+| Wall time, cost | – | 28 min | 24.5 min, $11.87 (Opus, Claude subscription) |
+
+- **The MCP server works as the only tool surface:** the session opened, searched, read, located, recorded, judged, related, proposed and closed through MCP alone; Atlas counted its calls; no as-of leak (the reviewers found none, and the server refuses reads past the session's as-of).
+- **Fact precision 92%:** up from 87%, short of the 95% bar. The three wrong Facts are again the context-clause kind the rule targets: "merchant" InP market (a scope word the quote lacks, changing the concentration figure); Lumentum's binding constraint framed by the interviewer's question; "no longer well covered for substrates by its long-term agreement" where the quote names neither. The rule in SKILL.md reduces it, it does not stop it.
+- **The trust gate, 4%:** the one failure drops Coherent's "we believe". The thesis sentence fails (IQE's "are becoming" written as "have become"; an undated, narrowed restatement of the permit rule): the thesis is not run through the judge.
+- **Beliefs:** 11 proposed, every figure and name grounded in its load-bearing quotes, but 6 of 11 are compound (several clauses of one document joined): the `joins_dated_documents` warning only catches documents more than 90 days apart. One (e476799e) repeats the CFO's "$22.3 million and $25.4 million respectively" for Casela and Coherent, while AXT's 10-Q gives Coherent $22,288,500: faithful to its quote, wrong on attribution. Three atomic, clean Beliefs are ready for an author's judgement (721ab6ab: no U.S. GaAs permits as of the 10-Q; 3c3e1c74: Lumentum calls substrates very significant; 32e9d986: Applied Optoelectronics calls it political, not capacity).
+- **Missed (coverage):** the August 2023 gallium/germanium permit regime (the closing session had it); AXT's still-missing U.S. InP permits (open question, no Fact; both sessions missed it); the InP permit timeline (portal March 2025, first permits 11 June 2025).
+
+**Against the bars:** ticket 15's box 2 is met (the session ran without the script). Ticket 11's measure: the trust gate at or below 10% is met (4%); precision at or above 95% is not (92%). Next rules, now for code rather than the skill: judge a Fact's statement against its quote at `record_fact` (the same judge, before it is stored), judge the thesis like a statement, and judge a Belief's statement before `propose_belief`, with atomicity in the judge's brief.
