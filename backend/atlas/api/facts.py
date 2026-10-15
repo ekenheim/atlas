@@ -6,6 +6,11 @@
   quote's relative phrases and the document's date contradict is 422 `period_misresolved`, one
   that dates another document `period_other_document`; the resolved period and its basis
   (the version's date, the company's fiscal year end) are computed and stored (R2-02)
+- a Fact recorded with a `session_id` (every Fact, under `ATLAS_FACT_STATEMENT_JUDGE=always`)
+  has its statement judged against its own quote, source title and date after those checks
+  (ticket 23; `atlas.judging`): misstated is 422 `statement_beyond_quote` (the error's `detail`
+  holds the judge's `beyond`, `kinds` and `reason`), supported is recorded with the verdict
+  (`statement_judgement`), and a judge that cannot be reached records the Fact `unjudged`
 - `GET /facts?company_id=&step=&investigation_id=&session_id=` (oldest first), `GET /facts/{id}`
 """
 
@@ -29,9 +34,20 @@ from atlas.api.common import (
 from atlas.archive import Archive
 from atlas.assertions import AssertionNotFound, AssertionRefused
 from atlas.audit import Actor
-from atlas.facts import Fact, FactCreate, FactRecorded, Facts, FactStep, get_fact, list_facts
+from atlas.facts import (
+    Fact,
+    FactCreate,
+    FactJudgement,
+    FactRecorded,
+    Facts,
+    FactStep,
+    get_fact,
+    list_facts,
+)
 from atlas.facts.periods import FiscalYearEnd
 from atlas.financials.calendar import fiscal_year_end
+from atlas.judging import Judges, fact_question, fact_refusal, judge_fact
+from atlas.settings import Settings
 
 Paged = Annotated[Pagination, Depends(pagination)]
 
@@ -57,9 +73,10 @@ def document_calendar(
     return row.available_at.date(), fiscal_year_end(connection, company_id)
 
 
-def facts_router(engine: Engine, archive: Archive, actor: Actor) -> APIRouter:
+def facts_router(engine: Engine, archive: Archive, actor: Actor, settings: Settings) -> APIRouter:
     router = APIRouter(prefix="/api/v1/facts", tags=["facts"])
     service = Facts(engine, archive, actor)
+    judges = Judges(engine, settings)
 
     @router.get("", response_model=Page[Fact], responses=INVALID)
     def facts(  # pyright: ignore[reportUnusedFunction]
@@ -91,8 +108,25 @@ def facts_router(engine: Engine, archive: Archive, actor: Actor) -> APIRouter:
     def create(request: FactCreate) -> FactRecorded | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         with engine.connect() as connection:
             document_date, year_end = document_calendar(connection, request)
+        judgement: FactJudgement | None = None
         try:
-            return service.create(request, document_date=document_date, fiscal_year_end=year_end)
+            if judges.judges_fact(request.session_id):
+                # Every other check first (nothing is recorded: a rolled-back transaction), so
+                # the judge is asked only about a Fact that would be recorded.
+                value = service.check(
+                    request, document_date=document_date, fiscal_year_end=year_end
+                )
+                with engine.connect() as connection:
+                    question = fact_question(connection, request)
+                    judgement, misstated = judge_fact(
+                        connection, request, value, judges.fact_judge(question)
+                    )
+                if misstated is not None:
+                    code, message = fact_refusal(misstated)
+                    return error_response(422, code, message, misstated.detail())
+            return service.create(
+                request, document_date=document_date, fiscal_year_end=year_end, judgement=judgement
+            )
         except AssertionNotFound:
             return not_found("fact")
         except AssertionRefused as refusal:

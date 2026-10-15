@@ -1629,6 +1629,9 @@ class TaskRunner:
                 investigation_id=investigation["id"],
             )
         actor = SKEPTIC_ACTOR if skeptic else READER_ACTOR
+        # Imported here: atlas.judging reads the Facts, whose package imports this one.
+        from atlas.judging import run_fact_judge
+
         with self._caller(investigation) as caller:
             reader = Reader(
                 self._engine,
@@ -1642,6 +1645,7 @@ class TaskRunner:
                 actor=actor,
                 max_calls=self._settings.reader_max_calls,
                 max_passages=self._settings.reader_max_passages,
+                fact_judge=run_fact_judge(caller, run_id, self._settings, question),
             )
             outcome = reader.run(session, setup(companies, question))
         if outcome.status == "budget_exhausted":

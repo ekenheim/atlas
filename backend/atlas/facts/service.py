@@ -75,6 +75,22 @@ class PeriodBasis(BaseModel):
     assumed_calendar: bool = False
 
 
+class FactJudgement(BaseModel):
+    """What the finding judge said of a Fact's statement against its own quote when it was
+    recorded in a research session (ticket 23; `atlas.judging`). Set by code, never by the
+    request. `supported`: the judge compared the statement with the quote, the source title and
+    date and found it says no more; `unjudged`: the judge could not be reached, and the Fact was
+    recorded without a verdict (`reason` says why). A misstated statement is never recorded."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    verdict: Literal["supported", "unjudged"]
+    judge: str | None = None
+    reason: str | None = None
+    run_id: uuid.UUID | None = None
+    role_call_id: uuid.UUID | None = None
+
+
 class FactValue(BaseModel):
     """The `value_json` of a Fact's Assertion."""
 
@@ -97,6 +113,8 @@ class FactValue(BaseModel):
     # on this document, and the date and fiscal calendar that meaning rests on.
     period_resolved: str | None = None
     period_basis: PeriodBasis | None = None
+    # Set by code (`Facts.create`) when the statement was judged at record: absent otherwise.
+    statement_judgement: FactJudgement | None = None
 
     _statement = field_validator("statement")(_not_blank)
 
@@ -174,6 +192,9 @@ class Fact(BaseModel):
     created_at: datetime
     assertion: Assertion
     part: str | None = None  # the question's part it answers; None: background, or before R2-01
+    # The judge's verdict on the statement at record (a session's Facts; ticket 23); None: the
+    # statement was not judged (no session, or the judge was off).
+    statement_judgement: FactJudgement | None = None
 
 
 class FactRecorded(BaseModel):
@@ -340,6 +361,7 @@ def _build(connection: Connection, row: Any) -> Fact:
         part=value.part,
         period_resolved=value.period_resolved,
         period_basis=value.period_basis,
+        statement_judgement=value.statement_judgement,
         created_at=row.created_at,
         assertion=assertion,
     )
@@ -447,11 +469,16 @@ def facts_of_version(
                 part=value.part,
                 period_resolved=value.period_resolved,
                 period_basis=value.period_basis,
+                statement_judgement=value.statement_judgement,
                 created_at=row["fact_created_at"],
                 assertion=assertion,
             )
         )
     return facts
+
+
+class _DryRun(Exception):
+    """Raised inside `Facts.check`'s transaction to roll it back once every check passed."""
 
 
 class Facts:
@@ -462,18 +489,17 @@ class Facts:
         self._assertions = Assertions(engine, archive, actor)
         self._actor = actor
 
-    def create(
-        self,
+    @staticmethod
+    def value_of(
         request: FactCreate,
         *,
-        extractor_version: str = "manual",
         document_date: date | None = None,
         fiscal_year_end: FiscalYearEnd | None = None,
-    ) -> FactRecorded:
-        """Record the Fact. With the document's date (and the company's fiscal year end, None
-        for a calendar-year filer) its relative periods are resolved and checked by code
-        (`atlas.facts.periods`): the resolution and what it rests on are stored, whatever the
-        request carried, and a period the document's date contradicts is refused."""
+        judgement: FactJudgement | None = None,
+    ) -> FactValue:
+        """The value a Fact is recorded with: the request's, with its relative periods resolved
+        against the document's date (and the company's fiscal year end, None for a
+        calendar-year filer), whatever the request carried, and the judge's verdict if any."""
         value = request.value()
         if document_date is None:
             value = value.model_copy(update={"period_resolved": None, "period_basis": None})
@@ -496,6 +522,64 @@ class Facts:
                     ),
                 }
             )
+        return value.model_copy(update={"statement_judgement": judgement})
+
+    def create(
+        self,
+        request: FactCreate,
+        *,
+        extractor_version: str = "manual",
+        document_date: date | None = None,
+        fiscal_year_end: FiscalYearEnd | None = None,
+        judgement: FactJudgement | None = None,
+    ) -> FactRecorded:
+        """Record the Fact. With the document's date (and the company's fiscal year end, None
+        for a calendar-year filer) its relative periods are resolved and checked by code
+        (`atlas.facts.periods`): the resolution and what it rests on are stored, whatever the
+        request carried, and a period the document's date contradicts is refused. `judgement`
+        is the judge's verdict on the statement, stored with the Fact (`atlas.judging`)."""
+        value = self.value_of(
+            request,
+            document_date=document_date,
+            fiscal_year_end=fiscal_year_end,
+            judgement=judgement,
+        )
+        with self._engine.begin() as connection:
+            return self._record(
+                connection, request, value, extractor_version, document_date, fiscal_year_end
+            )
+
+    def check(
+        self,
+        request: FactCreate,
+        *,
+        extractor_version: str = "manual",
+        document_date: date | None = None,
+        fiscal_year_end: FiscalYearEnd | None = None,
+    ) -> FactValue:
+        """Every check `create` makes (company, version, span, quantity, status, period), in a
+        transaction rolled back: raises what `create` would, else returns the value it would
+        record. What the judge is asked about is a Fact that would be recorded, so the judge
+        comes after this and before `create`, never inside its transaction."""
+        value = self.value_of(request, document_date=document_date, fiscal_year_end=fiscal_year_end)
+        try:
+            with self._engine.begin() as connection:
+                self._record(
+                    connection, request, value, extractor_version, document_date, fiscal_year_end
+                )
+                raise _DryRun
+        except _DryRun:
+            return value
+
+    def _record(
+        self,
+        connection: Connection,
+        request: FactCreate,
+        value: FactValue,
+        extractor_version: str,
+        document_date: date | None,
+        fiscal_year_end: FiscalYearEnd | None,
+    ) -> FactRecorded:
         assertion_request = AssertionCreate(
             subject_company_id=request.subject_company_id,
             predicate=FACT_PREDICATE,
@@ -510,60 +594,59 @@ class Facts:
             epistemic_type=request.epistemic_type,
             parser_version=request.parser_version,
         )
-        with self._engine.begin() as connection:
-            if (
-                request.investigation_id is not None
-                and not connection.execute(
-                    text("SELECT EXISTS (SELECT FROM investigation WHERE id = :id)"),
-                    {"id": request.investigation_id},
-                ).scalar_one()
-            ):
-                raise InvalidAssertion(
-                    "unknown_investigation", f"investigation {request.investigation_id} not found"
-                )
-            if (
-                request.session_id is not None
-                and not connection.execute(
-                    text("SELECT EXISTS (SELECT FROM research_session WHERE id = :id)"),
-                    {"id": request.session_id},
-                ).scalar_one()
-            ):
-                raise InvalidAssertion(
-                    "unknown_session", f"research session {request.session_id} not found"
-                )
-            # The Assertion's own checks (company, version, parse, exact span) come first; a
-            # refusal anywhere rolls the whole transaction back.
-            assertion = self._assertions.create_within(
-                connection, assertion_request, extractor_version=extractor_version
-            ).assertion
-            if value.quantity is not None:
-                check_quantity(request.quote, value.quantity)
-            check_status(request.quote, value.statement, value.status)
-            if document_date is not None:
-                check_period(
-                    request.quote, value.statement, value.period, document_date, fiscal_year_end
-                )
-            connection.execute(
-                text(
-                    "INSERT INTO fact (assertion_id, investigation_id, session_id, step, status)"
-                    " VALUES (:id, :investigation, :session, :step, :status)"
-                ),
-                {
-                    "id": assertion.id,
-                    "investigation": request.investigation_id,
-                    "session": request.session_id,
-                    "step": value.step,
-                    "status": value.status,
-                },
+        if (
+            request.investigation_id is not None
+            and not connection.execute(
+                text("SELECT EXISTS (SELECT FROM investigation WHERE id = :id)"),
+                {"id": request.investigation_id},
+            ).scalar_one()
+        ):
+            raise InvalidAssertion(
+                "unknown_investigation", f"investigation {request.investigation_id} not found"
             )
-            fact = get_fact(connection, assertion.id)
-            assert fact is not None
-            event = record(
-                connection,
-                self._actor,
-                "fact.created",
-                entity_type="fact",
-                entity_id=str(fact.id),
-                new_hash=content_hash(fact.model_dump(mode="json")),
+        if (
+            request.session_id is not None
+            and not connection.execute(
+                text("SELECT EXISTS (SELECT FROM research_session WHERE id = :id)"),
+                {"id": request.session_id},
+            ).scalar_one()
+        ):
+            raise InvalidAssertion(
+                "unknown_session", f"research session {request.session_id} not found"
             )
+        # The Assertion's own checks (company, version, parse, exact span) come first; a
+        # refusal anywhere rolls the whole transaction back.
+        assertion = self._assertions.create_within(
+            connection, assertion_request, extractor_version=extractor_version
+        ).assertion
+        if value.quantity is not None:
+            check_quantity(request.quote, value.quantity)
+        check_status(request.quote, value.statement, value.status)
+        if document_date is not None:
+            check_period(
+                request.quote, value.statement, value.period, document_date, fiscal_year_end
+            )
+        connection.execute(
+            text(
+                "INSERT INTO fact (assertion_id, investigation_id, session_id, step, status)"
+                " VALUES (:id, :investigation, :session, :step, :status)"
+            ),
+            {
+                "id": assertion.id,
+                "investigation": request.investigation_id,
+                "session": request.session_id,
+                "step": value.step,
+                "status": value.status,
+            },
+        )
+        fact = get_fact(connection, assertion.id)
+        assert fact is not None
+        event = record(
+            connection,
+            self._actor,
+            "fact.created",
+            entity_type="fact",
+            entity_id=str(fact.id),
+            new_hash=content_hash(fact.model_dump(mode="json")),
+        )
         return FactRecorded(fact=fact, audit_event_id=event.id)

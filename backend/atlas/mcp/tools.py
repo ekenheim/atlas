@@ -14,6 +14,13 @@ place:
 - **Slugs** name companies in every tool; the routes take ids.
 - **`propose_belief` warns** (never refuses) when its supporting Facts come from documents more
   than 90 days apart and the statement does not name each year (`joins_dated_documents`).
+- **Atlas judges what the session writes down** (ticket 23; `atlas.judging`, no tool of its own):
+  `record_fact` refuses (`statement_beyond_quote`, with the judge's `beyond`, `kinds` and
+  `reason`) a Fact whose statement says more than its quote, and returns the verdict it was
+  recorded with (`judged`: `supported`, or `unjudged` when the judge could not be reached);
+  `close_session` returns the verdict on the card's `thesis` (`thesis_judged`, flagged when
+  misstated, never refused); `propose_belief` refuses a compound Belief (`belief_compound`) and
+  one that says more than its load-bearing quotes (`belief_beyond_quotes`).
 
 A tool returns text only with the span it is in (`read`: the window and its offsets; `search`:
 passages with theirs); Memory's `recall` is labelled an index, never Evidence.
@@ -240,7 +247,9 @@ class CloseSessionArgs(Bound):
 @tool(
     "close_session",
     "Close the session with its card. Atlas counts the session's tool calls itself"
-    " (`tool_calls` on the session read); `usage` is your own report.",
+    " (`tool_calls` on the session read); `usage` is your own report. A card with a `thesis`"
+    " (one sentence) has it judged against the Facts its statements cite: `thesis_judged` in"
+    " the answer (`misstated` is flagged on the card, not refused: say so in your final message).",
     CloseSessionArgs,
 )
 async def close_session(ctx: Ctx, args: CloseSessionArgs) -> dict[str, Any]:
@@ -248,7 +257,11 @@ async def close_session(ctx: Ctx, args: CloseSessionArgs) -> dict[str, Any]:
         f"/sessions/{args.session_id}/close",
         {"usage": args.usage, "card": args.card, "card_markdown": args.card_markdown},
     )
-    return {"closed": True, "session_id": closed["id"], "facts": closed["facts"]}
+    result: dict[str, Any] = {"closed": True, "session_id": closed["id"], "facts": closed["facts"]}
+    judged = obj(closed.get("card")).get("thesis_judged")
+    if judged is not None:
+        result["thesis_judged"] = judged
+    return result
 
 
 # --- reading -------------------------------------------------------------------------------
@@ -413,8 +426,11 @@ class RecordFactArgs(Bound):
     "record_fact",
     "Record a Fact: a verbatim quote at an archived span, with the argument step and status."
     " The quote is located for you; Atlas then checks the span, the status wording and the"
-    " period against the document's date, and refuses what fails. Refused for a version that"
-    " became public after the session's as-of time.",
+    " period against the document's date, and refuses what fails; then the finding judge"
+    " compares the statement with the quote: `statement_beyond_quote` (with `beyond`, `kinds`,"
+    " `reason`) means rewrite the statement to what the quote says, or quote more. `judged` in"
+    " the answer: `supported`, or `unjudged` (the judge was unreachable: judge it yourself)."
+    " Refused for a version that became public after the session's as-of time.",
     RecordFactArgs,
 )
 async def record_fact(ctx: Ctx, args: RecordFactArgs) -> dict[str, Any]:
@@ -451,7 +467,14 @@ async def record_fact(ctx: Ctx, args: RecordFactArgs) -> dict[str, Any]:
     if args.dry_run:
         return {"recorded": False, "dry_run": True, "body": body}
     answer = await ctx.api.post("/facts", body)
-    return {"recorded": True, "fact_id": answer["fact"]["id"], "fact": answer["fact"]}
+    judgement = obj(answer["fact"].get("statement_judgement"))
+    return {
+        "recorded": True,
+        "fact_id": answer["fact"]["id"],
+        "judged": judgement.get("verdict"),
+        **({"judge_note": judgement["reason"]} if judgement.get("verdict") == "unjudged" else {}),
+        "fact": answer["fact"],
+    }
 
 
 class GetFactArgs(Bound):
@@ -621,9 +644,13 @@ class ProposeBeliefArgs(Bound):
 @tool(
     "propose_belief",
     "Propose a Belief: one falsifiable proposition citing Facts. Atlas refuses one without a"
-    " load-bearing citation of positive valence. It is born unproven; the session's theme and"
-    " as-of time are used. A `joins_dated_documents` warning means the supporting Facts are"
-    " from documents more than 90 days apart: split the proposition or name each year.",
+    " load-bearing citation of positive valence, one that is compound (`belief_compound`: more"
+    " than one sentence, a semicolon, several periods) and one the judge finds says more than"
+    " its load-bearing quotes (`belief_beyond_quotes`, with `beyond`, `kinds`, `reason`): split"
+    " or rewrite it. A judge outage is an error result: call again later. It is born unproven;"
+    " the session's theme and as-of time are used. A `joins_dated_documents` warning means the"
+    " supporting Facts are from documents more than 90 days apart: split the proposition or"
+    " name each year.",
     ProposeBeliefArgs,
 )
 async def propose_belief(ctx: Ctx, args: ProposeBeliefArgs) -> dict[str, Any]:

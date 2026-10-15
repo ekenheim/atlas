@@ -50,6 +50,8 @@ Work the six steps of the argument, in this order, and record Facts under each (
 
 Before a statement goes on the card, `judge_statement` (`statement`, `fact_ids`: its cited Facts only; `counter_fact_ids` for the counterevidence; the question is the session's) judges it. A quota or outage answer is an error result: call again after a pause. Atlas's judge compares it with the quotes. `supported`: keep it. `misstated`: it says more than its quotes (`beyond`, `kinds`, `unverified`); rewrite it yourself to what the quotes say and judge the rewrite. A statement the judge rejects twice does not go on the card: open an Issue for it (`open_issue` with `kind: "question"`, the statement as the title, the Facts named in the body) so the next session can settle it. Never put a statement on the card, or in a Belief, that was not judged `supported`. The same `run_id` keeps the session's judge calls in one run.
 
+**Atlas also judges what you write down** (the same judge, `ATLAS_FACT_STATEMENT_JUDGE`): `record_fact` judges the Fact's statement against its own quote, source title and date, and refuses `statement_beyond_quote` (with `beyond`, `kinds`, `reason`) when it says more: rewrite the statement to what the quote says, or quote more, and record again; `judged: "unjudged"` in the answer means the judge was unreachable, so judge that statement yourself before relying on it. `close_session` judges the card's `thesis` (a string in `research_card`, one sentence) against the Facts its statements cite and answers `thesis_judged`: a `misstated` thesis is flagged on the card, not refused, so rewrite it before you close, and say so in your last message if it stays. `propose_belief` refuses a compound statement (`belief_compound`: more than one sentence, a semicolon, several periods; split it into Beliefs, each with its own citations) and one that says more than its load-bearing quotes (`belief_beyond_quotes`); a judge outage is an error result, call again later. You still judge your card's statements with `judge_statement` as before.
+
 ## When a step is disputed
 
 `relate_facts` (`fact_id`, `counter_fact_id`) asks what a counterevidence Fact does to a Fact. A step is `disputed` only when a recorded counterevidence Fact is judged `contradicts` a cited Fact. `limits`, `dates` or `qualifies`: the step stays `supported` and the limitation goes into the statement (judge it again). Nothing established: `unknown`.
@@ -70,6 +72,7 @@ Write these files to the output folder (create it; JSON, UTF-8):
     "tasks": [], "leads": [],
     "question_parts": [{"key": "...", "text": "...", "outcome": "answered|facts_only|unanswered"}],
     "research_card": {
+      "thesis": "<the answer in one sentence; Atlas judges it against the Facts the statements cite>",
       "steps": [{"step": "constraint", "asks": "<what this step must establish for this question>",
                  "status": "supported|disputed|unknown" ("found|nothing_found|unknown" for invalidation),
                  "statements": [{"statement": "<one point, in words the cited quotes support>",

@@ -19,9 +19,16 @@ class ErrorEnvelope(BaseModel):
     error: ErrorDetail
 
 
-def error_response(status_code: int, code: str, message: str) -> JSONResponse:
+def error_response(
+    status_code: int, code: str, message: str, detail: dict[str, Any] | None = None
+) -> JSONResponse:
+    """The error envelope. `detail`, when given, is what a refusal adds to its message (a
+    judge's `beyond` and `kinds`, ...): machine-readable, absent from every answer without one."""
     body = ErrorEnvelope(error=ErrorDetail(code=code, message=message))
-    return JSONResponse(body.model_dump(), status_code=status_code)
+    content = body.model_dump()
+    if detail:
+        content["error"]["detail"] = detail
+    return JSONResponse(content, status_code=status_code)
 
 
 def not_found(what: str) -> JSONResponse:

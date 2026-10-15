@@ -131,6 +131,7 @@ from atlas.settings import Settings
 
 if TYPE_CHECKING:
     from atlas.facts.periods import FiscalYearEnd
+    from atlas.judging import FactJudge
 
 READER_ACTOR = Actor("atlas-reader")
 READ_STEP_KIND = "read_step"
@@ -430,10 +431,14 @@ class Reader:
         actor: Actor,
         max_calls: int,
         max_passages: int,
+        fact_judge: "FactJudge | None" = None,
     ) -> None:
         self._engine = engine
         self._archive = archive
         self._caller = caller
+        # Under `ATLAS_FACT_STATEMENT_JUDGE=always` (ticket 23): judges each Fact's statement
+        # against its quote before it is recorded, in this session's run.
+        self._fact_judge = fact_judge
         self._recall = recall
         self._role = role
         self._extractor_version = extractor_version
@@ -930,6 +935,7 @@ class Reader:
         """Record the Fact (its record), or why not (a reason code and the reason in words)."""
         # Imported here: atlas.facts imports this package (the grounding check).
         from atlas.facts import FactCreate, Facts, Quantity
+        from atlas.judging import fact_refusal, judge_fact
 
         passage = state.passages.get(proposed.passage_id)
         if passage is None:
@@ -1016,12 +1022,30 @@ class Reader:
                 for each in error.errors(include_url=False)
             )
             return "invalid_fact", details
+        facts = Facts(self._engine, self._archive, self._actor)
+        document_date = document.available_at.date()
+        year_end = self._fiscal_year_end(document.company_id or company.id)
         try:
-            recorded = Facts(self._engine, self._archive, self._actor).create(
+            judgement = None
+            if self._fact_judge is not None:
+                # Every other check first, so the judge is asked only about a Fact that would be
+                # recorded; a misstated statement is refused to the Reader like any other.
+                value = facts.check(
+                    request,
+                    extractor_version=self._extractor_version,
+                    document_date=document_date,
+                    fiscal_year_end=year_end,
+                )
+                with self._engine.connect() as connection:
+                    judgement, misstated = judge_fact(connection, request, value, self._fact_judge)
+                if misstated is not None:
+                    return fact_refusal(misstated)
+            recorded = facts.create(
                 request,
                 extractor_version=self._extractor_version,
-                document_date=document.available_at.date(),
-                fiscal_year_end=self._fiscal_year_end(document.company_id or company.id),
+                document_date=document_date,
+                fiscal_year_end=year_end,
+                judgement=judgement,
             )
         except AssertionRefused as refused:
             return refused.code, refused.message
@@ -1415,6 +1439,9 @@ def run_read_step(
 ) -> Artifacts:
     """The `read_step` job: one Reader in its own run (created with its session, finished
     when the Reader stops)."""
+    # Imported here: atlas.judging reads the Facts, whose package imports this one.
+    from atlas.judging import run_fact_judge
+
     payload = ReadStepPayload.model_validate(job.payload)
     universe = load_universe(settings.themes_config)
     theme = universe.themes.get(payload.theme)
@@ -1461,6 +1488,7 @@ def run_read_step(
         actor=READER_ACTOR,
         max_calls=settings.reader_max_calls,
         max_passages=settings.reader_max_passages,
+        fact_judge=run_fact_judge(caller, session.run_id, settings, payload.question),
     )
     outcome = reader.run(
         session,

@@ -72,14 +72,16 @@ def _check(response: httpx2.Response) -> None:
     if response.is_success:
         return
     code, message = f"http_{response.status_code}", response.text[:300]
+    detail: dict[str, Any] = {}
     try:
         error = cast(dict[str, Any], cast(dict[str, Any], response.json()).get("error") or {})
         code, message = str(error.get("code", code)), str(error.get("message", message))
+        detail = obj(error.get("detail"))  # what the refusal adds (a judge's `beyond`, ...)
     except (ValueError, AttributeError):
         pass
     if response.status_code < 500:
-        raise Refusal(code, message, http=response.status_code)
-    raise Failed(code, message, http=response.status_code)
+        raise Refusal(code, message, **detail, http=response.status_code)
+    raise Failed(code, message, **detail, http=response.status_code)
 
 
 def _json(response: httpx2.Response) -> dict[str, Any]:

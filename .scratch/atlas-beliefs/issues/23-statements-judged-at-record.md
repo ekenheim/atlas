@@ -1,7 +1,7 @@
 # 23: A Fact's statement, the thesis and a Belief judged at record
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Why
@@ -17,5 +17,5 @@ The MCP session (2026-10-15, `.scratch/pilot/results.md`, "The MCP session") kep
 
 ## Acceptance criteria
 
-- [ ] HTTP-seam tests with the scripted judge: a Fact refused for a statement beyond its quote, one recorded with its verdict, a judge outage recording it unjudged; the thesis verdict on a closed session's card; a compound Belief refused, an atomic one accepted; the pipeline's Readers unaffected by default.
+- [x] HTTP-seam tests with the scripted judge: a Fact refused for a statement beyond its quote, one recorded with its verdict, a judge outage recording it unjudged; the thesis verdict on a closed session's card; a compound Belief refused, an atomic one accepted; the pipeline's Readers unaffected by default.
 - [ ] The three wrong Facts and six compound Beliefs of session `19c130c7` replayed through the judge offline (a script over `review/`): how many each check catches (the lead).

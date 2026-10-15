@@ -16119,6 +16119,71 @@
         "title": "FactCreate",
         "description": "A new Fact: the Assertion's span fields and the Fact's own."
       },
+      "FactJudgement": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "unjudged"
+            ],
+            "title": "Verdict"
+          },
+          "judge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "role_call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Call Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verdict"
+        ],
+        "title": "FactJudgement",
+        "description": "What the finding judge said of a Fact's statement against its own quote when it was\nrecorded in a research session (ticket 23; `atlas.judging`). Set by code, never by the\nrequest. `supported`: the judge compared the statement with the quote, the source title and\ndate and found it says no more; `unjudged`: the judge could not be reached, and the Fact was\nrecorded without a verdict (`reason` says why). A misstated statement is never recorded."
+      },
       "FactRecorded": {
         "properties": {
           "fact": {
@@ -31767,6 +31832,16 @@
               }
             ],
             "title": "Part"
+          },
+          "statement_judgement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FactJudgement"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

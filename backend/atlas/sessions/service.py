@@ -3,7 +3,7 @@
 import json
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import Connection, Engine, text
@@ -11,6 +11,9 @@ from sqlalchemy import Connection, Engine, text
 from atlas.audit import Actor, content_hash, record
 from atlas.facts import Fact, list_facts
 from atlas.issues import create_session_issues
+
+if TYPE_CHECKING:
+    from atlas.judging import Judges
 
 type SessionKind = Literal["claude", "pipeline"]
 
@@ -146,10 +149,95 @@ def get_session(connection: Connection, session_id: uuid.UUID) -> ResearchSessio
     )
 
 
+def card_fact_ids(card: dict[str, JsonValue]) -> list[uuid.UUID]:
+    """The Facts a card's statements cite, in card order and without repeats: the `fact_id` of
+    each of `steps[*].statements[*].facts` (and each of a statement's `fact_ids`)."""
+    found: dict[uuid.UUID, None] = {}
+
+    def add(value: Any) -> None:
+        try:
+            found.setdefault(uuid.UUID(str(value)), None)
+        except ValueError:
+            pass
+
+    steps: Any = card.get("steps")
+    for step in cast(list[Any], steps) if isinstance(steps, list) else []:
+        statements: Any = (
+            cast(dict[str, Any], step).get("statements") if isinstance(step, dict) else None
+        )
+        for statement in cast(list[Any], statements) if isinstance(statements, list) else []:
+            if not isinstance(statement, dict):
+                continue
+            cited = cast(dict[str, Any], statement)
+            facts: Any = cited.get("facts")
+            for fact in cast(list[Any], facts) if isinstance(facts, list) else []:
+                if isinstance(fact, dict):
+                    add(cast(dict[str, Any], fact).get("fact_id"))
+            fact_ids: Any = cited.get("fact_ids")
+            for fact_id in cast(list[Any], fact_ids) if isinstance(fact_ids, list) else []:
+                add(fact_id)
+    return list(found)
+
+
 class Sessions:
-    def __init__(self, engine: Engine, actor: Actor) -> None:
+    def __init__(self, engine: Engine, actor: Actor, judges: "Judges | None" = None) -> None:
         self._engine = engine
         self._actor = actor
+        self._judges = judges
+
+    def _is_open_claude_session(self, session_id: uuid.UUID) -> bool:
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                text("SELECT finished_at, kind FROM research_session WHERE id = :id"),
+                {"id": session_id},
+            ).one_or_none()
+        return row is not None and row.finished_at is None and row.kind == "claude"
+
+    def _judge_thesis(
+        self, session_id: uuid.UUID, card: dict[str, JsonValue]
+    ) -> dict[str, JsonValue] | None:
+        """The judge's verdict on the card's `thesis` against the Facts its statements cite
+        (ticket 23), for the card's `thesis_judged`; None when the card has no thesis or the
+        judge is off. A misstated thesis is flagged here, never refused."""
+        # Imported here: the judge's modules read the Facts, which the sessions package lists.
+        from atlas.investigations.argument import fact_rows
+        from atlas.judging import MAX_THESIS_FACTS, JudgeUnavailable
+
+        thesis = card.get("thesis")
+        if self._judges is None or not self._judges.judges_session():
+            return None
+        if not isinstance(thesis, str) or not thesis.strip():
+            return None
+        with self._engine.connect() as connection:
+            question = connection.execute(
+                text("SELECT question FROM research_session WHERE id = :id"), {"id": session_id}
+            ).scalar_one_or_none()
+            rows = fact_rows(connection, card_fact_ids(card)[:MAX_THESIS_FACTS])
+        if question is None:
+            return None
+        base: dict[str, JsonValue] = {"fact_ids": [str(row["id"]) for row in rows]}
+        if not rows:
+            return {
+                **base,
+                "verdict": "unjudged",
+                "reason": "the card's statements cite no recorded Fact to judge the thesis against",
+            }
+        try:
+            verdict = self._judges.judge(
+                "thesis_judge", question=question, statement=thesis, rows=rows
+            )
+        except JudgeUnavailable as unavailable:
+            return {**base, "verdict": "unjudged", "reason": unavailable.reason}
+        return {
+            **base,
+            "verdict": verdict.verdict,
+            "reason": verdict.reason,
+            "beyond": list(verdict.beyond),
+            "kinds": list(verdict.kinds),
+            "unverified": list(verdict.unverified),
+            "judge": verdict.judge,
+            "run_id": str(verdict.run_id),
+        }
 
     def open(self, request: SessionOpen) -> SessionSummary:
         session_id = uuid.uuid4()
@@ -194,6 +282,12 @@ class Sessions:
         return summary
 
     def close(self, session_id: uuid.UUID, request: SessionClose) -> ResearchSession:
+        card = request.card
+        if card is not None and self._is_open_claude_session(session_id):
+            # Judged before the transaction: an LLM call never holds the session's row lock.
+            judged = self._judge_thesis(session_id, card)
+            if judged is not None:
+                card = {**card, "thesis_judged": judged}
         with self._engine.begin() as connection:
             row = connection.execute(
                 text("SELECT finished_at, kind FROM research_session WHERE id = :id FOR UPDATE"),
@@ -212,7 +306,7 @@ class Sessions:
                 {
                     "id": session_id,
                     "usage": json.dumps(request.usage),
-                    "card": None if request.card is None else json.dumps(request.card),
+                    "card": None if card is None else json.dumps(card),
                     "markdown": request.card_markdown,
                 },
             )
@@ -225,7 +319,7 @@ class Sessions:
                 question=session.question,
                 theme=session.theme,
                 seed_company_ids=session.seed_company_ids,
-                card=request.card,
+                card=card,
             )
             record(
                 connection,

@@ -1,7 +1,12 @@
 """`/api/v1/beliefs`: Beliefs (beliefs ticket 02).
 
 - `POST /beliefs` (201): propose; refused 422 `no_load_bearing_citation` without a load-bearing
-  citation of positive valence; born `unproven`
+  citation of positive valence; born `unproven`. Proposed from a research session (every
+  proposal under `ATLAS_FACT_STATEMENT_JUDGE=always`) it is also held to one claim, one period
+  and one actor (`atlas.beliefs.atomicity`: 422 `belief_compound`, the `detail` holds the
+  reasons) and its statement judged against its load-bearing positive Facts' quotes (422
+  `belief_beyond_quotes`, the `detail` holds the judge's `beyond`, `kinds` and `reason`; 503
+  `judge_unavailable` when no verdict could be given: call again later) (ticket 23)
 - `POST /beliefs/{id}/cite`, `/judge` (an author's judgement; clears open flags), `/supersede`
 - `GET /beliefs?theme=&step=&company_id=&judgement=&status=&flagged=&as_of=`,
   `GET /beliefs/{id}[?as_of=]` (citations with their quotes, spans and dates)
@@ -16,7 +21,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 
 from atlas.api.common import (
     CONFLICT,
@@ -29,6 +34,7 @@ from atlas.api.common import (
     pagination,
 )
 from atlas.audit import Actor
+from atlas.beliefs.atomicity import compound_reasons
 from atlas.beliefs.service import (
     Belief,
     BeliefJudge,
@@ -43,6 +49,10 @@ from atlas.beliefs.service import (
     get_belief,
     list_beliefs,
 )
+from atlas.investigations.argument import fact_rows
+from atlas.judging import Judges, JudgeUnavailable
+
+MAX_JUDGED_FACTS = 12  # the load-bearing Facts a proposal's statement is judged against
 
 Paged = Annotated[Pagination, Depends(pagination)]
 
@@ -52,7 +62,64 @@ def _refused(refusal: BeliefRefused) -> JSONResponse:
     return error_response(status, refusal.code, refusal.message)
 
 
-def beliefs_router(engine: Engine, actor: Actor) -> APIRouter:
+def judged_proposal(engine: Engine, judges: Judges, request: BeliefPropose) -> JSONResponse | None:
+    """The refusal of a proposal that is compound or whose statement says more than its
+    load-bearing positive Facts' quotes, else None (ticket 23). A proposal the Belief rules
+    refuse anyway (no load-bearing citation, an unknown Fact) is left to them."""
+    loaded = [
+        each for each in request.citations if each.weight == "load_bearing" and each.signed() > 0
+    ]
+    if not loaded:
+        return None
+    reasons = compound_reasons(request.statement)
+    if reasons:
+        return error_response(
+            422,
+            "belief_compound",
+            "a Belief is one proposition (one claim, one period, one actor): "
+            + "; ".join(reasons)
+            + ". Split it into Beliefs, each with its own citations.",
+            {"reasons": reasons},
+        )
+    fact_ids = list(dict.fromkeys(each.ref_id for each in loaded if each.kind == "fact"))
+    if not fact_ids:
+        return None  # Assertions only: there are no Facts' quotes to judge against
+    judged_ids = fact_ids[:MAX_JUDGED_FACTS]
+    with engine.connect() as connection:
+        rows = fact_rows(connection, judged_ids)
+        question = (
+            connection.execute(
+                text("SELECT question FROM research_session WHERE id = :id"),
+                {"id": request.session_id},
+            ).scalar()
+            if request.session_id is not None
+            else None
+        )
+    if len(rows) != len(judged_ids):
+        return None  # an unknown Fact: `unknown_citation` is the service's to say
+    try:
+        verdict = judges.judge(
+            "belief_judge", question=question or "", statement=request.statement, rows=rows
+        )
+    except JudgeUnavailable as unavailable:
+        return error_response(
+            503,
+            "judge_unavailable",
+            f"the statement could not be judged ({unavailable.reason}); call again later",
+        )
+    if verdict.supported:
+        return None
+    beyond = "; ".join(f'"{each}"' for each in verdict.beyond) or verdict.reason
+    return error_response(
+        422,
+        "belief_beyond_quotes",
+        f"the statement says more than its load-bearing quotes: {beyond} ({verdict.reason})."
+        " Rewrite it to what they say, or cite the Fact that carries the rest.",
+        verdict.detail(),
+    )
+
+
+def beliefs_router(engine: Engine, actor: Actor, judges: Judges | None = None) -> APIRouter:
     router = APIRouter(prefix="/api/v1/beliefs", tags=["beliefs"])
     service = Beliefs(engine, actor)
 
@@ -90,6 +157,10 @@ def beliefs_router(engine: Engine, actor: Actor) -> APIRouter:
 
     @router.post("", status_code=201, response_model=Belief, responses=INVALID)
     def propose(request: BeliefPropose) -> Belief | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        if judges is not None and judges.judges_belief(request.session_id):
+            refused = judged_proposal(engine, judges, request)
+            if refused is not None:
+                return refused
         try:
             return service.propose(request)
         except BeliefRefused as refusal:
