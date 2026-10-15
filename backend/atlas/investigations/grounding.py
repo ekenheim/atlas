@@ -131,6 +131,27 @@ _FUNCTION_WORDS = frozenset(
     """.split()
 )
 
+# Capitalised words that open a sentence or a clause and are not a name either: the discourse
+# words a statement starts with ("According to the filing, ...", "Despite the delay, ...").
+# Lower case. They are exempt only in that position (`_opens`): "the Given Imaging unit" is
+# still a name. A sentence-initial word whose lower-case form the grounds contain is already
+# grounded (`_grounded` folds case), so this list is for the words they do not contain
+# (ticket 24: the Editor's rewrite "According to the quoted statement, ..." was refused for
+# the name "According").
+_DISCOURSE_WORDS = frozenset(
+    """
+    according accordingly despite given based following regarding concerning considering
+    assuming pending absent notwithstanding nevertheless nonetheless consequently
+    currently presently recently historically previously subsequently initially finally
+    ultimately eventually today now later earlier first second third next last
+    indeed rather otherwise importantly crucially essentially effectively reportedly
+    including excluding beyond until unless once
+    """.split()
+)
+# What may stand before the first word of a sentence or clause: a stop, comma, semicolon,
+# colon, opening bracket, en dash or em dash.
+_OPENERS = ".!?;:,(" + "\N{EN DASH}\N{EM DASH}"
+
 _NUMBER_WORDS = {
     "one": 1,
     "two": 2,
@@ -468,7 +489,14 @@ def _names(text: str, ground: Grounds) -> list[str]:
             parts = [p.rstrip("'") for p in re.split(r"-(?=[a-z])", word)]
         else:
             parts = [part.strip(_EDGE) for part in re.split(r"[-/]", word)]
-        unfound = [_bare(p) for p in parts if _is_name(p) and not _grounded(p, ground)]
+        opening = _opens(text, token.start())
+        unfound = [
+            _bare(p)
+            for index, p in enumerate(parts)
+            if _is_name(p)
+            and not _grounded(p, ground)
+            and not (opening and index == 0 and p.lower() in _DISCOURSE_WORDS)
+        ]
         if unfound:
             run.extend(unfound)
             if word.endswith(".") and word.count(".") == 1:  # the sentence ends here
@@ -484,6 +512,13 @@ def _names(text: str, ground: Grounds) -> list[str]:
     if run:
         missing.append(_joined(run))
     return missing
+
+
+def _opens(text: str, start: int) -> bool:
+    """Whether the word at `start` opens a sentence or a clause: the start of `text`, or after
+    a stop, comma, semicolon, colon, opening bracket or dash."""
+    before = text[:start].rstrip()
+    return not before or before[-1] in _OPENERS
 
 
 def _joined(run: list[str]) -> str:

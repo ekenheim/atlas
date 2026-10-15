@@ -1,7 +1,7 @@
 # 24: The Belief-backed draft states its Beliefs and is judged whole
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Why
@@ -20,5 +20,5 @@ The Editor hand run (ticket 16, 2026-10-15, session `b052ebdf`; Hypothesis `5fab
 
 ## Acceptance criteria
 
-- [ ] HTTP-seam tests: a v2 draft whose statements carry no quotation marks is kept; a thesis with an unsupported qualifier is judged misstated and lands as the gate failure after one rewrite; a hedged thesis passes; the role routes by its own name; grounding unit tests for sentence-initial discourse words, and that a real unknown name at a sentence start is still flagged.
+- [x] HTTP-seam tests: a v2 draft whose statements carry no quotation marks is kept; a thesis with an unsupported qualifier is judged misstated and lands as the gate failure after one rewrite; a hedged thesis passes; the role routes by its own name; grounding unit tests for sentence-initial discourse words, and that a real unknown name at a sentence start is still flagged.
 - [ ] The Editor hand run again on production after deploy: both proven Beliefs' steps keep a statement (the lead).

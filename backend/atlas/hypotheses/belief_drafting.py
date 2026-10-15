@@ -18,8 +18,11 @@ investigation. One attempt of the draft:
    finding judge (when `ATLAS_FINDING_JUDGE` is on) is asked about it, one call each (votes as
    configured); a misstated one is rewritten once and judged again, and set aside if it still
    fails. Set-aside statements are recorded in the version's `unsupported_findings`.
-   The thesis statement is not judged: it is a proposition written as "may", cites Beliefs, and
-   the judge would hold it to a tense it does not claim.
+   The thesis statement is grounded and judged the same way, first, against the Facts of the
+   Beliefs it cites (a hedge it adds, "may", is caution, not a claim beyond the quotes). A thesis
+   still misstated after its one rewrite is stored as the Editor wrote it with `thesis_judged:
+   misstated` and held at the publish gate (`thesis_misstated`), not refused; one still
+   ungrounded after its one ask is refused.
 4. Version 1 is written: the steps (all the proven Beliefs sent, each with its judgement and
    citations as they stand now, the kept statement where there is one), the thesis, and the
    rest of the Editor's proposal. The draft fails, recording why, when the Editor's thesis
@@ -31,8 +34,9 @@ step but never grounds a statement.
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import JsonValue
 from sqlalchemy import Engine, RowMapping, text
@@ -66,6 +70,17 @@ MAX_BELIEFS_PER_STEP = 8
 MAX_FACTS_PER_STATEMENT = 12
 _OPEN_ISSUES = 20
 _BELIEF_PAGE = 500
+
+
+@dataclass(frozen=True)
+class ThesisVerdict:
+    """The thesis statement as stored and what the finding judge said of it: `supported`,
+    `misstated` (after one rewrite; the statement is then the Editor's own, and `reason` the
+    judge's) or None (not judged)."""
+
+    statement: str
+    judged: Literal["supported", "misstated"] | None
+    reason: str | None
 
 
 class DraftRefused(Exception):
@@ -255,7 +270,9 @@ class BeliefHypothesisDrafter:
                 )
             )
         content = HypothesisContent(
-            thesis_statement=thesis,
+            thesis_statement=thesis.statement,
+            thesis_judged=thesis.judged,
+            thesis_misstated_reason=thesis.reason,
             mechanism=Mechanism.model_validate(draft.mechanism.model_dump()),
             measurable_predictions=draft.measurable_predictions,
             catalysts=draft.catalysts,
@@ -275,7 +292,11 @@ class BeliefHypothesisDrafter:
             editor_role_call_id=role_call_id,
         )
         version = self._store(hypothesis, content, provenance)
-        return {"version": version, "unresolved_refs": list[JsonValue](unresolved)}
+        return {
+            "version": version,
+            "unresolved_refs": list[JsonValue](unresolved),
+            "thesis_judged": thesis.judged,
+        }
 
     def _ground_and_judge(
         self,
@@ -286,7 +307,7 @@ class BeliefHypothesisDrafter:
         said: list[tuple[str, str, list[str]]],
         unsupported: list[UnsupportedFinding],
         unresolved: list[str],
-    ) -> tuple[str, dict[str, list[StepStatement]]]:
+    ) -> tuple[ThesisVerdict, dict[str, list[StepStatement]]]:
         """The thesis statement (grounded, asked again once if not; the draft is refused if it
         still is not) and, per step, the statements kept (grounded and judged)."""
         wanted = list(
@@ -365,7 +386,11 @@ class BeliefHypothesisDrafter:
                 {"unresolved_refs": list[JsonValue](unresolved)},
             )
         kept: dict[str, list[StepStatement]] = {}
-        grounded: list[tuple[tuple[str, list[str]], CheckedFinding]] = []
+        # The thesis goes to the judge first, with the same Facts and the same rewrite as a step
+        # statement (ticket 24); the steps follow in the Editor's order.
+        grounded: list[tuple[tuple[str | None, list[str]], CheckedFinding]] = [
+            (owners[0], thesis_checked)
+        ]
         for owner, each in zip(owners[1:], checked.findings[1:], strict=True):
             step = owner[0]
             assert step is not None
@@ -379,11 +404,10 @@ class BeliefHypothesisDrafter:
                 )
                 continue
             grounded.append(((step, owner[1]), each))
-        result = thesis_checked.draft.statement
-        if not grounded:
-            return result, kept
+        result = ThesisVerdict(thesis_checked.draft.statement, None, None)
         if not self._settings.finding_judge:
-            for (step, cited), each in grounded:
+            for (step, cited), each in grounded[1:]:
+                assert step is not None
                 kept.setdefault(step, []).append(
                     StepStatement(
                         statement=each.draft.statement,
@@ -408,7 +432,21 @@ class BeliefHypothesisDrafter:
             ),
             _judged_fact,
         )
-        for ((step, cited), _), outcome in zip(grounded, meaning.outcomes, strict=True):
+        thesis_outcome, *step_outcomes = meaning.outcomes
+        if not thesis_outcome.kept:
+            # Misstated even after the one rewrite: kept as the Editor wrote it and flagged, for
+            # the owner to see at the gate; the draft is not refused.
+            result = ThesisVerdict(
+                thesis_checked.draft.statement,
+                "misstated",
+                thesis_outcome.reason or "misstated",
+            )
+        elif thesis_outcome.judged:
+            result = ThesisVerdict(thesis_outcome.draft.statement, "supported", None)
+        else:  # its judge call failed: kept, not judged
+            result = ThesisVerdict(thesis_outcome.draft.statement, None, None)
+        for ((step, cited), _), outcome in zip(grounded[1:], step_outcomes, strict=True):
+            assert step is not None
             if not outcome.kept:
                 unsupported.append(
                     UnsupportedFinding(

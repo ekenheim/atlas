@@ -18191,6 +18191,32 @@
             },
             "type": "array",
             "title": "Thesis Belief Ids"
+          },
+          "thesis_judged": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "supported",
+                  "misstated"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Judged"
+          },
+          "thesis_misstated_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Misstated Reason"
           }
         },
         "type": "object",

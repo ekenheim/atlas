@@ -5573,6 +5573,10 @@ export interface components {
             steps?: components["schemas"]["HypothesisStep"][];
             /** Thesis Belief Ids */
             thesis_belief_ids?: string[];
+            /** Thesis Judged */
+            thesis_judged?: ("supported" | "misstated") | null;
+            /** Thesis Misstated Reason */
+            thesis_misstated_reason?: string | null;
         };
         /** HypothesisCreate */
         HypothesisCreate: {
