@@ -761,6 +761,11 @@ class OpenIssueArgs(Bound):
     companies: list[str] = Field(default_factory=list[str], description="company slugs")
     narrows: uuid.UUID | None = Field(default=None, description="the Issue this one narrows")
     requires: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
+    lead_id: uuid.UUID | None = Field(
+        default=None,
+        description="a `question` only: the `lead_id` of the `signal_leads` lead this cue came"
+        " from. Atlas records the escalation as a dated call.",
+    )
 
 
 def issue_result(issue: dict[str, Any]) -> dict[str, Any]:
@@ -787,6 +792,7 @@ async def open_issue(ctx: Ctx, args: OpenIssueArgs) -> dict[str, Any]:
             "produced_by": str(args.session_id),
             "narrows": str(args.narrows) if args.narrows else None,
             "requires": [str(each) for each in args.requires],
+            "lead_id": str(args.lead_id) if args.lead_id else None,
         },
     )
     return issue_result(issue)

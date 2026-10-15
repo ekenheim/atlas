@@ -214,7 +214,9 @@ def hypotheses_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/hypotheses", tags=["hypotheses"])
     # Publishing freezes the version's Research Snapshot in the publishing transaction.
-    hypotheses = Hypotheses(engine, queue, hooks=(snapshot_hook(archive),))
+    hypotheses = Hypotheses(
+        engine, queue, hooks=(snapshot_hook(archive),), themes_config=settings.themes_config
+    )
 
     def found(hypothesis_id: uuid.UUID) -> Hypothesis | JSONResponse:
         with engine.connect() as connection:

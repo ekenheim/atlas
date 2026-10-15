@@ -26,6 +26,7 @@ import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Literal
 
 from sqlalchemy import Connection, Engine, RowMapping, text
@@ -39,6 +40,7 @@ from atlas.beliefs.versions import (
     unproven_step_beliefs,
     version_beliefs,
 )
+from atlas.calls.record import hypothesis_call
 from atlas.hypotheses.findings import ProposedFinding, resolve_findings
 from atlas.hypotheses.model import (
     DRAFT_HYPOTHESIS_KIND,
@@ -319,11 +321,14 @@ class Hypotheses:
         *,
         gate: Sequence[PublishCheck] = DEFAULT_PUBLISH_GATE,
         hooks: Sequence[PublishHook] = (),
+        themes_config: Path | None = None,
     ) -> None:
         self._engine = engine
         self._queue = queue
         self._gate = tuple(gate)
         self._hooks = tuple(hooks)
+        # Where a published version's call finds its companies' TradingView symbols.
+        self._themes_config = themes_config
 
     def create(self, actor: Actor, investigation_id: uuid.UUID) -> uuid.UUID:
         """Save the investigation's result: a `draft` Hypothesis and its drafting job."""
@@ -704,6 +709,15 @@ class Hypotheses:
             record_dependencies(connection, latest)
             record_version_beliefs(connection, latest.id, dependent_assertion_ids(latest))
             record_step_beliefs(connection, latest.id, step_belief_ids(latest.content.steps))
+            # The prospective record (ticket 19): a published version is a call, dated its
+            # publication.
+            hypothesis_call(
+                connection,
+                actor,
+                latest.id,
+                made_at=published["published_at"],
+                themes_config=self._themes_config,
+            )
             for hook in self._hooks:
                 hook(connection, hypothesis, version_from_row(published), actor)
 

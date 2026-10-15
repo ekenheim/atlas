@@ -3,12 +3,14 @@
 import uuid
 from collections.abc import Mapping
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Literal, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Connection, Engine, text
 
 from atlas.audit import Actor, content_hash, record
+from atlas.calls.record import signal_call
 
 type IssueKind = Literal["question", "step", "read"]
 type IssueStatus = Literal["active", "complete", "abandoned", "invalid"]
@@ -42,6 +44,10 @@ class UnknownCompany(Exception):
     pass
 
 
+class UnknownLead(Exception):
+    pass
+
+
 class IssueCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -56,6 +62,17 @@ class IssueCreate(BaseModel):
     requires: list[uuid.UUID] = Field(
         default_factory=list[uuid.UUID], description="Issues to finish before this one"
     )
+    lead_id: uuid.UUID | None = Field(
+        default=None,
+        description="the archive-signal lead a `question` escalates; it makes a call"
+        " (atlas-beliefs ticket 19), dated now",
+    )
+
+    @model_validator(mode="after")
+    def _lead_on_a_question(self) -> Self:
+        if self.lead_id is not None and self.kind != "question":
+            raise ValueError("only a question Issue escalates a lead")
+        return self
 
 
 class IssueEdgeCreate(BaseModel):
@@ -294,8 +311,20 @@ def _insert_edge(
     )
 
 
-def _insert_issue(connection: Connection, actor: Actor, request: IssueCreate) -> uuid.UUID:
+def _insert_issue(
+    connection: Connection,
+    actor: Actor,
+    request: IssueCreate,
+    themes_config: Path | None = None,
+) -> uuid.UUID:
     issue_id = uuid.uuid4()
+    if request.lead_id is not None and (
+        connection.execute(
+            text("SELECT 1 FROM archive_signal WHERE lead_id = :lead"), {"lead": request.lead_id}
+        ).one_or_none()
+        is None
+    ):
+        raise UnknownLead("the lead is not an archive-signal lead")
     if request.company_ids:
         known = connection.execute(
             text("SELECT count(*) FROM company WHERE id = ANY(:ids)"),
@@ -303,11 +332,11 @@ def _insert_issue(connection: Connection, actor: Actor, request: IssueCreate) ->
         ).scalar_one()
         if known != len(set(request.company_ids)):
             raise UnknownCompany("a company is not in the universe")
-    connection.execute(
+    created_at: datetime = connection.execute(
         text(
             "INSERT INTO issue (id, title, body, theme, kind, priority, produced_by, company_ids,"
-            " created_by) VALUES (:id, :title, :body, :theme, :kind, :priority, :produced_by,"
-            " :companies, :actor)"
+            " created_by, lead_id) VALUES (:id, :title, :body, :theme, :kind, :priority,"
+            " :produced_by, :companies, :actor, :lead) RETURNING created_at"
         ),
         {
             "id": issue_id,
@@ -319,8 +348,21 @@ def _insert_issue(connection: Connection, actor: Actor, request: IssueCreate) ->
             "produced_by": request.produced_by,
             "companies": list(request.company_ids),
             "actor": actor.name,
+            "lead": request.lead_id,
         },
-    )
+    ).scalar_one()
+    if request.lead_id is not None:
+        # The prospective record (ticket 19): escalating a signal is a call, dated now (the
+        # session's as-of time is not used: a call is never back-dated).
+        signal_call(
+            connection,
+            actor,
+            issue_id=issue_id,
+            lead_id=request.lead_id,
+            theme=request.theme,
+            made_at=created_at,
+            themes_config=themes_config,
+        )
     record(
         connection,
         actor,
@@ -337,13 +379,14 @@ def _insert_issue(connection: Connection, actor: Actor, request: IssueCreate) ->
 
 
 class Issues:
-    def __init__(self, engine: Engine, actor: Actor) -> None:
+    def __init__(self, engine: Engine, actor: Actor, themes_config: Path | None = None) -> None:
         self._engine = engine
         self._actor = actor
+        self._themes_config = themes_config
 
     def create(self, request: IssueCreate) -> Issue:
         with self._engine.begin() as connection:
-            issue_id = _insert_issue(connection, self._actor, request)
+            issue_id = _insert_issue(connection, self._actor, request, self._themes_config)
             issue = get_issue(connection, issue_id)
         assert issue is not None
         return issue

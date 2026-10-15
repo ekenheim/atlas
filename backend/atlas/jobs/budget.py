@@ -108,6 +108,9 @@ PROVIDER_KINDS: dict[str, Provider] = {
     "tradingview_transcripts": "tradingview",
     "tradingview_calendar": "tradingview",
     "tradingview_prices": "tradingview",
+    # The prospective record's daily settlement (atlas-beliefs ticket 19): no LLM, and it
+    # reaches TradingView only through the price service and its cap.
+    "settle_calls": "tradingview",
 }
 # The bulk retention switch (`ATLAS_BULK_RETENTION=off`, beliefs ticket 06): the kinds that
 # retain the archive section by section are held like a spent budget. The ingest's section

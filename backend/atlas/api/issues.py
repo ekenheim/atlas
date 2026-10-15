@@ -1,7 +1,8 @@
 """`/api/v1/issues`: the research frontier (beliefs ticket 04).
 
 - `POST /issues` (201): open an Issue (`kind`, `theme`, `priority`, `company_ids`, optional
-  `narrows` and `requires`)
+  `narrows` and `requires`, and for a `question` the archive-signal `lead_id` it escalates: that
+  makes a call, 422 `unknown_lead` for any other lead)
 - `POST /issues/{id}/edges`: add `narrows` or `requires` to a parent; 409 `issue_cycle`
 - `POST /issues/{id}/complete|abandon`: close an active Issue (409 `issue_not_active`)
 - `POST /issues/{id}/produced`: record a Belief or a Fact it produced
@@ -12,6 +13,7 @@ Every write is audited. Errors use the envelope.
 """
 
 import uuid
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -40,6 +42,7 @@ from atlas.issues import (
     Issues,
     NextIssue,
     UnknownCompany,
+    UnknownLead,
     UnknownProduct,
     get_issue,
     list_issues,
@@ -50,9 +53,9 @@ from atlas.issues.service import IssueStatus
 Paged = Annotated[Pagination, Depends(pagination)]
 
 
-def issues_router(engine: Engine, actor: Actor) -> APIRouter:
+def issues_router(engine: Engine, actor: Actor, themes_config: Path | None = None) -> APIRouter:
     router = APIRouter(prefix="/api/v1/issues", tags=["issues"])
-    service = Issues(engine, actor)
+    service = Issues(engine, actor, themes_config)
 
     @router.get("", response_model=Page[Issue], responses=INVALID)
     def issues(  # pyright: ignore[reportUnusedFunction]
@@ -85,6 +88,8 @@ def issues_router(engine: Engine, actor: Actor) -> APIRouter:
             return error_response(422, "unknown_issue", "narrows or requires names no Issue")
         except UnknownCompany as error:
             return error_response(422, "unknown_company", str(error))
+        except UnknownLead as error:
+            return error_response(422, "unknown_lead", str(error))
         except IssueCycle as error:
             return error_response(409, "issue_cycle", str(error))
 

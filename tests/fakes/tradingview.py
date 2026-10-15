@@ -17,7 +17,8 @@ manifest; no TradingView content). The protocol follows the MCP specification (2
   carries the `calendar-<company><calendar>.json` items of every symbol asked) and
   `mcp-tv-get-ohlcv` (arguments `symbol`, `interval`, `count`, `summary`; `ohlcv-<company>
   <prices>.json`, bars `{t, o, h, l, c, v}`; the fake returns all the fixture's bars whatever
-  the count, so the client's own window filter is what the tests see). The answers' field
+  the count, so the client's own window filter is what the tests see; `ohlcv[symbol]` replaces a
+  symbol's answer text). The answers' field
   names are Atlas's guess where TradingView doesn't document them. `raw[tool]` replaces a
   tool's answer text (a malformed answer). Any other tool is a JSON-RPC error.
 - OAuth: protected resource metadata at `/.well-known/oauth-protected-resource/mcp`
@@ -65,6 +66,9 @@ class FakeTradingView:
     unavailable: bool = False  # answer every MCP request 503
     calendar: str = ""  # "-moved", "-noid": the calendar fixture variant the calendar tool answers
     prices: str = ""  # "-adjusted": the get_ohlcv fixture variant the OHLCV tool answers
+    # symbol -> the get_ohlcv answer text for it (ticket 19: a test builds bars around the real
+    # dates of the calls it makes); a symbol not named here is answered from the fixtures
+    ohlcv: dict[str, str] = field(default_factory=dict[str, str])
     raw: dict[str, str] = field(default_factory=dict[str, str])  # tool name -> its answer text
     calls: list[httpx2.Request] = field(default_factory=list[httpx2.Request])
     times: list[float] = field(default_factory=list[float])
@@ -226,6 +230,8 @@ class FakeTradingView:
                 company = SYMBOLS[symbol]
                 items += json.loads(fixture_text(f"calendar-{company}{self.calendar}"))["items"]
             return self._text(request_id, json.dumps({"items": items, "total": len(items)}))
+        if name == "mcp-tv-get-ohlcv" and arguments["symbol"] in self.ohlcv:
+            return self._text(request_id, self.ohlcv[arguments["symbol"]])
         if name == "mcp-tv-get-ohlcv":
             return self._text(
                 request_id, fixture_text(f"ohlcv-{SYMBOLS[arguments['symbol']]}{self.prices}")

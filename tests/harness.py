@@ -163,6 +163,8 @@ class Atlas:
             # The nightly archive-signal scan (ticket 18) is scheduled only where a test asks
             # (`signal_scan_at="03:00"`), so other modules' scheduled passes run what they did.
             "signal_scan_at": "",
+            # The daily settlement of calls (ticket 19) likewise runs only where a test asks.
+            "settle_calls_at": "",
         }
         return make_settings(self.archive, **(values | providers | self.overrides))
 
