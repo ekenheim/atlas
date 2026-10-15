@@ -243,6 +243,8 @@ def archive_documents(
     public, from `since` on (inclusive) and, with `kinds`, only those whose form type, document
     type or source type is one of them (case-insensitive). Raises `UnknownCompany`."""
     as_of = as_of if as_of.tzinfo else as_of.replace(tzinfo=UTC)
+    if since is not None and since.tzinfo is None:
+        since = since.replace(tzinfo=UTC)
     wanted = {each.strip().lower() for each in kinds if each.strip()}
     found: list[ArchiveDocument] = []
     with engine.connect() as connection:
