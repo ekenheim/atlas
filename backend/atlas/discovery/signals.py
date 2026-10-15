@@ -21,9 +21,10 @@ like a bottleneck, best first, each with its span and why it scored.
 - **Score.** See the config's header: the families matched, weighted; a bonus when two
   families are told in one paragraph (to a sentence that scores `cooccurrence_min_own` on its
   own: a bare word cannot ride on its neighbour's cue); a bonus for a figure; then the factors
-  for who speaks (a call transcript's label through `atlas.claims.speakers`: the company's people, an
-  analyst, none recognised), for a question, for a risk-factors section (`Item 1A`, found by
-  the sectioner), for a sentence hedged with could, may or might, and for safe-harbor wording.
+  for who speaks (a call transcript's label through `atlas.claims.speakers`: the company's
+  people, an analyst, none recognised), for a question, for a risk-factors section
+  (`Item 1A`, found by the sectioner), for a sentence hedged with could, may or might, and for
+  safe-harbor wording.
 - **A hit is a lead.** Nothing here is a Claim, a Fact or Evidence: the agent that follows a hit
   reads the window and records a Fact itself.
 """
