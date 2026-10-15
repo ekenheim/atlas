@@ -867,6 +867,59 @@ def test_a_hedged_thesis_passes_and_a_misstated_one_the_editor_repairs_is_kept(
     assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
 
 
+def clausing(body: dict[str, Any]) -> JsonValue:
+    """The finding judge as `finding_judge.v4` asks it to behave on a hedged proposition: it
+    answers `supported`, splitting the statement at " as " into the clause that is the
+    proposition (no quote states it: no reference, no basis) and the clause a quote does state."""
+    request = asked(body)
+    statement = request["request"]["finding"]["statement"]
+    quote = request["retrieved_data"][0]
+    proposition, _, rest = statement.partition(" as ")
+    return {
+        "clauses": [
+            {"text": proposition, "ref": None, "basis": None},
+            {"text": f"as {rest}", "ref": quote["id"], "basis": "$1.01 billion"},
+        ],
+        "verdict": "supported",
+        "beyond": [],
+        "kinds": [],
+        "reason": "the proposition is hedged and the figure is the quote's",
+    }
+
+
+def test_a_hedged_proposition_clause_with_no_quote_basis_makes_the_thesis_misstated(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    """Observed, not endorsed (ticket 24, open issue for the lead): `meaning.checked` turns any
+    `supported` vote with a clause whose basis code cannot find into `misstated` (`unstated`),
+    and a hedged proposition ("may be straining ...") is a clause no quote states. So an honest
+    judge's `supported` on a thesis lands `thesis_misstated`, not through the judge's verdict."""
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(editor({"constraint": CONSTRAINT_STATEMENT}), tokens=(3000, 700)),
+    )
+    llm.script_role("editor", ChatReply.answer(rewriting(HEDGED), tokens=(800, 80)))
+    llm.script_role(
+        "finding_judge",
+        ChatReply.answer(clausing, tokens=(400, 40)),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+        ChatReply.answer(clausing, tokens=(400, 40)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    content = beliefs.hypothesis(saved["id"])["versions"][0]["content"]
+    assert (content["thesis_statement"], content["thesis_judged"]) == (THESIS, "misstated")
+    assert content["thesis_misstated_reason"] == (
+        "misstated after a rewrite: basis unverified:"
+        ' "Lumentum may be straining its laser capacity": no cited quote holds the words the'
+        " judge gave as the basis of each (the judge's reason: the proposition is hedged and"
+        " the figure is the quote's)"
+    )
+    assert content["steps"][0]["statement"] == CONSTRAINT_STATEMENT
+
+
 def test_a_thesis_is_stored_unjudged_when_the_judge_is_off_or_its_call_fails(
     beliefs: Beliefs, llm: FakeLiteLLM
 ) -> None:

@@ -5439,7 +5439,7 @@ export interface components {
             assertion_ids: string[];
             /**
              * Belief Ids
-             * @description `belief_not_proven`: the load-bearing Beliefs that are not proven
+             * @description `belief_not_proven`: the load-bearing Beliefs that are not proven; `thesis_misstated`: the Beliefs the misstated thesis cites
              */
             belief_ids?: string[];
         };

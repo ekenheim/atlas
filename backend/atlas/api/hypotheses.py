@@ -155,7 +155,8 @@ class GateFailureView(BaseModel):
     assertion_ids: list[uuid.UUID]
     belief_ids: list[uuid.UUID] = Field(
         default_factory=list[uuid.UUID],
-        description="`belief_not_proven`: the load-bearing Beliefs that are not proven",
+        description="`belief_not_proven`: the load-bearing Beliefs that are not proven;"
+        " `thesis_misstated`: the Beliefs the misstated thesis cites",
     )
 
 
