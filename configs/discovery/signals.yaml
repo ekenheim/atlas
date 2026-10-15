@@ -26,7 +26,8 @@
 # A sentence scoring under `min_score` is not a hit.
 #
 # Negation (version 2): a phrase preceded in its clause by a negator that governs it ("they are
-# not sold out", "we have no capacity constraints") is not a match, so it adds nothing. A phrase
+# not sold out", "we have no capacity constraints"), or a negator inside the phrase's own gap words
+# ("demand does not exceed supply"), is not a match, so it adds nothing. A phrase
 # that carries its own negation ("not taking orders", "cannot be adequately served") says
 # `own_negation: true` and is not checked. Ranking: the ranked reads of the stored hits (the
 # leads route, the MCP tool, the replay script) put at most `ranking.max_per_document` hits of
@@ -118,6 +119,7 @@ families:
       - pattern: \b(?:not|never|cannot|can(?:'|no)t|unable\s+to)\s+(?:be\s+)?(?:adequately|fully|properly)\s+(?:serviced|served|supplied)\b
         own_negation: true
       - pattern: \b(?:can(?:'|no)t|cannot|can\s+not|unable\s+to|struggl\w+\s+to)\s+(?:possibly\s+)?(?:keep\s+up|get\s+enough|meet\s+(?:the\s+)?demand|supply\s+enough|fill\s+(?:all\s+)?(?:the\s+)?orders)\b
+        own_negation: true
       - pattern: \bdemand\s+(?:\w+\s+){0,2}(?:exceed(?:s|ed|ing)?|outstrip(?:s|ped|ping)?|outpac(?:e|es|ed|ing)|surpass(?:es|ed|ing)?)\s+(?:\w+\s+){0,2}(?:supply|capacity|our\s+ability)\b
       - pattern: \b(?:under[\s-]?suppl(?:y|ied)|oversubscribed|over[\s-]?booked)\b
       - pattern: \bsold[\s-]+out\b

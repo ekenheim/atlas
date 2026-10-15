@@ -22,8 +22,10 @@ like a bottleneck, best first, each with its span and why it scored.
   out", "we have no capacity constraints", "without any shortages") is not a match. The clause
   runs back from the phrase to the last break (a comma, a dash, "but", "because"), the negator
   must be within `negation.window_words` words, and "not only", "no matter" and the like do not
-  negate. A phrase that carries its own negation ("not taking orders", "cannot be adequately
-  served", "no second source") says `own_negation: true` and is not checked.
+  negate. A negator inside the phrase's own gap words ("demand does not exceed supply", "lead
+  times have not lengthened") cancels it too. A phrase that carries its own negation ("not
+  taking orders", "cannot be adequately served", "no second source") says `own_negation: true`
+  and is not checked.
 - **Score.** See the config's header: the families matched, weighted; a bonus when two
   families are told in one paragraph (to a sentence that scores `cooccurrence_min_own` on its
   own: a bare word cannot ride on its neighbour's cue); a bonus for a figure; then the factors
@@ -387,7 +389,7 @@ class SignalScorer:
                 match = phrase.regex.search(folded)
                 if match is None or (phrase.unless is not None and phrase.unless.search(folded)):
                     continue
-                if not phrase.own_negation and self._negated(folded, match.start()):
+                if not phrase.own_negation and self._negated(folded, match.start(), match.end()):
                     continue
                 matches.append(
                     (
@@ -402,9 +404,15 @@ class SignalScorer:
             found.append(_Sentence(line_start + begin, line_start + end, quote, tuple(matches)))
         return found
 
-    def _negated(self, folded: str, start: int) -> bool:
-        """Whether a negator governs the phrase that begins at `start`: it stands in the same
-        clause, within `window_words` words, and is not one of the exceptions ("not only")."""
+    def _negated(self, folded: str, start: int, end: int) -> bool:
+        """Whether a negator governs the phrase that spans `start` to `end`: it stands in the same
+        clause before the phrase, within `window_words` words, or inside the phrase's own gap
+        words ("demand does not exceed supply"), and is not one of the exceptions ("not only")."""
+        inside = folded[start:end]
+        for negator in self._negators:
+            for found in negator.finditer(inside):
+                if not any(each.search(inside[found.end() :]) for each in self._exceptions):
+                    return True
         clause = folded[:start]
         if self._breaks is not None:
             ends = [each.end() for each in self._breaks.finditer(clause)]

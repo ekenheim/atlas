@@ -254,6 +254,56 @@ def test_a_cue_a_negator_governs_is_no_match(scorer: SignalScorer, sentence: str
     assert scan(scorer, sentence) == []
 
 
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "Demand does not exceed supply for our transceivers this year.",
+        "Demand did not outstrip our capacity during the quarter at all.",
+        "Our capacity is not constrained at this point in the year.",
+        "Lead times have not lengthened for our customers this quarter.",
+        "Lead times are no longer extended for most of our products now.",
+    ],
+)
+def test_a_negator_inside_the_phrase_cancels_it(scorer: SignalScorer, sentence: str) -> None:
+    assert scan(scorer, sentence) == []
+
+
+@pytest.mark.parametrize(
+    ("sentence", "score"),
+    [
+        ("Demand does exceed supply for our transceivers this year.", 2.0),
+        ("Demand did outstrip our capacity during the quarter at all.", 2.0),
+        ("Our capacity is constrained at this point in the year.", 1.5),
+        ("Lead times have lengthened for our customers this quarter.", 1.5),
+        ("Lead times are extended for most of our products now.", 1.5),
+    ],
+)
+def test_the_same_sentence_without_the_inner_negator_keeps_its_score(
+    scorer: SignalScorer, sentence: str, score: float
+) -> None:
+    [hit] = scan(scorer, sentence)
+
+    assert hit.score == score
+
+
+def test_not_only_inside_a_phrase_negates_nothing(scorer: SignalScorer) -> None:
+    sentence = "Demand not only exceeds supply but keeps growing for our transceivers."
+
+    assert scan(scorer, sentence) != []
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "We cannot keep up with orders.",
+        "We can not keep up with orders.",
+        "We can't get enough of these lasers for our customers.",
+    ],
+)
+def test_cannot_keep_up_stays_a_match(scorer: SignalScorer, sentence: str) -> None:
+    assert scan(scorer, sentence) != []
+
+
 def test_the_same_words_without_the_negator_are_a_match(scorer: SignalScorer) -> None:
     sentence = "We have capacity constraints at several of our sites."
 
