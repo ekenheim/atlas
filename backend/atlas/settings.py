@@ -265,6 +265,16 @@ class Settings(BaseSettings):
     # calls no LLM, so no budget or quota pause holds it, and it runs while consolidation is
     # off.
     reconcile_at: str = Field(default="03:30", pattern=r"^$|^([01]\d|2[0-3]):[0-5]\d$")
+    # Archive bottleneck signals (atlas-beliefs ticket 18; atlas.discovery.signals): how the
+    # nightly `scan_signals` job scores the sentences of newly archived documents (the config),
+    # and when the worker enqueues it (HH:MM UTC, backfill class; empty: never; `atlas signals
+    # scan` asks by hand). It calls no LLM, so no budget or quota pause holds it.
+    signals_config: Path = Path("configs/discovery/signals.yaml")
+    signal_scan_at: str = Field(default="03:00", pattern=r"^$|^([01]\d|2[0-3]):[0-5]\d$")
+    # A scan leaves the Source Versions ingested in the last this-many seconds (by the
+    # database's clock) for the next one: an ingest whose transaction is still open stamps its
+    # versions with its start, so a scan that ran just then would pass them over for good.
+    signal_scan_lag_seconds: int = Field(default=600, ge=0)
     # Replay banks (atlas.replay, §9.2): the **local** Hindsight a replay creates its
     # `atlas-replay-<id>` bank on (never the shared server; without it replays are refused),
     # the fixed question sets, how many Source Versions one replay retains at most (the

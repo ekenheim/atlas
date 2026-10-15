@@ -1,0 +1,156 @@
+# Archive bottleneck signals (atlas.discovery.signals; atlas-beliefs ticket 18): how the
+# nightly `scan_signals` job scores the sentences of newly archived documents for the cues of a
+# bottleneck, to point a reader at where to look. A hit is a Tier C lead (origin
+# `archive_signal`), never a Fact, never Evidence: the agent reads the window and records a
+# Fact itself. No model reads anything; the scorer is these patterns and these numbers.
+#
+# The vocabulary is general. It comes from the early-signal case studies
+# (docs/research/early-signal-case-studies.md) and the Reader's constraint vocabulary, and it
+# is not fitted to a company or a sentence: every family lists the ways managements and
+# analysts word one kind of scarcity, and a test pins each family on sentences written for it.
+#
+# Scoring, per sentence (a paragraph is a line of the parsed text):
+#   families   each family a sentence matches adds `weight` times its best phrase's `weight`
+#              (default 1), and `repeat_factor` of `weight` times each further phrase of the
+#              family that matches elsewhere in the sentence (at most two);
+#   co-occur   `cooccurrence_bonus` when the paragraph shows two or more families (in this
+#              sentence or its neighbours): scarcity is usually told with its cause. A
+#              sentence whose own families score under `cooccurrence_min_own` (a bare
+#              word) does not take it: it cannot ride on its neighbour's cue;
+#   figure     `figure_bonus` for a figure in the sentence (an amount, a percentage, weeks);
+#   then multiplied by: the speaker's factor in a call transcript (the company's own people,
+#   an analyst, or no recognised affiliation: atlas.claims.speakers); `question_factor` for a
+#   sentence that asks; `boilerplate.section_factor` in a risk-factors section;
+#   `boilerplate.hedge_factor` for a sentence hedged with could, may or might; and
+#   `boilerplate.phrase_factor` for safe-harbor and assurance wording.
+# A sentence scoring under `min_score` is not a hit.
+#
+# A family's phrase is a regular expression (case-insensitive; `\s+` between words; typographic
+# apostrophes, quotation marks and dashes are folded to ASCII before matching, so write them as
+# ASCII), with an optional `weight` (a factor of the family's, 0 to 1) and an optional `unless`:
+# a pattern that, found in the same sentence, means the phrase is used in another sense and
+# does not count.
+version: 1
+min_score: 1.5
+repeat_factor: 0.25
+cooccurrence_bonus: 1.0
+cooccurrence_min_own: 1.0
+figure_bonus: 0.75
+question_factor: 0.6
+max_sentence_chars: 1200
+min_sentence_chars: 25
+speaker:
+  management: 1.25
+  unknown: 0.8
+  analyst: 0.5
+boilerplate:
+  # A section whose anchor ends with one of these is a risk-factors section (Item 1A).
+  sections: [item-1a]
+  section_factor: 0.3
+  hedge_words: [could, may, might, would]
+  hedge_factor: 0.5
+  phrases:
+    - forward-looking statements?
+    - safe harbor
+    - risks? and uncertaint(?:y|ies)
+    - no assurance
+    - cannot assure
+    - can not assure
+    - there is a risk
+    - in the event (?:that )?we
+    - if we (?:are|were) unable
+    - if we fail
+    - from time to time
+  phrase_factor: 0.3
+# What counts as a figure: an amount of money, a percentage, or a span of weeks or months.
+figures:
+  - \$\s?\d[\d,.]*\s?(?:thousand|million|billion|trillion|[kmb]n?)?\b
+  - \b\d[\d,.]*\s?(?:%|percent\b)
+  - \b\d+(?:\s?-\s?\d+)?\s+(?:weeks?|months?|quarters?)\b
+  - \b(?:two|three|four|five|six|eight|ten|twelve)\s+(?:times|fold)\b
+  - \b\d+(?:\.\d+)?x\b
+families:
+  few_suppliers:
+    weight: 2.0
+    phrases:
+      - pattern: \b(?:just|only)\s+(?:two|three|a\s+(?:few|handful\s+of))\s+(?:\w+\s+){0,2}(?:players|suppliers|vendors|manufacturers|producers|sources|companies|fabs|foundries)\b
+      - pattern: \b(?:two|three)\s+(?:major\s+|main\s+|large\s+|big\s+)?(?:players|suppliers|vendors|producers)\b
+        weight: 0.6
+      - pattern: \bonly\s+(?:one|two)\s+(?:\w+\s+){0,2}(?:supplier|source|vendor|producer|manufacturer)s?\b
+      - pattern: \bduopol(?:y|ist)\b
+      - pattern: \b(?:sole|single)[\s-]+(?:source|sourced|supplier)\b
+        weight: 0.7
+      - pattern: \b(?:a\s+)?handful\s+of\s+(?:\w+\s+){0,2}(?:suppliers|vendors|players|producers|manufacturers)\b
+      - pattern: \b(?:few|limited\s+number\s+of)\s+(?:\w+\s+){0,2}(?:suppliers|vendors|qualified\s+\w+)\b
+        weight: 0.6
+        unless: \b(?:customers?|end\s+markets?)\b
+      - pattern: \bonly\s+(?:qualified|approved|certified)\s+(?:supplier|source|vendor)s?\b
+      - pattern: \b(?:no|little)\s+(?:second|alternate|alternative)\s+source\b
+        weight: 0.8
+  demand_beyond_supply:
+    weight: 2.0
+    phrases:
+      - pattern: \b(?:growing|growth|expanding|ramping)\s+(?:\w+\s+){0,3}too\s+(?:fast|quickly|rapidly)\b
+      - pattern: \b(?:not|never|cannot|can(?:'|no)t|unable\s+to)\s+(?:be\s+)?(?:adequately|fully|properly)\s+(?:serviced|served|supplied)\b
+      - pattern: \b(?:can(?:'|no)t|cannot|can\s+not|unable\s+to|struggl\w+\s+to)\s+(?:possibly\s+)?(?:keep\s+up|get\s+enough|meet\s+(?:the\s+)?demand|supply\s+enough|fill\s+(?:all\s+)?(?:the\s+)?orders)\b
+      - pattern: \bdemand\s+(?:\w+\s+){0,2}(?:exceed(?:s|ed|ing)?|outstrip(?:s|ped|ping)?|outpac(?:e|es|ed|ing)|surpass(?:es|ed|ing)?)\s+(?:\w+\s+){0,2}(?:supply|capacity|our\s+ability)\b
+      - pattern: \b(?:under[\s-]?suppl(?:y|ied)|oversubscribed|over[\s-]?booked)\b
+      - pattern: \bsold[\s-]+out\b
+        unless: \bsold[\s-]+out\s+(?:of|its|our|their)\b
+      - pattern: \bon\s+allocation\b
+      - pattern: \b(?:not|no\s+longer|stopped|stop)\s+(?:be\s+)?taking\s+(?:any\s+)?(?:new\s+)?(?:orders|bookings)\b
+      - pattern: \b(?:new\s+)?orders\s+(?:\w+\s+){0,5}(?:daily|every\s+day|each\s+day|a\s+daily\s+basis)\b
+      - pattern: \b(?:supply|market)\s+(?:is\s+|remains\s+|remain\s+)?(?:very\s+|extremely\s+|quite\s+)?(?:tight|constrained)\b
+        weight: 0.8
+      - pattern: \b(?:supply|material|component|capacity|allocation)\s+(?:shortages?|constraints?)\b
+        weight: 0.6
+      - pattern: \bshortages?\b
+        weight: 0.4
+      - pattern: \bmore\s+demand\s+than\s+(?:we|the\s+market|supply)\b
+  lead_times_backlog:
+    weight: 1.5
+    phrases:
+      - pattern: \blead[\s-]+times?\s+(?:\w+\s+){0,3}(?:extend(?:ed|ing)?|lengthen(?:ed|ing)?|stretch(?:ed|ing)?|increas(?:e|ed|ing)|grew|grown|longer)\b
+      - pattern: \b(?:extended|longer|lengthening|stretched)\s+lead[\s-]+times?\b
+      - pattern: \b(?:record|largest|highest)\s+(?:\w+\s+){0,2}backlog\b
+      - pattern: \bbacklog\s+of\s+(?:more\s+than\s+|over\s+|approximately\s+|about\s+)?[$\d]
+      - pattern: \bbacklog\b
+        weight: 0.5
+      - pattern: \b(?:booked|committed|sold)\s+(?:out\s+)?(?:through|into|until)\s+(?:\w+\s+){0,4}(?:\d{4}|year|quarter)\b
+        weight: 0.8
+      - pattern: \bbook[\s-]+to[\s-]+bill\s+(?:\w+\s+){0,3}(?:above|over|greater|exceed\w*)\s+(?:\w+\s+){0,2}1\b
+        weight: 0.6
+  capacity:
+    weight: 1.5
+    phrases:
+      - pattern: \b(?:doubl\w+|tripl\w+|quadrupl\w+)\s+(?:\w+\s+){0,3}capacity\b
+      - pattern: \bcapacity\s+(?:\w+\s+){0,2}(?:fully\s+(?:utili[sz]ed|booked|committed|subscribed)|constrain\w+|limit\w+|tight)\b
+      - pattern: \b(?:fully|completely)\s+(?:utili[sz]ed|loaded)\b
+        unless: \b(?:tax|taxes|carryforwards?|carryovers?|credits?|net\s+operating\s+loss(?:es)?|deferred|valuation\s+allowance)\b
+      - pattern: \b(?:running|operating)\s+(?:at\s+)?(?:full|maximum|max)\s+capacity\b
+      - pattern: \b(?:adding|add|added|expanding|expand|expanded|increasing|ramping)\s+(?:\w+\s+){0,4}(?:capacity|capacities)\b
+        weight: 0.7
+      - pattern: \bcapacity[\s-]+(?:constrained|limited|bound)\b
+      - pattern: \bconstrained\s+by\s+(?:\w+\s+){0,3}capacity\b
+  gates:
+    weight: 1.5
+    phrases:
+      - pattern: \bexport\s+(?:permits?|licen[cs]es?|licen[cs]ing|approvals?)\b
+      - pattern: \b(?:permits?|licen[cs]es?)\s+(?:\w+\s+){0,3}(?:issued|granted|denied|delayed|required|pending|approved)\b
+        unless: \b(?:software|patent|intellectual|license\s+agreement|licen[cs]e\s+revenue|licen[cs]ed\s+technolog\w+)\b
+        weight: 0.6
+      - pattern: \bqualification\s+(?:\w+\s+){0,3}(?:takes?|took|requires?|can\s+take|cycle|process)\b
+      - pattern: \b(?:long|lengthy)\s+qualification\b
+      - pattern: \b(?:export\s+controls?|export\s+restrictions?)\b
+        weight: 0.5
+  pricing_power:
+    weight: 1.5
+    phrases:
+      - pattern: \b(?:rais\w+|increas\w+|lift\w+)\s+(?:our\s+|its\s+|their\s+)?(?:prices|pricing)\b
+      - pattern: \bprice\s+increases?\b
+        unless: \b(?:input|raw\s+material|supplier|suppliers|cost)\s+(?:cost\s+)?price\s+increases?\b
+        weight: 0.8
+      - pattern: \bprices?\s+(?:are\s+|remain\s+|remains\s+|have\s+been\s+)?(?:firm|stick\w*|holding|rising|higher)\b
+      - pattern: \bpricing\s+power\b
+      - pattern: \b(?:pass(?:ed|ing)?\s+(?:through|on)|passing\s+along)\s+(?:\w+\s+){0,3}(?:price|pricing|cost)\b
+        weight: 0.7

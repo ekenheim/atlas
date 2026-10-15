@@ -83,6 +83,7 @@ TOOLS = {
     "draft_hypothesis",
     "get_hypothesis",
     "upcoming_reports",
+    "signal_leads",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 

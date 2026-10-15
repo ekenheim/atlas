@@ -4,7 +4,9 @@ searches) and the Tier C leads they find.
 `searxng` is the SearXNG client; `edgar_fts` the EDGAR full-text search client (pilot fix
 12); `service` runs a discovery (the Scout role call, the searches, the leads) and reads
 discoveries back; `leads` holds the canonical URL rule, lead
-storage and the lead read side; `handlers` registers the `discover` job.
+storage and the lead read side; `handlers` registers the `discover` job; `signals` scores
+archived sentences for bottleneck cues and `signal_scan` is the nightly `scan_signals` job that
+stores them as leads (atlas-beliefs ticket 18).
 """
 
 from atlas.discovery.edgar_fts import (
@@ -14,7 +16,15 @@ from atlas.discovery.edgar_fts import (
     FilingSearchFailed,
 )
 from atlas.discovery.handlers import register_discovery_handlers
-from atlas.discovery.leads import CalendarEvent, Filing, Lead, canonical_url, list_leads
+from atlas.discovery.leads import (
+    CalendarEvent,
+    Filing,
+    Lead,
+    Signal,
+    SignalMatch,
+    canonical_url,
+    list_leads,
+)
 from atlas.discovery.searxng import (
     SearchFailed,
     SearchResponse,
@@ -53,6 +63,8 @@ __all__ = [
     "SearchFailed",
     "SearchResponse",
     "SearchResult",
+    "Signal",
+    "SignalMatch",
     "UnresponsiveEngine",
     "canonical_url",
     "get_discovery",
