@@ -1,7 +1,7 @@
 # 12: The conclusions bank: judged Beliefs in a Hindsight bank of their own
 
 Type: build
-Status: done (the production steps are the lead's)
+Status: done
 Blocked by: none
 
 ## What to build

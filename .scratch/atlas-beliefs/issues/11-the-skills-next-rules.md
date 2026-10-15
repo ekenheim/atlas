@@ -1,7 +1,7 @@
 # 11: The skill's next rules, from the closing measure
 
 Type: build
-Status: ready-for-agent
+Status: in-review (the rules and the warning are on main; question 2 by hand, scored, is the lead's)
 Blocked by: none
 
 ## What to build
