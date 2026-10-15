@@ -8,28 +8,43 @@
   calendar lead then shows the date it knew by then); `event_from`/`event_to` keep the calendar
   leads whose date falls inside, soonest first (ticket 16b). `origin=archive_signal` (ticket 18)
   lists the sentences the nightly scan found in archived documents that read like a bottleneck,
-  ranked by score, each with its quote, span, company and why it scored; `company_id` keeps one
-  company's; for them `known_by` bounds the document's availability. Leads are never Evidence.
+  ranked by score, each with its quote, span, company and why it scored, at most
+  `ranking.max_per_document` (3) of one document among the first results and the rest after
+  them (ticket 27); `company_id` keeps one company's; for them `known_by` bounds the
+  document's availability. Leads are never Evidence.
 - `GET /discoveries`, `GET /discoveries/{id}`: each discovery (a `discover` job): its theme
   and question, run, engines, where its open gaps came from, and each query with its
   outcome (results, new leads, the engines SearXNG reported unresponsive, or the error).
 """
 
 import uuid
+from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime
 from sqlalchemy import Engine
 
 from atlas.api.common import NOT_FOUND, Page, Pagination, not_found, pagination
 from atlas.discovery import Discovery, Lead, get_discovery, list_discoveries, list_leads
+from atlas.discovery.signals import SignalsConfigError, load_signals_config
 
 Paged = Annotated[Pagination, Depends(pagination)]
 
 
-def discovery_router(engine: Engine) -> APIRouter:
+def _max_per_document(signals_config: Path | None) -> int | None:
+    """The ranked archive-signal read's cap on one document's hits (`ranking.max_per_document`
+    of the signals config, read each time so a changed config applies); none without a config."""
+    if signals_config is None:
+        return None
+    try:
+        return load_signals_config(signals_config).ranking.max_per_document
+    except SignalsConfigError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from None
+
+
+def discovery_router(engine: Engine, signals_config: Path | None = None) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["discovery"])
 
     @router.get("/leads", response_model=Page[Lead])
@@ -82,6 +97,9 @@ def discovery_router(engine: Engine) -> APIRouter:
                 event_to=event_to,
                 company_id=company_id,
                 available_from=available_from,
+                max_per_document=_max_per_document(signals_config)
+                if origin == "archive_signal"
+                else None,
             )
         return Page(items=items, total=total, limit=page.limit, offset=page.offset)
 

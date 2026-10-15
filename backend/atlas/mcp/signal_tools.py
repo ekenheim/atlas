@@ -42,7 +42,8 @@ class SignalLeadsArgs(Bound):
 
 @tool(
     "signal_leads",
-    "The theme's archive-signal leads, highest score first: sentences of documents that were"
+    "The theme's archive-signal leads, highest score first (at most three of one document among"
+    " the first ones, the rest after them): sentences of documents that were"
     " public by the session's as-of time which read like a bottleneck (the quote, its Source"
     " Version and span, the company, the cue families and the speaker of a call). A lead is where"
     " to look, never a Fact: `read` the window around the span, then record a Fact yourself."

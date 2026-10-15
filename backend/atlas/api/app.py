@@ -160,7 +160,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(runs_router(engine))
     app.include_router(statements_router(engine, settings))
     app.include_router(claims_router(engine))
-    app.include_router(discovery_router(engine))
+    app.include_router(discovery_router(engine, settings.signals_config))
     app.include_router(tradingview_router(engine))
     app.include_router(price_history_router(engine))
     app.include_router(identity_router(engine, Actor.from_settings(settings)))

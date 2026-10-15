@@ -25,12 +25,20 @@
 #   `boilerplate.phrase_factor` for safe-harbor and assurance wording.
 # A sentence scoring under `min_score` is not a hit.
 #
+# Negation (version 2): a phrase preceded in its clause by a negator that governs it ("they are
+# not sold out", "we have no capacity constraints"), or a negator inside the phrase's own gap words
+# ("demand does not exceed supply"), is not a match, so it adds nothing. A phrase
+# that carries its own negation ("not taking orders", "cannot be adequately served") says
+# `own_negation: true` and is not checked. Ranking: the ranked reads of the stored hits (the
+# leads route, the MCP tool, the replay script) put at most `ranking.max_per_document` hits of
+# one document among the first results and the rest after; the scan stores them all.
+#
 # A family's phrase is a regular expression (case-insensitive; `\s+` between words; typographic
 # apostrophes, quotation marks and dashes are folded to ASCII before matching, so write them as
 # ASCII), with an optional `weight` (a factor of the family's, 0 to 1) and an optional `unless`:
 # a pattern that, found in the same sentence, means the phrase is used in another sense and
 # does not count.
-version: 1
+version: 2
 min_score: 1.5
 repeat_factor: 0.25
 cooccurrence_bonus: 1.0
@@ -62,6 +70,22 @@ boilerplate:
     - if we fail
     - from time to time
   phrase_factor: 0.3
+negation:
+  # A regular expression each; applied to the folded text of the clause before the phrase.
+  negators:
+    - \b(?:no(?!\.)|not|never|without|none|neither|nor|hardly|barely|rarely)\b
+    - \b(?:do|does|did|is|are|was|were|have|has|had|will|would|should)n't\b
+  # Text right after a negator that means the negator negates nothing ("not only", "no matter").
+  exceptions:
+    - \s+(?:only|just|merely|simply|surprisingly|doubt|question|matter|wonder|coincidence)\b
+  # Where a clause ends, so that a negator before it does not reach the phrase.
+  clause_breaks:
+    - '[,;:()]'
+    - \s-+\s
+    - \b(?:and|or|but|although|though|however|while|whereas|yet|because|since|so|which|when|if)\b
+  window_words: 4  # a negator further than this many words from the phrase does not reach it
+ranking:
+  max_per_document: 3
 # What counts as a figure: an amount of money, a percentage, or a span of weeks or months.
 figures:
   - \$\s?\d[\d,.]*\s?(?:thousand|million|billion|trillion|[kmb]n?)?\b
@@ -87,18 +111,22 @@ families:
       - pattern: \bonly\s+(?:qualified|approved|certified)\s+(?:supplier|source|vendor)s?\b
       - pattern: \b(?:no|little)\s+(?:second|alternate|alternative)\s+source\b
         weight: 0.8
+        own_negation: true
   demand_beyond_supply:
     weight: 2.0
     phrases:
       - pattern: \b(?:growing|growth|expanding|ramping)\s+(?:\w+\s+){0,3}too\s+(?:fast|quickly|rapidly)\b
       - pattern: \b(?:not|never|cannot|can(?:'|no)t|unable\s+to)\s+(?:be\s+)?(?:adequately|fully|properly)\s+(?:serviced|served|supplied)\b
+        own_negation: true
       - pattern: \b(?:can(?:'|no)t|cannot|can\s+not|unable\s+to|struggl\w+\s+to)\s+(?:possibly\s+)?(?:keep\s+up|get\s+enough|meet\s+(?:the\s+)?demand|supply\s+enough|fill\s+(?:all\s+)?(?:the\s+)?orders)\b
+        own_negation: true
       - pattern: \bdemand\s+(?:\w+\s+){0,2}(?:exceed(?:s|ed|ing)?|outstrip(?:s|ped|ping)?|outpac(?:e|es|ed|ing)|surpass(?:es|ed|ing)?)\s+(?:\w+\s+){0,2}(?:supply|capacity|our\s+ability)\b
       - pattern: \b(?:under[\s-]?suppl(?:y|ied)|oversubscribed|over[\s-]?booked)\b
       - pattern: \bsold[\s-]+out\b
         unless: \bsold[\s-]+out\s+(?:of|its|our|their)\b
       - pattern: \bon\s+allocation\b
       - pattern: \b(?:not|no\s+longer|stopped|stop)\s+(?:be\s+)?taking\s+(?:any\s+)?(?:new\s+)?(?:orders|bookings)\b
+        own_negation: true
       - pattern: \b(?:new\s+)?orders\s+(?:\w+\s+){0,5}(?:daily|every\s+day|each\s+day|a\s+daily\s+basis)\b
       - pattern: \b(?:supply|market)\s+(?:is\s+|remains\s+|remain\s+)?(?:very\s+|extremely\s+|quite\s+)?(?:tight|constrained)\b
         weight: 0.8
@@ -113,6 +141,7 @@ families:
       - pattern: \blead[\s-]+times?\s+(?:\w+\s+){0,3}(?:extend(?:ed|ing)?|lengthen(?:ed|ing)?|stretch(?:ed|ing)?|increas(?:e|ed|ing)|grew|grown|longer)\b
       - pattern: \b(?:extended|longer|lengthening|stretched)\s+lead[\s-]+times?\b
       - pattern: \b(?:record|largest|highest)\s+(?:\w+\s+){0,2}backlog\b
+        weight: 0.6  # generic alone: under the threshold unless a figure or a second family backs it
       - pattern: \bbacklog\s+of\s+(?:more\s+than\s+|over\s+|approximately\s+|about\s+)?[$\d]
       - pattern: \bbacklog\b
         weight: 0.5
@@ -129,7 +158,7 @@ families:
         unless: \b(?:tax|taxes|carryforwards?|carryovers?|credits?|net\s+operating\s+loss(?:es)?|deferred|valuation\s+allowance)\b
       - pattern: \b(?:running|operating)\s+(?:at\s+)?(?:full|maximum|max)\s+capacity\b
       - pattern: \b(?:adding|add|added|expanding|expand|expanded|increasing|ramping)\s+(?:\w+\s+){0,4}(?:capacity|capacities)\b
-        weight: 0.7
+        weight: 0.5  # generic alone: under the threshold unless a figure or a second family backs it
       - pattern: \bcapacity[\s-]+(?:constrained|limited|bound)\b
       - pattern: \bconstrained\s+by\s+(?:\w+\s+){0,3}capacity\b
   gates:
@@ -144,13 +173,20 @@ families:
       - pattern: \b(?:export\s+controls?|export\s+restrictions?)\b
         weight: 0.5
   pricing_power:
+    # A price rise the company can impose because of scarcity or demand. A price rise to recover
+    # a cost (input and material costs, inflation, a surcharge, a tariff, a pass-through), one
+    # a contract sets, or one named in a margin line is not that, and is not counted.
     weight: 1.5
     phrases:
       - pattern: \b(?:rais\w+|increas\w+|lift\w+)\s+(?:our\s+|its\s+|their\s+)?(?:prices|pricing)\b
+        unless: &not_pricing_power \b(?:input|raw[\s-]+material|materials?|suppliers?|components?|labou?r|freight|energy|commodity)\s+costs?\b|\bcost\s+(?:increases?|inflation|pressures?|recovery|pass[\s-]*through)\b|\binflation(?:ary)?\b|\bsurcharges?\b|\bpass(?:ed|ing)?[\s-]+(?:through|on|along)\b|\bpass[\s-]through\b|\boffset(?:ting)?\b|\bnetting\b|\btariffs?\b|\b(?:contracts?|contractual|agreements?|clauses?|provisions?|escalat\w+|indexed)\b|\bmargins?\b|\bbasis\s+points\b
+      - pattern: \bprice\s+increases?\s+(?:have\s+|has\s+)?(?:stuck|stick\w*|held|hold\w*)\b
+        unless: *not_pricing_power
+      - pattern: \bcustomers?\s+(?:\w+\s+){0,2}(?:accept\w*|absorb\w*|pay\w*|tolerat\w*)\s+(?:\w+\s+){0,2}(?:higher|increased|rising)\s+(?:prices|pricing)\b
+        unless: *not_pricing_power
       - pattern: \bprice\s+increases?\b
-        unless: \b(?:input|raw\s+material|supplier|suppliers|cost)\s+(?:cost\s+)?price\s+increases?\b
-        weight: 0.8
+        unless: *not_pricing_power
+        weight: 0.5  # generic alone: under the threshold unless a figure or a second family backs it
       - pattern: \bprices?\s+(?:are\s+|remain\s+|remains\s+|have\s+been\s+)?(?:firm|stick\w*|holding|rising|higher)\b
+        unless: *not_pricing_power
       - pattern: \bpricing\s+power\b
-      - pattern: \b(?:pass(?:ed|ing)?\s+(?:through|on)|passing\s+along)\s+(?:\w+\s+){0,3}(?:price|pricing|cost)\b
-        weight: 0.7

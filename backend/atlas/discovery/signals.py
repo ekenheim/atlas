@@ -18,6 +18,14 @@ like a bottleneck, best first, each with its span and why it scored.
   expressions over the sentence (typographic apostrophes, quotes and dashes folded to ASCII,
   which keeps every offset). A phrase may name a sense in which it does not count (`unless`:
   "sold out of its position"). A sentence matching no family is no hit.
+- **Negation.** A phrase preceded in its clause by a negator that governs it ("they are not sold
+  out", "we have no capacity constraints", "without any shortages") is not a match. The clause
+  runs back from the phrase to the last break (a comma, a dash, "but", "because"), the negator
+  must be within `negation.window_words` words, and "not only", "no matter" and the like do not
+  negate. A negator inside the phrase's own gap words ("demand does not exceed supply", "lead
+  times have not lengthened") cancels it too. A phrase that carries its own negation ("not
+  taking orders", "cannot be adequately served", "no second source") says `own_negation: true`
+  and is not checked.
 - **Score.** See the config's header: the families matched, weighted; a bonus when two
   families are told in one paragraph (to a sentence that scores `cooccurrence_min_own` on its
   own: a bare word cannot ride on its neighbour's cue); a bonus for a figure; then the factors
@@ -25,13 +33,17 @@ like a bottleneck, best first, each with its span and why it scored.
   people, an analyst, none recognised), for a question, for a risk-factors section
   (`Item 1A`, found by the sectioner), for a sentence hedged with could, may or might, and for
   safe-harbor wording.
+- **The ranked read.** `cap_per_document` is the rule the ranked reads share (the leads route,
+  the MCP tool, the replay script): at most `ranking.max_per_document` hits of one document
+  stand among the first results, the rest after them, so one call does not fill the list. The
+  scan stores every hit; only the reading order changes.
 - **A hit is a lead.** Nothing here is a Claim, a Fact or Evidence: the agent that follows a hit
   reads the window and records a Fact itself.
 """
 
 import re
 from bisect import bisect_right
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -47,7 +59,7 @@ from atlas.claims.speakers import (
 )
 from atlas.retention.sections import split_sections
 
-SCORER_VERSION = "signals-v1"
+SCORER_VERSION = "signals-v2"
 
 SpeakerKind = Literal["management", "analyst", "unknown"]
 
@@ -69,6 +81,7 @@ class Phrase(BaseModel):
     pattern: str
     weight: float = Field(default=1.0, gt=0, le=1)  # a factor of the family's weight
     unless: str | None = None  # in the sentence: this phrase is used in another sense
+    own_negation: bool = False  # the phrase itself says "not"/"no": a negator before it is moot
 
     @field_validator("pattern", "unless")
     @classmethod
@@ -111,6 +124,30 @@ class Boilerplate(BaseModel):
         return values
 
 
+class Negation(BaseModel):
+    """What counts as a negator, where its clause ends and how far it reaches."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    negators: tuple[str, ...] = Field(min_length=1)  # regular expressions
+    exceptions: tuple[str, ...] = ()  # text right after a negator that means it negates nothing
+    clause_breaks: tuple[str, ...] = ()  # where a clause ends, so a negator before does not reach
+    window_words: int = Field(ge=1, le=20)  # words between the negator and the phrase, at most
+
+    @field_validator("negators", "exceptions", "clause_breaks")
+    @classmethod
+    def _regexes(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        for value in values:
+            _compiled(value)
+        return values
+
+
+class Ranking(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    max_per_document: int = Field(ge=1, le=100)  # hits of one document among the first results
+
+
 class SignalsConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -125,6 +162,8 @@ class SignalsConfig(BaseModel):
     min_sentence_chars: int = Field(ge=1, le=200)
     speaker: SpeakerFactors
     boilerplate: Boilerplate
+    negation: Negation
+    ranking: Ranking
     figures: tuple[str, ...] = ()
     families: dict[str, Family] = Field(min_length=1)
 
@@ -244,6 +283,7 @@ class _Compiled:
     regex: re.Pattern[str]
     weight: float
     unless: re.Pattern[str] | None
+    own_negation: bool
 
 
 @dataclass(frozen=True)
@@ -266,11 +306,20 @@ class SignalScorer:
                 _compiled(phrase.pattern),
                 phrase.weight,
                 _compiled(phrase.unless) if phrase.unless else None,
+                phrase.own_negation,
             )
             for name, family in config.families.items()
             for phrase in family.phrases
         ]
         self._order = list(config.families)
+        negation = config.negation
+        self._negators = [_compiled(each) for each in negation.negators]
+        self._exceptions = [_compiled(f"^(?:{each})") for each in negation.exceptions]
+        self._breaks = (
+            re.compile("|".join(f"(?:{each})" for each in negation.clause_breaks), re.IGNORECASE)
+            if negation.clause_breaks
+            else None
+        )
         self._figures = [_compiled(each) for each in config.figures]
         boilerplate = config.boilerplate
         self._hedge = (
@@ -340,6 +389,8 @@ class SignalScorer:
                 match = phrase.regex.search(folded)
                 if match is None or (phrase.unless is not None and phrase.unless.search(folded)):
                     continue
+                if not phrase.own_negation and self._negated(folded, match.start(), match.end()):
+                    continue
                 matches.append(
                     (
                         PhraseMatch(
@@ -352,6 +403,29 @@ class SignalScorer:
                 )
             found.append(_Sentence(line_start + begin, line_start + end, quote, tuple(matches)))
         return found
+
+    def _negated(self, folded: str, start: int, end: int) -> bool:
+        """Whether a negator governs the phrase that spans `start` to `end`: it stands in the same
+        clause before the phrase, within `window_words` words, or inside the phrase's own gap
+        words ("demand does not exceed supply"), and is not one of the exceptions ("not only")."""
+        inside = folded[start:end]
+        for negator in self._negators:
+            for found in negator.finditer(inside):
+                if not any(each.search(inside[found.end() :]) for each in self._exceptions):
+                    return True
+        clause = folded[:start]
+        if self._breaks is not None:
+            ends = [each.end() for each in self._breaks.finditer(clause)]
+            if ends:
+                clause = clause[ends[-1] :]
+        for negator in self._negators:
+            for found in negator.finditer(clause):
+                after = clause[found.end() :]
+                if len(after.split()) <= self.config.negation.window_words and not any(
+                    each.search(after) for each in self._exceptions
+                ):
+                    return True
+        return False
 
     def _score(
         self,
@@ -430,6 +504,20 @@ class SignalScorer:
             speaker=speaker,
             speaker_kind=kind,
         )
+
+
+def cap_per_document[T](ranked: Sequence[T], document: Callable[[T], object], cap: int) -> list[T]:
+    """The ranked hits as the ranked reads show them: the order given (best first), except that
+    a document's hits after its first `cap` come after every hit within a cap. Stored leads are
+    not touched; this is only the reading order."""
+    counts: dict[object, int] = {}
+    within: list[T] = []
+    beyond: list[T] = []
+    for each in ranked:
+        key = document(each)
+        counts[key] = counts.get(key, 0) + 1
+        (within if counts[key] <= cap else beyond).append(each)
+    return within + beyond
 
 
 def _speaker(

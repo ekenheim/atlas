@@ -17,6 +17,7 @@ from atlas.discovery.signals import (
     SignalHit,
     SignalsConfigError,
     SignalScorer,
+    cap_per_document,
     load_signals_config,
     sentence_spans,
 )
@@ -234,6 +235,232 @@ def test_a_family_word_in_another_sense_is_no_signal(scorer: SignalScorer, sente
     assert scan(scorer, sentence) == []
 
 
+# --- negation (ticket 27) ------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "In the past the smaller wafers fell out of favor, so they are not sold out.",
+        "We have no capacity constraints at any of our sites.",
+        "We are not constrained by capacity this year.",
+        "Our supply chain has not had any capacity constraints this year.",
+        "We are running without any capacity constraints today.",
+        "We don't see capacity constraints at the moment.",
+        "Typically we do not have margin impacts from supply shortages here.",
+    ],
+)
+def test_a_cue_a_negator_governs_is_no_match(scorer: SignalScorer, sentence: str) -> None:
+    assert scan(scorer, sentence) == []
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "Demand does not exceed supply for our transceivers this year.",
+        "Demand did not outstrip our capacity during the quarter at all.",
+        "Our capacity is not constrained at this point in the year.",
+        "Lead times have not lengthened for our customers this quarter.",
+        "Lead times are no longer extended for most of our products now.",
+    ],
+)
+def test_a_negator_inside_the_phrase_cancels_it(scorer: SignalScorer, sentence: str) -> None:
+    assert scan(scorer, sentence) == []
+
+
+@pytest.mark.parametrize(
+    ("sentence", "score"),
+    [
+        ("Demand does exceed supply for our transceivers this year.", 2.0),
+        ("Demand did outstrip our capacity during the quarter at all.", 2.0),
+        ("Our capacity is constrained at this point in the year.", 1.5),
+        ("Lead times have lengthened for our customers this quarter.", 1.5),
+        ("Lead times are extended for most of our products now.", 1.5),
+    ],
+)
+def test_the_same_sentence_without_the_inner_negator_keeps_its_score(
+    scorer: SignalScorer, sentence: str, score: float
+) -> None:
+    [hit] = scan(scorer, sentence)
+
+    assert hit.score == score
+
+
+def test_not_only_inside_a_phrase_negates_nothing(scorer: SignalScorer) -> None:
+    sentence = "Demand not only exceeds supply but keeps growing for our transceivers."
+
+    assert scan(scorer, sentence) != []
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "We cannot keep up with orders.",
+        "We can not keep up with orders.",
+        "We can't get enough of these lasers for our customers.",
+    ],
+)
+def test_cannot_keep_up_stays_a_match(scorer: SignalScorer, sentence: str) -> None:
+    assert scan(scorer, sentence) != []
+
+
+def test_the_same_words_without_the_negator_are_a_match(scorer: SignalScorer) -> None:
+    sentence = "We have capacity constraints at several of our sites."
+
+    # demand_beyond_supply "capacity constraints" 0.6 x 2.0 = 1.2, capacity "capacity
+    # constraints" 1.5, and the paragraph shows both families: + 1.0.
+    assert scored(scan(scorer, sentence)) == [(sentence, 3.7)]
+
+
+def test_a_negation_leaves_the_other_cues_of_the_sentence(scorer: SignalScorer) -> None:
+    sentence = "We have no capacity constraints, but lead times have extended to 40 weeks."
+
+    [hit] = scan(scorer, sentence)
+
+    assert (hit.families, hit.score) == (("lead_times_backlog",), 2.25)  # 1.5 + 0.75
+
+
+def test_a_negator_reaches_to_the_end_of_its_list_but_not_into_the_next_clause(
+    scorer: SignalScorer,
+) -> None:
+    list_ = "We have no capacity or supply constraints at any of our sites."
+    clause = "We have no capacity constraints and lead times have extended to 40 weeks."
+
+    assert scan(scorer, list_) == []
+    [hit] = scan(scorer, clause)
+    assert (hit.families, hit.score) == (("lead_times_backlog",), 2.25)  # 1.5 + 0.75
+
+
+def test_the_abbreviation_no_is_no_negator(scorer: SignalScorer) -> None:
+    sentence = "Line No. 5 is sold out through next year."
+
+    assert scored(scan(scorer, sentence)) == [(sentence, 4.2)]  # 2.0 + 1.2 + 1.0
+
+
+def test_a_negator_does_not_reach_across_a_clause_or_beyond_its_window(
+    scorer: SignalScorer,
+) -> None:
+    clause = "We are not worried about the quarter, and our lasers are sold out through next year."
+    far = "We never said that the fab was ever really sold out."
+
+    # sold out 2.0 + sold out through ... year 1.2 + 1.0, then the same in "far": 2.0.
+    assert scored(scan(scorer, clause)) == [(clause, 4.2)]
+    assert scored(scan(scorer, far)) == [(far, 2.0)]
+
+
+def test_not_only_and_no_matter_negate_nothing(scorer: SignalScorer) -> None:
+    only = "Not only are our lasers sold out, demand keeps growing."
+    matter = "Demand outpaces supply no matter how fast we add capacity."
+
+    # demand outpaces supply 2.0; add capacity 0.5 x 1.5 = 0.75; two families: + 1.0.
+    assert scored(scan(scorer, only)) == [(only, 2.0)]
+    assert scored(scan(scorer, matter)) == [(matter, 3.75)]
+
+
+def test_a_phrase_that_carries_its_own_negation_stays_a_match(scorer: SignalScorer) -> None:
+    taking = "No we are not taking orders for the second half."
+    adequately = "The market cannot be adequately served by one supplier."
+    second = "There is no second source for this substrate."
+
+    # An answer's "No" two words before "not taking orders": a plain phrase would be negated.
+    assert scored(scan(scorer, taking)) == [(taking, 2.0)]
+    assert scored(scan(scorer, adequately)) == [(adequately, 2.0)]
+    assert scored(scan(scorer, second)) == [(second, 1.6)]  # 2.0 x 0.8
+
+
+# --- pricing power is a price rise scarcity allows (ticket 27) ------------------------------------
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "We raised prices to offset higher input costs.",
+        "On the input cost side, you have a price increase.",
+        "We added a fuel surcharge and raised prices.",
+        "We raised prices to cover inflation across our materials.",
+        "We are passing through the tariff with a price increase to customers.",
+        "Gross margin rose 250 basis points due to increased pricing on select products.",
+        "Our supply agreements include clauses that allow annual price increases.",
+        "We announced a price increase for the second half.",
+    ],
+)
+def test_a_price_rise_that_recovers_a_cost_or_is_set_by_contract_is_no_pricing_power(
+    scorer: SignalScorer, sentence: str
+) -> None:
+    assert scan(scorer, sentence) == []
+
+
+@pytest.mark.parametrize(
+    ("sentence", "score"),
+    [
+        ("Customers accept higher prices because supply is short.", 1.5),
+        ("Our price increases stuck with every customer.", 1.5),
+        ("We have real pricing power in this market.", 1.5),
+        ("We have pricing power even as input costs rise.", 1.5),
+        ("We announced a price increase of 12% for the second half.", 1.5),  # 0.75 + 0.75
+    ],
+)
+def test_a_price_rise_demand_allows_is_pricing_power(
+    scorer: SignalScorer, sentence: str, score: float
+) -> None:
+    assert scored(scan(scorer, sentence)) == [(sentence, score)]
+
+
+# --- generic backlog and capacity lines (ticket 27) -----------------------------------------------
+
+
+def test_record_backlog_alone_is_under_the_threshold_until_a_figure_or_a_second_family_backs_it(
+    scorer: SignalScorer,
+) -> None:
+    alone = "We are entering the year with record backlog."
+    figure = "We closed the year with record backlog, up 35%."
+    second = "Our lasers are sold out and we have record backlog."
+
+    assert scan(scorer, alone) == []  # 1.5 x 0.6 = 0.9
+    assert scored(scan(scorer, figure)) == [(figure, 1.65)]  # 0.9 + 0.75
+    assert scored(scan(scorer, second)) == [(second, 3.9)]  # 2.0 + 0.9 + 1.0
+
+
+def test_adding_capacity_alone_is_under_the_threshold_until_a_figure_or_a_second_family_backs_it(
+    scorer: SignalScorer,
+) -> None:
+    alone = "We are adding capacity to meet customer demand."
+    figure = "We are adding capacity by 40% to meet demand."
+    second = "We are adding capacity because of the industry shortage."
+
+    assert scan(scorer, alone) == []  # 1.5 x 0.5 = 0.75
+    assert scored(scan(scorer, figure)) == [(figure, 1.5)]  # 0.75 + 0.75
+    assert scored(scan(scorer, second)) == [(second, 2.55)]  # 0.75 + 0.8 + 1.0
+
+
+def test_a_generic_line_does_not_ride_on_its_neighbours_cue(scorer: SignalScorer) -> None:
+    paragraph = "Our lasers are sold out through next year. We are adding capacity to meet demand."
+
+    assert [hit.quote for hit in scan(scorer, paragraph)] == [
+        "Our lasers are sold out through next year."
+    ]
+
+
+# --- the ranked read's cap on one document ------------------------------------------------------
+
+
+def test_a_documents_hits_past_the_cap_come_after_the_rest_in_order() -> None:
+    ranked = [("a", 9), ("a", 8), ("a", 7), ("a", 6), ("b", 5), ("a", 4), ("c", 3), ("b", 2)]
+
+    assert cap_per_document(ranked, lambda each: each[0], 2) == [
+        ("a", 9),
+        ("a", 8),
+        ("b", 5),
+        ("c", 3),
+        ("b", 2),
+        ("a", 7),
+        ("a", 6),
+        ("a", 4),
+    ]
+    assert cap_per_document(ranked, lambda each: each[0], 99) == ranked
+    assert cap_per_document([], lambda each: each, 3) == []
+
+
 # --- who speaks --------------------------------------------------------------------------------
 
 CEO = "Alex Example (CEO, Example Photonics Inc)"
@@ -282,7 +509,9 @@ def test_outside_a_transcript_nobody_is_a_speaker(scorer: SignalScorer) -> None:
 def test_the_checked_in_config_is_valid() -> None:
     config = load_signals_config(CONFIG)
 
-    assert config.version == 1
+    assert config.version == 2
+    assert config.ranking.max_per_document == 3
+    assert config.negation.window_words == 4
     assert list(config.families) == [
         "few_suppliers",
         "demand_beyond_supply",
@@ -330,3 +559,16 @@ def test_a_family_name_must_be_snake_case(tmp_path: Path) -> None:
 
     with pytest.raises(SignalsConfigError, match="snake_case"):
         load_signals_config(write(tmp_path, text))
+
+
+def test_the_negation_and_ranking_blocks_are_checked(tmp_path: Path) -> None:
+    text = CONFIG.read_text(encoding="utf-8")
+
+    with pytest.raises(SignalsConfigError, match="window_words"):
+        load_signals_config(write(tmp_path, text.replace("window_words: 4", "window_words: 0")))
+    with pytest.raises(SignalsConfigError, match="max_per_document"):
+        load_signals_config(
+            write(tmp_path, text.replace("max_per_document: 3", "max_per_document: 0"))
+        )
+    with pytest.raises(SignalsConfigError, match="ranking"):
+        load_signals_config(write(tmp_path, text.replace("ranking:\n  max_per_document: 3\n", "")))
