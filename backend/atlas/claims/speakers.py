@@ -25,12 +25,17 @@ from those labels:
 
 The Investigator's Claims (`atlas.claims.extraction`) and the Skeptic's counterevidence
 (`atlas.investigations.skeptic`) both ask `transcript_speaker`; nothing else decides it.
+
+The judge and the grounding check ask something else (atlas-beliefs ticket 25): not whether the
+words are the company's but whose they are. `label_at` gives the one speaker's label of a span,
+as the paragraph writes it (an analyst's too: the label is what shows it), and `parse_label`
+splits a label into the name, title and firm the judge is sent beside the quote.
 """
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from atlas.claims.predicates import fold, mentions
 
@@ -40,6 +45,24 @@ SpeakerRefusalCode = Literal["speaker_mixed", "analyst_speaking", "speaker_unkno
 
 _LABEL = re.compile(r"(?P<name>[^():\n]{1,80}?)(?:\s*\((?P<role>[^()\n]{1,200})\))?:\s")
 _ANALYST = re.compile(r"\banalyst\b", re.IGNORECASE)
+# A legal-form suffix that a firm's name may follow with a comma ("Lumentum Holdings, Inc."): the
+# last comma of a label's parenthetical is then inside the firm, not before it.
+_FIRM_SUFFIX = re.compile(
+    r"(?:inc|incorporated|ltd|limited|llc|llp|lp|corp|corporation|co|plc|ag|sa|nv|bv"
+    r"|gmbh|se|ab|oyj|kk)\.?",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class Speaker:
+    """A speaker label's parts: `name`, and the parenthetical's `title` and `firm` ("President
+    and CEO", "Example Photonics Inc"); None for what the label does not give ("Operator" has
+    neither; a parenthetical without a comma is a title alone)."""
+
+    name: str
+    title: str | None
+    firm: str | None
 
 
 @dataclass(frozen=True)
@@ -56,6 +79,57 @@ def speaker_label(line: str) -> str | None:
     if match is None:
         return None
     return line[: match.end()].rstrip()[:-1].strip()
+
+
+def parse_label(label: str) -> Speaker | None:
+    """`label` ("Name (Title, Firm)", "Operator") as its parts, or None if it is not a label.
+    The firm is what follows the parenthetical's last comma (a title may hold commas: "VP of
+    Sales, Strategic Accounts, and Marketing, Example Photonics"), unless what follows it is a
+    legal-form suffix ("Inc.", "Ltd", "plc"), which belongs to the firm before it ("CEO, Example
+    Photonics, Inc." is the title "CEO" and the firm "Example Photonics, Inc."); with no comma
+    the whole parenthetical is a title. (`transcript_speaker` takes the firm from the first
+    comma, and so reads the whole of it either way.)"""
+    match = _LABEL.match(label.strip() + ": ")
+    if match is None:
+        return None
+    role = (match["role"] or "").strip()
+    name = match["name"].strip()
+    if not name:
+        return None
+    if not role:
+        return Speaker(name, None, None)
+    title, comma, firm = role.rpartition(",")
+    if comma and _FIRM_SUFFIX.fullmatch(firm.strip()):
+        title, comma, name_of_firm = title.rpartition(",")
+        firm = f"{name_of_firm.strip()}, {firm.strip()}"
+    if not comma:
+        return Speaker(name, role, None)
+    return Speaker(name, title.strip() or None, firm.strip() or None)
+
+
+def row_speaker(row: Mapping[Any, Any]) -> Speaker | None:
+    """The speaker of a cited Claim's or Fact's row: its `speaker` label (a Claim's column, or
+    the label a Fact's row was given from its document, `atlas.investigations.speakers`),
+    parsed; None for a row with none, which is every quote of a filing."""
+    label: object = row.get("speaker")
+    return parse_label(label) if isinstance(label, str) and label.strip() else None
+
+
+def label_at(text: str, span: tuple[int, int]) -> str | None:
+    """The speaker label of the one paragraph (or the paragraphs of the one speaker) that
+    `text[span[0]:span[1]]` covers, as the text writes it: None for a span over the paragraphs
+    of more than one speaker, over an unlabelled paragraph or in text that is no transcript.
+    Unlike `transcript_speaker` it does not ask whether the speaker is the company's: an
+    analyst's label is returned as it is."""
+    start, end = span
+    labels = {speaker_label(line) for line in _lines(text, start, max(end, start + 1))}
+    return labels.pop() if len(labels) == 1 else None
+
+
+def speaker_at(text: str, span: tuple[int, int]) -> Speaker | None:
+    """`label_at`, as its parts."""
+    label = label_at(text, span)
+    return None if label is None else parse_label(label)
 
 
 def transcript_speaker(

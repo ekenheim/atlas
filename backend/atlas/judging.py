@@ -22,6 +22,11 @@ for a research session's Facts, thesis and Beliefs; `always` also for a Fact rec
 a session (the pipeline's Readers among them); `off` for none.
 
 The calls are recorded under a run of their own, as `/statements/judge` records its calls.
+
+A Fact that quotes a call or conference transcript is judged with its speaker (ticket 25): the
+rows are given the label of the paragraph their span is in (`atlas.investigations.speakers`)
+before the request is made, so the judge sees whose words the quote is and a statement that
+names the speaker's title is held to the label.
 """
 
 import uuid
@@ -32,9 +37,11 @@ from typing import Any, Literal
 import httpx2
 from sqlalchemy import Connection, Engine, text
 
+from atlas.archive import open_archive
 from atlas.facts.service import FactCreate, FactJudgement, FactValue
 from atlas.hindsight import HindsightError
 from atlas.investigations.meaning import finding_metadata, verify_bases, voting
+from atlas.investigations.speakers import with_speakers
 from atlas.jobs.pacing import TransientFailure
 from atlas.llm_routes import LiteLLMError
 from atlas.roles import QuotedText
@@ -157,6 +164,7 @@ class Judges:
                 statement=statement,
                 rows=rows,
                 thesis=thesis,
+                engine=self._engine,
             )
 
     def fact_judge(self, question: str) -> "FactJudge":
@@ -175,9 +183,14 @@ def judged_in_run(
     statement: str,
     rows: Sequence[Mapping[Any, Any]],
     thesis: bool = False,
+    engine: Engine | None = None,
 ) -> Verdict:
     """`judge_statement` with the settings' votes and rule, a failure of the judge as
-    `JudgeUnavailable`: for a caller that holds a caller and a run already (a Reader)."""
+    `JudgeUnavailable`: for a caller that holds a caller and a run already (a Reader). With an
+    `engine`, the rows of a call transcript's Facts are given their speaker's label first."""
+    if engine is not None:
+        with engine.connect() as connection:
+            rows = with_speakers(connection, open_archive(settings), rows)
     try:
         return judge_statement(
             caller,
@@ -219,6 +232,7 @@ def judge_fact(
         span_end=request.span_end,
         epistemic_type=request.epistemic_type,
         value=value.model_dump(mode="json", exclude_none=True),
+        parser_version=request.parser_version,
     )
     if row is None:  # the Fact's own checks refuse an unknown company or version
         return FactJudgement(verdict="unjudged", reason="the Fact's document is unknown"), None
@@ -237,7 +251,11 @@ def judge_fact(
 
 
 def run_fact_judge(
-    caller: RoleCaller, run_id: uuid.UUID, settings: Settings, question: str
+    caller: RoleCaller,
+    run_id: uuid.UUID,
+    settings: Settings,
+    question: str,
+    engine: Engine | None = None,
 ) -> FactJudge | None:
     """The judge of a Fact's statement for a caller that holds a caller and a run (a Reader),
     in that run; None unless `ATLAS_FACT_STATEMENT_JUDGE` is `always`: the pipeline's Readers
@@ -245,7 +263,7 @@ def run_fact_judge(
     if settings.fact_statement_judge != "always":
         return None
     return lambda statement, rows: judged_in_run(
-        caller, run_id, settings, question=question, statement=statement, rows=rows
+        caller, run_id, settings, question=question, statement=statement, rows=rows, engine=engine
     )
 
 
@@ -350,6 +368,7 @@ def unrecorded_fact_row(
     span_end: int,
     epistemic_type: str,
     value: Mapping[str, Any],
+    parser_version: str | None = None,
 ) -> dict[str, Any] | None:
     """A Fact not yet recorded, shaped like `fact_rows`' rows for the judge: its subject's name,
     its document's title and date, its quote and span and the value (statement, status, period,
@@ -378,4 +397,5 @@ def unrecorded_fact_row(
         "source_version_id": source_version_id,
         "span_start": span_start,
         "span_end": span_end,
+        "parser_version": parser_version,  # the parse the span is in (None: the recorded one)
     }

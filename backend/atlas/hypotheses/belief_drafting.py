@@ -17,7 +17,11 @@ investigation. One attempt of the draft:
    figures and quoted phrases to those quotes (asked again once through the Editor), and the
    finding judge (when `ATLAS_FINDING_JUDGE` is on) is asked about it, one call each (votes as
    configured); a misstated one is rewritten once and judged again, and set aside if it still
-   fails. Set-aside statements are recorded in the version's `unsupported_findings`.
+   fails. Set-aside statements are recorded in the version's `unsupported_findings`. The asks
+   again and the rewrites run under the draft's role name and say the draft's rules
+   (`HYPOTHESIS_REGROUND`, `HYPOTHESIS_REVISE`; ticket 25): the Editor's own words, no quotation
+   marks, no qualifier the quotes lack, a thesis that says what may be true. A transcript
+   quote reaches the grounding check and the judge with its speaker's label (ticket 25).
    The thesis statement is grounded and judged the same way, first, against the Facts of the
    Beliefs it cites, with the judge told it is a thesis (`finding.thesis`, `finding_judge.v5`):
    its bare hedged proposition ("may be straining ...") is caution, not a claim beyond the
@@ -43,6 +47,7 @@ from typing import Any, Literal
 from pydantic import JsonValue
 from sqlalchemy import Engine, RowMapping, text
 
+from atlas.archive import open_archive
 from atlas.audit import Actor, content_hash, record
 from atlas.beliefs.service import Belief, get_belief, list_beliefs
 from atlas.companies import load_universe
@@ -53,12 +58,13 @@ from atlas.investigations.argument import fact_rows
 from atlas.investigations.grounding import CheckedFinding, check_findings
 from atlas.investigations.meaning import judge_findings, voting
 from atlas.investigations.model import UnsupportedFinding
+from atlas.investigations.speakers import with_speakers
 from atlas.investigations.tasks import _judged_fact  # pyright: ignore[reportPrivateUsage]
 from atlas.roles import QuotedText, RoleCaller, RoleCallFailed
 from atlas.roles.editor import (
-    EDITOR_REGROUND,
-    EDITOR_REVISE,
     HYPOTHESIS_BELIEFS_EDITOR,
+    HYPOTHESIS_REGROUND,
+    HYPOTHESIS_REVISE,
     BeliefItem,
     CardFindingDraft,
     HypothesisBeliefsRequest,
@@ -321,7 +327,16 @@ class BeliefHypothesisDrafter:
             )
         )
         with self._engine.connect() as connection:
-            rows = {row["id"]: row for row in fact_rows(connection, wanted, statements=True)}
+            # A quote of a call transcript carries its speaker's label (ticket 25), for the
+            # grounding check and the judge.
+            rows = {
+                row["id"]: row
+                for row in with_speakers(
+                    connection,
+                    open_archive(self._settings),
+                    fact_rows(connection, wanted, statements=True),
+                )
+            }
             names = [
                 (row.display_name, row.legal_name)
                 for row in connection.execute(
@@ -377,8 +392,9 @@ class BeliefHypothesisDrafter:
             question,
             names,
             lambda again, quotes: self._caller.call_recorded(
-                EDITOR_REGROUND, again, run_id=run_id, retrieved=quotes
+                HYPOTHESIS_REGROUND, again, run_id=run_id, retrieved=quotes
             ),
+            theses=frozenset({0}),
         )
         thesis_checked = checked.findings[0]
         if thesis_checked.ungrounded:
@@ -430,7 +446,7 @@ class BeliefHypothesisDrafter:
                 self._settings.finding_judge_vote_rule,
             ),
             lambda asked, quotes: self._caller.call_recorded(
-                EDITOR_REVISE, asked, run_id=run_id, retrieved=quotes
+                HYPOTHESIS_REVISE, asked, run_id=run_id, retrieved=quotes
             ),
             _judged_fact,
             theses=frozenset({0}),

@@ -51,7 +51,7 @@ CAPTURE_STATEMENT = "Lumentum reported net revenue of $3.01 billion for fiscal y
 REWRITTEN = "Lumentum reported net revenue of $3.01 billion in fiscal year 2026, up sharply."
 THESIS = "Lumentum may be straining its laser capacity as its revenue grows in fiscal year 2026."
 ACTOR = "claude-session"
-DRAFTER = "hypothesis_editor"  # the Belief draft's role; its rewrites are the `editor`
+DRAFTER = "hypothesis_editor"  # the Belief draft's role; its asks again and rewrites carry it too
 
 
 @pytest.fixture
@@ -442,7 +442,7 @@ def test_a_statement_citing_no_belief_it_was_sent_or_misstating_its_quotes_is_se
     beliefs.belief(CAPTURE, "capture", YEAR)
     llm.script_role(DRAFTER, ChatReply.answer(citing_badly, tokens=(3000, 700)))
     # The rewrite of the misstated capture statement, grounded but judged misstated again.
-    llm.script_role("editor", ChatReply.answer(rewriting(REWRITTEN), tokens=(800, 80)))
+    llm.script_role(DRAFTER, ChatReply.answer(rewriting(REWRITTEN), tokens=(800, 80)))
     # thesis and constraint: supported; capture: misstated, rewritten, misstated again.
     llm.script_role(
         "finding_judge",
@@ -469,7 +469,7 @@ def test_a_statement_citing_no_belief_it_was_sent_or_misstating_its_quotes_is_se
     assert roles(llm) == [
         DRAFTER,
         *["finding_judge"] * 3,
-        "editor",
+        DRAFTER,
         "finding_judge",
     ]
 
@@ -683,7 +683,7 @@ def test_several_statements_of_a_step_are_kept_and_a_rejected_one_is_recorded(
             tokens=(3000, 700),
         ),
     )
-    llm.script_role("editor", ChatReply.answer(rewriting(REWORDED), tokens=(800, 80)))
+    llm.script_role(DRAFTER, ChatReply.answer(rewriting(REWORDED), tokens=(800, 80)))
     # The thesis and the first two points are supported; the third is misstated, rewritten and
     # misstated again.
     llm.script_role(
@@ -724,7 +724,7 @@ def test_an_ungrounded_thesis_is_asked_again_once_and_then_the_draft_is_refused(
         ),
     )
     llm.script_role(
-        "editor", ChatReply.answer(rewriting("Lumentum may earn $8.88 billion."), tokens=(800, 80))
+        DRAFTER, ChatReply.answer(rewriting("Lumentum may earn $8.88 billion."), tokens=(800, 80))
     )
     saved = beliefs.create()
     beliefs.worker_pass()
@@ -733,7 +733,14 @@ def test_an_ungrounded_thesis_is_asked_again_once_and_then_the_draft_is_refused(
     assert hypothesis["draft_status"] == "failed"
     assert "thesis statement is ungrounded" in hypothesis["draft_error"]
     assert hypothesis["versions"] == []
-    assert roles(llm) == [DRAFTER, "editor"]  # the draft, and the one ask again
+    assert roles(llm) == [DRAFTER, DRAFTER]  # the draft, and the one ask again
+    # The ask again is the draft's own (ticket 25): under the draft's role name, saying the
+    # draft's rules (no quotation marks), and told that the statement is the thesis.
+    _, again = llm.chat_requests()
+    assert "drafting a Hypothesis" in again["messages"][0]["content"]
+    assert "Write no quotation marks" in again["messages"][0]["content"]
+    [ungrounded] = asked(again)["request"]["findings"]
+    assert (ungrounded["finding"], ungrounded["thesis"]) == ("f1", True)
 
 
 def test_a_thesis_the_editor_repairs_when_asked_again_is_kept(
@@ -748,7 +755,7 @@ def test_a_thesis_the_editor_repairs_when_asked_again_is_kept(
             tokens=(3000, 700),
         ),
     )
-    llm.script_role("editor", ChatReply.answer(rewriting(repaired), tokens=(800, 80)))
+    llm.script_role(DRAFTER, ChatReply.answer(rewriting(repaired), tokens=(800, 80)))
     llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
     saved = beliefs.create()
     beliefs.worker_pass()
@@ -785,7 +792,7 @@ def test_a_thesis_with_an_unsupported_qualifier_is_held_at_the_gate_after_one_re
             editor({"constraint": CONSTRAINT_STATEMENT}, thesis=BROAD_THESIS), tokens=(3000, 700)
         ),
     )
-    llm.script_role("editor", ChatReply.answer(rewriting(STILL_BROAD), tokens=(800, 80)))
+    llm.script_role(DRAFTER, ChatReply.answer(rewriting(STILL_BROAD), tokens=(800, 80)))
     # The thesis: misstated, rewritten, misstated again. The step statement: supported.
     llm.script_role(
         "finding_judge",
@@ -808,7 +815,7 @@ def test_a_thesis_with_an_unsupported_qualifier_is_held_at_the_gate_after_one_re
     )
     assert content["steps"][0]["statement"] == CONSTRAINT_STATEMENT
     assert content["unsupported_findings"] == []
-    assert roles(llm) == [DRAFTER, "finding_judge", "finding_judge", "editor", "finding_judge"]
+    assert roles(llm) == [DRAFTER, "finding_judge", "finding_judge", DRAFTER, "finding_judge"]
     assert judged_statements(llm) == [BROAD_THESIS, CONSTRAINT_STATEMENT, STILL_BROAD]
     assert beliefs.draft_artifacts()["thesis_judged"] == "misstated"
 
@@ -850,7 +857,7 @@ def test_a_hedged_thesis_passes_and_a_misstated_one_the_editor_repairs_is_kept(
     )
     # The rewrite keeps the "may" the Beliefs do not carry: caution is not a claim beyond the
     # quotes, so the judge supports it.
-    llm.script_role("editor", ChatReply.answer(rewriting(HEDGED), tokens=(800, 80)))
+    llm.script_role(DRAFTER, ChatReply.answer(rewriting(HEDGED), tokens=(800, 80)))
     llm.script_role(
         "finding_judge",
         ChatReply.answer(misstating, tokens=(400, 40)),
@@ -860,10 +867,32 @@ def test_a_hedged_thesis_passes_and_a_misstated_one_the_editor_repairs_is_kept(
     saved = beliefs.create()
     beliefs.worker_pass()
 
-    content = beliefs.hypothesis(saved["id"])["versions"][0]["content"]
+    version = beliefs.hypothesis(saved["id"])["versions"][0]
+    content = version["content"]
     assert (content["thesis_statement"], content["thesis_judged"]) == (HEDGED, "supported")
     assert content["thesis_misstated_reason"] is None
+    assert '"' not in content["thesis_statement"]
     assert judged_statements(llm) == [BROAD_THESIS, CONSTRAINT_STATEMENT, HEDGED]
+    # The rewrite of the misstated thesis is recorded under the draft's role name, with the
+    # draft's rules (ticket 25), not as the card Editor's `editor` call; it is told what it
+    # rewrites is the thesis, and the statement it is given is not.
+    calls = beliefs.get(f"/api/v1/runs/{version['provenance']['draft_run_id']}/role-calls")[
+        "role_calls"
+    ]
+    assert [(each["role"], each["prompt_name"], each["prompt_version"]) for each in calls] == [
+        (DRAFTER, "editor-hypothesis-beliefs", 2),
+        ("finding_judge", "finding_judge", 5),  # the thesis
+        ("finding_judge", "finding_judge", 4),  # the constraint statement
+        (DRAFTER, "editor-hypothesis-revise", 1),
+        ("finding_judge", "finding_judge", 5),  # the rewritten thesis
+    ]
+    [_, revise] = [b for b in llm.chat_requests() if b["metadata"]["role"] == DRAFTER]
+    [misstated] = asked(revise)["request"]["findings"]
+    assert (misstated["finding"], misstated["thesis"], misstated["statement"]) == (
+        "f1",
+        True,
+        BROAD_THESIS,
+    )
     beliefs.post(f"/api/v1/hypotheses/{saved['id']}/transitions", {"to": "evidence_ready"})
     assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
 
@@ -965,7 +994,7 @@ def test_a_scope_word_no_quote_states_still_makes_the_thesis_misstated(
             editor({"constraint": CONSTRAINT_STATEMENT}, thesis=BROAD_THESIS), tokens=(3000, 700)
         ),
     )
-    llm.script_role("editor", ChatReply.answer(rewriting(BROAD_THESIS), tokens=(800, 80)))
+    llm.script_role(DRAFTER, ChatReply.answer(rewriting(BROAD_THESIS), tokens=(800, 80)))
     llm.script_role(
         "finding_judge",
         ChatReply.answer(clausing(scope=True), tokens=(400, 40)),

@@ -397,3 +397,32 @@ def test_a_cited_claim_s_document_date_grounds_the_year_month_or_date_a_statemen
     assert ungrounded(
         "Zephyr Optics said in 2025 demand exceeds supply", claim_grounds("", [undated], [])
     ) == ["2025"]
+
+
+def test_a_transcript_quote_s_speaker_grounds_the_name_title_and_firm_a_statement_gives_it() -> (
+    None
+):
+    """The speaker of a call's quote is in its paragraph's label, not in the quote's words
+    (atlas-beliefs ticket 25): a statement may name the person and the title."""
+    claim = {
+        "quote": "our indium phosphide laser capacity was the constraint on shipments",
+        "subject_name": "Zephyr Optics",
+        "object_name": None,
+        "object_text": None,
+        "source_title": "Q3 2026",
+        "speaker": "Robin Placeholder (VP of Business Development, Example Photonics Inc)",
+    }
+    statement = (
+        "Robin Placeholder, Example Photonics Inc's VP of Business Development, said Zephyr"
+        " Optics' indium phosphide laser capacity was the constraint on shipments"
+    )
+
+    assert ungrounded(statement, claim_grounds("", [claim], [])) == []
+    # Without the label the same words are ungrounded: the name and the title are in no quote.
+    unlabelled = {k: v for k, v in claim.items() if k != "speaker"}
+    assert ungrounded(statement, claim_grounds("", [unlabelled], [])) != []
+    # A name the label does not give is not grounded by it.
+    assert ungrounded(
+        "Pat Invented, VP of Business Development, said capacity was the constraint on shipments",
+        claim_grounds("", [claim], []),
+    ) == ["Pat Invented"]

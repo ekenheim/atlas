@@ -208,6 +208,7 @@ from atlas.investigations.skeptic import (
     contradictions,
     counterevidence_by_claim,
 )
+from atlas.investigations.speakers import with_speakers
 from atlas.jobs.pacing import classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 from atlas.jobs.resources import run_recorder
@@ -1647,7 +1648,7 @@ class TaskRunner:
                 actor=actor,
                 max_calls=self._settings.reader_max_calls,
                 max_passages=self._settings.reader_max_passages,
-                fact_judge=run_fact_judge(caller, run_id, self._settings, question),
+                fact_judge=run_fact_judge(caller, run_id, self._settings, question, self._engine),
             )
             outcome = reader.run(session, setup(companies, question))
         if outcome.status == "budget_exhausted":
@@ -1970,7 +1971,12 @@ class TaskRunner:
         recorded = cast(list[Any], skeptic_artifacts.get(SKEPTIC_CHALLENGED) or [])
         skeptic_checked = {uuid.UUID(str(each)) for each in recorded}
         rows = [*facts.supporting, *facts.counter]
+        # A quote of a call transcript carries its speaker's label, so the judge and the
+        # grounding check can hold a statement's attribution to it (ticket 25).
+        with self._engine.connect() as connection:
+            spoken = with_speakers(connection, open_archive(self._settings), rows)
         refs = {f"c{index}": row for index, row in enumerate(rows, start=1)}
+        described = {f"c{index}": row for index, row in enumerate(spoken, start=1)}
         ref_of = {row["id"]: ref for ref, row in refs.items()}
         theme = load_universe(self._settings.themes_config).themes.get(investigation["theme"])
         latest = {s.step: s for s in facts.sessions if s.role == "reader"}
@@ -2146,7 +2152,7 @@ class TaskRunner:
                 )
         checked = check_findings(
             [(finding, cited) for _, finding, cited in checking],
-            refs,
+            described,
             investigation["question"],
             self._company_names(),
             lambda again, quotes: self._ask_editor_again(investigation, run_id, again, quotes),
@@ -2169,7 +2175,7 @@ class TaskRunner:
         if self._settings.finding_judge and grounded:
             meaning = judge_findings(
                 [each for _, each in grounded],
-                refs,
+                described,
                 investigation["question"],
                 self._company_names(),
                 # As many votes as configured, decided by the rule, as the default plan asks
@@ -2477,8 +2483,9 @@ def accepted_claims(
         connection.execute(
             text(
                 "SELECT c.id, c.assertion_id, c.source_version_id, c.quote, c.span_start,"
-                " c.span_end, c.predicate, c.product, c.layer, c.epistemic_type, c.object_text,"
-                " c.subject_company_id, c.object_company_id, s.display_name AS subject_name,"
+                " c.span_end, c.speaker, c.predicate, c.product, c.layer, c.epistemic_type,"
+                " c.object_text, c.subject_company_id, c.object_company_id,"
+                " s.display_name AS subject_name,"
                 " o.display_name AS object_name, a.verification_status, d.title AS source_title,"
                 " v.available_at, m.evidence_family_id, t.round"
                 " FROM claim c"

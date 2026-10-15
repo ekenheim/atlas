@@ -391,3 +391,10 @@ Detail: `.scratch/pilot/results.md`, "0.5.4 against 0.5.3".
 - **Method:** a headless Opus `claude -p` session with only the Atlas MCP server, on v0.6.3, the closing measure's question, seeds and as-of; the same blind double review. Detail: `.scratch/pilot/results.md`, "The MCP session".
 - **Result:** the MCP surface works (120 calls, counted by Atlas, no as-of leak); precision 92% (87% before; 3 context-clause Facts); trust gate 4% (9% before); researcher's facts on the card 15 (11 before); 11 Beliefs, all grounded, 6 compound.
 - **Kept:** the MCP server as the tool surface; the skill rules. **Next:** move the rules into code: judge a Fact's statement at `record_fact`, the thesis, and a Belief's statement (with atomicity) before it is proposed.
+
+## 2026-10-15: the speaker beside a transcript quote for the finding judge (atlas-beliefs ticket 25)
+
+- **Hypothesis:** the Editor re-run's thesis and control step were judged misstated because the judge could not see who spoke a transcript quote; sending the paragraph label's name, title and firm beside the quote (as claim metadata, never in the quote's text) removes those flags without making the judge miss real misstatements or flag more supported statements.
+- **Method:** `.scratch/tools/finding_judge_eval.py --argument` on the 130 labelled statements (one vote, the judge's model `chatgpt`, `finding_judge.v4` unchanged), once without and once with `--speakers` (each transcript Fact's label read from the running Atlas; the basis check with the speaker's texts as metadata, as production). Ship only if caught does not fall and flagged does not rise by more than one.
+- **Result:** pending (the lead runs it): caught before / after, flagged before / after, and the statements whose verdict changed.
+- **Kept / reverted:** pending. Fallback if attribution flags do not drop: one sentence on the key in `finding_judge.v6` and a thesis `v7` (never an edit of v4 or v5).

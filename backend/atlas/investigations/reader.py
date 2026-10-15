@@ -1488,7 +1488,7 @@ def run_read_step(
         actor=READER_ACTOR,
         max_calls=settings.reader_max_calls,
         max_passages=settings.reader_max_passages,
-        fact_judge=run_fact_judge(caller, session.run_id, settings, payload.question),
+        fact_judge=run_fact_judge(caller, session.run_id, settings, payload.question, engine),
     )
     outcome = reader.run(
         session,

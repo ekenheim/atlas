@@ -4,7 +4,16 @@ officers and for analysts, a title with several commas, "Operator" and a bare na
 
 import pytest
 
-from atlas.claims.speakers import SpeakerRefusal, speaker_label, transcript_speaker
+from atlas.claims.speakers import (
+    Speaker,
+    SpeakerRefusal,
+    label_at,
+    parse_label,
+    row_speaker,
+    speaker_at,
+    speaker_label,
+    transcript_speaker,
+)
 
 NAMES = ["Example Photonics Holdings Inc.", "Example Photonics Holdings", "Example Photonics"]
 
@@ -87,3 +96,81 @@ def test_the_label_is_the_line_start_up_to_its_colon() -> None:
     )
     assert speaker_label("Operator: Welcome.") == "Operator"
     assert speaker_label("the largest customer?") is None
+
+
+# --- whose words, for the judge and the grounding check (atlas-beliefs ticket 25) ---------------
+
+
+@pytest.mark.parametrize(
+    ("label", "name", "title", "firm"),
+    [
+        (
+            "Alex Example (President and CEO, Example Photonics Holdings Inc)",
+            "Alex Example",
+            "President and CEO",
+            "Example Photonics Holdings Inc",
+        ),
+        (
+            "Robin Placeholder (VP of Business Development, Strategic Sales, and Marketing,"
+            " Example Photonics)",
+            "Robin Placeholder",
+            "VP of Business Development, Strategic Sales, and Marketing",
+            "Example Photonics",
+        ),
+        ("Alex Example (CEO)", "Alex Example", "CEO", None),
+        ("Operator", "Operator", None, None),
+        # A legal-form suffix after a comma belongs to the firm, not to a firm of its own.
+        (
+            "Alex Example (CEO, Lumentum Holdings, Inc.)",
+            "Alex Example",
+            "CEO",
+            "Lumentum Holdings, Inc.",
+        ),
+        (
+            "Robin Placeholder (VP of Sales, Strategic Accounts, and Marketing, Example"
+            " Photonics, Ltd)",
+            "Robin Placeholder",
+            "VP of Sales, Strategic Accounts, and Marketing",
+            "Example Photonics, Ltd",
+        ),
+        (
+            "Alex Example (CEO, Example Photonics, plc)",
+            "Alex Example",
+            "CEO",
+            "Example Photonics, plc",
+        ),
+        # No title before the suffixed firm: the whole parenthetical stays a title, as with
+        # any parenthetical without a comma.
+        ("Alex Example (Example Photonics, Inc.)", "Alex Example", "Example Photonics, Inc.", None),
+    ],
+)
+def test_a_label_is_split_into_name_title_and_firm(
+    label: str, name: str, title: str | None, firm: str | None
+) -> None:
+    assert parse_label(label) == Speaker(name, title, firm)
+
+
+def test_the_label_of_a_span_is_the_one_speakers_whoever_they_are() -> None:
+    officer = "Alex Example (CEO, Example Photonics)"
+    analyst = "Sam Sample (Analyst, Example Bank)"
+    text = spoken(officer, "Capacity doubles.") + spoken(analyst, "Thank you, and capacity?")
+    doubles = text.index("doubles")
+    thanks = text.index("Thank")
+
+    assert label_at(text, (doubles, doubles + 7)) == officer
+    # An analyst's label is returned as it is: it is what shows the words are not the company's.
+    assert label_at(text, (thanks, thanks + 5)) == analyst
+    assert speaker_at(text, (thanks, thanks + 5)) == Speaker(
+        "Sam Sample", "Analyst", "Example Bank"
+    )
+    # Over two speakers, or over text with no label, there is none.
+    assert label_at(text, (doubles, thanks + 5)) is None
+    assert label_at("Net revenue rose.\nAnd margin too.", (0, 5)) is None
+
+
+def test_a_rows_speaker_is_its_label_parsed_and_a_filing_row_has_none() -> None:
+    assert row_speaker({"speaker": "Alex Example (CEO, Example Photonics)"}) == Speaker(
+        "Alex Example", "CEO", "Example Photonics"
+    )
+    assert row_speaker({"speaker": None}) is None
+    assert row_speaker({"quote": "Net revenue rose."}) is None
