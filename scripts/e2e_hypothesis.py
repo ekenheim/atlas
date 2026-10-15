@@ -79,8 +79,8 @@ BELIEF_STEP_STATEMENT = (
     "Coherent entered into a strategic multi-year supply agreement with NVIDIA for advanced lasers."
 )
 BELIEF_THESIS = (
-    "Advanced-laser supply may be controlled by suppliers with long-term agreements, such as"
-    " Coherent."
+    "Coherent may control the supply of advanced lasers through its multi-year supply agreement"
+    " with NVIDIA."
 )
 REVENUE = "RevenueFromContractWithCustomerExcludingAssessedTax"
 SCENARIO_AS_OF = "2026-09-01T00:00:00Z"

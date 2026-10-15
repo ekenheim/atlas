@@ -33,8 +33,8 @@ const BELIEF = "Coherent holds a multi-year supply agreement with NVIDIA for adv
 const BELIEF_STEP =
   "Coherent entered into a strategic multi-year supply agreement with NVIDIA for advanced lasers.";
 const BELIEF_THESIS =
-  "Advanced-laser supply may be controlled by suppliers with long-term agreements, such as" +
-  " Coherent.";
+  "Coherent may control the supply of advanced lasers through its multi-year supply agreement" +
+  " with NVIDIA.";
 const LIMIT =
   "the agreement no longer commits NVIDIA to purchase from Coherent after December 31, 2027";
 const OWNS = "NVIDIA owns Coherent";
