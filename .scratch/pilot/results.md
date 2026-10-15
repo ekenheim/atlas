@@ -806,3 +806,16 @@ Beliefs tickets 15 (box 2) and 11 (its measure). A headless Opus session (`claud
 - **Missed (coverage):** the August 2023 gallium/germanium permit regime (the closing session had it); AXT's still-missing U.S. InP permits (open question, no Fact; both sessions missed it); the InP permit timeline (portal March 2025, first permits 11 June 2025).
 
 **Against the bars:** ticket 15's box 2 is met (the session ran without the script). Ticket 11's measure: the trust gate at or below 10% is met (4%); precision at or above 95% is not (92%). Next rules, now for code rather than the skill: judge a Fact's statement against its quote at `record_fact` (the same judge, before it is stored), judge the thesis like a statement, and judge a Belief's statement before `propose_belief`, with atomicity in the judge's brief.
+
+## The agent prompts' hand runs (2026-10-15, v0.6.4): Scout, Skeptic, Editor
+
+Beliefs ticket 16. Each a headless Opus `claude -p` session with only the Atlas MCP server (25 tools), on production, as of 2026-10-15; files `.scratch/live-runs/agent-{scout,skeptic,editor}/`. Facts blind-reviewed by two Opus reviewers (agreed on 9 of 12; a third settled 3).
+
+| Agent | Session | Calls | Time, cost | Result |
+|---|---|---|---|---|
+| Scout | `b563b81b` | 42 of 60 | 6.2 min, $5.03 | 7 cues recorded as Facts, **7 of 7 right**; 6 question Issues, **5 of 6 on-question** for photonics (Marvell's wafer-fab and packaging question is on the theme's universe but off its optical layers); 1 cue matched an open Issue and opened none |
+| Skeptic | `0bda9508` | 37 of 80 | 6.3 min, $5.62 | Belief 53a43503 (AXT/Sumitomo ~40% each, 2024) stands: no contradiction; 5 Facts, 2 right, 2 off-question (the Skeptic itself judged both unrelated and cited neither), 1 wrong (a hedged "probably pretty comfortable" filed `in_effect`); Issue 9817cced asks whether the 2024 estimate holds in 2026 |
+| Editor | `b052ebdf` | 9 of 25 | 1.5 min, $2.19 | Hypothesis `5fab64be` drafted from the 2 proven Beliefs, **no step statement kept**: the drafting Editor (MiniMax) misquoted one Belief and pasted the other's quote whole; the rewrite failed grounding on "According" (a grounding defect); the thesis repeats "merchant market", unjudged. Ticket 24. |
+
+- **Method breaches:** the Scout recorded 5 Facts from search passages without reading the window (its report says so); all 5 were judged right, but the rule stands. The calendar tool returned nothing (no calendar job had run; ticket 16c).
+- **Against the acceptance:** each prompt ran once and was scored; the Skeptic's Facts reviewed (2 of 3 cited ones right; the Facts it marked unrelated are its own triage working); the Scout's Issues judged (5 of 6); the Editor's draft through the gate (blocked: `status_not_publishable`, and no statements, the defect ticket 24 fixes).
