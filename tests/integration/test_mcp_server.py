@@ -891,6 +891,68 @@ def test_beliefs_are_listed_and_read_only_as_of_the_sessions_time(mcp: Mcp) -> N
     mcp.refused("get_belief", "not_found", session_id=late, belief_id=NOBODY)
 
 
+def test_a_belief_read_as_of_an_early_session_hides_what_later_work_added_to_it(
+    mcp: Mcp,
+) -> None:
+    early, late = mcp.open(BEFORE_10K), mcp.open(LATER)
+    _, belief_early = believe(
+        mcp, early, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    fact_late, belief_late = believe(
+        mcp, late, URL_10K, TENK_SHARES, "Lumentum had 89.7 million shares in August 2026."
+    )
+    # Later work: a load-bearing contradiction (Atlas raises the flag) and a supersession.
+    mcp.ok(
+        "cite_belief", session_id=late, belief_id=belief_early,
+        citation={"fact_id": fact_late, "how": "contradicts", "weight": "load_bearing"},
+    )  # fmt: skip
+    mcp.ok(
+        "supersede_belief", session_id=late, belief_id=belief_early,
+        by=[belief_late], reason="narrowed by the 10-K",
+    )  # fmt: skip
+
+    seen = mcp.ok("get_belief", session_id=late, belief_id=belief_early)
+    assert [link["id"] for link in seen["superseded_by"]] == [belief_late]
+    assert (seen["open_flags"], [f["kind"] for f in seen["flags"]]) == (
+        1,
+        ["counterevidence_stands"],
+    )
+    assert (seen["hidden_links"], seen["hidden_flags"], seen["hidden_citations"]) == (0, 0, 0)
+
+    blind = mcp.ok("get_belief", session_id=early, belief_id=belief_early)
+    assert blind["superseded_by"] == [] and blind["supersedes"] == []
+    assert blind["flags"] == [] and blind["open_flags"] == 0
+    assert (blind["hidden_links"], blind["hidden_flags"], blind["hidden_citations"]) == (1, 1, 1)
+    assert "10-K" not in json.dumps(blind) and "89.7 million" not in json.dumps(blind)
+
+    # The later Belief links back to the early one, which the late session may read.
+    back = mcp.ok("get_belief", session_id=late, belief_id=belief_late)
+    assert [link["id"] for link in back["supersedes"]] == [belief_early]
+    assert back["hidden_links"] == 0
+
+
+def test_issues_and_beliefs_are_paged_through_and_too_many_is_a_refusal(
+    mcp: Mcp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = mcp.open()
+    for number in range(3):
+        mcp.ok(
+            "open_issue", session_id=session, kind="read" if number else "question",
+            title=f"Issue {number}",
+        )  # fmt: skip
+    monkeypatch.setattr("atlas.mcp.agents.SCAN_PAGE", 2)
+    listed = mcp.ok("list_issues", session_id=session, kind="read")
+    assert sorted(each["title"] for each in listed["issues"]) == ["Issue 1", "Issue 2"]
+    assert listed["of_theme"] == 3
+    monkeypatch.setattr("atlas.mcp.agents.SCAN_LIMIT", 2)
+    mcp.refused("list_issues", "too_many_issues", session_id=session)
+    for number in range(3):
+        believe(
+            mcp, session, URL_EX991, REVENUE_QUOTE, f"Lumentum reported $1.01 billion {number}."
+        )
+    mcp.refused("list_beliefs", "too_many_beliefs", session_id=session)
+
+
 def test_issues_are_listed_so_a_question_is_not_opened_twice(mcp: Mcp) -> None:
     session = mcp.open()
     asked = mcp.ok(

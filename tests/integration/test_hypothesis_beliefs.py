@@ -971,3 +971,5 @@ def test_the_mcp_get_hypothesis_reads_the_drafted_steps_and_the_gate_after_a_rej
     [failure] = held["failures"]
     assert failure["code"] == "belief_not_proven"
     assert failure["belief_ids"] == [capture["id"]]
+    # The edges and Assertions a failure names are read too (empty for this code).
+    assert (failure["relationship_ids"], failure["assertion_ids"]) == ([], [])

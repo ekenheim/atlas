@@ -6,7 +6,10 @@ the as-of time taken from the session's row, each a projection of an existing ro
   `as_of` is the session's, so no document public after it is listed.
 - `list_beliefs`: `GET /beliefs`; a Belief whose own `as_of` is after the session's is not listed.
 - `get_belief`: `GET /beliefs/{id}`; a Belief after the session's time is refused
-  (`belief_after_as_of`), a citation of a document public after it is left out.
+  (`belief_after_as_of`). What the later work added to it is left out: a citation of a document
+  public after the session's time, a flag raised by such a citation, and a supersession link to a
+  Belief whose own as-of time is after it (each counted: `hidden_citations`, `hidden_flags`,
+  `hidden_links`).
 - `list_issues`: `GET /issues` (an Issue is a question, not evidence: no time rule).
 - `draft_hypothesis`: `POST /hypotheses` with `theme`; the cutoff is the session's, so only Beliefs
   with an as-of time at or before it are drafted from.
@@ -37,7 +40,7 @@ AGENT_TOOLS = (
     "get_hypothesis",
 )
 SCAN_PAGE = 500  # the routes' largest page
-SCAN_LIMIT = 2_000  # Beliefs read through to find the visible ones: more is a refusal to guess
+SCAN_LIMIT = 2_000  # rows read through to find the visible ones: more is a refusal to guess
 
 type Judgement = Literal["proven", "disproven", "unproven", "undecidable"]
 type BeliefStatus = Literal["active", "superseded", "withdrawn"]
@@ -151,14 +154,21 @@ class ListBeliefsArgs(Bound):
     "The theme's Beliefs, oldest first, each with its current judgement (who judged it, when,"
     " with what confidence), step, companies and citation count. A Belief whose own as-of time is"
     " after the session's is not listed (`hidden_after_as_of` counts them). Judgements are an"
-    " author's: no tool sets one.",
+    " author's: no tool sets one. `citation_count` and `open_flags` are the Belief's own, whatever"
+    " their documents' dates: `get_belief` is the as-of bounded read.",
     ListBeliefsArgs,
 )
 async def list_beliefs(ctx: Ctx, args: ListBeliefsArgs) -> dict[str, Any]:
     company = await ctx.company_id(args.company) if args.company else None
     visible: list[dict[str, Any]] = []
     hidden = scanned = 0
-    while scanned < SCAN_LIMIT:
+    while True:
+        if scanned >= SCAN_LIMIT:
+            raise Refusal(
+                "too_many_beliefs",
+                f"more than {SCAN_LIMIT} Beliefs match: narrow the call (step, judgement, company)",
+                scanned=scanned,
+            )
         page = await ctx.api.get(
             "/beliefs",
             theme=args.theme or ctx.bound.theme,
@@ -195,7 +205,8 @@ class GetBeliefArgs(Bound):
     "One Belief with its citations (Fact id, valence, weight, who cited it and when; the quote,"
     " span and the date its document became public), its counterevidence, open flags, judgement"
     " history, supersession and session. Refused for a Belief after the session's as-of time; a"
-    " citation of a document public after it is left out (`hidden_citations`).",
+    " citation of a document public after it, the flag it raised and a supersession link to a"
+    " Belief after it are left out (`hidden_citations`, `hidden_flags`, `hidden_links`).",
     GetBeliefArgs,
 )
 async def get_belief(ctx: Ctx, args: GetBeliefArgs) -> dict[str, Any]:
@@ -208,17 +219,32 @@ async def get_belief(ctx: Ctx, args: GetBeliefArgs) -> dict[str, Any]:
             belief_as_of=found["as_of"],
             as_of=ctx.as_of_iso,
         )
-    hidden = 0
-    for key in ("citations", "counterevidence"):
-        kept = [
-            each
-            for each in rows(found.get(key))
-            if datetime.fromisoformat(each["available_at"]) <= ctx.as_of
-        ]
-        if key == "citations":
-            hidden = len(rows(found.get(key))) - len(kept)
-        found[key] = kept
-    found["hidden_citations"] = hidden
+    citations = rows(found.get("citations"))
+    kept = [each for each in citations if datetime.fromisoformat(each["available_at"]) <= ctx.as_of]
+    shown = {each["id"] for each in kept}
+    late_refs = {each["ref_id"] for each in citations if each["id"] not in shown}
+    found["citations"] = kept
+    found["counterevidence"] = [
+        each for each in rows(found.get("counterevidence")) if each["id"] in shown
+    ]
+    found["hidden_citations"] = len(citations) - len(kept)
+    # A flag raised by a citation the session cannot see would say what that citation said.
+    flags = rows(found.get("flags"))
+    found["flags"] = [each for each in flags if each["ref_id"] not in late_refs]
+    found["hidden_flags"] = len(flags) - len(found["flags"])
+    found["open_flags"] = sum(1 for each in found["flags"] if each["cleared_by"] is None)
+    # A supersession link carries the other Belief's statement: only one the session could read.
+    hidden_links = 0
+    for key in ("supersedes", "superseded_by"):
+        linked: list[dict[str, Any]] = []
+        for each in rows(found.get(key)):
+            other = await ctx.api.get(f"/beliefs/{each['id']}")
+            if datetime.fromisoformat(other["as_of"]) > ctx.as_of:
+                hidden_links += 1
+            else:
+                linked.append(each)
+        found[key] = linked
+    found["hidden_links"] = hidden_links
     return found
 
 
@@ -240,12 +266,27 @@ class ListIssuesArgs(Bound):
     ListIssuesArgs,
 )
 async def list_issues(ctx: Ctx, args: ListIssuesArgs) -> dict[str, Any]:
-    page = await ctx.api.get(
-        "/issues",
-        theme=args.theme or ctx.bound.theme,
-        status=args.status,
-        limit=SCAN_PAGE,
-    )
+    found: list[dict[str, Any]] = []
+    scanned = 0
+    while True:
+        if scanned >= SCAN_LIMIT:
+            raise Refusal(
+                "too_many_issues",
+                f"more than {SCAN_LIMIT} Issues match: narrow the call (status, theme)",
+                scanned=scanned,
+            )
+        page = await ctx.api.get(
+            "/issues",
+            theme=args.theme or ctx.bound.theme,
+            status=args.status,
+            limit=SCAN_PAGE,
+            offset=scanned,
+        )
+        items = rows(page["items"])
+        found += [each for each in items if args.kind is None or each["kind"] == args.kind]
+        scanned += len(items)
+        if not items or scanned >= page["total"]:
+            break
     slugs: dict[str, str] = {each["id"]: each["slug"] for each in await ctx.companies()}
     items = [
         {
@@ -255,10 +296,9 @@ async def list_issues(ctx: Ctx, args: ListIssuesArgs) -> dict[str, Any]:
             "parent_title": each.get("parent_title"),
             "created_at": each.get("created_at"),
         }
-        for each in rows(page["items"])
-        if args.kind is None or each["kind"] == args.kind
+        for each in found
     ]
-    return {"total": len(items), "of_theme": page["total"], "issues": items[: args.limit]}
+    return {"total": len(items), "of_theme": scanned, "issues": items[: args.limit]}
 
 
 # --- hypotheses ----------------------------------------------------------------------------
@@ -393,7 +433,16 @@ async def get_hypothesis(ctx: Ctx, args: GetHypothesisArgs) -> dict[str, Any]:
         }
         | {
             "failures": [
-                {key: each.get(key) for key in ("code", "message", "belief_ids")}
+                {
+                    key: each.get(key)
+                    for key in (
+                        "code",
+                        "message",
+                        "belief_ids",
+                        "relationship_ids",
+                        "assertion_ids",
+                    )
+                }
                 for each in rows(gate.get("failures"))
             ]
         },
