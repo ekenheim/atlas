@@ -362,9 +362,10 @@ def list_beliefs(
     limit: int,
     offset: int,
 ) -> tuple[list[BeliefSummary], int]:
-    """Oldest first (`sort="created"`), or stalest first (`"stalest"`: never tested, then the
-    oldest `last_examined_as_of`, each oldest first; ticket 26). With `as_of`, each Belief's
-    judgement is the one current then, and a Belief with none yet is left out."""
+    """Oldest first (`sort="created"`), or stalest first (`"stalest"`: by `examined_through`, the
+    `last_examined_as_of` else the Belief's own `as_of`, never-tested ones first; ticket 26).
+    With `as_of`, each Belief's judgement is the one current then, and a Belief with none yet
+    is left out."""
     params: dict[str, Any] = {
         "theme": theme,
         "step": step,
@@ -393,7 +394,8 @@ def list_beliefs(
         params,
     ).scalar_one()
     order = (
-        "b.last_examined_as_of ASC NULLS FIRST, b.created_at, b.id"
+        "(b.last_examined_as_of IS NOT NULL), coalesce(b.last_examined_as_of, b.as_of),"
+        " b.created_at, b.id"
         if sort == "stalest"
         else "b.created_at, b.id"
     )
@@ -645,8 +647,10 @@ class Beliefs:
 
     def examine(self, belief_id: uuid.UUID, request: BeliefExamine) -> Belief:
         """Record that a session tested the Belief (ticket 26): an insert-only
-        `belief_examination` and the Belief's `last_examined_*` (the furthest as-of time, the
-        latest time and outcome). The judgement, its flags and its notices are untouched."""
+        `belief_examination` and the Belief's `last_examined_*` (those of the examination with the
+        furthest as-of time, the latest of equals: a replay at an earlier as-of time is recorded
+        in the examinations but leaves the Belief's summary as it was). The judgement, its flags and
+        its notices are untouched."""
         with self._engine.begin() as connection:
             before = self._lock_active(connection, belief_id)
             session = connection.execute(
@@ -685,8 +689,8 @@ class Beliefs:
             connection.execute(
                 text(
                     "UPDATE belief SET last_examined_at = now(), last_examined_outcome = :outcome,"
-                    " last_examined_as_of = GREATEST(coalesce(last_examined_as_of, :as_of),"
-                    " :as_of) WHERE id = :id"
+                    " last_examined_as_of = :as_of WHERE id = :id"
+                    " AND (last_examined_as_of IS NULL OR :as_of >= last_examined_as_of)"
                 ),
                 {"id": belief_id, "outcome": request.outcome, "as_of": session.as_of},
             )

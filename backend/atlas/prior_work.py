@@ -10,7 +10,11 @@ compounds, so `GET /api/v1/research/prior-work` answers, bounded by an as-of tim
   document's title and date, newest document first, capped with the count beyond the cap. Only
   Facts that stand (`unreviewed`, `corroborated`): a disputed or rejected one is not offered;
 - the **Beliefs** of any judgement that name the companies or sit on the steps, stalest first,
-  with who judged them and when they were last examined;
+  with who judged them and when they were last examined. The judgement is the Belief's current
+  one, whatever its time (as `list_beliefs` and `get_belief` show it: a judgement is an author's
+  act on the evidence Atlas holds, and `judged_at` is when it was made); the open flags and
+  notices are bounded: a notice whose Fact, and a flag raised by a citation, are of a document
+  public after `as_of` are not counted (the rule of the MCP `get_belief`);
 - the **documents read** in earlier sessions (a read, a locate or a recorded Fact), with each
   reading session's as-of time, and `latest_session_as_of`: the point after which the documents
   are new to Atlas;
@@ -22,7 +26,10 @@ Everything is bounded by `as_of`: a Fact by the time its document became public 
 availability, `source_version_availability`), a Belief by its own as-of time, a session by its
 as-of time (a later session is future research, counted in `hidden_sessions`), a document by
 availability and by the sessions that read it, an Issue by the as-of time of the session that
-opened it (else by when it was created), and an examination by its session's as-of time.
+opened it (else by when it was created), and an examination by its session's as-of time. A
+Fact is bounded by its document's availability alone, not by the as-of time of the session that
+recorded it, and so is a document's count of standing Facts: a Fact is public record once its
+document is, and what Atlas holds is what the asker should cite instead of recording again.
 `exclude_session_id` leaves out the asking session's own work. No LLM, no Memory: Atlas's records.
 """
 
@@ -69,8 +76,10 @@ class PriorBelief(BaseModel):
     confidence: float
     judged_by: str
     judged_at: datetime
-    open_flags: int
-    open_notices: int
+    open_flags: int = Field(description="the open flags not raised by a document after `as_of`")
+    open_notices: int = Field(
+        description="the open confirmations whose Fact's document is not after `as_of`"
+    )
     last_examined_at: datetime | None
     last_examined_as_of: datetime | None
     last_examined_outcome: str | None
@@ -289,14 +298,44 @@ def _beliefs(
         return []
     summaries, _ = list_beliefs(connection, ids=ids, sort="stalest", limit=MAX_LIMIT * 5, offset=0)
     # An examination by a session whose as-of time is after ours is future research: not seen.
+    # The outcome and time are those of the examination with the furthest as-of time.
     seen = {
         row.belief_id: row
         for row in connection.execute(
             text(
-                "SELECT belief_id, max(as_of) AS as_of, max(at) AS at,"
-                " (array_agg(outcome ORDER BY at DESC, id DESC))[1] AS outcome"
+                "SELECT DISTINCT ON (belief_id) belief_id, as_of, at, outcome"
                 " FROM belief_examination WHERE belief_id = ANY(:ids) AND as_of <= :as_of"
-                " GROUP BY belief_id"
+                " ORDER BY belief_id, as_of DESC, at DESC, id DESC"
+            ),
+            {"ids": ids, "as_of": as_of},
+        )
+    }
+    # A notice is raised by a Fact, a flag by a citation: one of a document public after `as_of`
+    # would say what that document said, so it is not counted.
+    notices = {
+        row.belief_id: row.n
+        for row in connection.execute(
+            text(
+                "SELECT n.belief_id, count(*) AS n FROM belief_notice n"
+                " JOIN assertion a ON a.id = n.ref_id"
+                " JOIN source_version_availability av ON av.source_version_id = a.source_version_id"
+                " WHERE n.belief_id = ANY(:ids) AND n.cleared_by IS NULL"
+                " AND av.available_at <= :as_of GROUP BY 1"
+            ),
+            {"ids": ids, "as_of": as_of},
+        )
+    }
+    flags = {
+        row.belief_id: row.n
+        for row in connection.execute(
+            text(
+                "SELECT f.belief_id, count(*) AS n FROM belief_flag f"
+                " WHERE f.belief_id = ANY(:ids) AND f.cleared_by IS NULL AND NOT EXISTS ("
+                "  SELECT FROM belief_citation c JOIN assertion a ON a.id = c.ref_id"
+                "  JOIN source_version_availability av"
+                "   ON av.source_version_id = a.source_version_id"
+                "  WHERE c.belief_id = f.belief_id AND c.ref_id = f.ref_id"
+                "  AND av.available_at > :as_of) GROUP BY 1"
             ),
             {"ids": ids, "as_of": as_of},
         )
@@ -315,8 +354,8 @@ def _beliefs(
                 confidence=each.judgement.confidence,
                 judged_by=each.judgement.actor,
                 judged_at=each.judgement.at,
-                open_flags=each.open_flags,
-                open_notices=each.open_notices,
+                open_flags=flags.get(each.id, 0),
+                open_notices=notices.get(each.id, 0),
                 last_examined_at=None if examined is None else examined.at,
                 last_examined_as_of=None if examined is None else examined.as_of,
                 last_examined_outcome=None if examined is None else examined.outcome,

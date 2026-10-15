@@ -909,6 +909,13 @@ def test_a_belief_read_as_of_an_early_session_hides_what_later_work_added_to_it(
         "cite_belief", session_id=late, belief_id=belief_early,
         citation={"fact_id": fact_late, "how": "contradicts", "weight": "load_bearing"},
     )  # fmt: skip
+
+    # prior_work counts the flag the 10-K's citation raised for the late asker alone.
+    def held_flags(session: str) -> int:
+        items = mcp.ok("prior_work", session_id=session)["beliefs"]["items"]
+        return next(b["open_flags"] for b in items if b["id"] == belief_early)
+
+    assert (held_flags(early), held_flags(late)) == (0, 1)
     mcp.ok(
         "supersede_belief", session_id=late, belief_id=belief_early,
         by=[belief_late], reason="narrowed by the 10-K",
@@ -1260,11 +1267,8 @@ def test_examine_belief_sets_the_staleness_fields_and_list_beliefs_orders_by_the
     )
     assert examined["examined"] is True and examined["outcome"] == "nothing_new"
     assert examined["last_examined_as_of"] == SEPTEMBER
-    assert (examined["judgement"], examined["open_flags"], examined["open_notices"]) == (
-        "proven",
-        0,
-        0,
-    )
+    assert (examined["judgement"], examined["open_flags"]) == ("proven", 0)
+    assert "open_notices" not in examined
     # The examined Belief is now the fresher one: never-examined first, then oldest examined.
     assert order(asker) == [second, first]
     listed = {b["id"]: b for b in mcp.ok("list_beliefs", session_id=asker)["beliefs"]}
@@ -1328,6 +1332,63 @@ def test_examine_belief_sets_the_staleness_fields_and_list_beliefs_orders_by_the
     assert actions.count("belief.examined") == 2
 
 
+def test_stalest_orders_by_examined_through_and_an_earlier_replay_leaves_the_summary(
+    mcp: Mcp,
+) -> None:
+    may, august, middle = mcp.open("2026-05-10T00:00:00Z"), mcp.open(BEFORE_10K), mcp.open(MIDDLE)
+    _, first = believe(
+        mcp, august, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    _, second = believe(
+        mcp, middle, URL_EX991, LONG_REVENUE_QUOTE, "Lumentum reported a $7.2 billion GAAP loss."
+    )
+    # Created last, but with the oldest own as-of time: the stalest, as the MCP orders them.
+    _, third = believe(mcp, may, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares.")
+
+    def over_http(sort: str) -> list[str]:
+        return [b["id"] for b in mcp.get("/api/v1/beliefs", theme="photonics", sort=sort)["items"]]
+
+    assert over_http("stalest") == [third, first, second]
+    assert over_http("created") == [first, second, third]
+
+    # Examined, it follows the never-tested ones; the order is by what it was tested against.
+    september, replay = mcp.open(SEPTEMBER), mcp.open(MIDDLE)
+    mcp.ok("examine_belief", session_id=september, belief_id=first, outcome="confirmed")
+    assert over_http("stalest") == [third, second, first]
+    # A replay as of an earlier time is recorded, but the summary stays the furthest one's.
+    mcp.ok("examine_belief", session_id=replay, belief_id=first, outcome="contradicted")
+    kept = mcp.get(f"/api/v1/beliefs/{first}")
+    assert (kept["last_examined_as_of"], kept["last_examined_outcome"]) == (SEPTEMBER, "confirmed")
+    assert [e["outcome"] for e in kept["examinations"]] == ["confirmed", "contradicted"]
+    # prior_work reads the examination with the furthest as-of time it may see.
+    asker = mcp.open(LATER)
+    [held] = [
+        b
+        for b in mcp.ok("prior_work", session_id=asker, steps=["capture"])["beliefs"]["items"]
+        if b["id"] == first
+    ]
+    assert (held["last_examined_as_of"], held["last_examined_outcome"]) == (SEPTEMBER, "confirmed")
+    as_of_middle = mcp.ok("prior_work", session_id=mcp.open(MIDDLE), steps=["capture"])
+    [early_view] = [b for b in as_of_middle["beliefs"]["items"] if b["id"] == first]
+    assert (early_view["last_examined_as_of"], early_view["last_examined_outcome"]) == (
+        MIDDLE,
+        "contradicted",
+    )
+
+
+def test_a_quote_of_more_words_than_the_existing_fact_is_not_reused(mcp: Mcp) -> None:
+    first, second = mcp.open(BEFORE_10K), mcp.open(LATER)
+    original = record(mcp, first, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)["fact_id"]
+    # The longer quote contains the earlier span but says more: its own Fact, naming the first.
+    longer = record(mcp, second, URL_EX991, LONG_REVENUE_QUOTE, SECOND_STATEMENT)
+    assert longer["recorded"] is True and not longer.get("reused")
+    assert longer["same_span_as"] == original and longer["fact_id"] != original
+    # The shorter quote of an alike statement is carried by the longer Fact: reused.
+    shorter = record(mcp, second, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)
+    assert shorter["reused"] is True and shorter["fact_id"] == original
+    assert mcp.get("/api/v1/facts")["total"] == 2
+
+
 def test_a_supporting_fact_from_a_newer_document_notices_a_proven_belief(
     mcp: Mcp, llm: FakeLiteLLM
 ) -> None:
@@ -1386,7 +1447,9 @@ def test_a_supporting_fact_from_a_newer_document_notices_a_proven_belief(
         belief_id=other_belief,
         citation={"fact_id": tenk, "how": "supports", "weight": "context"},
     )
-    assert (cited["open_notices"], cited["open_flags"]) == (1, 0)
+    assert cited["open_flags"] == 0 and "open_notices" not in cited
+    noticed_other = mcp.ok("get_belief", session_id=late, belief_id=other_belief)
+    assert (noticed_other["open_notices"], noticed_other["open_flags"]) == (1, 0)
     # A plain positive valence is the author's own weighing: no notice.
     third = mcp.ok(
         "propose_belief",
@@ -1403,6 +1466,17 @@ def test_a_supporting_fact_from_a_newer_document_notices_a_proven_belief(
         citation={"fact_id": tenk, "how": 0.7, "weight": "context"},
     )
     assert mcp.get(f"/api/v1/beliefs/{third}")["open_notices"] == 0
+
+    # prior_work bounds the count the same way: the early asker counts no notice, the late one does.
+    def held_notices(session: str) -> int:
+        items = mcp.ok("prior_work", session_id=session)["beliefs"]["items"]
+        return next(b["open_notices"] for b in items if b["id"] == belief)
+
+    assert (held_notices(early), held_notices(late)) == (0, 1)
+    assert "open_notices" not in mcp.ok("list_beliefs", session_id=early)["beliefs"][0]
+    assert (
+        mcp.ok("list_beliefs", session_id=early)["beliefs"][0]["judgement"]["judgement"] == "proven"
+    )
 
     # An earlier session cannot see a notice its document is after.
     blind = mcp.ok("get_belief", session_id=early, belief_id=belief)

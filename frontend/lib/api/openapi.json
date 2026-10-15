@@ -24664,11 +24664,13 @@
           },
           "open_flags": {
             "type": "integer",
-            "title": "Open Flags"
+            "title": "Open Flags",
+            "description": "the open flags not raised by a document after `as_of`"
           },
           "open_notices": {
             "type": "integer",
-            "title": "Open Notices"
+            "title": "Open Notices",
+            "description": "the open confirmations whose Fact's document is not after `as_of`"
           },
           "last_examined_at": {
             "anyOf": [

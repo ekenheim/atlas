@@ -8,7 +8,8 @@
   (the version's date, the company's fiscal year end) are computed and stored (R2-02)
 - a Fact recorded with a `session_id` for a span that overlaps a standing Fact of the same Source
   Version, company and step (ticket 26; `atlas.facts.reuse`) is not recorded again when that Fact
-  has the same status and an alike statement: the existing Fact comes back with 200 and
+  has the same status, an alike statement and a span that contains the new one's (a quote of
+  more words is its own Fact): the existing Fact comes back with 200 and
   `reused: true`, no row is made, the session records the reuse (`facts_reused`) and the judge is
   not asked. A materially different statement is recorded (201) and names the earlier Fact
   (`same_span_as`). Every other check runs first, so a reuse never hides a refusal

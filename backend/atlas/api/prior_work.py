@@ -3,10 +3,13 @@
 
 `?theme=&as_of=&company_ids=&steps=&question=&exclude_session_id=&limit=`: the existing Facts for
 the companies and steps (newest document first, with the count beyond the cap), the Beliefs of any
-judgement that name them (stalest first, with who judged them and when they were last examined),
+judgement that name them (stalest first, with who judged them and when they were last examined;
+the judgement is the current one, and the open flags and notices leave out those raised by a
+document public after `as_of`),
 the documents earlier sessions read (with those sessions' as-of times), the earlier sessions and
 the open Issues that touch them. Nothing public after `as_of` is shown. With no `company_ids` the
-theme's researched companies are asked about. 422 `unknown_theme` / `unknown_company`.
+theme's researched companies are asked about. 422 `unknown_theme` (checked whether or not
+companies are named) / `unknown_company`.
 """
 
 import uuid
@@ -38,6 +41,10 @@ def prior_work_router(engine: Engine, universe: Callable[[], Universe]) -> APIRo
         limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     ) -> PriorWork | JSONResponse:
         asked = list(dict.fromkeys(company_ids or []))
+        with engine.connect() as connection:
+            config = extend_universe(connection, universe())  # committed Candidates too
+        if theme not in config.themes:
+            return error_response(422, "unknown_theme", f"no such theme: {theme}")
         if asked:
             with engine.connect() as connection:
                 known = connection.execute(
@@ -46,10 +53,6 @@ def prior_work_router(engine: Engine, universe: Callable[[], Universe]) -> APIRo
             if known != len(asked):
                 return error_response(422, "unknown_company", "a company is not in the universe")
         else:
-            with engine.connect() as connection:
-                config = extend_universe(connection, universe())  # committed Candidates too
-            if theme not in config.themes:
-                return error_response(422, "unknown_theme", f"no such theme: {theme}")
             asked = [
                 company_id_for(slug, config.companies[slug])
                 for slug in config.themes[theme].companies

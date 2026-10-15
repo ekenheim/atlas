@@ -150,7 +150,6 @@ def belief_summary(each: dict[str, Any], as_of: datetime) -> dict[str, Any]:
         "companies": [company["slug"] for company in rows(each.get("companies"))],
         "judgement": each["judgement"],
         "open_flags": each["open_flags"],
-        "open_notices": each.get("open_notices", 0),
         "citation_count": each["citation_count"],
         "produced_by": each.get("produced_by"),
         "last_examined_at": each.get("last_examined_at") if seen else None,
@@ -181,9 +180,10 @@ class ListBeliefsArgs(Bound):
     " when a session last tested it (`last_examined_*`; `examined_through` is the as-of time it has"
     " been tested against, else its own: read documents public after it). A Belief whose own as-of"
     " time is after the session's is not listed (`hidden_after_as_of` counts them). Judgements are"
-    " an author's: no tool sets one. `citation_count`, `open_flags` and `open_notices` (a"
-    " confirmation, no doubt) are the Belief's own, whatever their documents' dates: `get_belief`"
-    " is the as-of bounded read.",
+    " an author's: no tool sets one, and the judgement shown is the current one, whatever its"
+    " time. `citation_count` and `open_flags` are the Belief's own, whatever their documents'"
+    " dates: `get_belief` is the as-of bounded read (it alone counts the open notices, the"
+    " confirmations that are no doubt).",
     ListBeliefsArgs,
 )
 async def list_beliefs(ctx: Ctx, args: ListBeliefsArgs) -> dict[str, Any]:
@@ -346,7 +346,6 @@ async def examine_belief(ctx: Ctx, args: ExamineBeliefArgs) -> dict[str, Any]:
         "last_examined_as_of": examined["last_examined_as_of"],
         "judgement": examined["judgement"]["judgement"],
         "open_flags": examined["open_flags"],
-        "open_notices": examined["open_notices"],
     }
 
 
@@ -380,7 +379,9 @@ class PriorWorkArgs(Bound):
     " session's as-of time. Facts already recorded for the companies and steps (statement, status,"
     " period, document title and date, Fact id; newest document first, with the count beyond the"
     " cap), the Beliefs of any judgement that name them or their steps (stalest first, with who"
-    " judged them and when they were last examined), the documents read in earlier sessions with"
+    " judged them and when they were last examined; the judgement is the current one, whatever"
+    " its time, and the open flags and notices leave out those a document public after your"
+    " as-of time raised), the documents read in earlier sessions with"
     " those sessions' as-of times (`latest_session_as_of`: what is public after it is new to"
     " Atlas), the earlier sessions with the open questions their cards named, and the open Issues"
     " that touch the companies or steps. Your own session's work is left out.",

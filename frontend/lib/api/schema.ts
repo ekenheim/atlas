@@ -7806,9 +7806,15 @@ export interface components {
              * Format: date-time
              */
             judged_at: string;
-            /** Open Flags */
+            /**
+             * Open Flags
+             * @description the open flags not raised by a document after `as_of`
+             */
             open_flags: number;
-            /** Open Notices */
+            /**
+             * Open Notices
+             * @description the open confirmations whose Fact's document is not after `as_of`
+             */
             open_notices: number;
             /** Last Examined At */
             last_examined_at: string | null;

@@ -637,7 +637,6 @@ def belief_result(answer: dict[str, Any]) -> dict[str, Any]:
         "status": answer["status"],
         "citations": answer["citation_count"],
         "open_flags": answer["open_flags"],
-        "open_notices": answer.get("open_notices", 0),
     }
 
 

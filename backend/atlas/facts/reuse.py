@@ -7,8 +7,12 @@ span that overlaps a standing Fact of the same Source Version, company and step 
 recorded again. `decide` says which of three it is, over the Facts that overlap:
 
 - **reuse**: one of them has the candidate's status and an alike statement
-  (`atlas.facts.duplicates.alike`: word-set Jaccard >= 0.5). The existing Fact is returned, no
-  row is made, and the session records that it reused it (`session_fact_reuse`);
+  (`atlas.facts.duplicates.alike`: word-set Jaccard >= 0.5) and a span that **contains** the
+  candidate's (the same words or more): the existing quote carries what the candidate quotes. The
+  existing Fact is returned, no row is made, and the session records that it reused it
+  (`session_fact_reuse`). A candidate that quotes more than the existing Fact does is not
+  reused: its words may say what the existing quote lacks, and the statement judge is skipped on
+  a reuse, so nothing would check its statement; it is recorded and judged (`same_span`);
 - **same span**: none does, so the statement is materially different (another status, or other
   words): a new Fact is recorded and names the first overlapping one (`same_span_as`);
 - **new**: nothing overlaps.
@@ -49,7 +53,12 @@ def decide(candidate: FactSpan, existing: Iterable[FactSpan]) -> Decision:
             or not (candidate.span_start < other.span_end and other.span_start < candidate.span_end)
         ):
             continue
-        if other.status == candidate.status and alike(other.statement, candidate.statement):
+        if (
+            other.status == candidate.status
+            and other.span_start <= candidate.span_start
+            and candidate.span_end <= other.span_end
+            and alike(other.statement, candidate.statement)
+        ):
             return Decision("reuse", other.fact_id)
         first = first or other
     if first is None:
