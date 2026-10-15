@@ -19,10 +19,12 @@ investigation. One attempt of the draft:
    configured); a misstated one is rewritten once and judged again, and set aside if it still
    fails. Set-aside statements are recorded in the version's `unsupported_findings`.
    The thesis statement is grounded and judged the same way, first, against the Facts of the
-   Beliefs it cites (a hedge it adds, "may", is caution, not a claim beyond the quotes). A thesis
-   still misstated after its one rewrite is stored as the Editor wrote it with `thesis_judged:
-   misstated` and held at the publish gate (`thesis_misstated`), not refused; one still
-   ungrounded after its one ask is refused.
+   Beliefs it cites, with the judge told it is a thesis (`finding.thesis`, `finding_judge.v5`):
+   its bare hedged proposition ("may be straining ...") is caution, not a claim beyond the
+   quotes, and needs no basis; its facts (actors, figures, scope words) still do. A thesis
+   still misstated after its one rewrite is stored as that last text with `thesis_judged:
+   misstated` and the judge's reason for it, and held at the publish gate (`thesis_misstated`),
+   not refused; one still ungrounded after its one ask is refused.
 4. Version 1 is written: the steps (all the proven Beliefs sent, each with its judgement and
    citations as they stand now, the kept statement where there is one), the thesis, and the
    rest of the Editor's proposal. The draft fails, recording why, when the Editor's thesis
@@ -75,8 +77,8 @@ _BELIEF_PAGE = 500
 @dataclass(frozen=True)
 class ThesisVerdict:
     """The thesis statement as stored and what the finding judge said of it: `supported`,
-    `misstated` (after one rewrite; the statement is then the Editor's own, and `reason` the
-    judge's) or None (not judged)."""
+    `misstated` (after one rewrite; the statement is then the text the judge's `reason` is
+    about, the last rewrite) or None (not judged)."""
 
     statement: str
     judged: Literal["supported", "misstated"] | None
@@ -431,13 +433,15 @@ class BeliefHypothesisDrafter:
                 EDITOR_REVISE, asked, run_id=run_id, retrieved=quotes
             ),
             _judged_fact,
+            theses=frozenset({0}),
         )
         thesis_outcome, *step_outcomes = meaning.outcomes
         if not thesis_outcome.kept:
-            # Misstated even after the one rewrite: kept as the Editor wrote it and flagged, for
-            # the owner to see at the gate; the draft is not refused.
+            # Misstated even after the one rewrite: kept, flagged for the owner at the gate (the
+            # draft is not refused), as the text the reason is about: the Editor's own when it
+            # was not rewritten, else its last rewrite.
             result = ThesisVerdict(
-                thesis_checked.draft.statement,
+                thesis_outcome.draft.statement,
                 "misstated",
                 thesis_outcome.reason or "misstated",
             )

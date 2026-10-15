@@ -137,8 +137,24 @@ def metadata_only(text: str, metadata: Sequence[str]) -> bool:
     )
 
 
+_HEDGES = frozenset(
+    ("may", "might", "could", "would", "can", "potentially", "possibly", "perhaps", "likely")
+)
+
+
+def hedged_proposition(text: str) -> bool:
+    """Whether a judge's clause carries a hedge word ("may", "could", ...): the bare hedged
+    proposition of a thesis (`FindingJudgement` v5), which no quote states and which is
+    caution, not a claim beyond the quotes. Its facts are clauses of their own."""
+    return any(word in _HEDGES for word in _metadata_tokens(text))
+
+
 def verify_bases(
-    judgement: FindingJudgement, quotes: Sequence[QuotedText], *, metadata: Sequence[str] = ()
+    judgement: FindingJudgement,
+    quotes: Sequence[QuotedText],
+    *,
+    metadata: Sequence[str] = (),
+    thesis: bool = False,
 ) -> list[str]:
     """The judge's clauses whose basis code can't verify, as it wrote them, in order: a clause
     whose `ref` is not one of the cited quotes' (`quotes`, by `id`), or whose `basis` does not
@@ -147,7 +163,9 @@ def verify_bases(
     reference or basis (one the judge says goes beyond the quotes) is among them, unless it
     names only a cited quote's source or date (`metadata_only`, `metadata` the cited
     documents' companies, titles and dates): the Editor is told to name them, and no quote
-    holds them (R3-03)."""
+    holds them (R3-03). In a thesis (`thesis`), a clause with no reference and no basis that
+    carries a hedge word (`hedged_proposition`) is the thesis's caution and needs none; a
+    clause with a reference and a basis code can't verify still counts."""
     texts = {quote.id: quote.text for quote in quotes}
     return [
         clause.text
@@ -159,6 +177,12 @@ def verify_bases(
             or not phrase_occurs(clause.basis, texts[clause.ref])
         )
         and not metadata_only(clause.text, metadata)
+        and not (
+            thesis
+            and clause.ref is None
+            and clause.basis is None
+            and hedged_proposition(clause.text)
+        )
     ]
 
 
@@ -177,15 +201,18 @@ def finding_metadata(refs: Sequence[str], claims: Mapping[str, Mapping[Any, Any]
 
 
 def checked(
-    judgement: FindingJudgement, quotes: Sequence[QuotedText], metadata: Sequence[str] = ()
+    judgement: FindingJudgement,
+    quotes: Sequence[QuotedText],
+    metadata: Sequence[str] = (),
+    thesis: bool = False,
 ) -> FindingJudgement:
     """`judgement` with its bases checked: a `supported` verdict with an unverified clause is
     `misstated` (`unstated`, the clauses `beyond`, the reason naming them); any other is as
     the judge gave it. A clause naming only a cited document's source or date (`metadata`)
-    needs no basis."""
+    needs no basis, and so does a thesis's hedged proposition (`thesis`)."""
     if judgement.verdict != "supported":
         return judgement
-    unverified = verify_bases(judgement, quotes, metadata=metadata)
+    unverified = verify_bases(judgement, quotes, metadata=metadata, thesis=thesis)
     if not unverified:
         return judgement
     named = "; ".join(f'"{text}"' for text in unverified)
@@ -229,7 +256,9 @@ class Voting:
         asked: list[tuple[FindingJudgement, uuid.UUID]] = []
         for _ in range(self.votes):
             judgement, role_call_id = self.judge(request, quotes)
-            asked.append((checked(judgement, quotes, metadata), role_call_id))
+            asked.append(
+                (checked(judgement, quotes, metadata, request.finding.thesis), role_call_id)
+            )
             if self.rule == "all" and asked[-1][0].verdict == "supported":
                 break
         wanted = "misstated" if self.rule == "any" else "supported"
@@ -273,7 +302,7 @@ def _ballot(
     if isinstance(judge, Voting):
         return judge.ballot(request, quotes, metadata)
     judgement, role_call_id = judge(request, quotes)
-    return Ballot([(checked(judgement, quotes, metadata), role_call_id)], 0)
+    return Ballot([(checked(judgement, quotes, metadata, request.finding.thesis), role_call_id)], 0)
 
 
 # What the card says of the trust gate when the judge ran (beside `GROUNDING_LIMIT`).
@@ -348,21 +377,26 @@ def judge_findings(
     judge: Judge,
     revise: Revise,
     describe: Callable[[str, Mapping[Any, Any]], JudgedClaim] = judged_claim,
+    theses: frozenset[int] = frozenset(),
 ) -> JudgedFindings:
     """Judge each of `findings` (grounded ones: their drafts and cited references, each a key
     of `claims`, described to the judge by `describe`), have the misstated ones rewritten
     once, and judge the rewrites (see the module). Every vote of a `Voting` judge is
-    recorded."""
+    recorded. The findings at the indexes `theses` are Hypothesis theses: the judge is told so
+    (`finding.thesis`) and their hedged proposition needs no basis."""
     judgements: list[CardJudgement] = []
     keys = [f"f{index + 1}" for index in range(len(findings))]
 
     def ask(
-        draft: CardFindingDraft, cited: list[str]
+        draft: CardFindingDraft, cited: list[str], thesis: bool
     ) -> tuple[FindingJudgement | None, uuid.UUID | None, str | None, Ballot | None]:
         request = FindingJudgeRequest(
             research_question=question,
             finding=JudgedFinding(
-                statement=draft.statement, limitations=draft.limitations, claim_refs=cited
+                statement=draft.statement,
+                limitations=draft.limitations,
+                claim_refs=cited,
+                thesis=thesis,
             ),
             claims=[describe(ref, claims[ref]) for ref in cited],
         )
@@ -384,6 +418,7 @@ def judge_findings(
         cited: list[str],
         answer: tuple[FindingJudgement | None, uuid.UUID | None, str | None, Ballot | None],
         outcome: Literal["kept", "sent_back", "dropped", "kept_unjudged"],
+        thesis: bool,
     ) -> None:
         _, role_call_id, failure, ballot = answer
         claim_ids = [claims[ref]["id"] for ref in cited]
@@ -428,23 +463,23 @@ def judge_findings(
                         CardClause(text=each.text, ref=each.ref, basis=each.basis)
                         for each in verdict.clauses
                     ],
-                    unverified=verify_bases(verdict, quotes, metadata=metadata),
+                    unverified=verify_bases(verdict, quotes, metadata=metadata, thesis=thesis),
                 )
             )
 
     outcomes: list[JudgedOutcome | None] = [None] * len(findings)
     misstated: dict[str, tuple[int, FindingJudgement]] = {}
     for index, (key, each) in enumerate(zip(keys, findings, strict=True)):
-        answer = ask(each.draft, each.cited)
+        answer = ask(each.draft, each.cited, index in theses)
         verdict = answer[0]
         if verdict is None:
-            record(key, 1, each.draft, each.cited, answer, "kept_unjudged")
+            record(key, 1, each.draft, each.cited, answer, "kept_unjudged", index in theses)
             outcomes[index] = JudgedOutcome(each.draft, each.cited, True, None, None)
         elif verdict.verdict == "supported":
-            record(key, 1, each.draft, each.cited, answer, "kept")
+            record(key, 1, each.draft, each.cited, answer, "kept", index in theses)
             outcomes[index] = JudgedOutcome(each.draft, each.cited, True, True, None)
         else:
-            record(key, 1, each.draft, each.cited, answer, "sent_back")
+            record(key, 1, each.draft, each.cited, answer, "sent_back", index in theses)
             misstated[key] = (index, verdict)
 
     revise_call: uuid.UUID | None = None
@@ -524,13 +559,13 @@ def judge_findings(
                 f"{dropped}; rewritten, then ungrounded: " + ", ".join(terms),
             )
             continue
-        second = ask(draft, cited)
+        second = ask(draft, cited, index in theses)
         verdict = second[0]
         if verdict is not None and verdict.verdict == "supported":
-            record(key, 2, draft, cited, second, "kept")
+            record(key, 2, draft, cited, second, "kept", index in theses)
             outcomes[index] = JudgedOutcome(draft, cited, True, True, None)
             continue
-        record(key, 2, draft, cited, second, "dropped")
+        record(key, 2, draft, cited, second, "dropped", index in theses)
         if verdict is None:
             reason = f"{dropped}; the rewrite could not be judged: {second[2]}"
         else:

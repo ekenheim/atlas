@@ -28,6 +28,11 @@ verify is a misstatement. A cited Fact (the argument plan) carries how its Reade
 v4 (R2-04) tells it each quote's date: `source_date`, the day the quote's document became
 available. Transcript titles ("Q3 2026") carry none, so the `merged` rule had no dates to
 compare; two quotes more than 90 days apart joined as one current statement are `merged`.
+
+v5 (ticket 24) judges a Hypothesis's thesis: the request's `finding.thesis` is true, and the
+thesis's bare hedged proposition ("may be straining ...", no fact of its own) is a clause with
+no basis that does not make it misstated; its facts (actors, figures, scope words) still need
+theirs. A card finding's request is as before (`thesis` false).
 """
 
 from typing import Literal
@@ -36,7 +41,7 @@ from pydantic import BaseModel, ConfigDict
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-FINDING_JUDGE_PROMPT_VERSION = 4
+FINDING_JUDGE_PROMPT_VERSION = 5
 
 # How a finding goes beyond its quotes.
 MisstatementKind = Literal[
@@ -79,6 +84,8 @@ class JudgedFinding(_Request):
     statement: str
     limitations: list[str]
     claim_refs: list[str]
+    # True: a Hypothesis's thesis (v5): its bare hedged proposition needs no basis.
+    thesis: bool = False
 
 
 class FindingJudgeRequest(_Request):

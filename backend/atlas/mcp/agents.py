@@ -369,7 +369,8 @@ def step_view(step: dict[str, Any]) -> dict[str, Any]:
 
 @tool(
     "get_hypothesis",
-    "A Hypothesis with its latest version's thesis, steps (each statement, whether the finding"
+    "A Hypothesis with its latest version's thesis (whether the judge found it supported, or why"
+    " it is held as misstated), steps (each statement, whether the finding"
     " judge found it supported, the Beliefs it rests on as they were judged when drafted) and"
     " dropped statements, and its publish gate read now: `publishable`, what `blocked` it and"
     " each failure (a Belief no longer proven, a flag open, an edge unapproved) with the Belief"
@@ -411,6 +412,8 @@ async def get_hypothesis(ctx: Ctx, args: GetHypothesisArgs) -> dict[str, Any]:
             "published": latest["published"],
             "thesis_statement": content.get("thesis_statement"),
             "thesis_belief_ids": content.get("thesis_belief_ids"),
+            "thesis_judged": content.get("thesis_judged"),
+            "thesis_misstated_reason": content.get("thesis_misstated_reason"),
             "steps": steps,
             "steps_without_statement": [each["step"] for each in steps if not each["statements"]],
             "unsupported_findings": rows(content.get("unsupported_findings")),

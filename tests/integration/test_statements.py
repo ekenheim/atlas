@@ -157,7 +157,7 @@ def test_a_supported_statement_is_answered_on_the_role_model_and_recorded_in_a_r
     assert answer["verdict"] == "supported"
     assert answer["unverified"] == []
     assert answer["refs"] == {"c1": facts[0]}
-    assert answer["judge"] == "finding_judge.v4"
+    assert answer["judge"] == "finding_judge.v5"
     assert [v["decided"] for v in answer["votes"]] == [True]
     [call] = [b for b in llm.chat_requests() if b["metadata"]["role"] == "finding_judge"]
     assert call["model"] == "luna"

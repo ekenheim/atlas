@@ -278,7 +278,7 @@ def editor(
 
 
 def supporting(body: dict[str, Any]) -> JsonValue:
-    """The finding judge (`finding_judge.v4`): supported, the statement one clause whose basis
+    """The finding judge (`finding_judge.v5`): supported, the statement one clause whose basis
     is the first cited quote, whole."""
     request = asked(body)
     statement = request["request"]["finding"]["statement"]
@@ -797,10 +797,11 @@ def test_a_thesis_with_an_unsupported_qualifier_is_held_at_the_gate_after_one_re
     beliefs.worker_pass()
 
     hypothesis = beliefs.hypothesis(saved["id"])
-    # Stored, not refused: the thesis as the Editor wrote it, flagged with the judge's reason.
+    # Stored, not refused: the thesis as last judged (the Editor's rewrite), flagged with the
+    # judge's reason for it.
     assert hypothesis["draft_status"] == "drafted", hypothesis["draft_error"]
     content = hypothesis["versions"][0]["content"]
-    assert content["thesis_statement"] == BROAD_THESIS
+    assert content["thesis_statement"] == STILL_BROAD
     assert content["thesis_judged"] == "misstated"
     assert content["thesis_misstated_reason"] == (
         "misstated after a rewrite: the quote states another period"
@@ -867,56 +868,106 @@ def test_a_hedged_thesis_passes_and_a_misstated_one_the_editor_repairs_is_kept(
     assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
 
 
-def clausing(body: dict[str, Any]) -> JsonValue:
-    """The finding judge as `finding_judge.v4` asks it to behave on a hedged proposition: it
-    answers `supported`, splitting the statement at " as " into the clause that is the
-    proposition (no quote states it: no reference, no basis) and the clause a quote does state."""
-    request = asked(body)
-    statement = request["request"]["finding"]["statement"]
-    quote = request["retrieved_data"][0]
-    proposition, _, rest = statement.partition(" as ")
-    return {
-        "clauses": [
-            {"text": proposition, "ref": None, "basis": None},
-            {"text": f"as {rest}", "ref": quote["id"], "basis": "$1.01 billion"},
-        ],
-        "verdict": "supported",
-        "beyond": [],
-        "kinds": [],
-        "reason": "the proposition is hedged and the figure is the quote's",
-    }
+def clausing(*, scope: bool = False) -> Callable[[dict[str, Any]], JsonValue]:
+    """The finding judge as `finding_judge.v5` asks it to behave on a thesis: it answers
+    `supported`, splitting the statement at " as " into the hedged proposition (no quote states
+    it: no reference, no basis) and the clause a quote does state. `scope`: it also splits out
+    the scope word "merchant", which no quote states, and still says `supported` (a judge's
+    slip code must catch). It answers as it does only when told the statement is a thesis."""
+
+    def respond(body: dict[str, Any]) -> JsonValue:
+        request = asked(body)
+        assert request["request"]["finding"]["thesis"] is True
+        statement = request["request"]["finding"]["statement"]
+        quote = request["retrieved_data"][0]
+        proposition, _, rest = statement.partition(" as ")
+        clauses: list[JsonValue] = [{"text": proposition, "ref": None, "basis": None}]
+        if scope:
+            clauses = [
+                {
+                    "text": "Lumentum may be straining its laser capacity",
+                    "ref": None,
+                    "basis": None,
+                },
+                {"text": "in the merchant market", "ref": None, "basis": None},
+            ]
+        return {
+            "clauses": [
+                *clauses,
+                {"text": f"as {rest}", "ref": quote["id"], "basis": "$1.01 billion"},
+            ],
+            "verdict": "supported",
+            "beyond": [],
+            "kinds": [],
+            "reason": "the proposition is hedged and the figure is the quote's",
+        }
+
+    return respond
 
 
-def test_a_hedged_proposition_clause_with_no_quote_basis_makes_the_thesis_misstated(
+def test_a_hedged_proposition_with_no_quote_basis_leaves_the_thesis_supported(
     beliefs: Beliefs, llm: FakeLiteLLM
 ) -> None:
-    """Observed, not endorsed (ticket 24, open issue for the lead): `meaning.checked` turns any
-    `supported` vote with a clause whose basis code cannot find into `misstated` (`unstated`),
-    and a hedged proposition ("may be straining ...") is a clause no quote states. So an honest
-    judge's `supported` on a thesis lands `thesis_misstated`, not through the judge's verdict."""
+    """A judge that follows `finding_judge.v5` gives a thesis's bare hedged proposition no
+    basis; code does not turn that into `unstated` for a thesis (it still does for a step)."""
     beliefs.belief(CONSTRAINT, "constraint", QUARTER)
     llm.script_role(
         DRAFTER,
-        ChatReply.answer(editor({"constraint": CONSTRAINT_STATEMENT}), tokens=(3000, 700)),
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis=HEDGED), tokens=(3000, 700)
+        ),
     )
-    llm.script_role("editor", ChatReply.answer(rewriting(HEDGED), tokens=(800, 80)))
     llm.script_role(
         "finding_judge",
-        ChatReply.answer(clausing, tokens=(400, 40)),
+        ChatReply.answer(clausing(), tokens=(400, 40)),
         ChatReply.answer(supporting, tokens=(400, 40)),
-        ChatReply.answer(clausing, tokens=(400, 40)),
     )
     saved = beliefs.create()
     beliefs.worker_pass()
 
     content = beliefs.hypothesis(saved["id"])["versions"][0]["content"]
-    assert (content["thesis_statement"], content["thesis_judged"]) == (THESIS, "misstated")
-    assert content["thesis_misstated_reason"] == (
-        "misstated after a rewrite: basis unverified:"
-        ' "Lumentum may be straining its laser capacity": no cited quote holds the words the'
-        " judge gave as the basis of each (the judge's reason: the proposition is hedged and"
-        " the figure is the quote's)"
+    assert (content["thesis_statement"], content["thesis_judged"]) == (HEDGED, "supported")
+    assert content["thesis_misstated_reason"] is None
+    # Only the thesis's request says so; the step's does not.
+    flags = [
+        asked(body)["request"]["finding"]["thesis"]
+        for body in llm.chat_requests()
+        if body["metadata"]["role"] == "finding_judge"
+    ]
+    assert flags == [True, False]
+    beliefs.post(f"/api/v1/hypotheses/{saved['id']}/transitions", {"to": "evidence_ready"})
+    assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
+
+
+def test_a_scope_word_no_quote_states_still_makes_the_thesis_misstated(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    """The hedge excuses only the bare proposition: "merchant" has no basis, so a `supported`
+    vote is `misstated` (`unstated`), the Editor rewrites once, and the thesis is held."""
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis=BROAD_THESIS), tokens=(3000, 700)
+        ),
     )
+    llm.script_role("editor", ChatReply.answer(rewriting(BROAD_THESIS), tokens=(800, 80)))
+    llm.script_role(
+        "finding_judge",
+        ChatReply.answer(clausing(scope=True), tokens=(400, 40)),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+        ChatReply.answer(clausing(scope=True), tokens=(400, 40)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    content = beliefs.hypothesis(saved["id"])["versions"][0]["content"]
+    assert (content["thesis_statement"], content["thesis_judged"]) == (BROAD_THESIS, "misstated")
+    reason = content["thesis_misstated_reason"]
+    assert reason.startswith(
+        'misstated after a rewrite: basis unverified: "in the merchant market"'
+    )
+    assert "may be straining" not in reason.split("(the judge's reason")[0]
     assert content["steps"][0]["statement"] == CONSTRAINT_STATEMENT
 
 
@@ -1189,6 +1240,7 @@ def test_the_mcp_get_hypothesis_reads_the_drafted_steps_and_the_gate_after_a_rej
     assert (drafted["draft_status"], drafted["draft_error"]) == ("drafted", None)
     version = drafted["version"]
     assert version["thesis_belief_ids"] == [constraint["id"]]
+    assert (version["thesis_judged"], version["thesis_misstated_reason"]) == ("supported", None)
     assert [step["step"] for step in version["steps"]] == ["constraint", "capture"]
     [first] = version["steps"][0]["statements"]
     assert (first["statement"], first["belief_ids"], first["judged"]) == (
