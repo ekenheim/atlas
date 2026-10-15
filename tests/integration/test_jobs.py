@@ -40,6 +40,8 @@ def app_env(database_url: str, tmp_path: Path, **extra: str) -> dict[str, str]:
         "ATLAS_DATABASE_URL": database_url,
         "ATLAS_ACTOR": "local-researcher",
         "ATLAS_ARCHIVE_ROOT": str(archive),
+        # No daily signal scan here, as in the harness: it would enqueue a job of its own.
+        "ATLAS_SIGNAL_SCAN_AT": "",
         **extra,
     }
 

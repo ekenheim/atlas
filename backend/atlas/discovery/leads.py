@@ -549,6 +549,7 @@ _LEAD_JOINS = _LEADS[_LEADS.index("    FROM lead") :]
 # an archive signal by when its document became public (the lead is a pure function of the
 # archived document), every other origin by when Atlas first saw the lead.
 _IN_THEME = """
+    -- sa is source_version_availability (the corrected view, joined in _LEADS)
     WHERE (CAST(:theme AS text) IS NULL OR EXISTS (
         SELECT 1 FROM lead_sighting s
         JOIN discovery_query q ON q.id = s.discovery_query_id
