@@ -113,7 +113,7 @@ _VERSIONS = """
       AND (CAST(:since AS timestamptz) IS NULL OR a.available_at >= :since)
       AND (CAST(:after AS timestamptz) IS NULL OR v.ingested_at > :after)
       AND (CAST(:through AS timestamptz) IS NULL OR v.ingested_at <= :through)
-    ORDER BY v.ingested_at, v.id
+    ORDER BY a.available_at, v.id
 """
 
 

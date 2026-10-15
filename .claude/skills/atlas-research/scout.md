@@ -39,7 +39,7 @@ The Atlas MCP server's, and no others: `open_session`, `close_session`, `compani
 
 ## Bound
 
-About 60 calls: 3 to open and list, 1 for `signal_leads`, 2 to 4 for the document lists, up to 20 searches, up to 25 reads (up to 12 of them for leads), up to 8 Facts, up to 8 Issues, 1 close. Over the bound, stop and say so in the report; do not trade a Fact's quote for another search.
+About 70 calls: 3 to open and list, 1 for `signal_leads`, 2 to 4 for the document lists, up to 20 searches, up to 25 reads (up to 12 of them for leads), up to 8 Facts, up to 8 Issues, 1 close. Over the bound, stop and say so in the report; do not trade a Fact's quote for another search.
 
 ## Finish
 

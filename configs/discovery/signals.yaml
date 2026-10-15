@@ -91,7 +91,7 @@ families:
     weight: 2.0
     phrases:
       - pattern: \b(?:growing|growth|expanding|ramping)\s+(?:\w+\s+){0,3}too\s+(?:fast|quickly|rapidly)\b
-      - pattern: \b(?:adequately|fully|properly)\s+(?:serviced|served|supplied|met)\b
+      - pattern: \b(?:not|never|cannot|can(?:'|no)t|unable\s+to)\s+(?:be\s+)?(?:adequately|fully|properly)\s+(?:serviced|served|supplied|met)\b
       - pattern: \b(?:can(?:'|no)t|cannot|can\s+not|unable\s+to|struggl\w+\s+to)\s+(?:possibly\s+)?(?:keep\s+up|get\s+enough|meet\s+(?:the\s+)?demand|supply\s+enough|fill\s+(?:all\s+)?(?:the\s+)?orders)\b
       - pattern: \bdemand\s+(?:\w+\s+){0,2}(?:exceed(?:s|ed|ing)?|outstrip(?:s|ped|ping)?|outpac(?:e|es|ed|ing)|surpass(?:es|ed|ing)?)\s+(?:\w+\s+){0,2}(?:supply|capacity|our\s+ability)\b
       - pattern: \b(?:under[\s-]?suppl(?:y|ied)|oversubscribed|over[\s-]?booked)\b
@@ -126,6 +126,7 @@ families:
       - pattern: \b(?:doubl\w+|tripl\w+|quadrupl\w+)\s+(?:\w+\s+){0,3}capacity\b
       - pattern: \bcapacity\s+(?:\w+\s+){0,2}(?:fully\s+(?:utili[sz]ed|booked|committed|subscribed)|constrain\w+|limit\w+|tight)\b
       - pattern: \b(?:fully|completely)\s+(?:utili[sz]ed|loaded)\b
+        unless: \b(?:tax|taxes|carryforwards?|carryovers?|credits?|net\s+operating\s+loss(?:es)?|deferred|valuation\s+allowance)\b
       - pattern: \b(?:running|operating)\s+(?:at\s+)?(?:full|maximum|max)\s+capacity\b
       - pattern: \b(?:adding|add|added|expanding|expand|expanded|increasing|ramping)\s+(?:\w+\s+){0,4}(?:capacity|capacities)\b
         weight: 0.7

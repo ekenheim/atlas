@@ -24,7 +24,8 @@ from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry, builtin_sched
 from tests.harness import Atlas, Clock
 
 GROWING = (
-    "Demand for our wafers is growing too fast to be adequately served by only three suppliers."
+    "Demand for our wafers is growing too fast, we cannot keep up, and only three suppliers"
+    " make it."
 )
 BACKLOG = "We ended the quarter with a backlog of more than $10 million."
 SOLD_OUT = "Our lasers are sold out through next year."
@@ -179,6 +180,23 @@ def test_a_second_scan_stores_nothing_twice(atlas: Atlas, archive: dict[str, str
         ("since_last", 0, 0),
         ("since", 3, 0),
     ]
+
+
+def test_a_backfill_ingested_newest_first_keeps_the_sentence_in_the_oldest_document(
+    atlas: Atlas,
+) -> None:
+    # Ingested October first, then July: the scan goes by public date, so the repeat is October's.
+    import_html(atlas, "coherent", "coherent-q3", OCTOBER, *COHERENT_Q3)
+    import_html(atlas, "coherent", "coherent-q2", JULY, *COHERENT_Q2)
+
+    job = scan(atlas, "backfill")
+
+    assert (job["artifacts"]["stored"], job["artifacts"]["repeats"]) == (3, 1)
+    kept = [
+        (each["signal"]["quote"], each["signal"]["available_at"][:10]) for each in signals(atlas)
+    ]
+    assert (GROWING, "2025-07-31") in kept
+    assert (GROWING, "2025-10-30") not in kept
 
 
 def test_the_next_scan_reads_only_what_was_ingested_since(

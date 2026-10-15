@@ -73,7 +73,8 @@ def test_a_sentence_telling_scarcity_and_its_cause_scores_both_families_and_the_
     scorer: SignalScorer,
 ) -> None:
     sentence = (
-        "Demand for our wafers is growing too fast to be adequately served by only three suppliers."
+        "Demand for our wafers is growing too fast, we cannot keep up, and only three suppliers"
+        " make it."
     )
 
     [hit] = scan(scorer, sentence)
@@ -89,6 +90,13 @@ def test_a_figure_adds_its_bonus(scorer: SignalScorer) -> None:
     sentence = "We ended the quarter with a backlog of more than $10 million."
 
     assert scored(scan(scorer, sentence)) == [(sentence, 2.25)]  # 1.5 + 0.75
+
+
+def test_being_adequately_served_is_a_signal_only_when_it_is_denied(scorer: SignalScorer) -> None:
+    sentence = "The market cannot be adequately served by the two players that make it."
+
+    assert scored(scan(scorer, sentence)) == [(sentence, 4.2)]  # 2.0 + 1.2 (two players) + 1.0
+    assert scan(scorer, "The market is adequately served by the players that make it.") == []
 
 
 def test_a_bare_word_of_a_family_is_not_enough(scorer: SignalScorer) -> None:
@@ -157,8 +165,8 @@ def test_two_families_in_one_paragraph_each_get_the_bonus_but_not_across_paragra
 
 def test_a_bare_word_does_not_ride_on_its_neighbours_cue(scorer: SignalScorer) -> None:
     paragraph = (
-        "Demand for our wafers is growing too fast to be adequately served by only three"
-        " suppliers. Management cleared the backlog of unresolved staff comments."
+        "Demand for our wafers is growing too fast, we cannot keep up, and only three"
+        " suppliers make it. Management cleared the backlog of unresolved staff comments."
     )
 
     assert [hit.score for hit in scan(scorer, paragraph)] == [5.5]
@@ -216,6 +224,10 @@ def test_safe_harbor_wording_is_down_weighted(scorer: SignalScorer) -> None:
         "In his capacity as director he approved the software license agreement.",
         "Our capital allocation committee approved the purchase price allocation.",
         "Is the backlog of customer complaints something the board reviews?",
+        "All performance obligations were fully met during the period.",
+        "Customer demand was fully served from inventory in the quarter.",
+        "We expect our net operating loss carryforwards to be fully utilized in 2026.",
+        "The deferred tax assets were fully utilized in fiscal 2024.",
     ],
 )
 def test_a_family_word_in_another_sense_is_no_signal(scorer: SignalScorer, sentence: str) -> None:
