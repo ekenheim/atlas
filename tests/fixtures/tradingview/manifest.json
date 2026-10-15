@@ -1,11 +1,19 @@
 {
-  "description": "TradingView MCP tool answers served by tests/fakes/tradingview.py (ticket 31): get_documents, get_document_view and get_news, each file being one tool's JSON answer (the text the fake puts in the tools/call result's text content).",
+  "description": "TradingView MCP tool answers served by tests/fakes/tradingview.py (ticket 31): get_documents, get_document_view and get_news (and, ticket 16b, the assumed earnings-calendar and get_ohlcv shapes), each file being one tool's JSON answer (the text the fake puts in the tools/call result's text content).",
   "provenance": "SYNTHETIC, hand-written for Atlas tests. No TradingView, Quartr or news content: every title, transcript line and headline is made up, the IDs are invented, and the links point at .test hosts. The shapes follow the tool answers described in docs/decisions.md (TradingView MCP findings, ticket 31) and backend/atlas/tradingview/client.py. No TradingView request was made from tests or while writing them.",
   "files": {
     "documents-lumentum.json": "get_documents for NASDAQ:LITE: a synthetic earnings call (transcript and summary views), a synthetic annual report (summary and pdf views, form 10-K) and a synthetic 2019 call outside the lookback",
     "documents-innolight.json": "get_documents for HKEX:3308: one synthetic call whose transcript view the fake answers with a tool error (not retrievable)",
     "view-syn-view-1001-t.json": "get_document_view of the synthetic call's transcript view: an astDescription tree of paragraphs with bold speaker labels and one br; the labels have the shapes production transcripts carry (\"Name (Title, Firm)\" for the company's officers and an analyst, \"Operator\" alone), and the analyst repeats the CEO's sentence (pilot-fixes ticket 22: an analyst's words are not the company's)",
     "news-lumentum.json": "get_news for NASDAQ:LITE: two synthetic headlines (one with a TradingView storyPath, one with a link only)",
-    "news-innolight.json": "get_news for HKEX:3308: no headlines"
+    "news-innolight.json": "get_news for HKEX:3308: no headlines",
+    "calendar-lumentum.json": "(ticket 16b; the tool's name and shape are ASSUMED, unconfirmed) the earnings calendar for NASDAQ:LITE: a reported Q4 FY2026 date (11 Aug 2026), a scheduled Q1 FY2027 date (5 Nov 2026) and a scheduled Q2 FY2027 date (4 Feb 2027)",
+    "calendar-lumentum-moved.json": "the same calendar later: Q1 FY2027 moved to 12 Nov 2026 and confirmed (the fake answers it when `calendar` is set to '-moved')",
+    "calendar-lumentum-noid.json": "(ticket 16b) one Q1 FY2027 date for NASDAQ:LITE with no event ID (the fake answers it when `calendar` is set to '-noid')",
+    "calendar-innolight-noid.json": "(ticket 16b) one Q1 FY2027 date for HKEX:3308 with no event ID: the same fiscal period as Lumentum's, so the two share the fallback key `fy2027-Q1`",
+    "ohlcv-lumentum-adjusted.json": "(ticket 16b) the same bars later, the first day's close restated (the fake answers it when `prices` is set to '-adjusted')",
+    "calendar-innolight.json": "the earnings calendar for HKEX:3308: no dates",
+    "ohlcv-lumentum.json": "(ticket 16b; shape ASSUMED) get_ohlcv for NASDAQ:LITE: three made-up daily bars on 1, 2 and 6 July 2026",
+    "ohlcv-innolight.json": "get_ohlcv for HKEX:3308: no bars"
   }
 }

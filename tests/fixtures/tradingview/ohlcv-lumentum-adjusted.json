@@ -1,0 +1,8 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the get_ohlcv answer shape is unconfirmed; the numbers are made up",
+  "bars": [
+    {"time": 1782864000, "open": 99.0, "high": 103.5, "low": 98.0, "close": 102.25, "volume": 1200000},
+    {"time": 1782950400, "open": 103.25, "high": 106.0, "low": 102.5, "close": 105.5, "volume": 1350000},
+    {"time": 1783296000, "open": 105.5, "high": 107.0, "low": 101.0, "close": 102.0, "volume": 1500000}
+  ]
+}

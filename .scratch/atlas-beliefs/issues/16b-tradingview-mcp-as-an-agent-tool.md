@@ -1,7 +1,7 @@
 # 16b: The TradingView MCP proxy as an agent tool, under the owner's override
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: 15
 
 ## Question
@@ -20,5 +20,5 @@ Recorded in `docs/decisions.md`, "The TradingView override, extended for the age
 
 ## Acceptance criteria
 
-- [ ] HTTP-seam tests against the TradingView fake: the calendar leads stored and listed, the override marked, the budget counted; the OHLCV read; off by default.
+- [x] HTTP-seam tests against the TradingView fake: the calendar leads stored and listed, the override marked, the budget counted; the OHLCV read; off by default.
 - [ ] One Scout run (ticket 16) uses `upcoming_reports`.

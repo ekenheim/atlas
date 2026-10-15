@@ -118,7 +118,7 @@ def mcp_session(settings: Settings) -> Generator[McpClient]:
         tokens.close()
 
 
-def _recorder(engine: Engine, job_id: uuid.UUID | None) -> Callable[[str, str | None], None]:
+def call_recorder(engine: Engine, job_id: uuid.UUID | None) -> Callable[[str, str | None], None]:
     def record(tool: str, error: str | None) -> None:
         with engine.begin() as connection:
             connection.execute(
@@ -139,7 +139,7 @@ def _recorder(engine: Engine, job_id: uuid.UUID | None) -> Callable[[str, str | 
 
 
 @dataclass(frozen=True)
-class _Company:
+class SymbolCompany:
     slug: str
     config: CompanyConfig
     company_id: uuid.UUID
@@ -147,7 +147,7 @@ class _Company:
     themes: list[str]
 
 
-def _company(engine: Engine, settings: Settings, actor: Actor, slug: str) -> _Company:
+def resolve_company(engine: Engine, settings: Settings, actor: Actor, slug: str) -> SymbolCompany:
     universe: Universe = load_universe(settings.themes_config)
     with engine.begin() as connection:
         universe = extend_universe(connection, universe)
@@ -160,14 +160,14 @@ def _company(engine: Engine, settings: Settings, actor: Actor, slug: str) -> _Co
             f"company {slug!r} has no tradingview_symbol in {settings.themes_config}"
         )
     themes = sorted(t for t, theme in universe.themes.items() if slug in theme.companies)
-    return _Company(slug, config, seeded.company_id, config.tradingview_symbol, themes)
+    return SymbolCompany(slug, config, seeded.company_id, config.tradingview_symbol, themes)
 
 
 def run_catalog(settings: Settings, engine: Engine, job: Job, now: datetime) -> Artifacts:
     require_enabled(settings)
     payload = CompanyPayload.model_validate(job.payload)
     actor = Actor.from_settings(settings)
-    company = _company(engine, settings, actor, payload.company)
+    company = resolve_company(engine, settings, actor, payload.company)
     documents: list[Document] = []
     new_documents = new_leads = headlines_listed = 0
     bounded = False
@@ -175,7 +175,7 @@ def run_catalog(settings: Settings, engine: Engine, job: Job, now: datetime) -> 
         client = TradingViewClient(
             mcp,
             max_calls=settings.tradingview_max_calls_per_job,
-            on_call=_recorder(engine, job.id),
+            on_call=call_recorder(engine, job.id),
         )
         try:
             documents = client.documents(
@@ -249,7 +249,7 @@ def run_catalog(settings: Settings, engine: Engine, job: Job, now: datetime) -> 
 
 
 def _store_entry(
-    connection: Connection, company: _Company, document: Document, job_id: uuid.UUID
+    connection: Connection, company: SymbolCompany, document: Document, job_id: uuid.UUID
 ) -> int:
     row = connection.execute(
         text(
@@ -316,7 +316,7 @@ class _Pending:
 
 
 def _pending_transcripts(
-    engine: Engine, settings: Settings, company: _Company, now: datetime
+    engine: Engine, settings: Settings, company: SymbolCompany, now: datetime
 ) -> list[_Pending]:
     """The company's catalogued transcript views inside the lookback that the ledger doesn't
     hold yet, newest first."""
@@ -353,7 +353,7 @@ def run_transcripts(settings: Settings, engine: Engine, job: Job, now: datetime)
     require_enabled(settings)
     payload = CompanyPayload.model_validate(job.payload)
     actor = Actor.from_settings(settings)
-    company = _company(engine, settings, actor, payload.company)
+    company = resolve_company(engine, settings, actor, payload.company)
     pending = _pending_transcripts(engine, settings, company, now)
     ledger = SourceLedger(
         engine,
@@ -371,7 +371,7 @@ def run_transcripts(settings: Settings, engine: Engine, job: Job, now: datetime)
             client = TradingViewClient(
                 mcp,
                 max_calls=settings.tradingview_max_calls_per_job,
-                on_call=_recorder(engine, job.id),
+                on_call=call_recorder(engine, job.id),
             )
             for item in pending:
                 try:

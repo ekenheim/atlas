@@ -286,7 +286,12 @@ def test_tool_calls_count_against_the_tradingview_budget(
         "used": 2,
         "budget": 2,
         "interactive_held": True,
-        "kinds": ["tradingview_catalog", "tradingview_transcripts"],
+        "kinds": [
+            "tradingview_calendar",
+            "tradingview_catalog",
+            "tradingview_prices",
+            "tradingview_transcripts",
+        ],
     }
     (pending,) = [p for p in queue["pending"] if p["kind"] == "tradingview_transcripts"]
     assert pending["budget_held"] == 1

@@ -4525,6 +4525,87 @@
             "description": "only leads found for this theme"
           },
           {
+            "name": "origin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "searxng",
+                    "tradingview_news",
+                    "edgar_fts",
+                    "tradingview_calendar"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only leads of this origin",
+              "title": "Origin"
+            },
+            "description": "only leads of this origin"
+          },
+          {
+            "name": "known_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only leads Atlas had stored by this time; a calendar lead shows the date it knew by then",
+              "title": "Known By"
+            },
+            "description": "only leads Atlas had stored by this time; a calendar lead shows the date it knew by then"
+          },
+          {
+            "name": "event_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "calendar leads whose date is at or after this time (soonest first)",
+              "title": "Event From"
+            },
+            "description": "calendar leads whose date is at or after this time (soonest first)"
+          },
+          {
+            "name": "event_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "calendar leads whose date is at or before this time",
+              "title": "Event To"
+            },
+            "description": "calendar leads whose date is at or before this time"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -4790,6 +4871,116 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/companies/{company_id}/price-history": {
+      "get": {
+        "tags": [
+          "tradingview"
+        ],
+        "summary": "Prices",
+        "operationId": "prices_api_v1_companies__company_id__price_history_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "first day; default a year before end",
+              "title": "Start"
+            },
+            "description": "first day; default a year before end"
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "last day; default today (UTC)",
+              "title": "End"
+            },
+            "description": "last day; default today (UTC)"
+          },
+          {
+            "name": "known_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the closes as fetched by this time (default: the latest)",
+              "title": "Known By"
+            },
+            "description": "the closes as fetched by this time (default: the latest)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceHistory"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "description": "Validation Error",
@@ -9978,6 +10169,84 @@
         ],
         "title": "Budgets",
         "description": "Per-run limits (spec Â§7.4)."
+      },
+      "CalendarEvent": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "event_key": {
+            "type": "string",
+            "title": "Event Key"
+          },
+          "event_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Event At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "fiscal_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Period"
+          },
+          "fiscal_year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "owner_override": {
+            "type": "string",
+            "title": "Owner Override"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "symbol",
+          "event_key",
+          "event_at",
+          "status",
+          "fiscal_period",
+          "fiscal_year",
+          "observed_at",
+          "owner_override"
+        ],
+        "title": "CalendarEvent",
+        "description": "A `tradingview_calendar` lead's reporting date (TradingView's earnings calendar)."
       },
       "Candidate": {
         "properties": {
@@ -20298,7 +20567,8 @@
             "enum": [
               "searxng",
               "tradingview_news",
-              "edgar_fts"
+              "edgar_fts",
+              "tradingview_calendar"
             ],
             "title": "Origin"
           },
@@ -20387,6 +20657,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Filing"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calendar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalendarEvent"
               },
               {
                 "type": "null"
@@ -23379,6 +23659,81 @@
           "disproven_at"
         ],
         "title": "Premise"
+      },
+      "PriceClose": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "close": {
+            "type": "number",
+            "title": "Close"
+          },
+          "owner_override": {
+            "type": "string",
+            "title": "Owner Override"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "close",
+          "owner_override"
+        ],
+        "title": "PriceClose"
+      },
+      "PriceHistory": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "start": {
+            "type": "string",
+            "format": "date",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date",
+            "title": "End"
+          },
+          "closes": {
+            "items": {
+              "$ref": "#/components/schemas/PriceClose"
+            },
+            "type": "array",
+            "title": "Closes"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Daily closes for settling predictions and replays. Never Evidence and never support for a Belief."
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "symbol",
+          "start",
+          "end",
+          "closes"
+        ],
+        "title": "PriceHistory"
       },
       "Proposal": {
         "properties": {

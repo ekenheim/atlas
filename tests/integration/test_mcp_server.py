@@ -82,6 +82,7 @@ TOOLS = {
     "list_issues",
     "draft_hypothesis",
     "get_hypothesis",
+    "upcoming_reports",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 

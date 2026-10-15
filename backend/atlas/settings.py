@@ -345,6 +345,11 @@ class Settings(BaseSettings):
     tradingview_documents_limit: int = Field(default=100, ge=1, le=500)
     tradingview_news_limit: int = Field(default=50, ge=1, le=200)
     tradingview_news_language: str = Field(default="en", pattern=r"^[a-z]{2}$")
+    # The earnings calendar job asks for this many days back and ahead of now (ticket 16b);
+    # the price job's default look-back is tradingview_price_days.
+    tradingview_calendar_past_days: int = Field(default=120, ge=0, le=730)
+    tradingview_calendar_ahead_days: int = Field(default=180, ge=0, le=730)
+    tradingview_price_days: int = Field(default=365, ge=1, le=3650)
 
     # The versioned company universe and themes (company membership is config, not code).
     themes_config: Path = Path("configs/themes/ai-infrastructure.yaml")
