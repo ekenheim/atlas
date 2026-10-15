@@ -386,7 +386,7 @@ def store_calendar_event(
             "INSERT INTO tradingview_calendar_event (lead_id, event_key, company_id, symbol,"
             " themes, fiscal_period, fiscal_year, owner_override, job_id, first_seen_at)"
             " VALUES (:lead, :key, :company, :symbol, :themes, :period, :year, :override, :job,"
-            " :now) ON CONFLICT DO NOTHING"
+            " :now) ON CONFLICT (lead_id) DO NOTHING"
         ),
         {
             "lead": row.id,
@@ -461,7 +461,8 @@ def discovery_sightings(connection: Connection, discovery_id: uuid.UUID) -> list
 
 _LEADS = """
     SELECT lead.id, lead.tier, lead.origin, lead.canonical_url, lead.url, lead.title,
-        lead.snippet, lead.published_date, lead.engines, lead.first_seen_at, lead.last_seen_at,
+        lead.snippet, lead.published_date, lead.engines, lead.first_seen_at,
+        LEAST(lead.last_seen_at, CAST(:known_by AS timestamptz)) AS last_seen_at,
         first.query, COALESCE(discovery.theme, h.themes[1], ce.themes[1]) AS theme,
         (SELECT count(*) FROM lead_sighting s WHERE s.lead_id = lead.id) AS sightings,
         h.headline_id, h.company_id AS headline_company_id, h.symbol AS headline_symbol,
@@ -566,8 +567,9 @@ def list_leads(
     """Leads, newest first (optionally only those a discovery for `theme` returned, or a
     headline or calendar date listed for a company in it), and how many there are in all.
 
-    `origin` keeps one origin. `known_by` keeps the leads Atlas had stored by then, and a
-    calendar lead shows the date it knew by then. `event_from`/`event_to` keep the calendar
+    `origin` keeps one origin. `known_by` keeps the leads Atlas had stored by then (their
+    `last_seen_at` is capped at it) and a calendar lead shows the date it knew by then; a
+    lead's `sightings` count is not bounded by it. `event_from`/`event_to` keep the calendar
     leads whose date (as known by `known_by`) falls inside, soonest first.
     """
     params = {

@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from atlas.discovery.leads import store_headline
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
@@ -249,6 +250,60 @@ def test_a_rerun_dedupes_and_a_moved_date_is_a_new_observation_of_the_same_lead(
     assert (then["event_at"], then["status"]) == ("2026-11-05T21:00:00Z", "scheduled")
 
 
+def test_two_companies_on_one_fiscal_calendar_keep_a_lead_each_without_event_ids(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].calendar = "-noid"  # no event ID: both are keyed by their fiscal period
+    lumentum = agent.run("tradingview_calendar", "lite", {"company": "lumentum"})
+    innolight = agent.run("tradingview_calendar", "innolight", {"company": "innolight"})
+
+    assert (lumentum["status"], innolight["status"]) == ("succeeded", "succeeded"), (
+        lumentum["failures"],
+        innolight["failures"],
+    )
+    leads = agent.leads()
+    assert len(leads) == 2
+    assert {each["calendar"]["event_key"] for each in leads} == {"fy2027-Q1"}
+    by_company = {each["calendar"]["company_id"]: each for each in leads}
+    assert set(by_company) == {
+        agent.atlas.company("lumentum")["id"],
+        agent.atlas.company("innolight")["id"],
+    }
+    assert {each["calendar"]["symbol"] for each in leads} == {"NASDAQ:LITE", "HKEX:3308"}
+    assert _observations(agent) == 2
+    # A rerun finds both again and adds nothing.
+    agent.run("tradingview_calendar", "lite-again", {"company": "lumentum"})
+    assert len(agent.leads()) == 2
+    assert _observations(agent) == 2
+
+
+def test_the_calendar_and_price_tables_are_insert_only(agent: Agent) -> None:
+    agent.run("tradingview_calendar", "lite")
+    agent.run(
+        "tradingview_prices",
+        "july",
+        {"company": "lumentum", "start": "2026-07-01", "end": "2026-07-31"},
+    )
+    updates = {
+        "tradingview_calendar_event": "UPDATE tradingview_calendar_event SET fiscal_period = 'x'",
+        "tradingview_calendar_observation": (
+            "UPDATE tradingview_calendar_observation SET status = 'x'"
+        ),
+        "tradingview_price_bar": "UPDATE tradingview_price_bar SET close = 1",
+    }
+    for table, update in updates.items():
+        # (the event table's foreign key makes Postgres truncate it only with its observations)
+        truncate = "TRUNCATE " + ", ".join(
+            dict.fromkeys([table, "tradingview_calendar_observation"])
+        )
+        for sql in (update, f"DELETE FROM {table}", truncate):
+            with (
+                pytest.raises(DBAPIError, match="insert-only"),
+                agent.atlas.engine.begin() as connection,
+            ):
+                connection.execute(text(sql))
+
+
 def _observations(agent: Agent) -> int:
     with agent.atlas.engine.connect() as connection:
         return connection.execute(
@@ -434,15 +489,39 @@ def test_daily_closes_are_stored_by_a_job_and_read_by_a_route_that_calls_nothing
     assert [c["day"] for c in narrower["closes"]] == ["2026-07-02"]
     assert len(tradingview[0].tool_calls) == 1  # reading calls TradingView never
 
-    # A rerun refreshes the days and stores no second row.
+    # A rerun with the same closes adds nothing.
     agent.run("tradingview_prices", "july-again", payload)
     again = agent.atlas.get(
         f"/api/v1/companies/{lumentum}/price-history", start="2026-07-01", end="2026-07-31"
     )
-    assert [c["day"] for c in again["closes"]] == ["2026-07-01", "2026-07-02", "2026-07-06"]
+    assert again["closes"] == history["closes"]
+    assert _price_rows(agent) == 3
+
+    # An adjusted refresh is a new row; the earlier close stays and a read `known_by` before
+    # the refresh still gives it.
+    tradingview[0].prices = "-adjusted"
+    agent.clock.advance(days=7)
+    agent.run("tradingview_prices", "july-adjusted", payload)
+    path = f"/api/v1/companies/{lumentum}/price-history"
+    latest = agent.atlas.get(path, start="2026-07-01", end="2026-07-31")
+    assert [(c["day"], c["close"]) for c in latest["closes"]] == [
+        ("2026-07-01", 102.25),
+        ("2026-07-02", 105.5),
+        ("2026-07-06", 102.0),
+    ]
+    assert _price_rows(agent) == 4
+    then = agent.atlas.get(
+        path, start="2026-07-01", end="2026-07-31", known_by="2026-08-16T00:00:00Z"
+    )
+    assert then["closes"] == history["closes"]
     # No tool of the Atlas MCP server returns prices.
     listed = agent.rpc("tools/list").json()["result"]["tools"]
     assert all("price" not in each["name"] for each in listed)
+
+
+def _price_rows(agent: Agent) -> int:
+    with agent.atlas.engine.connect() as connection:
+        return connection.execute(text("SELECT count(*) FROM tradingview_price_bar")).scalar_one()
 
 
 def test_the_price_route_with_nothing_stored_and_bad_requests(agent: Agent) -> None:

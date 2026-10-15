@@ -13617,6 +13617,8 @@ export interface operations {
                 start?: string | null;
                 /** @description last day; default today (UTC) */
                 end?: string | null;
+                /** @description the closes as fetched by this time (default: the latest) */
+                known_by?: string | null;
             };
             header?: never;
             path: {

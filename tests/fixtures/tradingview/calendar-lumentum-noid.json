@@ -1,0 +1,14 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the earnings-calendar answer shape is unconfirmed; the item carries no event ID, so the fiscal period is its key",
+  "items": [
+    {
+      "symbol": "NASDAQ:LITE",
+      "title": "SYNTHETIC Q1 FY2027 results",
+      "fiscal_period": "Q1",
+      "fiscal_year": 2027,
+      "date": 1793912400,
+      "status": "scheduled"
+    }
+  ],
+  "total": 1
+}

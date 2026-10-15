@@ -59,7 +59,8 @@ class FakeTradingView:
     unretrievable: set[str] = field(default_factory=lambda: {"syn-view-2001-t"})
     ended_sessions: set[str] = field(default_factory=set[str])
     unavailable: bool = False  # answer every MCP request 503
-    calendar: str = ""  # "-moved": the calendar fixture variant the calendar tool answers
+    calendar: str = ""  # "-moved", "-noid": the calendar fixture variant the calendar tool answers
+    prices: str = ""  # "-adjusted": the get_ohlcv fixture variant the OHLCV tool answers
     calls: list[httpx2.Request] = field(default_factory=list[httpx2.Request])
     times: list[float] = field(default_factory=list[float])
     tool_calls: list[tuple[str, dict[str, Any]]] = field(
@@ -216,7 +217,9 @@ class FakeTradingView:
             company = SYMBOLS[arguments["symbol"]]
             return self._text(request_id, fixture_text(f"calendar-{company}{self.calendar}"))
         if name == "mcp-tv-get-ohlcv":
-            return self._text(request_id, fixture_text(f"ohlcv-{SYMBOLS[arguments['symbol']]}"))
+            return self._text(
+                request_id, fixture_text(f"ohlcv-{SYMBOLS[arguments['symbol']]}{self.prices}")
+            )
         if name == "mcp-tv-get-document-view":
             view = arguments["view_id"]
             if view in self.unretrievable:

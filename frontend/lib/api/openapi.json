@@ -4820,6 +4820,25 @@
               "title": "End"
             },
             "description": "last day; default today (UTC)"
+          },
+          {
+            "name": "known_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the closes as fetched by this time (default: the latest)",
+              "title": "Known By"
+            },
+            "description": "the closes as fetched by this time (default: the latest)"
           }
         ],
         "responses": {

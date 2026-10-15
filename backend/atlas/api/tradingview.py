@@ -8,7 +8,8 @@ under the owner's override (tickets 31 and 16b).
   only; every entry records the owner's override. The catalog tells which primary filings
   exist, e.g. for a manual import where no adapter fetches them.
 - `GET /companies/{id}/price-history?start=&end=`: the company's stored daily closes from
-  `start` to `end` (default: the year to today), oldest first, each marked with the override.
+  `start` to `end` (default: the year to today), oldest first, each marked with the override;
+  `known_by` gives the closes as Atlas had fetched them by then (the table is insert-only).
   A pure read of what the `tradingview_prices` job stored: it never calls TradingView. For
   settling predictions and replays; never Evidence, and no research tool returns it.
 """
@@ -69,6 +70,10 @@ def price_history_router(engine: Engine) -> APIRouter:
             date | None, Query(description="first day; default a year before end")
         ] = None,
         end: Annotated[date | None, Query(description="last day; default today (UTC)")] = None,
+        known_by: Annotated[
+            datetime | None,
+            Query(description="the closes as fetched by this time (default: the latest)"),
+        ] = None,
     ) -> PriceHistory | JSONResponse:
         last = end or datetime.now(UTC).date()
         first = start or last - timedelta(days=365)
@@ -77,6 +82,8 @@ def price_history_router(engine: Engine) -> APIRouter:
         with engine.connect() as connection:
             if get_company(connection, company_id) is None:
                 return not_found("company")
-            return price_history(connection, company_id=company_id, start=first, end=last)
+            return price_history(
+                connection, company_id=company_id, start=first, end=last, known_by=known_by
+            )
 
     return router

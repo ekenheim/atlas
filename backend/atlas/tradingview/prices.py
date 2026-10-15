@@ -10,8 +10,11 @@ no TradingView call is ever made while serving a request.
 by default the `ATLAS_TRADINGVIEW_PRICE_DAYS` days before now): one `get_ohlcv` call (daily
 bars) for the company's configured `tradingview_symbol`, a `tradingview` budget kind (not
 pausable) that fails at once while `ATLAS_TRADINGVIEW_ENABLED` is off. Each bar's close is
-upserted into `tradingview_price_bar` by company and day (a rerun refreshes what TradingView
-now says; the day is the bar's UTC date), marked with the owner's override. Only the close is
+stored in `tradingview_price_bar` by company, day and fetch time (the day is the bar's UTC
+date), marked with the owner's override. The table is insert-only: a rerun that gets the close
+already held for a day adds nothing, one that gets a different close (an adjusted refresh) adds
+a row, and the earlier value stays. A read takes each day's latest fetch, or, with `known_by`,
+the latest fetched by then, so a settlement can be reproduced as it was made. Only the close is
 kept.
 
 The tool's name and answer shape are unconfirmed (`atlas.tradingview.client`).
@@ -96,10 +99,12 @@ def run_prices(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
             connection.execute(
                 text(
                     "INSERT INTO tradingview_price_bar (company_id, symbol, day, close,"
-                    " owner_override, job_id, fetched_at) VALUES (:company, :symbol, :day,"
-                    " :close, :override, :job, :now) ON CONFLICT (company_id, day) DO UPDATE"
-                    " SET close = EXCLUDED.close, symbol = EXCLUDED.symbol,"
-                    " job_id = EXCLUDED.job_id, fetched_at = EXCLUDED.fetched_at"
+                    " owner_override, job_id, fetched_at) SELECT CAST(:company AS uuid),"
+                    " CAST(:symbol AS text), CAST(:day AS date), CAST(:close AS numeric),"
+                    " CAST(:override AS text), CAST(:job AS uuid), CAST(:now AS timestamptz)"
+                    " WHERE CAST(:close AS numeric) IS DISTINCT FROM ("
+                    "SELECT close FROM tradingview_price_bar WHERE company_id = :company"
+                    " AND day = :day ORDER BY fetched_at DESC LIMIT 1) ON CONFLICT DO NOTHING"
                 ),
                 {
                     "company": company.company_id,
@@ -124,15 +129,24 @@ def run_prices(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
 
 
 def price_history(
-    connection: Connection, *, company_id: uuid.UUID, start: date, end: date
+    connection: Connection,
+    *,
+    company_id: uuid.UUID,
+    start: date,
+    end: date,
+    known_by: datetime | None = None,
 ) -> PriceHistory:
-    """The stored daily closes of the company from `start` to `end` inclusive, oldest first."""
+    """The stored daily closes of the company from `start` to `end` inclusive, oldest first:
+    each day's latest fetch, or the latest fetched by `known_by` if given."""
     rows = connection.execute(
         text(
-            "SELECT day, close, symbol, owner_override FROM tradingview_price_bar"
-            " WHERE company_id = :company AND day BETWEEN :start AND :end ORDER BY day"
+            "SELECT DISTINCT ON (day) day, close, symbol, owner_override"
+            " FROM tradingview_price_bar WHERE company_id = :company"
+            " AND day BETWEEN :start AND :end"
+            " AND (CAST(:known_by AS timestamptz) IS NULL OR fetched_at <= :known_by)"
+            " ORDER BY day, fetched_at DESC"
         ),
-        {"company": company_id, "start": start, "end": end},
+        {"company": company_id, "start": start, "end": end, "known_by": known_by},
     ).all()
     return PriceHistory(
         company_id=company_id,
