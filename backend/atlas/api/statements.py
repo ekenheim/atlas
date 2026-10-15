@@ -8,7 +8,8 @@ own judges in front of a session, over the existing role machinery (no new promp
 - `POST /statements/judge` (`{question, statement, fact_ids, counter_fact_ids?, votes?,
   run_id?}`): the finding judge (`finding_judge.v4`, on the role's model from
   `ATLAS_LLM_ROLE_MODELS`) is asked about the statement with the cited Facts' quotes, dates,
-  status and period, exactly as the argument Editor's task asks it; `votes` (default 1) are
+  status and period (and, for a quote of a call transcript, its speaker's name, title and
+  firm: ticket 25), exactly as the argument Editor's task asks it; `votes` (default 1) are
   decided by `ATLAS_FINDING_JUDGE_VOTE_RULE`; every basis is checked by code, so a `supported`
   answer with a basis no quote holds is `misstated`. Each counterevidence Fact is also related
   to the cited Facts by the counter-judge. The calls are recorded under `run_id`, else under a
@@ -31,8 +32,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Engine, RowMapping, text
 
 from atlas.api.common import INVALID, NOT_FOUND, error_response, error_responses, not_found
+from atlas.archive import open_archive
 from atlas.investigations.argument import fact_rows, judged_fact
 from atlas.investigations.meaning import finding_metadata, verify_bases, voting
+from atlas.investigations.speakers import with_speakers
 from atlas.investigations.tasks import _judged_fact  # pyright: ignore[reportPrivateUsage]
 from atlas.jobs.pacing import TransientFailure
 from atlas.roles import QuotedText
@@ -229,11 +232,15 @@ def statements_router(engine: Engine, settings: Settings) -> APIRouter:
         refs = {f"c{index}": fact_id for index, fact_id in enumerate(body.fact_ids, start=1)}
         claims = {ref: rows[fact_id] for ref, fact_id in refs.items()}
         cited = list(claims)
-        metadata = finding_metadata(cited, claims)
+        # A quote of a call transcript is sent with its speaker's label (ticket 25).
+        with engine.connect() as connection:
+            spoken = with_speakers(connection, open_archive(settings), list(claims.values()))
+        described = dict(zip(claims, spoken, strict=True))
+        metadata = finding_metadata(cited, described)
         request = FindingJudgeRequest(
             research_question=body.question,
             finding=JudgedFinding(statement=body.statement, limitations=[], claim_refs=cited),
-            claims=[_judged_fact(ref, row) for ref, row in claims.items()],
+            claims=[_judged_fact(ref, row) for ref, row in described.items()],
         )
         quotes = [
             QuotedText(

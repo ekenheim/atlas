@@ -27,7 +27,13 @@ sections are code's, never the model's).
 
 from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
@@ -209,6 +215,16 @@ class EditorUngroundedFinding(_Request):
     statement: str
     claim_refs: list[str]
     ungrounded: list[str]  # what none of its cited Claims holds, as the statement writes it
+    # True: a Hypothesis's thesis (the Belief draft's rewrite only). Sent only when true, so a
+    # card's request is what it was.
+    thesis: bool = False
+
+    @model_serializer(mode="wrap")
+    def _thesis_only_when_true(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data: dict[str, Any] = handler(self)
+        if not self.thesis:
+            data.pop("thesis", None)
+        return data
 
 
 class EditorRegroundRequest(_Request):
@@ -252,6 +268,15 @@ class EditorMisstatedFinding(_Request):
     beyond: list[str]  # the judge's words that go beyond the quotes, as the finding writes them
     kinds: list[str]
     reason: str  # the judge's reason
+    # True: a Hypothesis's thesis (the Belief draft's rewrite only); sent only when true.
+    thesis: bool = False
+
+    @model_serializer(mode="wrap")
+    def _thesis_only_when_true(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data: dict[str, Any] = handler(self)
+        if not self.thesis:
+            data.pop("thesis", None)
+        return data
 
 
 class EditorReviseRequest(_Request):
@@ -274,6 +299,37 @@ class RevisedFindings(RoleOutput):
 EDITOR_REVISE = Role(
     name="editor",
     prompt=Prompt.load(PROMPTS_DIR, "editor-revise", EDITOR_REVISE_PROMPT_VERSION),
+    request=EditorReviseRequest,
+    response=RevisedFindings,
+    max_output_tokens=4096,
+)
+
+
+# --- the Belief draft's rewrites (atlas-beliefs ticket 25) ---
+
+# The Hypothesis drafted from Beliefs (below) writes its thesis and step statements under the
+# draft's rules: in the Editor's own words, no quotation marks, no scope word or qualifier the
+# quotes lack, and a thesis states what may be true. A statement of it that is ungrounded or
+# misstated used to be rewritten by the card Editor's `EDITOR_REGROUND`/`EDITOR_REVISE`, whose
+# prompts allow quoted phrases and know nothing of those rules, on the card Editor's model: it
+# strung the Facts together with quotation marks. These two are the same requests and answers
+# under the draft's role name (`hypothesis_editor`, so `ATLAS_LLM_ROLE_MODELS` routes them with
+# the draft) and prompts that say the draft's rules.
+HYPOTHESIS_REGROUND_PROMPT_VERSION = 1
+HYPOTHESIS_REVISE_PROMPT_VERSION = 1
+
+HYPOTHESIS_REGROUND = Role(
+    name="hypothesis_editor",
+    prompt=Prompt.load(
+        PROMPTS_DIR, "editor-hypothesis-reground", HYPOTHESIS_REGROUND_PROMPT_VERSION
+    ),
+    request=EditorRegroundRequest,
+    response=RegroundedFindings,
+    max_output_tokens=4096,
+)
+HYPOTHESIS_REVISE = Role(
+    name="hypothesis_editor",
+    prompt=Prompt.load(PROMPTS_DIR, "editor-hypothesis-revise", HYPOTHESIS_REVISE_PROMPT_VERSION),
     request=EditorReviseRequest,
     response=RevisedFindings,
     max_output_tokens=4096,
@@ -515,7 +571,8 @@ class HypothesisBeliefsDraft(RoleOutput):
 
 
 # Its own role name, so ATLAS_LLM_ROLE_MODELS can send this draft to another model than the card
-# Editors' (ticket 24); the regrounding and revising calls it makes are still the `editor`.
+# Editors' (ticket 24); the regrounding and revising calls it makes carry the name too
+# (`HYPOTHESIS_REGROUND`, `HYPOTHESIS_REVISE`, above; ticket 25).
 HYPOTHESIS_BELIEFS_EDITOR = Role(
     name="hypothesis_editor",
     prompt=Prompt.load(

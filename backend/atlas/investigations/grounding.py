@@ -53,6 +53,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 from atlas.claims.predicates import fold
+from atlas.claims.speakers import row_speaker
 from atlas.roles.caller import RoleOutputQuarantined, TokenBudgetExhausted
 from atlas.roles.contract import QuotedText
 from atlas.roles.editor import (
@@ -622,7 +623,9 @@ def claim_grounds(
     `subject_name`, `object_name`, `object_text` and `source_title`; the source's title
     dates a call or a report; a Fact's resolved period, `period_resolved`): those texts, the
     date of each one's document when its row has `available_at` (its year, month and day,
-    `date_texts`; R2-04) and the research question."""
+    `date_texts`; R2-04), the speaker of a transcript quote when its row has a `speaker` label
+    (name, title and firm: a statement may say whose words a quote is; ticket 25) and the
+    research question."""
     texts = [question]
     for claim in cited:
         texts.extend(
@@ -630,6 +633,9 @@ def claim_grounds(
             for key in ("quote", "subject_name", "object_name", "object_text", "source_title")
             if claim.get(key)
         )
+        speaker = row_speaker(claim)
+        if speaker is not None:
+            texts.extend(each for each in (speaker.name, speaker.title, speaker.firm) if each)
         day = source_day(claim)
         if day:
             texts.extend(date_texts(day))
@@ -679,13 +685,15 @@ def check_findings(
     aliases: Sequence[Sequence[str]],
     ask: Ask,
     required: Sequence[Sequence[str]] = (),
+    theses: frozenset[int] = frozenset(),
 ) -> CheckedFindings:
     """Check each finding (its draft and the references of the Claims it cites, each one a
     key of `claims`) against its cited Claims; send every ungrounded one back to the Editor in
     one call (`ask`), and check its new statement the same way. A finding the answer leaves
     out keeps its first statement and its ungrounded terms; a call that fails (its answer
     quarantined, or the run's token budget spent) leaves them all ungrounded. `required` lists,
-    per draft, names its statement must contain (`company not named: <name>`)."""
+    per draft, names its statement must contain (`company not named: <name>`). The drafts at
+    the indexes `theses` are a Hypothesis's thesis: the Editor is told so when they go back."""
     needed = [list(each) for each in required] or [[] for _ in drafts]
 
     def terms(index: int, statement: str) -> list[str]:
@@ -716,6 +724,7 @@ def check_findings(
                 statement=first[index].draft.statement,
                 claim_refs=first[index].cited,
                 ungrounded=first[index].ungrounded,
+                thesis=index in theses,
             )
             for key, index in again.items()
         ],

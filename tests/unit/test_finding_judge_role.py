@@ -7,6 +7,7 @@ schema LiteLLM enforces, and the request as it is serialised for the call.
 
 import hashlib
 
+from atlas.investigations.meaning import finding_metadata, judged_claim, metadata_only
 from atlas.roles.contract import PROMPTS_DIR
 from atlas.roles.finding_judge import (
     FINDING_JUDGE,
@@ -133,3 +134,65 @@ def test_only_a_thesis_is_judged_by_v5_and_a_finding_s_request_is_v4_s() -> None
     assert thesis.model_dump(mode="json")["finding"]["thesis"] is True
     assert "**A thesis.**" in THESIS_JUDGE.prompt.text
     assert "**A thesis.**" not in FINDING_JUDGE.prompt.text
+
+
+def test_a_transcript_claim_carries_its_speaker_and_a_filing_claim_has_no_such_key() -> None:
+    """The speaker is metadata beside the quote (atlas-beliefs ticket 25): a transcript claim
+    has the key with the label's name, title and firm; a filing's request is v4's byte for byte,
+    with no `speaker` key at all, and the prompts are the released v4 and v5."""
+    filing = judged_claim(
+        "c1",
+        {
+            "subject_name": "Zephyr",
+            "predicate": "fact",
+            "object_name": None,
+            "object_text": None,
+            "epistemic_type": "company_claim",
+            "source_title": "10-Q",
+        },
+    )
+    call = judged_claim(
+        "c2",
+        {
+            "subject_name": "Zephyr",
+            "predicate": "fact",
+            "object_name": None,
+            "object_text": None,
+            "epistemic_type": "company_claim",
+            "source_title": "Q3 2026",
+            "speaker": "Robin Placeholder (VP of Sales, Zephyr Optics Inc)",
+        },
+    )
+    request = FindingJudgeRequest(
+        research_question="q",
+        finding=JudgedFinding(statement="s", limitations=[], claim_refs=["c1", "c2"]),
+        claims=[filing, call],
+    )
+
+    sent = request.model_dump(mode="json")["claims"]
+
+    assert "speaker" not in sent[0]
+    assert sent[1]["speaker"] == {
+        "name": "Robin Placeholder",
+        "title": "VP of Sales",
+        "firm": "Zephyr Optics Inc",
+    }
+    assert FINDING_JUDGE.prompt.version == 4 and THESIS_JUDGE.prompt.version == 5
+
+
+def test_a_clause_naming_the_speaker_needs_no_quote_words() -> None:
+    """No quote holds the speaker's name or title, so a clause that names only them (and the
+    document's own metadata) is not an unverified basis: the label is its basis."""
+    row = {
+        "subject_name": "Zephyr Optics",
+        "source_title": "Q3 2026",
+        "speaker": "Robin Placeholder (VP of Business Development, Example Photonics Inc)",
+    }
+    clause = "Robin Placeholder, Zephyr Optics' VP of Business Development"
+
+    assert metadata_only(clause, finding_metadata(["c1"], {"c1": row}))
+    # Without a label nothing allows the name; a word the label lacks is not allowed either.
+    assert not metadata_only(clause, finding_metadata(["c1"], {"c1": {**row, "speaker": None}}))
+    assert not metadata_only(
+        "Robin Placeholder, Zephyr Optics' Chief Scientist", finding_metadata(["c1"], {"c1": row})
+    )

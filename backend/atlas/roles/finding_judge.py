@@ -37,6 +37,14 @@ same role name, so `ATLAS_LLM_ROLE_MODELS` routes both alike); every other state
 finding, an argument statement, `POST /statements/judge`, a session's Fact or Belief) is
 judged by `FINDING_JUDGE`, v4, with a request serialised exactly as before (no `thesis` key).
 `judge_role` picks the role from the request.
+
+Ticket 25 sends a transcript quote's speaker beside it (`JudgedClaim.speaker`: name, title and
+firm from the paragraph's label), because a statement that names whose words a quote is ("AXT's
+VP of business development") can be checked against nothing else. It is a field of the claim's
+metadata, not of the quote's text and not of the retrieved-data envelope every role shares. A
+filing quote has no `speaker` key at all. The prompts are unchanged (v4 and v5): the key names
+the speaker for what it is, and the lead's measurement on the labelled statements decides
+whether one sentence is needed (a new version of both roles, never an edit of these).
 """
 
 from typing import Any, Literal
@@ -64,6 +72,15 @@ class _Request(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class JudgedSpeaker(_Request):
+    """Who says a transcript quote, as its paragraph's label gives it ("Name (Title, Firm)";
+    `atlas.claims.speakers`): metadata beside the quote, never part of its text."""
+
+    name: str
+    title: str | None
+    firm: str | None
+
+
 class JudgedClaim(_Request):
     """A cited Claim or Fact as the judge is sent it (its exact quote goes as retrieved data)."""
 
@@ -84,6 +101,17 @@ class JudgedClaim(_Request):
     period_resolved: str | None = None
     quantity: str | None = None
     reading: str | None = None
+    # A call or conference transcript's quote: its speaker, so a statement naming whose words
+    # they are (a title, a firm) can be held to the paragraph's label (ticket 25). Sent only
+    # for a transcript quote: a filing's request is v4's byte for byte.
+    speaker: JudgedSpeaker | None = None
+
+    @model_serializer(mode="wrap")
+    def _speaker_only_when_known(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data: dict[str, Any] = handler(self)
+        if self.speaker is None:
+            data.pop("speaker", None)
+        return data
 
 
 class JudgedFinding(_Request):

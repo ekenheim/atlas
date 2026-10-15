@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from atlas.claims.predicates import fold
+from atlas.claims.speakers import row_speaker
 from atlas.investigations.grounding import (
     CheckedFinding,
     claim_grounds,
@@ -62,6 +63,7 @@ from atlas.roles.finding_judge import (
     FindingJudgeRequest,
     JudgedClaim,
     JudgedFinding,
+    JudgedSpeaker,
     judge_version,
 )
 
@@ -206,12 +208,17 @@ def verify_bases(
 
 def finding_metadata(refs: Sequence[str], claims: Mapping[str, Mapping[Any, Any]]) -> list[str]:
     """The metadata of the documents a finding cites, for `verify_bases`: each cited Claim's
-    or Fact's subject, source title and the ways a statement names its document's date
-    (`atlas.investigations.grounding.date_texts`)."""
+    or Fact's subject, source title, the ways a statement names its document's date
+    (`atlas.investigations.grounding.date_texts`) and, for a transcript quote, its speaker's
+    name, title and firm (ticket 25): a clause naming whose words a quote is ("AXT's VP of
+    business development") is held to the paragraph's label, which no quote's words contain."""
     texts: list[str] = []
     for ref in refs:
         claim = claims[ref]
         texts.extend(str(claim[key]) for key in ("subject_name", "source_title") if claim.get(key))
+        speaker = row_speaker(claim)
+        if speaker is not None:
+            texts.extend(each for each in (speaker.name, speaker.title, speaker.firm) if each)
         day = source_day(claim)
         if day is not None:
             texts.extend(date_texts(day))
@@ -375,7 +382,9 @@ def _object(claim: Mapping[Any, Any]) -> str:
 
 def judged_claim(ref: str, claim: Mapping[Any, Any]) -> JudgedClaim:
     """A cited Claim as the judge is sent it (a Fact's reading is the argument plan's, added
-    by `atlas.investigations.tasks`)."""
+    by `atlas.investigations.tasks`); a transcript quote with its speaker (ticket 25), a
+    filing's with none."""
+    speaker = row_speaker(claim)
     return JudgedClaim(
         ref=ref,
         subject=claim["subject_name"],
@@ -384,6 +393,11 @@ def judged_claim(ref: str, claim: Mapping[Any, Any]) -> JudgedClaim:
         epistemic_type=claim["epistemic_type"],
         source_title=claim["source_title"],
         source_date=source_date_text(claim),
+        speaker=(
+            None
+            if speaker is None
+            else JudgedSpeaker(name=speaker.name, title=speaker.title, firm=speaker.firm)
+        ),
     )
 
 
@@ -518,6 +532,7 @@ def judge_findings(
                     beyond=verdict.beyond,
                     kinds=list(verdict.kinds),
                     reason=verdict.reason,
+                    thesis=index in theses,
                 )
                 for key, (index, verdict) in misstated.items()
             ],

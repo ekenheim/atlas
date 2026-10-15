@@ -20,6 +20,17 @@ quotes as low-trust retrieved data. Each answer's bases are then checked by code
 Editor's task checks them (`atlas.investigations.meaning.checked`): a `supported` answer with a
 clause whose basis isn't in its quote counts as `misstated`.
 
+`--speakers` (atlas-beliefs ticket 25) sends a transcript quote's speaker the way production
+does (`JudgedClaim.speaker`: the name, title and firm of its paragraph's label, beside the
+quote, never in its text) and lets a clause naming the speaker pass the basis check as
+production's `finding_metadata` does. The argument statements' labels carry each Fact's
+version and span, so the label is read from the version's parsed text on a running Atlas (a
+read of `/api/v1/source-versions/{id}` for the document's source type and of `.../content?
+kind=parsed`; `--base-url`, default production); the 0.4.6 findings' Evidence tray items carry
+their `speaker`. Only the labels are kept (in the report's `speakers.json`); no quote is
+printed or written. Without `--speakers` the requests are what they were: run it both ways on
+the same labels to measure what the speaker changes (caught and flagged before and after).
+
 It prints, per statement, the label and the verdict, and the score: how many `fail`
 statements the judge calls `misstated` (caught) and how many `pass` ones (flagged), after the
 basis check and as the judge answered, and how many answers the basis check turned.
@@ -33,6 +44,7 @@ prints the requests without calling anything.
 
     uv run python .scratch/tools/finding_judge_eval.py [--argument] [--dry-run]
         [--max-calls N] [--labels PATH] [--only 1,2,...] [--out DIR]
+        [--speakers [--base-url URL]]
 
 The report (every request, answer and the score) goes to
 `.scratch/live-runs/<stamp>-finding-judge-eval/` (gitignored).
@@ -50,6 +62,7 @@ from typing import Any
 
 import httpx2
 
+from atlas.claims.speakers import TRANSCRIPT_SOURCE_TYPE, label_at, parse_label
 from atlas.investigations.meaning import checked, verify_bases
 from atlas.roles.caller import _validate  # pyright: ignore[reportPrivateUsage]
 from atlas.roles.contract import DIRECTIVES, REPAIR_DIRECTIVE, QuotedText
@@ -60,6 +73,7 @@ from atlas.roles.finding_judge import (
     FindingJudgeRequest,
     JudgedClaim,
     JudgedFinding,
+    JudgedSpeaker,
 )
 from atlas.settings import Settings
 
@@ -88,6 +102,64 @@ def setting(name: str, dotenv: dict[str, str]) -> str | None:
     return os.environ.get(name) or dotenv.get(name) or None
 
 
+def judged_speaker(label: object) -> JudgedSpeaker | None:
+    """A speaker label ("Name (Title, Firm)") as the judge is sent it; None for no label."""
+    parsed = parse_label(label) if isinstance(label, str) and label.strip() else None
+    return None if parsed is None else JudgedSpeaker(**vars(parsed))
+
+
+def speaker_texts(request: FindingJudgeRequest) -> list[str]:
+    """The names, titles and firms of the request's speakers: the metadata a clause may name
+    (production's `finding_metadata`)."""
+    return [
+        text
+        for claim in request.claims
+        if claim.speaker is not None
+        for text in (claim.speaker.name, claim.speaker.title, claim.speaker.firm)
+        if text
+    ]
+
+
+def fetch_speakers(base_url: str, labelled: list[dict[str, Any]]) -> dict[str, str | None]:
+    """The speaker label of each cited Fact's span that is in a call or conference transcript,
+    by `<version>#<start>-<end>`: the document's source type and parsed text from a running
+    Atlas (reads only). A span in any other document, over two speakers' paragraphs or whose
+    version cannot be read has none. Quotes are read here and never kept."""
+    client = httpx2.Client(base_url=base_url.rstrip("/") + "/api/v1", timeout=60.0)
+    texts: dict[str, str | None] = {}
+    labels: dict[str, str | None] = {}
+
+    def text_of(version: str) -> str | None:
+        if version not in texts:
+            texts[version] = None
+            detail = client.get(f"/source-versions/{version}")
+            if detail.is_success:
+                kind = detail.json()["source_document"]["source_type"]
+                if kind == TRANSCRIPT_SOURCE_TYPE:
+                    content = client.get(
+                        f"/source-versions/{version}/content", params={"kind": "parsed"}
+                    )
+                    texts[version] = content.text if content.is_success else None
+        return texts[version]
+
+    try:
+        for each in labelled:
+            for fact in each.get("facts") or []:
+                version = str(fact.get("source_version_id"))
+                key = f"{version}#{fact.get('span_start')}-{fact.get('span_end')}"
+                if key in labels:
+                    continue
+                document = text_of(version)
+                labels[key] = (
+                    None
+                    if document is None
+                    else label_at(document, (int(fact["span_start"]), int(fact["span_end"])))
+                )
+    finally:
+        client.close()
+    return labels
+
+
 def evidence(
     pilot: Path, investigation: int
 ) -> tuple[str, dict[str, dict[str, Any]], dict[str, str]]:
@@ -106,8 +178,11 @@ def build(
     question: str,
     items: dict[str, dict[str, Any]],
     titles: dict[str, str],
+    *,
+    speakers: bool = False,
 ) -> tuple[FindingJudgeRequest, list[QuotedText]]:
-    """A 0.4.6 labelled finding's request, its Claims' metadata from the Evidence tray."""
+    """A 0.4.6 labelled finding's request, its Claims' metadata from the Evidence tray (with
+    `speakers`, a transcript Claim's recorded speaker label)."""
     refs: list[str] = []
     claims: list[JudgedClaim] = []
     quotes: list[QuotedText] = []
@@ -124,6 +199,7 @@ def build(
                 object=str(item.get("object_name") or item.get("object_text") or ""),
                 epistemic_type=str(item.get("epistemic_type") or "company_claim"),
                 source_title=titles.get(version, ""),
+                speaker=judged_speaker(item.get("speaker")) if speakers else None,
             )
         )
         quotes.append(
@@ -141,11 +217,14 @@ def build(
     return request, quotes
 
 
-def build_argument(labelled: dict[str, Any]) -> tuple[FindingJudgeRequest, list[QuotedText]]:
+def build_argument(
+    labelled: dict[str, Any], speakers: dict[str, str | None] | None = None
+) -> tuple[FindingJudgeRequest, list[QuotedText]]:
     """An argument statement's request (`argument_statement_labels.py`'s entry), its Facts sent
     as the argument plan's Editor task sends them (`atlas.investigations.tasks._judged_fact`):
     predicate `fact`, no object, the Reader's status, period, quantity and statement. The
-    references are the statement's own (`c1`... in its Facts' order, counterevidence last)."""
+    references are the statement's own (`c1`... in its Facts' order, counterevidence last).
+    With `speakers` (`fetch_speakers`), a transcript Fact is sent with its speaker."""
     refs: list[str] = []
     claims: list[JudgedClaim] = []
     quotes: list[QuotedText] = []
@@ -168,6 +247,12 @@ def build_argument(labelled: dict[str, Any]) -> tuple[FindingJudgeRequest, list[
                 period=fact.get("period") or None,
                 quantity=fact.get("quantity") or None,
                 reading=fact.get("statement") or None,
+                speaker=judged_speaker(
+                    (speakers or {}).get(
+                        f"{fact.get('source_version_id')}#{fact.get('span_start')}"
+                        f"-{fact.get('span_end')}"
+                    )
+                ),
             )
         )
         quotes.append(
@@ -195,11 +280,16 @@ def labelled_rows(path: Path) -> list[dict[str, Any]]:
 
 
 def requests(
-    labelled: list[dict[str, Any]], *, argument: bool, pilot: Path
+    labelled: list[dict[str, Any]],
+    *,
+    argument: bool,
+    pilot: Path,
+    speakers: dict[str, str | None] | None = None,
+    use_speakers: bool = False,
 ) -> list[tuple[FindingJudgeRequest, list[QuotedText]]]:
     """Each labelled entry's request and quotes."""
     if argument:
-        return [build_argument(each) for each in labelled]
+        return [build_argument(each, speakers) for each in labelled]
     contexts: dict[int, tuple[str, dict[str, dict[str, Any]], dict[str, str]]] = {}
     built: list[tuple[FindingJudgeRequest, list[QuotedText]]] = []
     for each in labelled:
@@ -207,7 +297,7 @@ def requests(
         if investigation not in contexts:
             contexts[investigation] = evidence(pilot, investigation)
         question, items, titles = contexts[investigation]
-        built.append(build(each, question, items, titles))
+        built.append(build(each, question, items, titles, speakers=use_speakers))
     return built
 
 
@@ -320,6 +410,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--only", default="", help="comma-separated 1-based labelled indexes")
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument(
+        "--speakers", action="store_true", help="send a transcript quote's speaker (ticket 25)"
+    )
+    parser.add_argument("--base-url", default="https://atlas.ekenhome.se")
     args = parser.parse_args(argv)
     ceiling = ARGUMENT_CALL_CEILING if args.argument else CALL_CEILING
     limit = min(args.max_calls or ceiling, ceiling)
@@ -351,7 +445,14 @@ def main(argv: list[str] | None = None) -> int:
     out = args.out or REPO / ".scratch" / "live-runs" / f"{stamp}-finding-judge-eval"
     out.mkdir(parents=True, exist_ok=True)
     budget = Budget(limit)
-    built = requests(labelled, argument=args.argument, pilot=pilot)
+    speakers: dict[str, str | None] | None = None
+    if args.speakers and args.argument:
+        speakers = fetch_speakers(args.base_url, labelled)
+        (out / "speakers.json").write_text(json.dumps(speakers, indent=1), "utf-8")
+        print(f"{sum(1 for v in speakers.values() if v)} of {len(speakers)} spans have a speaker")
+    built = requests(
+        labelled, argument=args.argument, pilot=pilot, speakers=speakers, use_speakers=args.speakers
+    )
     rows: list[dict[str, Any]] = []
     client = httpx2.Client(
         base_url=(url or "http://dry-run.invalid").rstrip("/"),
@@ -394,12 +495,16 @@ def main(argv: list[str] | None = None) -> int:
             row["failure"] = failure
             row["answer"] = answer.model_dump(mode="json") if answer is not None else None
             row["raw_verdict"] = answer.verdict if answer is not None else None
-            effective = checked(answer, quotes) if answer is not None else None
+            # With speakers, a clause naming the speaker needs no basis, as in production.
+            metadata = speaker_texts(request) if args.speakers else []
+            effective = checked(answer, quotes, metadata) if answer is not None else None
             row["verdict"] = effective.verdict if effective is not None else None
             row["basis_turned"] = (
                 answer is not None and effective is not None and effective is not answer
             )
-            row["unverified"] = verify_bases(answer, quotes) if answer is not None else []
+            row["unverified"] = (
+                verify_bases(answer, quotes, metadata=metadata) if answer is not None else []
+            )
             row["clauses"] = len(answer.clauses) if answer is not None else None
             rows.append(row)
             mark = {
@@ -426,6 +531,7 @@ def main(argv: list[str] | None = None) -> int:
         "model": model,
         "labels": str(labels),
         "argument": args.argument,
+        "speakers": args.speakers,
         "calls": budget.used,
         "requests": len(built),
         **score(rows, argument=args.argument, dry_run=args.dry_run),
