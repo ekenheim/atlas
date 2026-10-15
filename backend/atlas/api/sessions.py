@@ -26,6 +26,7 @@ from atlas.api.common import (
     pagination,
 )
 from atlas.audit import Actor
+from atlas.judging import Judges
 from atlas.sessions import (
     ResearchSession,
     SessionAlreadyClosed,
@@ -42,9 +43,9 @@ from atlas.sessions import (
 Paged = Annotated[Pagination, Depends(pagination)]
 
 
-def sessions_router(engine: Engine, actor: Actor) -> APIRouter:
+def sessions_router(engine: Engine, actor: Actor, judges: Judges | None = None) -> APIRouter:
     router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
-    service = Sessions(engine, actor)
+    service = Sessions(engine, actor, judges)
 
     @router.get("", response_model=Page[SessionSummary], responses=INVALID)
     def sessions(page: Paged, theme: str | None = None) -> Page[SessionSummary]:  # pyright: ignore[reportUnusedFunction]

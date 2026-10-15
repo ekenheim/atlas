@@ -5006,6 +5006,29 @@ export interface components {
             period_resolved?: string | null;
             period_basis?: components["schemas"]["PeriodBasis"] | null;
         };
+        /**
+         * FactJudgement
+         * @description What the finding judge said of a Fact's statement against its own quote when it was
+         *     recorded in a research session (ticket 23; `atlas.judging`). Set by code, never by the
+         *     request. `supported`: the judge compared the statement with the quote, the source title and
+         *     date and found it says no more; `unjudged`: the judge could not be reached, and the Fact was
+         *     recorded without a verdict (`reason` says why). A misstated statement is never recorded.
+         */
+        FactJudgement: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "unjudged";
+            /** Judge */
+            judge?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Run Id */
+            run_id?: string | null;
+            /** Role Call Id */
+            role_call_id?: string | null;
+        };
         /** FactRecorded */
         FactRecorded: {
             fact: components["schemas"]["atlas__facts__service__Fact"];
@@ -10752,6 +10775,7 @@ export interface components {
             assertion: components["schemas"]["Assertion"];
             /** Part */
             part?: string | null;
+            statement_judgement?: components["schemas"]["FactJudgement"] | null;
         };
         /** Citation */
         atlas__hypotheses__export__Citation: {

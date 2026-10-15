@@ -72,6 +72,9 @@ def make_settings(archive_root: Path, **overrides: Any) -> Settings:
             "database_url": UNREACHABLE_DATABASE_URL,
             "actor": "local-researcher",
             "archive_root": archive_root,
+            # A session's Facts, thesis and Beliefs are judged at record (ticket 23): off unless
+            # a test scripts the judge (`fact_statement_judge="sessions"`).
+            "fact_statement_judge": "off",
             **overrides,
         }
     )
@@ -164,6 +167,8 @@ class Atlas:
         env = {
             "PATH": os.environ["PATH"],
             "HOME": str(self.tmp_path),
+            # Windows: a subprocess without SYSTEMROOT cannot load Winsock (WinError 10106).
+            **({"SYSTEMROOT": os.environ["SYSTEMROOT"]} if "SYSTEMROOT" in os.environ else {}),
             "ATLAS_DATABASE_URL": self.database_url,
             "ATLAS_ACTOR": "local-researcher",
             "ATLAS_ARCHIVE_ROOT": str(self.archive),

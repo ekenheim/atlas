@@ -56,6 +56,7 @@ from atlas.health import (
 )
 from atlas.hindsight import HindsightGateway
 from atlas.jobs import Clock, JobQueue, Pacing, utc_now
+from atlas.judging import Judges
 from atlas.llm_routes import LiteLLMRoutes
 from atlas.mcp import mcp_router
 from atlas.metrics import StateCollector, recall_latency
@@ -118,10 +119,14 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(archive_search_router(engine, archive))
     app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
-    app.include_router(facts_router(engine, archive, Actor.from_settings(settings)))
-    app.include_router(sessions_router(engine, Actor.from_settings(settings)))
+    app.include_router(facts_router(engine, archive, Actor.from_settings(settings), settings))
+    app.include_router(
+        sessions_router(engine, Actor.from_settings(settings), Judges(engine, settings))
+    )
     app.include_router(issues_router(engine, Actor.from_settings(settings)))
-    app.include_router(beliefs_router(engine, Actor.from_settings(settings)))
+    app.include_router(
+        beliefs_router(engine, Actor.from_settings(settings), Judges(engine, settings))
+    )
     app.include_router(
         memory_router(
             engine,

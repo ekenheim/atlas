@@ -561,6 +561,104 @@ def test_a_fact_whose_status_its_quote_contradicts_is_refused_and_the_reader_is_
     assert "'accounted for'" in told["step"]["looks_for"]
 
 
+def test_a_readers_fact_is_judged_against_its_quote_only_when_the_setting_says_always(
+    start: Callable[..., Atlas], llm: FakeLiteLLM
+) -> None:
+    """Ticket 23: the pipeline's Readers are not judged by default; under `always` a statement
+    beyond its quote is refused to the Reader like any other refusal, and a supported one is
+    recorded with the verdict, the judge's calls in the Reader's own run."""
+    atlas = start(fact_statement_judge="always", llm_role_models={"finding_judge": "luna"})
+    beyond = NVIDIA_STATEMENT.removesuffix(".") + ", and is already shipping to it."
+
+    def judged(verdict: str) -> ChatReply:
+        def answer(body: dict[str, Any]) -> JsonValue:
+            quote = asked(body)["retrieved_data"][0]
+            return {
+                "clauses": [{"text": NVIDIA_STATEMENT, "ref": quote["id"], "basis": quote["text"]}],
+                "verdict": verdict,
+                "beyond": [] if verdict == "supported" else ["is already shipping to it"],
+                "kinds": [] if verdict == "supported" else ["tense_or_status"],
+                "reason": "the quote states it" if verdict == "supported" else "no shipping",
+            }
+
+        return ChatReply.answer(answer, tokens=(400, 40))
+
+    llm.script_role(
+        "reader",
+        ChatReply.json(
+            act("search_archive", query=NVIDIA_QUERY, company_slugs=["coherent"]),
+            tokens=(1500, 60),
+        ),
+        fact(
+            lambda body: holding(body, NVIDIA),
+            NVIDIA,
+            step="capture",
+            statement=beyond,
+            status="planned",
+        ),
+        fact(
+            lambda body: holding(body, NVIDIA),
+            NVIDIA,
+            step="capture",
+            statement=NVIDIA_STATEMENT,
+            status="planned",
+        ),
+        ChatReply.json(act("done", summary="the NVIDIA agreement"), tokens=(2000, 30)),
+    )
+    llm.script_role("finding_judge", judged("misstated"), judged("supported"))
+
+    job_id = read_step(atlas, "capture")
+
+    artifacts = atlas.get(f"/api/v1/jobs/{job_id}")["artifacts"]
+    [refused] = artifacts["refused"]
+    assert refused["reason_code"] == "statement_beyond_quote"
+    assert "is already shipping to it" in refused["reason"]
+    [recorded] = artifacts["facts"]
+    assert recorded["statement"] == NVIDIA_STATEMENT
+    [found] = atlas.get("/api/v1/facts", step="capture")["items"]
+    assert found["statement_judgement"]["verdict"] == "supported"
+    run_id = artifacts["run_id"]
+    roles = [c["role"] for c in atlas.get(f"/api/v1/runs/{run_id}/role-calls")["role_calls"]]
+    assert roles.count("finding_judge") == 2  # in the Reader's run, one call per judged Fact
+
+
+def test_a_readers_fact_is_not_judged_under_the_production_default(
+    start: Callable[..., Atlas], llm: FakeLiteLLM
+) -> None:
+    """Ticket 23: under `sessions`, the default, the pipeline's Readers are left alone: a
+    statement beyond its quote is recorded as before, with no verdict and no judge call (the
+    fake fails on a `finding_judge` call nobody scripted)."""
+    atlas = start(fact_statement_judge="sessions", llm_role_models={"finding_judge": "luna"})
+    beyond = NVIDIA_STATEMENT.removesuffix(".") + ", and is already shipping to it."
+    llm.script_role(
+        "reader",
+        ChatReply.json(
+            act("search_archive", query=NVIDIA_QUERY, company_slugs=["coherent"]),
+            tokens=(1500, 60),
+        ),
+        fact(
+            lambda body: holding(body, NVIDIA),
+            NVIDIA,
+            step="capture",
+            statement=beyond,
+            status="planned",
+        ),
+        ChatReply.json(act("done", summary="the NVIDIA agreement"), tokens=(2000, 30)),
+    )
+
+    job_id = read_step(atlas, "capture")
+
+    artifacts = atlas.get(f"/api/v1/jobs/{job_id}")["artifacts"]
+    assert artifacts["refused"] == []
+    [recorded] = artifacts["facts"]
+    assert recorded["statement"] == beyond
+    [found] = atlas.get("/api/v1/facts", step="capture")["items"]
+    assert found["statement_judgement"] is None
+    run_id = artifacts["run_id"]
+    roles = [c["role"] for c in atlas.get(f"/api/v1/runs/{run_id}/role-calls")["role_calls"]]
+    assert roles.count("finding_judge") == 0
+
+
 CURRENT_YEAR = (
     "The decrease in revenues during the current fiscal year was primarily attributable to the"
     " divestitures of our aerospace and defense business"
