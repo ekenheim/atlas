@@ -1,7 +1,7 @@
 # 16: The four agent prompts: Scout, Researcher, Skeptic, Editor
 
 Type: build
-Status: in-review
+Status: done
 Blocked by: 15
 
 ## What to build
@@ -10,4 +10,8 @@ Beside the Researcher's SKILL.md in `.claude/skills/atlas-research/`: `scout.md`
 
 ## Acceptance criteria
 
-- [ ] Each prompt run once on photonics by hand (the lead), scored where the pilot's procedure applies: the Skeptic's Facts blind-reviewed; the Scout's Issues judged on-question; the Editor's draft through the gate.
+- [x] Each prompt run once on photonics by hand (the lead), scored where the pilot's procedure applies: the Skeptic's Facts blind-reviewed; the Scout's Issues judged on-question; the Editor's draft through the gate.
+
+## Answer
+
+2026-10-15 on v0.6.4 (`.scratch/pilot/results.md`, "The agent prompts' hand runs"): Scout 7/7 Facts right, 5/6 Issues on-question; Skeptic: the Belief stands, 2 of 3 cited Facts right; Editor: drafted, no statement kept (ticket 24).
