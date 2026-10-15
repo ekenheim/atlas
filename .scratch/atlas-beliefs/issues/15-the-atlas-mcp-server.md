@@ -1,7 +1,7 @@
 # 15: The Atlas MCP server
 
 Type: build
-Status: open
+Status: done
 Blocked by: 14
 
 ## What to build
@@ -10,5 +10,5 @@ Blocked by: 14
 
 ## Acceptance criteria
 
-- [ ] HTTP-seam tests: the tool list, one call per tool against the fakes, the as-of refusal, the session's recorded calls.
+- [x] HTTP-seam tests: the tool list, one call per tool against the fakes, the as-of refusal, the session's recorded calls.
 - [ ] A Claude Code session with the server configured runs question 2 without the script (the lead), scored.

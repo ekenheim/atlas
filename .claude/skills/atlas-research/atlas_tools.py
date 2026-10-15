@@ -1,5 +1,10 @@
 """Atlas's research tools for a session (the `atlas-research` skill). Standard library only.
 
+Superseded by the Atlas MCP server (`atlas.mcp`, `/mcp`; atlas-beliefs ticket 15), which has
+a tool for each command below and enforces the session's as-of time itself, from the session's
+row: the `check_as_of`, `locate` and `recall` filtering here are its rules done on the client.
+This script is kept working for now and keeps its own as-of arguments; prefer the tools.
+
     python atlas_tools.py companies
     python atlas_tools.py search --company <slug> --q "<terms>" --as-of <ISO> [--top 8] [--per-document 2]
     python atlas_tools.py read --version <id> --start <n> --end <m> --as-of <ISO>
