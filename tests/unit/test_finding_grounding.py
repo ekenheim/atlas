@@ -117,6 +117,26 @@ def test_function_words_and_quoted_words_that_start_a_sentence_are_not_names() -
     assert check("However, the Rosemont fab is sold out. The site is in France.", CALL) == []
 
 
+def test_a_discourse_word_that_opens_a_sentence_or_clause_is_not_a_name() -> None:
+    # Ticket 24: the Editor's rewrite "According to the quoted statement, ..." was refused.
+    assert check("According to the filing, the Rosemont fab is sold out.", CALL) == []
+    assert check("Despite the delay, the site is in France. Given that, it is sold.", CALL) == []
+    assert check("The fab is sold out; Based on the call, it adds capacity.", CALL) == []
+    assert check("The fab is sold out, Following the call it adds capacity.", CALL) == []
+    assert check("The fab is sold out. Currently the site is in France.", CALL) == []
+
+
+def test_a_real_unknown_name_at_the_start_of_a_sentence_or_clause_is_still_flagged() -> None:
+    assert check("Zephyr is adding capacity in France.", CALL) == ["Zephyr"]
+    assert check("The fab is sold out. Halcyon is adding capacity.", CALL) == ["Halcyon"]
+    # A discourse word followed by a name: the word is not the name, the name still must be found.
+    assert check("According to Halcyon, the fab is sold out.", CALL) == ["Halcyon"]
+    assert check("Given Imaging is adding capacity.", CALL) == ["Imaging"]
+    # Only in the opening position: inside a sentence a capitalised "Given" is a name.
+    assert check("Its unit Given Imaging is in France.", CALL) == ["Given Imaging"]
+    assert check("Sold out, Zurich adds capacity.", CALL) == ["Zurich"]
+
+
 def test_multi_word_names_found_in_the_quote_are_grounded_as_a_whole() -> None:
     statement = "Zephyr Optics signed a Master Supply Agreement with Halcyon Networks."
     assert check(statement, AGREEMENT) == []

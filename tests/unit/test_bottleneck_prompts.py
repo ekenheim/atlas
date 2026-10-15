@@ -8,7 +8,12 @@ from typing import Any
 import pytest
 
 from atlas.roles import Role
-from atlas.roles.editor import EDITOR, EDITOR_ARGUMENT, HYPOTHESIS_EDITOR
+from atlas.roles.editor import (
+    EDITOR,
+    EDITOR_ARGUMENT,
+    HYPOTHESIS_BELIEFS_EDITOR,
+    HYPOTHESIS_EDITOR,
+)
 from atlas.roles.investigator import INVESTIGATOR
 from atlas.roles.scout import SCOUT
 from atlas.roles.skeptic import CHECKLIST_NAMES, SKEPTIC, SKEPTIC_PLAN
@@ -255,6 +260,23 @@ EXPECTED: list[tuple[Role[Any, Any], str, int, tuple[str, ...]]] = [
             "the chokepoint",
             "the mechanism",
             "<bottleneck layer>: <chokepoint> - <mechanism>",
+            "Always include capacity relief",
+            "dilution or financing",
+        ),
+    ),
+    (
+        HYPOTHESIS_BELIEFS_EDITOR,
+        "editor-hypothesis-beliefs",
+        # v2: statements in the Editor's own words, no quotation marks, no scope words or titles
+        # the quotes lack; the thesis adds no qualifier its Beliefs lack (ticket 24)
+        2,
+        (
+            "states the cited Beliefs in your own words",
+            "Write no quotation marks and no quoted phrase",
+            'no scope word ("merchant", "global", "sole")',
+            "no speaker's title or role that the quote's source title does not give",
+            "add no qualifier the Beliefs lack",
+            "<bottleneck layer>: <chokepoint> -",
             "Always include capacity relief",
             "dilution or financing",
         ),

@@ -264,6 +264,22 @@ def requires_unflagged_beliefs(
     )
 
 
+def requires_supported_thesis(
+    _connection: Connection, _hypothesis: RowMapping, version: HypothesisVersion
+) -> GateFailure | None:
+    """The thesis statement was not judged misstated against its Beliefs' Facts (ticket 24): a
+    draft whose thesis still reached beyond its quotes after one rewrite is stored, not refused,
+    and held here until a correction changes the thesis. Not covered by the Belief override."""
+    if version.content.thesis_judged != "misstated":
+        return None
+    reason = version.content.thesis_misstated_reason or "it reaches beyond its Beliefs' quotes"
+    return GateFailure(
+        "thesis_misstated",
+        f"the thesis statement was judged misstated against its Beliefs' quotes: {reason}",
+        belief_ids=tuple(version.content.thesis_belief_ids),
+    )
+
+
 DEFAULT_PUBLISH_GATE: tuple[PublishCheck, ...] = (
     requires_falsifier,
     requires_unresolved_question,
@@ -271,6 +287,7 @@ DEFAULT_PUBLISH_GATE: tuple[PublishCheck, ...] = (
     requires_reviewed_assertions,
     requires_proven_beliefs,
     requires_unflagged_beliefs,
+    requires_supported_thesis,
 )
 
 
@@ -556,8 +573,15 @@ class Hypotheses:
                 )
                 if value is not None
             }
+            # A thesis the researcher rewrites is no longer the one the judge saw (ticket 24).
+            judged: dict[str, object] = {}
+            if (
+                changes.get("thesis_statement", content.thesis_statement)
+                != content.thesis_statement
+            ):
+                judged = {"thesis_judged": None, "thesis_misstated_reason": None}
             new_content = HypothesisContent.model_validate(
-                content.model_dump() | changes | {"findings": findings}
+                content.model_dump() | changes | judged | {"findings": findings}
             )
             number = base.version + 1
             version = insert_version(

@@ -17845,7 +17845,7 @@
             },
             "type": "array",
             "title": "Belief Ids",
-            "description": "`belief_not_proven`: the load-bearing Beliefs that are not proven"
+            "description": "`belief_not_proven`: the load-bearing Beliefs that are not proven; `thesis_misstated`: the Beliefs the misstated thesis cites"
           }
         },
         "type": "object",
@@ -18256,6 +18256,32 @@
             },
             "type": "array",
             "title": "Thesis Belief Ids"
+          },
+          "thesis_judged": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "supported",
+                  "misstated"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Judged"
+          },
+          "thesis_misstated_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Misstated Reason"
           }
         },
         "type": "object",

@@ -14,13 +14,13 @@ from atlas.roles.finding_judge import (
 )
 
 
-def test_the_role_is_v4_and_its_strict_schema_requires_the_clauses() -> None:
+def test_the_role_is_v5_and_its_strict_schema_requires_the_clauses() -> None:
     assert (FINDING_JUDGE.name, FINDING_JUDGE.prompt.name, FINDING_JUDGE.prompt.version) == (
         "finding_judge",
         "finding_judge",
-        4,
+        5,
     )
-    assert FINDING_JUDGE_VERSION == "finding_judge.v4"
+    assert FINDING_JUDGE_VERSION == "finding_judge.v5"
     schema = FINDING_JUDGE.response_schema()
     assert sorted(schema["required"]) == ["beyond", "clauses", "kinds", "reason", "verdict"]
     clause = schema["$defs"]["JudgedClause"]
@@ -74,10 +74,10 @@ def test_a_judged_fact_carries_its_status_period_quantity_and_reading() -> None:
     }
 
 
-def test_a_judged_claim_carries_its_source_date_and_the_prompt_is_v4() -> None:
+def test_a_judged_claim_carries_its_source_date_and_the_prompt_is_v5() -> None:
     claim_schema = FindingJudgeRequest.model_json_schema()["$defs"]["JudgedClaim"]
     assert "source_date" in claim_schema["properties"]
-    assert FINDING_JUDGE_VERSION == "finding_judge.v4"
+    assert FINDING_JUDGE_VERSION == "finding_judge.v5"
     assert "source_date" in FINDING_JUDGE.prompt.text
     assert "90 days" in FINDING_JUDGE.prompt.text
     claim = JudgedClaim(

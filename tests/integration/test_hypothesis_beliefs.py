@@ -51,6 +51,7 @@ CAPTURE_STATEMENT = "Lumentum reported net revenue of $3.01 billion for fiscal y
 REWRITTEN = "Lumentum reported net revenue of $3.01 billion in fiscal year 2026, up sharply."
 THESIS = "Lumentum may be straining its laser capacity as its revenue grows in fiscal year 2026."
 ACTOR = "claude-session"
+DRAFTER = "hypothesis_editor"  # the Belief draft's role; its rewrites are the `editor`
 
 
 @pytest.fixture
@@ -277,7 +278,7 @@ def editor(
 
 
 def supporting(body: dict[str, Any]) -> JsonValue:
-    """The finding judge (`finding_judge.v4`): supported, the statement one clause whose basis
+    """The finding judge (`finding_judge.v5`): supported, the statement one clause whose basis
     is the first cited quote, whole."""
     request = asked(body)
     statement = request["request"]["finding"]["statement"]
@@ -330,13 +331,13 @@ def ready(
     capture = beliefs.belief(CAPTURE, "capture", YEAR)
     beliefs.belief(UNPROVEN, "control", INCOME, judged=None)
     llm.script_role(
-        "editor",
+        DRAFTER,
         ChatReply.answer(
             draft or editor({"constraint": CONSTRAINT_STATEMENT, "capture": CAPTURE_STATEMENT}),
             tokens=(3000, 700),
         ),
     )
-    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
+    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 3)
     saved = beliefs.create()
     beliefs.worker_pass()
     return beliefs.hypothesis(saved["id"]), constraint, capture
@@ -359,7 +360,7 @@ def test_a_hypothesis_is_drafted_from_proven_beliefs_with_steps_grounded_and_jud
     [request] = [
         asked(body)["request"]
         for body in llm.chat_requests()
-        if body["metadata"]["role"] == "editor"
+        if body["metadata"]["role"] == DRAFTER
     ]
     assert [(each["ref"], each["step"], each["judgement"]) for each in request["beliefs"]] == [
         ("b1", "constraint", "proven"),
@@ -390,9 +391,31 @@ def test_a_hypothesis_is_drafted_from_proven_beliefs_with_steps_grounded_and_jud
     assert citation["quote"] == QUARTER
     assert citation["span_end"] - citation["span_start"] == len(QUARTER)
     assert content["unsupported_findings"] == []
-    # One judge call per statement; the draft's provenance names the Beliefs it was sent.
-    assert roles(llm) == ["editor", "finding_judge", "finding_judge"]
+    # One judge call per statement, the thesis first (ticket 24); the draft's provenance names
+    # the Beliefs it was sent.
+    assert roles(llm) == [DRAFTER, "finding_judge", "finding_judge", "finding_judge"]
+    assert [
+        asked(body)["request"]["finding"]["statement"]
+        for body in llm.chat_requests()
+        if body["metadata"]["role"] == "finding_judge"
+    ] == [THESIS, CONSTRAINT_STATEMENT, CAPTURE_STATEMENT]
+    assert (content["thesis_statement"], content["thesis_judged"]) == (THESIS, "supported")
+    assert content["thesis_misstated_reason"] is None
     provenance = version["provenance"]
+    # The draft is the v2 prompt, under its own role name; statements carry no quotation marks.
+    [drafted] = [
+        each
+        for each in beliefs.get(f"/api/v1/runs/{provenance['draft_run_id']}/role-calls")[
+            "role_calls"
+        ]
+        if each["role"] == DRAFTER
+    ]
+    assert (drafted["prompt_name"], drafted["prompt_version"]) == ("editor-hypothesis-beliefs", 2)
+    assert [each["statement"] for each in content["steps"]] == [
+        CONSTRAINT_STATEMENT,
+        CAPTURE_STATEMENT,
+    ]
+    assert not any('"' in each["statement"] for each in content["steps"])
     assert provenance["investigation_id"] is None
     assert provenance["belief_ids"] == [constraint["id"], capture["id"]]
     # The read returns the same steps.
@@ -417,15 +440,13 @@ def test_a_statement_citing_no_belief_it_was_sent_or_misstating_its_quotes_is_se
 
     beliefs.belief(CONSTRAINT, "constraint", QUARTER)
     beliefs.belief(CAPTURE, "capture", YEAR)
-    llm.script_role(
-        "editor",
-        ChatReply.answer(citing_badly, tokens=(3000, 700)),
-        # The rewrite of the misstated capture statement, grounded but judged misstated again.
-        ChatReply.answer(rewriting(REWRITTEN), tokens=(800, 80)),
-    )
-    # constraint: supported; capture: misstated, rewritten, misstated again.
+    llm.script_role(DRAFTER, ChatReply.answer(citing_badly, tokens=(3000, 700)))
+    # The rewrite of the misstated capture statement, grounded but judged misstated again.
+    llm.script_role("editor", ChatReply.answer(rewriting(REWRITTEN), tokens=(800, 80)))
+    # thesis and constraint: supported; capture: misstated, rewritten, misstated again.
     llm.script_role(
         "finding_judge",
+        ChatReply.answer(supporting, tokens=(400, 40)),
         ChatReply.answer(supporting, tokens=(400, 40)),
         ChatReply.answer(misstating, tokens=(400, 40)),
         ChatReply.answer(misstating, tokens=(400, 40)),
@@ -445,7 +466,12 @@ def test_a_statement_citing_no_belief_it_was_sent_or_misstating_its_quotes_is_se
     assert reasons["Capacity relief arrives."].startswith("cites what isn't a Belief it was sent")
     assert reasons["Lumentum controls it."] == "cites no Belief"
     assert reasons[REWRITTEN] == "misstated after a rewrite: the quote states another period"
-    assert roles(llm) == ["editor", "finding_judge", "finding_judge", "editor", "finding_judge"]
+    assert roles(llm) == [
+        DRAFTER,
+        *["finding_judge"] * 3,
+        "editor",
+        "finding_judge",
+    ]
 
 
 def test_a_theme_with_no_proven_belief_is_not_drafted_and_one_basis_is_required(
@@ -494,9 +520,9 @@ def test_a_draft_can_be_limited_to_the_beliefs_of_named_sessions(
     )
     beliefs.judge(ours["id"], "proven")
     llm.script_role(
-        "editor", ChatReply.answer(editor({"capture": CAPTURE_STATEMENT}), tokens=(3000, 700))
+        DRAFTER, ChatReply.answer(editor({"capture": CAPTURE_STATEMENT}), tokens=(3000, 700))
     )
-    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
 
     saved = beliefs.create(session_ids=[session])
     beliefs.worker_pass()
@@ -643,7 +669,7 @@ def test_several_statements_of_a_step_are_kept_and_a_rejected_one_is_recorded(
 ) -> None:
     beliefs.belief(CONSTRAINT, "constraint", QUARTER)
     llm.script_role(
-        "editor",
+        DRAFTER,
         ChatReply.answer(
             editor(
                 {
@@ -656,11 +682,13 @@ def test_several_statements_of_a_step_are_kept_and_a_rejected_one_is_recorded(
             ),
             tokens=(3000, 700),
         ),
-        ChatReply.answer(rewriting(REWORDED), tokens=(800, 80)),
     )
-    # The first two points are supported; the third is misstated, rewritten and misstated again.
+    llm.script_role("editor", ChatReply.answer(rewriting(REWORDED), tokens=(800, 80)))
+    # The thesis and the first two points are supported; the third is misstated, rewritten and
+    # misstated again.
     llm.script_role(
         "finding_judge",
+        ChatReply.answer(supporting, tokens=(400, 40)),
         ChatReply.answer(supporting, tokens=(400, 40)),
         ChatReply.answer(supporting, tokens=(400, 40)),
         ChatReply.answer(misstating, tokens=(400, 40)),
@@ -689,12 +717,14 @@ def test_an_ungrounded_thesis_is_asked_again_once_and_then_the_draft_is_refused(
 ) -> None:
     beliefs.belief(CONSTRAINT, "constraint", QUARTER)
     llm.script_role(
-        "editor",
+        DRAFTER,
         ChatReply.answer(
             editor({"constraint": CONSTRAINT_STATEMENT}, thesis="Lumentum may earn $9.99 billion."),
             tokens=(3000, 700),
         ),
-        ChatReply.answer(rewriting("Lumentum may earn $8.88 billion."), tokens=(800, 80)),
+    )
+    llm.script_role(
+        "editor", ChatReply.answer(rewriting("Lumentum may earn $8.88 billion."), tokens=(800, 80))
     )
     saved = beliefs.create()
     beliefs.worker_pass()
@@ -703,7 +733,7 @@ def test_an_ungrounded_thesis_is_asked_again_once_and_then_the_draft_is_refused(
     assert hypothesis["draft_status"] == "failed"
     assert "thesis statement is ungrounded" in hypothesis["draft_error"]
     assert hypothesis["versions"] == []
-    assert roles(llm) == ["editor", "editor"]  # the draft, and the one ask again
+    assert roles(llm) == [DRAFTER, "editor"]  # the draft, and the one ask again
 
 
 def test_a_thesis_the_editor_repairs_when_asked_again_is_kept(
@@ -712,14 +742,14 @@ def test_a_thesis_the_editor_repairs_when_asked_again_is_kept(
     beliefs.belief(CONSTRAINT, "constraint", QUARTER)
     repaired = "Lumentum may be straining its capacity as revenue reached $1.01 billion."
     llm.script_role(
-        "editor",
+        DRAFTER,
         ChatReply.answer(
             editor({"constraint": CONSTRAINT_STATEMENT}, thesis="Lumentum may earn $9.99 billion."),
             tokens=(3000, 700),
         ),
-        ChatReply.answer(rewriting(repaired), tokens=(800, 80)),
     )
-    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    llm.script_role("editor", ChatReply.answer(rewriting(repaired), tokens=(800, 80)))
+    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
     saved = beliefs.create()
     beliefs.worker_pass()
 
@@ -728,18 +758,283 @@ def test_a_thesis_the_editor_repairs_when_asked_again_is_kept(
     assert hypothesis["versions"][0]["content"]["thesis_statement"] == repaired
 
 
+# --- the thesis is judged (ticket 24) ---------------------------------------------------------
+
+BROAD_THESIS = "Lumentum may be straining its laser capacity in the merchant market in fiscal 2026."
+STILL_BROAD = (
+    "Lumentum may be straining its merchant laser capacity as revenue grows in fiscal 2026."
+)
+HEDGED = "Lumentum may be straining its laser capacity as net revenue reached $1.01 billion."
+
+
+def judged_statements(llm: FakeLiteLLM) -> list[str]:
+    return [
+        asked(body)["request"]["finding"]["statement"]
+        for body in llm.chat_requests()
+        if body["metadata"]["role"] == "finding_judge"
+    ]
+
+
+def test_a_thesis_with_an_unsupported_qualifier_is_held_at_the_gate_after_one_rewrite(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    constraint = beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis=BROAD_THESIS), tokens=(3000, 700)
+        ),
+    )
+    llm.script_role("editor", ChatReply.answer(rewriting(STILL_BROAD), tokens=(800, 80)))
+    # The thesis: misstated, rewritten, misstated again. The step statement: supported.
+    llm.script_role(
+        "finding_judge",
+        ChatReply.answer(misstating, tokens=(400, 40)),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+        ChatReply.answer(misstating, tokens=(400, 40)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    hypothesis = beliefs.hypothesis(saved["id"])
+    # Stored, not refused: the thesis as last judged (the Editor's rewrite), flagged with the
+    # judge's reason for it.
+    assert hypothesis["draft_status"] == "drafted", hypothesis["draft_error"]
+    content = hypothesis["versions"][0]["content"]
+    assert content["thesis_statement"] == STILL_BROAD
+    assert content["thesis_judged"] == "misstated"
+    assert content["thesis_misstated_reason"] == (
+        "misstated after a rewrite: the quote states another period"
+    )
+    assert content["steps"][0]["statement"] == CONSTRAINT_STATEMENT
+    assert content["unsupported_findings"] == []
+    assert roles(llm) == [DRAFTER, "finding_judge", "finding_judge", "editor", "finding_judge"]
+    assert judged_statements(llm) == [BROAD_THESIS, CONSTRAINT_STATEMENT, STILL_BROAD]
+    assert beliefs.draft_artifacts()["thesis_judged"] == "misstated"
+
+    # The owner sees it at the gate, and the Belief override does not cover it.
+    beliefs.post(f"/api/v1/hypotheses/{saved['id']}/transitions", {"to": "evidence_ready"})
+    read = beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")
+    [failure] = read["failures"]
+    assert (failure["code"], failure["belief_ids"]) == ("thesis_misstated", [constraint["id"]])
+    assert "misstated after a rewrite: the quote states another period" in failure["message"]
+    assert read["publishable"] is False
+    refused = publish(beliefs, saved["id"], override_beliefs=True, override_reason="reviewed")
+    assert refused.status_code == 422
+    assert [each["code"] for each in refused.json()["error"]["failures"]] == ["thesis_misstated"]
+
+    # A correction that rewrites the thesis is no longer the thesis the judge saw.
+    beliefs.post(
+        f"/api/v1/hypotheses/{saved['id']}/versions",
+        {"based_on_version": 1, "note": "drops the qualifier", "thesis_statement": THESIS},
+        status=201,
+    )
+    assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
+    [_, second] = beliefs.hypothesis(saved["id"])["versions"]
+    assert (second["content"]["thesis_judged"], second["content"]["thesis_misstated_reason"]) == (
+        None,
+        None,
+    )
+    assert publish(beliefs, saved["id"], version=2).status_code == 200
+
+
+def test_a_hedged_thesis_passes_and_a_misstated_one_the_editor_repairs_is_kept(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis=BROAD_THESIS), tokens=(3000, 700)
+        ),
+    )
+    # The rewrite keeps the "may" the Beliefs do not carry: caution is not a claim beyond the
+    # quotes, so the judge supports it.
+    llm.script_role("editor", ChatReply.answer(rewriting(HEDGED), tokens=(800, 80)))
+    llm.script_role(
+        "finding_judge",
+        ChatReply.answer(misstating, tokens=(400, 40)),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    content = beliefs.hypothesis(saved["id"])["versions"][0]["content"]
+    assert (content["thesis_statement"], content["thesis_judged"]) == (HEDGED, "supported")
+    assert content["thesis_misstated_reason"] is None
+    assert judged_statements(llm) == [BROAD_THESIS, CONSTRAINT_STATEMENT, HEDGED]
+    beliefs.post(f"/api/v1/hypotheses/{saved['id']}/transitions", {"to": "evidence_ready"})
+    assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
+
+
+def clausing(*, scope: bool = False) -> Callable[[dict[str, Any]], JsonValue]:
+    """The finding judge as `finding_judge.v5` asks it to behave on a thesis: it answers
+    `supported`, splitting the statement at " as " into the hedged proposition (no quote states
+    it: no reference, no basis) and the clause a quote does state. `scope`: it also splits out
+    the scope word "merchant", which no quote states, and still says `supported` (a judge's
+    slip code must catch). It answers as it does only when told the statement is a thesis."""
+
+    def respond(body: dict[str, Any]) -> JsonValue:
+        request = asked(body)
+        assert request["request"]["finding"]["thesis"] is True
+        statement = request["request"]["finding"]["statement"]
+        quote = request["retrieved_data"][0]
+        proposition, _, rest = statement.partition(" as ")
+        clauses: list[JsonValue] = [{"text": proposition, "ref": None, "basis": None}]
+        if scope:
+            clauses = [
+                {
+                    "text": "Lumentum may be straining its laser capacity",
+                    "ref": None,
+                    "basis": None,
+                },
+                {"text": "in the merchant market", "ref": None, "basis": None},
+            ]
+        return {
+            "clauses": [
+                *clauses,
+                {"text": f"as {rest}", "ref": quote["id"], "basis": "$1.01 billion"},
+            ],
+            "verdict": "supported",
+            "beyond": [],
+            "kinds": [],
+            "reason": "the proposition is hedged and the figure is the quote's",
+        }
+
+    return respond
+
+
+def test_a_hedged_proposition_with_no_quote_basis_leaves_the_thesis_supported(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    """A judge that follows `finding_judge.v5` gives a thesis's bare hedged proposition no
+    basis; code does not turn that into `unstated` for a thesis (it still does for a step)."""
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis=HEDGED), tokens=(3000, 700)
+        ),
+    )
+    llm.script_role(
+        "finding_judge",
+        ChatReply.answer(clausing(), tokens=(400, 40)),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    content = beliefs.hypothesis(saved["id"])["versions"][0]["content"]
+    assert (content["thesis_statement"], content["thesis_judged"]) == (HEDGED, "supported")
+    assert content["thesis_misstated_reason"] is None
+    # Only the thesis's request says so; the step's does not.
+    flags = [
+        asked(body)["request"]["finding"]["thesis"]
+        for body in llm.chat_requests()
+        if body["metadata"]["role"] == "finding_judge"
+    ]
+    assert flags == [True, False]
+    beliefs.post(f"/api/v1/hypotheses/{saved['id']}/transitions", {"to": "evidence_ready"})
+    assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
+
+
+def test_a_scope_word_no_quote_states_still_makes_the_thesis_misstated(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    """The hedge excuses only the bare proposition: "merchant" has no basis, so a `supported`
+    vote is `misstated` (`unstated`), the Editor rewrites once, and the thesis is held."""
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(
+            editor({"constraint": CONSTRAINT_STATEMENT}, thesis=BROAD_THESIS), tokens=(3000, 700)
+        ),
+    )
+    llm.script_role("editor", ChatReply.answer(rewriting(BROAD_THESIS), tokens=(800, 80)))
+    llm.script_role(
+        "finding_judge",
+        ChatReply.answer(clausing(scope=True), tokens=(400, 40)),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+        ChatReply.answer(clausing(scope=True), tokens=(400, 40)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    content = beliefs.hypothesis(saved["id"])["versions"][0]["content"]
+    assert (content["thesis_statement"], content["thesis_judged"]) == (BROAD_THESIS, "misstated")
+    reason = content["thesis_misstated_reason"]
+    assert reason.startswith(
+        'misstated after a rewrite: basis unverified: "in the merchant market"'
+    )
+    assert "may be straining" not in reason.split("(the judge's reason")[0]
+    assert content["steps"][0]["statement"] == CONSTRAINT_STATEMENT
+
+
+def test_a_thesis_is_stored_unjudged_when_the_judge_is_off_or_its_call_fails(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(editor({"constraint": CONSTRAINT_STATEMENT}), tokens=(3000, 700)),
+    )
+    # The thesis judge call is answered with something that is not the judge's schema, twice
+    # (the call and its one repair): quarantined, so the thesis stays unjudged; the step's passes.
+    llm.script_role(
+        "finding_judge",
+        ChatReply.text("not json"),
+        ChatReply.text("not json"),
+        ChatReply.answer(supporting, tokens=(400, 40)),
+    )
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    hypothesis = beliefs.hypothesis(saved["id"])
+    assert hypothesis["draft_status"] == "drafted", hypothesis["draft_error"]
+    content = hypothesis["versions"][0]["content"]
+    assert (content["thesis_statement"], content["thesis_judged"]) == (THESIS, None)
+    assert content["steps"][0]["statement"] == CONSTRAINT_STATEMENT
+
+
+def test_the_belief_draft_routes_by_its_own_role_name(beliefs: Beliefs, llm: FakeLiteLLM) -> None:
+    beliefs.atlas.overrides["llm_role_models"] = {"hypothesis_editor": "judge-model"}
+    beliefs.belief(CONSTRAINT, "constraint", QUARTER)
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(editor({"constraint": CONSTRAINT_STATEMENT}), tokens=(3000, 700)),
+    )
+    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
+    saved = beliefs.create()
+    beliefs.worker_pass()
+
+    hypothesis = beliefs.hypothesis(saved["id"])
+    assert hypothesis["draft_status"] == "drafted", hypothesis["draft_error"]
+    assert [(body["metadata"]["role"], body["model"]) for body in llm.chat_requests()] == [
+        (DRAFTER, "judge-model"),
+        ("finding_judge", "MiniMax-M3"),
+        ("finding_judge", "MiniMax-M3"),
+    ]
+    run = hypothesis["versions"][0]["provenance"]["draft_run_id"]
+    recorded = {
+        each["role"]: each["model"]
+        for each in beliefs.get(f"/api/v1/runs/{run}/role-calls")["role_calls"]
+    }
+    assert recorded == {DRAFTER: "judge-model", "finding_judge": "MiniMax-M3"}
+
+
 def test_a_reference_the_editor_was_not_sent_is_recorded_in_the_drafts_artifacts(
     beliefs: Beliefs, llm: FakeLiteLLM
 ) -> None:
     beliefs.belief(CONSTRAINT, "constraint", QUARTER)
     llm.script_role(
-        "editor",
+        DRAFTER,
         ChatReply.answer(
             editor({"constraint": CONSTRAINT_STATEMENT}, thesis_extra=("b9",)),
             tokens=(3000, 700),
         ),
     )
-    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
     saved = beliefs.create()
     beliefs.worker_pass()
 
@@ -768,10 +1063,10 @@ def test_the_draft_takes_only_beliefs_as_of_the_versions_cutoff(
     )
     beliefs.judge(later["id"], "proven")
     llm.script_role(
-        "editor",
+        DRAFTER,
         ChatReply.answer(editor({"constraint": CONSTRAINT_STATEMENT}), tokens=(3000, 700)),
     )
-    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
 
     saved = beliefs.create(as_of="2026-10-01T00:00:00Z")
     beliefs.worker_pass()
@@ -782,7 +1077,7 @@ def test_the_draft_takes_only_beliefs_as_of_the_versions_cutoff(
     [request] = [
         asked(body)["request"]
         for body in llm.chat_requests()
-        if body["metadata"]["role"] == "editor"
+        if body["metadata"]["role"] == DRAFTER
     ]
     assert [each["step"] for each in request["beliefs"]] == ["constraint"]
     # Nothing as of that time and proven: nothing to draft from.
@@ -945,6 +1240,7 @@ def test_the_mcp_get_hypothesis_reads_the_drafted_steps_and_the_gate_after_a_rej
     assert (drafted["draft_status"], drafted["draft_error"]) == ("drafted", None)
     version = drafted["version"]
     assert version["thesis_belief_ids"] == [constraint["id"]]
+    assert (version["thesis_judged"], version["thesis_misstated_reason"]) == ("supported", None)
     assert [step["step"] for step in version["steps"]] == ["constraint", "capture"]
     [first] = version["steps"][0]["statements"]
     assert (first["statement"], first["belief_ids"], first["judged"]) == (

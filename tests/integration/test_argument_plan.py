@@ -294,7 +294,7 @@ def editing(body: dict[str, Any]) -> JsonValue:
 
 
 def supporting(body: dict[str, Any]) -> JsonValue:
-    """The finding judge (`finding_judge.v4`): supported, the statement one clause whose basis
+    """The finding judge (`finding_judge.v5`): supported, the statement one clause whose basis
     is the first cited quote, whole (code checks it occurs there)."""
     request = asked(body)
     statement = request["request"]["finding"]["statement"]
@@ -815,7 +815,7 @@ def test_the_argument_plan_asks_the_judge_as_many_votes_as_configured(
     first = card["judged"][0]
     assert first["clauses"][0]["basis"] == SHERMAN
     assert first["unverified"] == []
-    assert first["judge"] == "finding_judge.v4"
+    assert first["judge"] == "finding_judge.v5"
     steps = {step["step"]: step for step in card["steps"]}
     assert [s["statement"] for s in steps["relief"]["statements"]] == [RELIEF_REWRITTEN]
     # Every judge call was sent the cited Fact's reading: its status, period and statement.

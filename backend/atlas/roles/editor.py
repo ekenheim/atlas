@@ -460,7 +460,9 @@ HYPOTHESIS_EDITOR = Role(
 
 # --- the Hypothesis drafted from Beliefs (atlas-beliefs ticket 14) ------------------------------
 
-HYPOTHESIS_BELIEFS_EDITOR_PROMPT_VERSION = 1
+# v2: a step statement states its Beliefs in the Editor's own words (no quotation marks, no scope
+# words or titles the quotes lack), and the thesis adds no qualifier its Beliefs lack (ticket 24).
+HYPOTHESIS_BELIEFS_EDITOR_PROMPT_VERSION = 2
 
 
 class BeliefItem(_Request):
@@ -512,8 +514,10 @@ class HypothesisBeliefsDraft(RoleOutput):
     steps: list[BeliefStepStatement]
 
 
+# Its own role name, so ATLAS_LLM_ROLE_MODELS can send this draft to another model than the card
+# Editors' (ticket 24); the regrounding and revising calls it makes are still the `editor`.
 HYPOTHESIS_BELIEFS_EDITOR = Role(
-    name="editor",
+    name="hypothesis_editor",
     prompt=Prompt.load(
         PROMPTS_DIR, "editor-hypothesis-beliefs", HYPOTHESIS_BELIEFS_EDITOR_PROMPT_VERSION
     ),

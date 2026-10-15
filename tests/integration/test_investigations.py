@@ -3749,7 +3749,7 @@ def test_a_finding_saying_what_its_claims_do_not_is_asked_again_once_then_kept_o
 def judged(
     verdict: str, beyond: list[str] | None = None, kinds: list[str] | None = None, reason: str = ""
 ) -> ChatReply:
-    # finding_judge.v4: a supported verdict shows its basis (c1's words; code checks them).
+    # finding_judge.v5: a supported verdict shows its basis (c1's words; code checks them).
     clauses: list[JsonValue] = (
         [{"text": "the finding", "ref": "c1", "basis": SUPPLY_QUOTE}]
         if verdict == "supported"
@@ -3926,11 +3926,11 @@ def test_a_misstated_finding_is_rewritten_once_then_kept_or_dropped_and_a_suppor
     assert [
         (j["finding"], j["attempt"], j["verdict"], j["outcome"], j["judge"]) for j in card["judged"]
     ] == [
-        ("f1", 1, "supported", "kept", "finding_judge.v4"),
-        ("f2", 1, "misstated", "sent_back", "finding_judge.v4"),
-        ("f3", 1, "misstated", "sent_back", "finding_judge.v4"),
-        ("f2", 2, "supported", "kept", "finding_judge.v4"),
-        ("f3", 2, "misstated", "dropped", "finding_judge.v4"),
+        ("f1", 1, "supported", "kept", "finding_judge.v5"),
+        ("f2", 1, "misstated", "sent_back", "finding_judge.v5"),
+        ("f3", 1, "misstated", "sent_back", "finding_judge.v5"),
+        ("f2", 2, "supported", "kept", "finding_judge.v5"),
+        ("f3", 2, "misstated", "dropped", "finding_judge.v5"),
     ]
     assert card["judged"][1]["reason"] == present_reason
     assert card["judged"][1]["kinds"] == ["tense_or_status"]

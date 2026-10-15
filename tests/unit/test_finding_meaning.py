@@ -22,7 +22,12 @@ from atlas.roles.editor import (
     RevisedFinding,
     RevisedFindings,
 )
-from atlas.roles.finding_judge import FindingJudgement, FindingJudgeRequest, JudgedClause
+from atlas.roles.finding_judge import (
+    FindingJudgement,
+    FindingJudgeRequest,
+    JudgedClause,
+    JudgedFinding,
+)
 
 QUESTION = "Who holds qualified 200G EML capacity?"
 AGREEMENT = (
@@ -178,7 +183,7 @@ def test_a_supported_finding_is_kept_and_its_verdict_recorded() -> None:
         "kept",
     )
     assert verdict.claim_ids == [CLAIMS["c2"]["id"]]
-    assert verdict.judge == "finding_judge.v4"
+    assert verdict.judge == "finding_judge.v5"
 
 
 def test_a_misstated_finding_is_rewritten_with_the_judge_s_reason_and_kept_when_supported() -> None:
@@ -342,7 +347,11 @@ def answers(*verdicts: str) -> tuple[list[str], Callable[..., tuple[FindingJudge
 def test_under_the_all_rule_a_finding_is_misstated_only_when_every_vote_says_so() -> None:
     from atlas.investigations.meaning import voting
 
-    request: Any = None
+    request = FindingJudgeRequest(
+        research_question="q",
+        finding=JudgedFinding(statement="s", limitations=[], claim_refs=[]),
+        claims=[],
+    )
     # A spurious flag: the second vote supports, so the finding is supported.
     _, judge = answers("misstated", "supported")
     assert voting(judge, 2, "all")(request, [])[0].verdict == "supported"
@@ -362,7 +371,11 @@ def test_under_the_all_rule_a_finding_is_misstated_only_when_every_vote_says_so(
 def test_under_the_any_rule_every_vote_is_asked_and_one_misstated_vote_decides() -> None:
     from atlas.investigations.meaning import voting
 
-    request: Any = None
+    request = FindingJudgeRequest(
+        research_question="q",
+        finding=JudgedFinding(statement="s", limitations=[], claim_refs=[]),
+        claims=[],
+    )
     # Rule any: both votes asked; the misstated second vote decides, with its reason.
     asked, judge = answers("supported", "misstated")
     verdict = voting(judge, 2, "any")(request, [])[0]
@@ -476,7 +489,11 @@ def test_a_vote_whose_basis_is_unverified_counts_as_misstated_under_either_rule(
     quotes = [QuotedText(id="c2", source="v#1-2", text=CALL)]
     wrong = supported(clause("demand outstrips its supply", "c2", "demand outstrips our supply"))
     right = supported(clause("demand exceeds its supply", "c2", "demand exceeds our supply"))
-    request: Any = None
+    request = FindingJudgeRequest(
+        research_question="q",
+        finding=JudgedFinding(statement="s", limitations=[], claim_refs=[]),
+        claims=[],
+    )
 
     def scripted(*votes: FindingJudgement) -> Callable[..., tuple[FindingJudgement, uuid.UUID]]:
         queue = list(votes)
@@ -559,6 +576,21 @@ def test_a_clause_with_a_word_beyond_the_metadata_still_needs_a_basis() -> None:
 
     assert verify_bases(vote, quotes, metadata=metadata) == [content, limitation]
     assert checked(vote, quotes, metadata).verdict == "misstated"
+
+
+def test_only_a_thesis_needs_no_basis_for_its_hedged_proposition() -> None:
+    quotes = [QuotedText(id="c2", source="v#1-2", text=CALL)]
+    hedge = clause("Zephyr may be straining its capacity", None, None)
+    scope = clause("in the merchant market", None, None)
+    vote = supported(hedge)
+
+    assert verify_bases(vote, quotes) == [hedge.text]
+    assert verify_bases(vote, quotes, thesis=True) == []
+    assert checked(vote, quotes, thesis=True).verdict == "supported"
+    # A scope word is not a hedge, and a hedge with a quote claimed for it is still checked.
+    assert verify_bases(supported(hedge, scope), quotes, thesis=True) == [scope.text]
+    claimed = clause("Zephyr may be straining its capacity", "c2", "not in the quote")
+    assert verify_bases(supported(claimed), quotes, thesis=True) == [claimed.text]
 
 
 def test_a_date_or_title_of_a_document_the_finding_does_not_cite_is_not_metadata() -> None:

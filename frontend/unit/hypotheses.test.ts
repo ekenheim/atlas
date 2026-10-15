@@ -48,6 +48,7 @@ test("each gate failure is explained, and an unknown one keeps the API's message
   expect(explainFailure(failure("no_falsifier"))).toMatch(/names no falsifier/);
   expect(explainFailure(failure("no_unresolved_question"))).toMatch(/no unresolved question/);
   expect(explainFailure(failure("relationship_review_pending"))).toMatch(/machine-reviewed/);
+  expect(explainFailure(failure("thesis_misstated"))).toMatch(/^The thesis says more than/);
   expect(explainFailure(failure("a_new_check"))).toBe("the API says a_new_check");
   const gate = { blocked: "already_published" } as PublishGate;
   expect(explainBlock(gate)).toMatch(/^The latest version is published/);

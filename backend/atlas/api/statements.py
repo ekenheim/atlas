@@ -6,7 +6,7 @@ more than their cited quotes, because no judge was applied. These routes put the
 own judges in front of a session, over the existing role machinery (no new prompt):
 
 - `POST /statements/judge` (`{question, statement, fact_ids, counter_fact_ids?, votes?,
-  run_id?}`): the finding judge (`finding_judge.v4`, on the role's model from
+  run_id?}`): the finding judge (`finding_judge.v5`, on the role's model from
   `ATLAS_LLM_ROLE_MODELS`) is asked about the statement with the cited Facts' quotes, dates,
   status and period, exactly as the argument Editor's task asks it; `votes` (default 1) are
   decided by `ATLAS_FINDING_JUDGE_VOTE_RULE`; every basis is checked by code, so a `supported`

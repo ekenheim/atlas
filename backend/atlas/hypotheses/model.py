@@ -93,6 +93,12 @@ class HypothesisContent(BaseModel):
     # an investigation, whose `findings` state the facts instead.
     steps: list[HypothesisStep] = Field(default_factory=list[HypothesisStep])
     thesis_belief_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
+    # The finding judge's verdict on the thesis statement against its Beliefs' Facts (ticket 24):
+    # `supported`, or `misstated` after one rewrite (the publish gate then fails
+    # `thesis_misstated` until a correction changes the thesis); None: not judged (the judge is
+    # off or its call failed, or the version was not drafted from Beliefs).
+    thesis_judged: Literal["supported", "misstated"] | None = None
+    thesis_misstated_reason: str | None = None
 
     def sha256(self) -> str:
         return content_hash(self.model_dump(mode="json"))
