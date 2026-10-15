@@ -5,6 +5,10 @@ Source Versions available at an as-of time (`atlas.research.archive_search`), re
 `as_of` defaults to now, `top` (20) bounds the hits and `per_document` (3) the hits from one
 document. Each hit names its Source Version, section anchor, offsets in the named parse and
 BM25 score. Refusals: 422 `unknown_company`, `invalid_request`.
+
+`GET /api/v1/archive-documents` (the research agents' "what is new", MCP `newest_documents`):
+the documents the search would search at `as_of`, newest first, with `since` and `kind` (a form,
+document or source type, repeated) filters.
 """
 
 import uuid
@@ -17,7 +21,13 @@ from sqlalchemy import Engine
 
 from atlas.api.common import INVALID, error_response
 from atlas.archive import Archive
-from atlas.research.archive_search import ArchiveSearch, UnknownCompany, archive_search
+from atlas.research.archive_search import (
+    ArchiveDocuments,
+    ArchiveSearch,
+    UnknownCompany,
+    archive_documents,
+    archive_search,
+)
 
 
 def archive_search_router(engine: Engine, archive: Archive) -> APIRouter:
@@ -36,6 +46,28 @@ def archive_search_router(engine: Engine, archive: Archive) -> APIRouter:
         try:
             return archive_search(
                 engine, archive, q, company_id, as_of or datetime.now(UTC), top, per_document
+            )
+        except UnknownCompany as refused:
+            return error_response(422, "unknown_company", str(refused))
+
+    @router.get("/archive-documents", response_model=ArchiveDocuments, responses=INVALID)
+    def documents(  # pyright: ignore[reportUnusedFunction]
+        company_id: Annotated[
+            list[uuid.UUID], Query(min_length=1, description="a company; repeat")
+        ],
+        as_of: Annotated[datetime | None, Query(description="default: now")] = None,
+        since: Annotated[
+            datetime | None, Query(description="only documents public at or after this time")
+        ] = None,
+        kind: Annotated[
+            list[str] | None,
+            Query(description="a form, document or source type to keep (10-Q, 8-K, transcript)"),
+        ] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    ) -> ArchiveDocuments | JSONResponse:
+        try:
+            return archive_documents(
+                engine, company_id, as_of or datetime.now(UTC), since, kind or (), limit
             )
         except UnknownCompany as refused:
             return error_response(422, "unknown_company", str(refused))

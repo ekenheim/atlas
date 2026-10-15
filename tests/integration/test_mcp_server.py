@@ -76,6 +76,12 @@ TOOLS = {
     "complete_issue",
     "next_issue",
     "recall",
+    "newest_documents",
+    "list_beliefs",
+    "get_belief",
+    "list_issues",
+    "draft_hypothesis",
+    "get_hypothesis",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 
@@ -765,3 +771,256 @@ def test_a_closed_session_cannot_be_driven_through_the_tools(mcp: Mcp) -> None:
         )
     mcp.refused("companies", "session_closed", session_id=session)
     assert mcp.calls(session) == [("open_session", "ok", None)]
+
+
+# --- the agents' tools (ticket 16): documents, Beliefs, Issues, Hypotheses ---
+
+NOBODY = "00000000-0000-0000-0000-000000000000"
+
+
+def judge_proven(mcp: Mcp, belief_id: str) -> None:
+    """An author's judgement, as the lead's would be: there is no tool for it."""
+    response = mcp.api.post(
+        f"/api/v1/beliefs/{belief_id}/judge",
+        json={"actor": "lead", "judgement": "proven", "confidence": 0.8, "reason": "tested"},
+    )
+    assert response.status_code == 200, response.text
+
+
+def believe(mcp: Mcp, session: str, url: str, quote: str, statement: str) -> tuple[str, str]:
+    """(the Fact, the Belief) a session records and proposes."""
+    fact = mcp.fact(session, url, quote)
+    belief = mcp.ok(
+        "propose_belief",
+        session_id=session,
+        statement=statement,
+        step="capture",
+        companies=["lumentum"],
+        citations=[{"fact_id": fact, "how": 1, "weight": "load_bearing"}],
+    )
+    return fact, belief["id"]
+
+
+def test_newest_documents_lists_what_was_public_by_the_sessions_time_newest_first(
+    mcp: Mcp,
+) -> None:
+    early = mcp.open(BEFORE_10K)  # after the 10-Q (6 May) and the press release (11 August)
+    listed = mcp.ok("newest_documents", session_id=early, companies=["lumentum"])
+    assert listed["as_of"] == BEFORE_10K
+    assert [d["source_version_id"] for d in listed["documents"]] == [
+        mcp.version(URL_EX991),
+        mcp.version(URL_10Q),
+    ]
+    first = listed["documents"][0]
+    assert first["company"] == "lumentum" and first["available_at"] == "2026-08-11T20:24:11Z"
+    assert first["title"] and first["parser_version"]
+    assert first["source_type"] != "xbrl_companyfacts"
+    assert listed["total"] == 2
+
+    # The session's theme is the default; the 10-K is not public yet, a later session sees it.
+    assert mcp.ok("newest_documents", session_id=early)["total"] == 2
+    late = mcp.open(LATER)
+    later = mcp.ok("newest_documents", session_id=late)
+    assert later["documents"][0]["source_version_id"] == mcp.version(URL_10K)
+
+    # since, kinds and limit narrow it.
+    since = mcp.ok("newest_documents", session_id=late, since="2026-08-12T00:00:00Z")
+    assert [d["source_version_id"] for d in since["documents"]] == [mcp.version(URL_10K)]
+    quarterly = mcp.ok("newest_documents", session_id=late, kinds=["10-q"], companies=["lumentum"])
+    assert [d["source_version_id"] for d in quarterly["documents"]] == [mcp.version(URL_10Q)]
+    one = mcp.ok("newest_documents", session_id=late, limit=1)
+    assert (one["total"], len(one["documents"])) == (3, 1)
+
+    # Naming both a theme and companies, or an unknown company, is refused.
+    mcp.refused(
+        "newest_documents", "theme_or_companies", session_id=late,
+        theme="photonics", companies=["lumentum"],
+    )  # fmt: skip
+    mcp.refused("newest_documents", "unknown_company", session_id=late, companies=["nope"])
+    assert mcp.calls(late)[-1] == ("newest_documents", "refused", "unknown_company")
+
+
+def test_beliefs_are_listed_and_read_only_as_of_the_sessions_time(mcp: Mcp) -> None:
+    early, late = mcp.open(BEFORE_10K), mcp.open(LATER)
+    fact_early, belief_early = believe(
+        mcp, early, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    fact_late, belief_late = believe(
+        mcp, late, URL_10K, TENK_SHARES, "Lumentum had 89.7 million shares in August 2026."
+    )
+
+    seen_early = mcp.ok("list_beliefs", session_id=early)
+    assert [b["id"] for b in seen_early["beliefs"]] == [belief_early]
+    assert (seen_early["total"], seen_early["hidden_after_as_of"]) == (1, 1)
+    seen_late = mcp.ok("list_beliefs", session_id=late)
+    assert [b["id"] for b in seen_late["beliefs"]] == [belief_early, belief_late]
+    summary = seen_late["beliefs"][0]
+    assert summary["judgement"]["judgement"] == "unproven" and summary["companies"] == ["lumentum"]
+    assert summary["step"] == "capture" and summary["citation_count"] == 1
+    assert summary["as_of"] == BEFORE_10K
+
+    # An author judges; filters by judgement, step and company.
+    judge_proven(mcp, belief_early)
+    proven = mcp.ok("list_beliefs", session_id=late, judgement="proven", company="lumentum")
+    assert [b["id"] for b in proven["beliefs"]] == [belief_early]
+    assert proven["beliefs"][0]["judgement"]["actor"] == "lead"
+    assert mcp.ok("list_beliefs", session_id=late, step="control")["beliefs"] == []
+    limited = mcp.ok("list_beliefs", session_id=late, limit=1)
+    assert (limited["total"], len(limited["beliefs"])) == (2, 1)
+
+    # A Belief after the session's time cannot be read; one before it is read with its quotes.
+    mcp.refused("get_belief", "belief_after_as_of", session_id=early, belief_id=belief_late)
+    read = mcp.ok("get_belief", session_id=early, belief_id=belief_early)
+    [citation] = read["citations"]
+    assert citation["ref_id"] == fact_early and citation["quote"] == REVENUE_QUOTE
+    assert citation["available_at"] == "2026-08-11T20:24:11Z" and read["hidden_citations"] == 0
+    assert read["history"][-1]["judgement"] == "proven"
+
+    # A later session cites the 10-K's Fact on the earlier Belief: the early session does not
+    # see that citation (its document is not public to it), the late one does.
+    mcp.ok(
+        "cite_belief", session_id=late, belief_id=belief_early,
+        citation={"fact_id": fact_late, "how": "limits", "weight": "context"},
+    )  # fmt: skip
+    hidden = mcp.ok("get_belief", session_id=early, belief_id=belief_early)
+    assert [c["ref_id"] for c in hidden["citations"]] == [fact_early]
+    assert (hidden["hidden_citations"], hidden["counterevidence"]) == (1, [])
+    full = mcp.ok("get_belief", session_id=late, belief_id=belief_early)
+    assert {c["ref_id"] for c in full["citations"]} == {fact_early, fact_late}
+    assert [c["ref_id"] for c in full["counterevidence"]] == [fact_late]
+    mcp.refused("get_belief", "not_found", session_id=late, belief_id=NOBODY)
+
+
+def test_a_belief_read_as_of_an_early_session_hides_what_later_work_added_to_it(
+    mcp: Mcp,
+) -> None:
+    early, late = mcp.open(BEFORE_10K), mcp.open(LATER)
+    _, belief_early = believe(
+        mcp, early, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    fact_late, belief_late = believe(
+        mcp, late, URL_10K, TENK_SHARES, "Lumentum had 89.7 million shares in August 2026."
+    )
+    # Later work: a load-bearing contradiction (Atlas raises the flag) and a supersession.
+    mcp.ok(
+        "cite_belief", session_id=late, belief_id=belief_early,
+        citation={"fact_id": fact_late, "how": "contradicts", "weight": "load_bearing"},
+    )  # fmt: skip
+    mcp.ok(
+        "supersede_belief", session_id=late, belief_id=belief_early,
+        by=[belief_late], reason="narrowed by the 10-K",
+    )  # fmt: skip
+
+    seen = mcp.ok("get_belief", session_id=late, belief_id=belief_early)
+    assert [link["id"] for link in seen["superseded_by"]] == [belief_late]
+    assert (seen["open_flags"], [f["kind"] for f in seen["flags"]]) == (
+        1,
+        ["counterevidence_stands"],
+    )
+    assert (seen["hidden_links"], seen["hidden_flags"], seen["hidden_citations"]) == (0, 0, 0)
+
+    blind = mcp.ok("get_belief", session_id=early, belief_id=belief_early)
+    assert blind["superseded_by"] == [] and blind["supersedes"] == []
+    assert blind["flags"] == [] and blind["open_flags"] == 0
+    assert (blind["hidden_links"], blind["hidden_flags"], blind["hidden_citations"]) == (1, 1, 1)
+    assert "10-K" not in json.dumps(blind) and "89.7 million" not in json.dumps(blind)
+
+    # The later Belief links back to the early one, which the late session may read.
+    back = mcp.ok("get_belief", session_id=late, belief_id=belief_late)
+    assert [link["id"] for link in back["supersedes"]] == [belief_early]
+    assert back["hidden_links"] == 0
+
+
+def test_issues_and_beliefs_are_paged_through_and_too_many_is_a_refusal(
+    mcp: Mcp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = mcp.open()
+    for number in range(3):
+        mcp.ok(
+            "open_issue", session_id=session, kind="read" if number else "question",
+            title=f"Issue {number}",
+        )  # fmt: skip
+    monkeypatch.setattr("atlas.mcp.agents.SCAN_PAGE", 2)
+    listed = mcp.ok("list_issues", session_id=session, kind="read")
+    assert sorted(each["title"] for each in listed["issues"]) == ["Issue 1", "Issue 2"]
+    assert listed["of_theme"] == 3
+    monkeypatch.setattr("atlas.mcp.agents.SCAN_LIMIT", 2)
+    mcp.refused("list_issues", "too_many_issues", session_id=session)
+    for number in range(3):
+        believe(
+            mcp, session, URL_EX991, REVENUE_QUOTE, f"Lumentum reported $1.01 billion {number}."
+        )
+    mcp.refused("list_beliefs", "too_many_beliefs", session_id=session)
+
+
+def test_issues_are_listed_so_a_question_is_not_opened_twice(mcp: Mcp) -> None:
+    session = mcp.open()
+    asked = mcp.ok(
+        "open_issue", session_id=session, kind="question", companies=["lumentum"],
+        title="Is Lumentum's laser capacity sold out?", body="Fact f1: 'sold out'",
+    )  # fmt: skip
+    mcp.ok("open_issue", session_id=session, kind="read", title="Read the 10-K's risk factors")
+    listed = mcp.ok("list_issues", session_id=session)
+    assert listed["of_theme"] == 2
+    titles = {each["title"] for each in listed["issues"]}
+    assert titles == {"Is Lumentum's laser capacity sold out?", "Read the 10-K's risk factors"}
+    question = next(each for each in listed["issues"] if each["id"] == asked["id"])
+    assert question["companies"] == ["lumentum"] and question["body"] == "Fact f1: 'sold out'"
+    assert question["kind"] == "question" and question["status"] == "active"
+    only = mcp.ok("list_issues", session_id=session, kind="question")
+    assert [each["id"] for each in only["issues"]] == [asked["id"]]
+
+    mcp.ok("complete_issue", session_id=session, issue_id=asked["id"])
+    assert [each["title"] for each in mcp.ok("list_issues", session_id=session)["issues"]] == [
+        "Read the 10-K's risk factors"
+    ]
+    done = mcp.ok("list_issues", session_id=session, status="complete")
+    assert [each["id"] for each in done["issues"]] == [asked["id"]]
+    assert mcp.ok("list_issues", session_id=session, theme="other")["issues"] == []
+
+
+def test_a_hypothesis_is_drafted_from_the_proven_beliefs_the_sessions_time_allows(
+    mcp: Mcp,
+) -> None:
+    early, late = mcp.open(BEFORE_10K), mcp.open(LATER)
+    _, belief_early = believe(
+        mcp, early, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    _, belief_late = believe(
+        mcp, late, URL_10K, TENK_SHARES, "Lumentum had 89.7 million shares in August 2026."
+    )
+
+    # Nothing is proven: nothing to draft.
+    mcp.refused("draft_hypothesis", "conflict", session_id=late, question="Is it a bottleneck?")
+
+    # Only the Belief at or before the session's time is drafted from: the early session's.
+    judge_proven(mcp, belief_early)
+    judge_proven(mcp, belief_late)
+    drafted = mcp.ok(
+        "draft_hypothesis", session_id=early, question="Does Lumentum capture the value?"
+    )
+    assert drafted["draft_status"] == "queued" and drafted["status"] == "draft"
+    assert drafted["theme"] == "photonics" and drafted["as_of"] == BEFORE_10K
+    assert drafted["question"] == "Does Lumentum capture the value?"
+    hypothesis = mcp.get(f"/api/v1/hypotheses/{drafted['hypothesis_id']}")
+    assert hypothesis["as_of"] == BEFORE_10K
+
+    # Before the Editor has drafted a version there is no version, and the gate says so.
+    read = mcp.ok("get_hypothesis", session_id=early, hypothesis_id=drafted["hypothesis_id"])
+    assert (read["draft_status"], read["latest_version"], read["version"]) == ("queued", None, None)
+    assert read["publish_gate"]["publishable"] is False
+    assert read["publish_gate"]["blocked"] == "no_version"
+
+    # A session of an earlier time than the cutoff cannot read it; a later one can.
+    before_cutoff = mcp.open("2026-08-01T00:00:00Z")
+    mcp.refused(
+        "get_hypothesis", "hypothesis_after_as_of",
+        session_id=before_cutoff, hypothesis_id=drafted["hypothesis_id"],
+    )  # fmt: skip
+    mcp.refused("draft_hypothesis", "conflict", session_id=before_cutoff)  # no Belief that early
+    assert mcp.ok("get_hypothesis", session_id=late, hypothesis_id=drafted["hypothesis_id"])
+    mcp.refused("get_hypothesis", "not_found", session_id=late, hypothesis_id=NOBODY)
+
+    # There is no tool that publishes or judges.
+    names = {each["name"] for each in mcp.rpc("tools/list").json()["result"]["tools"]}
+    assert not {"publish_hypothesis", "publish_version", "judge_belief"} & names

@@ -904,3 +904,72 @@ def test_a_published_versions_belief_judged_otherwise_or_superseded_proposes_an_
     # Each event once: a retried job adds nothing.
     beliefs.settle()
     assert len(updates(beliefs, hypothesis_id)) == 2
+
+
+def test_the_mcp_get_hypothesis_reads_the_drafted_steps_and_the_gate_after_a_rejudgement(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    """The Editor prompt's read side (ticket 16): `get_hypothesis` over the drafted version."""
+    hypothesis, constraint, capture = ready(beliefs, llm)
+    opened = beliefs.post(
+        "/api/v1/sessions",
+        {
+            "question": "Editor: draft a Hypothesis from photonics' proven Beliefs",
+            "theme": "photonics",
+            "seed_company_ids": [],
+            "as_of": "2026-10-01T00:00:00Z",
+            "kind": "claude",
+            "model": "claude-editor",
+            "actor": ACTOR,
+        },
+        status=201,
+    )
+
+    def read() -> dict[str, Any]:
+        reply = beliefs.api.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "get_hypothesis",
+                    "arguments": {"session_id": opened["id"], "hypothesis_id": hypothesis["id"]},
+                },
+            },
+        ).json()["result"]
+        assert not reply["isError"], reply
+        return reply["structuredContent"]
+
+    drafted = read()
+    assert (drafted["draft_status"], drafted["draft_error"]) == ("drafted", None)
+    version = drafted["version"]
+    assert version["thesis_belief_ids"] == [constraint["id"]]
+    assert [step["step"] for step in version["steps"]] == ["constraint", "capture"]
+    [first] = version["steps"][0]["statements"]
+    assert (first["statement"], first["belief_ids"], first["judged"]) == (
+        CONSTRAINT_STATEMENT,
+        [constraint["id"]],
+        True,
+    )
+    [rests_on] = version["steps"][0]["beliefs"]
+    assert (rests_on["belief_id"], rests_on["judgement"], rests_on["confidence"]) == (
+        constraint["id"],
+        "proven",
+        0.8,
+    )
+    assert version["steps_without_statement"] == []
+    assert version["unsupported_findings"] == []
+    # A fresh draft is `draft`, not yet `evidence_ready`: blocked whatever the checks say.
+    assert drafted["publish_gate"]["blocked"] == "status_not_publishable"
+    assert drafted["publish_gate"]["failures"] == []
+
+    # The owner rejudges a Belief the draft rests on: the gate holds, and says which Belief.
+    beliefs.judge(capture["id"], "unproven")
+    held = read()["publish_gate"]
+    assert held["publishable"] is False
+    [failure] = held["failures"]
+    assert failure["code"] == "belief_not_proven"
+    assert failure["belief_ids"] == [capture["id"]]
+    # The edges and Assertions a failure names are read too (empty for this code).
+    assert (failure["relationship_ids"], failure["assertion_ids"]) == ([], [])

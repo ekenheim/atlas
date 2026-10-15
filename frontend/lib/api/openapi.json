@@ -970,6 +970,126 @@
         }
       }
     },
+    "/api/v1/archive-documents": {
+      "get": {
+        "tags": [
+          "archive-search"
+        ],
+        "summary": "Documents",
+        "operationId": "documents_api_v1_archive_documents_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "description": "a company; repeat",
+              "title": "Company Id"
+            },
+            "description": "a company; repeat"
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "default: now",
+              "title": "As Of"
+            },
+            "description": "default: now"
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only documents public at or after this time",
+              "title": "Since"
+            },
+            "description": "only documents public at or after this time"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "a form, document or source type to keep (10-Q, 8-K, transcript)",
+              "title": "Kind"
+            },
+            "description": "a form, document or source type to keep (10-Q, 8-K, transcript)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveDocuments"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/api/v1/companies/{company_id}/financials": {
       "get": {
         "tags": [
@@ -8276,6 +8396,124 @@
         ],
         "title": "AppliedScope",
         "description": "The scope as sent to Hindsight: the tags and their strict match mode."
+      },
+      "ArchiveDocument": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "form_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Type"
+          },
+          "document_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Type"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "parser_version": {
+            "type": "string",
+            "title": "Parser Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "company_id",
+          "company",
+          "title",
+          "provider",
+          "form_type",
+          "document_type",
+          "source_type",
+          "available_at",
+          "parser_version"
+        ],
+        "title": "ArchiveDocument",
+        "description": "One document of the archive at an as-of time: its latest version public by then."
+      },
+      "ArchiveDocuments": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "documents matching, before `limit`"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveDocument"
+            },
+            "type": "array",
+            "title": "Documents",
+            "description": "newest first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "since",
+          "total",
+          "documents"
+        ],
+        "title": "ArchiveDocuments"
       },
       "ArchiveHit": {
         "properties": {

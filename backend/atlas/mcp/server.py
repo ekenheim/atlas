@@ -39,6 +39,7 @@ from pydantic import ValidationError
 from sqlalchemy import Engine, text
 
 from atlas import __version__
+from atlas.mcp.agents import AGENT_TOOLS
 from atlas.mcp.api import Api, Failed, Refusal, obj
 from atlas.mcp.tools import TOOLS, Ctx, SessionRow
 from atlas.settings import Settings
@@ -52,6 +53,8 @@ INSTRUCTIONS = (
     " recall and cite, and Atlas counts your calls on it. Record Facts only from text you read"
     " in the archive; Memory (recall) is an index, never evidence. Close the session last."
 )
+
+assert set(AGENT_TOOLS) <= set(TOOLS)  # importing `agents` registered them
 
 PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, INVALID_PARAMS = -32700, -32600, -32601, -32602
 
