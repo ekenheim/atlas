@@ -353,9 +353,9 @@ def run_settle(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
     artifacts.update(
         {
             "checkpoints_appended": appended,
-            "deferred": [dict(each) for each in deferred],  # pyright: ignore[reportAssignmentType]
+            "deferred": json.loads(json.dumps(deferred)),
             "companies_fetched": len(fetched),
-            "companies_failed": failed,
+            "companies_failed": json.loads(json.dumps(failed)),
             "tool_calls": calls,
             "bounded": bounded,
         }
