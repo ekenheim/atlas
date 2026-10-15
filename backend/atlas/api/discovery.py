@@ -6,7 +6,10 @@
   discovery for that theme returned (or a headline or calendar date listed for a company in
   it). `origin` keeps one origin; `known_by` keeps what Atlas had stored by that time (a
   calendar lead then shows the date it knew by then); `event_from`/`event_to` keep the calendar
-  leads whose date falls inside, soonest first (ticket 16b). Leads are never Evidence.
+  leads whose date falls inside, soonest first (ticket 16b). `origin=archive_signal` (ticket 18)
+  lists the sentences the nightly scan found in archived documents that read like a bottleneck,
+  ranked by score, each with its quote, span, company and why it scored; `company_id` keeps one
+  company's; for them `known_by` bounds the document's availability. Leads are never Evidence.
 - `GET /discoveries`, `GET /discoveries/{id}`: each discovery (a `discover` job): its theme
   and question, run, engines, where its open gaps came from, and each query with its
   outcome (results, new leads, the engines SearXNG reported unresponsive, or the error).
@@ -34,14 +37,28 @@ def discovery_router(engine: Engine) -> APIRouter:
         page: Paged,
         theme: Annotated[str | None, Query(description="only leads found for this theme")] = None,
         origin: Annotated[
-            Literal["searxng", "tradingview_news", "edgar_fts", "tradingview_calendar"] | None,
+            Literal[
+                "searxng", "tradingview_news", "edgar_fts", "tradingview_calendar", "archive_signal"
+            ]
+            | None,
             Query(description="only leads of this origin"),
+        ] = None,
+        company_id: Annotated[
+            uuid.UUID | None, Query(description="only leads about this company")
         ] = None,
         known_by: Annotated[
             AwareDatetime | None,
             Query(
                 description="only leads Atlas had stored by this time; a calendar lead shows"
-                " the date it knew by then"
+                " the date it knew by then. For an archive signal: only those whose document"
+                " was public by this time (when Atlas scanned it does not matter)"
+            ),
+        ] = None,
+        available_from: Annotated[
+            AwareDatetime | None,
+            Query(
+                description="archive signals whose document became public at or after this"
+                " time (other origins are left out)"
             ),
         ] = None,
         event_from: Annotated[
@@ -63,6 +80,8 @@ def discovery_router(engine: Engine) -> APIRouter:
                 known_by=known_by,
                 event_from=event_from,
                 event_to=event_to,
+                company_id=company_id,
+                available_from=available_from,
             )
         return Page(items=items, total=total, limit=page.limit, offset=page.offset)
 

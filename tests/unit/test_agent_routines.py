@@ -175,3 +175,16 @@ def test_the_researcher_supersedes_only_its_own_beliefs():
 def test_the_agent_image_never_defers_tool_schemas():
     dockerfile = (ROOT / "agent" / "Dockerfile").read_text(encoding="utf-8")
     assert "ENABLE_TOOL_SEARCH=false" in dockerfile
+
+
+def test_the_scout_reads_the_ranked_signal_leads_before_the_newest_documents():
+    # Atlas's nightly scan of the archive (ticket 18) is the Scout's first source: every list
+    # that names its tools carries `signal_leads`, and step 2 of its prompt calls it.
+    assert "signal_leads" in skill_prompt_tools("scout")
+    assert "signal_leads" in wrapper_tools("scout")
+    assert "signal_leads" in skill_added_tools()
+    scout = (SKILL_DIR / "scout.md").read_text(encoding="utf-8")
+    assert scout.index("2. `signal_leads` once") < scout.index(
+        "3. `newest_documents` for the theme"
+    )
+    assert "never a Fact" in scout

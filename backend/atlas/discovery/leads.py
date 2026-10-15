@@ -30,6 +30,14 @@ period, no query, no snippet, the date and status in `calendar`. A date that mov
 insert-only observation of the same lead, so a read `known_by` an earlier time sees the date
 Atlas knew then and nothing stored after it. A lead says when to look (e.g. for a results
 call), never what a company said.
+
+An `archive_signal` lead is a sentence of an archived document that reads like a bottleneck
+(atlas-beliefs ticket 18; `atlas.discovery.signals`, stored by the `scan_signals` job): its
+`signal` holds the sentence verbatim with its span in the named parse, the section, the
+company, the cue families that matched, the score and the speaker of a call transcript's
+sentence. A lead is where to look; the agent that follows it reads the window and records a
+Fact itself. For this origin `known_by` is when the document became public (its effective
+availability), not when the scan ran, and `GET /leads?origin=archive_signal` is ranked by score.
 """
 
 import uuid
@@ -102,6 +110,35 @@ class CalendarEvent(BaseModel):
     owner_override: str  # the owner's recorded override of TradingView's terms
 
 
+class SignalMatch(BaseModel):
+    """One phrase of a cue family that matched the sentence."""
+
+    family: str
+    pattern: str
+    text: str  # as the sentence writes it
+
+
+class Signal(BaseModel):
+    """An `archive_signal` lead's sentence and why it scored."""
+
+    source_version_id: uuid.UUID
+    company_id: uuid.UUID
+    company: str  # the slug
+    parser_version: str  # the parse the span is in: an Assertion on it names this version
+    section_anchor: str | None
+    char_start: int  # code points into that parse's text, like an Assertion's span
+    char_end: int
+    quote: str  # the text at the span, verbatim
+    families: list[str]
+    matches: list[SignalMatch]
+    factors: dict[str, float]  # what made the score: the families, bonuses and multipliers
+    score: float
+    speaker: str | None  # a call transcript's speaker label
+    speaker_kind: Literal["management", "analyst", "unknown"] | None
+    available_at: datetime  # when the document became public
+    scorer_version: str
+
+
 class Filing(BaseModel):
     """An `edgar_fts` lead's filing (EDGAR full-text search's metadata)."""
 
@@ -122,7 +159,9 @@ class Filing(BaseModel):
 class Lead(BaseModel):
     id: uuid.UUID
     tier: Literal["C"]  # always: a lead is never Evidence
-    origin: Literal["searxng", "tradingview_news", "edgar_fts", "tradingview_calendar"]
+    origin: Literal[
+        "searxng", "tradingview_news", "edgar_fts", "tradingview_calendar", "archive_signal"
+    ]
     canonical_url: str
     url: str  # as first found
     title: str
@@ -137,6 +176,7 @@ class Lead(BaseModel):
     headline: Headline | None = None  # a `tradingview_news` lead's metadata
     filing: Filing | None = None  # an `edgar_fts` lead's filing
     calendar: CalendarEvent | None = None  # a `tradingview_calendar` lead's reporting date
+    signal: Signal | None = None  # an `archive_signal` lead's sentence
 
 
 def store_result(connection: Connection, query_id: uuid.UUID, result: SearchResult) -> bool | None:
@@ -463,7 +503,8 @@ _LEADS = """
     SELECT lead.id, lead.tier, lead.origin, lead.canonical_url, lead.url, lead.title,
         lead.snippet, lead.published_date, lead.engines, lead.first_seen_at,
         LEAST(lead.last_seen_at, CAST(:known_by AS timestamptz)) AS last_seen_at,
-        first.query, COALESCE(discovery.theme, h.themes[1], ce.themes[1]) AS theme,
+        first.query,
+        COALESCE(discovery.theme, h.themes[1], ce.themes[1], sig.themes[1]) AS theme,
         (SELECT count(*) FROM lead_sighting s WHERE s.lead_id = lead.id) AS sightings,
         h.headline_id, h.company_id AS headline_company_id, h.symbol AS headline_symbol,
         h.publisher, h.publisher_url, h.published_at AS headline_published_at,
@@ -477,13 +518,24 @@ _LEADS = """
         ce.event_key AS calendar_event_key, ce.fiscal_period AS calendar_fiscal_period,
         ce.fiscal_year AS calendar_fiscal_year, ce.owner_override AS calendar_owner_override,
         co.event_at AS calendar_event_at, co.status AS calendar_status,
-        co.observed_at AS calendar_observed_at
+        co.observed_at AS calendar_observed_at,
+        sig.source_version_id AS signal_source_version_id, sig.company_id AS signal_company_id,
+        sc.slug AS signal_company, sig.parser_version AS signal_parser_version,
+        sig.section_anchor AS signal_section_anchor, sig.char_start AS signal_char_start,
+        sig.char_end AS signal_char_end, sig.quote AS signal_quote,
+        sig.families AS signal_families, sig.matches AS signal_matches,
+        sig.factors AS signal_factors, sig.score AS signal_score,
+        sig.speaker AS signal_speaker, sig.speaker_kind AS signal_speaker_kind,
+        sa.available_at AS signal_available_at, sig.scorer_version AS signal_scorer_version
     FROM lead
     LEFT JOIN discovery_query first ON first.id = lead.first_query_id
     LEFT JOIN discovery ON discovery.id = first.discovery_id
     LEFT JOIN tradingview_headline h ON h.lead_id = lead.id
     LEFT JOIN edgar_filing f ON f.lead_id = lead.id
     LEFT JOIN tradingview_calendar_event ce ON ce.lead_id = lead.id
+    LEFT JOIN archive_signal sig ON sig.lead_id = lead.id
+    LEFT JOIN company sc ON sc.id = sig.company_id
+    LEFT JOIN source_version_availability sa ON sa.source_version_id = sig.source_version_id
     LEFT JOIN LATERAL (
         SELECT o.event_at, o.status, o.observed_at FROM tradingview_calendar_observation o
         WHERE o.lead_id = lead.id
@@ -493,7 +545,9 @@ _LEADS = """
 # The count needs the same joins, none of the columns.
 _LEAD_JOINS = _LEADS[_LEADS.index("    FROM lead") :]
 # A lead belongs to a theme when a discovery for that theme has returned it, or when it is a
-# headline or a calendar date listed for a company in that theme.
+# headline, a calendar date or an archive signal of a company in that theme. `known_by` bounds
+# an archive signal by when its document became public (the lead is a pure function of the
+# archived document), every other origin by when Atlas first saw the lead.
 _IN_THEME = """
     WHERE (CAST(:theme AS text) IS NULL OR EXISTS (
         SELECT 1 FROM lead_sighting s
@@ -502,9 +556,15 @@ _IN_THEME = """
         WHERE s.lead_id = lead.id AND d.theme = :theme)
     OR EXISTS (
         SELECT 1 FROM tradingview_headline t WHERE t.lead_id = lead.id AND :theme = ANY(t.themes))
-    OR :theme = ANY(COALESCE(ce.themes, ARRAY[]::text[])))
+    OR :theme = ANY(COALESCE(ce.themes, ARRAY[]::text[]))
+    OR :theme = ANY(COALESCE(sig.themes, ARRAY[]::text[])))
     AND (CAST(:origin AS text) IS NULL OR lead.origin = :origin)
-    AND (CAST(:known_by AS timestamptz) IS NULL OR lead.first_seen_at <= :known_by)
+    AND (CAST(:company_id AS uuid) IS NULL
+        OR COALESCE(sig.company_id, h.company_id, ce.company_id, f.company_id) = :company_id)
+    AND (CAST(:known_by AS timestamptz) IS NULL
+        OR CASE WHEN lead.origin = 'archive_signal' THEN sa.available_at
+                ELSE lead.first_seen_at END <= :known_by)
+    AND (CAST(:available_from AS timestamptz) IS NULL OR sa.available_at >= :available_from)
     AND (CAST(:event_from AS timestamptz) IS NULL OR co.event_at >= :event_from)
     AND (CAST(:event_to AS timestamptz) IS NULL OR co.event_at <= :event_to)
 """
@@ -524,7 +584,7 @@ def _lead(row: RowMapping) -> Lead:
     fields = {
         k: v
         for k, v in row.items()
-        if k not in _HEADLINE_COLUMNS and not k.startswith(("filing_", "calendar_"))
+        if k not in _HEADLINE_COLUMNS and not k.startswith(("filing_", "calendar_", "signal_"))
     }
     calendar = None
     if row["calendar_event_at"] is not None:
@@ -535,6 +595,11 @@ def _lead(row: RowMapping) -> Lead:
     if row["filing_cik"] is not None:
         filing = Filing.model_validate(
             {k.removeprefix("filing_"): v for k, v in row.items() if k.startswith("filing_")}
+        )
+    signal = None
+    if row["signal_source_version_id"] is not None:
+        signal = Signal.model_validate(
+            {k.removeprefix("signal_"): v for k, v in row.items() if k.startswith("signal_")}
         )
     headline = None
     if row["headline_id"] is not None:
@@ -549,7 +614,13 @@ def _lead(row: RowMapping) -> Lead:
             owner_override=row["owner_override"],
         )
     return Lead.model_validate(
-        {**fields, "headline": headline, "filing": filing, "calendar": calendar}
+        {
+            **fields,
+            "headline": headline,
+            "filing": filing,
+            "calendar": calendar,
+            "signal": signal,
+        }
     )
 
 
@@ -563,18 +634,27 @@ def list_leads(
     known_by: datetime | None = None,
     event_from: datetime | None = None,
     event_to: datetime | None = None,
+    company_id: uuid.UUID | None = None,
+    available_from: datetime | None = None,
 ) -> tuple[list[Lead], int]:
     """Leads, newest first (optionally only those a discovery for `theme` returned, or a
-    headline or calendar date listed for a company in it), and how many there are in all.
+    headline, calendar date or archive signal of a company in it), and how many there are in
+    all. The archive signals (`origin="archive_signal"`) are ranked instead: highest score
+    first, then the latest document.
 
-    `origin` keeps one origin. `known_by` keeps the leads Atlas had stored by then (their
-    `last_seen_at` is capped at it) and a calendar lead shows the date it knew by then; a
-    lead's `sightings` count is not bounded by it. `event_from`/`event_to` keep the calendar
-    leads whose date (as known by `known_by`) falls inside, soonest first.
+    `origin` keeps one origin; `company_id` the leads of one company (a headline's, a calendar
+    date's, a filing's or a signal's). `known_by` keeps the leads Atlas had stored by then
+    (their `last_seen_at` is capped at it) and a calendar lead shows the date it knew by then;
+    a lead's `sightings` count is not bounded by it. For an archive signal `known_by` is when
+    its document became public, and `available_from` keeps the archive signals whose document
+    became public from then on. `event_from`/`event_to` keep the calendar leads whose date (as
+    known by `known_by`) falls inside, soonest first.
     """
     params = {
         "theme": theme,
         "origin": origin,
+        "company_id": company_id,
+        "available_from": available_from,
         "known_by": known_by,
         "event_from": event_from,
         "event_to": event_to,
@@ -585,6 +665,8 @@ def list_leads(
     ).scalar_one()
     windowed = event_from is not None or event_to is not None
     order = "co.event_at, lead.id" if windowed else "lead.first_seen_at DESC, lead.id"
+    if origin == "archive_signal":
+        order = "sig.score DESC, sa.available_at DESC, lead.id"
     rows = connection.execute(
         text(f"{_LEADS} {_IN_THEME} ORDER BY {order} LIMIT :limit OFFSET :offset"),
         {**params, "limit": limit, "offset": offset},

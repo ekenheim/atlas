@@ -1,7 +1,7 @@
 # 18: Bottleneck signals across the universe
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## What to build
@@ -26,6 +26,6 @@ The target, from `docs/research/early-signal-case-studies.md`: AXT's Q2 2025 cal
 
 ## Acceptance criteria (replacing the above)
 
-- [ ] Worker and HTTP-seam tests on fixtures: hits stored once per span, ranked, the as-of bound in `GET /leads` and `signal_leads`, boilerplate down-weighted, an analyst's question below management's answer; the config validated; the prompt-tools test updated.
+- [x] Worker and HTTP-seam tests on fixtures: hits stored once per span, ranked, the as-of bound in `GET /leads` and `signal_leads`, boilerplate down-weighted, an analyst's question below management's answer; the config validated; the prompt-tools test updated.
 - [ ] The AXT replay (the lead): `signal_replay.py --as-of 2025-08-31` over the 12 companies ranks the 31 July 2025 sentence (or a sentence of that call stating the same) in its top five; recorded in `docs/experiments.md`.
 - [ ] Precision (the lead): the top 20 hits of a scan over the last quarter of the archive judged real bottleneck cues or not; at least 12 of 20.

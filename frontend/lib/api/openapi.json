@@ -4535,7 +4535,8 @@
                     "searxng",
                     "tradingview_news",
                     "edgar_fts",
-                    "tradingview_calendar"
+                    "tradingview_calendar",
+                    "archive_signal"
                   ],
                   "type": "string"
                 },
@@ -4547,6 +4548,25 @@
               "title": "Origin"
             },
             "description": "only leads of this origin"
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only leads about this company",
+              "title": "Company Id"
+            },
+            "description": "only leads about this company"
           },
           {
             "name": "known_by",
@@ -4562,10 +4582,29 @@
                   "type": "null"
                 }
               ],
-              "description": "only leads Atlas had stored by this time; a calendar lead shows the date it knew by then",
+              "description": "only leads Atlas had stored by this time; a calendar lead shows the date it knew by then. For an archive signal: only those whose document was public by this time (when Atlas scanned it does not matter)",
               "title": "Known By"
             },
-            "description": "only leads Atlas had stored by this time; a calendar lead shows the date it knew by then"
+            "description": "only leads Atlas had stored by this time; a calendar lead shows the date it knew by then. For an archive signal: only those whose document was public by this time (when Atlas scanned it does not matter)"
+          },
+          {
+            "name": "available_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "archive signals whose document became public at or after this time (other origins are left out)",
+              "title": "Available From"
+            },
+            "description": "archive signals whose document became public at or after this time (other origins are left out)"
           },
           {
             "name": "event_from",
@@ -20659,7 +20698,8 @@
               "searxng",
               "tradingview_news",
               "edgar_fts",
-              "tradingview_calendar"
+              "tradingview_calendar",
+              "archive_signal"
             ],
             "title": "Origin"
           },
@@ -20758,6 +20798,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/CalendarEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Signal"
               },
               {
                 "type": "null"
@@ -29276,6 +29326,157 @@
           "tool_calls"
         ],
         "title": "SessionSummary"
+      },
+      "Signal": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "parser_version": {
+            "type": "string",
+            "title": "Parser Version"
+          },
+          "section_anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Anchor"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "families": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Families"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/SignalMatch"
+            },
+            "type": "array",
+            "title": "Matches"
+          },
+          "factors": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Factors"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
+          },
+          "speaker_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "management",
+                  "analyst",
+                  "unknown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Kind"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "scorer_version": {
+            "type": "string",
+            "title": "Scorer Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "company_id",
+          "company",
+          "parser_version",
+          "section_anchor",
+          "char_start",
+          "char_end",
+          "quote",
+          "families",
+          "matches",
+          "factors",
+          "score",
+          "speaker",
+          "speaker_kind",
+          "available_at",
+          "scorer_version"
+        ],
+        "title": "Signal",
+        "description": "An `archive_signal` lead's sentence and why it scored."
+      },
+      "SignalMatch": {
+        "properties": {
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "pattern": {
+            "type": "string",
+            "title": "Pattern"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "family",
+          "pattern",
+          "text"
+        ],
+        "title": "SignalMatch",
+        "description": "One phrase of a cue family that matched the sentence."
       },
       "SkippedVersion": {
         "properties": {

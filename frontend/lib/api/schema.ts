@@ -6491,7 +6491,7 @@ export interface components {
              * Origin
              * @enum {string}
              */
-            origin: "searxng" | "tradingview_news" | "edgar_fts" | "tradingview_calendar";
+            origin: "searxng" | "tradingview_news" | "edgar_fts" | "tradingview_calendar" | "archive_signal";
             /** Canonical Url */
             canonical_url: string;
             /** Url */
@@ -6523,6 +6523,7 @@ export interface components {
             headline?: components["schemas"]["Headline"] | null;
             filing?: components["schemas"]["Filing"] | null;
             calendar?: components["schemas"]["CalendarEvent"] | null;
+            signal?: components["schemas"]["Signal"] | null;
         };
         /** LineResult */
         LineResult: {
@@ -9584,6 +9585,67 @@ export interface components {
              * @description the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)
              */
             tool_calls: number;
+        };
+        /**
+         * Signal
+         * @description An `archive_signal` lead's sentence and why it scored.
+         */
+        Signal: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company */
+            company: string;
+            /** Parser Version */
+            parser_version: string;
+            /** Section Anchor */
+            section_anchor: string | null;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Quote */
+            quote: string;
+            /** Families */
+            families: string[];
+            /** Matches */
+            matches: components["schemas"]["SignalMatch"][];
+            /** Factors */
+            factors: {
+                [key: string]: number;
+            };
+            /** Score */
+            score: number;
+            /** Speaker */
+            speaker: string | null;
+            /** Speaker Kind */
+            speaker_kind: ("management" | "analyst" | "unknown") | null;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Scorer Version */
+            scorer_version: string;
+        };
+        /**
+         * SignalMatch
+         * @description One phrase of a cue family that matched the sentence.
+         */
+        SignalMatch: {
+            /** Family */
+            family: string;
+            /** Pattern */
+            pattern: string;
+            /** Text */
+            text: string;
         };
         /** SkippedVersion */
         SkippedVersion: {
@@ -13597,9 +13659,13 @@ export interface operations {
                 /** @description only leads found for this theme */
                 theme?: string | null;
                 /** @description only leads of this origin */
-                origin?: ("searxng" | "tradingview_news" | "edgar_fts" | "tradingview_calendar") | null;
-                /** @description only leads Atlas had stored by this time; a calendar lead shows the date it knew by then */
+                origin?: ("searxng" | "tradingview_news" | "edgar_fts" | "tradingview_calendar" | "archive_signal") | null;
+                /** @description only leads about this company */
+                company_id?: string | null;
+                /** @description only leads Atlas had stored by this time; a calendar lead shows the date it knew by then. For an archive signal: only those whose document was public by this time (when Atlas scanned it does not matter) */
                 known_by?: string | null;
+                /** @description archive signals whose document became public at or after this time (other origins are left out) */
+                available_from?: string | null;
                 /** @description calendar leads whose date is at or after this time (soonest first) */
                 event_from?: string | null;
                 /** @description calendar leads whose date is at or before this time */

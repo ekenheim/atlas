@@ -63,7 +63,7 @@ def builtin_registry(
     `review_relationships`, `discover`,
     `investigation_task`, `propose_candidates`,
     `draft_hypothesis`, `tradingview_catalog`, `tradingview_transcripts`,
-    `tradingview_calendar`, `tradingview_prices`,
+    `tradingview_calendar`, `tradingview_prices`, `scan_signals`,
     `replay`) need
     `settings`.
     `clock` is the application clock of handlers that measure time (a mental model's
@@ -108,12 +108,17 @@ def builtin_registry(
         from atlas.retention.reconciliation import register_reconciliation_handlers
 
         register_reconciliation_handlers(registry, settings, clock)
+        from atlas.discovery.signal_scan import register_signal_handlers
+
+        register_signal_handlers(registry, settings, clock)
     return registry
 
 
 def builtin_schedules(settings: "Settings", engine: "Engine") -> list[Schedule]:
     """The schedules `atlas worker` runs: the daily mental model refreshes, the daily
-    consolidation of the research bank and its nightly reconciliation."""
+    consolidation of the research bank, its nightly reconciliation and the nightly scan of the
+    archive for bottleneck signals."""
+    from atlas.discovery.signal_scan import signal_schedules
     from atlas.mental_models import refresh_schedules
     from atlas.retention.consolidation import consolidation_schedules
     from atlas.retention.reconciliation import reconciliation_schedules
@@ -122,4 +127,5 @@ def builtin_schedules(settings: "Settings", engine: "Engine") -> list[Schedule]:
         refresh_schedules(settings, engine)
         + consolidation_schedules(settings, engine)
         + reconciliation_schedules(settings, engine)
+        + signal_schedules(settings, engine)
     )

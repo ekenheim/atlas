@@ -209,6 +209,53 @@ def enqueue_consolidate(settings: Settings, key: str | None, *, backfill: bool) 
     _print_enqueued(enqueued)
 
 
+def enqueue_signal_scan(
+    settings: Settings,
+    since: str | None,
+    versions: list[str] | None,
+    company: str | None,
+    key: str | None,
+    *,
+    backfill: bool,
+) -> None:
+    """`atlas signals scan`: one `scan_signals` job (no LLM): by default the Source Versions
+    ingested since the last scan; `--since`, `--version` and `--company` select instead."""
+    import uuid
+    from datetime import datetime
+
+    from pydantic import ValidationError
+
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.discovery.signal_scan import ScanPayload, enqueue_scan
+    from atlas.jobs import JobQueue
+
+    try:
+        payload = ScanPayload(
+            since=datetime.fromisoformat(since) if since else None,
+            source_version_ids=[uuid.UUID(each) for each in versions] if versions else None,
+            company=company,
+        )
+    except (ValueError, ValidationError) as error:
+        print(
+            f"atlas: --since must be an ISO 8601 time with its offset and --version a Source"
+            f" Version id ({str(error).splitlines()[0]})",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from None
+    engine = create_engine(settings)
+    try:
+        enqueued = enqueue_scan(
+            JobQueue(engine, actor=Actor.from_settings(settings)),
+            key or f"scan_signals:{uuid.uuid4()}",
+            payload,
+            job_class="backfill" if backfill else "interactive",
+        )
+    finally:
+        engine.dispose()
+    _print_enqueued(enqueued)
+
+
 def run_memory_reconcile(
     settings: Settings, key: str | None, *, wait: bool, timeout: float, poll_seconds: float
 ) -> int:
@@ -1348,6 +1395,28 @@ def main(argv: list[str] | None = None) -> None:
     resolve.add_argument(
         "--company", action="append", dest="slugs", help="only this company (repeatable)"
     )
+    signals = commands.add_parser(
+        "signals",
+        help="archive bottleneck signals: sentences of archived documents that read like one",
+    )
+    signals_commands = signals.add_subparsers(dest="signals_command", required=True)
+    signals_scan = signals_commands.add_parser(
+        "scan",
+        help="enqueue a scan_signals job (no LLM): score archived sentences for the cues in"
+        " configs/discovery/signals.yaml and store the hits as leads; the worker runs one a day"
+        " from ATLAS_SIGNAL_SCAN_AT",
+    )
+    signals_scan.add_argument(
+        "--since",
+        help="scan the versions public from this time on (ISO 8601 with its offset), not only"
+        " those ingested since the last scan",
+    )
+    signals_scan.add_argument(
+        "--version", action="append", dest="versions", help="scan this Source Version (repeatable)"
+    )
+    signals_scan.add_argument("--company", help="only this company's versions (a slug)")
+    signals_scan.add_argument("--key", help="idempotency key (default: a new run each time)")
+    signals_scan.add_argument("--backfill", action="store_true", help="backfill class")
     tradingview = commands.add_parser(
         "tradingview",
         help="the owner-override TradingView source (off by default; docs/runbooks.md)",
@@ -1548,6 +1617,10 @@ def main(argv: list[str] | None = None) -> None:
             not args.interactive,
             error_classes=args.error_classes,
             company=args.company,
+        )
+    elif args.command == "signals":
+        enqueue_signal_scan(
+            settings, args.since, args.versions, args.company, args.key, backfill=args.backfill
         )
     elif args.command == "companies" and args.companies_command == "resolve":
         raise SystemExit(resolve_companies(settings, args.slugs))
