@@ -61,6 +61,7 @@ from atlas.jobs.pacing import Clock, utc_now
 from atlas.jobs.queue import Artifacts, Enqueued, Job, JobQueue
 from atlas.settings import Settings
 from atlas.tradingview.client import CallBoundReached
+from atlas.tradingview.mcp import McpToolError, UnexpectedAnswer
 from atlas.tradingview.model import OWNER_OVERRIDE
 from atlas.tradingview.prices import price_history, store_closes
 from atlas.tradingview.service import (
@@ -109,7 +110,11 @@ class Pending:
 
 
 def pending_calls(connection: Connection, today: date) -> list[Pending]:
-    """The calls with a checkpoint fallen due and not yet appended, oldest first."""
+    """The calls with a checkpoint fallen due and not yet appended, oldest first.
+
+    A checkpoint is due once its day is over (`day < today`, UTC): until then the day's close is
+    not yet one (a session still forming is not a close, and a stored checkpoint can never be
+    corrected)."""
     calls = connection.execute(
         text(
             "SELECT c.id, c.theme, c.made_at FROM call_record c"
@@ -138,7 +143,7 @@ def pending_calls(connection: Connection, today: date) -> list[Pending]:
         due = [
             (months, day)
             for months in HORIZONS
-            if months not in done[call.id] and (day := due_on(call.made_at, months)) <= today
+            if months not in done[call.id] and (day := due_on(call.made_at, months)) < today
         ]
         if due:
             pending.append(
@@ -250,12 +255,22 @@ def run_settle(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
         wanted.setdefault(company.company_id, Member(company.company_id, slug, company.symbol))
     start = min(firsts) - timedelta(days=LEAD_DAYS)
     fetched: set[uuid.UUID] = set()
+    failed: list[dict[str, str]] = []
     bounded = False
+    last_day = today - timedelta(days=1)  # the last day that is over: no forming bar is stored
     with mcp_session(settings) as mcp:
         client = tradingview_client(mcp, settings, engine, job.id)
         try:
             for member in wanted.values():
-                bars = client.daily_bars(member.symbol, start=start, end=today, today=today)
+                try:
+                    bars = client.daily_bars(member.symbol, start=start, end=last_day, today=today)
+                except (UnexpectedAnswer, McpToolError) as error:
+                    # One symbol TradingView will not answer defers only what needs it (a
+                    # throttle or an outage, TradingViewUnavailable, still fails the job to retry).
+                    failed.append(
+                        {"company": member.slug, "symbol": member.symbol, "error": str(error)[:200]}
+                    )
+                    continue
                 closes = {bar.at.date(): bar.close for bar in bars}
                 store_closes(engine, member.company_id, member.symbol, closes, job.id, now)
                 fetched.add(member.company_id)
@@ -270,7 +285,7 @@ def run_settle(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
             company_id: [
                 Close(each.day, each.close)
                 for each in price_history(
-                    connection, company_id=company_id, start=start, end=today
+                    connection, company_id=company_id, start=start, end=last_day
                 ).closes
             ]
             for company_id in fetched
@@ -340,6 +355,7 @@ def run_settle(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
             "checkpoints_appended": appended,
             "deferred": [dict(each) for each in deferred],  # pyright: ignore[reportAssignmentType]
             "companies_fetched": len(fetched),
+            "companies_failed": failed,
             "tool_calls": calls,
             "bounded": bounded,
         }
@@ -348,13 +364,13 @@ def run_settle(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
 
 
 def _price_predictions_due(connection: Connection, today: date) -> list[tuple[date, str]]:
-    """The deadline and company slug of each unsettled price prediction whose deadline has come."""
+    """The deadline and company slug of each unsettled price prediction whose deadline is over."""
     return [
         (row.deadline, row.slug)
         for row in connection.execute(
             text(
                 "SELECT p.deadline, c.slug FROM prediction p JOIN company c ON c.id = p.company_id"
-                " WHERE p.source_kind = 'price' AND p.deadline <= :today AND NOT EXISTS"
+                " WHERE p.source_kind = 'price' AND p.deadline < :today AND NOT EXISTS"
                 " (SELECT FROM prediction_settlement s WHERE s.prediction_id = p.id)"
                 " ORDER BY p.deadline"
             ),

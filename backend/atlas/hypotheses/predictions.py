@@ -19,6 +19,11 @@ stored close on or before a day, through the price service's table; see
   `quantity.value` (`422 fact_has_no_quantity`), an observation's `value`, the stored close
   (`409 no_price`). The outcome is `met` when the value lies within the expected range, else
   `missed`.
+- **A source must be news.** A Fact or an XBRL observation that was already public when the
+  version was published cannot settle a prediction made on it (`422 source_before_publication`):
+  the forward test is of what came after. A Fact is about the prediction's company when it names
+  one (`422 source_mismatch`). A close settles a day only once the day is over (`422
+  day_not_over`: the day is before today, UTC).
 """
 
 import uuid
@@ -342,8 +347,11 @@ class Predictions:
         with self._engine.begin() as connection:
             row = connection.execute(
                 text(
-                    "SELECT id, source_kind, company_id, deadline, expected_low, expected_high"
-                    " FROM prediction WHERE id = :id AND hypothesis_id = :hypothesis FOR UPDATE"
+                    "SELECT p.id, p.source_kind, p.company_id, p.deadline, p.expected_low,"
+                    " p.expected_high, (SELECT v.published_at FROM hypothesis_version v"
+                    " WHERE v.id = p.version_id) AS published_at"
+                    " FROM prediction p WHERE p.id = :id AND p.hypothesis_id = :hypothesis"
+                    " FOR UPDATE OF p"
                 ),
                 {"id": prediction_id, "hypothesis": hypothesis_id},
             ).one_or_none()
@@ -361,7 +369,7 @@ class Predictions:
                     raise PredictionError(
                         422, "wrong_source", "this prediction is settled by a Fact: name fact_id"
                     )
-                value = _fact_value(connection, request.fact_id)
+                value = _fact_value(connection, request.fact_id, row.company_id, row.published_at)
                 fact_id = request.fact_id
             elif row.source_kind == "financial_observation":
                 if request.observation_id is None or request.fact_id or request.day:
@@ -370,7 +378,9 @@ class Predictions:
                         "wrong_source",
                         "this prediction is settled by an XBRL observation: name observation_id",
                     )
-                value = _observation_value(connection, request.observation_id, row.company_id)
+                value = _observation_value(
+                    connection, request.observation_id, row.company_id, row.published_at
+                )
                 observation_id = request.observation_id
             else:
                 if request.fact_id or request.observation_id:
@@ -378,8 +388,12 @@ class Predictions:
                         422, "wrong_source", "this prediction is settled by a close: name only day"
                     )
                 price_day = request.day or row.deadline
-                if price_day > today:
-                    raise PredictionError(422, "day_in_future", "that day has not happened")
+                if price_day >= today:
+                    raise PredictionError(
+                        422,
+                        "day_not_over",
+                        "that day is not over (UTC): a close settles it from the next day",
+                    )
                 value, price_symbol = _close(connection, row.company_id, price_day)
             low, high = _number(row.expected_low), _number(row.expected_high)
             met = (low is None or value >= low) and (high is None or value <= high)
@@ -419,16 +433,38 @@ class Predictions:
         return settled
 
 
-def _fact_value(connection: Connection, fact_id: uuid.UUID) -> float:
+def _after_publication(available_at: datetime, published_at: datetime, what: str) -> None:
+    if available_at <= published_at:
+        raise PredictionError(
+            422,
+            "source_before_publication",
+            f"{what} was already public when the version was published, so it cannot settle"
+            " a prediction made then",
+        )
+
+
+def _fact_value(
+    connection: Connection,
+    fact_id: uuid.UUID,
+    company_id: uuid.UUID | None,
+    published_at: datetime,
+) -> float:
     row = connection.execute(
         text(
-            "SELECT a.value_json->'quantity'->>'value' AS value FROM fact f"
-            " JOIN assertion a ON a.id = f.assertion_id WHERE f.assertion_id = :id"
+            "SELECT a.value_json->'quantity'->>'value' AS value, a.subject_company_id,"
+            " av.available_at FROM fact f JOIN assertion a ON a.id = f.assertion_id"
+            " JOIN source_version_availability av ON av.source_version_id = a.source_version_id"
+            " WHERE f.assertion_id = :id"
         ),
         {"id": fact_id},
     ).one_or_none()
     if row is None:
         raise PredictionError(422, "unknown_fact", "no such Fact")
+    if company_id is not None and row.subject_company_id != company_id:
+        raise PredictionError(
+            422, "source_mismatch", "the Fact is about another company than the prediction's"
+        )
+    _after_publication(row.available_at, published_at, "the Fact's document")
     if row.value is None:
         raise PredictionError(
             422, "fact_has_no_quantity", "the Fact states no quantity to settle a range with"
@@ -437,10 +473,13 @@ def _fact_value(connection: Connection, fact_id: uuid.UUID) -> float:
 
 
 def _observation_value(
-    connection: Connection, observation_id: uuid.UUID, company_id: uuid.UUID | None
+    connection: Connection,
+    observation_id: uuid.UUID,
+    company_id: uuid.UUID | None,
+    published_at: datetime,
 ) -> float:
     row = connection.execute(
-        text("SELECT value, company_id FROM financial_observation WHERE id = :id"),
+        text("SELECT value, company_id, available_at FROM financial_observation WHERE id = :id"),
         {"id": observation_id},
     ).one_or_none()
     if row is None:
@@ -449,6 +488,7 @@ def _observation_value(
         raise PredictionError(
             422, "source_mismatch", "the observation is another company's than the prediction's"
         )
+    _after_publication(row.available_at, published_at, "the observation's filing")
     return float(row.value)
 
 

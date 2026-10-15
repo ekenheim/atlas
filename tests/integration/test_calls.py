@@ -218,6 +218,11 @@ def noon(day: date) -> datetime:
     return datetime(day.year, day.month, day.day, 12, tzinfo=UTC)
 
 
+def day_after(day: date) -> date:
+    """A checkpoint is settled once its day is over: the first pass that may is the next day's."""
+    return day + timedelta(days=1)
+
+
 # --- the Belief origin ---------------------------------------------------------------------------
 
 
@@ -398,13 +403,14 @@ def test_checkpoints_are_appended_at_one_three_and_six_months_against_the_univer
     tradingview[0].ohlcv["NASDAQ:LITE"] = bars({before: 100.0, one: 110.0, three: 121.0, six: 90.0})
     tradingview[0].ohlcv["NYSE:COHR"] = bars({before: 50.0, one: 50.0, three: 55.0, six: 45.0})
 
-    # Not due yet: nothing is called.
-    early = record.settle(noon(one - timedelta(days=1)), "early")
+    # Not due yet, and not on the due day itself (it is not over: its close is still forming):
+    # nothing is called.
+    early = record.settle(noon(one), "early")
     assert early["status"] == "succeeded", early["failures"]
     assert early["artifacts"]["checkpoints_due"] == 0
     assert tradingview[0].tool_calls == []
 
-    first = record.settle(noon(one), "one")
+    first = record.settle(noon(day_after(one)), "one")
     assert first["status"] == "succeeded", first["failures"]
     assert first["artifacts"]["checkpoints_appended"] == 1
     assert first["artifacts"]["tool_calls"] == 3
@@ -423,12 +429,12 @@ def test_checkpoints_are_appended_at_one_three_and_six_months_against_the_univer
     ]
     assert (call["state"], call["next_due"]["horizon_months"]) == ("open", 3)
 
-    # The same day again, and the day after: nothing more, nothing called.
+    # The same day again: nothing more, nothing called.
     asked = len(tradingview[0].tool_calls)
-    assert record.settle(noon(one), "one-again")["artifacts"]["checkpoints_due"] == 0
+    assert record.settle(noon(day_after(one)), "one-again")["artifacts"]["checkpoints_due"] == 0
     assert len(tradingview[0].tool_calls) == asked
 
-    third = record.settle(noon(three), "three")
+    third = record.settle(noon(day_after(three)), "three")
     assert third["artifacts"]["checkpoints_appended"] == 1
     (call,) = record.calls()
     assert checkpoints_of(call) == [(1, 0.1, 0.05, 0.05), (3, 0.21, 0.155, 0.055)]
@@ -465,7 +471,7 @@ def test_a_close_missing_on_a_day_takes_the_last_and_a_call_waits_for_a_company_
 
     # One call per job: Lumentum is fetched, Coherent is not, so the benchmark is incomplete.
     record.atlas.overrides["tradingview_max_calls_per_job"] = 1
-    held = record.settle(noon(one), "bounded")
+    held = record.settle(noon(day_after(one)), "bounded")
     assert held["status"] == "succeeded", held["failures"]
     assert held["artifacts"]["bounded"] is True
     assert held["artifacts"]["checkpoints_appended"] == 0
@@ -475,9 +481,61 @@ def test_a_close_missing_on_a_day_takes_the_last_and_a_call_waits_for_a_company_
     assert record.calls()[0]["checkpoints"] == []
 
     record.atlas.overrides["tradingview_max_calls_per_job"] = 20
-    done = record.settle(noon(one), "unbounded")
+    done = record.settle(noon(day_after(one)), "unbounded")
     assert done["artifacts"]["checkpoints_appended"] == 1
     assert checkpoints_of(record.calls()[0]) == [(1, 0.25, 0.125, 0.125)]
+
+
+def test_one_symbol_tradingview_will_not_answer_defers_only_what_needs_it(
+    record: Record, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    record.judge(record.belief())
+    (call,) = record.calls()
+    made = day_of(call["made_at"])
+    one = add_months(made, 1)
+    before = made - timedelta(days=1)
+    tradingview[0].ohlcv["NASDAQ:LITE"] = bars({before: 100.0, one: 110.0})
+    tradingview[0].ohlcv["NYSE:COHR"] = json.dumps({"unexpected": "shape"})
+
+    held = record.settle(noon(day_after(one)), "bad-symbol")
+    assert held["status"] == "succeeded", held["failures"]
+    assert [each["symbol"] for each in held["artifacts"]["companies_failed"]] == ["NYSE:COHR"]
+    assert held["artifacts"]["checkpoints_appended"] == 0
+    assert held["artifacts"]["deferred"] == [
+        {"call_id": call["id"], "horizon_months": 1, "reason": "prices_not_fetched"}
+    ]
+    assert record.calls()[0]["checkpoints"] == []
+
+    tradingview[0].ohlcv["NYSE:COHR"] = bars({before: 50.0, one: 50.0})
+    done = record.settle(noon(day_after(one)), "fixed-symbol")
+    assert done["artifacts"]["companies_failed"] == []
+    assert done["artifacts"]["checkpoints_appended"] == 1
+
+
+def test_a_forming_bar_is_never_stored_as_a_close(
+    record: Record, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    record.judge(record.belief())
+    (call,) = record.calls()
+    made = day_of(call["made_at"])
+    one = add_months(made, 1)
+    before = made - timedelta(days=1)
+    today = day_after(one)
+    # TradingView answers with today's bar too (a session forming: 999.0). The pass takes the
+    # closes of the days that are over only; the due day's close is the one of `one`.
+    tradingview[0].ohlcv["NASDAQ:LITE"] = bars({before: 100.0, one: 110.0, today: 999.0})
+    tradingview[0].ohlcv["NYSE:COHR"] = bars({before: 50.0, one: 50.0, today: 999.0})
+
+    on_the_day = record.settle(noon(one), "on-the-day")
+    assert on_the_day["artifacts"]["checkpoints_due"] == 0
+    assert tradingview[0].tool_calls == []
+
+    record.settle(noon(today), "next-day")
+    assert checkpoints_of(record.calls()[0]) == [(1, 0.1, 0.05, 0.05)]
+    with record.engine.connect() as connection:
+        stored = set(connection.execute(text("SELECT day FROM tradingview_price_bar")).scalars())
+    assert today not in stored
+    assert one in stored
 
 
 def test_a_call_that_cannot_be_priced_is_noted_once_and_nothing_fails(
@@ -492,7 +550,7 @@ def test_a_call_that_cannot_be_priced_is_noted_once_and_nothing_fails(
 
     # No symbol anywhere in the first call; TradingView off for the second.
     record.atlas.overrides["tradingview_enabled"] = False
-    off = record.settle(noon(one), "off")
+    off = record.settle(noon(day_after(one)), "off")
     assert off["status"] == "succeeded", off["failures"]
     assert off["artifacts"]["unpriced_noted"] == 2
     assert tradingview[0].tool_calls == []
@@ -502,7 +560,7 @@ def test_a_call_that_cannot_be_priced_is_noted_once_and_nothing_fails(
     assert len(record.calls(state="unpriced")) == 2
 
     # Once: another pass notes nothing more.
-    assert record.settle(noon(one), "off-again")["artifacts"]["unpriced_noted"] == 0
+    assert record.settle(noon(day_after(one)), "off-again")["artifacts"]["unpriced_noted"] == 0
     with record.engine.connect() as connection:
         assert connection.execute(text("SELECT count(*) FROM call_unpriced")).scalar_one() == 2
 
@@ -511,7 +569,7 @@ def test_a_call_that_cannot_be_priced_is_noted_once_and_nothing_fails(
     before = made - timedelta(days=1)
     tradingview[0].ohlcv["NASDAQ:LITE"] = bars({before: 100.0, one: 90.0})
     tradingview[0].ohlcv["NYSE:COHR"] = bars({before: 10.0, one: 10.0})
-    on = record.settle(noon(one), "on")
+    on = record.settle(noon(day_after(one)), "on")
     assert on["artifacts"]["checkpoints_appended"] == 1
     priced = {len(c["companies"]): c for c in record.calls()}
     assert checkpoints_of(priced[1]) == [(1, -0.1, -0.05, -0.05)]
@@ -529,8 +587,8 @@ def test_the_prospective_record_is_insert_only(
     one = add_months(made, 1)
     tradingview[0].ohlcv["NASDAQ:LITE"] = bars({made: 100.0, one: 110.0})
     tradingview[0].ohlcv["NYSE:COHR"] = bars({made: 50.0, one: 50.0})
-    record.settle(noon(one), "one")
-    record.settle(noon(one + timedelta(days=1)), "off")
+    record.settle(noon(day_after(one)), "one")
+    record.settle(noon(one + timedelta(days=2)), "off")
 
     for statement in (
         "UPDATE call_record SET claim = 'x'",

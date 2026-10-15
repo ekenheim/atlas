@@ -452,7 +452,17 @@ def test_a_price_prediction_lapses_and_is_settled_once_from_the_stored_close(
     early = predictions.api.post(
         f"{path}/{within['id']}/settle", json={"day": deadline.isoformat()}
     )
-    assert (early.status_code, early.json()["error"]["code"]) == (422, "day_in_future")
+    assert (early.status_code, early.json()["error"]["code"]) == (422, "day_not_over")
+    # The deadline's own day is not over either (its session may still be forming).
+    predictions.clock.now = noon(deadline)
+    same_day = predictions.api.post(
+        f"{path}/{within['id']}/settle", json={"day": deadline.isoformat()}
+    )
+    assert (same_day.status_code, same_day.json()["error"]["code"]) == (422, "day_not_over")
+    held = predictions.settle("deadline-day")
+    assert held["status"] == "succeeded", held["failures"]
+    assert held["artifacts"]["calls_due"] == 0
+    assert predictions.fake.tool_calls == []
 
     # Past it, unsettled, it is lapsed; the daily pass stores the closes it is settled by.
     predictions.clock.now = noon(deadline + timedelta(days=2))
@@ -503,6 +513,43 @@ def test_a_price_prediction_lapses_and_is_settled_once_from_the_stored_close(
             connection.execute(text(statement))
 
 
+def made_public_later(
+    predictions: Predictions, *, fact_version: str, observation: dict[str, Any]
+) -> str:
+    """After publication, as a dissemination correction would make it: the Fact's document is
+    available a day from now, and a copy of the XBRL observation is a filing of a later accession.
+    Returns the copy's id."""
+    version = predictions.atlas.version(fact_version)["id"]
+    with predictions.engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO source_version_availability_correction (id, source_version_id,"
+                " available_at, available_at_basis, reason) VALUES (gen_random_uuid(), :version,"
+                " now() + interval '1 day', 'sec_dissemination', 'a test: disseminated later')"
+            ),
+            {"version": version},
+        )
+        connection.execute(
+            text(
+                "CREATE TEMP TABLE later_observation ON COMMIT DROP AS"
+                " SELECT * FROM financial_observation WHERE id = :id"
+            ),
+            {"id": observation["id"]},
+        )
+        copied = connection.execute(
+            text(
+                "UPDATE later_observation SET id = gen_random_uuid(),"
+                " accession = '0001633978-27-000001', available_at = now() + interval '1 day',"
+                " previous_observation_id = NULL,"
+                " linkage = 'first', suspect_reasons = '{}' RETURNING id"
+            )
+        ).scalar_one()
+        connection.execute(
+            text("INSERT INTO financial_observation SELECT * FROM later_observation")
+        )
+    return str(copied)
+
+
 def test_a_prediction_is_settled_from_a_facts_quantity_or_an_xbrl_observation(
     predictions: Predictions, llm: FakeLiteLLM
 ) -> None:
@@ -517,6 +564,11 @@ def test_a_prediction_is_settled_from_a_facts_quantity_or_an_xbrl_observation(
     observations = predictions.get(f"/api/v1/companies/{lumentum}/financial-observations")["items"]
     observation = next(each for each in observations if each["unit"] == "USD")
     value = float(observation["value"])
+    # News: the document is disseminated, and the filing observed, after the version was published.
+    news_observation = made_public_later(
+        predictions, fact_version=URL_EX991, observation=observation
+    )
+    observation = observation | {"id": news_observation}
 
     by_fact = predictions.post(
         path,
@@ -561,6 +613,55 @@ def test_a_prediction_is_settled_from_a_facts_quantity_or_an_xbrl_observation(
     assert settled["settlement"]["outcome"] == "met"
     assert settled["settlement"]["value"] == value
     assert settled["settlement"]["observation_id"] == observation["id"]
+
+
+def test_a_source_already_public_at_publication_or_about_another_company_cannot_settle(
+    predictions: Predictions, llm: FakeLiteLLM
+) -> None:
+    hypothesis_id = draft(predictions, llm)
+    publish(predictions, hypothesis_id)  # now: the Lumentum filing is already public
+    made = day_of(
+        predictions.get(f"/api/v1/hypotheses/{hypothesis_id}")["versions"][0]["published_at"]
+    )
+    path = f"/api/v1/hypotheses/{hypothesis_id}/predictions"
+    lumentum = predictions.company()
+    fact = predictions.fact(QUARTER)
+    observations = predictions.get(f"/api/v1/companies/{lumentum}/financial-observations")["items"]
+    observation = next(each for each in observations if each["unit"] == "USD")
+
+    by_fact = predictions.post(
+        path, body(made, source="fact", expected_low=1.0, expected_high=1.2), status=201
+    )
+    old_fact = predictions.api.post(f"{path}/{by_fact['id']}/settle", json={"fact_id": fact})
+    assert (old_fact.status_code, old_fact.json()["error"]["code"]) == (
+        422,
+        "source_before_publication",
+    )
+    by_xbrl = predictions.post(
+        path,
+        body(made, source="financial_observation", company_id=lumentum, expected_low=0.0),
+        status=201,
+    )
+    old_observation = predictions.api.post(
+        f"{path}/{by_xbrl['id']}/settle", json={"observation_id": observation["id"]}
+    )
+    assert (old_observation.status_code, old_observation.json()["error"]["code"]) == (
+        422,
+        "source_before_publication",
+    )
+    # A Fact is about the prediction's company when it names one (checked before the date).
+    other = predictions.post(
+        path,
+        body(made, source="fact", expected_low=1.0, company_id=predictions.company("coherent")),
+        status=201,
+    )
+    wrong_company = predictions.api.post(f"{path}/{other['id']}/settle", json={"fact_id": fact})
+    assert (wrong_company.status_code, wrong_company.json()["error"]["code"]) == (
+        422,
+        "source_mismatch",
+    )
+    states = {p["id"]: p["state"] for p in predictions.get("/api/v1/predictions")["items"]}
+    assert set(states.values()) == {"open"}  # none was settled
 
 
 def test_a_rejected_hypotheses_predictions_stay_listed(
