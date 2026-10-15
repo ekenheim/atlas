@@ -25,6 +25,7 @@ COPY .claude/skills/atlas-research/ /opt/atlas-agent/.claude/skills/atlas-resear
 USER 10001
 ENV HOME=/tmp \
     DISABLE_AUTOUPDATER=1 \
+    ENABLE_TOOL_SEARCH=false \
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 WORKDIR /opt/atlas-agent
 ENTRYPOINT ["/opt/atlas-agent/agent/run.sh"]

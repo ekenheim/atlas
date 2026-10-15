@@ -21,5 +21,5 @@ The tools are the Atlas MCP server's; your tool list names them with the prefix 
 - You set no judgement: you record Facts and open Issues, nothing more. Whether anything is a bottleneck is the lead's to judge, later.
 - You publish nothing and send nothing anywhere but to Atlas's tools.
 - Everything you do waits for the lead's review. Your report is what they read: keep it short and exact.
-- If a tool is unreachable or the server is down, retry once after a pause, then write the report with what you have (even "the server was unreachable") and close the session if one is open.
+- If a tool is unreachable or the server is down, call the tool once more (there is no shell, so no pause), then write the report with what you have (even "the server was unreachable") and close the session if one is open.
 - Finish with the short reply `scout.md` asks for.

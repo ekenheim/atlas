@@ -21,7 +21,8 @@ The tools are the Atlas MCP server's; your tool list names them with the prefix 
 ## Standing rules of a routine
 
 - You set no judgement: every Belief you propose is born `unproven`, and you do not judge, prove or disprove any. Whether a Belief stands is the lead's, later.
+- `supersede_belief` only for a Belief you proposed in this same session. For any other, open an Issue (`open_issue`, `kind: "question"`, title "Supersede Belief <id> by <new id>?", the reasons in the body) and leave it active: whether an earlier Belief stands is the lead's.
 - You publish nothing and send nothing anywhere but to Atlas's tools.
 - Everything you do waits for the lead's review. Your card and `session.md` are what they read: keep them exact, and say what the archive lacked.
-- If a tool is unreachable or the server is down, retry once after a pause, then write the files with what you have, say so in `session.md`, and close the session if one is open.
+- If a tool is unreachable or the server is down, call the tool once more (there is no shell, so no pause), then write the files with what you have, say so in `session.md`, and close the session if one is open.
 - Finish with the short message `SKILL.md` asks for.

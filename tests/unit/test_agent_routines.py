@@ -158,3 +158,20 @@ def test_the_agent_image_is_non_root_and_holds_no_secret():
     assert "HOME=/tmp" in dockerfile
     assert "OAUTH_TOKEN" not in re.sub(r"(?m)^#.*$", "", dockerfile)
     assert 'ENTRYPOINT ["/opt/atlas-agent/agent/run.sh"]' in dockerfile
+
+
+@pytest.mark.parametrize("routine", ROUTINES)
+def test_a_routine_never_tells_a_shell_less_agent_to_pause(routine: str):
+    text = (PROMPTS_DIR / f"{routine}.md").read_text(encoding="utf-8")
+    assert "retry once after a pause" not in text
+
+
+def test_the_researcher_supersedes_only_its_own_beliefs():
+    text = (PROMPTS_DIR / "researcher.md").read_text(encoding="utf-8")
+    assert "`supersede_belief` only for a Belief you proposed in this same session" in text
+    assert "Supersede Belief <id> by <new id>?" in text
+
+
+def test_the_agent_image_never_defers_tool_schemas():
+    dockerfile = (ROOT / "agent" / "Dockerfile").read_text(encoding="utf-8")
+    assert "ENABLE_TOOL_SEARCH=false" in dockerfile

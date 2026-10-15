@@ -51,6 +51,7 @@ printf '%s\\n' "$@" >"$STUB_DIR/args.txt"
 pwd >"$STUB_DIR/cwd.txt"
 printf '%s' "${CLAUDE_CODE_OAUTH_TOKEN:-}" >"$STUB_DIR/token-seen.txt"
 printf '%s' "${ANTHROPIC_API_KEY:-unset}" >"$STUB_DIR/api-key-seen.txt"
+printf '%s' "${ENABLE_TOOL_SEARCH:-unset}" >"$STUB_DIR/tool-search-seen.txt"
 echo "stderr: the stand-in saw $CLAUDE_CODE_OAUTH_TOKEN" >&2
 case "${STUB_MODE:-success}" in
   success)
@@ -239,6 +240,8 @@ def test_a_wrong_call_is_a_usage_error(run: Run, arguments: tuple[str, ...]):
         {"ATLAS_AGENT_MAX_TURNS": "many"},
         {"ATLAS_AGENT_AS_OF": "tomorrow"},
         {"ATLAS_AGENT_MODEL": "opus --dangerously-skip-permissions"},
+        {"ATLAS_AGENT_TMP": "/tmp/x&y"},
+        {"ATLAS_AGENT_TMP": "relative/dir"},
     ],
 )
 def test_a_setting_that_does_not_fit_is_refused(run: Run, setting: dict[str, str]):
@@ -291,6 +294,8 @@ def test_a_run_calls_claude_once_and_prints_one_summary_line(run: Run):
     # The subscription token pays; a metered key in the environment is dropped.
     assert (run.stub_dir / "token-seen.txt").read_text(encoding="utf-8") == TOKEN
     assert (run.stub_dir / "api-key-seen.txt").read_text(encoding="utf-8") == "unset"
+    # --tools leaves ToolSearch out, so the MCP tools must never be deferred behind it.
+    assert (run.stub_dir / "tool-search-seen.txt").read_text(encoding="utf-8") == "false"
 
 
 def test_a_run_writes_the_mcp_config_and_keeps_claudes_answer(run: Run):

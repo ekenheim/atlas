@@ -81,6 +81,8 @@ as_of="${ATLAS_AGENT_AS_OF:-$(date -u +%Y-%m-%dT%H:%M:%S+00:00)}"
 # What goes into the prompt and the JSON file is checked, not escaped.
 url_re='^https?://[^[:space:]"\\]+$'
 [[ "$mcp_url" =~ $url_re ]] || die "ATLAS_MCP_URL is not an http(s) URL: $mcp_url"
+tmp_re='^([A-Za-z]:)?/[A-Za-z0-9._/-]+$'
+[[ "$tmp_dir" =~ $tmp_re ]] || die "ATLAS_AGENT_TMP is not an absolute path of plain characters: $tmp_dir"
 [[ "$theme" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || die "ATLAS_AGENT_THEME is not a theme slug: $theme"
 model_re='^[][A-Za-z0-9._:-]+$'
 [[ "$model" =~ $model_re ]] || die "ATLAS_AGENT_MODEL has characters a model name does not: $model"
@@ -150,6 +152,9 @@ command -v claude >/dev/null 2>&1 || die "claude is not installed"
 command -v node >/dev/null 2>&1 || die "node is not installed"
 # The subscription token, not a metered API key, pays for the run.
 unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
+# --tools leaves out ToolSearch, so the MCP tools' schemas must be sent up front, never deferred
+# behind a search the agent cannot call (Claude Code defers them when their definitions are large).
+export ENABLE_TOOL_SEARCH=false
 
 umask 077
 mkdir -p "$out_dir"
