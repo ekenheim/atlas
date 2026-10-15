@@ -667,6 +667,91 @@ def test_an_answer_that_is_not_json_is_kept_too(
     }
 
 
+def test_a_calendar_answer_under_another_wrapper_key_fails_and_is_not_an_empty_calendar(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].raw[CALENDAR_TOOL] = json.dumps(
+        {
+            "rows": [{"symbol": "NASDAQ:LITE", "earnings_release_next_date": 1793912400}],
+            "totalCount": 1,
+        }
+    )
+
+    job = agent.run("tradingview_calendar", "rows")
+
+    assert job["status"] == "failed"
+    assert job["attempts"] == 1
+    assert job["artifacts"]["status"] == "unexpected_answer"
+    assert job["artifacts"]["tool"] == CALENDAR_TOOL
+    # The shape is kept for the lead (the wrapper key, the field names, the symbol), no date.
+    assert '"rows"' in job["artifacts"]["unparsed_answer"]
+    assert "NASDAQ:LITE" in job["artifacts"]["unparsed_answer"]
+    assert agent.leads() == []
+
+
+def test_a_calendar_that_names_none_of_the_symbols_asked_fails_instead_of_listing_nothing(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].raw[CALENDAR_TOOL] = json.dumps(
+        {"items": [{"symbol": "LITE", "date": 1793912400, "status": "confirmed"}]}
+    )
+
+    job = agent.run("tradingview_calendar", "other-form")
+
+    assert job["status"] == "failed"
+    assert "no item names a symbol asked for" in job["failures"][0]["error"]
+    assert job["artifacts"]["unparsed_answer"] == (
+        '{"items": [{"symbol": "LITE", "date": 1793912400, "status": "confirmed"}]}'
+    )
+    assert agent.leads() == []
+
+
+def test_consensus_in_a_failed_calendar_answer_is_kept_in_neither_columns_nor_prose(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].raw[CALENDAR_TOOL] = json.dumps(
+        {
+            "fields": ["symbol", "eps_forecast", "next_report"],
+            "rows": [["NASDAQ:LITE", 1.2345, 1793912400]],
+            "steps": 3,
+            "notes": "consensus 9.8765",
+        }
+    )
+    columns = agent.run("tradingview_calendar", "columns")
+    tradingview[0].raw[CALENDAR_TOOL] = (
+        "Lumentum EPS estimate 7.7777\nNext report 2026-11-05\nRevenue forecast 8.8888 bn"
+    )
+    prose = agent.run("tradingview_calendar", "prose")
+
+    for job in (columns, prose):
+        assert job["status"] == "failed"
+    kept = columns["artifacts"]["unparsed_answer"]
+    for consensus in ("1.2345", "eps_forecast", "9.8765", "1793912400"):
+        assert consensus not in kept
+    assert '"fields": ["symbol", "next_report"]' in kept  # the layout can still be fitted
+    assert '"steps": "<int>"' in kept  # `eps` inside a word is not consensus
+    assert prose["artifacts"]["unparsed_answer"] == "Next report 2026-11-05"
+
+
+def test_a_price_answer_under_another_wrapper_or_in_columns_fails_and_stores_nothing(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    answers = {
+        "data": {"summary": {"count": 3}, "data": [{"t": 1782864000, "c": 105.5}]},
+        "columns": {"t": [1782864000, 1782950400], "c": [105.5, 106.0]},
+    }
+    for key, answer in answers.items():
+        tradingview[0].raw[OHLCV_TOOL] = json.dumps(answer)
+
+        job = agent.run("tradingview_prices", key, {"company": "lumentum"})
+
+        assert job["status"] == "failed", key
+        assert job["attempts"] == 1
+        assert job["artifacts"]["status"] == "unexpected_answer"
+        assert job["artifacts"]["tool"] == OHLCV_TOOL
+        assert _price_rows(agent) == 0
+
+
 def test_the_price_job_asks_for_the_count_to_its_start_and_keeps_the_window(
     agent: Agent, tradingview: tuple[FakeTradingView, Served]
 ) -> None:

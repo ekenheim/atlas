@@ -56,9 +56,24 @@ class McpToolError(McpError):
 
 
 UNPARSED_LIMIT = 4000
+CALENDAR_TOOL = "mcp-tv-get-earnings-calendar"
+
 # Consensus is not Atlas's to keep (the owner disallowed it, 2026-10-15), not even in the
-# answer a failed job leaves behind: a key that names it is taken out first.
-_CONSENSUS_KEY = re.compile(r"consensus|estimate|forecast|eps|revenue", re.IGNORECASE)
+# answer a failed job leaves behind. A name that says consensus, an estimate, a forecast, EPS
+# (as a word of its own: not `steps`), revenue, a surprise or an actual is taken out.
+_CONSENSUS = re.compile(
+    r"consensus|estimate|forecast|(?<![a-z])eps(?![a-z])|revenue|surprise|actual|guidance",
+    re.IGNORECASE,
+)
+# The calendar answers consensus EPS and revenue, in values as well as in named keys (a column
+# layout holds numbers under a header that names the column), so its answer is kept as a
+# skeleton: keys, value types and list lengths, with a value only under a key that names a
+# symbol, a date, a period or a status.
+_IDENTIFYING_KEY = re.compile(
+    r"symbol|ticker|date|time|period|status|fiscal|quarter|year|^id$|_id$"
+)
+_HEADER_KEY = re.compile(r"field|column|header|schema|names|keys")
+_VALUE_LIMIT = 64
 
 
 def _without_consensus(value: Any) -> Any:
@@ -66,21 +81,69 @@ def _without_consensus(value: Any) -> Any:
         return {
             key: _without_consensus(item)
             for key, item in cast(dict[str, Any], value).items()
-            if not _CONSENSUS_KEY.search(key)
+            if not _CONSENSUS.search(key)
         }
     if isinstance(value, list):
         return [_without_consensus(item) for item in cast(list[Any], value)]
     return value
 
 
+def _type_name(value: Any) -> str:
+    if value is None:
+        return "null"
+    return type(value).__name__  # str, int, float, bool
+
+
+def _skeleton(value: Any, key: str = "") -> Any:
+    if isinstance(value, dict):
+        return {
+            name: _skeleton(item, name)
+            for name, item in cast(dict[str, Any], value).items()
+            if not _CONSENSUS.search(name)
+        }
+    if isinstance(value, list):
+        items = cast(list[Any], value)
+        if _HEADER_KEY.search(key.lower()) and all(isinstance(i, str) for i in items):
+            # The names of a column layout's columns, so its shape can be fitted.
+            return [i[:_VALUE_LIMIT] for i in items if not _CONSENSUS.search(cast(str, i))]
+        if not any(isinstance(item, dict | list) for item in items):
+            # A column or a row: its length and the type of its values, never the values.
+            return f"[{len(items)} x {', '.join(sorted({_type_name(i) for i in items})) or '-'}]"
+        return [_skeleton(item, key) for item in items]
+    if (
+        isinstance(value, str | int | float)
+        and not isinstance(value, bool)
+        and _IDENTIFYING_KEY.search(key.lower())
+        and not (isinstance(value, str) and _CONSENSUS.search(value))
+    ):
+        return value[:_VALUE_LIMIT] if isinstance(value, str) else value
+    return f"<{_type_name(value)}>"
+
+
+def _without_consensus_lines(text: str) -> str:
+    return "\n".join(line for line in text.splitlines() if not _CONSENSUS.search(line))
+
+
 class UnexpectedAnswer(McpError, FailedWithArtifacts):
     """A tool's answer that isn't in a shape Atlas can use. The job fails at once (trying
     again would get the same answer) and its artifacts keep the first `UNPARSED_LIMIT`
-    characters of the answer (`unparsed_answer`, consensus fields taken out), so the shape
-    can be fitted from one live call."""
+    characters of the answer (`unparsed_answer`, consensus taken out), so the shape can be
+    fitted from one live call. The calendar's answer is kept as a skeleton (see above; a
+    column layout keeps its column names but not a consensus column's), text that isn't JSON
+    without the lines that name consensus; any other tool's JSON loses only the keys that name
+    it."""
 
     def __init__(self, tool: str, detail: str, answer: Any) -> None:
-        shown = answer if isinstance(answer, str) else json.dumps(_without_consensus(answer))
+        if tool == CALENDAR_TOOL:
+            shown = (
+                _without_consensus_lines(answer)
+                if isinstance(answer, str)
+                else json.dumps(_skeleton(answer))
+            )
+        elif isinstance(answer, str):
+            shown = answer
+        else:
+            shown = json.dumps(_without_consensus(answer))
         FailedWithArtifacts.__init__(
             self,
             f"{tool}: unexpected answer: {detail}",

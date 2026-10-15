@@ -33,7 +33,8 @@ fixtures under `tests/fixtures/tradingview/` are synthetic):
   `summary`, and answers an aggregate summary and the bars `[{t (Unix s UTC), o, h, l, c,
   v}]`. The answers' field names are not documented beyond the bars' keys: the calendar is
   assumed `{items: [{id?, symbol, title?, fiscal_period?, fiscal_year?, date (Unix s or
-  ISO), status?}]}` and the bars `{bars: [...]}` or a bare list. An answer that doesn't
+  ISO), status?}]}` and the bars `{bars: [...]}` or a bare list; `items` and `bars` are
+  required (another wrapper key fails the job, never an empty list). An answer that doesn't
   fit fails the job with its first 4,000 characters in the artifacts (`UnexpectedAnswer`),
   so the lead can fit the shape from one live call. `tests/fixtures/tradingview/` are
   synthetic in these shapes.
@@ -56,14 +57,13 @@ from pydantic import (
     model_validator,
 )
 
-from atlas.tradingview.mcp import McpClient, McpError, UnexpectedAnswer
+from atlas.tradingview.mcp import CALENDAR_TOOL, McpClient, McpError, UnexpectedAnswer
 
 DOCUMENTS_TOOL = "mcp-tv-get-documents"
 DOCUMENT_VIEW_TOOL = "mcp-tv-get-document-view"
 NEWS_TOOL = "mcp-tv-get-news"
 # The proxy's earnings-calendar and daily-bars tools (the proxy names a tool `mcp-tv-` plus
 # its TradingView name with hyphens); these constants are the one place the names change.
-CALENDAR_TOOL = "mcp-tv-get-earnings-calendar"
 OHLCV_TOOL = "mcp-tv-get-ohlcv"
 MAX_BARS = 5000  # get_ohlcv's `count` ceiling
 
@@ -203,13 +203,14 @@ class CalendarItem(_Model):
 
 
 class CalendarList(_Model):
-    items: list[CalendarItem] = []
+    items: list[CalendarItem]  # required: another wrapper key (`rows`, `data`) is not an empty list
     total: int | None = None
 
 
 class Bar(_Model):
     """One daily bar, in the documented shape `{t (Unix s UTC), o, h, l, c, v}`; only the
-    close is kept."""
+    close is kept. The day is taken from `t` in UTC: unconfirmed for a non-US exchange (a bar
+    stamped at local midnight would land a day early); see docs/decisions.md."""
 
     time: float = Field(validation_alias=AliasChoices("t", "time"))
     close: float = Field(validation_alias=AliasChoices("c", "close"))
@@ -220,7 +221,7 @@ class Bar(_Model):
 
 
 class BarList(_Model):
-    bars: list[Bar] = []
+    bars: list[Bar]  # required, as above; a bare list is wrapped by the validator
 
     @model_validator(mode="before")
     @classmethod
@@ -259,7 +260,7 @@ class TradingViewClient:
         *,
         max_calls: int,
         on_call: CallRecorder,
-        before_call: Callable[[], None] = lambda: None,
+        before_call: Callable[[], None],
     ) -> None:
         self._mcp = mcp
         self._max_calls = max_calls
@@ -317,7 +318,15 @@ class TradingViewClient:
                 "date_to": _day(end),
             },
         )
-        return _validate(CalendarList, value, CALENDAR_TOOL).items
+        items = _validate(CalendarList, value, CALENDAR_TOOL).items
+        asked = set(symbols)
+        if items and not any(
+            item.symbol in asked or (item.symbol is None and len(symbols) == 1) for item in items
+        ):
+            # Every date names a symbol Atlas didn't ask for (another form: `LITE`, lower case):
+            # the job would succeed with nothing listed, which looks like an empty calendar.
+            raise UnexpectedAnswer(CALENDAR_TOOL, "no item names a symbol asked for", value)
+        return items
 
     def daily_bars(self, symbol: str, *, start: date, end: date, today: date) -> list[Bar]:
         """The daily bars from `start` to `end` inclusive (UTC days). The tool counts back
