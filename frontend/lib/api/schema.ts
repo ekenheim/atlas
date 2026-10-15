@@ -1131,6 +1131,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Calls */
+        get: operations["calls_api_v1_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/predictions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hypothesis Predictions */
+        get: operations["hypothesis_predictions_api_v1_hypotheses__hypothesis_id__predictions_get"];
+        put?: never;
+        /** Record Prediction */
+        post: operations["record_prediction_api_v1_hypotheses__hypothesis_id__predictions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hypotheses/{hypothesis_id}/predictions/{prediction_id}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Settle Prediction */
+        post: operations["settle_prediction_api_v1_hypotheses__hypothesis_id__predictions__prediction_id__settle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/predictions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Predictions */
+        get: operations["predictions_api_v1_predictions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/identity-mappings": {
         parameters: {
             query?: never;
@@ -2686,6 +2755,60 @@ export interface components {
             /** Owner Override */
             owner_override: string;
         };
+        /** Call */
+        Call: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            origin: components["schemas"]["Origin"];
+            /**
+             * Origin Id
+             * Format: uuid
+             */
+            origin_id: string;
+            /** Lead Id */
+            lead_id: string | null;
+            /** Theme */
+            theme: string;
+            /** Claim */
+            claim: string;
+            direction: components["schemas"]["Direction"] | null;
+            /**
+             * Made At
+             * Format: date-time
+             */
+            made_at: string;
+            state: components["schemas"]["CallState"];
+            unpriced_reason: components["schemas"]["UnpricedReason"] | null;
+            /** Companies */
+            companies: components["schemas"]["CallCompany"][];
+            /** Checkpoints */
+            checkpoints: components["schemas"]["Checkpoint"][];
+            next_due: components["schemas"]["NextDue"] | null;
+            /**
+             * Note
+             * @default What Atlas said, on the date it said it, and what followed. Closes are used only to score a call after the fact; they are never evidence for one.
+             */
+            note: string;
+        };
+        /** CallCompany */
+        CallCompany: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Slug */
+            slug: string;
+            /** Display Name */
+            display_name: string;
+            /** Symbol */
+            symbol: string | null;
+        };
+        /** @enum {string} */
+        CallState: "open" | "settled" | "unpriced";
         /** Candidate */
         Candidate: {
             /**
@@ -3625,6 +3748,56 @@ export interface components {
             /** Passed */
             passed: boolean;
         };
+        /** Checkpoint */
+        Checkpoint: {
+            /** Horizon Months */
+            horizon_months: number;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /** Change */
+            change: number;
+            /** Benchmark Change */
+            benchmark_change: number | null;
+            /** Relative Change */
+            relative_change: number | null;
+            /** Benchmark Members */
+            benchmark_members: number;
+            /** Companies */
+            companies: components["schemas"]["CheckpointMove"][];
+            /** Benchmark */
+            benchmark: components["schemas"]["CheckpointMove"][];
+            /**
+             * Settled At
+             * Format: date-time
+             */
+            settled_at: string;
+        };
+        /** CheckpointMove */
+        CheckpointMove: {
+            /** Company */
+            company: string;
+            /** Symbol */
+            symbol: string;
+            /**
+             * Base Day
+             * Format: date
+             */
+            base_day: string;
+            /** Base Close */
+            base_close: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Close */
+            close: number;
+            /** Change */
+            change: number;
+        };
         /** CitationIn */
         CitationIn: {
             /**
@@ -4450,6 +4623,8 @@ export interface components {
             /** Removed */
             removed: number;
         };
+        /** @enum {string} */
+        Direction: "tightening" | "easing";
         /** Discovery */
         Discovery: {
             /**
@@ -6489,6 +6664,11 @@ export interface components {
              * @description Issues to finish before this one
              */
             requires?: string[];
+            /**
+             * Lead Id
+             * @description the archive-signal lead a `question` escalates; it makes a call (atlas-beliefs ticket 19), dated now
+             */
+            lead_id?: string | null;
         };
         /** IssueEdgeCreate */
         IssueEdgeCreate: {
@@ -7225,6 +7405,16 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** NextDue */
+        NextDue: {
+            /** Horizon Months */
+            horizon_months: number;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+        };
         /** NextIssue */
         NextIssue: {
             /** @description None: nothing is active and unblocked */
@@ -7284,6 +7474,10 @@ export interface components {
              */
             scopes?: components["schemas"]["ScopeCount"][];
         };
+        /** @enum {string} */
+        Origin: "belief" | "hypothesis" | "signal";
+        /** @enum {string} */
+        Outcome: "met" | "missed";
         /** OwnerReview */
         OwnerReview: {
             /**
@@ -7326,6 +7520,17 @@ export interface components {
         Page_BeliefSummary_: {
             /** Items */
             items: components["schemas"]["BeliefSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[Call] */
+        Page_Call_: {
+            /** Items */
+            items: components["schemas"]["Call"][];
             /** Total */
             total: number;
             /** Limit */
@@ -7491,6 +7696,17 @@ export interface components {
         Page_Lead_: {
             /** Items */
             items: components["schemas"]["Lead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[Prediction] */
+        Page_Prediction_: {
+            /** Items */
+            items: components["schemas"]["Prediction"][];
             /** Total */
             total: number;
             /** Limit */
@@ -7719,6 +7935,117 @@ export interface components {
              */
             entity_pointers: number;
         };
+        /** Prediction */
+        Prediction: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Hypothesis Id
+             * Format: uuid
+             */
+            hypothesis_id: string;
+            /**
+             * Hypothesis Status
+             * @enum {string}
+             */
+            hypothesis_status: "draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence";
+            /** Theme */
+            theme: string;
+            /** Version */
+            version: number;
+            /**
+             * Version Published At
+             * Format: date-time
+             */
+            version_published_at: string;
+            /** Prediction Index */
+            prediction_index: number | null;
+            /** Measure */
+            measure: string;
+            /** Unit */
+            unit: string | null;
+            /** Expected Low */
+            expected_low: number | null;
+            /** Expected High */
+            expected_high: number | null;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            source_kind: components["schemas"]["SourceKind"];
+            /** Company Id */
+            company_id: string | null;
+            state: components["schemas"]["PredictionState"];
+            settlement: components["schemas"]["Settlement"] | null;
+            /** Actor */
+            actor: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /** PredictionCreate */
+        PredictionCreate: {
+            /**
+             * Version
+             * @description a published version of the Hypothesis
+             */
+            version: number;
+            /**
+             * Prediction Index
+             * @description the item of the version's measurable_predictions
+             */
+            prediction_index?: number | null;
+            /**
+             * Measure
+             * @description what is measured; default: the indexed sentence
+             */
+            measure?: string | null;
+            /** Unit */
+            unit?: string | null;
+            /** Expected Low */
+            expected_low?: number | null;
+            /** Expected High */
+            expected_high?: number | null;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            source: components["schemas"]["SourceKind"];
+            /**
+             * Company Id
+             * @description whose close or observation settles it (required for a price)
+             */
+            company_id?: string | null;
+        };
+        /** PredictionSettle */
+        PredictionSettle: {
+            /**
+             * Fact Id
+             * @description source `fact`
+             */
+            fact_id?: string | null;
+            /**
+             * Observation Id
+             * @description source `financial_observation`
+             */
+            observation_id?: string | null;
+            /**
+             * Day
+             * @description source `price`: the day whose close settles it; default the deadline
+             */
+            day?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** @enum {string} */
+        PredictionState: "open" | "settled" | "lapsed";
         /** Premise */
         Premise: {
             /** Key */
@@ -10086,6 +10413,32 @@ export interface components {
              */
             facts_reused: number;
         };
+        /** Settlement */
+        Settlement: {
+            outcome: components["schemas"]["Outcome"];
+            /** Value */
+            value: number;
+            source_kind: components["schemas"]["SourceKind"];
+            /** Fact Id */
+            fact_id: string | null;
+            /** Observation Id */
+            observation_id: string | null;
+            /** Price Day */
+            price_day: string | null;
+            /** Price Symbol */
+            price_symbol: string | null;
+            /** Late */
+            late: boolean;
+            /** Note */
+            note: string | null;
+            /** Actor */
+            actor: string;
+            /**
+             * Settled At
+             * Format: date-time
+             */
+            settled_at: string;
+        };
         /**
          * Signal
          * @description An `archive_signal` lead's sentence and why it scored.
@@ -10200,6 +10553,8 @@ export interface components {
             /** Latest Version Id */
             latest_version_id: string | null;
         };
+        /** @enum {string} */
+        SourceKind: "fact" | "financial_observation" | "price";
         /**
          * SourceParse
          * @description One parse of a Source Version: the one it was recorded with (`recorded`, the version's
@@ -11112,6 +11467,8 @@ export interface components {
             /** Effective */
             effective: boolean;
         };
+        /** @enum {string} */
+        UnpricedReason: "no_symbol" | "tradingview_disabled";
         /** @enum {string} */
         UnresolvedReason: "mental_model" | "no_memory_id" | "memory_not_found" | "memory_replaced" | "memory_retired" | "source_memory_not_found" | "no_source_memories" | "not_an_atlas_document" | "unknown_document" | "metadata_mismatch" | "too_many_hops" | "quote_mismatch";
         /** UnresponsiveEngine */
@@ -14444,6 +14801,239 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calls_api_v1_calls_get: {
+        parameters: {
+            query?: {
+                /** @description only this theme's */
+                theme?: string | null;
+                /** @description belief, hypothesis or signal */
+                origin?: components["schemas"]["Origin"] | null;
+                /** @description open, settled or unpriced */
+                state?: components["schemas"]["CallState"] | null;
+                /** @description only calls naming it */
+                company_id?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Call_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    hypothesis_predictions_api_v1_hypotheses__hypothesis_id__predictions_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Prediction_"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_prediction_api_v1_hypotheses__hypothesis_id__predictions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prediction"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    settle_prediction_api_v1_hypotheses__hypothesis_id__predictions__prediction_id__settle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+                prediction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionSettle"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prediction"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    predictions_api_v1_predictions_get: {
+        parameters: {
+            query?: {
+                /** @description open, settled or lapsed */
+                state?: components["schemas"]["PredictionState"] | null;
+                /** @description e.g. rejected: those are kept and listed */
+                hypothesis_status?: ("draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence") | null;
+                hypothesis_id?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Prediction_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
