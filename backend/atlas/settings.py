@@ -118,6 +118,9 @@ class Settings(BaseSettings):
     # those three, for a research session only; `always`: also a Fact recorded without a session
     # (the pipeline's Readers, `POST /facts` alone); `off`: none (the test harness).
     fact_statement_judge: Literal["sessions", "always", "off"] = "sessions"
+    # How many times the judge is asked about each statement there (one call, as the ticket and
+    # `POST /statements/judge` have it; the vote rule is `finding_judge_vote_rule`'s).
+    fact_statement_judge_votes: int = Field(default=1, ge=1, le=3)
     # The Investigator (atlas.claims): at most this many passages per extraction, sent this
     # many to a call.
     investigator_max_passages: int = Field(default=24, gt=0)

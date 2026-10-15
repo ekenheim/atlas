@@ -48,7 +48,7 @@ from atlas.runs import RunNotStartable, RunRecorder
 from atlas.settings import Settings
 
 # The longest list of Facts a thesis is judged against (its statements' Facts, in card order).
-MAX_THESIS_FACTS = 40
+MAX_THESIS_FACTS = 12  # the route's cap on `fact_ids`: a longer card is judged on its first 12
 
 
 class JudgeUnavailable(Exception):
@@ -170,7 +170,7 @@ def judged_in_run(
             question=question,
             statement=statement,
             rows=rows,
-            votes=settings.finding_judge_votes,
+            votes=settings.fact_statement_judge_votes,
             rule=settings.finding_judge_vote_rule,
         )
     except TransientFailure as error:

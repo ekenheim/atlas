@@ -299,12 +299,15 @@ def test_a_supported_session_fact_is_recorded_with_the_verdict_the_judge_gave(
 
 
 @pytest.mark.parametrize(
-    "outage",
-    [ChatReply.error(503, "upstream overloaded"), ChatReply.error(429, "rate limit exceeded")],
+    ("outage", "failure_class"),
+    [
+        (ChatReply.error(503, "upstream overloaded"), "unavailable"),
+        (ChatReply.error(429, "rate limit exceeded"), "quota"),
+    ],
     ids=["a 5xx", "a quota"],
 )
 def test_a_judge_that_cannot_be_reached_records_the_fact_unjudged(
-    atlas: Judged, llm: FakeLiteLLM, outage: ChatReply
+    atlas: Judged, llm: FakeLiteLLM, outage: ChatReply, failure_class: str
 ) -> None:
     session = atlas.open()
     llm.script_role("finding_judge", outage)
@@ -314,11 +317,31 @@ def test_a_judge_that_cannot_be_reached_records_the_fact_unjudged(
     assert response.status_code == 201, response.text
     judgement = response.json()["fact"]["statement_judgement"]
     assert judgement["verdict"] == "unjudged"
-    assert (
-        judgement["reason"].startswith("role_unavailable") or "judge_failed" in judgement["reason"]
-    )
+    assert judgement["reason"].startswith(f"role_unavailable: {failure_class}: ")
     assert judgement.get("judge") is None
     assert atlas.get("/api/v1/facts", session_id=session)["total"] == 1
+
+
+def test_a_fact_costs_one_judge_call_whatever_the_findings_votes_are(
+    database_url: str,
+    tmp_path: Path,
+    hindsight: tuple[RecordedHindsight, Served],
+    litellm: Served,
+    llm: FakeLiteLLM,
+) -> None:
+    """Ticket 23: a Fact is judged with one call, as the ticket and `/statements/judge` have it,
+    though the findings' production default is two votes."""
+    atlas = Judged(database_url, tmp_path, hindsight[1].url, litellm.url, finding_judge_votes=2)
+    try:
+        session = atlas.open()
+        llm.script_role("finding_judge", ChatReply.answer(supported, tokens=(400, 40)))
+
+        response = atlas.api.post("/api/v1/facts", json=atlas.fact_body(session))
+
+        assert response.status_code == 201, response.text
+        assert len(judge_calls(llm)) == 1
+    finally:
+        atlas.engine.dispose()
 
 
 def test_a_fact_the_other_checks_refuse_costs_no_judge_call(
