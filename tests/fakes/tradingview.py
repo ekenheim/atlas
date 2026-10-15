@@ -12,10 +12,14 @@ manifest; no TradingView content). The protocol follows the MCP specification (2
   `DELETE /mcp` ends the session.
 - Tools: `mcp-tv-get-documents` (`documents-<company>.json` by symbol), `mcp-tv-get-document-
   view` (`view-<view id>.json`; a view in `unretrievable` answers `isError`),
-  `mcp-tv-get-news` (`news-<company>.json`), `mcp-tv-get-earnings-calendar`
-  (`calendar-<company><calendar>.json`) and `mcp-tv-get-ohlcv` (`ohlcv-<company>.json`);
-  the last two answer in assumed shapes (ticket 16b: their real shapes are unconfirmed).
-  Any other tool is a JSON-RPC error.
+  `mcp-tv-get-news` (`news-<company>.json`), `mcp-tv-get-earnings-calendar` (arguments
+  `symbols[]`, `date_from`, `date_to` as TradingView documents them, ticket 16c; one answer
+  carries the `calendar-<company><calendar>.json` items of every symbol asked) and
+  `mcp-tv-get-ohlcv` (arguments `symbol`, `interval`, `count`, `summary`; `ohlcv-<company>
+  <prices>.json`, bars `{t, o, h, l, c, v}`; the fake returns all the fixture's bars whatever
+  the count, so the client's own window filter is what the tests see). The answers' field
+  names are Atlas's guess where TradingView doesn't document them. `raw[tool]` replaces a
+  tool's answer text (a malformed answer). Any other tool is a JSON-RPC error.
 - OAuth: protected resource metadata at `/.well-known/oauth-protected-resource/mcp`
   (authorization server `<origin>/auth`), authorization server metadata at
   `/.well-known/oauth-authorization-server/auth`, dynamic client registration at
@@ -61,6 +65,7 @@ class FakeTradingView:
     unavailable: bool = False  # answer every MCP request 503
     calendar: str = ""  # "-moved", "-noid": the calendar fixture variant the calendar tool answers
     prices: str = ""  # "-adjusted": the get_ohlcv fixture variant the OHLCV tool answers
+    raw: dict[str, str] = field(default_factory=dict[str, str])  # tool name -> its answer text
     calls: list[httpx2.Request] = field(default_factory=list[httpx2.Request])
     times: list[float] = field(default_factory=list[float])
     tool_calls: list[tuple[str, dict[str, Any]]] = field(
@@ -213,9 +218,14 @@ class FakeTradingView:
             return self._text(request_id, fixture_text(f"documents-{SYMBOLS[arguments['symbol']]}"))
         if name == "mcp-tv-get-news":
             return self._text(request_id, fixture_text(f"news-{SYMBOLS[arguments['symbol']]}"))
+        if name in self.raw:
+            return self._text(request_id, self.raw[name])
         if name == "mcp-tv-get-earnings-calendar":
-            company = SYMBOLS[arguments["symbol"]]
-            return self._text(request_id, fixture_text(f"calendar-{company}{self.calendar}"))
+            items: list[Any] = []
+            for symbol in arguments["symbols"]:
+                company = SYMBOLS[symbol]
+                items += json.loads(fixture_text(f"calendar-{company}{self.calendar}"))["items"]
+            return self._text(request_id, json.dumps({"items": items, "total": len(items)}))
         if name == "mcp-tv-get-ohlcv":
             return self._text(
                 request_id, fixture_text(f"ohlcv-{SYMBOLS[arguments['symbol']]}{self.prices}")

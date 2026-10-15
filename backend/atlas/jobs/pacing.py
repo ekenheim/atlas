@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx2
+from pydantic import JsonValue
 
 from atlas.hindsight.errors import HindsightHTTPError, HindsightUnavailable
 from atlas.jobs.budget import Budgets
@@ -72,6 +73,17 @@ class Requeue(Exception):
     for whatever else holds the kind (its provider's budget, the backfill window) as usual.
     A handler raising it must make progress on each attempt, or the job never ends.
     """
+
+
+class FailedWithArtifacts(Exception):
+    """A handler's failure that leaves something to read in the job's artifacts (e.g. the
+    answer a tool gave that could not be used), and that trying again would not change: the
+    worker records the failure with these artifacts and does not requeue the job.
+    """
+
+    def __init__(self, message: str, artifacts: dict[str, JsonValue]) -> None:
+        super().__init__(message)
+        self.artifacts = artifacts
 
 
 # Error text that marks a quota failure: the MiniMax cap-out reaches Hindsight as a 429 from

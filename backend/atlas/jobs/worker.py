@@ -12,7 +12,7 @@ from datetime import timedelta
 from sqlalchemy.exc import OperationalError
 
 from atlas.jobs.handlers import HandlerRegistry, Schedule
-from atlas.jobs.pacing import Requeue, classify_failure
+from atlas.jobs.pacing import FailedWithArtifacts, Requeue, classify_failure
 from atlas.jobs.queue import Artifacts, Job, JobQueue
 
 log = logging.getLogger("atlas.worker")
@@ -126,6 +126,11 @@ class Worker:
             self.queue.requeue(job, self.worker_id, f"{type(error).__name__}: {error}")
             return
         message = f"{type(error).__name__}: {error}"
+        if isinstance(error, FailedWithArtifacts):
+            # Trying again would change nothing: failed at once, with what the handler left.
+            log.error("job attempt failed", exc_info=error, extra=context)
+            self.queue.fail(job, self.worker_id, message, retry=False, artifacts=error.artifacts)
+            return
         failure_class = classify_failure(error)
         if failure_class is not None and self.registry.pausable(job.kind):
             # Quota or outage: not the job's fault. Pause, and requeue it untouched.

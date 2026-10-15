@@ -1047,7 +1047,13 @@ def run_tradingview_check(settings: Settings, symbol: str) -> int:
     now = datetime.now(UTC)
     try:
         with mcp_session(settings) as mcp:
-            client = TradingViewClient(mcp, max_calls=1, on_call=lambda tool, error: None)
+            # The one call that is not held to the cross-process cap or recorded: this check
+            # runs without a database (from the owner's PC, with the login's own token), so it
+            # has none to count in. It is a single call, paced like every request by the
+            # session's limiter.
+            client = TradingViewClient(
+                mcp, max_calls=1, on_call=lambda tool, error: None, before_call=lambda: None
+            )
             listed = client.documents(
                 symbol,
                 start=now - timedelta(days=settings.tradingview_lookback_days),

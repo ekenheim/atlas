@@ -1,5 +1,5 @@
 {
-  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the earnings-calendar answer shape is unconfirmed; the item carries no event ID, so the fiscal period is its key",
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the answer's field names are Atlas's guess (TradingView documents only the arguments); the item carries no event ID, so the fiscal period is its key",
   "items": [
     {
       "symbol": "NASDAQ:LITE",

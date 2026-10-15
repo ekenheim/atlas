@@ -1,8 +1,11 @@
 {
-  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the get_ohlcv answer shape is unconfirmed; the numbers are made up",
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; bars in the documented shape [{t (unix s UTC), o, h, l, c, v}] under a `bars` key (the key and the summary are Atlas's guess); the numbers are made up. 30 June and 3 August lie outside the July window the tests ask for",
+  "summary": {"count": 5},
   "bars": [
-    {"time": 1782864000, "open": 100.0, "high": 104.5, "low": 99.0, "close": 103.25, "volume": 1200000},
-    {"time": 1782950400, "open": 103.25, "high": 106.0, "low": 102.5, "close": 105.5, "volume": 1350000},
-    {"time": 1783296000, "open": 105.5, "high": 107.0, "low": 101.0, "close": 102.0, "volume": 1500000}
+    {"t": 1782777600, "o": 98.0, "h": 101.0, "l": 97.5, "c": 99.75, "v": 1100000},
+    {"t": 1782864000, "o": 100.0, "h": 104.5, "l": 99.0, "c": 103.25, "v": 1200000},
+    {"t": 1782950400, "o": 103.25, "h": 106.0, "l": 102.5, "c": 105.5, "v": 1350000},
+    {"t": 1783296000, "o": 105.5, "h": 107.0, "l": 101.0, "c": 102.0, "v": 1500000},
+    {"t": 1785715200, "o": 102.0, "h": 108.0, "l": 101.5, "c": 107.25, "v": 1600000}
   ]
 }

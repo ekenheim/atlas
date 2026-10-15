@@ -365,20 +365,31 @@ class JobQueue:
             {"artifacts": json.dumps(artifacts)},
         )
 
-    def fail(self, job: Job, owner: str, error: str, *, retry: bool = True) -> bool:
+    def fail(
+        self,
+        job: Job,
+        owner: str,
+        error: str,
+        *,
+        retry: bool = True,
+        artifacts: Artifacts | None = None,
+    ) -> bool:
         """Record a failed attempt; requeue it while attempts remain (and `retry` is set).
 
+        `artifacts`, if given, replace the job's: what a failed attempt leaves to read.
         False if `owner` no longer holds this attempt's lease.
         """
+        kept = "" if artifacts is None else "artifacts = CAST(:artifacts AS jsonb), "
         return self._finish(
             job,
             owner,
-            f"{_record_failure('CAST(:error AS text)', 'error')}, "
+            f"{_record_failure('CAST(:error AS text)', 'error')}, {kept}"
             "status = CASE WHEN :retry AND attempts < max_attempts "
             "              THEN 'queued' ELSE 'failed' END, "
             "finished_at = CASE WHEN :retry AND attempts < max_attempts "
             "                   THEN NULL ELSE now() END",
-            {"error": error, "retry": retry},
+            {"error": error, "retry": retry}
+            | ({} if artifacts is None else {"artifacts": json.dumps(artifacts)}),
         )
 
     def requeue(self, job: Job, owner: str, reason: str) -> bool:

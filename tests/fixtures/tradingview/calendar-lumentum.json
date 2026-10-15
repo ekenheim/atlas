@@ -1,5 +1,5 @@
 {
-  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the earnings-calendar tool's real name and answer shape are unconfirmed",
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; TradingView documents the earnings-calendar tool's arguments (symbols[], date_from, date_to) but not its answer's field names, so the items follow Atlas's own guess. The upcoming reports carry made-up consensus fields that Atlas must drop on the way in",
   "items": [
     {
       "id": "syn-cal-2026-q4",
@@ -17,7 +17,14 @@
       "fiscal_period": "Q1",
       "fiscal_year": 2027,
       "date": 1793912400,
-      "status": "scheduled"
+      "status": "scheduled",
+      "eps_estimate": 1.23,
+      "revenue_estimate": 456000000,
+      "consensus": {
+        "eps": 1.21,
+        "revenue": 455000000,
+        "analysts": 17
+      }
     },
     {
       "id": "syn-cal-2027-q2",
@@ -26,7 +33,14 @@
       "fiscal_period": "Q2",
       "fiscal_year": 2027,
       "date": 1801774800,
-      "status": "scheduled"
+      "status": "scheduled",
+      "eps_estimate": 1.23,
+      "revenue_estimate": 456000000,
+      "consensus": {
+        "eps": 1.21,
+        "revenue": 455000000,
+        "analysts": 17
+      }
     }
   ],
   "total": 3

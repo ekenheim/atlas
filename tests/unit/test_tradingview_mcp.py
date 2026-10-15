@@ -72,7 +72,9 @@ def tools(
     def record(tool: str, error: str | None) -> None:
         recorded.append((tool, error))
 
-    return TradingViewClient(client, max_calls=max_calls, on_call=record), recorded
+    return TradingViewClient(
+        client, max_calls=max_calls, on_call=record, before_call=lambda: None
+    ), recorded
 
 
 def documents(client: TradingViewClient) -> Any:

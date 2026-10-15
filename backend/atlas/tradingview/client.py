@@ -22,30 +22,50 @@ fixtures under `tests/fixtures/tradingview/` are synthetic):
 - `get_news` → `{data: {headlines: [{id, title, published, provider: {id, name, url?},
   link, storyPath, relatedSymbols: [{symbol}], urgency, paywall, permission}], has_more,
   next_offset, total_available}, success}`
-- the earnings calendar and `get_ohlcv`: **assumed shapes, unconfirmed** (the lead checks
-  them against the proxy's `tools/list` and a first answer before enabling; no live call was
-  made while writing this). The calendar: `{items: [{id?, symbol, title?, fiscal_period?,
-  fiscal_year?, date (Unix s), status?}], total?}` for `{symbol, start_date, end_date}`; the
-  bars: `{bars: [{time (Unix s), open, high, low, close, volume}]}` for `{symbol, start_date,
-  end_date, interval: "1D"}`. `tests/fixtures/tradingview/` are synthetic in these shapes.
+- the earnings calendar and `get_ohlcv` (ticket 16c): the **arguments are as TradingView
+  documents them** (https://www.tradingview.com/mcp/docs, read 2026-10-15; the proxy names
+  a tool `mcp-tv-` plus its name with hyphens). `get_earnings_calendar` takes `symbols[]`
+  (required, `EXCHANGE:TICKER`), `date_from` (default today) and `date_to` (default +180
+  days), as `YYYY-MM-DD` or RFC 3339, and answers only the next scheduled and the most
+  recent report date of each symbol, plus consensus estimates, which Atlas takes out of
+  the answer before anything is kept. `get_ohlcv` takes `symbol`, `interval` (default `1D`),
+  `count` (default 300, at most 5000, counted back from now: there is no date range) and
+  `summary`, and answers an aggregate summary and the bars `[{t (Unix s UTC), o, h, l, c,
+  v}]`. The answers' field names are not documented beyond the bars' keys: the calendar is
+  assumed `{items: [{id?, symbol, title?, fiscal_period?, fiscal_year?, date (Unix s or
+  ISO), status?}]}` and the bars `{bars: [...]}` or a bare list; `items` and `bars` are
+  required (another wrapper key fails the job, never an empty list). An answer that doesn't
+  fit fails the job with its first 4,000 characters in the artifacts (`UnexpectedAnswer`),
+  so the lead can fit the shape from one live call. `tests/fixtures/tradingview/` are
+  synthetic in these shapes.
+
+Before each call, `before_call` (the jobs pass the cross-process cap, `service.RequestCap`)
+runs: TradingView limits tool calls to about 100 a minute per user.
 """
 
 from collections.abc import Callable
-from datetime import UTC, datetime
-from typing import Any
+from datetime import UTC, date, datetime, timedelta
+from typing import Any, cast
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
-from atlas.tradingview.mcp import McpClient, McpError
+from atlas.tradingview.mcp import CALENDAR_TOOL, McpClient, McpError, UnexpectedAnswer
 
 DOCUMENTS_TOOL = "mcp-tv-get-documents"
 DOCUMENT_VIEW_TOOL = "mcp-tv-get-document-view"
 NEWS_TOOL = "mcp-tv-get-news"
-# The proxy's earnings-calendar tool. Its real name and argument shape are NOT confirmed (ticket
-# 16b was built without a live call): the lead confirms both against the proxy's `tools/list`
-# before the calendar job is used live. This constant is the one place the name changes.
-CALENDAR_TOOL = "mcp-tv-get-earnings-calendar"
-OHLCV_TOOL = "mcp-tv-get-ohlcv"  # daily bars; the argument shape is assumed likewise
+# The proxy's earnings-calendar and daily-bars tools (the proxy names a tool `mcp-tv-` plus
+# its TradingView name with hyphens); these constants are the one place the names change.
+OHLCV_TOOL = "mcp-tv-get-ohlcv"
+MAX_BARS = 5000  # get_ohlcv's `count` ceiling
 
 type CallRecorder = Callable[[str, str | None], None]
 
@@ -150,33 +170,50 @@ class Headline(_Model):
 
 
 class CalendarItem(_Model):
-    """One reporting date the earnings calendar lists (assumed shape; see the module)."""
+    """One reporting date the earnings calendar lists (assumed field names; see the module).
+
+    Only the date, the fiscal period and the status are taken: the model ignores every other
+    field, so a consensus estimate in the answer (`eps_estimate`, `consensus`, ...) never
+    reaches Atlas's records.
+    """
 
     id: str | None = None
     symbol: str | None = None
     title: str | None = None
     fiscal_period: str | None = None
     fiscal_year: str | None = None
-    date: float
+    date: datetime  # Unix seconds, an RFC 3339 time or a plain date (midnight UTC) in the answer
     status: str | None = None
 
     _as_text = field_validator("id", "fiscal_year", "fiscal_period", mode="before")(_text)
 
+    @field_validator("date", mode="before")
+    @classmethod
+    def _as_moment(cls, value: Any) -> Any:
+        if isinstance(value, int | float) and not isinstance(value, bool):
+            return datetime.fromtimestamp(value, UTC)
+        if isinstance(value, str):
+            moment = datetime.fromisoformat(value)  # ValueError: a validation error
+            return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+        return value
+
     @property
     def event_at(self) -> datetime:
-        return datetime.fromtimestamp(self.date, UTC)
+        return self.date
 
 
 class CalendarList(_Model):
-    items: list[CalendarItem] = []
+    items: list[CalendarItem]  # required: another wrapper key (`rows`, `data`) is not an empty list
     total: int | None = None
 
 
 class Bar(_Model):
-    """One daily bar (assumed shape; only the close is kept)."""
+    """One daily bar, in the documented shape `{t (Unix s UTC), o, h, l, c, v}`; only the
+    close is kept. The day is taken from `t` in UTC: unconfirmed for a non-US exchange (a bar
+    stamped at local midnight would land a day early); see docs/decisions.md."""
 
-    time: float
-    close: float
+    time: float = Field(validation_alias=AliasChoices("t", "time"))
+    close: float = Field(validation_alias=AliasChoices("c", "close"))
 
     @property
     def at(self) -> datetime:
@@ -184,7 +221,27 @@ class Bar(_Model):
 
 
 class BarList(_Model):
-    bars: list[Bar] = []
+    bars: list[Bar]  # required, as above; a bare list is wrapped by the validator
+
+    @model_validator(mode="before")
+    @classmethod
+    def _bare_list(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return {"bars": cast(list[Any], value)}
+        return value
+
+
+def trading_days_back(start: date, today: date) -> int:
+    """How many daily bars back from `today` reach `start`: the weekdays from one to the
+    other, inclusive. Holidays make the true number smaller, so the start is never missed."""
+    if start > today:
+        return 1
+    days = (today - start).days + 1
+    weeks, extra = divmod(days, 7)
+    weekdays = weeks * 5 + sum(
+        1 for offset in range(extra) if (start + timedelta(days=weeks * 7 + offset)).weekday() < 5
+    )
+    return max(weekdays, 1)
 
 
 class _NewsData(_Model):
@@ -197,15 +254,24 @@ class _News(_Model):
 
 
 class TradingViewClient:
-    def __init__(self, mcp: McpClient, *, max_calls: int, on_call: CallRecorder) -> None:
+    def __init__(
+        self,
+        mcp: McpClient,
+        *,
+        max_calls: int,
+        on_call: CallRecorder,
+        before_call: Callable[[], None],
+    ) -> None:
         self._mcp = mcp
         self._max_calls = max_calls
         self._on_call = on_call
+        self._before_call = before_call
         self.calls = 0
 
     def _call(self, tool: str, arguments: dict[str, Any]) -> tuple[str, Any]:
         if self.calls >= self._max_calls:
             raise CallBoundReached(f"this job's {self._max_calls} TradingView calls are made")
+        self._before_call()  # may wait: TradingView's calls a minute are limited
         self.calls += 1
         try:
             result = self._mcp.call_tool(tool, arguments)
@@ -241,32 +307,53 @@ class TradingViewClient:
             raise McpError(f"{NEWS_TOOL}: the answer says it didn't succeed")
         return news.data.headlines
 
-    def calendar(self, symbol: str, *, start: datetime, end: datetime) -> list[CalendarItem]:
+    def calendar(self, symbols: list[str], *, start: datetime, end: datetime) -> list[CalendarItem]:
+        """The reporting dates of all `symbols` between the days `start` and `end` fall on
+        (UTC), in one call. Only dates, period and status are kept of each (see the model)."""
         _, value = self._call(
             CALENDAR_TOOL,
-            {"symbol": symbol, "start_date": _rfc3339(start), "end_date": _rfc3339(end)},
+            {
+                "symbols": symbols,
+                "date_from": _day(start),
+                "date_to": _day(end),
+            },
         )
-        return _validate(CalendarList, value, CALENDAR_TOOL).items
+        items = _validate(CalendarList, value, CALENDAR_TOOL).items
+        asked = set(symbols)
+        if items and not any(
+            item.symbol in asked or (item.symbol is None and len(symbols) == 1) for item in items
+        ):
+            # Every date names a symbol Atlas didn't ask for (another form: `LITE`, lower case):
+            # the job would succeed with nothing listed, which looks like an empty calendar.
+            raise UnexpectedAnswer(CALENDAR_TOOL, "no item names a symbol asked for", value)
+        return items
 
-    def daily_bars(self, symbol: str, *, start: datetime, end: datetime) -> list[Bar]:
+    def daily_bars(self, symbol: str, *, start: date, end: date, today: date) -> list[Bar]:
+        """The daily bars from `start` to `end` inclusive (UTC days). The tool counts back
+        from now and has no date range, so Atlas asks for as many bars as reach `start` from
+        `today` (at most `MAX_BARS`) and keeps the ones inside the window."""
         _, value = self._call(
             OHLCV_TOOL,
             {
                 "symbol": symbol,
-                "start_date": _rfc3339(start),
-                "end_date": _rfc3339(end),
                 "interval": "1D",
+                "count": min(trading_days_back(start, today), MAX_BARS),
             },
         )
-        return _validate(BarList, value, OHLCV_TOOL).bars
+        bars = _validate(BarList, value, OHLCV_TOOL).bars
+        return [bar for bar in bars if start <= bar.at.date() <= end]
 
 
 def _rfc3339(moment: datetime) -> str:
     return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _day(moment: datetime) -> str:
+    return moment.astimezone(UTC).date().isoformat()
+
+
 def _validate[M: BaseModel](model: type[M], value: Any, tool: str) -> M:
     try:
         return model.model_validate(value)
     except ValidationError as error:
-        raise McpError(f"{tool}: unexpected answer: {error.error_count()} problems") from None
+        raise UnexpectedAnswer(tool, f"{error.error_count()} problems", value) from None
