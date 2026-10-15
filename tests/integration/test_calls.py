@@ -38,7 +38,10 @@ URL_EX991 = (
 QUARTER = "Net revenue for the fourth quarter of fiscal year 2026 was $1.01 billion"
 STATEMENT = "Lumentum's fourth-quarter fiscal 2026 net revenue was $1.01 billion."
 BELIEF = "Lumentum's revenue is growing fast enough to strain its laser capacity."
-SOLD_OUT = "Demand for our wafers is growing too fast, we cannot keep up, and only three suppliers make it."
+SOLD_OUT = (
+    "Demand for our wafers is growing too fast, we cannot keep up, and only three suppliers"
+    " make it."
+)
 UNIVERSE = ("coherent", "lumentum", "innolight")
 OVERRIDE = (
     "TradingView terms (display-only) overridden by the owner for private non-commercial use"
