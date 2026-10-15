@@ -5276,7 +5276,7 @@ export interface components {
             audit_event_id: number;
             /**
              * Reused
-             * @description the span overlaps an earlier Fact of the same step with the same status and an alike statement: that Fact is returned, no row was made (ticket 26)
+             * @description the span overlaps an earlier Fact of the same step with the same status and the same statement (case and punctuation aside): that Fact is returned, no row was made (tickets 26, 28)
              * @default false
              */
             reused: boolean;

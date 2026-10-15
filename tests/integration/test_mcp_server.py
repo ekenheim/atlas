@@ -1176,8 +1176,11 @@ def test_a_span_an_earlier_fact_covers_is_reused_not_recorded_again(mcp: Mcp) ->
     assert recorded["recorded"] is True and "same_span_as" not in recorded
     original = recorded["fact_id"]
 
-    # The same span, the same step and status, an alike statement: the existing Fact comes back.
-    again = record(mcp, second, URL_EX991, REVENUE_QUOTE, SECOND_STATEMENT)
+    # The same span, the same step and status, the same statement (case and punctuation aside,
+    # ticket 28): the existing Fact comes back.
+    again = record(
+        mcp, second, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT.upper().removesuffix(".")
+    )
     assert (again["recorded"], again["reused"], again["fact_id"]) == (False, True, original)
     assert "nothing was recorded" in again["note"]
     assert mcp.get("/api/v1/facts")["total"] == 1
@@ -1185,7 +1188,7 @@ def test_a_span_an_earlier_fact_covers_is_reused_not_recorded_again(mcp: Mcp) ->
     assert mcp.get(f"/api/v1/sessions/{second}")["facts"] == 0
     assert mcp.get(f"/api/v1/sessions/{first}")["facts_reused"] == 0
 
-    # A span that only overlaps (the longer sentence) with a materially different statement is a
+    # A span that only overlaps (the longer sentence) with another statement is a
     # new Fact, flagged as covering the same span.
     longer = record(mcp, second, URL_EX991, LONG_REVENUE_QUOTE, LOSS_STATEMENT)
     assert longer["recorded"] is True and longer["same_span_as"] == original
@@ -1199,7 +1202,7 @@ def test_a_span_an_earlier_fact_covers_is_reused_not_recorded_again(mcp: Mcp) ->
     other = record(mcp, second, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT, step="capture")
     assert other["recorded"] is True and "same_span_as" not in other
     assert mcp.get("/api/v1/facts")["total"] == 4
-    # A longer quote of the same sentence, alike statement, same step: reused too.
+    # A longer quote of the same sentence, the same statement, same step: reused too.
     longer_again = record(mcp, second, URL_EX991, LONG_REVENUE_QUOTE, LOSS_STATEMENT)
     assert longer_again["reused"] is True and longer_again["fact_id"] == longer["fact_id"]
     assert mcp.get(f"/api/v1/sessions/{second}")["facts_reused"] == 2
@@ -1377,6 +1380,22 @@ def test_stalest_orders_by_examined_through_and_an_earlier_replay_leaves_the_sum
     )
 
 
+def test_an_alike_but_other_statement_is_recorded_naming_the_fact_on_its_span(mcp: Mcp) -> None:
+    # Ticket 28: reuse is for the same statement. A reworded one (most of its words shared, as
+    # word-set Jaccard >= 0.5 would call alike) is a new Fact naming the first.
+    first, second = mcp.open(BEFORE_10K), mcp.open(LATER)
+    original = record(mcp, first, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)["fact_id"]
+    reworded = record(mcp, second, URL_EX991, REVENUE_QUOTE, SECOND_STATEMENT)
+    assert reworded["recorded"] is True and not reworded.get("reused")
+    assert reworded["same_span_as"] == original and reworded["fact_id"] != original
+    # One word fewer is another statement too, and the same one again is then reused.
+    shorter = record(mcp, second, URL_EX991, REVENUE_QUOTE, SECOND_STATEMENT.replace("net ", ""))
+    assert shorter["recorded"] is True and shorter["same_span_as"] == original
+    again = record(mcp, second, URL_EX991, REVENUE_QUOTE, SECOND_STATEMENT.lower())
+    assert again["reused"] is True and again["fact_id"] == reworded["fact_id"]
+    assert mcp.get("/api/v1/facts")["total"] == 3
+
+
 def test_a_quote_of_more_words_than_the_existing_fact_is_not_reused(mcp: Mcp) -> None:
     first, second = mcp.open(BEFORE_10K), mcp.open(LATER)
     original = record(mcp, first, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)["fact_id"]
@@ -1384,7 +1403,7 @@ def test_a_quote_of_more_words_than_the_existing_fact_is_not_reused(mcp: Mcp) ->
     longer = record(mcp, second, URL_EX991, LONG_REVENUE_QUOTE, SECOND_STATEMENT)
     assert longer["recorded"] is True and not longer.get("reused")
     assert longer["same_span_as"] == original and longer["fact_id"] != original
-    # The shorter quote of an alike statement is carried by the longer Fact: reused.
+    # The shorter quote of the same statement is covered by the first, shorter Fact: reused.
     shorter = record(mcp, second, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)
     assert shorter["reused"] is True and shorter["fact_id"] == original
     assert mcp.get("/api/v1/facts")["total"] == 2

@@ -17,8 +17,9 @@ of the same company and Source Version.
 
 Recorded in a research session, a Fact for a span an earlier Fact of the same Source Version,
 company and step already covers is not recorded again (`reuse`, ticket 26): with the same status
-and an alike statement the existing Fact is returned (`reused`); with a materially different one a
-new Fact is recorded naming the earlier (`same_span_as`).
+and the same statement (equal after case, whitespace and punctuation are normalised; ticket 28)
+the existing Fact is returned (`reused`); with any other a new Fact is recorded, judged, naming the
+earlier (`same_span_as`): a correction is always recordable beside the Fact it corrects.
 
 Recording is insert-only and audited (`fact.created`, with the Assertion's own
 `assertion.created`, in one transaction). Review of a Fact is its Assertion's review.

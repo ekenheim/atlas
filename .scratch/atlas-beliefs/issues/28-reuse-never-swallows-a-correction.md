@@ -1,7 +1,7 @@
 # 28: Fact reuse never swallows a correction
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Why
@@ -16,5 +16,5 @@ On 2026-10-15 the lead corrected Fact 34aa1f72, whose statement says "the mercha
 
 ## Acceptance criteria
 
-- [ ] HTTP-seam tests: an identical statement (case and punctuation aside) is reused; a statement that drops a qualifier ("the merchant indium phosphide market" → "the market") on the same span is a new Fact with `same_span_as` and a judge verdict; the existing reuse tests updated with the reason.
+- [x] HTTP-seam tests: an identical statement (case and punctuation aside) is reused; a statement that drops a qualifier ("the merchant indium phosphide market" → "the market") on the same span is a new Fact with `same_span_as` and a judge verdict; the existing reuse tests updated with the reason.
 - [ ] The lead's correction of Fact 34aa1f72 recorded on production after deploy, and Belief 53a43503 superseded by atomic Beliefs citing it.
