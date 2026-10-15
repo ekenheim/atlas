@@ -40,9 +40,10 @@ from atlas.facts.duplicates import FactSpan
 
 STANDING = ("unreviewed", "corroborated")
 # A statement's tokens: a number (its sign when it is not a hyphen between words, its separators
-# kept: "1.01" is not "1,01" or "101"), a word, or a currency or percent sign (so "$1.01 billion"
-# is not "EUR1.01 billion"). Every other punctuation mark is nothing.
-_TOKEN = re.compile(r"(?:(?<!\w)[-+])?\d+(?:[.,]\d+)*|[^\W\d_]+|[$€£¥%]")
+# kept: "1.01" is not "1,01" or "101"), a word, or a currency, percent, comparison or
+# approximation sign (so "$1.01 billion" is not "EUR1.01 billion" and ">$1 billion" is not
+# "$1 billion"). Every other punctuation mark is nothing.
+_TOKEN = re.compile(r"(?:(?<!\w)[-+])?\d+(?:[.,]\d+)*|[^\W\d_]+|[$€£¥%<>~≈≤≥±]")
 
 
 def normalized_statement(statement: str) -> list[str]:

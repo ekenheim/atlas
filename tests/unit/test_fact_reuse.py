@@ -31,6 +31,9 @@ def test_statements_equal_after_case_whitespace_and_punctuation(a: str, b: str) 
         ("Revenue was 1.01 billion.", "Revenue was 1,01 billion."),
         ("Margin was -5%.", "Margin was 5%."),
         ("Margin was 5%.", "Margin was 5 points."),
+        ("Revenue was >$1 billion.", "Revenue was $1 billion."),
+        ("Revenue was ~$1 billion.", "Revenue was $1 billion."),
+        ("Margin was ≥5%.", "Margin was ≤5%."),
     ],
 )
 def test_one_word_figure_sign_or_currency_apart_is_another_statement(a: str, b: str) -> None:
