@@ -928,13 +928,27 @@ def test_a_hedged_proposition_with_no_quote_basis_leaves_the_thesis_supported(
     content = beliefs.hypothesis(saved["id"])["versions"][0]["content"]
     assert (content["thesis_statement"], content["thesis_judged"]) == (HEDGED, "supported")
     assert content["thesis_misstated_reason"] is None
-    # Only the thesis's request says so; the step's does not.
+    # Only the thesis's request says so, and only it is judged by v5; the step's request is
+    # v4's, byte for byte (no `thesis` key), judged by the v4 prompt.
     flags = [
-        asked(body)["request"]["finding"]["thesis"]
+        asked(body)["request"]["finding"].get("thesis")
         for body in llm.chat_requests()
         if body["metadata"]["role"] == "finding_judge"
     ]
-    assert flags == [True, False]
+    assert flags == [True, None]
+    run = beliefs.hypothesis(saved["id"])["versions"][0]["provenance"]["draft_run_id"]
+    judged = [
+        (each["prompt_name"], each["prompt_version"])
+        for each in beliefs.get(f"/api/v1/runs/{run}/role-calls")["role_calls"]
+        if each["role"] == "finding_judge"
+    ]
+    assert sorted(judged) == [("finding_judge", 4), ("finding_judge", 5)]
+    systems = [
+        body["messages"][0]["content"]
+        for body in llm.chat_requests()
+        if body["metadata"]["role"] == "finding_judge"
+    ]
+    assert ["**A thesis.**" in each for each in systems] == [True, False]
     beliefs.post(f"/api/v1/hypotheses/{saved['id']}/transitions", {"to": "evidence_ready"})
     assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
 

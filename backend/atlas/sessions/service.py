@@ -197,7 +197,8 @@ class Sessions:
         self, session_id: uuid.UUID, card: dict[str, JsonValue]
     ) -> dict[str, JsonValue] | None:
         """The judge's verdict on the card's `thesis` against the Facts its statements cite
-        (ticket 23), for the card's `thesis_judged`; None when the card has no thesis or the
+        (ticket 23), for the card's `thesis_judged`, judged as a thesis (`finding_judge.v5`, ticket
+        24: its bare hedged proposition needs no basis); None when the card has no thesis or the
         judge is off. A misstated thesis is flagged here, never refused."""
         # Imported here: the judge's modules read the Facts, which the sessions package lists.
         from atlas.investigations.argument import fact_rows
@@ -224,7 +225,7 @@ class Sessions:
             }
         try:
             verdict = self._judges.judge(
-                "thesis_judge", question=question, statement=thesis, rows=rows
+                "thesis_judge", question=question, statement=thesis, rows=rows, thesis=True
             )
         except JudgeUnavailable as unavailable:
             return {**base, "verdict": "unjudged", "reason": unavailable.reason}

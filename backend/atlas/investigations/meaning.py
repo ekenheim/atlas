@@ -58,11 +58,11 @@ from atlas.roles.editor import (
     RevisedFindings,
 )
 from atlas.roles.finding_judge import (
-    FINDING_JUDGE_VERSION,
     FindingJudgement,
     FindingJudgeRequest,
     JudgedClaim,
     JudgedFinding,
+    judge_version,
 )
 
 type Judge = Callable[[FindingJudgeRequest, list[QuotedText]], tuple[FindingJudgement, uuid.UUID]]
@@ -149,6 +149,22 @@ def hedged_proposition(text: str) -> bool:
     return any(word in _HEDGES for word in _metadata_tokens(text))
 
 
+# The scope words a thesis's hedge does not excuse (`finding_judge.v5`: "merchant", "all",
+# "only", "most", ...): a hedged clause carrying one no cited quote has is not the bare
+# proposition, whatever the judge's split (integration of ticket 24).
+_SCOPE_WORDS = frozenset(
+    """
+    merchant all only most every sole solely exclusive exclusively entire entirely always never
+    """.split()
+)
+
+
+def unquoted_scope(text: str, quotes: Sequence[str]) -> list[str]:
+    """The scope words of `text` (`_SCOPE_WORDS`) that none of `quotes` has, in order."""
+    quoted = {token for each in quotes for token in _metadata_tokens(each)}
+    return [word for word in _metadata_tokens(text) if word in _SCOPE_WORDS and word not in quoted]
+
+
 def verify_bases(
     judgement: FindingJudgement,
     quotes: Sequence[QuotedText],
@@ -164,8 +180,9 @@ def verify_bases(
     names only a cited quote's source or date (`metadata_only`, `metadata` the cited
     documents' companies, titles and dates): the Editor is told to name them, and no quote
     holds them (R3-03). In a thesis (`thesis`), a clause with no reference and no basis that
-    carries a hedge word (`hedged_proposition`) is the thesis's caution and needs none; a
-    clause with a reference and a basis code can't verify still counts."""
+    carries a hedge word (`hedged_proposition`) and no scope word the quotes lack
+    (`unquoted_scope`: "merchant", "all", "only", ...) is the thesis's caution and needs
+    none; a clause with a reference and a basis code can't verify still counts."""
     texts = {quote.id: quote.text for quote in quotes}
     return [
         clause.text
@@ -182,6 +199,7 @@ def verify_bases(
             and clause.ref is None
             and clause.basis is None
             and hedged_proposition(clause.text)
+            and not unquoted_scope(clause.text, list(texts.values()))
         )
     ]
 
@@ -436,7 +454,7 @@ def judge_findings(
                     reason=str(failure),
                     outcome=outcome,
                     role_call_id=role_call_id,
-                    judge=FINDING_JUDGE_VERSION,
+                    judge=judge_version(thesis),
                 )
             )
             return
@@ -456,7 +474,7 @@ def judge_findings(
                     reason=verdict.reason,
                     outcome=outcome,
                     role_call_id=vote_call_id,
-                    judge=FINDING_JUDGE_VERSION,
+                    judge=judge_version(thesis),
                     vote=index + 1,
                     decided=index == ballot.decided,
                     clauses=[

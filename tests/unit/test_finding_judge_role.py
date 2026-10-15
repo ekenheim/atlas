@@ -5,22 +5,28 @@ Seam: the role definition (`atlas.roles.finding_judge.FINDING_JUDGE`): its promp
 schema LiteLLM enforces, and the request as it is serialised for the call.
 """
 
+import hashlib
+
+from atlas.roles.contract import PROMPTS_DIR
 from atlas.roles.finding_judge import (
     FINDING_JUDGE,
     FINDING_JUDGE_VERSION,
+    THESIS_JUDGE,
+    THESIS_JUDGE_VERSION,
     FindingJudgeRequest,
     JudgedClaim,
     JudgedFinding,
+    judge_role,
 )
 
 
-def test_the_role_is_v5_and_its_strict_schema_requires_the_clauses() -> None:
+def test_the_role_is_v4_and_its_strict_schema_requires_the_clauses() -> None:
     assert (FINDING_JUDGE.name, FINDING_JUDGE.prompt.name, FINDING_JUDGE.prompt.version) == (
         "finding_judge",
         "finding_judge",
-        5,
+        4,
     )
-    assert FINDING_JUDGE_VERSION == "finding_judge.v5"
+    assert FINDING_JUDGE_VERSION == "finding_judge.v4"
     schema = FINDING_JUDGE.response_schema()
     assert sorted(schema["required"]) == ["beyond", "clauses", "kinds", "reason", "verdict"]
     clause = schema["$defs"]["JudgedClause"]
@@ -74,10 +80,10 @@ def test_a_judged_fact_carries_its_status_period_quantity_and_reading() -> None:
     }
 
 
-def test_a_judged_claim_carries_its_source_date_and_the_prompt_is_v5() -> None:
+def test_a_judged_claim_carries_its_source_date_and_the_prompt_is_v4() -> None:
     claim_schema = FindingJudgeRequest.model_json_schema()["$defs"]["JudgedClaim"]
     assert "source_date" in claim_schema["properties"]
-    assert FINDING_JUDGE_VERSION == "finding_judge.v5"
+    assert FINDING_JUDGE_VERSION == "finding_judge.v4"
     assert "source_date" in FINDING_JUDGE.prompt.text
     assert "90 days" in FINDING_JUDGE.prompt.text
     claim = JudgedClaim(
@@ -95,3 +101,35 @@ def test_a_judged_claim_carries_its_source_date_and_the_prompt_is_v5() -> None:
         claims=[claim],
     )
     assert request.model_dump(mode="json")["claims"][0]["source_date"] == "2025-11-05"
+
+
+def test_only_a_thesis_is_judged_by_v5_and_a_finding_s_request_is_v4_s() -> None:
+    """The judge's behaviour on every statement but a thesis does not change unmeasured
+    (integration of ticket 24): a request without the thesis flag goes to the v4 prompt, byte
+    for byte, with no `thesis` key; a thesis goes to v5, the same role name."""
+    v4 = (PROMPTS_DIR / "finding_judge.v4.md").read_bytes()
+    finding = FindingJudgeRequest(
+        research_question="q",
+        finding=JudgedFinding(statement="s", limitations=[], claim_refs=["c1"]),
+        claims=[],
+    )
+    thesis = FindingJudgeRequest(
+        research_question="q",
+        finding=JudgedFinding(statement="s", limitations=[], claim_refs=["c1"], thesis=True),
+        claims=[],
+    )
+
+    assert judge_role(finding) is FINDING_JUDGE
+    assert FINDING_JUDGE.prompt.text.encode("utf-8") == v4
+    assert FINDING_JUDGE.prompt.sha256 == hashlib.sha256(v4).hexdigest()
+    assert finding.model_dump(mode="json")["finding"] == {
+        "statement": "s",
+        "limitations": [],
+        "claim_refs": ["c1"],
+    }
+    assert judge_role(thesis) is THESIS_JUDGE
+    assert (THESIS_JUDGE.name, THESIS_JUDGE.prompt.version) == ("finding_judge", 5)
+    assert THESIS_JUDGE_VERSION == "finding_judge.v5"
+    assert thesis.model_dump(mode="json")["finding"]["thesis"] is True
+    assert "**A thesis.**" in THESIS_JUDGE.prompt.text
+    assert "**A thesis.**" not in FINDING_JUDGE.prompt.text

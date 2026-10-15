@@ -183,7 +183,7 @@ def test_a_supported_finding_is_kept_and_its_verdict_recorded() -> None:
         "kept",
     )
     assert verdict.claim_ids == [CLAIMS["c2"]["id"]]
-    assert verdict.judge == "finding_judge.v5"
+    assert verdict.judge == "finding_judge.v4"
 
 
 def test_a_misstated_finding_is_rewritten_with_the_judge_s_reason_and_kept_when_supported() -> None:
@@ -591,6 +591,21 @@ def test_only_a_thesis_needs_no_basis_for_its_hedged_proposition() -> None:
     assert verify_bases(supported(hedge, scope), quotes, thesis=True) == [scope.text]
     claimed = clause("Zephyr may be straining its capacity", "c2", "not in the quote")
     assert verify_bases(supported(claimed), quotes, thesis=True) == [claimed.text]
+
+
+def test_a_hedged_clause_with_a_scope_word_no_quote_has_still_needs_a_basis() -> None:
+    """A judge that leaves "merchant" inside the hedged proposition does not pass it: the
+    hedge excuses caution, not a scope word the quotes lack (integration of ticket 24)."""
+    quotes = [QuotedText(id="c2", source="v#1-2", text=CALL)]
+    merchant = clause("Zephyr may be straining its merchant laser capacity", None, None)
+    vote = supported(merchant)
+
+    assert verify_bases(vote, quotes, thesis=True) == [merchant.text]
+    assert checked(vote, quotes, thesis=True).verdict == "misstated"
+    # A scope word the quote has is no fact beyond it.
+    merchant_quote = [QuotedText(id="c2", source="v#1-2", text=f"{CALL} We sell all of it.")]
+    every = clause("Zephyr may be selling all of its CW lasers", None, None)
+    assert verify_bases(supported(every), merchant_quote, thesis=True) == []
 
 
 def test_a_date_or_title_of_a_document_the_finding_does_not_cite_is_not_metadata() -> None:

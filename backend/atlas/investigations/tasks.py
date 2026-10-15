@@ -262,10 +262,10 @@ from atlas.roles.editor import (
 )
 from atlas.roles.financial_analyst import FINANCIAL_ANALYST
 from atlas.roles.finding_judge import (
-    FINDING_JUDGE,
     FindingJudgement,
     FindingJudgeRequest,
     JudgedClaim,
+    judge_role,
 )
 from atlas.roles.question_planner import (
     QUESTION_PLANNER,
@@ -670,7 +670,9 @@ class TaskRunner:
     ) -> tuple[FindingJudgement, uuid.UUID]:
         """The finding judge on one finding (bottleneck-argument ticket 04)."""
         with self._caller(investigation) as caller:
-            return caller.call_recorded(FINDING_JUDGE, request, run_id=run_id, retrieved=retrieved)
+            return caller.call_recorded(
+                judge_role(request), request, run_id=run_id, retrieved=retrieved
+            )
 
     def _ask_editor_to_revise(
         self,

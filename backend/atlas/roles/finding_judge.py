@@ -29,19 +29,25 @@ v4 (R2-04) tells it each quote's date: `source_date`, the day the quote's docume
 available. Transcript titles ("Q3 2026") carry none, so the `merged` rule had no dates to
 compare; two quotes more than 90 days apart joined as one current statement are `merged`.
 
-v5 (ticket 24) judges a Hypothesis's thesis: the request's `finding.thesis` is true, and the
-thesis's bare hedged proposition ("may be straining ...", no fact of its own) is a clause with
-no basis that does not make it misstated; its facts (actors, figures, scope words) still need
-theirs. A card finding's request is as before (`thesis` false).
+v5 (ticket 24) judges a Hypothesis's thesis, and only a thesis: the request's
+`finding.thesis` is true, and the thesis's bare hedged proposition ("may be straining ...", no
+fact of its own) is a clause with no basis that does not make it misstated; its facts (actors,
+figures, scope words) still need theirs. It is its own role definition (`THESIS_JUDGE`, the
+same role name, so `ATLAS_LLM_ROLE_MODELS` routes both alike); every other statement (a card
+finding, an argument statement, `POST /statements/judge`, a session's Fact or Belief) is
+judged by `FINDING_JUDGE`, v4, with a request serialised exactly as before (no `thesis` key).
+`judge_role` picks the role from the request.
 """
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, SerializerFunctionWrapHandler, model_serializer
 
 from atlas.roles.contract import PROMPTS_DIR, Prompt, Role, RoleOutput
 
-FINDING_JUDGE_PROMPT_VERSION = 5
+FINDING_JUDGE_PROMPT_VERSION = 4
+# A Hypothesis's thesis (ticket 24): v4 plus one paragraph that applies only to a thesis.
+THESIS_JUDGE_PROMPT_VERSION = 5
 
 # How a finding goes beyond its quotes.
 MisstatementKind = Literal[
@@ -84,8 +90,16 @@ class JudgedFinding(_Request):
     statement: str
     limitations: list[str]
     claim_refs: list[str]
-    # True: a Hypothesis's thesis (v5): its bare hedged proposition needs no basis.
+    # True: a Hypothesis's thesis, judged by `THESIS_JUDGE` (v5): its bare hedged proposition
+    # needs no basis. Sent only when true, so a finding's request is v4's byte for byte.
     thesis: bool = False
+
+    @model_serializer(mode="wrap")
+    def _thesis_only_when_true(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data: dict[str, Any] = handler(self)
+        if not self.thesis:
+            data.pop("thesis", None)
+        return data
 
 
 class FindingJudgeRequest(_Request):
@@ -120,3 +134,22 @@ FINDING_JUDGE = Role(
     max_output_tokens=2048,
 )
 FINDING_JUDGE_VERSION = f"{FINDING_JUDGE.prompt.name}.v{FINDING_JUDGE.prompt.version}"
+
+THESIS_JUDGE = Role(
+    name="finding_judge",
+    prompt=Prompt.load(PROMPTS_DIR, "finding_judge", THESIS_JUDGE_PROMPT_VERSION),
+    request=FindingJudgeRequest,
+    response=FindingJudgement,
+    max_output_tokens=2048,
+)
+THESIS_JUDGE_VERSION = f"{THESIS_JUDGE.prompt.name}.v{THESIS_JUDGE.prompt.version}"
+
+
+def judge_role(request: FindingJudgeRequest) -> Role[FindingJudgeRequest, FindingJudgement]:
+    """The role that judges `request`: `THESIS_JUDGE` for a thesis, else `FINDING_JUDGE`."""
+    return THESIS_JUDGE if request.finding.thesis else FINDING_JUDGE
+
+
+def judge_version(thesis: bool) -> str:
+    """The prompt version a thesis (`thesis`) or any other statement is judged by."""
+    return THESIS_JUDGE_VERSION if thesis else FINDING_JUDGE_VERSION

@@ -5,7 +5,8 @@ three wrong Facts had a clause from the context in their statement, six of eleve
 compound, and the thesis sentence, never judged, misstated a tense. Rules in the skill reduce
 these errors; the judge stops them where it is applied. Three places call it, over the one
 judge `POST /statements/judge` asks (`finding_judge.v4` on the role's model, the votes and the
-vote rule of the settings, every basis checked by code, `atlas.investigations.meaning`):
+vote rule of the settings, every basis checked by code, `atlas.investigations.meaning`; a
+session's thesis is judged as a thesis, by `finding_judge.v5`, as a Hypothesis's is):
 
 - a Fact recorded in a research session is judged against its own quote, the source title and
   the document's date (`statement_beyond_quote` when misstated; recorded with its verdict when
@@ -39,10 +40,10 @@ from atlas.llm_routes import LiteLLMError
 from atlas.roles import QuotedText
 from atlas.roles.caller import RoleCaller, RoleCallFailed, TokenBudgetExhausted
 from atlas.roles.finding_judge import (
-    FINDING_JUDGE,
-    FINDING_JUDGE_VERSION,
     FindingJudgeRequest,
     JudgedFinding,
+    judge_role,
+    judge_version,
 )
 from atlas.runs import RunNotStartable, RunRecorder
 from atlas.settings import Settings
@@ -134,15 +135,28 @@ class Judges:
             recorder.close()
 
     def judge(
-        self, kind: str, *, question: str, statement: str, rows: Sequence[Mapping[Any, Any]]
+        self,
+        kind: str,
+        *,
+        question: str,
+        statement: str,
+        rows: Sequence[Mapping[Any, Any]],
+        thesis: bool = False,
     ) -> Verdict:
         """`statement` judged against the Facts `rows` (the shape of
-        `atlas.investigations.argument.fact_rows`), in a run of the given `kind`. Raises
-        `JudgeUnavailable` when no verdict could be given."""
+        `atlas.investigations.argument.fact_rows`), in a run of the given `kind`; as a thesis
+        (`finding_judge.v5`) when `thesis`. Raises `JudgeUnavailable` when no verdict could be
+        given."""
         caller, run_id = self._caller_and_run(kind)
         with caller:
             return judged_in_run(
-                caller, run_id, self._settings, question=question, statement=statement, rows=rows
+                caller,
+                run_id,
+                self._settings,
+                question=question,
+                statement=statement,
+                rows=rows,
+                thesis=thesis,
             )
 
     def fact_judge(self, question: str) -> "FactJudge":
@@ -160,6 +174,7 @@ def judged_in_run(
     question: str,
     statement: str,
     rows: Sequence[Mapping[Any, Any]],
+    thesis: bool = False,
 ) -> Verdict:
     """`judge_statement` with the settings' votes and rule, a failure of the judge as
     `JudgeUnavailable`: for a caller that holds a caller and a run already (a Reader)."""
@@ -172,6 +187,7 @@ def judged_in_run(
             rows=rows,
             votes=settings.fact_statement_judge_votes,
             rule=settings.finding_judge_vote_rule,
+            thesis=thesis,
         )
     except TransientFailure as error:
         raise JudgeUnavailable(
@@ -269,10 +285,13 @@ def judge_statement(
     rows: Sequence[Mapping[Any, Any]],
     votes: int,
     rule: Literal["any", "all"],
+    thesis: bool = False,
 ) -> Verdict:
     """The finding judge's verdict on `statement` over the Facts `rows`, as
-    `POST /statements/judge` asks it (same request, same bases check, same vote rule). The
-    caller's failures (`TransientFailure`, `RoleCallFailed`, `TokenBudgetExhausted`) propagate."""
+    `POST /statements/judge` asks it (same request, same bases check, same vote rule); a
+    thesis (`thesis`) is judged as a thesis (`finding_judge.v5`, its bare hedged proposition
+    needing no basis). The caller's failures (`TransientFailure`, `RoleCallFailed`,
+    `TokenBudgetExhausted`) propagate."""
     # Imported here: the tasks module imports the Reader, which may call this module.
     from atlas.investigations.tasks import _judged_fact  # pyright: ignore[reportPrivateUsage]
 
@@ -281,7 +300,7 @@ def judge_statement(
     metadata = finding_metadata(cited, claims)
     request = FindingJudgeRequest(
         research_question=question,
-        finding=JudgedFinding(statement=statement, limitations=[], claim_refs=cited),
+        finding=JudgedFinding(statement=statement, limitations=[], claim_refs=cited, thesis=thesis),
         claims=[_judged_fact(ref, row) for ref, row in claims.items()],
     )
     quotes = [
@@ -294,7 +313,7 @@ def judge_statement(
     ]
     ballot = voting(
         lambda asked, sent: caller.call_recorded(
-            FINDING_JUDGE, asked, run_id=run_id, retrieved=sent
+            judge_role(asked), asked, run_id=run_id, retrieved=sent
         ),
         votes,
         rule,
@@ -305,8 +324,8 @@ def judge_statement(
         reason=decided.reason,
         beyond=list(decided.beyond),
         kinds=list(decided.kinds),
-        unverified=verify_bases(decided, quotes, metadata=metadata),
-        judge=FINDING_JUDGE_VERSION,
+        unverified=verify_bases(decided, quotes, metadata=metadata, thesis=thesis),
+        judge=judge_version(thesis),
         run_id=run_id,
         role_call_id=role_call_id,
     )

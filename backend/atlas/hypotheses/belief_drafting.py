@@ -64,7 +64,7 @@ from atlas.roles.editor import (
     HypothesisBeliefsRequest,
     OpenIssueItem,
 )
-from atlas.roles.finding_judge import FINDING_JUDGE
+from atlas.roles.finding_judge import judge_role
 from atlas.settings import Settings
 
 EDITOR_ACTOR = Actor("atlas-editor")
@@ -424,7 +424,7 @@ class BeliefHypothesisDrafter:
             names,
             voting(
                 lambda asked, quotes: self._caller.call_recorded(
-                    FINDING_JUDGE, asked, run_id=run_id, retrieved=quotes
+                    judge_role(asked), asked, run_id=run_id, retrieved=quotes
                 ),
                 self._settings.finding_judge_votes,
                 self._settings.finding_judge_vote_rule,

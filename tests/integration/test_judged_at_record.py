@@ -434,8 +434,22 @@ def test_the_thesis_is_judged_against_the_facts_its_statements_cite_and_the_verd
     judged = atlas.get(f"/api/v1/sessions/{session}")["card"]["thesis_judged"]
     assert judged["verdict"] == "supported"
     assert judged["fact_ids"] == [fact_id]
-    assert judged["judge"] == "finding_judge.v4"
-    thesis_call = judge_calls(llm)[-1]
+    # A session's thesis is judged as a thesis (`finding_judge.v5`, ticket 24); the Fact
+    # before it by v4, its request without a `thesis` key.
+    assert judged["judge"] == "finding_judge.v5"
+    fact_call, thesis_call = judge_calls(llm)[-2:]
+    assert asked(thesis_call)["request"]["finding"]["thesis"] is True
+    assert "**A thesis.**" in thesis_call["messages"][0]["content"]
+    assert "thesis" not in asked(fact_call)["request"]["finding"]
+    assert "**A thesis.**" not in fact_call["messages"][0]["content"]
+    with atlas.engine.connect() as connection:
+        versions = connection.execute(
+            text(
+                "SELECT prompt_version FROM role_call WHERE role = 'finding_judge'"
+                " ORDER BY started_at"
+            )
+        ).scalars()
+        assert list(versions) == [4, 5]
     assert asked(thesis_call)["request"]["finding"]["statement"] == THESIS
     assert asked(thesis_call)["request"]["research_question"] == QUESTION
     # The card is the agent's, with the verdict beside it.
