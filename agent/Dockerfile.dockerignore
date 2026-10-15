@@ -1,0 +1,8 @@
+# The agent image's build context. BuildKit reads this file for `-f agent/Dockerfile` instead of
+# the repo's .dockerignore (which keeps .claude out of the app image): only the runner and the
+# skill folder go in.
+*
+!agent
+!.claude/skills/atlas-research
+**/__pycache__
+**/*.pyc

@@ -1,7 +1,8 @@
 name: release
 
-# Pushing a tag vX.Y.Z publishes ghcr.io/ekenheim/atlas:X.Y.Z (plus a
-# sha-<commit> tag) after the same CI gates as every other run: when the tagged commit
+# Pushing a tag vX.Y.Z publishes ghcr.io/ekenheim/atlas:X.Y.Z and the scheduled agents' image
+# ghcr.io/ekenheim/atlas-agent:X.Y.Z (each plus a sha-<commit> tag; both are built and smoked
+# before either is pushed) after the same CI gates as every other run: when the tagged commit
 # already has a successful `suite` job (it normally has: the release is cut from a green
 # integration branch), that run is the gate and the suite is not run again; otherwise it
 # runs here. See docs/deployment.md for the release process.
@@ -20,6 +21,7 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/ekenheim/atlas
+  AGENT_IMAGE: ghcr.io/ekenheim/atlas-agent
 
 jobs:
   verified:
@@ -123,6 +125,30 @@ jobs:
         env:
           # atlas_build_info must report the tag's version (vX.Y.Z -> X.Y.Z).
           ATLAS_SMOKE_EXPECT_VERSION: ${{ steps.meta.outputs.version }}
+      # The scheduled agents' image (atlas-beliefs ticket 17), the same tags and labels: built
+      # and smoked (claude --version at the pinned version, run.sh --dry-run, non-root,
+      # read-only root) before anything is pushed.
+      - id: meta-agent
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.AGENT_IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
+          labels: |
+            org.opencontainers.image.source=https://github.com/ekenheim/atlas
+      - name: Build agent image (local, for smoke)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: agent/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: atlas-agent:release
+          labels: ${{ steps.meta-agent.outputs.labels }}
+      - name: Smoke the agent image
+        run: scripts/agent-image-smoke.sh atlas-agent:release
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -144,10 +170,27 @@ jobs:
           build-args: |
             ATLAS_CODE_VERSION=${{ github.sha }}
             ATLAS_VERSION=${{ steps.meta.outputs.version }}
+      - name: Push agent image
+        id: push-agent
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: agent/Dockerfile
+          platforms: linux/amd64
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.meta-agent.outputs.tags }}
+          labels: ${{ steps.meta-agent.outputs.labels }}
       # A signed statement (Sigstore, GitHub's attestation store) that this digest was built
       # by this workflow from this commit: `gh attestation verify oci://ghcr.io/ekenheim/atlas:X.Y.Z -R ekenheim/atlas`.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.AGENT_IMAGE }}
+          subject-digest: ${{ steps.push-agent.outputs.digest }}
           push-to-registry: true

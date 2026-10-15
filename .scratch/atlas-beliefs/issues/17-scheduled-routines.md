@@ -1,7 +1,7 @@
 # 17: Scheduled routines
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Question
@@ -26,5 +26,7 @@ Three CronJobs in `kubernetes/apps/development/atlas/app/agents.yaml`: Scout wee
 
 ## Acceptance criteria
 
-- [ ] The image builds and smokes in the release workflow (run on a branch tag or verified in CI); the prompt-tools unit test; `run.sh --dry-run` output tested.
+- [x] The prompt-tools unit test (`tests/unit/test_agent_routines.py`).
+- [x] `run.sh --dry-run` output tested (`tests/unit/test_agent_run.py`, with the real run path under a stand-in `claude`).
+- [ ] The image builds and smokes in the release workflow (run on a branch tag or verified in CI). Built and smoked locally under Docker (`scripts/agent-image-smoke.sh`, passed); the release workflow and CI's `suite` have not run it yet.
 - [ ] Two weeks of routines logged (pod logs and sessions), the lead's review time per week measured, the trust gate at or below 10% on their sessions (the lead).
