@@ -637,11 +637,14 @@ def list_leads(
     event_to: datetime | None = None,
     company_id: uuid.UUID | None = None,
     available_from: datetime | None = None,
+    max_per_document: int | None = None,
 ) -> tuple[list[Lead], int]:
     """Leads, newest first (optionally only those a discovery for `theme` returned, or a
     headline, calendar date or archive signal of a company in it), and how many there are in
     all. The archive signals (`origin="archive_signal"`) are ranked instead: highest score
-    first, then the latest document.
+    first, then the latest document; with `max_per_document` a document's hits after its
+    first that many come after every hit within a cap (the ranked reads' rule, ticket 27:
+    `atlas.discovery.signals.cap_per_document`; the stored leads are not changed).
 
     `origin` keeps one origin; `company_id` the leads of one company (a headline's, a calendar
     date's, a filing's or a signal's). `known_by` keeps the leads Atlas had stored by then
@@ -668,6 +671,13 @@ def list_leads(
     order = "co.event_at, lead.id" if windowed else "lead.first_seen_at DESC, lead.id"
     if origin == "archive_signal":
         order = "sig.score DESC, sa.available_at DESC, lead.id"
+        if max_per_document is not None:
+            # A document's hits ranked among themselves; those past the cap come after the rest.
+            order = (
+                "(row_number() OVER (PARTITION BY sig.source_version_id"
+                " ORDER BY sig.score DESC, sa.available_at DESC, lead.id) > :cap), " + order
+            )
+            params = {**params, "cap": max_per_document}
     rows = connection.execute(
         text(f"{_LEADS} {_IN_THEME} ORDER BY {order} LIMIT :limit OFFSET :offset"),
         {**params, "limit": limit, "offset": offset},

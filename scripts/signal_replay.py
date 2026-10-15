@@ -14,7 +14,9 @@ have ranked highest by a given date?** It runs the same scorer over the document
 2. **The scorer.** The job's own: `SignalScorer.scan` over each text, with the document's form,
    source type and the company's names, oldest document first, a sentence a company's earlier
    document already holds as a hit being a repeat and dropped, as the job drops it.
-3. **The ranking.** All hits of all companies by score (ties: the later document first), as
+3. **The ranking.** All hits of all companies by score (ties: the later document first), then
+   at most `ranking.max_per_document` (config; `--max-per-document` overrides) of one document
+   among the first results and the rest after them (`cap_per_document`), as
    `GET /leads?origin=archive_signal` ranks them. The `--top` (20) are printed with rank,
    company, document title and date, score, the cue families, the speaker of a call and the
    first 200 characters of the sentence.
@@ -45,7 +47,7 @@ import httpx2
 
 from atlas.claims.predicates import company_names
 from atlas.discovery.signal_scan import sentence_sha256
-from atlas.discovery.signals import SignalHit, SignalScorer, load_signals_config
+from atlas.discovery.signals import SignalHit, SignalScorer, cap_per_document, load_signals_config
 
 REPO = Path(__file__).resolve().parents[1]
 CACHE = REPO / ".scratch" / "live-runs" / "signal-replay-cache"
@@ -88,7 +90,9 @@ def main() -> int:
     as_of = _time(args.as_of)
     since = _time(args.since) if args.since else None
     api = Api(args.base_url)
-    scorer = SignalScorer(load_signals_config(Path(args.config)))
+    config = load_signals_config(Path(args.config))
+    scorer = SignalScorer(config)
+    cap = args.max_per_document or config.ranking.max_per_document
 
     universe = {c["slug"]: c for c in _items(api.get("/companies", role="researched", limit=500))}
     wanted = [slug.strip() for slug in args.companies.split(",") if slug.strip()] or list(universe)
@@ -140,6 +144,7 @@ def main() -> int:
         seen.update((document["company"], sentence_sha256(each.hit.quote)) for each in stored)
         ranked.extend(stored)
     ranked.sort(key=lambda each: (-each.hit.score, -each.available_at.timestamp()))
+    ranked = cap_per_document(ranked, lambda each: each.source_version_id, cap)
 
     rows = [_row(rank, each) for rank, each in enumerate(ranked, start=1)]
     expected = [_expect(text, rows, args.within) for text in args.expect]
@@ -152,6 +157,7 @@ def main() -> int:
         "documents": len(documents),
         "repeats": repeats,
         "hits": len(rows),
+        "max_per_document": cap,
         "requests": api.requests,
         "top": rows[: args.top],
         "expect": expected,
@@ -309,6 +315,11 @@ def _arguments() -> argparse.Namespace:
         action="append",
         default=[],
         help="a phrase of a sentence you expect among the top hits (repeatable)",
+    )
+    parser.add_argument(
+        "--max-per-document",
+        type=int,
+        help="hits of one document among the first results (default: the config's ranking)",
     )
     parser.add_argument("--within", type=int, default=5, help="the rank --expect must reach")
     parser.add_argument("--base-url", default="https://atlas.ekenhome.se", help="a running Atlas")

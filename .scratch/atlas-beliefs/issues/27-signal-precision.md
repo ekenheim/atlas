@@ -1,7 +1,7 @@
 # 27: Archive signals: negation, pricing on input costs, one document's share of the top
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Why
@@ -20,5 +20,5 @@ Ticket 18's measures (2026-10-15, `scripts/signal_replay.py`, reports in `.scrat
 
 ## Acceptance criteria
 
-- [ ] Unit tests for each rule (negation both ways, pass-through, generic lines, the per-document cap) with literal scores; existing tests still pass or are updated with a stated reason.
+- [x] Unit tests for each rule (negation both ways, pass-through, generic lines, the per-document cap) with literal scores; existing tests still pass or are updated with a stated reason.
 - [ ] The two replays again (the lead): AXT's 31 July sentence in the top five as of 2025-08-31; precision of the last quarter's top 20 at least 12 of 20. Both in `docs/experiments.md`.

@@ -446,3 +446,78 @@ def test_signal_leads_needs_a_session_and_takes_no_as_of(atlas: Atlas) -> None:
         True,
         {"refused": "invalid_arguments", "message": "as_of: Extra inputs are not permitted"},
     )
+
+
+# --- one document's share of the ranked read (ticket 27) -------------------------------------
+
+TIGHT = "We believe supply is very tight."
+TWO_COMPANIES = "Only two companies make this wafer at volume."
+FULL_CAPACITY = "The fab is running at full capacity."
+
+
+def test_a_documents_hits_past_the_cap_come_after_the_others_in_the_ranked_read(
+    atlas: Atlas,
+) -> None:
+    # Lumentum's call has five hits: 4.2, 2.25, 2.0, 1.6 and 1.5. Coherent's has one of 1.5.
+    big = import_html(
+        atlas,
+        "lumentum",
+        "lumentum-big",
+        JULY,
+        FILLER,
+        SOLD_OUT,
+        BACKLOG,
+        TWO_COMPANIES,
+        TIGHT,
+        FULL_CAPACITY,
+    )
+    small = import_html(atlas, "coherent", "coherent-small", SEPTEMBER, FILLER, FULL_CAPACITY)
+    scan(atlas, "first")
+
+    ranked = signals(atlas)
+    first_four = signals(atlas, limit=4)
+    later_page = atlas.get("/api/v1/leads", origin="archive_signal", limit=2, offset=4)
+
+    # Stored as the scorer scores them; read with at most 3 of one document among the first.
+    assert [(each["signal"]["source_version_id"], each["signal"]["score"]) for each in ranked] == [
+        (big, 4.2),
+        (big, 2.25),
+        (big, 2.0),
+        (small, 1.5),  # level with the big call's 1.5, the later document first
+        (big, 1.6),
+        (big, 1.5),
+    ]
+    assert [each["signal"]["score"] for each in first_four] == [4.2, 2.25, 2.0, 1.5]
+    assert [each["signal"]["score"] for each in later_page["items"]] == [1.6, 1.5]
+    assert later_page["total"] == 6  # nothing is dropped, only reordered
+    with atlas.engine.connect() as connection:
+        stored = connection.execute(text("SELECT count(*) FROM archive_signal")).scalar_one()
+    assert stored == 6
+
+
+def test_signal_leads_reads_the_capped_ranking(atlas: Atlas) -> None:
+    import_html(
+        atlas,
+        "lumentum",
+        "lumentum-big",
+        JULY,
+        FILLER,
+        SOLD_OUT,
+        BACKLOG,
+        TWO_COMPANIES,
+        TIGHT,
+        FULL_CAPACITY,
+    )
+    import_html(atlas, "coherent", "coherent-small", SEPTEMBER, FILLER, FULL_CAPACITY)
+    scan(atlas, "first")
+    agent = Agent(atlas)
+    session = agent.session("2026-01-01T00:00:00Z")
+
+    leads = agent.ok("signal_leads", session_id=session, limit=4)["leads"]
+
+    assert [(each["company"], each["score"]) for each in leads] == [
+        ("lumentum", 4.2),
+        ("lumentum", 2.25),
+        ("lumentum", 2.0),
+        ("coherent", 1.5),
+    ]
