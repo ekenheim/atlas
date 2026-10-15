@@ -63,6 +63,10 @@ class SessionSummary(BaseModel):
     finished_at: datetime | None
     usage: dict[str, JsonValue]
     facts: int = Field(description="the Facts recorded in it")
+    tool_calls: int = Field(
+        description="the calls it made through the Atlas MCP server, as Atlas counted them"
+        " (`session_tool_call`; the usage it reports itself is its own)"
+    )
 
 
 class ResearchSession(SessionSummary):
@@ -76,7 +80,8 @@ _SUMMARY = """
            s.investigation_id, s.started_at, s.finished_at, s.usage,
            (SELECT count(*) FROM fact f WHERE f.session_id = s.id
                OR (s.investigation_id IS NOT NULL AND f.investigation_id = s.investigation_id)
-           ) AS facts
+           ) AS facts,
+           (SELECT count(*) FROM session_tool_call c WHERE c.session_id = s.id) AS tool_calls
     FROM research_session s
 """
 
@@ -96,6 +101,7 @@ def _summary(row: Any) -> SessionSummary:
         finished_at=row.finished_at,
         usage=row.usage,
         facts=row.facts,
+        tool_calls=row.tool_calls,
     )
 
 

@@ -26892,6 +26892,11 @@
             "title": "Facts",
             "description": "the Facts recorded in it"
           },
+          "tool_calls": {
+            "type": "integer",
+            "title": "Tool Calls",
+            "description": "the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)"
+          },
           "card": {
             "anyOf": [
               {
@@ -26940,6 +26945,7 @@
           "finished_at",
           "usage",
           "facts",
+          "tool_calls",
           "card",
           "card_markdown",
           "fact_items"
@@ -28561,6 +28567,11 @@
             "type": "integer",
             "title": "Facts",
             "description": "the Facts recorded in it"
+          },
+          "tool_calls": {
+            "type": "integer",
+            "title": "Tool Calls",
+            "description": "the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)"
           }
         },
         "type": "object",
@@ -28577,7 +28588,8 @@
           "started_at",
           "finished_at",
           "usage",
-          "facts"
+          "facts",
+          "tool_calls"
         ],
         "title": "SessionSummary"
       },

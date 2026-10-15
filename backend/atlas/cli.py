@@ -94,6 +94,17 @@ def run_api(settings: Settings) -> None:
     uvicorn.run(create_app(settings), host="0.0.0.0", port=8000, log_config=None)  # noqa: S104
 
 
+def run_mcp(settings: Settings) -> None:
+    """Serve the app with the MCP server on `ATLAS_MCP_PORT` (the whole API beside it, for the
+    tools to call; no frontend)."""
+    import uvicorn
+
+    from atlas.api.app import create_app
+
+    settings = settings.model_copy(update={"frontend_dir": None, "mcp_enabled": True})
+    uvicorn.run(create_app(settings), host="0.0.0.0", port=settings.mcp_port, log_config=None)  # noqa: S104
+
+
 def run_worker(settings: Settings, once: bool) -> None:
     import signal
     import threading
@@ -1164,6 +1175,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="atlas")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("api", help="serve the HTTP API and the static frontend")
+    commands.add_parser("mcp", help="serve the Atlas MCP server (streamable HTTP, /mcp)")
     commands.add_parser("migrate", help="upgrade the database schema to the latest revision")
     audit = commands.add_parser("audit", help="inspect the audit trail")
     audit_commands = audit.add_subparsers(dest="audit_command", required=True)
@@ -1461,6 +1473,8 @@ def main(argv: list[str] | None = None) -> None:
         log.info(f"{provider} disabled: missing {setting}")
     if args.command == "api":
         run_api(settings)
+    elif args.command == "mcp":
+        run_mcp(settings)
     elif args.command == "migrate":
         from atlas.db.migrate import upgrade
 

@@ -57,6 +57,7 @@ from atlas.health import (
 from atlas.hindsight import HindsightGateway
 from atlas.jobs import Clock, JobQueue, Pacing, utc_now
 from atlas.llm_routes import LiteLLMRoutes
+from atlas.mcp import mcp_router
 from atlas.metrics import StateCollector, recall_latency
 from atlas.settings import Settings
 
@@ -191,6 +192,10 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
 
     app.include_router(evaluations_router(engine))
     app.include_router(replay_router(engine, queue, Actor.from_settings(settings), settings))
+
+    # The MCP server calls the routes above in process, so it is included after them.
+    if settings.mcp_enabled:
+        app.include_router(mcp_router(app, engine, settings))
 
     # Mounted last so API routes take precedence over the static export.
     if settings.frontend_dir is not None:

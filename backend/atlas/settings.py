@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     actor: str = Field(min_length=1)  # recorded on every audit event
     archive_root: Path
     frontend_dir: Path | None = None
+    # The Atlas MCP server (atlas.mcp): mounted at /mcp under the API unless switched off;
+    # `atlas mcp` serves the same app on mcp_port. A request carrying an Origin header must
+    # name one of mcp_allowed_origins (comma-separated; empty: none), against DNS rebinding.
+    mcp_enabled: bool = True
+    mcp_port: int = Field(default=8001, ge=1, le=65535)
+    mcp_allowed_origins: str = ""
 
     # Job queue: how often an idle continuous worker polls, and how long a claim is held
     # before another worker may reclaim it (a crashed worker's job is retried after this).

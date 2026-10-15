@@ -8681,6 +8681,11 @@ export interface components {
              * @description the Facts recorded in it
              */
             facts: number;
+            /**
+             * Tool Calls
+             * @description the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)
+             */
+            tool_calls: number;
             /** Card */
             card: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -9385,6 +9390,11 @@ export interface components {
              * @description the Facts recorded in it
              */
             facts: number;
+            /**
+             * Tool Calls
+             * @description the calls it made through the Atlas MCP server, as Atlas counted them (`session_tool_call`; the usage it reports itself is its own)
+             */
+            tool_calls: number;
         };
         /** SkippedVersion */
         SkippedVersion: {
