@@ -384,3 +384,10 @@ Detail: `.scratch/pilot/results.md`, "0.5.4 against 0.5.3".
 - **Method:** the proof's question 2 session repeated on v0.6.1 through the real routes (session, judge, relate, Beliefs, Issues); the same review. Detail: `.scratch/pilot/results.md`, "The closing measure".
 - **Result:** trust gate 29% → 9% of statements (pipeline 16%); step statuses 6 of 6 warranted; Beliefs 2, judged proven by the lead; Fact precision 100% → 87% (four statements carrying a context clause or dropping a hedge); the card smaller (12 statements against 35) because judging took about a fifth of the call bound.
 - **Kept:** the judge loop and the `disputed` rule. **Next:** the Fact statement held to its quote in the skill; a longer call bound with the judge on; atomic Beliefs (one proposition) in the skill's rule; the tool's `--run` fix (done).
+
+## 2026-10-15: question 2 through the Atlas MCP server only (Beliefs tickets 15 and 11)
+
+- **Hypothesis:** the MCP server can replace the tool script without loss, and ticket 11's skill rules (a Fact's statement held to its quote; one proposition per Belief; a bound of ~150) lift Fact precision to 95% or more with the trust gate at or below 10%.
+- **Method:** a headless Opus `claude -p` session with only the Atlas MCP server, on v0.6.3, the closing measure's question, seeds and as-of; the same blind double review. Detail: `.scratch/pilot/results.md`, "The MCP session".
+- **Result:** the MCP surface works (120 calls, counted by Atlas, no as-of leak); precision 92% (87% before; 3 context-clause Facts); trust gate 4% (9% before); researcher's facts on the card 15 (11 before); 11 Beliefs, all grounded, 6 compound.
+- **Kept:** the MCP server as the tool surface; the skill rules. **Next:** move the rules into code: judge a Fact's statement at `record_fact`, the thesis, and a Belief's statement (with atomicity) before it is proposed.
