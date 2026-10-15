@@ -19,5 +19,5 @@ The Editor re-run on 0.6.5 (2026-10-15, session `3ef0854d`, Hypothesis `0f656e66
 ## Acceptance criteria
 
 - [x] HTTP-seam tests: a judge request for a statement citing a transcript Fact carries the speaker label (name, title, firm), one citing a filing Fact carries none; grounding accepts a speaker's title from the label; a Belief draft's revise call is recorded as `hypothesis_editor` and its stored thesis has no quotation marks when the scripted rewrite has none.
-- [ ] The judge measured before and after on the 130 labelled statements, the numbers in `docs/experiments.md` (the lead).
+- [x] The judge measured before and after on the 130 labelled statements, the numbers in `docs/experiments.md` (the lead).
 - [ ] The Editor re-run on production after deploy keeps both proven Beliefs' steps and a judged thesis (the lead).
