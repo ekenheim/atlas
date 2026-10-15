@@ -17,6 +17,7 @@ from sqlalchemy import Connection, Engine, text
 from atlas.audit import Actor, content_hash, record
 from atlas.beliefs.flags import flag_counterevidence
 from atlas.beliefs.memory_jobs import enqueue_retain_belief
+from atlas.beliefs.notices import confirm_by_citation
 from atlas.sessions import SessionSummary, get_session
 
 type Step = Literal[
@@ -29,6 +30,9 @@ type Relation = Literal["contradicts", "limits", "dates", "qualifies", "supports
 type FlagKind = Literal[
     "counterevidence_stands", "source_revised", "assertion_reviewed", "fact_superseded"
 ]
+type NoticeKind = Literal["belief_confirmed"]
+type ExaminationOutcome = Literal["confirmed", "qualified", "contradicted", "nothing_new"]
+type Sort = Literal["created", "stalest"]
 
 # The counter-judge's relation to a default valence (a citation may set its own).
 RELATION_VALENCE: dict[str, float] = {
@@ -111,6 +115,22 @@ class BeliefJudge(BaseModel):
     reason: str = Field(min_length=1)
 
 
+class BeliefExamine(BaseModel):
+    """A session tested the Belief (ticket 26): what it found, against what was public by the
+    session's as-of time. It records no judgement; only an author's `judge` does that."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: uuid.UUID = Field(description="the research session that tested it")
+    outcome: ExaminationOutcome = Field(
+        description="confirmed: newer evidence supports it; qualified: newer evidence limits,"
+        " dates or narrows it; contradicted: newer evidence contradicts it; nothing_new: it read"
+        " what came after and found nothing that bears on it"
+    )
+    note: str | None = None
+    actor: str | None = Field(default=None, description="who examines; default: the session's")
+
+
 class BeliefSupersede(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -144,10 +164,23 @@ class BeliefSummary(BaseModel):
     companies: list[CompanyRef]
     judgement: JudgementRecord = Field(description="the judgement current at the read's time")
     open_flags: int
+    open_notices: int = Field(
+        description="notices beside the flags that are no doubt (`belief_confirmed`): cleared by"
+        " a judgement like a flag, never counted in `open_flags`",
+    )
     citation_count: int
     produced_by: uuid.UUID | None
     created_by: str
     created_at: datetime
+    last_examined_at: datetime | None = Field(
+        description="when a session last tested it (`examine`)"
+    )
+    last_examined_as_of: datetime | None = Field(
+        description="the furthest as-of time of the sessions that tested it: it has been tested"
+        " against what was public by then, so the next test reads what came after. None: never"
+        " tested (read from its own `as_of`)",
+    )
+    last_examined_outcome: ExaminationOutcome | None
 
 
 class CitationRecord(BaseModel):
@@ -181,6 +214,25 @@ class FlagRecord(BaseModel):
     cleared_by: uuid.UUID | None
 
 
+class NoticeRecord(BaseModel):
+    id: uuid.UUID
+    kind: NoticeKind
+    ref_id: uuid.UUID
+    detail: str
+    raised_at: datetime
+    cleared_by: uuid.UUID | None
+
+
+class ExaminationRecord(BaseModel):
+    id: uuid.UUID
+    session_id: uuid.UUID
+    outcome: ExaminationOutcome
+    as_of: datetime
+    actor: str
+    note: str | None
+    at: datetime
+
+
 class BeliefLink(BaseModel):
     id: uuid.UUID
     statement: str
@@ -193,6 +245,12 @@ class Belief(BeliefSummary):
     citations: list[CitationRecord]
     counterevidence: list[CitationRecord] = Field(description="the citations with valence < 0")
     flags: list[FlagRecord]
+    notices: list[NoticeRecord] = Field(
+        description="what supports it that a flag does not carry; shown beside the flags",
+    )
+    examinations: list[ExaminationRecord] = Field(
+        description="every test by a session, oldest first",
+    )
     history: list[JudgementRecord] = Field(description="every judgement, oldest first")
     supersedes: list[BeliefLink]
     superseded_by: list[BeliefLink]
@@ -201,10 +259,13 @@ class Belief(BeliefSummary):
 
 _SUMMARY = """
     SELECT b.id, b.statement, b.theme, b.step, b.as_of, b.status, b.produced_by, b.created_by,
-           b.created_at, j.id AS j_id, j.judgement, j.confidence, j.actor AS j_actor,
+           b.created_at, b.last_examined_at, b.last_examined_as_of, b.last_examined_outcome,
+           j.id AS j_id, j.judgement, j.confidence, j.actor AS j_actor,
            j.reason AS j_reason, j.at AS j_at,
            (SELECT count(*) FROM belief_flag f WHERE f.belief_id = b.id
               AND f.cleared_by IS NULL) AS open_flags,
+           (SELECT count(*) FROM belief_notice n WHERE n.belief_id = b.id
+              AND n.cleared_by IS NULL) AS open_notices,
            (SELECT count(*) FROM belief_citation c WHERE c.belief_id = b.id) AS citations
     FROM belief b
     JOIN LATERAL (
@@ -273,10 +334,14 @@ def _summaries(connection: Connection, rows: list[Any]) -> list[BeliefSummary]:
             companies=companies[row.id],
             judgement=_judgement(row),
             open_flags=row.open_flags,
+            open_notices=row.open_notices,
             citation_count=row.citations,
             produced_by=row.produced_by,
             created_by=row.created_by,
             created_at=row.created_at,
+            last_examined_at=row.last_examined_at,
+            last_examined_as_of=row.last_examined_as_of,
+            last_examined_outcome=row.last_examined_outcome,
         )
         for row in rows
     ]
@@ -293,11 +358,14 @@ def list_beliefs(
     flagged: bool | None = None,
     as_of: datetime | None = None,
     ids: list[uuid.UUID] | None = None,
+    sort: Sort = "created",
     limit: int,
     offset: int,
 ) -> tuple[list[BeliefSummary], int]:
-    """Oldest first. With `as_of`, each Belief's judgement is the one current then, and a
-    Belief with none yet is left out."""
+    """Oldest first (`sort="created"`), or stalest first (`"stalest"`: by `examined_through`, the
+    `last_examined_as_of` else the Belief's own `as_of`, never-tested ones first; ticket 26).
+    With `as_of`, each Belief's judgement is the one current then, and a Belief with none yet
+    is left out."""
     params: dict[str, Any] = {
         "theme": theme,
         "step": step,
@@ -325,8 +393,14 @@ def list_beliefs(
         text(f"SELECT count(*) FROM ({_SUMMARY} {where}) s"),  # noqa: S608 (constants)
         params,
     ).scalar_one()
+    order = (
+        "(b.last_examined_as_of IS NOT NULL), coalesce(b.last_examined_as_of, b.as_of),"
+        " b.created_at, b.id"
+        if sort == "stalest"
+        else "b.created_at, b.id"
+    )
     rows = connection.execute(
-        text(f"{_SUMMARY} {where} ORDER BY b.created_at, b.id LIMIT :limit OFFSET :offset"),
+        text(f"{_SUMMARY} {where} ORDER BY {order} LIMIT :limit OFFSET :offset"),
         params,
     ).all()
     return _summaries(connection, list(rows)), total
@@ -352,6 +426,26 @@ def get_belief(
             text(
                 "SELECT id, kind, ref_id, detail, raised_at, cleared_by FROM belief_flag"
                 " WHERE belief_id = :id ORDER BY raised_at, id"
+            ),
+            {"id": belief_id},
+        ).mappings()
+    ]
+    notices = [
+        NoticeRecord(**each)
+        for each in connection.execute(
+            text(
+                "SELECT id, kind, ref_id, detail, raised_at, cleared_by FROM belief_notice"
+                " WHERE belief_id = :id ORDER BY raised_at, id"
+            ),
+            {"id": belief_id},
+        ).mappings()
+    ]
+    examinations = [
+        ExaminationRecord(**each)
+        for each in connection.execute(
+            text(
+                "SELECT id, session_id, outcome, as_of, actor, note, at FROM belief_examination"
+                " WHERE belief_id = :id ORDER BY at, id"
             ),
             {"id": belief_id},
         ).mappings()
@@ -395,6 +489,8 @@ def get_belief(
         citations=citations,
         counterevidence=[each for each in citations if each.valence < 0],
         flags=flags,
+        notices=notices,
+        examinations=examinations,
         history=history,
         supersedes=supersedes,
         superseded_by=superseded_by,
@@ -527,6 +623,13 @@ class Beliefs:
                 ),
                 {"judgement": judgement_id, "belief": belief_id},
             )
+            connection.execute(
+                text(
+                    "UPDATE belief_notice SET cleared_by = :judgement"
+                    " WHERE belief_id = :belief AND cleared_by IS NULL"
+                ),
+                {"judgement": judgement_id, "belief": belief_id},
+            )
             enqueue_retain_belief(connection, belief_id)
             on_belief_changed(connection, belief_id, f"judged:{judgement_id}")
             belief = get_belief(connection, belief_id)
@@ -535,6 +638,68 @@ class Beliefs:
                 connection,
                 self._actor,
                 "belief.judged",
+                entity_type="belief",
+                entity_id=str(belief_id),
+                old_hash=before,
+                new_hash=content_hash(belief.model_dump(mode="json")),
+            )
+        return belief
+
+    def examine(self, belief_id: uuid.UUID, request: BeliefExamine) -> Belief:
+        """Record that a session tested the Belief (ticket 26): an insert-only
+        `belief_examination` and the Belief's `last_examined_*` (those of the examination with the
+        furthest as-of time, the latest of equals: a replay at an earlier as-of time is recorded
+        in the examinations but leaves the Belief's summary as it was). The judgement, its flags and
+        its notices are untouched."""
+        with self._engine.begin() as connection:
+            before = self._lock_active(connection, belief_id)
+            session = connection.execute(
+                text("SELECT as_of, kind, actor FROM research_session WHERE id = :id"),
+                {"id": request.session_id},
+            ).one_or_none()
+            if session is None:
+                raise BeliefRefused("unknown_session", "the research session does not exist")
+            if session.kind != "claude":
+                raise BeliefRefused(
+                    "session_not_claude", "only a research session of a Claude examines a Belief"
+                )
+            belief_as_of = connection.execute(
+                text("SELECT as_of FROM belief WHERE id = :id"), {"id": belief_id}
+            ).scalar_one()
+            if belief_as_of > session.as_of:
+                raise BeliefRefused(
+                    "belief_after_as_of", "that Belief's as-of time is after the session's"
+                )
+            connection.execute(
+                text(
+                    "INSERT INTO belief_examination (id, belief_id, session_id, outcome, as_of,"
+                    " actor, note) VALUES (:id, :belief, :session, :outcome, :as_of, :actor,"
+                    " :note)"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "belief": belief_id,
+                    "session": request.session_id,
+                    "outcome": request.outcome,
+                    "as_of": session.as_of,
+                    "actor": request.actor or session.actor,
+                    "note": request.note,
+                },
+            )
+            connection.execute(
+                text(
+                    "UPDATE belief SET last_examined_at = now(), last_examined_outcome = :outcome,"
+                    " last_examined_as_of = :as_of WHERE id = :id"
+                    " AND (last_examined_as_of IS NULL OR :as_of >= last_examined_as_of)"
+                ),
+                {"id": belief_id, "outcome": request.outcome, "as_of": session.as_of},
+            )
+            belief = get_belief(connection, belief_id)
+            assert belief is not None
+            record(
+                connection,
+                self._actor,
+                "belief.examined",
                 entity_type="belief",
                 entity_id=str(belief_id),
                 old_hash=before,
@@ -652,3 +817,5 @@ class Beliefs:
             },
         )
         flag_counterevidence(connection, belief_id, citation.ref_id, valence, citation.weight)
+        if citation.relation == "supports":
+            confirm_by_citation(connection, belief_id, citation.ref_id)

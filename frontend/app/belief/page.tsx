@@ -8,6 +8,7 @@ import {
   FlagList,
   JudgementLine,
   JudgementPill,
+  NoticeList,
 } from "../../components/beliefs";
 import { Load, Row } from "../../components/ui";
 import { ApiError, api, type Belief } from "../../lib/api/client";
@@ -19,6 +20,7 @@ import {
   companyNames,
   day,
   judgedBy,
+  testedText,
   type JudgementName,
 } from "../../lib/beliefs";
 import { routes } from "../../lib/routes";
@@ -93,6 +95,13 @@ function Body({ belief, reload }: { belief: Belief; reload: () => void }) {
         </section>
       )}
 
+      {belief.open_notices > 0 && (
+        <section aria-labelledby="notices">
+          <h2 id="notices">Newer evidence supports it</h2>
+          <NoticeList notices={belief.notices} />
+        </section>
+      )}
+
       <section aria-labelledby="evidence">
         <h2 id="evidence">Evidence for it</h2>
         {supporting.length === 0 ? (
@@ -146,6 +155,8 @@ function Body({ belief, reload }: { belief: Belief; reload: () => void }) {
         </ol>
         <h3>Flags</h3>
         <FlagList flags={belief.flags} />
+        <h3>Notices</h3>
+        <NoticeList notices={belief.notices} />
         <table>
           <caption>The Belief</caption>
           <tbody>
@@ -162,6 +173,7 @@ function Body({ belief, reload }: { belief: Belief; reload: () => void }) {
               {belief.created_by}, {day(belief.created_at)}
             </Row>
             <Row name="Citations">{belief.citation_count}</Row>
+            <Row name="Tested">{testedText(belief)}</Row>
           </tbody>
         </table>
         {belief.status === "active" && (

@@ -7,8 +7,13 @@
   reasons) and its statement judged against its load-bearing positive Facts' quotes (422
   `belief_beyond_quotes`, the `detail` holds the judge's `beyond`, `kinds` and `reason`; 503
   `judge_unavailable` when no verdict could be given: call again later) (ticket 23)
-- `POST /beliefs/{id}/cite`, `/judge` (an author's judgement; clears open flags), `/supersede`
-- `GET /beliefs?theme=&step=&company_id=&judgement=&status=&flagged=&as_of=`,
+- `POST /beliefs/{id}/cite`, `/judge` (an author's judgement; clears open flags and notices),
+  `/supersede`
+- `POST /beliefs/{id}/examine` (`{session_id, outcome, note?, actor?}`; ticket 26): a session tested
+  the Belief against what was public by its as-of time (`confirmed`, `qualified`, `contradicted`,
+  `nothing_new`); insert-only history and the Belief's `last_examined_*`; no judgement. 422
+  `unknown_session` / `session_not_claude` / `belief_after_as_of`
+- `GET /beliefs?theme=&step=&company_id=&judgement=&status=&flagged=&as_of=&sort=created|stalest`,
   `GET /beliefs/{id}[?as_of=]` (citations with their quotes, spans and dates)
 
 Errors use the envelope: 404 `not_found`, 409 `belief_not_active` / `already_cited`, 422.
@@ -37,6 +42,7 @@ from atlas.audit import Actor
 from atlas.beliefs.atomicity import compound_reasons
 from atlas.beliefs.service import (
     Belief,
+    BeliefExamine,
     BeliefJudge,
     BeliefNotActive,
     BeliefNotFound,
@@ -46,6 +52,7 @@ from atlas.beliefs.service import (
     BeliefSummary,
     BeliefSupersede,
     CitationIn,
+    Sort,
     get_belief,
     list_beliefs,
 )
@@ -133,6 +140,7 @@ def beliefs_router(engine: Engine, actor: Actor, judges: Judges | None = None) -
         status: str | None = None,
         flagged: bool | None = None,
         as_of: datetime | None = None,
+        sort: Sort = "created",
     ) -> Page[BeliefSummary]:
         with engine.connect() as connection:
             items, total = list_beliefs(
@@ -144,6 +152,7 @@ def beliefs_router(engine: Engine, actor: Actor, judges: Judges | None = None) -
                 status=status,
                 flagged=flagged,
                 as_of=as_of,
+                sort=sort,
                 limit=page.limit,
                 offset=page.offset,
             )
@@ -177,6 +186,14 @@ def beliefs_router(engine: Engine, actor: Actor, judges: Judges | None = None) -
     )
     def judge(belief_id: uuid.UUID, request: BeliefJudge) -> Belief | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         return _run(lambda: service.judge(belief_id, request))
+
+    @router.post(
+        "/{belief_id}/examine",
+        response_model=Belief,
+        responses={**NOT_FOUND, **CONFLICT, **INVALID},
+    )
+    def examine(belief_id: uuid.UUID, request: BeliefExamine) -> Belief | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        return _run(lambda: service.examine(belief_id, request))
 
     @router.post(
         "/{belief_id}/supersede",

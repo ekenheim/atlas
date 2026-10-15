@@ -70,6 +70,11 @@ class SessionSummary(BaseModel):
         description="the calls it made through the Atlas MCP server, as Atlas counted them"
         " (`session_tool_call`; the usage it reports itself is its own)"
     )
+    facts_reused: int = Field(
+        default=0,
+        description="the times it recorded a span an earlier Fact already covers and was given"
+        " that Fact instead of a new one (`session_fact_reuse`, ticket 26)",
+    )
 
 
 class ResearchSession(SessionSummary):
@@ -84,7 +89,8 @@ _SUMMARY = """
            (SELECT count(*) FROM fact f WHERE f.session_id = s.id
                OR (s.investigation_id IS NOT NULL AND f.investigation_id = s.investigation_id)
            ) AS facts,
-           (SELECT count(*) FROM session_tool_call c WHERE c.session_id = s.id) AS tool_calls
+           (SELECT count(*) FROM session_tool_call c WHERE c.session_id = s.id) AS tool_calls,
+           (SELECT count(*) FROM session_fact_reuse r WHERE r.session_id = s.id) AS facts_reused
     FROM research_session s
 """
 
@@ -105,6 +111,7 @@ def _summary(row: Any) -> SessionSummary:
         usage=row.usage,
         facts=row.facts,
         tool_calls=row.tool_calls,
+        facts_reused=row.facts_reused,
     )
 
 

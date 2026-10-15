@@ -12,7 +12,7 @@ Read `.claude/skills/atlas-research/SKILL.md`, then `.claude/skills/atlas-resear
 - Output folder: {{OUT_DIR}} (create it; write `scout-report.md` there)
 - Call bound: {{CALL_BOUND}} (every tool call counts, refusals included)
 
-Tools: open_session, close_session, companies, newest_documents, signal_leads, search, read, record_fact, list_issues, open_issue, upcoming_reports
+Tools: open_session, close_session, companies, newest_documents, signal_leads, search, read, record_fact, list_issues, open_issue, prior_work, upcoming_reports
 
 The tools are the Atlas MCP server's; your tool list names them with the prefix `mcp__atlas__`. You have no others except reading and writing files in the output folder.
 

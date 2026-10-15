@@ -15,6 +15,11 @@ A Fact the investigation holds already is not recorded again (`duplicates`, tick
 same span or folded quote, or an overlapping span with the same status and an alike statement,
 of the same company and Source Version.
 
+Recorded in a research session, a Fact for a span an earlier Fact of the same Source Version,
+company and step already covers is not recorded again (`reuse`, ticket 26): with the same status
+and an alike statement the existing Fact is returned (`reused`); with a materially different one a
+new Fact is recorded naming the earlier (`same_span_as`).
+
 Recording is insert-only and audited (`fact.created`, with the Assertion's own
 `assertion.created`, in one transaction). Review of a Fact is its Assertion's review.
 """

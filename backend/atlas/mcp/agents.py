@@ -5,6 +5,13 @@ the as-of time taken from the session's row, each a projection of an existing ro
 - `newest_documents`: `GET /archive-documents` (the documents `GET /archive-search` searches);
   `as_of` is the session's, so no document public after it is listed.
 - `list_beliefs`: `GET /beliefs`; a Belief whose own `as_of` is after the session's is not listed.
+  Stalest first by default (ticket 26): never tested, then the oldest `last_examined_as_of`; an
+  examination by a session whose as-of time is after this one's is not seen.
+- `prior_work`: `GET /research/prior-work` (ticket 26), the session's starting state: the Facts
+  already recorded, the Beliefs of any judgement, the documents earlier sessions read and the open
+  Issues, all bounded by the session's as-of time.
+- `examine_belief`: `POST /beliefs/{id}/examine`: record that this session tested a Belief
+  (`confirmed`, `qualified`, `contradicted`, `nothing_new`); sets no judgement.
 - `get_belief`: `GET /beliefs/{id}`; a Belief after the session's time is refused
   (`belief_after_as_of`). What the later work added to it is left out: a citation of a document
   public after the session's time, a flag raised by such a citation, and a supersession link to a
@@ -28,6 +35,7 @@ from typing import Any, Literal, cast
 
 from pydantic import AwareDatetime, Field
 
+from atlas.facts import FactStep
 from atlas.mcp.api import Refusal, obj, rows
 from atlas.mcp.tools import BeliefStep, Bound, Ctx, iso, issue_result, tool
 
@@ -38,6 +46,8 @@ AGENT_TOOLS = (
     "list_issues",
     "draft_hypothesis",
     "get_hypothesis",
+    "prior_work",
+    "examine_belief",
 )
 SCAN_PAGE = 500  # the routes' largest page
 SCAN_LIMIT = 2_000  # rows read through to find the visible ones: more is a refusal to guess
@@ -124,7 +134,12 @@ async def newest_documents(ctx: Ctx, args: NewestDocumentsArgs) -> dict[str, Any
 # --- beliefs -------------------------------------------------------------------------------
 
 
-def belief_summary(each: dict[str, Any]) -> dict[str, Any]:
+def belief_summary(each: dict[str, Any], as_of: datetime) -> dict[str, Any]:
+    """A Belief as `list_beliefs` shows it. Its examination is seen only if its session's
+    as-of time is not after `as_of` (a later one is future research: shown as never examined);
+    `examined_through` is the as-of time it has been tested against, else its own."""
+    examined_as_of = each.get("last_examined_as_of")
+    seen = examined_as_of is not None and datetime.fromisoformat(examined_as_of) <= as_of
     return {
         "id": each["id"],
         "statement": each["statement"],
@@ -137,6 +152,10 @@ def belief_summary(each: dict[str, Any]) -> dict[str, Any]:
         "open_flags": each["open_flags"],
         "citation_count": each["citation_count"],
         "produced_by": each.get("produced_by"),
+        "last_examined_at": each.get("last_examined_at") if seen else None,
+        "last_examined_as_of": examined_as_of if seen else None,
+        "last_examined_outcome": each.get("last_examined_outcome") if seen else None,
+        "examined_through": examined_as_of if seen else each["as_of"],
     }
 
 
@@ -146,16 +165,25 @@ class ListBeliefsArgs(Bound):
     judgement: Judgement | None = None
     status: BeliefStatus | None = None
     company: str | None = Field(default=None, description="a company slug the Belief names")
+    sort: Literal["stalest", "created"] = Field(
+        default="stalest",
+        description="stalest: never examined first, then the oldest `examined_through`;"
+        " created: oldest first",
+    )
     limit: int = Field(default=50, ge=1, le=200)
 
 
 @tool(
     "list_beliefs",
-    "The theme's Beliefs, oldest first, each with its current judgement (who judged it, when,"
-    " with what confidence), step, companies and citation count. A Belief whose own as-of time is"
-    " after the session's is not listed (`hidden_after_as_of` counts them). Judgements are an"
-    " author's: no tool sets one. `citation_count` and `open_flags` are the Belief's own, whatever"
-    " their documents' dates: `get_belief` is the as-of bounded read.",
+    "The theme's Beliefs, stalest first (`sort: created`: oldest first), each with its current"
+    " judgement (who judged it, when, with what confidence), step, companies, citation count and"
+    " when a session last tested it (`last_examined_*`; `examined_through` is the as-of time it has"
+    " been tested against, else its own: read documents public after it). A Belief whose own as-of"
+    " time is after the session's is not listed (`hidden_after_as_of` counts them). Judgements are"
+    " an author's: no tool sets one, and the judgement shown is the current one, whatever its"
+    " time. `citation_count` and `open_flags` are the Belief's own, whatever their documents'"
+    " dates: `get_belief` is the as-of bounded read (it alone counts the open notices, the"
+    " confirmations that are no doubt).",
     ListBeliefsArgs,
 )
 async def list_beliefs(ctx: Ctx, args: ListBeliefsArgs) -> dict[str, Any]:
@@ -176,6 +204,7 @@ async def list_beliefs(ctx: Ctx, args: ListBeliefsArgs) -> dict[str, Any]:
             judgement=args.judgement,
             status=args.status,
             company_id=company,
+            sort=args.sort,
             limit=SCAN_PAGE,
             offset=scanned,
         )
@@ -184,10 +213,17 @@ async def list_beliefs(ctx: Ctx, args: ListBeliefsArgs) -> dict[str, Any]:
             if datetime.fromisoformat(each["as_of"]) > ctx.as_of:
                 hidden += 1
             else:
-                visible.append(belief_summary(each))
+                visible.append(belief_summary(each, ctx.as_of))
         scanned += len(items)
         if not items or scanned >= page["total"]:
             break
+    if args.sort == "stalest":  # an unseen examination is not counted: sort what is shown
+        visible.sort(
+            key=lambda each: (
+                each["last_examined_as_of"] is not None,
+                datetime.fromisoformat(each["examined_through"]),
+            )
+        )
     return {
         "as_of": ctx.as_of_iso,
         "total": len(visible),
@@ -204,9 +240,12 @@ class GetBeliefArgs(Bound):
     "get_belief",
     "One Belief with its citations (Fact id, valence, weight, who cited it and when; the quote,"
     " span and the date its document became public), its counterevidence, open flags, judgement"
-    " history, supersession and session. Refused for a Belief after the session's as-of time; a"
-    " citation of a document public after it, the flag it raised and a supersession link to a"
-    " Belief after it are left out (`hidden_citations`, `hidden_flags`, `hidden_links`).",
+    " history, supersession and session, and its `notices` (what supports it, apart from the flags"
+    " of doubt) and `examinations` (each session's test of it). Refused for a Belief after the"
+    " session's as-of time; a citation of a document public after it, the flag it raised and a"
+    " supersession link to a Belief after it are left out (`hidden_citations`, `hidden_flags`,"
+    " `hidden_links`), and likewise a notice whose Fact and an examination by a later session"
+    " (`hidden_notices`, `hidden_examinations`).",
     GetBeliefArgs,
 )
 async def get_belief(ctx: Ctx, args: GetBeliefArgs) -> dict[str, Any]:
@@ -233,6 +272,33 @@ async def get_belief(ctx: Ctx, args: GetBeliefArgs) -> dict[str, Any]:
     found["flags"] = [each for each in flags if each["ref_id"] not in late_refs]
     found["hidden_flags"] = len(flags) - len(found["flags"])
     found["open_flags"] = sum(1 for each in found["flags"] if each["cleared_by"] is None)
+    # A notice is raised by a Fact (a confirmation); one whose Fact is after the session's time
+    # would say what that Fact said. Examinations by a later session are future research.
+    notices = rows(found.get("notices"))
+    seen_notices: list[dict[str, Any]] = []
+    for each in notices:
+        try:
+            await ctx.visible_fact(each["ref_id"])
+        except Refusal:
+            continue
+        seen_notices.append(each)
+    found["notices"] = seen_notices
+    found["hidden_notices"] = len(notices) - len(seen_notices)
+    found["open_notices"] = sum(1 for each in seen_notices if each["cleared_by"] is None)
+    examinations = rows(found.get("examinations"))
+    kept_examinations = [
+        each for each in examinations if datetime.fromisoformat(each["as_of"]) <= ctx.as_of
+    ]
+    found["examinations"] = kept_examinations
+    found["hidden_examinations"] = len(examinations) - len(kept_examinations)
+    latest = kept_examinations[-1] if kept_examinations else None
+    found["last_examined_at"] = latest["at"] if latest else None
+    found["last_examined_outcome"] = latest["outcome"] if latest else None
+    found["last_examined_as_of"] = (
+        max((each["as_of"] for each in kept_examinations), key=datetime.fromisoformat)
+        if kept_examinations
+        else None
+    )
     # A supersession link carries the other Belief's statement: only one the session could read.
     hidden_links = 0
     for key in ("supersedes", "superseded_by"):
@@ -246,6 +312,98 @@ async def get_belief(ctx: Ctx, args: GetBeliefArgs) -> dict[str, Any]:
         found[key] = linked
     found["hidden_links"] = hidden_links
     return found
+
+
+class ExamineBeliefArgs(Bound):
+    belief_id: uuid.UUID
+    outcome: Literal["confirmed", "qualified", "contradicted", "nothing_new"] = Field(
+        description="what reading the documents public since the Belief was last tested found:"
+        " confirmed (newer evidence supports it), qualified (it limits, dates or narrows it),"
+        " contradicted (it contradicts it), nothing_new (nothing bears on it)"
+    )
+    note: str | None = Field(default=None, description="what you read and found, in a line")
+
+
+@tool(
+    "examine_belief",
+    "Record that this session tested a Belief against the documents public by its as-of time:"
+    " `last_examined_at` and `last_examined_as_of` (this session's) are set on it, so the next"
+    " session reads only what came after (`list_beliefs` sorts by it). It sets no judgement and"
+    " clears no flag: only an author judges. Call it once, last, for each Belief you tested; a"
+    " Belief whose own as-of time is after the session's is refused (`belief_after_as_of`).",
+    ExamineBeliefArgs,
+)
+async def examine_belief(ctx: Ctx, args: ExamineBeliefArgs) -> dict[str, Any]:
+    examined = await ctx.api.post(
+        f"/beliefs/{args.belief_id}/examine",
+        {"session_id": str(args.session_id), "outcome": args.outcome, "note": args.note},
+    )
+    return {
+        "examined": True,
+        "belief_id": examined["id"],
+        "outcome": examined["last_examined_outcome"],
+        "last_examined_at": examined["last_examined_at"],
+        "last_examined_as_of": examined["last_examined_as_of"],
+        "judgement": examined["judgement"]["judgement"],
+        "open_flags": examined["open_flags"],
+    }
+
+
+# --- prior work ----------------------------------------------------------------------------
+
+PRIOR_WORK_NOTE = (
+    "What Atlas holds already, as of your session. Cite an existing Fact (its id) instead of"
+    " recording the same span again: a repeat is returned as reused. Spend your calls on"
+    " documents public after `latest_session_as_of` (a search hit says when it became public) and"
+    " on the gaps: `sessions[].open_questions` and `issues`. A Belief's `examined_through` is the"
+    " as-of time it has been tested against. Beliefs are Atlas's earlier conclusions: test them,"
+    " never cite them as evidence."
+)
+
+
+class PriorWorkArgs(Bound):
+    companies: list[str] = Field(
+        default_factory=list[str],
+        description="company slugs; default: the session's seeds, else the theme's companies",
+    )
+    steps: list[FactStep] = Field(
+        default_factory=list[FactStep], description="argument steps; default: all"
+    )
+    question: str | None = Field(default=None, description="default: the session's question")
+    limit: int = Field(default=40, ge=1, le=200, description="the cap on each list")
+
+
+@tool(
+    "prior_work",
+    "Call this right after open_session: what Atlas already holds for the question, bounded by the"
+    " session's as-of time. Facts already recorded for the companies and steps (statement, status,"
+    " period, document title and date, Fact id; newest document first, with the count beyond the"
+    " cap), the Beliefs of any judgement that name them or their steps (stalest first, with who"
+    " judged them and when they were last examined; the judgement is the current one, whatever"
+    " its time, and the open flags and notices leave out those a document public after your"
+    " as-of time raised), the documents read in earlier sessions with"
+    " those sessions' as-of times (`latest_session_as_of`: what is public after it is new to"
+    " Atlas), the earlier sessions with the open questions their cards named, and the open Issues"
+    " that touch the companies or steps. Your own session's work is left out.",
+    PriorWorkArgs,
+)
+async def prior_work(ctx: Ctx, args: PriorWorkArgs) -> dict[str, Any]:
+    session = ctx.bound
+    if args.companies:
+        company_ids = await ctx.company_ids(args.companies)
+    else:
+        company_ids = [str(each) for each in session.seed_company_ids]
+    answer = await ctx.api.get(
+        "/research/prior-work",
+        theme=session.theme,
+        as_of=ctx.as_of_iso,
+        company_ids=company_ids or None,
+        steps=args.steps or None,
+        question=args.question or session.question,
+        exclude_session_id=str(session.id),
+        limit=args.limit,
+    )
+    return {**answer, "note": PRIOR_WORK_NOTE}
 
 
 # --- issues --------------------------------------------------------------------------------

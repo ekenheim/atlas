@@ -7,6 +7,7 @@ import {
   citationsByCompany,
   companyNames,
   confidenceText,
+  confirmationText,
   direction,
   exposureTally,
   filterSummary,
@@ -15,6 +16,7 @@ import {
   judgementTone,
   listSearch,
   parseListState,
+  testedText,
   valenceText,
 } from "../lib/beliefs";
 
@@ -42,6 +44,10 @@ function belief(overrides: Overrides): BeliefSummary {
       ...judgement,
     },
     open_flags: 0,
+    open_notices: 0,
+    last_examined_at: null,
+    last_examined_as_of: null,
+    last_examined_outcome: null,
     citation_count: 1,
     produced_by: null,
     created_by: "claude",
@@ -231,7 +237,10 @@ test("citations group by the company that spoke, oldest first", () => {
 test("a company's page lists only the steps its Beliefs answer, keeping each Belief's exposure", () => {
   const groups = answeredSteps([
     { ...belief({ id: "a", step: "capture" }), exposure: "holder" as const },
-    { ...belief({ id: "b", step: "constraint" }), exposure: "supplier" as const },
+    {
+      ...belief({ id: "b", step: "constraint" }),
+      exposure: "supplier" as const,
+    },
   ]);
   expect(groups.map((group) => group.step)).toEqual(["constraint", "capture"]);
   expect(groups[0]?.beliefs[0]?.exposure).toBe("supplier");
@@ -250,4 +259,50 @@ test("a company's exposure is counted in the order holder, dependent, supplier",
     { exposure: "supplier", count: 2 },
   ]);
   expect(exposureTally([])).toEqual([]);
+});
+
+test("a confirmation is counted beside the flags in words, and is nothing when none is open", () => {
+  expect(confirmationText(belief({ open_notices: 0 }))).toBe("");
+  expect(confirmationText(belief({ open_notices: 1 }))).toBe("1 confirmation");
+  expect(confirmationText(belief({ open_notices: 3 }))).toBe("3 confirmations");
+});
+
+test("a notice is no flag: a confirmed Belief is not shown first as doubted", () => {
+  const groups = groupBySteps([
+    belief({
+      id: "plain",
+      step: "relief",
+      judgement: { judgement: "proven", confidence: 0.9 },
+    }),
+    belief({
+      id: "confirmed",
+      step: "relief",
+      open_notices: 2,
+      judgement: { judgement: "proven", confidence: 0.8 },
+    }),
+  ]);
+  expect(groups[2]?.beliefs.map((each) => each.id)).toEqual([
+    "plain",
+    "confirmed",
+  ]);
+});
+
+test("when a Belief was last tested is said by the as-of time it was tested against", () => {
+  expect(testedText(belief({}))).toBe("Not tested since it was proposed");
+  expect(
+    testedText(
+      belief({
+        last_examined_as_of: "2026-10-12T08:00:00Z",
+        last_examined_outcome: "nothing_new",
+      }),
+    ),
+  ).toBe("Tested through 2026-10-12: nothing new");
+  expect(
+    testedText(
+      belief({
+        last_examined_as_of: "2026-09-01T00:00:00Z",
+        last_examined_outcome: "confirmed",
+      }),
+    ),
+  ).toBe("Tested through 2026-09-01: confirmed");
 });

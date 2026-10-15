@@ -357,6 +357,35 @@ def test_a_fact_the_other_checks_refuse_costs_no_judge_call(
     assert judge_calls(llm) == []  # nothing was scripted: an unplanned call would fail the test
 
 
+def test_a_reused_fact_is_not_judged_again_and_a_new_fact_on_its_span_is(
+    atlas: Judged, llm: FakeLiteLLM
+) -> None:
+    # Tickets 23 and 26 together: the judge runs at record time, and a session's repeat of a
+    # standing Fact's span is that Fact, already judged.
+    first, second = atlas.open(), atlas.open()
+    original = atlas.record(first, llm)
+    assert len(judge_calls(llm)) == 1
+    judgement = atlas.get(f"/api/v1/facts/{original}")["statement_judgement"]
+
+    # Nothing scripted: a judge call for the reuse would fail the test.
+    reused = atlas.api.post("/api/v1/facts", json=atlas.fact_body(second))
+    assert reused.status_code == 200, reused.text
+    assert reused.json()["reused"] is True and reused.json()["fact"]["id"] == original
+    assert reused.json()["fact"]["statement_judgement"] == judgement
+    assert len(judge_calls(llm)) == 1
+
+    # A materially different statement on the same span is a new Fact, and it is judged.
+    other = "Lumentum reported quarterly sales of $1.01 billion for Q4."
+    llm.script_role("finding_judge", ChatReply.answer(supported, tokens=(400, 40)))
+    recorded = atlas.api.post("/api/v1/facts", json=atlas.fact_body(second, other))
+    assert recorded.status_code == 201, recorded.text
+    fact = recorded.json()["fact"]
+    assert fact["id"] != original and fact["same_span_as"] == original
+    assert fact["statement_judgement"]["verdict"] == "supported"
+    assert len(judge_calls(llm)) == 2
+    assert asked(judge_calls(llm)[-1])["request"]["finding"]["statement"] == other
+
+
 def test_a_fact_without_a_session_is_not_judged_by_default(atlas: Judged, llm: FakeLiteLLM) -> None:
     response = atlas.api.post("/api/v1/facts", json=atlas.fact_body(None, OVERSTATED))
 
