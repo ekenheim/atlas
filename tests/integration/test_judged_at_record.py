@@ -374,7 +374,7 @@ def test_a_reused_fact_is_not_judged_again_and_a_new_fact_on_its_span_is(
     assert reused.json()["fact"]["statement_judgement"] == judgement
     assert len(judge_calls(llm)) == 1
 
-    # A materially different statement on the same span is a new Fact, and it is judged.
+    # Another statement on the same span is a new Fact, and it is judged.
     other = "Lumentum reported quarterly sales of $1.01 billion for Q4."
     llm.script_role("finding_judge", ChatReply.answer(supported, tokens=(400, 40)))
     recorded = atlas.api.post("/api/v1/facts", json=atlas.fact_body(second, other))
@@ -384,6 +384,50 @@ def test_a_reused_fact_is_not_judged_again_and_a_new_fact_on_its_span_is(
     assert fact["statement_judgement"]["verdict"] == "supported"
     assert len(judge_calls(llm)) == 2
     assert asked(judge_calls(llm)[-1])["request"]["finding"]["statement"] == other
+
+
+def test_a_statement_equal_after_case_and_punctuation_is_reused_not_judged(
+    atlas: Judged, llm: FakeLiteLLM
+) -> None:
+    # Ticket 28: reuse is for the same statement only, the words alone (case, whitespace and
+    # punctuation aside); anything else on the span is a new Fact, judged.
+    first, second = atlas.open(), atlas.open()
+    original = atlas.record(first, llm)
+
+    spelled = "LUMENTUM'S  fourth-quarter fiscal 2026 net revenue was $1.01 billion"
+    reused = atlas.api.post("/api/v1/facts", json=atlas.fact_body(second, spelled))
+
+    assert reused.status_code == 200, reused.text
+    assert reused.json()["reused"] is True and reused.json()["fact"]["id"] == original
+    assert len(judge_calls(llm)) == 1  # nothing scripted for the repeat
+
+
+def test_a_correction_dropping_a_qualifier_is_recorded_beside_the_fact_it_corrects(
+    atlas: Judged, llm: FakeLiteLLM
+) -> None:
+    # Ticket 28: Fact 34aa1f72 said "the merchant indium phosphide market" of a quote that says
+    # "the market"; the faithful statement on the same span came back as that Fact (reused,
+    # HTTP 200, not judged) because the two share most of their words.
+    first, second = atlas.open(), atlas.open()
+    qualified = "Lumentum's fourth-quarter fiscal 2026 net merchant revenue was $1.01 billion."
+    original = atlas.record(first, llm, qualified)
+
+    llm.script_role("finding_judge", ChatReply.answer(supported, tokens=(400, 40)))
+    corrected = atlas.api.post("/api/v1/facts", json=atlas.fact_body(second, STATEMENT))
+
+    assert corrected.status_code == 201, corrected.text
+    assert corrected.json()["reused"] is False
+    fact = corrected.json()["fact"]
+    assert fact["id"] != original and fact["same_span_as"] == original
+    assert fact["statement"] == STATEMENT
+    assert fact["statement_judgement"]["verdict"] == "supported"
+    assert len(judge_calls(llm)) == 2
+    assert asked(judge_calls(llm)[-1])["request"]["finding"]["statement"] == STATEMENT
+    # Insert-only: the Fact corrected stands as it was, and the session's repeat of the
+    # correction is now the correction.
+    assert atlas.get(f"/api/v1/facts/{original}")["statement"] == qualified
+    again = atlas.api.post("/api/v1/facts", json=atlas.fact_body(second, STATEMENT.upper()))
+    assert again.status_code == 200 and again.json()["fact"]["id"] == fact["id"]
 
 
 def test_a_fact_without_a_session_is_not_judged_by_default(atlas: Judged, llm: FakeLiteLLM) -> None:

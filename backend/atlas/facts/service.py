@@ -198,7 +198,7 @@ class Fact(BaseModel):
     # statement was not judged (no session, or the judge was off).
     statement_judgement: FactJudgement | None = None
     # Ticket 26: the earlier Fact of the same step whose span this one overlaps, recorded anyway
-    # because its statement is materially different (`atlas.facts.reuse`); None: it overlaps none.
+    # because its statement is another (`atlas.facts.reuse`, ticket 28); None: it overlaps none.
     same_span_as: uuid.UUID | None = None
 
 
@@ -208,7 +208,8 @@ class FactRecorded(BaseModel):
     reused: bool = Field(
         default=False,
         description="the span overlaps an earlier Fact of the same step with the same status and"
-        " an alike statement: that Fact is returned, no row was made (ticket 26)",
+        " the same statement (case and punctuation aside): that Fact is returned, no row was made"
+        " (tickets 26, 28)",
     )
 
 

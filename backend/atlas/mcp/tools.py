@@ -24,8 +24,9 @@ place:
 
 - **Atlas compounds across sessions** (ticket 26): `prior_work` (`atlas.mcp.agents`) is the
   session's starting state; `record_fact` returns a span an earlier Fact of the same step, status
-  and alike statement already covers as `reused` instead of recording it again (a materially
-  different statement is recorded and names the earlier Fact, `same_span_as`); `examine_belief`
+  and same statement (case and punctuation aside) already covers as `reused` instead of recording
+  it again (any other statement is recorded, judged, and names the earlier Fact,
+  `same_span_as`); `examine_belief`
   records that the session tested a Belief; a supporting Fact from a newer document shows on a
   proven Belief as a `belief_confirmed` notice, never as a change of its judgement.
 
@@ -433,7 +434,7 @@ class RecordFactArgs(Bound):
 REUSED_NOTE = (
     "An earlier Fact of the same step, status and statement already covers this span, so nothing"
     " was recorded: use its fact_id (cite it, judge a statement on it). Record a new Fact for the"
-    " span only with a materially different statement or another step."
+    " span only with another statement or another step."
 )
 
 
@@ -446,9 +447,10 @@ REUSED_NOTE = (
     " `reason`) means rewrite the statement to what the quote says, or quote more. `judged` in"
     " the answer: `supported`, or `unjudged` (the judge was unreachable: judge it yourself)."
     " A span an earlier Fact of the same step already covers is not recorded again: with the same"
-    " status and an alike statement the answer is `reused: true` and that Fact's id (nothing is"
-    " recorded); a materially different statement is recorded and names the earlier one in"
-    " `same_span_as`. Refused for a version that became public after the session's as-of time.",
+    " status and the same statement (case and punctuation aside) the answer is `reused: true` and"
+    " that Fact's id (nothing is recorded); any other statement, a correction that drops a word"
+    " included, is recorded, judged, and names the earlier one in `same_span_as`."
+    " Refused for a version that became public after the session's as-of time.",
     RecordFactArgs,
 )
 async def record_fact(ctx: Ctx, args: RecordFactArgs) -> dict[str, Any]:
