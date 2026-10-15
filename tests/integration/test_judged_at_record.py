@@ -293,6 +293,9 @@ def test_a_supported_session_fact_is_recorded_with_the_verdict_the_judge_gave(
     [quote] = request["retrieved_data"]
     assert (quote["id"], quote["text"], quote["trust"]) == ("c1", REVENUE_QUOTE, "low")
     assert request["request"]["research_question"] == QUESTION
+    # The rolled-back check before the judge left no gap in the audit trail.
+    with atlas.engine.connect() as connection:
+        assert verify_chain(connection).breaks == []
 
 
 @pytest.mark.parametrize(
