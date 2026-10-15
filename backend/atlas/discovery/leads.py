@@ -23,6 +23,13 @@ says which phrase EDGAR matched in it (EDGAR returns no text), and its `filing` 
 filer's CIK, the form and dates, the universe company that filed it, the Source Version Atlas
 archived of it, if any, and whether it is `ingestable` (a universe company's filing Atlas
 hasn't archived). The document is not fetched: the lead is where to look.
+
+A `tradingview_calendar` lead is a company's reporting date from TradingView's earnings
+calendar (ticket 16b; the same owner override, off by default): one lead per company and fiscal
+period, no query, no snippet, the date and status in `calendar`. A date that moves is a new
+insert-only observation of the same lead, so a read `known_by` an earlier time sees the date
+Atlas knew then and nothing stored after it. A lead says when to look (e.g. for a results
+call), never what a company said.
 """
 
 import uuid
@@ -81,6 +88,20 @@ class Headline(BaseModel):
     owner_override: str  # the owner's recorded override of TradingView's terms
 
 
+class CalendarEvent(BaseModel):
+    """A `tradingview_calendar` lead's reporting date (TradingView's earnings calendar)."""
+
+    company_id: uuid.UUID  # the company whose symbol it was listed for
+    symbol: str
+    event_key: str  # what Atlas deduplicates the lead by (TradingView's event ID, else the period)
+    event_at: datetime  # the reporting date, as the calendar last gave it (by `known_by`)
+    status: str | None  # as the calendar words it (scheduled, confirmed, reported ...)
+    fiscal_period: str | None
+    fiscal_year: str | None
+    observed_at: datetime  # when Atlas saw that date
+    owner_override: str  # the owner's recorded override of TradingView's terms
+
+
 class Filing(BaseModel):
     """An `edgar_fts` lead's filing (EDGAR full-text search's metadata)."""
 
@@ -101,7 +122,7 @@ class Filing(BaseModel):
 class Lead(BaseModel):
     id: uuid.UUID
     tier: Literal["C"]  # always: a lead is never Evidence
-    origin: Literal["searxng", "tradingview_news", "edgar_fts"]
+    origin: Literal["searxng", "tradingview_news", "edgar_fts", "tradingview_calendar"]
     canonical_url: str
     url: str  # as first found
     title: str
@@ -115,6 +136,7 @@ class Lead(BaseModel):
     last_seen_at: datetime
     headline: Headline | None = None  # a `tradingview_news` lead's metadata
     filing: Filing | None = None  # an `edgar_fts` lead's filing
+    calendar: CalendarEvent | None = None  # a `tradingview_calendar` lead's reporting date
 
 
 def store_result(connection: Connection, query_id: uuid.UUID, result: SearchResult) -> bool | None:
@@ -325,6 +347,87 @@ def store_headline(
     return bool(row.created)
 
 
+def store_calendar_event(
+    connection: Connection,
+    *,
+    url: str,
+    title: str,
+    event_key: str,
+    company_id: uuid.UUID,
+    symbol: str,
+    themes: Sequence[str],
+    fiscal_period: str | None,
+    fiscal_year: str | None,
+    event_at: datetime,
+    status: str | None,
+    owner_override: str,
+    job_id: uuid.UUID | None,
+    now: datetime,
+) -> bool | None:
+    """Record a TradingView calendar date as a `tradingview_calendar` lead (metadata only),
+    one per event: the first sighting makes the lead, and a date or status that differs from
+    the last observed one adds an observation (insert-only; `now` is when Atlas saw it).
+    Returns whether a lead was created, or None when `url` isn't a web URL (no lead)."""
+    canonical = canonical_url(url)
+    if canonical is None:
+        return None
+    row = connection.execute(
+        text(
+            "INSERT INTO lead (id, canonical_url, url, title, snippet, published_date, engines,"
+            " first_query_id, origin, first_seen_at, last_seen_at) VALUES (:id, :canonical, :url,"
+            " :title, '', NULL, ARRAY['tradingview'], NULL, 'tradingview_calendar', :now, :now)"
+            " ON CONFLICT (canonical_url) DO UPDATE SET last_seen_at = :now"
+            " RETURNING id, (xmax = 0) AS created"
+        ),
+        {"id": uuid.uuid4(), "canonical": canonical, "url": url, "title": title, "now": now},
+    ).one()
+    connection.execute(
+        text(
+            "INSERT INTO tradingview_calendar_event (lead_id, event_key, company_id, symbol,"
+            " themes, fiscal_period, fiscal_year, owner_override, job_id, first_seen_at)"
+            " VALUES (:lead, :key, :company, :symbol, :themes, :period, :year, :override, :job,"
+            " :now) ON CONFLICT DO NOTHING"
+        ),
+        {
+            "lead": row.id,
+            "key": event_key,
+            "company": company_id,
+            "symbol": symbol,
+            "themes": list(themes),
+            "period": fiscal_period,
+            "year": fiscal_year,
+            "override": owner_override,
+            "job": job_id,
+            "now": now,
+        },
+    )
+    last = connection.execute(
+        text(
+            "SELECT event_at, status FROM tradingview_calendar_observation WHERE lead_id = :lead"
+            " ORDER BY observed_at DESC, id DESC LIMIT 1"
+        ),
+        {"lead": row.id},
+    ).one_or_none()
+    if last is None or (last.event_at, last.status) != (event_at, status):
+        connection.execute(
+            text(
+                "INSERT INTO tradingview_calendar_observation (id, lead_id, event_at, status,"
+                " owner_override, job_id, observed_at) VALUES (:id, :lead, :event_at, :status,"
+                " :override, :job, :now)"
+            ),
+            {
+                "id": uuid.uuid4(),
+                "lead": row.id,
+                "event_at": event_at,
+                "status": status,
+                "override": owner_override,
+                "job": job_id,
+                "now": now,
+            },
+        )
+    return bool(row.created)
+
+
 def discovery_sightings(connection: Connection, discovery_id: uuid.UUID) -> list[Sighting]:
     """Every lead sighting of a discovery as ranking scores it (atlas.discovery.ranking), in
     the order found: each with the query that returned it and that query's purpose. An EDGAR
@@ -359,7 +462,7 @@ def discovery_sightings(connection: Connection, discovery_id: uuid.UUID) -> list
 _LEADS = """
     SELECT lead.id, lead.tier, lead.origin, lead.canonical_url, lead.url, lead.title,
         lead.snippet, lead.published_date, lead.engines, lead.first_seen_at, lead.last_seen_at,
-        first.query, COALESCE(discovery.theme, h.themes[1]) AS theme,
+        first.query, COALESCE(discovery.theme, h.themes[1], ce.themes[1]) AS theme,
         (SELECT count(*) FROM lead_sighting s WHERE s.lead_id = lead.id) AS sightings,
         h.headline_id, h.company_id AS headline_company_id, h.symbol AS headline_symbol,
         h.publisher, h.publisher_url, h.published_at AS headline_published_at,
@@ -368,23 +471,41 @@ _LEADS = """
         f.form AS filing_form, f.file_type AS filing_file_type, f.file_date AS filing_file_date,
         f.period_ending AS filing_period_ending, f.accession AS filing_accession,
         f.document AS filing_document, f.company_id AS filing_company_id,
-        f.source_version_id AS filing_source_version_id, f.ingestable AS filing_ingestable
+        f.source_version_id AS filing_source_version_id, f.ingestable AS filing_ingestable,
+        ce.company_id AS calendar_company_id, ce.symbol AS calendar_symbol,
+        ce.event_key AS calendar_event_key, ce.fiscal_period AS calendar_fiscal_period,
+        ce.fiscal_year AS calendar_fiscal_year, ce.owner_override AS calendar_owner_override,
+        co.event_at AS calendar_event_at, co.status AS calendar_status,
+        co.observed_at AS calendar_observed_at
     FROM lead
     LEFT JOIN discovery_query first ON first.id = lead.first_query_id
     LEFT JOIN discovery ON discovery.id = first.discovery_id
     LEFT JOIN tradingview_headline h ON h.lead_id = lead.id
     LEFT JOIN edgar_filing f ON f.lead_id = lead.id
+    LEFT JOIN tradingview_calendar_event ce ON ce.lead_id = lead.id
+    LEFT JOIN LATERAL (
+        SELECT o.event_at, o.status, o.observed_at FROM tradingview_calendar_observation o
+        WHERE o.lead_id = lead.id
+        AND (CAST(:known_by AS timestamptz) IS NULL OR o.observed_at <= :known_by)
+        ORDER BY o.observed_at DESC, o.id DESC LIMIT 1) co ON true
 """
+# The count needs the same joins, none of the columns.
+_LEAD_JOINS = _LEADS[_LEADS.index("    FROM lead") :]
 # A lead belongs to a theme when a discovery for that theme has returned it, or when it is a
-# headline listed for a company in that theme.
+# headline or a calendar date listed for a company in that theme.
 _IN_THEME = """
-    WHERE CAST(:theme AS text) IS NULL OR EXISTS (
+    WHERE (CAST(:theme AS text) IS NULL OR EXISTS (
         SELECT 1 FROM lead_sighting s
         JOIN discovery_query q ON q.id = s.discovery_query_id
         JOIN discovery d ON d.id = q.discovery_id
         WHERE s.lead_id = lead.id AND d.theme = :theme)
     OR EXISTS (
         SELECT 1 FROM tradingview_headline t WHERE t.lead_id = lead.id AND :theme = ANY(t.themes))
+    OR :theme = ANY(COALESCE(ce.themes, ARRAY[]::text[])))
+    AND (CAST(:origin AS text) IS NULL OR lead.origin = :origin)
+    AND (CAST(:known_by AS timestamptz) IS NULL OR lead.first_seen_at <= :known_by)
+    AND (CAST(:event_from AS timestamptz) IS NULL OR co.event_at >= :event_from)
+    AND (CAST(:event_to AS timestamptz) IS NULL OR co.event_at <= :event_to)
 """
 _HEADLINE_COLUMNS = (
     "headline_id",
@@ -400,8 +521,15 @@ _HEADLINE_COLUMNS = (
 
 def _lead(row: RowMapping) -> Lead:
     fields = {
-        k: v for k, v in row.items() if k not in _HEADLINE_COLUMNS and not k.startswith("filing_")
+        k: v
+        for k, v in row.items()
+        if k not in _HEADLINE_COLUMNS and not k.startswith(("filing_", "calendar_"))
     }
+    calendar = None
+    if row["calendar_event_at"] is not None:
+        calendar = CalendarEvent.model_validate(
+            {k.removeprefix("calendar_"): v for k, v in row.items() if k.startswith("calendar_")}
+        )
     filing = None
     if row["filing_cik"] is not None:
         filing = Filing.model_validate(
@@ -419,23 +547,44 @@ def _lead(row: RowMapping) -> Lead:
             related_symbols=list(row["related_symbols"]),
             owner_override=row["owner_override"],
         )
-    return Lead.model_validate({**fields, "headline": headline, "filing": filing})
+    return Lead.model_validate(
+        {**fields, "headline": headline, "filing": filing, "calendar": calendar}
+    )
 
 
 def list_leads(
-    connection: Connection, *, theme: str | None, limit: int, offset: int
+    connection: Connection,
+    *,
+    theme: str | None,
+    limit: int,
+    offset: int,
+    origin: str | None = None,
+    known_by: datetime | None = None,
+    event_from: datetime | None = None,
+    event_to: datetime | None = None,
 ) -> tuple[list[Lead], int]:
-    """Leads, newest first (optionally only those a discovery for `theme` returned), and
-    how many there are in all."""
+    """Leads, newest first (optionally only those a discovery for `theme` returned, or a
+    headline or calendar date listed for a company in it), and how many there are in all.
+
+    `origin` keeps one origin. `known_by` keeps the leads Atlas had stored by then, and a
+    calendar lead shows the date it knew by then. `event_from`/`event_to` keep the calendar
+    leads whose date (as known by `known_by`) falls inside, soonest first.
+    """
+    params = {
+        "theme": theme,
+        "origin": origin,
+        "known_by": known_by,
+        "event_from": event_from,
+        "event_to": event_to,
+    }
     total = connection.execute(
-        text(f"SELECT count(*) FROM lead {_IN_THEME}"),  # noqa: S608 (constant SQL)
-        {"theme": theme},
+        text(f"SELECT count(*) {_LEAD_JOINS} {_IN_THEME}"),
+        params,
     ).scalar_one()
+    windowed = event_from is not None or event_to is not None
+    order = "co.event_at, lead.id" if windowed else "lead.first_seen_at DESC, lead.id"
     rows = connection.execute(
-        text(
-            f"{_LEADS} {_IN_THEME} ORDER BY lead.first_seen_at DESC, lead.id"
-            " LIMIT :limit OFFSET :offset"
-        ),
-        {"theme": theme, "limit": limit, "offset": offset},
+        text(f"{_LEADS} {_IN_THEME} ORDER BY {order} LIMIT :limit OFFSET :offset"),
+        {**params, "limit": limit, "offset": offset},
     ).mappings()
     return [_lead(row) for row in rows], int(total)

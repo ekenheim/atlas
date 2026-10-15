@@ -1080,6 +1080,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{company_id}/price-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Prices */
+        get: operations["prices_api_v1_companies__company_id__price_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/identity-mappings": {
         parameters: {
             query?: never;
@@ -2465,6 +2482,39 @@ export interface components {
             max_companies: number;
             /** Token Budget */
             token_budget: number;
+        };
+        /**
+         * CalendarEvent
+         * @description A `tradingview_calendar` lead's reporting date (TradingView's earnings calendar).
+         */
+        CalendarEvent: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Symbol */
+            symbol: string;
+            /** Event Key */
+            event_key: string;
+            /**
+             * Event At
+             * Format: date-time
+             */
+            event_at: string;
+            /** Status */
+            status: string | null;
+            /** Fiscal Period */
+            fiscal_period: string | null;
+            /** Fiscal Year */
+            fiscal_year: string | null;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Owner Override */
+            owner_override: string;
         };
         /** Candidate */
         Candidate: {
@@ -6342,7 +6392,7 @@ export interface components {
              * Origin
              * @enum {string}
              */
-            origin: "searxng" | "tradingview_news" | "edgar_fts";
+            origin: "searxng" | "tradingview_news" | "edgar_fts" | "tradingview_calendar";
             /** Canonical Url */
             canonical_url: string;
             /** Url */
@@ -6373,6 +6423,7 @@ export interface components {
             last_seen_at: string;
             headline?: components["schemas"]["Headline"] | null;
             filing?: components["schemas"]["Filing"] | null;
+            calendar?: components["schemas"]["CalendarEvent"] | null;
         };
         /** LineResult */
         LineResult: {
@@ -7311,6 +7362,45 @@ export interface components {
             disproven_by: string | null;
             /** Disproven At */
             disproven_at: string | null;
+        };
+        /** PriceClose */
+        PriceClose: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Close */
+            close: number;
+            /** Owner Override */
+            owner_override: string;
+        };
+        /** PriceHistory */
+        PriceHistory: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Symbol */
+            symbol: string | null;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Closes */
+            closes: components["schemas"]["PriceClose"][];
+            /**
+             * Note
+             * @default Daily closes for settling predictions and replays. Never Evidence and never support for a Belief.
+             */
+            note: string;
         };
         /**
          * Proposal
@@ -13367,6 +13457,14 @@ export interface operations {
             query?: {
                 /** @description only leads found for this theme */
                 theme?: string | null;
+                /** @description only leads of this origin */
+                origin?: ("searxng" | "tradingview_news" | "edgar_fts" | "tradingview_calendar") | null;
+                /** @description only leads Atlas had stored by this time; a calendar lead shows the date it knew by then */
+                known_by?: string | null;
+                /** @description calendar leads whose date is at or after this time (soonest first) */
+                event_from?: string | null;
+                /** @description calendar leads whose date is at or before this time */
+                event_to?: string | null;
                 /** @description page size */
                 limit?: number;
                 /** @description items to skip */
@@ -13499,6 +13597,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_CatalogEntry_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prices_api_v1_companies__company_id__price_history_get: {
+        parameters: {
+            query?: {
+                /** @description first day; default a year before end */
+                start?: string | null;
+                /** @description last day; default today (UTC) */
+                end?: string | null;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceHistory"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */

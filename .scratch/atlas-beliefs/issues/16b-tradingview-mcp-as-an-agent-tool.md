@@ -1,7 +1,7 @@
 # 16b: The TradingView MCP proxy as an agent tool, under the owner's override
 
 Type: grilling
-Status: open
+Status: in-review
 Blocked by: 15
 
 ## Question

@@ -63,6 +63,7 @@ def builtin_registry(
     `review_relationships`, `discover`,
     `investigation_task`, `propose_candidates`,
     `draft_hypothesis`, `tradingview_catalog`, `tradingview_transcripts`,
+    `tradingview_calendar`, `tradingview_prices`,
     `replay`) need
     `settings`.
     `clock` is the application clock of handlers that measure time (a mental model's

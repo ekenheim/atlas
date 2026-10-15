@@ -76,6 +76,7 @@ TOOLS = {
     "complete_issue",
     "next_issue",
     "recall",
+    "upcoming_reports",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 

@@ -14,7 +14,7 @@ from atlas.discovery.edgar_fts import (
     FilingSearchFailed,
 )
 from atlas.discovery.handlers import register_discovery_handlers
-from atlas.discovery.leads import Filing, Lead, canonical_url, list_leads
+from atlas.discovery.leads import CalendarEvent, Filing, Lead, canonical_url, list_leads
 from atlas.discovery.searxng import (
     SearchFailed,
     SearchResponse,
@@ -36,6 +36,7 @@ from atlas.discovery.service import (
 
 __all__ = [
     "DISCOVER_KIND",
+    "CalendarEvent",
     "DiscoverPayload",
     "Discovery",
     "DiscoveryFailed",

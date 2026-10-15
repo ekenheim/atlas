@@ -12,7 +12,10 @@ manifest; no TradingView content). The protocol follows the MCP specification (2
   `DELETE /mcp` ends the session.
 - Tools: `mcp-tv-get-documents` (`documents-<company>.json` by symbol), `mcp-tv-get-document-
   view` (`view-<view id>.json`; a view in `unretrievable` answers `isError`),
-  `mcp-tv-get-news` (`news-<company>.json`). Any other tool is a JSON-RPC error.
+  `mcp-tv-get-news` (`news-<company>.json`), `mcp-tv-get-earnings-calendar`
+  (`calendar-<company><calendar>.json`) and `mcp-tv-get-ohlcv` (`ohlcv-<company>.json`);
+  the last two answer in assumed shapes (ticket 16b: their real shapes are unconfirmed).
+  Any other tool is a JSON-RPC error.
 - OAuth: protected resource metadata at `/.well-known/oauth-protected-resource/mcp`
   (authorization server `<origin>/auth`), authorization server metadata at
   `/.well-known/oauth-authorization-server/auth`, dynamic client registration at
@@ -56,6 +59,7 @@ class FakeTradingView:
     unretrievable: set[str] = field(default_factory=lambda: {"syn-view-2001-t"})
     ended_sessions: set[str] = field(default_factory=set[str])
     unavailable: bool = False  # answer every MCP request 503
+    calendar: str = ""  # "-moved": the calendar fixture variant the calendar tool answers
     calls: list[httpx2.Request] = field(default_factory=list[httpx2.Request])
     times: list[float] = field(default_factory=list[float])
     tool_calls: list[tuple[str, dict[str, Any]]] = field(
@@ -208,6 +212,11 @@ class FakeTradingView:
             return self._text(request_id, fixture_text(f"documents-{SYMBOLS[arguments['symbol']]}"))
         if name == "mcp-tv-get-news":
             return self._text(request_id, fixture_text(f"news-{SYMBOLS[arguments['symbol']]}"))
+        if name == "mcp-tv-get-earnings-calendar":
+            company = SYMBOLS[arguments["symbol"]]
+            return self._text(request_id, fixture_text(f"calendar-{company}{self.calendar}"))
+        if name == "mcp-tv-get-ohlcv":
+            return self._text(request_id, fixture_text(f"ohlcv-{SYMBOLS[arguments['symbol']]}"))
         if name == "mcp-tv-get-document-view":
             view = arguments["view_id"]
             if view in self.unretrievable:

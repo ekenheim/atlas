@@ -1,0 +1,33 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests; the earnings-calendar tool's real name and answer shape are unconfirmed",
+  "items": [
+    {
+      "id": "syn-cal-2026-q4",
+      "symbol": "NASDAQ:LITE",
+      "title": "SYNTHETIC Q4 FY2026 results",
+      "fiscal_period": "Q4",
+      "fiscal_year": 2026,
+      "date": 1786480200,
+      "status": "reported"
+    },
+    {
+      "id": "syn-cal-2027-q1",
+      "symbol": "NASDAQ:LITE",
+      "title": "SYNTHETIC Q1 FY2027 results",
+      "fiscal_period": "Q1",
+      "fiscal_year": 2027,
+      "date": 1793912400,
+      "status": "scheduled"
+    },
+    {
+      "id": "syn-cal-2027-q2",
+      "symbol": "NASDAQ:LITE",
+      "title": "SYNTHETIC Q2 FY2027 results",
+      "fiscal_period": "Q2",
+      "fiscal_year": 2027,
+      "date": 1801774800,
+      "status": "scheduled"
+    }
+  ],
+  "total": 3
+}
