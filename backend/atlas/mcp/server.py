@@ -88,7 +88,9 @@ def _record(
     outcome: str,
     reason: str | None,
 ) -> None:
-    payload: dict[str, Any] = arguments
+    payload: dict[str, Any] = (
+        cast(dict[str, Any], arguments) if isinstance(arguments, dict) else {"arguments": arguments}
+    )
     with engine.begin() as connection:
         connection.execute(
             text(
@@ -143,8 +145,7 @@ class McpServer:
             name = params.get("name")
             if not isinstance(name, str) or name not in TOOLS:
                 return _error(request_id, INVALID_PARAMS, f"unknown tool: {name!r}")
-            arguments = obj(params.get("arguments"))
-            return _result(request_id, _tool_result(await self.call(name, arguments)))
+            return _result(request_id, _tool_result(await self.call(name, params.get("arguments"))))
         return _error(request_id, METHOD_NOT_FOUND, f"unsupported method: {method}")
 
     @staticmethod
@@ -158,9 +159,18 @@ class McpServer:
             for each in TOOLS.values()
         ]
 
-    async def call(self, name: str, raw: dict[str, Any]) -> Outcome:
-        """One tool call: check the arguments and the session, run the tool, count the call."""
+    async def call(self, name: str, raw: Any) -> Outcome:
+        """One tool call: check the arguments and the session, run the tool, count the call.
+
+        `raw` is the request's `arguments` as received: a JSON object (missing or null: empty),
+        else `invalid_arguments`, with no session to count it on.
+        """
         tool = TOOLS[name]
+        if raw is None:
+            raw = {}
+        if not isinstance(raw, dict):
+            return _refused("invalid_arguments", "arguments must be a JSON object")
+        raw = cast(dict[str, Any], raw)
         try:
             args = tool.model.model_validate(raw)
         except ValidationError as invalid:
@@ -206,17 +216,19 @@ class McpServer:
             name, raw, outcome, session.id if session else outcome.session_id
         )
 
-    async def _given_session(self, raw: dict[str, Any]) -> uuid.UUID | None:
+    async def _given_session(self, raw: Any) -> uuid.UUID | None:
         """The open session an invalid call names, if it names one, so it is counted too."""
+        if not isinstance(raw, dict):
+            return None
         try:
-            given = uuid.UUID(str(raw.get("session_id")))
+            given = uuid.UUID(str(cast(dict[str, Any], raw).get("session_id")))
         except ValueError:
             return None
         found = await asyncio.to_thread(_session_row, self._engine, given)
         return given if found is not None and found[1] else None
 
     async def _counted(
-        self, name: str, raw: dict[str, Any], outcome: Outcome, session_id: uuid.UUID | None
+        self, name: str, raw: Any, outcome: Outcome, session_id: uuid.UUID | None
     ) -> Outcome:
         if session_id is not None:
             await asyncio.to_thread(

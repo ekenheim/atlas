@@ -529,6 +529,25 @@ def test_a_document_public_after_the_sessions_as_of_cannot_be_searched_read_or_c
         "propose_belief", "fact_available_after_as_of", session_id=early, statement="Parts.",
         step="control", citations=[{"fact_id": late_fact, "how": 1, "weight": "load_bearing"}],
     )  # fmt: skip
+    early_fact = mcp.fact(early, URL_EX991, REVENUE_QUOTE, statement=REVENUE_STATEMENT)
+    early_belief = mcp.ok(
+        "propose_belief", session_id=early, statement=REVENUE_STATEMENT, step="capture",
+        citations=[{"fact_id": early_fact, "how": 1, "weight": "load_bearing"}],
+    )  # fmt: skip
+    mcp.refused(
+        "relate_facts", "fact_available_after_as_of", session_id=early, fact_id=early_fact,
+        counter_fact_id=late_fact,
+    )  # fmt: skip
+    mcp.refused(
+        "relate_facts", "fact_available_after_as_of", session_id=early, fact_id=late_fact,
+        counter_fact_id=early_fact,
+    )  # fmt: skip
+    mcp.refused(
+        "cite_belief", "fact_available_after_as_of", session_id=early,
+        belief_id=early_belief["id"],
+        citation={"fact_id": late_fact, "how": 0.5, "weight": "context"},
+    )  # fmt: skip
+    assert len(mcp.get(f"/api/v1/beliefs/{early_belief['id']}")["citations"]) == 1  # not added
     assert mcp.get(f"/api/v1/facts/{late_fact}")["session_id"] == later  # the Fact stands
 
     # The press release of 11 August was public by then; and the time is not an argument.
@@ -541,6 +560,56 @@ def test_a_document_public_after_the_sessions_as_of_cannot_be_searched_read_or_c
 
 
 # --- quotes, warnings ---
+
+
+def test_recall_is_asked_and_filtered_as_of_the_sessions_time(
+    mcp: Mcp, hindsight_fake: RecordedHindsight
+) -> None:
+    early, later = mcp.open(BEFORE_10K), mcp.open(LATER)
+
+    def recall_bodies() -> list[dict[str, Any]]:
+        return [
+            json.loads(request.content)
+            for request in hindsight_fake.calls
+            if request.method == "POST" and request.url.path.endswith("/memories/recall")
+        ]
+
+    kept = mcp.ok("recall", session_id=later, query="laser capacity")
+    assert kept["as_of"] == LATER and kept["dropped_future"] == 0
+    first = recall_bodies()[-1]
+    assert first["query_timestamp"] == "2026-09-30T00:00:00+00:00"
+
+    narrow = mcp.ok("recall", session_id=early, query="laser capacity")
+    assert narrow["as_of"] == BEFORE_10K
+    assert recall_bodies()[-1]["query_timestamp"] == "2026-08-12T00:00:00+00:00"
+    # `available_by` is applied by Atlas on what Hindsight returned: the memories whose sections
+    # became public after the session's as-of time are dropped, and counted.
+    assert narrow["dropped_future"] > 0
+    assert len(narrow["memories"]) + narrow["dropped_future"] == len(kept["memories"])
+    for memory in narrow["memories"]:
+        for section in memory["sections"]:
+            assert section["available_at"] <= "2026-08-12T00:00:00Z"
+
+
+def test_a_tool_call_whose_arguments_are_not_an_object_is_refused_not_a_server_error(
+    mcp: Mcp,
+) -> None:
+    session = mcp.open()
+    for arguments in (["session_id"], "x", 7, True):
+        response = mcp.rpc("tools/call", {"name": "search", "arguments": arguments})
+        assert response.status_code == 200, response.text
+        result = response.json()["result"]
+        value = json.loads(result["content"][0]["text"])
+        assert result["isError"] is True and value["refused"] == "invalid_arguments", value
+    # Missing or null arguments are an empty object: the schema refuses them, and an open
+    # session named inside a malformed object is still counted.
+    assert mcp.rpc("tools/call", {"name": "search"}).status_code == 200
+    mcp.refused("search", "invalid_arguments", session_id=session, company=["x"], q="laser")
+    mcp.refused("search", "invalid_arguments", session_id=[session], company="lumentum", q="laser")
+    assert mcp.calls(session) == [
+        ("open_session", "ok", None),
+        ("search", "refused", "invalid_arguments"),
+    ]
 
 
 def test_a_quote_is_located_through_the_typographic_fold_and_only_if_it_occurs_once(
