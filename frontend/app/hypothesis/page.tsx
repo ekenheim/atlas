@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { Predictions } from "../../components/calls";
 import {
   Findings,
   Scenarios,
@@ -157,6 +158,7 @@ function Body({
         </>
       )}
       <Publish hypothesis={hypothesis} revision={revision} onChanged={onChanged} />
+      <Predictions key={revision} hypothesisId={hypothesis.id} />
       <Snapshots hypothesisId={hypothesis.id} revision={revision} />
       <History hypothesis={hypothesis} />
     </>

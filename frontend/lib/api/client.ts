@@ -88,6 +88,9 @@ export type BeliefQuery = Omit<
 export type SessionSummary = Schemas["SessionSummary"];
 export type ResearchSession = Schemas["ResearchSession"];
 export type Issue = Schemas["Issue"];
+export type Call = Schemas["Call"];
+export type Checkpoint = Schemas["Checkpoint"];
+export type Prediction = Schemas["Prediction"];
 export type NextIssue = Schemas["NextIssue"];
 export type ExportFormat = NonNullable<
   NonNullable<Params<"/api/v1/hypotheses/{hypothesis_id}/export">["query"]>["format"]
@@ -303,6 +306,14 @@ export const api = {
   /** Save a stopped investigation's research card as a draft Hypothesis. */
   saveHypothesis: (investigationId: string) =>
     post("/api/v1/hypotheses", {}, { investigation_id: investigationId }),
+  /** A theme's calls, newest first, each with its checkpoints (the prospective record). */
+  calls: (theme: string) => get("/api/v1/calls", { query: { theme, ...PAGE } }),
+  /** A Hypothesis's predictions, soonest deadline first, with their settlements. */
+  predictions: (hypothesisId: string) =>
+    get("/api/v1/hypotheses/{hypothesis_id}/predictions", {
+      path: { hypothesis_id: hypothesisId },
+      query: PAGE,
+    }),
   /** Every Hypothesis, newest first, each with its versions and transitions. */
   hypotheses: () => get("/api/v1/hypotheses", { query: PAGE }),
   hypothesis: (id: string) =>

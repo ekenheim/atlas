@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { BeliefSteps } from "../../components/beliefs";
+import { CallsPanel } from "../../components/calls";
 import { EdgeList } from "../../components/edge-list";
 import { Code, Load, Missing, Timestamp } from "../../components/ui";
 import {
@@ -55,6 +56,8 @@ function Theme() {
               </p>
               <BeliefSteps beliefs={map.beliefs} all />
             </section>
+
+            <CallsPanel theme={map.theme.id} />
 
             <p>
               {map.theme.company_count} companies, {map.theme.companies_without_sources} without

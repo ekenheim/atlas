@@ -287,6 +287,7 @@ def test_tool_calls_count_against_the_tradingview_budget(
         "budget": 2,
         "interactive_held": True,
         "kinds": [
+            "settle_calls",
             "tradingview_calendar",
             "tradingview_catalog",
             "tradingview_prices",

@@ -1,7 +1,7 @@
 # 19: The prospective record
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## What to build
@@ -23,5 +23,5 @@ The owner's aim is early calls, and every success so far is a replay of a known 
 
 ## Acceptance criteria (replacing the above)
 
-- [ ] API and job tests against the TradingView fake: calls made from each origin, checkpoints appended at their dates (a test clock), relative to the benchmark, `unpriced` once, insert-only enforced; predictions on a published Hypothesis recorded and settled; the theme page's panel (frontend unit test for the pure parts).
+- [x] API and job tests against the TradingView fake: calls made from each origin, checkpoints appended at their dates (a test clock), relative to the benchmark, `unpriced` once, insert-only enforced; predictions on a published Hypothesis recorded and settled; the theme page's panel (frontend unit test for the pure parts).
 - [ ] On production after deploy (the lead): the proven photonics Beliefs have call rows; the first checkpoint lands when due.

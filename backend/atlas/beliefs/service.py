@@ -9,6 +9,7 @@ superseding keeps the old Belief's citations and history; every write is audited
 
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -18,6 +19,7 @@ from atlas.audit import Actor, content_hash, record
 from atlas.beliefs.flags import flag_counterevidence
 from atlas.beliefs.memory_jobs import enqueue_retain_belief
 from atlas.beliefs.notices import confirm_by_citation
+from atlas.calls.record import belief_call
 from atlas.sessions import SessionSummary, get_session
 
 type Step = Literal[
@@ -499,9 +501,11 @@ def get_belief(
 
 
 class Beliefs:
-    def __init__(self, engine: Engine, actor: Actor) -> None:
+    def __init__(self, engine: Engine, actor: Actor, themes_config: Path | None = None) -> None:
         self._engine = engine
         self._actor = actor
+        # Where a call made by a `proven` judgement finds its companies' TradingView symbols.
+        self._themes_config = themes_config
 
     # --- writes -------------------------------------------------------------------------------
 
@@ -602,10 +606,11 @@ class Beliefs:
         with self._engine.begin() as connection:
             before = self._lock_active(connection, belief_id)
             judgement_id = uuid.uuid4()
-            connection.execute(
+            judged_at: datetime = connection.execute(
                 text(
                     "INSERT INTO belief_judgement (id, belief_id, judgement, confidence, actor,"
                     " reason) VALUES (:id, :belief, :judgement, :confidence, :actor, :reason)"
+                    " RETURNING at"
                 ),
                 {
                     "id": judgement_id,
@@ -615,7 +620,16 @@ class Beliefs:
                     "actor": request.actor,
                     "reason": request.reason,
                 },
-            )
+            ).scalar_one()
+            if request.judgement == "proven":
+                # The prospective record (ticket 19): proving a Belief is a call, dated now.
+                belief_call(
+                    connection,
+                    self._actor,
+                    belief_id,
+                    made_at=judged_at,
+                    themes_config=self._themes_config,
+                )
             connection.execute(
                 text(
                     "UPDATE belief_flag SET cleared_by = :judgement"
