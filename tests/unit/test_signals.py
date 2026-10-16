@@ -8,10 +8,13 @@ are worked out by hand from the config's weights (family weight times the phrase
 the co-occurrence bonus 1.0 and the figure bonus 0.75, then the factors).
 """
 
+import re
 from pathlib import Path
 
 import pytest
+import yaml
 
+from atlas.claims import LAYER_TERMS, SHARED_LAYER_TERMS
 from atlas.claims.predicates import company_names
 from atlas.discovery.signals import (
     SignalHit,
@@ -484,16 +487,27 @@ def test_supplier_dependence_boilerplate_in_a_filing_is_multiplied_down(
     assert filed < 1.5
 
 
-def test_the_boilerplate_factor_is_recorded_on_the_hit_it_applies_to() -> None:
-    # A threshold the sentence still passes, so that its factors can be read.
+@pytest.mark.parametrize(
+    ("sentence", "families", "filed"),
+    [
+        (PURCHASE, 1.7, 0.81),
+        (RELY, 1.4, 0.72),
+        (ONE_SOURCE, 2.0, 0.9),
+        (ONE_SUPPLIER, 2.0, 0.9),
+    ],
+)
+def test_the_boilerplate_factor_is_recorded_on_the_hit_it_applies_to(
+    sentence: str, families: float, filed: float
+) -> None:
+    # A threshold the sentence still passes, so that its factors and filed score can be read.
     config = load_signals_config(CONFIG).model_copy(update={"min_score": 0.5})
 
-    hits = scan(SignalScorer(config), with_neighbour(PURCHASE), form_type="10-K")
+    hits = scan(SignalScorer(config), with_neighbour(sentence), form_type="10-K")
 
     by_quote = {hit.quote: hit for hit in hits}
-    assert by_quote[PURCHASE].score == 0.81  # 2.7 x 0.3
-    assert dict(by_quote[PURCHASE].factors) == {
-        "families": 1.7,
+    assert by_quote[sentence].score == filed  # (families + 1.0) x 0.3
+    assert dict(by_quote[sentence].factors) == {
+        "families": families,
         "cooccurrence": 1.0,
         "filing_boilerplate": 0.3,
     }
@@ -541,7 +555,8 @@ def test_the_same_sentence_in_a_call_transcript_is_not_boilerplate(scorer: Signa
         ("We rely on a single source for 80% of our substrates.", 2.15),  # 1.4 + 0.75
         # A constraint in progress.
         ("We rely on only one supplier, which is limiting our output.", 2.0),
-        ("We rely on only one supplier and have been unable to obtain more wafers.", 2.0),
+        ("We rely on only one supplier and have been unable to obtain more materials.", 2.0),
+        ("We rely on only one supplier and supply has been tight.", 2.0),
         # No statement of reliance: a statement about the market.
         ("Only two companies make this wafer at volume.", 2.0),
         ("Indium phosphide is available from a handful of suppliers worldwide.", 2.0),
@@ -565,6 +580,138 @@ def test_the_sentence_naming_the_shortage_stays_where_the_generic_one_beside_it_
 
     # RELY: 1.4 + 1.0 (its neighbour's family) x 0.3 = 0.72, no hit; the named one keeps 3.2.
     assert scored(hits) == [(named, 3.2)]
+
+
+# A named input is no boilerplate (ticket 27b review): the rule is for "critical materials".
+
+INDIUM = "Indium phosphide substrates are available from only one qualified supplier."
+SINGLE_SOURCE_INP = "We rely on a single source for indium phosphide substrates."
+AXT_FEEDSTOCK = (
+    "We depend on a single or limited number of suppliers for certain critical materials used in"
+    " the production of our substrates, such as quartz tubing, arsenic, phosphorus and polishing"
+    " solutions."
+)
+FEEDSTOCK_ONLY = (
+    "We depend on a single or limited number of suppliers for certain critical materials, such"
+    " as quartz tubing, arsenic, phosphorus and polishing solutions."
+)
+
+
+def test_a_dependence_sentence_naming_an_input_keeps_its_score_in_a_filing(
+    scorer: SignalScorer,
+) -> None:
+    # Alone: only one ... supplier 1.0 x 2.0.
+    assert scored(scan(scorer, INDIUM, form_type="10-K")) == [(INDIUM, 2.0)]
+    # With a neighbour: sole-source... single source 0.7 x 2.0 + 1.0 = 2.4.
+    assert scored(scan(scorer, with_neighbour(SINGLE_SOURCE_INP), form_type="10-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25),
+        (SINGLE_SOURCE_INP, 2.4),
+    ]
+    # AXT's wording: limited number of suppliers 0.6 x 2.0 + 1.0 = 2.2; kept for its feedstocks.
+    assert scored(scan(scorer, with_neighbour(AXT_FEEDSTOCK), form_type="10-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25),
+        (AXT_FEEDSTOCK, 2.2),
+    ]
+
+
+def test_feedstock_words_alone_name_an_input(scorer: SignalScorer) -> None:
+    generic = FEEDSTOCK_ONLY.replace(
+        ", such as quartz tubing, arsenic, phosphorus and polishing solutions", ""
+    )
+
+    assert scored(scan(scorer, with_neighbour(FEEDSTOCK_ONLY), form_type="10-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25),
+        (FEEDSTOCK_ONLY, 2.2),
+    ]
+    # The same without the materials named: 2.2 x 0.3 = 0.66, no hit.
+    assert scored(scan(scorer, with_neighbour(generic), form_type="10-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25)
+    ]
+
+
+@pytest.mark.parametrize(
+    "thing",
+    ["our products", "critical materials", "components", "these materials", "raw materials"],
+)
+def test_a_generic_noun_names_no_input(scorer: SignalScorer, thing: str) -> None:
+    sentence = f"We rely on only one supplier for {thing}."
+
+    assert scored(scan(scorer, with_neighbour(sentence), form_type="10-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25)
+    ]  # 3.0 x 0.3 = 0.9
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "We rely on only one supplier for our laser chips.",
+        "We rely on only one supplier for InP wafers.",
+        "We rely on only one supplier for 800G transceivers.",
+        "We rely on only one supplier for germanium.",
+        "We rely on only one supplier for polishing slurry.",
+        "We rely on only one supplier for epitaxial layers.",
+    ],
+)
+def test_names_of_inputs_and_products_may_be_plural_and_in_any_case(
+    scorer: SignalScorer, sentence: str
+) -> None:
+    assert scored(scan(scorer, with_neighbour(sentence), form_type="10-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25),
+        (sentence, 3.0),
+    ]
+
+
+def test_every_term_the_lead_ranking_and_the_layer_taxonomy_know_is_a_named_input(
+    scorer: SignalScorer,
+) -> None:
+    ranking = yaml.safe_load((CONFIG.parent / "lead-ranking.yaml").read_text(encoding="utf-8"))
+    terms = [*ranking["terms"], *SHARED_LAYER_TERMS]
+    terms += [term for each in LAYER_TERMS.values() for term in each]
+    named = [re.compile(each, re.IGNORECASE) for each in scorer.config.filing_boilerplate.named]
+
+    missing = [term for term in terms if not any(each.search(term) for each in named)]
+
+    assert missing == []
+    # Never the ranking's method vocabulary ("supplier", "supply", "capacity"): not an input.
+    for word in ("supplier", "supply", "capacity", "customer", "shortage", "materials"):
+        assert not any(each.search(word) for each in named), word
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        # What might happen is no constraint in progress.
+        "We rely on only one supplier for these materials, and we may be unable to obtain enough.",
+        "We rely on only one supplier for these materials, and if we are unable to obtain enough.",
+        "We rely on only one supplier for these materials, and it might be that we are unable to"
+        " obtain enough.",
+        "We rely on only one supplier for these materials and could be unable to secure more.",
+    ],
+)
+def test_a_hypothetical_inability_is_no_constraint_in_progress(
+    scorer: SignalScorer, sentence: str
+) -> None:
+    # 2.0 + 1.0 = 3.0 (x 0.5 hedged for may/could), then x 0.3: under the threshold.
+    assert scored(scan(scorer, with_neighbour(sentence), form_type="10-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25)
+    ]
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "We rely on only one supplier for these materials, and supply has been tight.",
+        "We rely on only one supplier for these materials, which remains constrained.",
+        "We rely on only one supplier for these materials and they are very scarce.",
+    ],
+)
+def test_a_tight_supply_in_progress_keeps_the_sentence_at_its_score(
+    scorer: SignalScorer, sentence: str
+) -> None:
+    assert scored(scan(scorer, with_neighbour(sentence), form_type="10-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25),
+        (sentence, 3.0),
+    ]
 
 
 # --- an identical sentence counts once in a document (ticket 27b) ------------------------------

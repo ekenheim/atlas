@@ -35,9 +35,9 @@
 #
 # Supplier-dependence boilerplate (version 3): in a periodic filing (a form type starting with one
 # of `filing_boilerplate.forms`; never a call transcript) a sentence whose only family is
-# `family`, that says it relies on single or limited sources (`reliance`) and has no figure and no
-# constraint in progress (`present`; a sentence that also scores another family, a shortage say,
-# is not boilerplate either), is multiplied by `factor`, as Item 1A is. Ranking: an identical
+# `family`, that says it relies on single or limited sources (`reliance`) and has no figure, names
+# no material, layer or product (`named`) and has no constraint in progress (`present`; a sentence
+# that also scores another family, a shortage say, is not boilerplate either), is multiplied by `factor`, as Item 1A is. Ranking: an identical
 # sentence (normalised) in one document counts once in the ranked reads, before the cap above.
 #
 # A family's phrase is a regular expression (case-insensitive; `\s+` between words; typographic
@@ -100,9 +100,39 @@ filing_boilerplate:
     - \b(?:purchas\w+|buy|buys|sourc\w+|obtain\w*|procur\w+)\b[^.]{0,120}?\b(?:from|through)\s+(?:a\s+|one\s+)?(?:single|sole|limited)\b
     - \bavailable\s+(?:only\s+)?from\s+(?:only\s+)?(?:one|two|a\s+single|a\s+limited)\b
     - \blimited\s+number\s+of\s+(?:\w+\s+){0,2}(?:suppliers|vendors|sources)\b
+  # A named input is no boilerplate: a sentence naming a material, layer or product keeps its
+  # score. Seeded from the lead ranking's `terms` (configs/discovery/lead-ranking.yaml), the layer
+  # taxonomy (atlas.claims LAYER_TERMS and SHARED_LAYER_TERMS) and the feedstocks neither lists
+  # (a unit test fails when a term of any of them matches no pattern here). Never the ranking's
+  # method vocabulary ("supplier", "supply", "capacity"). Plurals allowed.
+  named:
+    # materials
+    - \b(?:indium(?:\s+phosphide)?|gallium(?:\s+arsenide)?|germanium|inp|gaas|soi)\b
+    - \b(?:quartz|arsenic|arsine|phosphorus|phosphine|boron\s+nitride|crucibles?|graphite|sapphire|lithium\s+niobate)\b
+    - \bpolishing\s+(?:solutions?|slurr(?:y|ies)|pads?|compounds?|agents?)\b
+    # layers: substrate and epi
+    - \b(?:substrates?|wafers?|boules?|ingots?|epiwafers?|epitax\w*|epi|mocvd|mbe)\b
+    # layers: chips and lasers
+    - \b(?:lasers?|emls?|dmls?|vcsels?|dfbs?|electro-?absorption|photodiodes?|photodetectors?)\b
+    - \b(?:pics?|photonic\s+(?:integrated\s+circuits?|chips?)|optical\s+chips?|chips?)\b
+    # layers: electrical ICs for optics
+    - \b(?:dsps?|digital\s+signal\s+processors?|tias?|transimpedance\s+amplifiers?|retimers?|serdes)\b
+    - \b(?:laser|driver)\s+(?:drivers?|ics?)\b
+    # layers: modules, contract manufacturing, systems
+    - \b(?:transceivers?|optical\s+modules?|modules?|pluggables?|transponders?|aocs?)\b
+    - \b(?:co-packaged\s+optics|cpo|optics|photonics|silicon\s+photonics)\b
+    - \b(?:contract\s+manufactur\w+|electronics\s+manufacturing\s+services|ems|outsourced\s+(?:manufacturing|assembly)|osat)\b
+    - \b(?:optical\s+transport|transport\s+systems?|line\s+systems?|(?:network|ethernet|data\s+center)\s+switch(?:es)?|switching\s+systems?|routers?|servers?|ai\s+clusters?|networking\s+equipment)\b
+    # speeds
+    - \b(?:200|400|800)g\b|\b1\.6t\b
   present:
+    - \b(?:is|are|was|were|(?:has|have)\s+been)\s+(?:unable|not\s+able)\s+to\s+(?:obtain|secure|source|get|buy)\b
+    - \b(?:is|are|remains?|(?:has|have)\s+been)\s+(?:very\s+)?(?:tight|constrained|scarce|on\s+allocation)\b
     - \b(?:is|are|has|have)\s+(?:been\s+)?(?:limiting|constraining|delaying|restricting)\b
-    - \b(?:unable|not\s+able)\s+to\s+(?:obtain|secure|source|get|buy)\b
+  # A `present` match in a clause (back to the last comma, semicolon, colon or full stop) that
+  # holds one of these is what might happen, not a constraint in progress.
+  hypothetical:
+    - \b(?:if|may|might|could|would|should|unless|whether|in\s+the\s+event)\b
 ranking:
   max_per_document: 3
 # What counts as a figure: an amount of money, a percentage, or a span of weeks or months.

@@ -570,7 +570,8 @@ _IN_THEME = """
     -- best-scored (then earliest) of its spans stands (ticket 27b)
     AND (NOT CAST(:once AS boolean) OR sig.lead_id IS NULL OR NOT EXISTS (
         SELECT 1 FROM archive_signal dup
-        WHERE dup.source_version_id = sig.source_version_id
+        WHERE dup.company_id = sig.company_id
+        AND dup.source_version_id = sig.source_version_id
         AND dup.sentence_sha256 = sig.sentence_sha256
         AND dup.lead_id <> sig.lead_id
         AND (dup.score > sig.score

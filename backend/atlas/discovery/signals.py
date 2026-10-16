@@ -36,9 +36,11 @@ like a bottleneck, best first, each with its span and why it scored.
 - **Supplier-dependence boilerplate (ticket 27b).** In a periodic filing (10-K, 10-Q, 20-F,
   40-F; never a call) a sentence whose only family is `few_suppliers`, that states reliance on
   single or limited sources ("we rely on", "purchase ... from a single source", "available from
-  only one", "limited number of suppliers") and has no figure and no constraint in progress, is
-  multiplied by `filing_boilerplate.factor`, as Item 1A is. A sentence that also scores another
-  family (a shortage, a constraint), has a figure or says a constraint is in progress keeps its
+  only one", "limited number of suppliers") and has no figure, no named input and no constraint
+  in progress, is multiplied by `filing_boilerplate.factor`, as Item 1A is. A sentence that also
+  scores another family (a shortage, a constraint), has a figure, names a material, layer or
+  product (`named`: "indium phosphide substrates", "quartz tubing, arsenic") or says a constraint
+  is in progress ("has been tight", "have been unable to obtain"; not "may be unable") keeps its
   score.
 - **The ranked read.** Two rules the ranked reads share (the leads route, the MCP tool, the
   replay script). `once_per_document`: an identical sentence (normalised) in one document counts
@@ -141,8 +143,9 @@ class Boilerplate(BaseModel):
 
 class FilingBoilerplate(BaseModel):
     """Supplier-dependence boilerplate in a periodic filing (ticket 27b): a `family` sentence that
-    only states reliance on single or limited sources, with no figure and no present constraint
-    (nothing of any other family, no `present` wording), is multiplied by `factor`."""
+    only states reliance on single or limited sources, with no figure, no named input and no
+    constraint in progress (nothing of any other family, no `named` or `present` wording), is
+    multiplied by `factor`."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -150,9 +153,11 @@ class FilingBoilerplate(BaseModel):
     family: str
     factor: float = Field(ge=0, le=1)
     reliance: tuple[str, ...] = Field(min_length=1)  # regular expressions: reliance stated
+    named: tuple[str, ...] = Field(min_length=1)  # a named material, layer or product: a real cue
     present: tuple[str, ...] = ()  # regular expressions: a constraint in progress, so a real cue
+    hypothetical: tuple[str, ...] = ()  # in a `present` match's clause: only what might happen
 
-    @field_validator("reliance", "present")
+    @field_validator("reliance", "named", "present", "hypothetical")
     @classmethod
     def _regexes(cls, values: tuple[str, ...]) -> tuple[str, ...]:
         for value in values:
@@ -376,7 +381,9 @@ class SignalScorer:
         filing = config.filing_boilerplate
         self._filing_forms = tuple(each.upper() for each in filing.forms)
         self._reliance = [_compiled(each) for each in filing.reliance]
+        self._named = [_compiled(each) for each in filing.named]
         self._present = [_compiled(each) for each in filing.present]
+        self._hypothetical = [_compiled(each) for each in filing.hypothetical]
 
     def scan(
         self,
@@ -461,14 +468,26 @@ class SignalScorer:
     def _is_dependence_boilerplate(self, families: Sequence[str], folded: str) -> bool:
         """Whether the sentence only states that the company relies on single or limited sources
         (the config's `reliance`), says nothing else that scores (one family, the boilerplate's),
-        has no figure and no constraint in progress."""
+        has no figure, names no input and has no constraint in progress."""
         if families != [self.config.filing_boilerplate.family]:
             return False
         if not any(each.search(folded) for each in self._reliance):
             return False
         if any(each.search(folded) for each in self._figures):
             return False
-        return not any(each.search(folded) for each in self._present)
+        if any(each.search(folded) for each in self._named):
+            return False
+        return not self._in_progress(folded)
+
+    def _in_progress(self, folded: str) -> bool:
+        """Whether the sentence says a constraint is going on: a `present` match whose clause
+        (back to the last comma, semicolon, colon or full stop) holds nothing hypothetical."""
+        for pattern in self._present:
+            for match in pattern.finditer(folded):
+                clause = re.split(r"[,;:.]", folded[: match.start()])[-1]
+                if not any(each.search(clause) for each in self._hypothetical):
+                    return True
+        return False
 
     def _negated(self, folded: str, start: int, end: int) -> bool:
         """Whether a negator governs the phrase that spans `start` to `end`: it stands in the same

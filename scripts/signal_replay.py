@@ -19,9 +19,8 @@ have ranked highest by a given date?** It runs the same scorer over the document
    in the report), then at most `ranking.max_per_document` (config; `--max-per-document`
    overrides) of one document among the first results and the rest after them
    (`cap_per_document`), as `GET /leads?origin=archive_signal` ranks them. The `--top` (20) are
-   printed with rank,
-   company, document title and date, score, the cue families, the speaker of a call and the
-   first 200 characters of the sentence.
+   printed with rank, company, document title and date, score, the cue families, the speaker of
+   a call and the first 200 characters of the sentence.
 4. **A sentence you expect** (`--expect TEXT`, repeatable): the best rank of a hit whose sentence
    contains the text (case-insensitive, whitespace folded), and whether it is in the top
    `--within` (5). Nothing about the vocabulary is fitted to it: this only looks it up. The exit
