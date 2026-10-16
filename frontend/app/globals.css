@@ -876,3 +876,32 @@ nav[aria-label="Site"] .nav-ops {
 .mem-line button {
   margin: 0;
 }
+
+/* The prospective record: a call's change since, relative to the theme (never a verdict colour
+   alone: the sign is in the text), and a prediction's state. */
+.calls td {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.calls td:nth-child(2) {
+  white-space: normal;
+}
+
+.call-up {
+  color: var(--ok);
+}
+
+.call-down {
+  color: var(--gap);
+}
+
+.call-due,
+.call-none,
+.prediction-open {
+  color: var(--muted);
+}
+
+.prediction-lapsed {
+  color: var(--warn);
+}

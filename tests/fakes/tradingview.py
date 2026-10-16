@@ -19,7 +19,8 @@ manifest; no TradingView content). The protocol follows the MCP specification (2
   asked; a fixture with no rows is a symbol the answer leaves out) and
   `mcp-tv-get-ohlcv` (arguments `symbol`, `interval`, `count`, `summary`; `ohlcv-<company>
   <prices>.json`, bars `{t, o, h, l, c, v}`; the fake returns all the fixture's bars whatever
-  the count, so the client's own window filter is what the tests see). `raw[tool]` replaces a
+  the count, so the client's own window filter is what the tests see; `ohlcv[symbol]` replaces a
+  symbol's answer text). `raw[tool]` replaces a
   tool's answer text (a malformed answer). Any other tool is a JSON-RPC error.
 - OAuth: protected resource metadata at `/.well-known/oauth-protected-resource/mcp`
   (authorization server `<origin>/auth`), authorization server metadata at
@@ -66,6 +67,9 @@ class FakeTradingView:
     unavailable: bool = False  # answer every MCP request 503
     calendar: str = ""  # "-moved", "-reported", "-noisy", "-both": the calendar fixture variant
     prices: str = ""  # "-adjusted": the get_ohlcv fixture variant the OHLCV tool answers
+    # symbol -> the get_ohlcv answer text for it (ticket 19: a test builds bars around the real
+    # dates of the calls it makes); a symbol not named here is answered from the fixtures
+    ohlcv: dict[str, str] = field(default_factory=dict[str, str])
     raw: dict[str, str] = field(default_factory=dict[str, str])  # tool name -> its answer text
     calls: list[httpx2.Request] = field(default_factory=list[httpx2.Request])
     times: list[float] = field(default_factory=list[float])
@@ -237,6 +241,8 @@ class FakeTradingView:
                 "earnings": rows,
             }
             return self._text(request_id, json.dumps({"success": True, "data": data}))
+        if name == "mcp-tv-get-ohlcv" and arguments["symbol"] in self.ohlcv:
+            return self._text(request_id, self.ohlcv[arguments["symbol"]])
         if name == "mcp-tv-get-ohlcv":
             return self._text(
                 request_id, fixture_text(f"ohlcv-{SYMBOLS[arguments['symbol']]}{self.prices}")

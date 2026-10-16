@@ -5131,6 +5131,496 @@
         }
       }
     },
+    "/api/v1/calls": {
+      "get": {
+        "tags": [
+          "calls"
+        ],
+        "summary": "Calls",
+        "operationId": "calls_api_v1_calls_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only this theme's",
+              "title": "Theme"
+            },
+            "description": "only this theme's"
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Origin"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "belief, hypothesis or signal",
+              "title": "Origin"
+            },
+            "description": "belief, hypothesis or signal"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CallState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "open, settled or unpriced",
+              "title": "State"
+            },
+            "description": "open, settled or unpriced"
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only calls naming it",
+              "title": "Company Id"
+            },
+            "description": "only calls naming it"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Call_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/predictions": {
+      "post": {
+        "tags": [
+          "predictions"
+        ],
+        "summary": "Record Prediction",
+        "operationId": "record_prediction_api_v1_hypotheses__hypothesis_id__predictions_post",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "predictions"
+        ],
+        "summary": "Hypothesis Predictions",
+        "operationId": "hypothesis_predictions_api_v1_hypotheses__hypothesis_id__predictions_get",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Prediction_"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hypotheses/{hypothesis_id}/predictions/{prediction_id}/settle": {
+      "post": {
+        "tags": [
+          "predictions"
+        ],
+        "summary": "Settle Prediction",
+        "operationId": "settle_prediction_api_v1_hypotheses__hypothesis_id__predictions__prediction_id__settle_post",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Prediction Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionSettle"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/predictions": {
+      "get": {
+        "tags": [
+          "predictions"
+        ],
+        "summary": "Predictions",
+        "operationId": "predictions_api_v1_predictions_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PredictionState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "open, settled or lapsed",
+              "title": "State"
+            },
+            "description": "open, settled or lapsed"
+          },
+          {
+            "name": "hypothesis_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "researching",
+                    "evidence_ready",
+                    "reviewed",
+                    "paper_tracking",
+                    "closed",
+                    "rejected",
+                    "needs_more_evidence"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "e.g. rejected: those are kept and listed",
+              "title": "Hypothesis Status"
+            },
+            "description": "e.g. rejected: those are kept and listed"
+          },
+          {
+            "name": "hypothesis_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Prediction_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/api/v1/identity-mappings": {
       "get": {
         "tags": [
@@ -10683,6 +11173,161 @@
         "title": "CalendarEvent",
         "description": "A `tradingview_calendar` lead's reporting date (TradingView's earnings calendar)."
       },
+      "Call": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/Origin"
+          },
+          "origin_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Origin Id"
+          },
+          "lead_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lead Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "claim": {
+            "type": "string",
+            "title": "Claim"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "made_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Made At"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CallState"
+          },
+          "unpriced_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnpricedReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CallCompany"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "checkpoints": {
+            "items": {
+              "$ref": "#/components/schemas/Checkpoint"
+            },
+            "type": "array",
+            "title": "Checkpoints"
+          },
+          "next_due": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextDue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "What Atlas said, on the date it said it, and what followed. Closes are used only to score a call after the fact; they are never evidence for one."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "origin",
+          "origin_id",
+          "lead_id",
+          "theme",
+          "claim",
+          "direction",
+          "made_at",
+          "state",
+          "unpriced_reason",
+          "companies",
+          "checkpoints",
+          "next_due"
+        ],
+        "title": "Call"
+      },
+      "CallCompany": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "slug",
+          "display_name",
+          "symbol"
+        ],
+        "title": "CallCompany"
+      },
+      "CallState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "settled",
+          "unpriced"
+        ]
+      },
       "Candidate": {
         "properties": {
           "id": {
@@ -13006,6 +13651,126 @@
         "title": "Check",
         "description": "One gold expectation, what was observed, and whether it held."
       },
+      "Checkpoint": {
+        "properties": {
+          "horizon_months": {
+            "type": "integer",
+            "title": "Horizon Months"
+          },
+          "due_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Due On"
+          },
+          "change": {
+            "type": "number",
+            "title": "Change"
+          },
+          "benchmark_change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Change"
+          },
+          "relative_change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative Change"
+          },
+          "benchmark_members": {
+            "type": "integer",
+            "title": "Benchmark Members"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CheckpointMove"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "benchmark": {
+            "items": {
+              "$ref": "#/components/schemas/CheckpointMove"
+            },
+            "type": "array",
+            "title": "Benchmark"
+          },
+          "settled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Settled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "horizon_months",
+          "due_on",
+          "change",
+          "benchmark_change",
+          "relative_change",
+          "benchmark_members",
+          "companies",
+          "benchmark",
+          "settled_at"
+        ],
+        "title": "Checkpoint"
+      },
+      "CheckpointMove": {
+        "properties": {
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "base_day": {
+            "type": "string",
+            "format": "date",
+            "title": "Base Day"
+          },
+          "base_close": {
+            "type": "number",
+            "title": "Base Close"
+          },
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "close": {
+            "type": "number",
+            "title": "Close"
+          },
+          "change": {
+            "type": "number",
+            "title": "Change"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company",
+          "symbol",
+          "base_day",
+          "base_close",
+          "day",
+          "close",
+          "change"
+        ],
+        "title": "CheckpointMove"
+      },
       "CitationIn": {
         "properties": {
           "kind": {
@@ -15282,6 +16047,13 @@
           "removed"
         ],
         "title": "DiffCounts"
+      },
+      "Direction": {
+        "type": "string",
+        "enum": [
+          "tightening",
+          "easing"
+        ]
       },
       "Discovery": {
         "properties": {
@@ -20728,6 +21500,19 @@
             "type": "array",
             "title": "Requires",
             "description": "Issues to finish before this one"
+          },
+          "lead_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lead Id",
+            "description": "the archive-signal lead a `question` escalates; it makes a call (atlas-beliefs ticket 19), dated now"
           }
         },
         "additionalProperties": false,
@@ -23233,6 +24018,25 @@
         ],
         "title": "MissingInput"
       },
+      "NextDue": {
+        "properties": {
+          "horizon_months": {
+            "type": "integer",
+            "title": "Horizon Months"
+          },
+          "due_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Due On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "horizon_months",
+          "due_on"
+        ],
+        "title": "NextDue"
+      },
       "NextIssue": {
         "properties": {
           "issue": {
@@ -23378,6 +24182,21 @@
         ],
         "title": "ObservationScopesHealth"
       },
+      "Origin": {
+        "type": "string",
+        "enum": [
+          "belief",
+          "hypothesis",
+          "signal"
+        ]
+      },
+      "Outcome": {
+        "type": "string",
+        "enum": [
+          "met",
+          "missed"
+        ]
+      },
       "OwnerReview": {
         "properties": {
           "review_state": {
@@ -23499,6 +24318,37 @@
           "offset"
         ],
         "title": "Page[BeliefSummary]"
+      },
+      "Page_Call_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Call"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Call]"
       },
       "Page_Candidate_": {
         "properties": {
@@ -23964,6 +24814,37 @@
           "offset"
         ],
         "title": "Page[Lead]"
+      },
+      "Page_Prediction_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Prediction"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Prediction]"
       },
       "Page_ProposedUpdate_": {
         "properties": {
@@ -24516,6 +25397,322 @@
         ],
         "title": "PointedCompany",
         "description": "A company a round's reading pointers name, and what the plan did with it\n(atlas.investigations.companies): ranked by `score`, the sum of 1 / rank over the Scout's\npointers that name it. A `seed` has its Investigator whatever its rank; another company\ngot one (`added`, `task_key` its task) while the company budget had room; the rest were\nnot read (`no_room`, or `premise_disproven` when its premise already was)."
+      },
+      "Prediction": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "hypothesis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Id"
+          },
+          "hypothesis_status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "researching",
+              "evidence_ready",
+              "reviewed",
+              "paper_tracking",
+              "closed",
+              "rejected",
+              "needs_more_evidence"
+            ],
+            "title": "Hypothesis Status"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "version_published_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Version Published At"
+          },
+          "prediction_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prediction Index"
+          },
+          "measure": {
+            "type": "string",
+            "title": "Measure"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "expected_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Low"
+          },
+          "expected_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected High"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date",
+            "title": "Deadline"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PredictionState"
+          },
+          "settlement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Settlement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "hypothesis_id",
+          "hypothesis_status",
+          "theme",
+          "version",
+          "version_published_at",
+          "prediction_index",
+          "measure",
+          "unit",
+          "expected_low",
+          "expected_high",
+          "deadline",
+          "source_kind",
+          "company_id",
+          "state",
+          "settlement",
+          "actor",
+          "recorded_at"
+        ],
+        "title": "Prediction"
+      },
+      "PredictionCreate": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "a published version of the Hypothesis"
+          },
+          "prediction_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prediction Index",
+            "description": "the item of the version's measurable_predictions"
+          },
+          "measure": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measure",
+            "description": "what is measured; default: the indexed sentence"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "expected_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Low"
+          },
+          "expected_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected High"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date",
+            "title": "Deadline"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id",
+            "description": "whose close or observation settles it (required for a price)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "deadline",
+          "source"
+        ],
+        "title": "PredictionCreate"
+      },
+      "PredictionSettle": {
+        "properties": {
+          "fact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Id",
+            "description": "source `fact`"
+          },
+          "observation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Id",
+            "description": "source `financial_observation`"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day",
+            "description": "source `price`: the day whose close settles it; default the deadline"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PredictionSettle"
+      },
+      "PredictionState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "settled",
+          "lapsed"
+        ]
       },
       "Premise": {
         "properties": {
@@ -30611,6 +31808,106 @@
         ],
         "title": "SessionSummary"
       },
+      "Settlement": {
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "fact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "observation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Id"
+          },
+          "price_day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Day"
+          },
+          "price_symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Symbol"
+          },
+          "late": {
+            "type": "boolean",
+            "title": "Late"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "settled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Settled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome",
+          "value",
+          "source_kind",
+          "fact_id",
+          "observation_id",
+          "price_day",
+          "price_symbol",
+          "late",
+          "note",
+          "actor",
+          "settled_at"
+        ],
+        "title": "Settlement"
+      },
       "Signal": {
         "properties": {
           "source_version_id": {
@@ -30916,6 +32213,14 @@
           "latest_version_id"
         ],
         "title": "SourceDocument"
+      },
+      "SourceKind": {
+        "type": "string",
+        "enum": [
+          "fact",
+          "financial_observation",
+          "price"
+        ]
       },
       "SourceParse": {
         "properties": {
@@ -33327,6 +34632,13 @@
         ],
         "title": "TriageDecision",
         "description": "One decision about one section of a Source Version."
+      },
+      "UnpricedReason": {
+        "type": "string",
+        "enum": [
+          "no_symbol",
+          "tradingview_disabled"
+        ]
       },
       "UnresolvedReason": {
         "type": "string",

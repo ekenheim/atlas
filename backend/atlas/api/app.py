@@ -12,6 +12,7 @@ from atlas import __version__
 from atlas.api.archive_search import archive_search_router
 from atlas.api.assertions import assertions_router
 from atlas.api.beliefs import beliefs_router
+from atlas.api.calls import calls_router, predictions_router
 from atlas.api.candidates import candidates_router
 from atlas.api.claims import claims_router
 from atlas.api.common import invalid_request
@@ -124,9 +125,11 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(
         sessions_router(engine, Actor.from_settings(settings), Judges(engine, settings))
     )
-    app.include_router(issues_router(engine, Actor.from_settings(settings)))
+    app.include_router(issues_router(engine, Actor.from_settings(settings), settings.themes_config))
     app.include_router(
-        beliefs_router(engine, Actor.from_settings(settings), Judges(engine, settings))
+        beliefs_router(
+            engine, Actor.from_settings(settings), Judges(engine, settings), settings.themes_config
+        )
     )
     app.include_router(
         memory_router(
@@ -163,6 +166,8 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(discovery_router(engine, settings.signals_config))
     app.include_router(tradingview_router(engine))
     app.include_router(price_history_router(engine))
+    app.include_router(calls_router(engine))
+    app.include_router(predictions_router(engine, Actor.from_settings(settings), clock))
     app.include_router(identity_router(engine, Actor.from_settings(settings)))
     app.include_router(relationships_router(engine, Actor.from_settings(settings)))
     app.include_router(

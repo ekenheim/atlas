@@ -275,6 +275,12 @@ class Settings(BaseSettings):
     # database's clock) for the next one: an ingest whose transaction is still open stamps its
     # versions with its start, so a scan that ran just then would pass them over for good.
     signal_scan_lag_seconds: int = Field(default=600, ge=0)
+    # The prospective record (atlas-beliefs ticket 19; atlas.calls): when the worker enqueues
+    # the daily `settle_calls` job (HH:MM UTC, backfill class; empty: never; `atlas calls
+    # settle` asks by hand). It calls no LLM; it reaches TradingView only through the price
+    # service and its cap, for companies of a call with a checkpoint due, so most days it
+    # calls nothing. TradingView off: the checkpoints due are recorded unpriced, nothing fails.
+    settle_calls_at: str = Field(default="05:30", pattern=r"^$|^([01]\d|2[0-3]):[0-5]\d$")
     # Replay banks (atlas.replay, §9.2): the **local** Hindsight a replay creates its
     # `atlas-replay-<id>` bank on (never the shared server; without it replays are refused),
     # the fixed question sets, how many Source Versions one replay retains at most (the

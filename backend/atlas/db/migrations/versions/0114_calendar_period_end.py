@@ -16,14 +16,14 @@ period's end day (`event_key`, `NASDAQ:LITE:2026-09-30`), and the lead carries:
 but nothing writes them any more. Both new columns are nullable: nothing stored before this
 migration has them.
 
-Revision ID: 0113
-Revises: 0112
+Revision ID: 0114
+Revises: 0113
 """
 
 from alembic import op
 
-revision = "0113"
-down_revision = "0112"
+revision = "0114"
+down_revision = "0113"
 branch_labels = None
 depends_on = None
 

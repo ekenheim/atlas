@@ -92,6 +92,31 @@ def run_prices(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
         except CallBoundReached:
             bounded = True
         calls = client.calls
+    store_closes(engine, company.company_id, company.symbol, closes, job.id, now)
+    return {
+        "company_id": str(company.company_id),
+        "symbol": company.symbol,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "closes": len(closes),
+        "count_asked": min(wanted, MAX_BARS),
+        "count_capped": wanted > MAX_BARS,
+        "tool_calls": calls,
+        "bounded": bounded,
+        "owner_override": OWNER_OVERRIDE,
+    }
+
+
+def store_closes(
+    engine: Engine,
+    company_id: uuid.UUID,
+    symbol: str,
+    closes: dict[date, float],
+    job_id: uuid.UUID,
+    now: datetime,
+) -> None:
+    """Add the closes to `tradingview_price_bar` (insert-only): a day whose latest stored
+    close is the same adds nothing, a different close adds a row and the earlier one stays."""
     with engine.begin() as connection:
         for day, close in closes.items():
             connection.execute(
@@ -105,27 +130,15 @@ def run_prices(settings: Settings, engine: Engine, job: Job, now: datetime) -> A
                     " AND day = :day ORDER BY fetched_at DESC LIMIT 1) ON CONFLICT DO NOTHING"
                 ),
                 {
-                    "company": company.company_id,
-                    "symbol": company.symbol,
+                    "company": company_id,
+                    "symbol": symbol,
                     "day": day,
                     "close": close,
                     "override": OWNER_OVERRIDE,
-                    "job": job.id,
+                    "job": job_id,
                     "now": now,
                 },
             )
-    return {
-        "company_id": str(company.company_id),
-        "symbol": company.symbol,
-        "start": start.isoformat(),
-        "end": end.isoformat(),
-        "closes": len(closes),
-        "count_asked": min(wanted, MAX_BARS),
-        "count_capped": wanted > MAX_BARS,
-        "tool_calls": calls,
-        "bounded": bounded,
-        "owner_override": OWNER_OVERRIDE,
-    }
 
 
 def price_history(
