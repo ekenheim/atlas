@@ -16,4 +16,6 @@ After ticket 27 the last quarter's top 20 holds 10 real cues of 20 (`docs/experi
 ## Acceptance criteria
 
 - [x] Unit tests both ways with literal scores.
-- [ ] The precision replay of the last quarter: at least 12 of the top 20 real cues; the AXT replay's 31 July sentence still in the top five (the lead).
+- [x] The precision replay of the last quarter: at least 12 of the top 20 real cues; the AXT replay's 31 July sentence still in the top five (the lead).
+
+(2026-10-16, the lead: 12 of 20 strictly, AXT's sentence 1st; `docs/experiments.md`, "archive signals after ticket 27b".)
