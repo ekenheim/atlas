@@ -566,6 +566,17 @@ _IN_THEME = """
         OR CASE WHEN lead.origin = 'archive_signal' THEN sa.available_at
                 ELSE lead.first_seen_at END <= :known_by)
     AND (CAST(:available_from AS timestamptz) IS NULL OR sa.available_at >= :available_from)
+    -- the ranked archive-signal read counts an identical sentence once in a document: the
+    -- best-scored (then earliest) of its spans stands (ticket 27b)
+    AND (NOT CAST(:once AS boolean) OR sig.lead_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM archive_signal dup
+        WHERE dup.company_id = sig.company_id
+        AND dup.source_version_id = sig.source_version_id
+        AND dup.sentence_sha256 = sig.sentence_sha256
+        AND dup.lead_id <> sig.lead_id
+        AND (dup.score > sig.score
+            OR (dup.score = sig.score
+                AND (dup.char_start, dup.lead_id) < (sig.char_start, sig.lead_id)))))
     AND (CAST(:event_from AS timestamptz) IS NULL OR co.event_at >= :event_from)
     AND (CAST(:event_to AS timestamptz) IS NULL OR co.event_at <= :event_to)
 """
@@ -644,7 +655,10 @@ def list_leads(
     all. The archive signals (`origin="archive_signal"`) are ranked instead: highest score
     first, then the latest document; with `max_per_document` a document's hits after its
     first that many come after every hit within a cap (the ranked reads' rule, ticket 27:
-    `atlas.discovery.signals.cap_per_document`; the stored leads are not changed).
+    `atlas.discovery.signals.cap_per_document`; the stored leads are not changed). An identical
+    sentence (normalised: `sentence_sha256`) in one document counts once there, in the total
+    too: its best-scored span stands (ticket 27b, `once_per_document`; the other rows stay
+    stored).
 
     `origin` keeps one origin; `company_id` the leads of one company (a headline's, a calendar
     date's, a filing's or a signal's). `known_by` keeps the leads Atlas had stored by then
@@ -662,6 +676,7 @@ def list_leads(
         "known_by": known_by,
         "event_from": event_from,
         "event_to": event_to,
+        "once": origin == "archive_signal",
     }
     total = connection.execute(
         text(f"SELECT count(*) {_LEAD_JOINS} {_IN_THEME}"),

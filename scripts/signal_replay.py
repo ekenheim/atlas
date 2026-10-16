@@ -14,12 +14,13 @@ have ranked highest by a given date?** It runs the same scorer over the document
 2. **The scorer.** The job's own: `SignalScorer.scan` over each text, with the document's form,
    source type and the company's names, oldest document first, a sentence a company's earlier
    document already holds as a hit being a repeat and dropped, as the job drops it.
-3. **The ranking.** All hits of all companies by score (ties: the later document first), then
-   at most `ranking.max_per_document` (config; `--max-per-document` overrides) of one document
-   among the first results and the rest after them (`cap_per_document`), as
-   `GET /leads?origin=archive_signal` ranks them. The `--top` (20) are printed with rank,
-   company, document title and date, score, the cue families, the speaker of a call and the
-   first 200 characters of the sentence.
+3. **The ranking.** All hits of all companies by score (ties: the later document first), an
+   identical sentence of one document counted once (`once_per_document`; `duplicates_in_document`
+   in the report), then at most `ranking.max_per_document` (config; `--max-per-document`
+   overrides) of one document among the first results and the rest after them
+   (`cap_per_document`), as `GET /leads?origin=archive_signal` ranks them. The `--top` (20) are
+   printed with rank, company, document title and date, score, the cue families, the speaker of
+   a call and the first 200 characters of the sentence.
 4. **A sentence you expect** (`--expect TEXT`, repeatable): the best rank of a hit whose sentence
    contains the text (case-insensitive, whitespace folded), and whether it is in the top
    `--within` (5). Nothing about the vocabulary is fitted to it: this only looks it up. The exit
@@ -47,7 +48,13 @@ import httpx2
 
 from atlas.claims.predicates import company_names
 from atlas.discovery.signal_scan import sentence_sha256
-from atlas.discovery.signals import SignalHit, SignalScorer, cap_per_document, load_signals_config
+from atlas.discovery.signals import (
+    SignalHit,
+    SignalScorer,
+    cap_per_document,
+    load_signals_config,
+    once_per_document,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 CACHE = REPO / ".scratch" / "live-runs" / "signal-replay-cache"
@@ -144,6 +151,11 @@ def main() -> int:
         seen.update((document["company"], sentence_sha256(each.hit.quote)) for each in stored)
         ranked.extend(stored)
     ranked.sort(key=lambda each: (-each.hit.score, -each.available_at.timestamp()))
+    before = len(ranked)
+    ranked = once_per_document(
+        ranked, lambda each: each.source_version_id, lambda each: sentence_sha256(each.hit.quote)
+    )
+    duplicates = before - len(ranked)  # an identical sentence of one document counts once
     ranked = cap_per_document(ranked, lambda each: each.source_version_id, cap)
 
     rows = [_row(rank, each) for rank, each in enumerate(ranked, start=1)]
@@ -156,6 +168,7 @@ def main() -> int:
         "config": str(args.config),
         "documents": len(documents),
         "repeats": repeats,
+        "duplicates_in_document": duplicates,
         "hits": len(rows),
         "max_per_document": cap,
         "requests": api.requests,

@@ -33,10 +33,20 @@ like a bottleneck, best first, each with its span and why it scored.
   people, an analyst, none recognised), for a question, for a risk-factors section
   (`Item 1A`, found by the sectioner), for a sentence hedged with could, may or might, and for
   safe-harbor wording.
-- **The ranked read.** `cap_per_document` is the rule the ranked reads share (the leads route,
-  the MCP tool, the replay script): at most `ranking.max_per_document` hits of one document
-  stand among the first results, the rest after them, so one call does not fill the list. The
-  scan stores every hit; only the reading order changes.
+- **Supplier-dependence boilerplate (ticket 27b).** In a periodic filing (10-K, 10-Q, 20-F,
+  40-F; never a call) a sentence whose only family is `few_suppliers`, that states reliance on
+  single or limited sources ("we rely on", "purchase ... from a single source", "available from
+  only one", "limited number of suppliers") and has no figure, no named input and no constraint
+  in progress, is multiplied by `filing_boilerplate.factor`, as Item 1A is. A sentence that also
+  scores another family (a shortage, a constraint), has a figure, names a material, layer or
+  product (`named`: "indium phosphide substrates", "quartz tubing, arsenic") or says a constraint
+  is in progress ("has been tight", "have been unable to obtain"; not "may be unable") keeps its
+  score.
+- **The ranked read.** Two rules the ranked reads share (the leads route, the MCP tool, the
+  replay script). `once_per_document`: an identical sentence (normalised) in one document counts
+  once. `cap_per_document`: at most `ranking.max_per_document` hits of one document stand among
+  the first results, the rest after them, so one call does not fill the list. The scan stores
+  every hit; only the reading changes.
 - **A hit is a lead.** Nothing here is a Claim, a Fact or Evidence: the agent that follows a hit
   reads the window and records a Fact itself.
 """
@@ -49,7 +59,14 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from atlas.claims.speakers import (
     TRANSCRIPT_SOURCE_TYPE,
@@ -59,7 +76,7 @@ from atlas.claims.speakers import (
 )
 from atlas.retention.sections import split_sections
 
-SCORER_VERSION = "signals-v2"
+SCORER_VERSION = "signals-v3"
 
 SpeakerKind = Literal["management", "analyst", "unknown"]
 
@@ -124,6 +141,30 @@ class Boilerplate(BaseModel):
         return values
 
 
+class FilingBoilerplate(BaseModel):
+    """Supplier-dependence boilerplate in a periodic filing (ticket 27b): a `family` sentence that
+    only states reliance on single or limited sources, with no figure, no named input and no
+    constraint in progress (nothing of any other family, no `named` or `present` wording), is
+    multiplied by `factor`."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    forms: tuple[str, ...] = Field(min_length=1)  # a form type starts with one: 10-K, 10-K/A
+    family: str
+    factor: float = Field(ge=0, le=1)
+    reliance: tuple[str, ...] = Field(min_length=1)  # regular expressions: reliance stated
+    named: tuple[str, ...] = Field(min_length=1)  # a named material, layer or product: a real cue
+    present: tuple[str, ...] = ()  # regular expressions: a constraint in progress, so a real cue
+    hypothetical: tuple[str, ...] = ()  # in a `present` match's clause: only what might happen
+
+    @field_validator("reliance", "named", "present", "hypothetical")
+    @classmethod
+    def _regexes(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        for value in values:
+            _compiled(value)
+        return values
+
+
 class Negation(BaseModel):
     """What counts as a negator, where its clause ends and how far it reaches."""
 
@@ -163,6 +204,7 @@ class SignalsConfig(BaseModel):
     speaker: SpeakerFactors
     boilerplate: Boilerplate
     negation: Negation
+    filing_boilerplate: FilingBoilerplate
     ranking: Ranking
     figures: tuple[str, ...] = ()
     families: dict[str, Family] = Field(min_length=1)
@@ -181,6 +223,14 @@ class SignalsConfig(BaseModel):
             if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
                 raise ValueError(f"family name {name!r} is not snake_case")
         return values
+
+    @model_validator(mode="after")
+    def _boilerplate_family_exists(self) -> "SignalsConfig":
+        if self.filing_boilerplate.family not in self.families:
+            raise ValueError(
+                f"filing_boilerplate.family {self.filing_boilerplate.family!r} is not a family"
+            )
+        return self
 
 
 def load_signals_config(path: Path) -> SignalsConfig:
@@ -328,6 +378,12 @@ class SignalScorer:
             else None
         )
         self._phrase_boilerplate = [_compiled(each) for each in boilerplate.phrases]
+        filing = config.filing_boilerplate
+        self._filing_forms = tuple(each.upper() for each in filing.forms)
+        self._reliance = [_compiled(each) for each in filing.reliance]
+        self._named = [_compiled(each) for each in filing.named]
+        self._present = [_compiled(each) for each in filing.present]
+        self._hypothetical = [_compiled(each) for each in filing.hypothetical]
 
     def scan(
         self,
@@ -345,6 +401,11 @@ class SignalScorer:
         sections = split_sections(text, form=form_type, primary=primary)
         section_starts = [section.start for section in sections]
         transcript = source_type == TRANSCRIPT_SOURCE_TYPE
+        filing = (
+            not transcript
+            and form_type is not None
+            and form_type.strip().upper().startswith(self._filing_forms)
+        )
         hits: list[SignalHit] = []
         position = 0
         for line in text.split("\n"):
@@ -369,7 +430,7 @@ class SignalScorer:
                 if sections:
                     index = bisect_right(section_starts, sentence.start) - 1
                     anchor = sections[max(index, 0)].anchor
-                hit = self._score(sentence, paragraph_families, anchor, speaker, kind)
+                hit = self._score(sentence, paragraph_families, anchor, speaker, kind, filing)
                 if hit is not None:
                     hits.append(hit)
         hits.sort(key=lambda each: (-each.score, each.start))
@@ -404,6 +465,30 @@ class SignalScorer:
             found.append(_Sentence(line_start + begin, line_start + end, quote, tuple(matches)))
         return found
 
+    def _is_dependence_boilerplate(self, families: Sequence[str], folded: str) -> bool:
+        """Whether the sentence only states that the company relies on single or limited sources
+        (the config's `reliance`), says nothing else that scores (one family, the boilerplate's),
+        has no figure, names no input and has no constraint in progress."""
+        if families != [self.config.filing_boilerplate.family]:
+            return False
+        if not any(each.search(folded) for each in self._reliance):
+            return False
+        if any(each.search(folded) for each in self._figures):
+            return False
+        if any(each.search(folded) for each in self._named):
+            return False
+        return not self._in_progress(folded)
+
+    def _in_progress(self, folded: str) -> bool:
+        """Whether the sentence says a constraint is going on: a `present` match whose clause
+        (back to the last comma, semicolon, colon or full stop) holds nothing hypothetical."""
+        for pattern in self._present:
+            for match in pattern.finditer(folded):
+                clause = re.split(r"[,;:.]", folded[: match.start()])[-1]
+                if not any(each.search(clause) for each in self._hypothetical):
+                    return True
+        return False
+
     def _negated(self, folded: str, start: int, end: int) -> bool:
         """Whether a negator governs the phrase that spans `start` to `end`: it stands in the same
         clause before the phrase, within `window_words` words, or inside the phrase's own gap
@@ -434,6 +519,7 @@ class SignalScorer:
         anchor: str | None,
         speaker: str | None,
         kind: SpeakerKind | None,
+        filing: bool,
     ) -> SignalHit | None:
         config = self.config
         factors: dict[str, float] = {}
@@ -489,6 +575,9 @@ class SignalScorer:
         if any(each.search(folded) for each in self._phrase_boilerplate):
             total *= boilerplate.phrase_factor
             factors["boilerplate"] = boilerplate.phrase_factor
+        if filing and self._is_dependence_boilerplate(families, folded):
+            total *= config.filing_boilerplate.factor
+            factors["filing_boilerplate"] = config.filing_boilerplate.factor
         score = round(total, 2)
         if score < config.min_score:
             return None
@@ -504,6 +593,23 @@ class SignalScorer:
             speaker=speaker,
             speaker_kind=kind,
         )
+
+
+def once_per_document[T](
+    ranked: Sequence[T], document: Callable[[T], object], sentence: Callable[[T], object]
+) -> list[T]:
+    """The ranked hits with an identical sentence counted once in a document: the first of each
+    (document, sentence) in the order given (best first) stays, the others go. The scan stores
+    every hit (an insert-only span each); this is the ranked reads' rule, with the SQL of
+    `atlas.discovery.leads.list_leads` and the replay script, and it comes before the cap."""
+    seen: set[tuple[object, object]] = set()
+    kept: list[T] = []
+    for each in ranked:
+        key = (document(each), sentence(each))
+        if key not in seen:
+            seen.add(key)
+            kept.append(each)
+    return kept
 
 
 def cap_per_document[T](ranked: Sequence[T], document: Callable[[T], object], cap: int) -> list[T]:

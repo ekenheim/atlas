@@ -521,3 +521,142 @@ def test_signal_leads_reads_the_capped_ranking(atlas: Atlas) -> None:
         ("lumentum", 2.0),
         ("coherent", 1.5),
     ]
+
+
+# --- an identical sentence counts once in a document (ticket 27b) -----------------------------
+
+
+def _documents_with_a_repeated_sentence(atlas: Atlas) -> tuple[str, str]:
+    # Coherent's call says the sold-out sentence twice (4.2 each, two spans) and one more line
+    # (1.5); Lumentum's says it once. The scan stores all four.
+    repeated = import_html(
+        atlas, "coherent", "coherent-repeats", JULY, FILLER, SOLD_OUT, FULL_CAPACITY, SOLD_OUT
+    )
+    other = import_html(atlas, "lumentum", "lumentum-once", SEPTEMBER, FILLER, SOLD_OUT)
+    scan(atlas, "first")
+    return repeated, other
+
+
+def test_an_identical_sentence_counts_once_in_a_document_in_the_ranked_read(
+    atlas: Atlas,
+) -> None:
+    repeated, other = _documents_with_a_repeated_sentence(atlas)
+
+    page = atlas.get("/api/v1/leads", origin="archive_signal")
+    first_two = atlas.get("/api/v1/leads", origin="archive_signal", limit=2)
+
+    # Once in each document: Lumentum's (the later, level with Coherent's 4.2), Coherent's first
+    # span, then its 1.5 line. The total counts the sentence once too.
+    assert [
+        (each["signal"]["source_version_id"], each["signal"]["score"]) for each in page["items"]
+    ] == [
+        (other, 4.2),
+        (repeated, 4.2),
+        (repeated, 1.5),
+    ]
+    assert page["total"] == 3
+    assert [each["signal"]["score"] for each in first_two["items"]] == [4.2, 4.2]
+    assert first_two["total"] == 3
+    with atlas.engine.connect() as connection:
+        earliest = connection.execute(
+            text(
+                "SELECT min(char_start) FROM archive_signal WHERE source_version_id = :v"
+                " AND score = 4.2"
+            ),
+            {"v": repeated},
+        ).scalar_one()
+        stored = connection.execute(text("SELECT count(*) FROM archive_signal")).scalar_one()
+    stands = [
+        each["signal"]["char_start"]
+        for each in page["items"]
+        if each["signal"]["source_version_id"] == repeated and each["signal"]["score"] == 4.2
+    ]
+    assert stands == [earliest]  # the first span of the repeated sentence is the one that stands
+    assert stored == 4  # nothing is deleted or rewritten: the rule is the read's
+
+
+def test_the_higher_scored_copy_of_a_sentence_stands_wherever_it_is(atlas: Atlas) -> None:
+    # The capacity line stands alone first (1.5), then again beside a lead-time line in its
+    # paragraph, which gives it the co-occurrence bonus (2.5): the later, higher copy stands.
+    version = import_html(
+        atlas,
+        "coherent",
+        "coherent-bonus",
+        JULY,
+        FILLER,
+        FULL_CAPACITY,
+        f"{FULL_CAPACITY} {LEAD_TIMES}",
+    )
+    scan(atlas, "first")
+
+    page = atlas.get("/api/v1/leads", origin="archive_signal")
+
+    assert [(each["signal"]["quote"], each["signal"]["score"]) for each in page["items"]] == [
+        (LEAD_TIMES, 3.25),
+        (FULL_CAPACITY, 2.5),
+    ]
+    assert page["total"] == 2  # the 1.5 copy is not counted
+    with atlas.engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT score, char_start FROM archive_signal WHERE source_version_id = :v"
+                " AND quote = :q"
+            ),
+            {"v": version, "q": FULL_CAPACITY},
+        ).all()
+    starts = {float(score): int(start) for score, start in rows}
+    assert sorted(starts) == [1.5, 2.5]
+    assert page["items"][1]["signal"]["char_start"] == starts[2.5]
+    assert starts[2.5] > starts[1.5]
+
+
+def test_removing_a_duplicate_lets_the_fourth_distinct_hit_stay_inside_the_cap(
+    atlas: Atlas,
+) -> None:
+    # Lumentum's call: the sold-out line twice (4.2), then 2.25, 2.0, 1.6, 1.5: with the copy
+    # counted it would fill a place of the cap of three and push the 2.0 line behind Coherent's.
+    big = import_html(
+        atlas,
+        "lumentum",
+        "lumentum-big",
+        JULY,
+        FILLER,
+        SOLD_OUT,
+        BACKLOG,
+        TWO_COMPANIES,
+        TIGHT,
+        FULL_CAPACITY,
+        SOLD_OUT,
+    )
+    small = import_html(atlas, "coherent", "coherent-small", SEPTEMBER, FILLER, FULL_CAPACITY)
+    scan(atlas, "first")
+
+    ranked = signals(atlas)
+
+    assert [(each["signal"]["source_version_id"], each["signal"]["score"]) for each in ranked] == [
+        (big, 4.2),
+        (big, 2.25),
+        (big, 2.0),
+        (small, 1.5),
+        (big, 1.6),
+        (big, 1.5),
+    ]
+    assert atlas.get("/api/v1/leads", origin="archive_signal")["total"] == 6
+    with atlas.engine.connect() as connection:
+        stored = connection.execute(text("SELECT count(*) FROM archive_signal")).scalar_one()
+    assert stored == 7
+
+
+def test_signal_leads_counts_an_identical_sentence_once_in_a_document(atlas: Atlas) -> None:
+    _documents_with_a_repeated_sentence(atlas)
+    agent = Agent(atlas)
+    session = agent.session("2026-01-01T00:00:00Z")
+
+    answer = agent.ok("signal_leads", session_id=session, limit=10)
+
+    assert [(each["company"], each["score"]) for each in answer["leads"]] == [
+        ("lumentum", 4.2),
+        ("coherent", 4.2),
+        ("coherent", 1.5),
+    ]
+    assert answer["total"] == 3
