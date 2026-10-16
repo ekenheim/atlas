@@ -1,47 +1,24 @@
 {
-  "_fixture": "SYNTHETIC: hand-written for Atlas tests; TradingView documents the earnings-calendar tool's arguments (symbols[], date_from, date_to) but not its answer's field names, so the items follow Atlas's own guess. The upcoming reports carry made-up consensus fields that Atlas must drop on the way in",
-  "items": [
-    {
-      "id": "syn-cal-2026-q4",
-      "symbol": "NASDAQ:LITE",
-      "title": "SYNTHETIC Q4 FY2026 results",
-      "fiscal_period": "Q4",
-      "fiscal_year": 2026,
-      "date": 1786480200,
-      "status": "reported"
-    },
-    {
-      "id": "syn-cal-2027-q1",
-      "symbol": "NASDAQ:LITE",
-      "title": "SYNTHETIC Q1 FY2027 results",
-      "fiscal_period": "Q1",
-      "fiscal_year": 2027,
-      "date": 1793912400,
-      "status": "scheduled",
-      "eps_estimate": 1.23,
-      "revenue_estimate": 456000000,
-      "consensus": {
-        "eps": 1.21,
-        "revenue": 455000000,
-        "analysts": 17
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests in the shape TradingView's earnings calendar answered on 2026-10-16 (ticket 16d; the shape is real, every value is made up). Lumentum on 15 Aug 2026: the most recent report 11 Aug 2026 (the quarter ending 30 Jun 2026, derived by Atlas) and the next, 5 Nov 2026, not yet confirmed, for the quarter ending 30 Sep 2026.",
+  "success": true,
+  "data": {
+    "count": 1,
+    "from": "2026-04-17",
+    "to": "2027-02-11",
+    "earnings": [
+      {
+        "symbol": "NASDAQ:LITE",
+        "name": "SYNTHETIC Lumentum Holdings Inc.",
+        "description": "SYNTHETIC description of Lumentum Holdings Inc.",
+        "close": 111.11,
+        "fiscal_period_end": "2026-09-30",
+        "release_date": "2026-08-11",
+        "release_next_date": "2026-11-05",
+        "release_next_at": "2026-11-05T21:00:00Z",
+        "release_next_time_flag": 1,
+        "next_date_confirmed": false,
+        "publication_type_next_fq": 2
       }
-    },
-    {
-      "id": "syn-cal-2027-q2",
-      "symbol": "NASDAQ:LITE",
-      "title": "SYNTHETIC Q2 FY2027 results",
-      "fiscal_period": "Q2",
-      "fiscal_year": 2027,
-      "date": 1801774800,
-      "status": "scheduled",
-      "eps_estimate": 1.23,
-      "revenue_estimate": 456000000,
-      "consensus": {
-        "eps": 1.21,
-        "revenue": 455000000,
-        "analysts": 17
-      }
-    }
-  ],
-  "total": 3
+    ]
+  }
 }

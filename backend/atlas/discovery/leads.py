@@ -25,11 +25,11 @@ archived of it, if any, and whether it is `ingestable` (a universe company's fil
 hasn't archived). The document is not fetched: the lead is where to look.
 
 A `tradingview_calendar` lead is a company's reporting date from TradingView's earnings
-calendar (ticket 16b; the same owner override, off by default): one lead per company and fiscal
-period, no query, no snippet, the date and status in `calendar`. A date that moves is a new
-insert-only observation of the same lead, so a read `known_by` an earlier time sees the date
-Atlas knew then and nothing stored after it. A lead says when to look (e.g. for a results
-call), never what a company said.
+calendar (ticket 16b; the same owner override, off by default): one lead per company and
+period end (ticket 16d), no query, no snippet, the date, status and period in `calendar`. A
+date that moves is a new insert-only observation of the same lead, so a read `known_by` an
+earlier time sees the date Atlas knew then and nothing stored after it. A lead says when to
+look (e.g. for a results call), never what a company said.
 
 An `archive_signal` lead is a sentence of an archived document that reads like a bottleneck
 (atlas-beliefs ticket 18; `atlas.discovery.signals`, stored by the `scan_signals` job): its
@@ -101,11 +101,14 @@ class CalendarEvent(BaseModel):
 
     company_id: uuid.UUID  # the company whose symbol it was listed for
     symbol: str
-    event_key: str  # what Atlas deduplicates the lead by (TradingView's event ID, else the period)
+    event_key: str  # what Atlas deduplicates the lead by: the symbol and the period's end day
     event_at: datetime  # the reporting date, as the calendar last gave it (by `known_by`)
-    status: str | None  # as the calendar words it (scheduled, confirmed, reported ...)
-    fiscal_period: str | None
-    fiscal_year: str | None
+    status: str | None  # scheduled, confirmed or reported (Atlas's words, from the answer's flag)
+    period_end: date | None  # the day the quarter the report is for ends
+    # `stated` (the next report's quarter, as TradingView gives it) or `derived_from_next` (the
+    # most recent report's quarter, the month end three months before the next one's), as of
+    # the observation shown
+    period_basis: str | None
     observed_at: datetime  # when Atlas saw that date
     owner_override: str  # the owner's recorded override of TradingView's terms
 
@@ -396,8 +399,8 @@ def store_calendar_event(
     company_id: uuid.UUID,
     symbol: str,
     themes: Sequence[str],
-    fiscal_period: str | None,
-    fiscal_year: str | None,
+    period_end: date,
+    period_basis: str,
     event_at: datetime,
     status: str | None,
     owner_override: str,
@@ -424,8 +427,8 @@ def store_calendar_event(
     connection.execute(
         text(
             "INSERT INTO tradingview_calendar_event (lead_id, event_key, company_id, symbol,"
-            " themes, fiscal_period, fiscal_year, owner_override, job_id, first_seen_at)"
-            " VALUES (:lead, :key, :company, :symbol, :themes, :period, :year, :override, :job,"
+            " themes, period_end, owner_override, job_id, first_seen_at)"
+            " VALUES (:lead, :key, :company, :symbol, :themes, :period_end, :override, :job,"
             " :now) ON CONFLICT (lead_id) DO NOTHING"
         ),
         {
@@ -434,8 +437,7 @@ def store_calendar_event(
             "company": company_id,
             "symbol": symbol,
             "themes": list(themes),
-            "period": fiscal_period,
-            "year": fiscal_year,
+            "period_end": period_end,
             "override": owner_override,
             "job": job_id,
             "now": now,
@@ -452,14 +454,15 @@ def store_calendar_event(
         connection.execute(
             text(
                 "INSERT INTO tradingview_calendar_observation (id, lead_id, event_at, status,"
-                " owner_override, job_id, observed_at) VALUES (:id, :lead, :event_at, :status,"
-                " :override, :job, :now)"
+                " period_basis, owner_override, job_id, observed_at) VALUES (:id, :lead,"
+                " :event_at, :status, :basis, :override, :job, :now)"
             ),
             {
                 "id": uuid.uuid4(),
                 "lead": row.id,
                 "event_at": event_at,
                 "status": status,
+                "basis": period_basis,
                 "override": owner_override,
                 "job": job_id,
                 "now": now,
@@ -515,10 +518,10 @@ _LEADS = """
         f.document AS filing_document, f.company_id AS filing_company_id,
         f.source_version_id AS filing_source_version_id, f.ingestable AS filing_ingestable,
         ce.company_id AS calendar_company_id, ce.symbol AS calendar_symbol,
-        ce.event_key AS calendar_event_key, ce.fiscal_period AS calendar_fiscal_period,
-        ce.fiscal_year AS calendar_fiscal_year, ce.owner_override AS calendar_owner_override,
+        ce.event_key AS calendar_event_key, ce.period_end AS calendar_period_end,
+        ce.owner_override AS calendar_owner_override,
         co.event_at AS calendar_event_at, co.status AS calendar_status,
-        co.observed_at AS calendar_observed_at,
+        co.period_basis AS calendar_period_basis, co.observed_at AS calendar_observed_at,
         sig.source_version_id AS signal_source_version_id, sig.company_id AS signal_company_id,
         sc.slug AS signal_company, sig.parser_version AS signal_parser_version,
         sig.section_anchor AS signal_section_anchor, sig.char_start AS signal_char_start,
@@ -537,7 +540,8 @@ _LEADS = """
     LEFT JOIN company sc ON sc.id = sig.company_id
     LEFT JOIN source_version_availability sa ON sa.source_version_id = sig.source_version_id
     LEFT JOIN LATERAL (
-        SELECT o.event_at, o.status, o.observed_at FROM tradingview_calendar_observation o
+        SELECT o.event_at, o.status, o.period_basis, o.observed_at
+        FROM tradingview_calendar_observation o
         WHERE o.lead_id = lead.id
         AND (CAST(:known_by AS timestamptz) IS NULL OR o.observed_at <= :known_by)
         ORDER BY o.observed_at DESC, o.id DESC LIMIT 1) co ON true

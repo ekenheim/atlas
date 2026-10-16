@@ -1,0 +1,27 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests in the shape TradingView's earnings calendar answered on 2026-10-16 (ticket 16d; the shape is real, every value is made up). The same row as calendar-lumentum.json with a distinctive `close` (987.65) and made-up consensus estimate keys that Atlas must never store (the real answer carries consensus; the owner disallowed storing it, 2026-10-15).",
+  "success": true,
+  "data": {
+    "count": 1,
+    "from": "2026-04-17",
+    "to": "2027-02-11",
+    "earnings": [
+      {
+        "symbol": "NASDAQ:LITE",
+        "name": "SYNTHETIC Lumentum Holdings Inc.",
+        "description": "SYNTHETIC description of Lumentum Holdings Inc.",
+        "close": 987.65,
+        "fiscal_period_end": "2026-09-30",
+        "release_date": "2026-08-11",
+        "release_next_date": "2026-11-05",
+        "release_next_at": "2026-11-05T21:00:00Z",
+        "release_next_time_flag": 1,
+        "next_date_confirmed": false,
+        "publication_type_next_fq": 2,
+        "eps_estimate_next_fq": 4.321,
+        "revenue_estimate_next_fq": 7654321000,
+        "eps_surprise_fq": 0.0123
+      }
+    ]
+  }
+}
