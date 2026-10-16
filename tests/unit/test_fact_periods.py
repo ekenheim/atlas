@@ -97,6 +97,23 @@ def test_each_relative_phrase_resolves_to_its_candidates() -> None:
         ["first half of calendar 2027", "first half of FY2027"]
     ]
     assert labels("in the second half", feb, (12, 31)) == [["second half of calendar 2026"]]
+    # A half of a year the quote names is not relative: nothing to resolve (AXT's call of
+    # January 2026, "disruptions in the first half of 2025", once read as 2026's).
+    for named in (
+        "2025",
+        "calendar 2025",
+        "fiscal 2025",
+        "fiscal 25",
+        "FY25",
+        "FY2025",
+        "'25",
+        "calendar year 2025",
+        "fiscal year 2025",
+    ):
+        assert labels(f"disruptions in the first half of {named}", feb, (12, 31)) in (
+            [],
+            [[f"FY20{named[-2:]}"]],
+        ), named
     # Absolute fiscal years are read too, for the years the quote itself names.
     [absolute] = resolve("during fiscal 26 and FY2027", feb, JUNE)[:1]
     assert (absolute.kind, absolute.candidates[0].year) == ("absolute", 2026)

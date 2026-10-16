@@ -55,6 +55,8 @@ RELATIVE_PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = (
         "half",
         re.compile(
             r"\b(?P<which>first|second) half"
+            # A half of a named year ("the first half of 2025", "of FY25") is absolute.
+            r"(?! of (?:calendar |fiscal )?(?:year )?(?:(?:19|20)\d\d|\d\d\b|'\d\d)| of FY ?'?\d\d)"
             r"(?: of (?P<when>this|the|next)(?: (?P<basis>calendar|fiscal))? year)?\b",
             _FLAGS,
         ),

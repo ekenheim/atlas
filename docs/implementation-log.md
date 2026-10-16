@@ -4207,3 +4207,9 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 - **Deviations:** none. Box 1 is ticked; box 2 (the correction recorded on production and Belief 53a43503 superseded) is the lead's after the deploy, so the ticket stays `in-review`.
 - **Review fixes:** comparison and approximation symbols (`<`, `>`, `~`, `≈`, `≤`, `≥`, `±`) now count as tokens, so `>$1 billion` is not `$1 billion` (three new unit cases; decisions note updated); the AGENTS.md ticket 26 sentence no longer says the new-Fact outcome twice; "Tickets 26's" typo fixed. The HTTP-seam test keeps its own qualifier ("net merchant revenue"); the ticket's literal phrase stays in the unit test, as the review allowed. Rerun: `test_fact_reuse.py` + `test_judged_at_record.py` 38 passed; ruff and pyright clean.
 - **Next:** the lead integrates, deploys, records the faithful statement for Fact 34aa1f72 through `record_fact` and supersedes Belief 53a43503 with atomic Beliefs citing it.
+
+## 2026-10-16: A half of a named year is not a relative phrase (lead fix)
+
+- **Found:** the lead's correction Fact de52af6b (AXT's January 2026 call, "disruptions in the first half of 2025") was stored with `period_resolved` "first half = first half of calendar 2026": the `half` phrase matched "first half" without its year and resolved it against the document's date.
+- **Files:** `backend/atlas/facts/periods.py` (the `half` pattern refuses a half followed by "of" and a named year: `2025`, `calendar 2025`, `fiscal 25`, `calendar year 2025`, `FY25`, `'25`), `tests/unit/test_fact_periods.py` (nine named-year forms resolve to nothing, or to the absolute fiscal year the quote names).
+- **Tests:** written first and seen red (`[['first half of calendar 2026']]`); `test_fact_periods.py` 16 passed; `period_regression.py` on the reviewed Facts unchanged (right Facts refused 0, OK). Ruff, pyright clean. Fixture only; Fact de52af6b keeps its stored `period_resolved` (insert-only).
