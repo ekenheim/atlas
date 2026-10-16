@@ -19,6 +19,7 @@ from atlas.discovery.signals import (
     SignalScorer,
     cap_per_document,
     load_signals_config,
+    once_per_document,
     sentence_spans,
 )
 
@@ -441,6 +442,153 @@ def test_a_generic_line_does_not_ride_on_its_neighbours_cue(scorer: SignalScorer
     ]
 
 
+# --- supplier-dependence boilerplate in a filing (ticket 27b) -----------------------------------
+
+LEAD_TIME_NEIGHBOUR = "Extended lead times of 52 weeks are now common."  # 1.5 x 1.5 + 1.0 = 3.25
+PURCHASE = (
+    "We purchase some of the critical materials used in certain of our products from a single"
+    " source or a limited number of suppliers."
+)
+RELY = "We rely on sole-source suppliers for a number of critical materials."
+ONE_SOURCE = "Some of these materials are available from only one proven outside source."
+ONE_SUPPLIER = "We rely on only one supplier for these materials."
+
+
+def with_neighbour(sentence: str) -> str:
+    # One paragraph, as a 10-K's bullet list runs together: the neighbour's family gives the
+    # sentence the co-occurrence bonus (+1.0) it had in the live archive.
+    return f"{sentence} {LEAD_TIME_NEIGHBOUR}"
+
+
+@pytest.mark.parametrize(
+    ("sentence", "score", "filed"),
+    [
+        (PURCHASE, 2.7, 0.81),  # (single source 0.7 + limited number 0.6 x 0.25) x 2.0 + 1.0
+        (RELY, 2.4, 0.72),  # sole-source 0.7 x 2.0 + 1.0
+        (ONE_SOURCE, 3.0, 0.9),  # only one ... source 1.0 x 2.0 + 1.0
+        (ONE_SUPPLIER, 3.0, 0.9),
+    ],
+)
+def test_supplier_dependence_boilerplate_in_a_filing_is_multiplied_down(
+    scorer: SignalScorer, sentence: str, score: float, filed: float
+) -> None:
+    text = with_neighbour(sentence)
+
+    # Where the rule does not apply (an 8-K) it is the score the live archive gave it ...
+    assert scored(scan(scorer, text, form_type="8-K")) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25),
+        (sentence, score),
+    ]
+    # ... and in a 10-K it is x 0.3 (`filed`), under the 1.5 threshold: no hit, the neighbour stays.
+    assert scored(scan(scorer, text, form_type="10-K")) == [(LEAD_TIME_NEIGHBOUR, 3.25)]
+    assert filed < 1.5
+
+
+def test_the_boilerplate_factor_is_recorded_on_the_hit_it_applies_to() -> None:
+    # A threshold the sentence still passes, so that its factors can be read.
+    config = load_signals_config(CONFIG).model_copy(update={"min_score": 0.5})
+
+    hits = scan(SignalScorer(config), with_neighbour(PURCHASE), form_type="10-K")
+
+    by_quote = {hit.quote: hit for hit in hits}
+    assert by_quote[PURCHASE].score == 0.81  # 2.7 x 0.3
+    assert dict(by_quote[PURCHASE].factors) == {
+        "families": 1.7,
+        "cooccurrence": 1.0,
+        "filing_boilerplate": 0.3,
+    }
+    assert by_quote[LEAD_TIME_NEIGHBOUR].score == 3.25
+    assert "filing_boilerplate" not in by_quote[LEAD_TIME_NEIGHBOUR].factors
+
+
+@pytest.mark.parametrize("form", ["10-K", "10-K/A", "10-Q", "20-F", "40-F", "10-q"])
+def test_every_periodic_report_form_is_covered(scorer: SignalScorer, form: str) -> None:
+    assert scored(scan(scorer, with_neighbour(RELY), form_type=form)) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25)
+    ]
+
+
+@pytest.mark.parametrize("form", [None, "8-K", "6-K", "S-1"])
+def test_other_documents_keep_the_dependence_sentence_at_its_score(
+    scorer: SignalScorer, form: str | None
+) -> None:
+    assert scored(scan(scorer, with_neighbour(RELY), form_type=form)) == [
+        (LEAD_TIME_NEIGHBOUR, 3.25),
+        (RELY, 2.4),
+    ]
+
+
+def test_the_same_sentence_in_a_call_transcript_is_not_boilerplate(scorer: SignalScorer) -> None:
+    call = f"Operator: Welcome to the call.\n{CEO}: {ONE_SUPPLIER}\n"
+
+    # Even under a periodic form (artificial: it isolates the rule): a call is what a person said.
+    for form in (None, "10-K"):
+        hits = scan(scorer, call, form_type=form, source_type="transcript")
+        assert [(hit.quote, hit.score) for hit in hits] == [(ONE_SUPPLIER, 2.5)]  # 2.0 x 1.25
+        assert "filing_boilerplate" not in hits[0].factors
+
+
+@pytest.mark.parametrize(
+    ("sentence", "score"),
+    [
+        # The input named and a shortage now: a second family, so it is no boilerplate.
+        (
+            "We rely on a sole-source supplier for indium phosphide substrates, and there is a"
+            " shortage of them today.",
+            3.2,  # sole-source 0.7 x 2.0 + shortage 0.4 x 2.0 + 1.0
+        ),
+        # A figure.
+        ("We rely on a single source for 80% of our substrates.", 2.15),  # 1.4 + 0.75
+        # A constraint in progress.
+        ("We rely on only one supplier, which is limiting our output.", 2.0),
+        ("We rely on only one supplier and have been unable to obtain more wafers.", 2.0),
+        # No statement of reliance: a statement about the market.
+        ("Only two companies make this wafer at volume.", 2.0),
+        ("Indium phosphide is available from a handful of suppliers worldwide.", 2.0),
+    ],
+)
+def test_a_dependence_sentence_with_a_shortage_a_figure_or_a_constraint_keeps_its_score(
+    scorer: SignalScorer, sentence: str, score: float
+) -> None:
+    assert scored(scan(scorer, sentence, form_type="10-K")) == [(sentence, score)]
+
+
+def test_the_sentence_naming_the_shortage_stays_where_the_generic_one_beside_it_goes(
+    scorer: SignalScorer,
+) -> None:
+    named = (
+        "We rely on a sole-source supplier for indium phosphide substrates, and there is a"
+        " shortage of them today."
+    )
+
+    hits = scan(scorer, f"{RELY} {named}", form_type="10-K")
+
+    # RELY: 1.4 + 1.0 (its neighbour's family) x 0.3 = 0.72, no hit; the named one keeps 3.2.
+    assert scored(hits) == [(named, 3.2)]
+
+
+# --- an identical sentence counts once in a document (ticket 27b) ------------------------------
+
+
+def test_an_identical_sentence_of_one_document_counts_once_best_first() -> None:
+    ranked = [
+        ("v1", "a", 4.2),
+        ("v1", "b", 3.0),
+        ("v1", "a", 2.0),  # the same sentence again in v1: gone
+        ("v2", "a", 1.9),  # another document's: stays
+        ("v1", "b", 1.5),  # gone
+        ("v1", "c", 1.2),
+    ]
+
+    assert once_per_document(ranked, lambda each: each[0], lambda each: each[1]) == [
+        ("v1", "a", 4.2),
+        ("v1", "b", 3.0),
+        ("v2", "a", 1.9),
+        ("v1", "c", 1.2),
+    ]
+    assert once_per_document([], lambda each: each, lambda each: each) == []
+
+
 # --- the ranked read's cap on one document ------------------------------------------------------
 
 
@@ -509,7 +657,9 @@ def test_outside_a_transcript_nobody_is_a_speaker(scorer: SignalScorer) -> None:
 def test_the_checked_in_config_is_valid() -> None:
     config = load_signals_config(CONFIG)
 
-    assert config.version == 2
+    assert config.version == 3
+    assert config.filing_boilerplate.factor == 0.3
+    assert config.filing_boilerplate.forms == ("10-K", "10-Q", "20-F", "40-F")
     assert config.ranking.max_per_document == 3
     assert config.negation.window_words == 4
     assert list(config.families) == [
@@ -559,6 +709,21 @@ def test_a_family_name_must_be_snake_case(tmp_path: Path) -> None:
 
     with pytest.raises(SignalsConfigError, match="snake_case"):
         load_signals_config(write(tmp_path, text))
+
+
+def test_the_filing_boilerplate_block_is_checked(tmp_path: Path) -> None:
+    text = CONFIG.read_text(encoding="utf-8")
+
+    with pytest.raises(SignalsConfigError, match="is not a family"):
+        load_signals_config(
+            write(tmp_path, text.replace("family: few_suppliers", "family: no_such_family"))
+        )
+    with pytest.raises(SignalsConfigError, match="factor"):
+        load_signals_config(
+            write(tmp_path, text.replace("factor: 0.3\n  reliance", "factor: 2\n  reliance"))
+        )
+    with pytest.raises(SignalsConfigError, match="filing_boilerplate"):
+        load_signals_config(write(tmp_path, text.replace("filing_boilerplate:", "filing_boiler:")))
 
 
 def test_the_negation_and_ranking_blocks_are_checked(tmp_path: Path) -> None:

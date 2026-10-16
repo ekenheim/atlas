@@ -1,7 +1,7 @@
 # 27b: Archive signals: supplier-dependence boilerplate and one sentence once per document
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Why
@@ -15,5 +15,5 @@ After ticket 27 the last quarter's top 20 holds 10 real cues of 20 (`docs/experi
 
 ## Acceptance criteria
 
-- [ ] Unit tests both ways with literal scores.
+- [x] Unit tests both ways with literal scores.
 - [ ] The precision replay of the last quarter: at least 12 of the top 20 real cues; the AXT replay's 31 July sentence still in the top five (the lead).
