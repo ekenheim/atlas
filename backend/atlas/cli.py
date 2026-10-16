@@ -256,6 +256,28 @@ def enqueue_signal_scan(
     _print_enqueued(enqueued)
 
 
+def enqueue_settle_calls(settings: Settings, key: str | None, *, backfill: bool) -> None:
+    """`atlas calls settle`: one `settle_calls` job (no LLM): give the Beliefs proven before the
+    prospective record their call and append the checkpoints that have fallen due."""
+    import uuid
+
+    from atlas.audit import Actor
+    from atlas.calls.settle import enqueue_settle
+    from atlas.db import create_engine
+    from atlas.jobs import JobQueue
+
+    engine = create_engine(settings)
+    try:
+        enqueued = enqueue_settle(
+            JobQueue(engine, actor=Actor.from_settings(settings)),
+            key or f"settle_calls:{uuid.uuid4()}",
+            job_class="backfill" if backfill else "interactive",
+        )
+    finally:
+        engine.dispose()
+    _print_enqueued(enqueued)
+
+
 def run_memory_reconcile(
     settings: Settings, key: str | None, *, wait: bool, timeout: float, poll_seconds: float
 ) -> int:
@@ -1417,6 +1439,18 @@ def main(argv: list[str] | None = None) -> None:
     signals_scan.add_argument("--company", help="only this company's versions (a slug)")
     signals_scan.add_argument("--key", help="idempotency key (default: a new run each time)")
     signals_scan.add_argument("--backfill", action="store_true", help="backfill class")
+    calls = commands.add_parser(
+        "calls", help="the prospective record: dated calls and their checkpoints"
+    )
+    calls_commands = calls.add_subparsers(dest="calls_command", required=True)
+    calls_settle = calls_commands.add_parser(
+        "settle",
+        help="enqueue a settle_calls job (no LLM): backfill the Beliefs proven before the record,"
+        " then append the +1, +3 and +6 month checkpoints that have fallen due; the worker runs"
+        " one a day from ATLAS_SETTLE_CALLS_AT",
+    )
+    calls_settle.add_argument("--key", help="idempotency key (default: a new run each time)")
+    calls_settle.add_argument("--backfill", action="store_true", help="backfill class")
     tradingview = commands.add_parser(
         "tradingview",
         help="the owner-override TradingView source (off by default; docs/runbooks.md)",
@@ -1622,6 +1656,8 @@ def main(argv: list[str] | None = None) -> None:
         enqueue_signal_scan(
             settings, args.since, args.versions, args.company, args.key, backfill=args.backfill
         )
+    elif args.command == "calls":
+        enqueue_settle_calls(settings, args.key, backfill=args.backfill)
     elif args.command == "companies" and args.companies_command == "resolve":
         raise SystemExit(resolve_companies(settings, args.slugs))
     elif args.command == "sources":

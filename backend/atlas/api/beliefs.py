@@ -22,6 +22,7 @@ Errors use the envelope: 404 `not_found`, 409 `belief_not_active` / `already_cit
 import uuid
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -126,9 +127,11 @@ def judged_proposal(engine: Engine, judges: Judges, request: BeliefPropose) -> J
     )
 
 
-def beliefs_router(engine: Engine, actor: Actor, judges: Judges | None = None) -> APIRouter:
+def beliefs_router(
+    engine: Engine, actor: Actor, judges: Judges | None = None, themes_config: Path | None = None
+) -> APIRouter:
     router = APIRouter(prefix="/api/v1/beliefs", tags=["beliefs"])
-    service = Beliefs(engine, actor)
+    service = Beliefs(engine, actor, themes_config)
 
     @router.get("", response_model=Page[BeliefSummary], responses=INVALID)
     def beliefs(  # pyright: ignore[reportUnusedFunction]
