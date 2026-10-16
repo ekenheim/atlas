@@ -1,6 +1,7 @@
 """What every TradingView item shares: the provider, the job kinds, the override it records,
 and the identifier URL of a transcript view's Source Document."""
 
+from datetime import date
 from urllib.parse import quote
 
 PROVIDER_ID = "tradingview"
@@ -22,10 +23,10 @@ TRANSCRIPT_BASE = "https://mcp.tradingview.com/documents"
 CALENDAR_BASE = "https://mcp.tradingview.com/calendar"
 
 
-def calendar_url(symbol: str, event_key: str) -> str:
+def calendar_url(symbol: str, period_end: date) -> str:
     """A calendar lead's URL: an identifier Atlas builds (the calendar has no public page),
-    stable per symbol and event, so a date that moves updates the same lead."""
-    return f"{CALENDAR_BASE}/{quote(symbol, safe='')}/{quote(event_key, safe='')}"
+    stable per symbol and period end, so a date that moves updates the same lead."""
+    return f"{CALENDAR_BASE}/{quote(symbol, safe='')}/{period_end.isoformat()}"
 
 
 def transcript_url(document_id: str, view_id: str) -> str:

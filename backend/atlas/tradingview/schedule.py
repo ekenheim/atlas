@@ -164,7 +164,7 @@ def _store(
     )
     created = store_calendar_event(
         connection,
-        url=calendar_url(company.symbol, key),
+        url=calendar_url(company.symbol, item.period_end),
         title=title,
         event_key=key,
         company_id=company.company_id,

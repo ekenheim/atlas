@@ -36,7 +36,7 @@ OVERRIDE = (
     " (2026-09-30)"
 )
 NOW = datetime(2026, 8, 15, 12, 0, tzinfo=UTC)
-CALENDAR_URL = "https://mcp.tradingview.com/calendar/NASDAQ%3ALITE/{key}"
+CALENDAR_URL = "https://mcp.tradingview.com/calendar/NASDAQ%3ALITE/{period_end}"
 # A calendar lead is keyed by its symbol and the day its quarter ends: the most recent report's
 # quarter (derived), the next report's, and the quarter after it.
 RECENT, NEXT, LATER = (f"NASDAQ:LITE:{day}" for day in ("2026-06-30", "2026-09-30", "2026-12-31"))
@@ -191,7 +191,9 @@ def test_the_calendar_becomes_tier_c_leads_marked_with_the_override(
         "theme": "photonics",
         "engines": ["tradingview"],
     }
-    assert next_report["url"] == CALENDAR_URL.format(key="NASDAQ%3ALITE%3A2026-09-30")
+    assert next_report["url"] == CALENDAR_URL.format(
+        period_end="2026-09-30"
+    )  # the symbol is not repeated
     assert next_report["title"] == "Lumentum results, quarter ending 30 Sep 2026"
     assert next_report["calendar"] == {
         "company_id": lumentum,
@@ -776,6 +778,12 @@ def test_an_answer_without_data_earnings_fails_with_unparsed_answer_never_an_emp
         "no-earnings": {"success": True, "data": {"count": 0, "from": "a", "to": "b"}},
         "no-data": {"success": True, "earnings": []},
         "no-symbol": {"data": {"earnings": [{"release_next_date": "2026-11-05"}]}},
+        # an answer that says it failed is no calendar, whatever it carries
+        "not-successful": {"success": False, "data": {"earnings": []}},
+        "not-successful-with-rows": {
+            "success": False,
+            "data": {"earnings": [{"symbol": "NASDAQ:LITE", "fiscal_period_end": "2026-09-30"}]},
+        },
     }
     for key, answer in answers.items():
         tradingview[0].raw[CALENDAR_TOOL] = json.dumps(answer)
@@ -894,6 +902,56 @@ def test_a_calendar_answer_under_another_wrapper_key_fails_and_is_not_an_empty_c
     assert agent.leads() == []
 
 
+def test_a_period_end_within_a_week_of_a_month_end_is_snapped_to_it_before_keying(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    cases = {  # fiscal_period_end of the next report -> the period end Atlas keys it by
+        "2026-09-26": "2026-09-30",  # a 52/53-week quarter end
+        "2026-09-23": "2026-09-30",  # seven days before the month end: snapped
+        "2026-09-22": "2026-09-22",  # eight days: left as it is
+        "2026-05-30": "2026-05-31",
+        "2026-01-03": "2025-12-31",  # three days after a month end: back to it
+    }
+    for end in cases:
+        tradingview[0].raw[CALENDAR_TOOL] = json.dumps(
+            {
+                "data": {
+                    "earnings": [
+                        {
+                            "symbol": "NASDAQ:LITE",
+                            "fiscal_period_end": end,
+                            "release_date": "2026-08-11",
+                            "release_next_date": "2026-11-05",
+                        }
+                    ]
+                }
+            }
+        )
+        agent.run("tradingview_calendar", f"snap-{end}")
+
+    calendars = [each["calendar"] for each in agent.leads()]
+    stated = {c["period_end"] for c in calendars if c["period_basis"] == "stated"}
+    derived = {c["period_end"] for c in calendars if c["period_basis"] == "derived_from_next"}
+    assert stated == set(cases.values())
+    # the recent report's quarter is three month ends before the (snapped) next one's
+    assert derived == {"2026-06-30", "2026-02-28", "2025-09-30"}
+    keys = {c["event_key"] for c in calendars}
+    assert {"NASDAQ:LITE:2026-09-30", "NASDAQ:LITE:2025-12-31"} <= keys
+
+
+def test_a_calendar_that_says_it_did_not_succeed_fails_with_that_reason(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].raw[CALENDAR_TOOL] = json.dumps({"success": False, "data": {"earnings": []}})
+
+    job = agent.run("tradingview_calendar", "unsuccessful")
+
+    assert job["status"] == "failed"
+    assert "the answer says it didn't succeed" in job["failures"][0]["error"]
+    assert job["artifacts"]["status"] == "unexpected_answer"
+    assert agent.leads() == []
+
+
 def test_a_calendar_that_names_none_of_the_symbols_asked_fails_instead_of_listing_nothing(
     agent: Agent, tradingview: tuple[FakeTradingView, Served]
 ) -> None:
@@ -947,6 +1005,23 @@ def test_consensus_in_a_failed_calendar_answer_is_kept_in_neither_columns_nor_pr
     assert '"fields": ["symbol", "next_report"]' in kept  # the layout can still be fitted
     assert '"steps": "<int>"' in kept  # `eps` inside a word is not consensus
     assert prose["artifacts"]["unparsed_answer"] == "Next report 2026-11-05"
+
+
+def test_numbers_that_are_not_dates_are_masked_in_a_kept_text_answer(
+    agent: Agent, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    tradingview[0].raw[CALENDAR_TOOL] = (
+        "Lumentum closed at 987.65 USD; next report 2026-11-05T21:00:00Z"
+        " (17 of 20 analysts, 1,234 shares)"
+    )
+
+    job = agent.run("tradingview_calendar", "prose-price")
+
+    assert job["status"] == "failed"
+    assert job["artifacts"]["unparsed_answer"] == (
+        "Lumentum closed at <n> USD; next report 2026-11-05T21:00:00Z"
+        " (<n> of <n> analysts, <n> shares)"
+    )
 
 
 def test_a_price_answer_under_another_wrapper_or_in_columns_fails_and_stores_nothing(

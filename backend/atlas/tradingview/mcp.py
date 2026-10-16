@@ -120,8 +120,22 @@ def _skeleton(value: Any, key: str = "") -> Any:
     return f"<{_type_name(value)}>"
 
 
+# A day or an ISO time is kept; every other number (a price, a count) is masked.
+_NUMBER = re.compile(
+    r"(\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?)"
+    r"|(\d[\d,]*(?:\.\d+)?)"
+)
+
+
+def _masked_numbers(text: str) -> str:
+    return _NUMBER.sub(lambda m: m.group(1) or "<n>", text)
+
+
 def _without_consensus_lines(text: str) -> str:
-    return "\n".join(line for line in text.splitlines() if not _CONSENSUS.search(line))
+    """Prose has no keys to drop: a line that names consensus goes, and every number that is
+    not part of a date is masked (a price in a sentence is as much a price as in a field)."""
+    kept = "\n".join(line for line in text.splitlines() if not _CONSENSUS.search(line))
+    return _masked_numbers(kept)
 
 
 class UnexpectedAnswer(McpError, FailedWithArtifacts):

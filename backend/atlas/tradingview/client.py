@@ -224,17 +224,32 @@ class _EarningsData(_Model):
 
 
 class CalendarList(_Model):
+    success: bool = True
     data: _EarningsData
 
 
 def _day_of(value: Any) -> date | None:
-    """The day an answer's date names: `2026-08-11`, or an ISO time (its UTC day)."""
+    """The day an answer's date names: `2026-08-11`, or an ISO time (the date as written: its
+    first ten characters, whatever the time and offset after them)."""
     if not isinstance(value, str) or not _ISO_DAY.match(value):
         return None
     try:
         return date.fromisoformat(value[:10])
     except ValueError:
         return None
+
+
+SNAP_DAYS = 7
+
+
+def _snap_to_month_end(day: date) -> date:
+    """`day`, or the month end it is within `SNAP_DAYS` of: a 52/53-week fiscal quarter ends on a
+    weekday near a month end (26 Sep), which the quarters of other answers name by the month
+    end (30 Sep). Any other date is left as it is."""
+    this_end = date(day.year, day.month, calendar.monthrange(day.year, day.month)[1])
+    previous_end = day.replace(day=1) - timedelta(days=1)
+    nearest = min((this_end, previous_end), key=lambda end: abs((end - day).days))
+    return nearest if abs((nearest - day).days) <= SNAP_DAYS else day
 
 
 def _month_end_before(day: date, months: int) -> date:
@@ -248,6 +263,8 @@ def _events(row: _EarningsRow) -> tuple[list[CalendarItem], int]:
     """A row's events and how many it could not make (the answer gave no usable date). With no
     usable `fiscal_period_end` neither event has a period to be identified by."""
     period_end = _day_of(row.fiscal_period_end)
+    if period_end is not None:
+        period_end = _snap_to_month_end(period_end)
     next_on, recent_on = _day_of(row.release_next_date), _day_of(row.release_date)
     if period_end is None:
         return [], 2
@@ -389,7 +406,10 @@ class TradingViewClient:
                 "date_to": _day(end),
             },
         )
-        rows = _validate(CalendarList, value, CALENDAR_TOOL).data.earnings
+        answer = _validate(CalendarList, value, CALENDAR_TOOL)
+        if not answer.success:
+            raise UnexpectedAnswer(CALENDAR_TOOL, "the answer says it didn't succeed", value)
+        rows = answer.data.earnings
         asked = set(symbols)
         if rows and not any(row.symbol in asked for row in rows):
             # Every row names a symbol Atlas didn't ask for (another form: `LITE`, lower case):
