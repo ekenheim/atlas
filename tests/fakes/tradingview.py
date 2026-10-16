@@ -14,12 +14,13 @@ manifest; no TradingView content). The protocol follows the MCP specification (2
   view` (`view-<view id>.json`; a view in `unretrievable` answers `isError`),
   `mcp-tv-get-news` (`news-<company>.json`), `mcp-tv-get-earnings-calendar` (arguments
   `symbols[]`, `date_from`, `date_to` as TradingView documents them, ticket 16c; one answer
-  carries the `calendar-<company><calendar>.json` items of every symbol asked) and
+  in the shape the live call showed on 2026-10-16, ticket 16d, `{success, data: {count, from,
+  to, earnings: [...]}}`, carries the `calendar-<company><calendar>.json` rows of every symbol
+  asked; a fixture with no rows is a symbol the answer leaves out) and
   `mcp-tv-get-ohlcv` (arguments `symbol`, `interval`, `count`, `summary`; `ohlcv-<company>
   <prices>.json`, bars `{t, o, h, l, c, v}`; the fake returns all the fixture's bars whatever
   the count, so the client's own window filter is what the tests see; `ohlcv[symbol]` replaces a
-  symbol's answer text). The answers' field
-  names are Atlas's guess where TradingView doesn't document them. `raw[tool]` replaces a
+  symbol's answer text). `raw[tool]` replaces a
   tool's answer text (a malformed answer). Any other tool is a JSON-RPC error.
 - OAuth: protected resource metadata at `/.well-known/oauth-protected-resource/mcp`
   (authorization server `<origin>/auth`), authorization server metadata at
@@ -64,7 +65,7 @@ class FakeTradingView:
     unretrievable: set[str] = field(default_factory=lambda: {"syn-view-2001-t"})
     ended_sessions: set[str] = field(default_factory=set[str])
     unavailable: bool = False  # answer every MCP request 503
-    calendar: str = ""  # "-moved", "-noid": the calendar fixture variant the calendar tool answers
+    calendar: str = ""  # "-moved", "-reported", "-noisy", "-both": the calendar fixture variant
     prices: str = ""  # "-adjusted": the get_ohlcv fixture variant the OHLCV tool answers
     # symbol -> the get_ohlcv answer text for it (ticket 19: a test builds bars around the real
     # dates of the calls it makes); a symbol not named here is answered from the fixtures
@@ -225,11 +226,21 @@ class FakeTradingView:
         if name in self.raw:
             return self._text(request_id, self.raw[name])
         if name == "mcp-tv-get-earnings-calendar":
-            items: list[Any] = []
+            rows: list[Any] = []
             for symbol in arguments["symbols"]:
                 company = SYMBOLS[symbol]
-                items += json.loads(fixture_text(f"calendar-{company}{self.calendar}"))["items"]
-            return self._text(request_id, json.dumps({"items": items, "total": len(items)}))
+                # A variant the company has no file for falls back to its plain answer.
+                fixture = f"calendar-{company}{self.calendar}"
+                if not (FIXTURES / f"{fixture}.json").exists():
+                    fixture = f"calendar-{company}"
+                rows += json.loads(fixture_text(fixture))["data"]["earnings"]
+            data = {
+                "count": len(rows),
+                "from": arguments["date_from"],
+                "to": arguments["date_to"],
+                "earnings": rows,
+            }
+            return self._text(request_id, json.dumps({"success": True, "data": data}))
         if name == "mcp-tv-get-ohlcv" and arguments["symbol"] in self.ohlcv:
             return self._text(request_id, self.ohlcv[arguments["symbol"]])
         if name == "mcp-tv-get-ohlcv":

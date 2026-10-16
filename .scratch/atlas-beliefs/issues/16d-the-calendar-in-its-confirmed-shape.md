@@ -1,7 +1,7 @@
 # 16d: The earnings calendar in its confirmed shape
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Blocked by: none
 
 ## Why
@@ -39,7 +39,7 @@ Nine rows came back for the twelve symbols asked (LITE, COHR, AXTI, AAOI, FN, MR
 
 ## Acceptance criteria
 
-- [ ] HTTP-seam tests against the TradingView fake (the job through the queue, read through `GET /api/v1/leads?origin=tradingview_calendar`): two leads per row (recent `reported`, next `scheduled`/`confirmed`) with the right dates and periods; a moved and confirmed next date adds an observation to the same lead; after the report the former next lead gains a `reported` observation and no second lead appears for that quarter; `close` and the consensus key appear nowhere in the stored leads, observations or job artifacts; an absent symbol is no failure; an answer without `data.earnings` fails with `unparsed_answer`.
-- [ ] `upcoming_reports` (the MCP tool) lists the next reports from the new leads (its existing test updated to the new fixtures).
-- [ ] Ruff, strict pyright, the unit and integration suites green.
+- [x] HTTP-seam tests against the TradingView fake (the job through the queue, read through `GET /api/v1/leads?origin=tradingview_calendar`): two leads per row (recent `reported`, next `scheduled`/`confirmed`) with the right dates and periods; a moved and confirmed next date adds an observation to the same lead; after the report the former next lead gains a `reported` observation and no second lead appears for that quarter; `close` and the consensus key appear nowhere in the stored leads, observations or job artifacts; an absent symbol is no failure; an answer without `data.earnings` fails with `unparsed_answer`.
+- [x] `upcoming_reports` (the MCP tool) lists the next reports from the new leads (its existing test updated to the new fixtures).
+- [x] Ruff, strict pyright, the unit and integration suites green. (Locally: the four test modules named in the log, every failure shown pre-existing on 9c1e5ca; the runners run the rest.)
 - [ ] (The lead) the next nightly job on production after deploy succeeds with leads for the nine symbols.

@@ -2743,10 +2743,10 @@ export interface components {
             event_at: string;
             /** Status */
             status: string | null;
-            /** Fiscal Period */
-            fiscal_period: string | null;
-            /** Fiscal Year */
-            fiscal_year: string | null;
+            /** Period End */
+            period_end: string | null;
+            /** Period Basis */
+            period_basis: string | null;
             /**
              * Observed At
              * Format: date-time

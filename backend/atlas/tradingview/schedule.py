@@ -8,20 +8,31 @@ most `ATLAS_TRADINGVIEW_MAX_CALLS_PER_JOB` tool calls, each recorded in `trading
 `tradingview_symbol`, the earnings calendar between `ATLAS_TRADINGVIEW_CALENDAR_PAST_DAYS`
 before now and `ATLAS_TRADINGVIEW_CALENDAR_AHEAD_DAYS` after it, as `get_earnings_calendar`
 documents its arguments (`symbols[]`, `date_from`, `date_to`; ticket 16c). One call carries
-up to `ATLAS_TRADINGVIEW_CALENDAR_BATCH` (20) companies' symbols, each date of the answer
-going to the company whose symbol it names. TradingView lists only each symbol's next
-scheduled and most recent report, plus consensus estimates, which are dropped as the answer
-is read and never stored. Each listed reporting date is a `tradingview_calendar` lead
-(`atlas.discovery.leads.store_calendar_event`): one per event, keyed by TradingView's event
-ID, else the fiscal year and period, else the day; a rerun that sees the same date changes
-nothing and one that sees a moved date or a new status adds an observation to the same lead.
-The lead's title says which results are due; its date, status and period are in the lead's
-`calendar`, and the owner's override is recorded on it. A lead says when to look, never what
-a company said: it is not Evidence, no Claim comes of it.
+up to `ATLAS_TRADINGVIEW_CALENDAR_BATCH` (20) companies' symbols, each row of the answer going
+to the company whose symbol it names; a symbol the answer leaves out (no data) is no error.
 
-The tool's answer fields are not documented beyond its arguments: an answer that doesn't fit
-fails the job with its first 4,000 characters in the artifacts (`unparsed_answer`;
-`atlas.tradingview.client`).
+The answer's shape was confirmed from the first live call (2026-10-16, ticket 16d): per symbol
+one row `{symbol, fiscal_period_end, release_date, release_next_date, next_date_confirmed,
+...}` holding two events (`atlas.tradingview.client.CalendarItem`): the next report (date
+`release_next_date`, `confirmed` or `scheduled`, for the quarter ending `fiscal_period_end`)
+and the most recent one (date `release_date`, `reported`, for the quarter ending the month end
+three months before `fiscal_period_end`: derived, recorded as `period_basis`
+`derived_from_next`). Atlas keeps the symbol, the two dates, the confirmed flag and the period
+end, and nothing else of a row: not its price, name, description or flags, and never a
+consensus or estimate (the client's model has no field for them).
+
+Each event is a `tradingview_calendar` lead (`atlas.discovery.leads.store_calendar_event`),
+identified by the symbol and the period's end day (`NASDAQ:LITE:2026-09-30`): a rerun that
+sees the same date and status changes nothing, a moved date or a new status adds an observation
+to the same lead, and a scheduled report that happens is named by the next answer as the recent
+one with the same period end, so it gains a `reported` observation instead of a second lead.
+The lead's title says which results are due; its date, status and period are in the lead's
+`calendar`, and the owner's override is recorded on it. A lead says when to look, never what a
+company said: it is not Evidence, no Claim comes of it.
+
+An answer that doesn't fit fails the job with its first 4,000 characters in the artifacts
+(`unparsed_answer`; `atlas.tradingview.client`); an event with no usable date is skipped, not
+the row or the job (`skipped_events` in the artifacts).
 """
 
 from datetime import datetime, timedelta
@@ -64,13 +75,9 @@ class CalendarPayload(BaseModel):
 
 
 def event_key(item: CalendarItem) -> str:
-    """What identifies a reporting date across runs, whatever the date: TradingView's event ID,
-    else the fiscal period, else the day itself."""
-    if item.id:
-        return item.id
-    if item.fiscal_year and item.fiscal_period:
-        return f"fy{item.fiscal_year}-{item.fiscal_period}"
-    return item.event_at.date().isoformat()
+    """What identifies a reporting date across runs, whatever the date or the status: the symbol
+    and the day its quarter ends."""
+    return f"{item.symbol}:{item.period_end.isoformat()}"
 
 
 def run_calendar(settings: Settings, engine: Engine, job: Job, now: datetime) -> Artifacts:
@@ -96,9 +103,7 @@ def run_calendar(settings: Settings, engine: Engine, job: Job, now: datetime) ->
                 )
                 asked.update(c.slug for c in group)
                 for item in answer:
-                    owner = by_symbol.get(item.symbol or "")
-                    if owner is None and item.symbol is None and len(group) == 1:
-                        owner = group[0]
+                    owner = by_symbol.get(item.symbol)
                     if owner is None:
                         unattributed += 1
                         continue
@@ -106,6 +111,7 @@ def run_calendar(settings: Settings, engine: Engine, job: Job, now: datetime) ->
         except CallBoundReached:
             bounded = True
         calls = client.calls
+        skipped = client.calendar_events_skipped
     summaries: list[dict[str, JsonValue]] = []
     listed = created = 0
     with engine.begin() as connection:
@@ -132,6 +138,7 @@ def run_calendar(settings: Settings, engine: Engine, job: Job, now: datetime) ->
         },
         "companies": list[JsonValue](summaries),
         "unattributed": unattributed,
+        "skipped_events": skipped,
         "not_asked": [c.slug for c in companies if c.slug not in asked],
         "tool_calls": calls,
         "bounded": bounded,
@@ -151,22 +158,20 @@ def _store(
     job: Job,
     now: datetime,
 ) -> int:
-    period = " ".join(
-        part
-        for part in (item.fiscal_period, f"FY{item.fiscal_year}" if item.fiscal_year else None)
-        if part
+    title = (
+        f"{company.config.display_name} results,"
+        f" quarter ending {item.period_end.day} {item.period_end:%b %Y}"
     )
-    title = item.title or f"{company.config.display_name} results {period}".strip()
     created = store_calendar_event(
         connection,
-        url=calendar_url(company.symbol, key),
+        url=calendar_url(company.symbol, item.period_end),
         title=title,
         event_key=key,
         company_id=company.company_id,
         symbol=company.symbol,
         themes=company.themes,
-        fiscal_period=item.fiscal_period,
-        fiscal_year=item.fiscal_year,
+        period_end=item.period_end,
+        period_basis=item.period_basis,
         event_at=item.event_at,
         status=item.status,
         owner_override=OWNER_OVERRIDE,

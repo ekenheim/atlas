@@ -11125,18 +11125,19 @@
             ],
             "title": "Status"
           },
-          "fiscal_period": {
+          "period_end": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "format": "date"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Fiscal Period"
+            "title": "Period End"
           },
-          "fiscal_year": {
+          "period_basis": {
             "anyOf": [
               {
                 "type": "string"
@@ -11145,7 +11146,7 @@
                 "type": "null"
               }
             ],
-            "title": "Fiscal Year"
+            "title": "Period Basis"
           },
           "observed_at": {
             "type": "string",
@@ -11164,8 +11165,8 @@
           "event_key",
           "event_at",
           "status",
-          "fiscal_period",
-          "fiscal_year",
+          "period_end",
+          "period_basis",
           "observed_at",
           "owner_override"
         ],

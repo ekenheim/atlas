@@ -1,0 +1,24 @@
+{
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests in the shape TradingView's earnings calendar answered on 2026-10-16 (ticket 16d; the shape is real, every value is made up). A row for HKEX:3308 on the same quarter end as Lumentum's, served instead of the empty one when the fake's `calendar` is '-both'.",
+  "success": true,
+  "data": {
+    "count": 1,
+    "from": "2026-04-17",
+    "to": "2027-02-11",
+    "earnings": [
+      {
+        "symbol": "HKEX:3308",
+        "name": "SYNTHETIC Innolight Technology",
+        "description": "SYNTHETIC description of Innolight Technology",
+        "close": 22.22,
+        "fiscal_period_end": "2026-09-30",
+        "release_date": "2026-08-25",
+        "release_next_date": "2026-11-07",
+        "release_next_at": "2026-11-07T21:00:00Z",
+        "release_next_time_flag": 1,
+        "next_date_confirmed": false,
+        "publication_type_next_fq": 2
+      }
+    ]
+  }
+}

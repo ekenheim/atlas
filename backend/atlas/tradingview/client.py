@@ -31,21 +31,28 @@ fixtures under `tests/fixtures/tradingview/` are synthetic):
   the answer before anything is kept. `get_ohlcv` takes `symbol`, `interval` (default `1D`),
   `count` (default 300, at most 5000, counted back from now: there is no date range) and
   `summary`, and answers an aggregate summary and the bars `[{t (Unix s UTC), o, h, l, c,
-  v}]`. The answers' field names are not documented beyond the bars' keys: the calendar is
-  assumed `{items: [{id?, symbol, title?, fiscal_period?, fiscal_year?, date (Unix s or
-  ISO), status?}]}` and the bars `{bars: [...]}` or a bare list; `items` and `bars` are
-  required (another wrapper key fails the job, never an empty list). An answer that doesn't
-  fit fails the job with its first 4,000 characters in the artifacts (`UnexpectedAnswer`),
-  so the lead can fit the shape from one live call. `tests/fixtures/tradingview/` are
-  synthetic in these shapes.
+  v}]`. The calendar's answer shape was confirmed on 2026-10-16 from the first live call
+  (ticket 16d): `{success, data: {count, from, to, earnings: [{symbol, fiscal_period_end,
+  release_date, release_next_date, next_date_confirmed, ...}]}}`, one row per symbol listed
+  (a symbol with no data is absent), each row holding two events: the next report and the
+  most recent one (see `CalendarItem`); `fiscal_period_end` is the quarter the **next**
+  report is for. A row also carries a price, a name, a description, flags and consensus
+  estimates, which the model never names and Atlas never keeps. `data.earnings` is required
+  (another wrapper key fails the job, never an empty calendar). The bars are assumed
+  `{bars: [...]}` or a bare list, and `bars` is required too. An answer that doesn't fit
+  fails the job with its first 4,000 characters in the artifacts (`UnexpectedAnswer`), so
+  the lead can fit a shape from one live call. `tests/fixtures/tradingview/` are synthetic
+  in these shapes.
 
 Before each call, `before_call` (the jobs pass the cross-process cap, `service.RequestCap`)
 runs: TradingView limits tool calls to about 100 a minute per user.
 """
 
+import calendar
+import re
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import (
     AliasChoices,
@@ -68,6 +75,8 @@ OHLCV_TOOL = "mcp-tv-get-ohlcv"
 MAX_BARS = 5000  # get_ohlcv's `count` ceiling
 
 type CallRecorder = Callable[[str, str | None], None]
+
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 class CallBoundReached(Exception):
@@ -169,42 +178,118 @@ class Headline(_Model):
         return _time(self.published)
 
 
+type CalendarStatus = Literal["reported", "scheduled", "confirmed"]
+type PeriodBasis = Literal["stated", "derived_from_next"]
+
+
 class CalendarItem(_Model):
-    """One reporting date the earnings calendar lists (assumed field names; see the module).
+    """One reporting date of the earnings calendar (ticket 16d): a row of TradingView's answer
+    holds up to two, the next report and the most recent one.
 
-    Only the date, the fiscal period and the status are taken: the model ignores every other
-    field, so a consensus estimate in the answer (`eps_estimate`, `consensus`, ...) never
-    reaches Atlas's records.
-    """
+    - the **next** report: `release_next_date`, `confirmed` when `next_date_confirmed` is
+      true, else `scheduled`, for the quarter ending `fiscal_period_end` (`stated`);
+    - the **most recent** report: `release_date`, `reported`, for the quarter ending three
+      months before `fiscal_period_end` (the month end three months earlier; `derived_from_next`,
+      TradingView says nothing of that quarter), so that when a scheduled report happens the
+      next answer names it as the recent one with the same period end: the same event.
 
-    id: str | None = None
-    symbol: str | None = None
-    title: str | None = None
-    fiscal_period: str | None = None
-    fiscal_year: str | None = None
-    date: datetime  # Unix seconds, an RFC 3339 time or a plain date (midnight UTC) in the answer
-    status: str | None = None
+    An event is identified by the symbol and its period's end day. Nothing else of a row is
+    kept (the model has no field for it): not its price, name, description or flags, and no
+    consensus or estimate."""
 
-    _as_text = field_validator("id", "fiscal_year", "fiscal_period", mode="before")(_text)
-
-    @field_validator("date", mode="before")
-    @classmethod
-    def _as_moment(cls, value: Any) -> Any:
-        if isinstance(value, int | float) and not isinstance(value, bool):
-            return datetime.fromtimestamp(value, UTC)
-        if isinstance(value, str):
-            moment = datetime.fromisoformat(value)  # ValueError: a validation error
-            return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
-        return value
+    symbol: str
+    period_end: date
+    on: date  # the reporting day
+    status: CalendarStatus
+    period_basis: PeriodBasis
 
     @property
     def event_at(self) -> datetime:
-        return self.date
+        return datetime(self.on.year, self.on.month, self.on.day, tzinfo=UTC)
+
+
+class _EarningsRow(_Model):
+    """The fields of an answer's row Atlas names; every other key is ignored, and a date that
+    is missing or isn't a date skips its event (`_events`) instead of failing the answer."""
+
+    symbol: str
+    fiscal_period_end: Any = None
+    release_date: Any = None
+    release_next_date: Any = None
+    next_date_confirmed: bool | None = None
+
+
+class _EarningsData(_Model):
+    earnings: list[_EarningsRow]  # required: another wrapper key is not an empty calendar
 
 
 class CalendarList(_Model):
-    items: list[CalendarItem]  # required: another wrapper key (`rows`, `data`) is not an empty list
-    total: int | None = None
+    success: bool = True
+    data: _EarningsData
+
+
+def _day_of(value: Any) -> date | None:
+    """The day an answer's date names: `2026-08-11`, or an ISO time (the date as written: its
+    first ten characters, whatever the time and offset after them)."""
+    if not isinstance(value, str) or not _ISO_DAY.match(value):
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
+SNAP_DAYS = 7
+
+
+def _snap_to_month_end(day: date) -> date:
+    """`day`, or the month end it is within `SNAP_DAYS` of: a 52/53-week fiscal quarter ends on a
+    weekday near a month end (26 Sep), which the quarters of other answers name by the month
+    end (30 Sep). Any other date is left as it is."""
+    this_end = date(day.year, day.month, calendar.monthrange(day.year, day.month)[1])
+    previous_end = day.replace(day=1) - timedelta(days=1)
+    nearest = min((this_end, previous_end), key=lambda end: abs((end - day).days))
+    return nearest if abs((nearest - day).days) <= SNAP_DAYS else day
+
+
+def _month_end_before(day: date, months: int) -> date:
+    """The last day of the month `months` before the one `day` is in."""
+    index = day.year * 12 + day.month - 1 - months
+    year, month = divmod(index, 12)
+    return date(year, month + 1, calendar.monthrange(year, month + 1)[1])
+
+
+def _events(row: _EarningsRow) -> tuple[list[CalendarItem], int]:
+    """A row's events and how many it could not make (the answer gave no usable date). With no
+    usable `fiscal_period_end` neither event has a period to be identified by."""
+    period_end = _day_of(row.fiscal_period_end)
+    if period_end is not None:
+        period_end = _snap_to_month_end(period_end)
+    next_on, recent_on = _day_of(row.release_next_date), _day_of(row.release_date)
+    if period_end is None:
+        return [], 2
+    items: list[CalendarItem] = []
+    if next_on is not None:
+        items.append(
+            CalendarItem(
+                symbol=row.symbol,
+                period_end=period_end,
+                on=next_on,
+                status="confirmed" if row.next_date_confirmed else "scheduled",
+                period_basis="stated",
+            )
+        )
+    if recent_on is not None:
+        items.append(
+            CalendarItem(
+                symbol=row.symbol,
+                period_end=_month_end_before(period_end, 3),
+                on=recent_on,
+                status="reported",
+                period_basis="derived_from_next",
+            )
+        )
+    return items, 2 - len(items)
 
 
 class Bar(_Model):
@@ -267,6 +352,7 @@ class TradingViewClient:
         self._on_call = on_call
         self._before_call = before_call
         self.calls = 0
+        self.calendar_events_skipped = 0  # events the calendar's answers gave no date for
 
     def _call(self, tool: str, arguments: dict[str, Any]) -> tuple[str, Any]:
         if self.calls >= self._max_calls:
@@ -309,7 +395,9 @@ class TradingViewClient:
 
     def calendar(self, symbols: list[str], *, start: datetime, end: datetime) -> list[CalendarItem]:
         """The reporting dates of all `symbols` between the days `start` and `end` fall on
-        (UTC), in one call. Only dates, period and status are kept of each (see the model)."""
+        (UTC), in one call: up to two events a symbol the answer lists (see `CalendarItem`).
+        A symbol the answer leaves out is no error; an event with no usable date is skipped
+        and counted in `calendar_events_skipped`."""
         _, value = self._call(
             CALENDAR_TOOL,
             {
@@ -318,14 +406,20 @@ class TradingViewClient:
                 "date_to": _day(end),
             },
         )
-        items = _validate(CalendarList, value, CALENDAR_TOOL).items
+        answer = _validate(CalendarList, value, CALENDAR_TOOL)
+        if not answer.success:
+            raise UnexpectedAnswer(CALENDAR_TOOL, "the answer says it didn't succeed", value)
+        rows = answer.data.earnings
         asked = set(symbols)
-        if items and not any(
-            item.symbol in asked or (item.symbol is None and len(symbols) == 1) for item in items
-        ):
-            # Every date names a symbol Atlas didn't ask for (another form: `LITE`, lower case):
+        if rows and not any(row.symbol in asked for row in rows):
+            # Every row names a symbol Atlas didn't ask for (another form: `LITE`, lower case):
             # the job would succeed with nothing listed, which looks like an empty calendar.
-            raise UnexpectedAnswer(CALENDAR_TOOL, "no item names a symbol asked for", value)
+            raise UnexpectedAnswer(CALENDAR_TOOL, "no row names a symbol asked for", value)
+        items: list[CalendarItem] = []
+        for row in rows:
+            made, skipped = _events(row)
+            items += made
+            self.calendar_events_skipped += skipped
         return items
 
     def daily_bars(self, symbol: str, *, start: date, end: date, today: date) -> list[Bar]:

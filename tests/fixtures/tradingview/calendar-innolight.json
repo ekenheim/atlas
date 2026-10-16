@@ -1,5 +1,10 @@
 {
-  "_fixture": "SYNTHETIC: no dates listed",
-  "items": [],
-  "total": 0
+  "_fixture": "SYNTHETIC: hand-written for Atlas tests in the shape TradingView's earnings calendar answered on 2026-10-16 (ticket 16d; the shape is real, every value is made up). No row for HKEX:3308: TradingView leaves out a symbol it has no data for (as it did for IQE, Soitec and Innolight on 2026-10-16).",
+  "success": true,
+  "data": {
+    "count": 0,
+    "from": "2026-04-17",
+    "to": "2027-02-11",
+    "earnings": []
+  }
 }
