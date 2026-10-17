@@ -37,9 +37,14 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   ]);
   await themes.getByRole("link", { name: THEME }).click();
 
-  // The assessment first: what Atlas believes, by step, above the companies and the edges.
+  // The assessment first: the theme's Hypotheses (none yet here), then what Atlas believes, by
+  // step, above the companies and the edges.
   await expect(page.getByRole("heading", { level: 1, name: THEME })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("What Atlas believes");
+  await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("Hypotheses");
+  await expect(page.getByRole("region", { name: "Hypotheses" })).toContainText(
+    "No Hypothesis on this theme yet.",
+  );
+  await expect(page.getByRole("heading", { level: 2 }).nth(1)).toHaveText("What Atlas believes");
   const believed = page.getByRole("region", { name: "What Atlas believes" });
   const constraint = believed.getByRole("region", { name: "Constraint" });
   await expect(constraint.getByRole("listitem", { name: PROVEN })).toContainText("Proven 80%");
@@ -49,6 +54,9 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   await expect(believed.getByRole("region", { name: "Control" })).toContainText(
     "Nothing believed yet.",
   );
+  // What changed: the proven Belief's judgement, a link to its record.
+  const changes = page.getByRole("list", { name: "Changes, newest first" });
+  await expect(changes.getByRole("link", { name: `proven 80%: ${PROVEN}` })).toBeVisible();
 
   // The map: companies by layer, upstream to downstream.
   await expect(page.getByRole("heading", { level: 3 })).toHaveText([

@@ -12,7 +12,13 @@ import {
   VersionContent,
   VersionDiff,
 } from "../../components/hypothesis";
-import { HypothesisSteps, OpenIssues } from "../../components/hypothesis-steps";
+import {
+  Counterevidence,
+  HypothesisCalls,
+  HypothesisSteps,
+  OpenIssues,
+  ThesisLine,
+} from "../../components/hypothesis-steps";
 import { edgeLabel } from "../../components/relationships";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import {
@@ -30,7 +36,7 @@ import {
   versionLabel,
   words,
 } from "../../lib/hypotheses";
-import { stepsOf } from "../../lib/hypothesis-steps";
+import { stepBeliefIds, stepsOf } from "../../lib/hypothesis-steps";
 import { STATES } from "../../lib/relationships";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
@@ -95,10 +101,29 @@ function Body({
   const router = useRouter();
   const chosen = chosenVersion(versionParam, hypothesis.versions);
   const version = hypothesis.versions.find((each) => each.version === chosen);
+  const steps = version !== undefined && stepsOf(version).length > 0;
+  // The raw records render only once opened: they load a diff, scenarios and snapshots.
+  const [recordsOpen, setRecordsOpen] = useState(false);
   return (
-    <>
-      <h1>{version ? version.content.thesis_statement : "A Hypothesis being drafted"}</h1>
-      <Summary hypothesis={hypothesis} />
+    <div className="reader">
+      <header>
+        <div className="reader-kicker">
+          <Link href={routes.theme(hypothesis.theme_id)}>{hypothesis.theme_id}</Link> ·{" "}
+          {words(hypothesis.status)}
+          {version !== undefined && (
+            <>
+              {" "}
+              · version {version.version}
+              {version.published ? ", published" : ", not published"}
+            </>
+          )}
+        </div>
+        <h1 className="reader-headline">
+          {version ? version.content.thesis_statement : "A Hypothesis being drafted"}
+        </h1>
+        {version !== undefined && <ThesisLine version={version} />}
+      </header>
+
       {version === undefined ? (
         <p>
           {hypothesis.draft_status === "failed"
@@ -107,61 +132,94 @@ function Body({
         </p>
       ) : (
         <>
-          <form aria-label="Choose a version" onSubmit={(event) => event.preventDefault()}>
-            <div className="field">
-              <label htmlFor="version">Version</label>
-              <select
-                id="version"
-                value={version.version}
-                onChange={(event) =>
-                  router.push(routes.hypothesis(hypothesis.id, Number(event.target.value)))
-                }
-              >
-                {hypothesis.versions.map((each) => (
-                  <option key={each.version} value={each.version}>
-                    {versionLabel(each)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </form>
-          <p>
-            Export version {version.version}:{" "}
-            <a href={api.exportUrl(hypothesis.id, "json", version.version)}>JSON</a>
-            {" · "}
-            <a href={api.exportUrl(hypothesis.id, "markdown", version.version)}>Markdown</a>{" "}
-            <span className="muted-small">(with citations and run metadata)</span>
-          </p>
-          {stepsOf(version).length > 0 && (
+          {hypothesis.versions.length > 1 && (
+            <form aria-label="Choose a version" onSubmit={(event) => event.preventDefault()}>
+              <div className="field">
+                <label htmlFor="version">Version</label>
+                <select
+                  id="version"
+                  value={version.version}
+                  onChange={(event) =>
+                    router.push(routes.hypothesis(hypothesis.id, Number(event.target.value)))
+                  }
+                >
+                  {hypothesis.versions.map((each) => (
+                    <option key={each.version} value={each.version}>
+                      {versionLabel(each)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </form>
+          )}
+          {steps ? (
             <>
               <HypothesisSteps version={version} theme={hypothesis.theme_id} />
-              <section aria-labelledby="falsifiers-lead">
-                <h2 id="falsifiers-lead">What would falsify it</h2>
-                <ul aria-label="What would falsify it">
-                  {version.content.falsifiers.map((each, index) => (
-                    <li key={index}>{each}</li>
-                  ))}
-                </ul>
-              </section>
-              <OpenIssues theme={hypothesis.theme_id} />
+              <Counterevidence version={version} />
             </>
+          ) : (
+            <Findings hypothesisId={hypothesis.id} version={version} />
           )}
-          <VersionContent version={version} />
-          <Findings hypothesisId={hypothesis.id} version={version} />
-          <VersionDiff
-            key={version.version}
-            hypothesisId={hypothesis.id}
-            versions={hypothesis.versions}
-            chosen={version.version}
-          />
-          <Scenarios hypothesisId={hypothesis.id} version={version.version} />
+          <section aria-labelledby="falsifiers-lead">
+            <h2 id="falsifiers-lead">What would falsify it</h2>
+            {version.content.falsifiers.length === 0 ? (
+              <p className="muted">None named.</p>
+            ) : (
+              <ul aria-label="What would falsify it">
+                {version.content.falsifiers.map((each, index) => (
+                  <li key={index}>{each}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <OpenIssues theme={hypothesis.theme_id} />
         </>
       )}
-      <Publish hypothesis={hypothesis} revision={revision} onChanged={onChanged} />
       <Predictions key={revision} hypothesisId={hypothesis.id} />
-      <Snapshots hypothesisId={hypothesis.id} revision={revision} />
-      <History hypothesis={hypothesis} />
-    </>
+      <HypothesisCalls
+        theme={hypothesis.theme_id}
+        versionIds={hypothesis.versions.map((each) => each.id)}
+        beliefIds={version === undefined ? [] : stepBeliefIds(version)}
+      />
+      <Publish hypothesis={hypothesis} revision={revision} onChanged={onChanged} />
+
+      <details
+        className="reader-records"
+        onToggle={(event) => setRecordsOpen(event.currentTarget.open)}
+      >
+        <summary>
+          <h2 className="records-title">Records</h2>{" "}
+          <span>version content · diff · scenarios · snapshots · history · export</span>
+        </summary>
+        {recordsOpen && (
+          <div className="records-body">
+            <Summary hypothesis={hypothesis} />
+            {version !== undefined && (
+              <>
+                <p>
+                  Export version {version.version}:{" "}
+                  <a href={api.exportUrl(hypothesis.id, "json", version.version)}>JSON</a>
+                  {" · "}
+                  <a href={api.exportUrl(hypothesis.id, "markdown", version.version)}>Markdown</a>{" "}
+                  <span className="muted-small">(with citations and run metadata)</span>
+                </p>
+                <VersionContent version={version} />
+                {steps && <Findings hypothesisId={hypothesis.id} version={version} />}
+                <VersionDiff
+                  key={version.version}
+                  hypothesisId={hypothesis.id}
+                  versions={hypothesis.versions}
+                  chosen={version.version}
+                />
+                <Scenarios hypothesisId={hypothesis.id} version={version.version} />
+              </>
+            )}
+            <Snapshots hypothesisId={hypothesis.id} revision={revision} />
+            <History hypothesis={hypothesis} />
+          </div>
+        )}
+      </details>
+    </div>
   );
 }
 

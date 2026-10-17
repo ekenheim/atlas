@@ -5,7 +5,7 @@
 // and what came after, in few words; raw rows are one click deeper.
 import Link from "next/link";
 
-import { api } from "../lib/api/client";
+import { api, type Call } from "../lib/api/client";
 import {
   DIRECTIONS,
   HORIZONS,
@@ -26,12 +26,25 @@ const loadCalls = async (theme: string) => (await api.calls(theme)).items;
 
 /** The theme's calls: the date, the claim, the companies, and the change since, relative to the
  * theme's peers, at one, three and six months. */
-export function CallsPanel({ theme }: { theme: string }) {
-  const calls = useApi(theme, loadCalls);
+export function CallsPanel({
+  theme,
+  select,
+  title = "Calls",
+}: {
+  theme: string;
+  /** Narrow the theme's calls (a Hypothesis shows only the calls made for it). */
+  select?: (calls: Call[]) => Call[];
+  title?: string;
+}) {
+  const loaded = useApi(theme, loadCalls);
+  const calls =
+    select && loaded.state === "ready"
+      ? { ...loaded, data: select(loaded.data) }
+      : loaded;
   return (
     <section aria-labelledby="calls">
       <h2 className="reader-label" id="calls">
-        Calls
+        {title}
       </h2>
       <Load loaded={calls} what="the calls">
         {(calls) => (

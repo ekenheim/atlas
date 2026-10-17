@@ -7825,6 +7825,76 @@
         }
       }
     },
+    "/api/v1/themes/{theme_id}/changes": {
+      "get": {
+        "tags": [
+          "themes"
+        ],
+        "summary": "Changes Of Theme",
+        "operationId": "changes_of_theme_api_v1_themes__theme_id__changes_get",
+        "parameters": [
+          {
+            "name": "theme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Theme Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "at most this many",
+              "default": 30,
+              "title": "Limit"
+            },
+            "description": "at most this many"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ThemeChange"
+                  },
+                  "title": "Response Changes Of Theme Api V1 Themes  Theme Id  Changes Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/companies/{company_id}/dossier": {
       "get": {
         "tags": [
@@ -13618,6 +13688,15 @@
           "type"
         ],
         "title": "CatalogView"
+      },
+      "ChangeKind": {
+        "type": "string",
+        "enum": [
+          "judged",
+          "flagged",
+          "notice",
+          "fact"
+        ]
       },
       "Check": {
         "properties": {
@@ -33612,6 +33691,72 @@
           "in_memory"
         ],
         "title": "ThemeBeliefs"
+      },
+      "ThemeChange": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ChangeKind"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "one line: the statement and what happened to it"
+          },
+          "belief_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Belief Id",
+            "description": "the Belief it is about (not for a Fact)"
+          },
+          "fact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Id",
+            "description": "the Fact recorded (only for a Fact)"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id",
+            "description": "the Source Version the Fact quotes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "at",
+          "text",
+          "belief_id",
+          "fact_id",
+          "source_version_id"
+        ],
+        "title": "ThemeChange"
       },
       "ThemeCompany": {
         "properties": {
