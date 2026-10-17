@@ -172,7 +172,7 @@ finished="$(date +%s)"
 # replaced first.
 summary_js='
 const fs = require("fs");
-const [agent, resultFile, errorFile, status, wall] = process.argv.slice(1);
+const [agent, resultFile, errorFile, status, wall, mcpUrl, asOf] = process.argv.slice(1);
 const token = process.env.CLAUDE_CODE_OAUTH_TOKEN || "";
 const redact = (text) => (token ? String(text).split(token).join("[redacted]") : String(text));
 const first = (text, n) => Array.from(String(text)).slice(0, n).join("");
@@ -183,11 +183,31 @@ try { data = JSON.parse(raw); } catch (_) { data = null; }
 const object = data && typeof data === "object" && !Array.isArray(data) ? data : null;
 const exit = Number(status);
 const ok = exit === 0 && object !== null && object.is_error === false && object.subtype === "success";
+// The Atlas session the run opened: the one Atlas lists with the as-of time of the run (the
+// agent passes it to open_session unchanged), preferring one whose actor names the agent.
+// session_id is the Claude Code session. Atlas unreachable or no such session: null.
+const atlasSession = async () => {
+  try {
+    const base = String(mcpUrl).replace(/\/mcp\/?$/, "");
+    const answer = await fetch(base + "/api/v1/sessions?limit=20", { signal: AbortSignal.timeout(5000) });
+    if (!answer.ok) return null;
+    const body = await answer.json();
+    const items = Array.isArray(body) ? body : Array.isArray(body && body.items) ? body.items : [];
+    const want = Date.parse(asOf);
+    const same = items.filter((each) => each && Date.parse(each.as_of) === want);
+    const own = same.find((each) => String(each.actor || "").includes(agent)) || same[0];
+    return own ? String(own.id) : null;
+  } catch (_) {
+    return null;
+  }
+};
+(async () => {
 const line = {
   agent,
   ok,
   exit_status: exit,
   session_id: object ? object.session_id ?? null : null,
+  atlas_session_id: await atlasSession(),
   turns: object ? object.num_turns ?? null : null,
   cost_usd: object ? object.total_cost_usd ?? null : null,
   duration_ms: object ? object.duration_ms ?? null : null,
@@ -206,7 +226,8 @@ const tail = errors.split("\n").filter(Boolean).slice(-50).join("\n");
 if (tail) process.stderr.write(tail + "\n");
 process.stdout.write(JSON.stringify(line) + "\n");
 process.exit(ok ? 0 : 1);
+})();
 '
 exit_code=0
-node -e "$summary_js" "$agent" "$result" "$errors" "$status" "$((finished - started))" || exit_code=$?
+node -e "$summary_js" "$agent" "$result" "$errors" "$status" "$((finished - started))" "$mcp_url" "$as_of" || exit_code=$?
 exit "$exit_code"

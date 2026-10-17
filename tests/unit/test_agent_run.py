@@ -261,7 +261,10 @@ def test_a_real_run_without_the_token_fails_before_calling_claude(run: Run):
 
 
 def test_a_run_calls_claude_once_and_prints_one_summary_line(run: Run):
-    result = run.call("scout", ANTHROPIC_API_KEY="sk-a-metered-key")
+    # Nothing listens on the discard port, so no Atlas session is found (never the cluster's).
+    result = run.call(
+        "scout", ANTHROPIC_API_KEY="sk-a-metered-key", ATLAS_MCP_URL="http://127.0.0.1:9/mcp"
+    )
 
     assert result.returncode == 0, result.stderr
     lines = result.stdout.splitlines()
@@ -272,6 +275,7 @@ def test_a_run_calls_claude_once_and_prints_one_summary_line(run: Run):
         "ok": True,
         "exit_status": 0,
         "session_id": "3f1c0d2e",
+        "atlas_session_id": None,  # no Atlas answers on the test's MCP URL
         "turns": 7,
         "cost_usd": 0.5,
         "duration_ms": 1234,
@@ -350,3 +354,39 @@ def test_a_crashed_claude_exits_non_zero_with_the_token_cut_from_its_stderr(run:
     assert summary["result"].startswith("unparseable output")
     assert "boom [redacted]" in result.stderr
     assert TOKEN not in result.stdout + result.stderr
+
+
+def test_the_summary_names_the_atlas_session_the_run_opened(run: Run, tmp_path: Path):
+    # A stand-in Atlas: a static file server whose /api/v1/sessions lists two sessions, one at
+    # the run's as-of time. The server is a subprocess, so the test process opens no socket.
+    site = tmp_path / "site" / "api" / "v1"
+    site.mkdir(parents=True)
+    (site / "sessions").write_text(
+        json.dumps(
+            {
+                "items": [
+                    {"id": "older", "as_of": "2026-10-13T05:00:00Z", "actor": "atlas-scout"},
+                    {"id": "this-run", "as_of": "2026-10-20T05:00:00Z", "actor": "atlas-scout"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    server = subprocess.Popen(
+        [sys.executable, "-u", "-m", "http.server", "0", "--bind", "127.0.0.1"],
+        cwd=tmp_path / "site",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    try:
+        assert server.stdout is not None
+        port = re.search(r"port (\d+)", server.stdout.readline())
+        assert port is not None
+        result = run.call("scout", ATLAS_MCP_URL=f"http://127.0.0.1:{port.group(1)}/mcp")
+    finally:
+        server.terminate()
+        server.wait(timeout=10)
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout.splitlines()[0])["atlas_session_id"] == "this-run"
