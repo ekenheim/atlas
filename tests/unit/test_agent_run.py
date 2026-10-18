@@ -262,6 +262,13 @@ ISOLATED_TOOLS = [
 ]
 BUILT_IN = ["Read", "Write", "Edit", "Glob"]
 
+# Tools the server gained after v0.6.14 whose frozen isolated prompt (agent/run.sh, which
+# ticket 29 forbids editing) names neither on its Tools line nor in its list of tools that are
+# off. They are refused to an isolated session by the server itself (`refuse_isolated`; each
+# tool's own integration test), so the early-call scorecard sees exactly what it saw in v0.6.14.
+# Chokepoint Watch W3: the primary sources beyond filings.
+REFUSED_SERVER_SIDE_SINCE_0_6_14 = {"filing_search", "web_search", "fetch_page"}
+
 SCORECARD_QUESTION = (
     "As of 2025-02-28, does anything constrain supply in SanDisk's market, who holds it, and"
     " what would relieve it? {{not a placeholder}} & more"
@@ -343,8 +350,9 @@ def test_an_isolated_run_tells_the_researcher_its_session_is_open_and_to_use_onl
 
 
 def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
-    # The Tools line and the named list together are the server's tools, none twice: a tool the
-    # server gains is on neither, and this test fails until someone decides where it goes.
+    # The Tools line, the named list and the tools refused server-side (see
+    # REFUSED_SERVER_SIDE_SINCE_0_6_14) together are the server's tools, none twice: a tool the
+    # server gains is on none, and this test fails until someone decides where it goes.
     from atlas.mcp.server import McpServer
 
     prompt = scorecard_run(run, "--dry-run").stdout.split("prompt:\n", 1)[1]
@@ -356,7 +364,10 @@ def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
     assert on_list == ISOLATED_TOOLS
     assert len(named) == len(set(named))
     assert not set(named) & set(on_list)
-    assert set(named) | set(on_list) == server, sorted(server ^ (set(named) | set(on_list)))
+    assert not set(named) & REFUSED_SERVER_SIDE_SINCE_0_6_14
+    assert REFUSED_SERVER_SIDE_SINCE_0_6_14 <= server
+    everything = set(named) | set(on_list) | REFUSED_SERVER_SIDE_SINCE_0_6_14
+    assert everything == server, sorted(server ^ everything)
     # The sixteen the lead named, whatever else the server lists.
     assert {
         "open_session",
@@ -376,6 +387,23 @@ def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
         "upcoming_reports",
         "newest_documents",
     } <= set(named)
+
+
+def test_the_isolated_researchers_dry_run_is_byte_identical_to_v0_6_14s(run: Run):
+    # The early-call scorecard's frozen surface (ticket 29): the prompt and command the isolated
+    # researcher is started with. Recorded from agent/run.sh as of v0.6.14 (git diff v0.6.14 --
+    # agent .claude/skills is empty); the temporary directory and the working directory, which
+    # differ per machine, are replaced by placeholders. A change to run.sh, the researcher's
+    # prompt or the tool lists it builds fails this test, however reasonable the change.
+    result = scorecard_run(run, "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    actual = result.stdout.replace(posix(run.tmp), "<TMP>")
+    actual = re.sub(r"(?m)^working directory: .*$", "working directory: <CWD>", actual)
+    expected = (
+        ROOT / "tests" / "fixtures" / "scorecard" / "isolated-researcher-dry-run-v0.6.14.txt"
+    ).read_bytes()
+    assert actual.encode("utf-8") == expected
 
 
 def test_a_question_without_isolation_still_uses_prior_work_and_both_banks(run: Run):

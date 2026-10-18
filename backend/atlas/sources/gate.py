@@ -25,6 +25,7 @@ A blocked URL raises `FetchBlocked` carrying the decision; the ingest records it
 """
 
 import hashlib
+import re
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -111,6 +112,9 @@ class SiteConfig(_Config):
     # The site's documented API, used as a client: robots.txt is recorded but not obeyed
     # for URLs under its prefixes (see the module docstring).
     api_client: ApiClientAccess | None = None
+    # The slugs of the companies whose own site this is (an investor-relations or press site):
+    # a page of it fetched for one of them is Tier A; for any other company, Tier B.
+    own_site_of: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def _terms(self) -> Self:
@@ -120,6 +124,8 @@ class SiteConfig(_Config):
             raise ValueError("consent only applies to a site whose terms forbid automation")
         if any(host != host.lower() or "/" in host for host in self.hosts):
             raise ValueError("hosts are lowercase host names")
+        if any(not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug) for slug in self.own_site_of):
+            raise ValueError("own_site_of names company slugs")
         if self.api_client is not None:
             if self.automation != "allowed":
                 raise ValueError("api_client only applies to a site whose terms allow automation")

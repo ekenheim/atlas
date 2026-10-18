@@ -1,0 +1,17 @@
+{
+  "note": "Hand-written for the tests of `atlas sources fetch` (W3), not recorded: the same synthetic issuer pages as ../lumentum, replayed for Coherent to show that another company's page on Lumentum's own site is Tier B.",
+  "responses": [
+    {
+      "url": "https://ir.example-issuer.test/robots.txt",
+      "file": "../lumentum/ir/robots.txt",
+      "status": 200,
+      "headers": {"Content-Type": "text/plain"}
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/explicit.html",
+      "file": "../lumentum/ir/news/explicit.html",
+      "status": 200,
+      "headers": {"Content-Type": "text/html; charset=utf-8"}
+    }
+  ]
+}

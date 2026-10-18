@@ -44,6 +44,7 @@ from atlas.api.statements import statements_router
 from atlas.api.themes import themes_router
 from atlas.api.tradingview import price_history_router, tradingview_router
 from atlas.api.triage import triage_router
+from atlas.api.web import web_router
 from atlas.archive import open_archive
 from atlas.audit import Actor
 from atlas.companies import load_universe
@@ -118,6 +119,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(queue_router(queue))
     app.include_router(ingest_plans_router(engine))
     app.include_router(sources_router(engine, archive))
+    app.include_router(web_router(engine, settings))
     app.include_router(archive_search_router(engine, archive))
     app.include_router(financials_router(engine, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))

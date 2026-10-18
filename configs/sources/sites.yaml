@@ -11,11 +11,23 @@
 # - `api_client`: {url_prefixes, documentation_url, note}, for a site that documents an API
 #   for programs: URLs under those prefixes are requests of an API client, not a crawler, so
 #   robots.txt is read and recorded but doesn't block them (only for `automation: allowed`)
+# - `own_site_of`: the slugs of the companies whose own site this is (their investor-relations
+#   or press pages). A page of it fetched for one of them with `atlas sources fetch` is Tier A
+#   (`public_issuer`); for any other company it is Tier B. Empty: a third party's site.
 # robots.txt is never recorded here: the gate reads it before the first request of each
 # ingest to a site, and obeys it (RFC 9309), apart from an `api_client`'s prefixes.
 #
+# To onboard a site for `atlas sources fetch` (a company's own pages, decks and slides):
+# 1. read its terms of use and robots.txt; 2. add an entry below with its `hosts` (every host
+# the pages and their files are served from), `terms_url`, the date you read them,
+# `automation` (`allowed` only if the terms permit automated access to the pages Atlas wants;
+# `forbidden` if they don't, with a `block_reason`; else `unchecked`) and the clause in
+# `terms_note`; 3. for a company's own site add `own_site_of: [<slug>]`; 4. bump `version`.
+# Until then the site is blocked: `sources fetch` records a `blocked` gate decision and
+# requests nothing. docs/source-licenses.md §5 is the human-readable record; keep it in step.
+#
 # Bump `version` on any change.
-version: 3
+version: 4
 
 sites:
   hkexnews:
@@ -169,4 +181,30 @@ sites:
     block_reason: >-
       blocked: soitec.com's terms forbid reuse of the site's elements (Soitec's prior
       written permission required)
+    rate_per_s: 1
+
+  # --- SYNTHETIC EXAMPLES for the tests of `atlas sources fetch` (W3). The hosts are under the
+  # reserved `.test` TLD and resolve nowhere; the pages are the hand-written fixtures in
+  # tests/fixtures/web/. Real sites are added by the lead after reading their terms.
+  example-issuer:
+    publisher: Example Issuer plc (investor relations; synthetic)
+    hosts: [ir.example-issuer.test]
+    terms_url: https://ir.example-issuer.test/terms
+    terms_checked_on: 2026-10-18
+    automation: allowed
+    terms_note: >-
+      Synthetic: stands for an issuer site whose terms permit polite automated access to its
+      public investor-relations pages. No such terms exist.
+    rate_per_s: 1
+    own_site_of: [lumentum]
+
+  example-trade-press:
+    publisher: Example Trade Press (synthetic)
+    hosts: [news.example-trade.test]
+    terms_url: https://news.example-trade.test/terms
+    terms_checked_on: 2026-10-18
+    automation: allowed
+    terms_note: >-
+      Synthetic: stands for a third party's site (no company's own) whose terms permit polite
+      automated access. No such terms exist.
     rate_per_s: 1

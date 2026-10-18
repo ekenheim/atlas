@@ -507,7 +507,8 @@ _LEADS = """
         lead.snippet, lead.published_date, lead.engines, lead.first_seen_at,
         LEAST(lead.last_seen_at, CAST(:known_by AS timestamptz)) AS last_seen_at,
         first.query,
-        COALESCE(discovery.theme, h.themes[1], ce.themes[1], sig.themes[1]) AS theme,
+        COALESCE(discovery.theme, first.theme, h.themes[1], ce.themes[1], sig.themes[1])
+            AS theme,
         (SELECT count(*) FROM lead_sighting s WHERE s.lead_id = lead.id) AS sightings,
         h.headline_id, h.company_id AS headline_company_id, h.symbol AS headline_symbol,
         h.publisher, h.publisher_url, h.published_at AS headline_published_at,
@@ -548,17 +549,18 @@ _LEADS = """
 """
 # The count needs the same joins, none of the columns.
 _LEAD_JOINS = _LEADS[_LEADS.index("    FROM lead") :]
-# A lead belongs to a theme when a discovery for that theme has returned it, or when it is a
-# headline, a calendar date or an archive signal of a company in that theme. `known_by` bounds
-# an archive signal by when its document became public (the lead is a pure function of the
-# archived document), every other origin by when Atlas first saw the lead.
+# A lead belongs to a theme when a discovery for that theme has returned it (or an ad hoc
+# search of a research session, `discovery_query.theme`: `web_search`, `filing_search`), or when
+# it is a headline, a calendar date or an archive signal of a company in that theme. `known_by`
+# bounds an archive signal by when its document became public (the lead is a pure function of
+# the archived document), every other origin by when Atlas first saw the lead.
 _IN_THEME = """
     -- sa is source_version_availability (the corrected view, joined in _LEADS)
     WHERE (CAST(:theme AS text) IS NULL OR EXISTS (
         SELECT 1 FROM lead_sighting s
         JOIN discovery_query q ON q.id = s.discovery_query_id
-        JOIN discovery d ON d.id = q.discovery_id
-        WHERE s.lead_id = lead.id AND d.theme = :theme)
+        LEFT JOIN discovery d ON d.id = q.discovery_id
+        WHERE s.lead_id = lead.id AND COALESCE(d.theme, q.theme) = :theme)
     OR EXISTS (
         SELECT 1 FROM tradingview_headline t WHERE t.lead_id = lead.id AND :theme = ANY(t.themes))
     OR :theme = ANY(COALESCE(ce.themes, ARRAY[]::text[]))

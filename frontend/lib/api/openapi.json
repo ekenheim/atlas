@@ -866,6 +866,406 @@
         }
       }
     },
+    "/api/v1/web-search": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Search Web",
+        "operationId": "search_web_api_v1_web_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "the search query",
+              "title": "Q"
+            },
+            "description": "the search query"
+          },
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the theme the leads belong to",
+              "title": "Theme"
+            },
+            "description": "the theme the leads belong to"
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "published_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "leave out results that date themselves after this day",
+              "title": "Published By"
+            },
+            "description": "leave out results that date themselves after this day"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/filing-search": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Search Filings",
+        "operationId": "search_filings_api_v1_filing_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "an exact phrase; or several, each in double quotes (all must match)",
+              "title": "Q"
+            },
+            "description": "an exact phrase; or several, each in double quotes (all must match)"
+          },
+          {
+            "name": "forms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated form types (default: the 10-K family)",
+              "title": "Forms"
+            },
+            "description": "comma-separated form types (default: the 10-K family)"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "first filing date (default: a year back)",
+              "title": "Start"
+            },
+            "description": "first filing date (default: a year back)"
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "last filing date (default: today)",
+              "title": "End"
+            },
+            "description": "last filing date (default: today)"
+          },
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the theme the leads belong to",
+              "title": "Theme"
+            },
+            "description": "the theme the leads belong to"
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingSearchResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/sources/fetch": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Fetch Source",
+        "operationId": "fetch_source_api_v1_sources_fetch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FetchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FetchedPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/archive-search": {
       "get": {
         "tags": [
@@ -19103,6 +19503,169 @@
         "title": "FetchObservation",
         "description": "One fetch of the document that produced or matched this version."
       },
+      "FetchRequest": {
+        "properties": {
+          "company": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Company",
+            "description": "the company's slug"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At",
+            "description": "when the page became public, if you know (with its UTC offset); else its own date, else the fetch time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "company",
+          "url"
+        ],
+        "title": "FetchRequest"
+      },
+      "FetchedPage": {
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "final_url": {
+            "type": "string",
+            "title": "Final Url"
+          },
+          "canonical_url": {
+            "type": "string",
+            "title": "Canonical Url"
+          },
+          "source_document_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Document Id"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "observation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Observation Id"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "available_at_basis": {
+            "type": "string",
+            "title": "Available At Basis"
+          },
+          "date_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Source"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier"
+          },
+          "site": {
+            "type": "string",
+            "title": "Site"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "gate_decision_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Decision Id"
+          },
+          "retain_jobs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retain Jobs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome",
+          "company",
+          "company_id",
+          "url",
+          "final_url",
+          "canonical_url",
+          "source_document_id",
+          "source_version_id",
+          "observation_id",
+          "available_at",
+          "available_at_basis",
+          "date_source",
+          "tier",
+          "site",
+          "media_type",
+          "title",
+          "gate_decision_id",
+          "retain_jobs"
+        ],
+        "title": "FetchedPage"
+      },
       "Filing": {
         "properties": {
           "cik": {
@@ -19210,6 +19773,184 @@
         ],
         "title": "Filing",
         "description": "An `edgar_fts` lead's filing (EDGAR full-text search's metadata)."
+      },
+      "FilingResult": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "lead_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lead Id"
+          },
+          "cik": {
+            "type": "string",
+            "title": "Cik"
+          },
+          "filer": {
+            "type": "string",
+            "title": "Filer"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "file_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Type"
+          },
+          "file_date": {
+            "type": "string",
+            "format": "date",
+            "title": "File Date"
+          },
+          "period_ending": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Ending"
+          },
+          "accession": {
+            "type": "string",
+            "title": "Accession"
+          },
+          "document": {
+            "type": "string",
+            "title": "Document"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "new": {
+            "type": "boolean",
+            "title": "New"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id"
+          },
+          "ingestable": {
+            "type": "boolean",
+            "title": "Ingestable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position",
+          "lead_id",
+          "cik",
+          "filer",
+          "ticker",
+          "form",
+          "file_type",
+          "file_date",
+          "period_ending",
+          "accession",
+          "document",
+          "url",
+          "new",
+          "company",
+          "source_version_id",
+          "ingestable"
+        ],
+        "title": "FilingResult"
+      },
+      "FilingSearchResult": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "forms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Forms"
+          },
+          "start": {
+            "type": "string",
+            "format": "date",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date",
+            "title": "End"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "new_leads": {
+            "type": "integer",
+            "title": "New Leads"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/FilingResult"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "forms",
+          "start",
+          "end",
+          "total",
+          "new_leads",
+          "results"
+        ],
+        "title": "FilingSearchResult"
       },
       "FinalStatus": {
         "type": "string",
@@ -36145,6 +36886,128 @@
           "available_at"
         ],
         "title": "VersionSample"
+      },
+      "WebHit": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "lead_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lead Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "canonical_url": {
+            "type": "string",
+            "title": "Canonical Url"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "snippet": {
+            "type": "string",
+            "title": "Snippet"
+          },
+          "published_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Date"
+          },
+          "engines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Engines"
+          },
+          "new": {
+            "type": "boolean",
+            "title": "New"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position",
+          "lead_id",
+          "url",
+          "canonical_url",
+          "title",
+          "snippet",
+          "published_date",
+          "engines",
+          "new"
+        ],
+        "title": "WebHit"
+      },
+      "WebSearchResult": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "engines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Engines"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "new_leads": {
+            "type": "integer",
+            "title": "New Leads"
+          },
+          "dropped_after_bound": {
+            "type": "integer",
+            "title": "Dropped After Bound"
+          },
+          "unresponsive_engines": {
+            "items": {
+              "$ref": "#/components/schemas/UnresponsiveEngine"
+            },
+            "type": "array",
+            "title": "Unresponsive Engines"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/WebHit"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "engines",
+          "language",
+          "total",
+          "new_leads",
+          "dropped_after_bound",
+          "unresponsive_engines",
+          "results"
+        ],
+        "title": "WebSearchResult"
       },
       "Weight": {
         "type": "string",

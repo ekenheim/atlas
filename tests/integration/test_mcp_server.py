@@ -87,6 +87,9 @@ TOOLS = {
     "signal_leads",
     "prior_work",
     "examine_belief",
+    "filing_search",
+    "web_search",
+    "fetch_page",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 

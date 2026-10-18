@@ -163,7 +163,7 @@ def run_exchange_ingest(
                 job_id=job.id,
             )
 
-        client = _client(settings, register, source, slug)
+        client = site_client(settings, register, source.site, slug)
         outcome = asyncio.run(
             _ingest(
                 client,
@@ -203,13 +203,28 @@ def run_exchange_ingest(
     return artifacts
 
 
-def _client(
-    settings: Settings, register: SiteRegister, source: ExchangeSource, slug: str
+def site_client(
+    settings: Settings,
+    register: SiteRegister,
+    site: str,
+    slug: str,
+    *,
+    follow_redirects: bool = True,
+    max_attempts: int = 5,
 ) -> SecHttpClient:
+    """The HTTP client for a register site: live (`ATLAS_EXCHANGE_LIVE`, the generic
+    User-Agent, the site's rate) or replaying `ATLAS_EXCHANGE_FIXTURES_DIR/<company slug>`.
+    The exchange ingests and `atlas sources fetch` (`atlas.ledger.web_fetch`) share it."""
     if settings.exchange_live:
-        rate = register.sites[source.site].rate_per_s if source.site in register.sites else 1.0
-        limiter = _SITE_LIMITERS.setdefault(source.site, TokenBucket(rate_per_s=rate))
-        return SecHttpClient(settings.exchange_user_agent, limiter=limiter, require_contact=False)
+        rate = register.sites[site].rate_per_s if site in register.sites else 1.0
+        limiter = _SITE_LIMITERS.setdefault(site, TokenBucket(rate_per_s=rate))
+        return SecHttpClient(
+            settings.exchange_user_agent,
+            limiter=limiter,
+            require_contact=False,
+            follow_redirects=follow_redirects,
+            max_attempts=max_attempts,
+        )
     root = settings.exchange_fixtures_dir / slug if settings.exchange_fixtures_dir else None
     if root is None or not (root / "manifest.json").is_file():
         raise FileNotFoundError(
@@ -221,6 +236,8 @@ def _client(
         FIXTURE_USER_AGENT,
         transport=FixtureReplay(root).transport(),
         limiter=TokenBucket(rate_per_s=math.inf),
+        follow_redirects=follow_redirects,
+        max_attempts=max_attempts,
     )
 
 
