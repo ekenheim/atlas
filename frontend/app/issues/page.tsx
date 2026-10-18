@@ -2,20 +2,24 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 
-import { Load, Missing } from "../../components/ui";
+import { Status } from "../../components/status";
+import { Load } from "../../components/ui";
 import { api, type Company, type Issue } from "../../lib/api/client";
+import { activity } from "../../lib/format";
 import {
   applyFilters,
   filterSearch,
   KINDS,
   nextAction,
-  onFrontier,
   orderIssues,
   parseFilters,
   producedText,
+  ROWS_SHOWN,
   STATUSES,
+  statusWord,
+  subQuestionsText,
   TIER_WORDS,
   tier,
   type IssueFilters,
@@ -39,6 +43,7 @@ function Issues() {
   const filters = parseFilters(useSearchParams());
   const issues = useApi("issues", loadIssues);
   const companies = useApi("companies", loadCompanies);
+  const [all, setAll] = useState(false);
   const names = new Map<string, string>(
     companies.state === "ready"
       ? companies.data.items.map((company: Company) => [company.id, company.display_name])
@@ -49,12 +54,12 @@ function Issues() {
   return (
     <>
       <h1>Issues</h1>
-      <p>What is still to find out, the next thing to read first.</p>
       <Load loaded={issues} what="issues">
         {(page) => {
           const themes = [...new Set(page.items.map((issue) => issue.theme))].sort();
           const shown = orderIssues(applyFilters(page.items, filters));
           const next = nextAction(shown);
+          const rows = all ? shown : shown.slice(0, ROWS_SHOWN);
           return (
             <>
               <form aria-label="Filters" className="filters">
@@ -91,31 +96,22 @@ function Issues() {
               </form>
               {next ? (
                 <section aria-label="Next action">
-                  <h2>Next</h2>
-                  <p>
+                  <h2 className="reader-label">Next</h2>
+                  <p className="measure">
                     <strong>{next.title}</strong> ({TIER_WORDS[tier(next)]})
                   </p>
-                  {next.parent_title ? <p>Under: {next.parent_title}</p> : null}
+                  {next.parent_title ? <p className="muted-small measure">Under: {next.parent_title}</p> : null}
                 </section>
               ) : null}
               {shown.length === 0 ? (
                 <p>No issues match.</p>
               ) : (
-                <table>
-                  <caption>Research frontier, next action first</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Issue</th>
-                      <th scope="col">Question</th>
-                      <th scope="col">Kind</th>
-                      <th scope="col">Companies</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Produced</th>
-                      <th scope="col">Session</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((issue) => (
+                <>
+                  <ul
+                    className="reader-rows issue-rows"
+                    aria-label="Research frontier, next action first"
+                  >
+                    {rows.map((issue) => (
                       <IssueRow
                         key={issue.id}
                         issue={issue}
@@ -123,8 +119,13 @@ function Issues() {
                         isNext={next?.id === issue.id}
                       />
                     ))}
-                  </tbody>
-                </table>
+                  </ul>
+                  {!all && shown.length > ROWS_SHOWN ? (
+                    <button type="button" className="show-all" onClick={() => setAll(true)}>
+                      Show all {shown.length}
+                    </button>
+                  ) : null}
+                </>
               )}
             </>
           );
@@ -132,12 +133,6 @@ function Issues() {
       </Load>
     </>
   );
-}
-
-function status(issue: Issue): string {
-  if (issue.status !== "active") return STATUSES[issue.status].toLowerCase();
-  if (issue.blocked) return "waiting";
-  return onFrontier(issue) ? "open" : "narrowed";
 }
 
 function IssueRow({
@@ -151,21 +146,33 @@ function IssueRow({
 }) {
   const companies = issue.company_ids.map((id) => names.get(id) ?? "").filter(Boolean);
   const produced = producedText(issue);
+  const meta = [
+    KINDS[issue.kind],
+    companies.join(", "),
+    subQuestionsText(issue),
+    produced,
+    activity(issue.created_at),
+  ].filter((part) => part !== "");
   return (
-    <tr aria-current={isNext ? "true" : undefined}>
-      <th scope="row">{issue.title}</th>
-      <td>{issue.parent_title ?? <Missing />}</td>
-      <td>{KINDS[issue.kind]}</td>
-      <td>{companies.length > 0 ? companies.join(", ") : <Missing />}</td>
-      <td>{status(issue)}</td>
-      <td>{produced || <Missing />}</td>
-      <td>
-        {issue.produced_by ? (
-          <Link href={routes.session(issue.produced_by)}>Session</Link>
-        ) : (
-          <Missing />
-        )}
-      </td>
-    </tr>
+    <li className="reader-row issue-row" aria-current={isNext ? "true" : undefined}>
+      <div>
+        <div className="row-title">
+          <Link href={routes.issue(issue.id)}>{issue.title}</Link>
+        </div>
+        <div className="reader-row-sub row-secondary">
+          <Status word={statusWord(issue)} />
+          {meta.join(" · ")}
+          {issue.produced_by ? (
+            <>
+              {" · "}
+              <Link href={routes.session(issue.produced_by)}>Session</Link>
+            </>
+          ) : null}
+        </div>
+        {issue.parent_title ? (
+          <div className="reader-row-sub issue-parent">under {issue.parent_title}</div>
+        ) : null}
+      </div>
+    </li>
   );
 }
