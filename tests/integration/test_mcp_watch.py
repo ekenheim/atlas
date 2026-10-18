@@ -9,6 +9,7 @@ frozen surface (ticket 29): every tool refuses an isolated session before doing 
 
 import json
 from collections.abc import Iterator
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,7 @@ from atlas.api.app import create_app
 from atlas.audit import Actor
 from atlas.jobs import JobQueue, Worker, builtin_registry
 from atlas.ledger.ingest import INGEST_KIND, ingest_payload
-from tests.harness import EDGAR_FIXTURES, THEMES, make_settings
+from tests.harness import EDGAR_FIXTURES, THEMES, Clock, at, make_settings
 
 URL_EX991 = (
     "https://www.sec.gov/Archives/edgar/data/1633978/000162828026055726/lite_ex991xq4fy26.htm"
@@ -29,8 +30,8 @@ ACTOR = "mcp-watch-test-owner"
 REVENUE_QUOTE = "Net revenue for the fourth quarter of fiscal year 2026 was $1.01 billion"
 REVENUE_SPAN = (1604, 1676)
 QUESTION = "Where will demand outrun qualified supply next?"
-BEFORE_RELEASE = "2026-08-01T00:00:00Z"
-AFTER_RELEASE = "2026-09-30T00:00:00Z"
+START = "2026-10-18T09:00:00+00:00"
+BEFORE_RELEASE = "2026-08-01T12:00:00+00:00"  # the press release became public on 11 August
 WATCH_TOOLS = ("board", "get_chokepoint", "add_chokepoint", "update_chokepoint", "write_memo")
 NO_SUCH_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -50,7 +51,8 @@ class Mcp:
         queue = JobQueue(self.engine, actor=Actor(ACTOR))
         queue.enqueue(INGEST_KIND, "lumentum", ingest_payload("lumentum", ["8-K"], None))
         assert Worker(queue, builtin_registry(settings)).run_once() == 1
-        self.api = TestClient(create_app(settings))
+        self.clock = Clock(at(START))  # the board is prospective: sessions are of this clock
+        self.api = TestClient(create_app(settings, clock=self.clock))
         self.requests = 0
 
     def rpc(self, method: str, params: dict[str, Any] | None = None) -> Any:
@@ -79,11 +81,11 @@ class Mcp:
         assert value.get("refused") == code, value
         return value
 
-    def open(self, as_of: str = AFTER_RELEASE, **extra: Any) -> str:
+    def open(self, as_of: str | None = None, **extra: Any) -> str:
         return self.ok(
             "open_session",
             question=QUESTION,
-            as_of=as_of,
+            as_of=as_of or self.clock.now.isoformat(),
             theme="photonics",
             model="claude-fable-5-1",
             actor="watch-agent",
@@ -214,7 +216,8 @@ def test_a_session_adds_a_chokepoint_updates_it_and_reads_the_board(mcp: Mcp) ->
 
 
 def test_a_route_rule_comes_back_as_a_refusal_with_its_code_and_detail(mcp: Mcp) -> None:
-    early = mcp.open(BEFORE_RELEASE)
+    mcp.clock.now = at(BEFORE_RELEASE)
+    early = mcp.open()
     chokepoint = mcp.ok("add_chokepoint", session_id=early, constraint="c", layer="l")["id"]
     fact = mcp.fact()
 
@@ -344,3 +347,97 @@ def test_a_closed_or_unknown_session_is_refused_the_watch_tools(mcp: Mcp) -> Non
 
     mcp.refused("board", "session_closed", session_id=session)
     mcp.refused("board", "unknown_session", session_id=NO_SUCH_ID)
+
+
+# --- review round ---
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments"),
+    [
+        ("board", {}),
+        ("get_chokepoint", {"id": NO_SUCH_ID}),
+        ("add_chokepoint", {"constraint": "c", "layer": "l"}),
+        ("update_chokepoint", {"id": NO_SUCH_ID, "kind": "note", "payload": {"text": "x"}}),
+        ("write_memo", {"mode": "delta", "memo": "m"}),
+    ],
+)
+def test_a_replay_session_is_refused_every_watch_tool_the_board_is_prospective(
+    mcp: Mcp, tool: str, arguments: dict[str, Any]
+) -> None:
+    replay = mcp.open((mcp.clock.now - timedelta(hours=37)).isoformat())
+    fresh = mcp.open((mcp.clock.now - timedelta(hours=35)).isoformat())
+
+    refusal = mcp.refused(tool, "not_prospective", session_id=replay, **arguments)
+
+    assert refusal["as_of"]
+    assert mcp.get("/api/v1/chokepoints")["total"] == 0
+    assert mcp.get("/api/v1/watch-runs")["total"] == 0
+    if tool == "board":
+        assert mcp.ok(tool, session_id=fresh, **arguments)["total"] == 0
+
+
+def test_the_memo_keeps_the_runs_cost_and_tokens(mcp: Mcp) -> None:
+    session = mcp.open()
+
+    written = mcp.ok(
+        "write_memo", session_id=session, mode="delta", memo="m", cost_usd=2.5, tokens=900_000
+    )
+
+    run = mcp.get(f"/api/v1/watch-runs/{written['watch_run_id']}")
+    assert (run["cost_usd"], run["tokens"]) == (2.5, 900_000)
+    mcp.refused(
+        "write_memo", "invalid_arguments", session_id=session, mode="delta", memo="m", tokens=-1
+    )
+
+
+def test_the_tools_name_the_steps_and_say_a_list_replaces_the_whole_list(mcp: Mcp) -> None:
+    listed = {each["name"]: each for each in mcp.rpc("tools/list").json()["result"]["tools"]}
+    update = listed["update_chokepoint"]["description"]
+
+    for name in ("constraint", "demand_vs_supply", "relief", "control", "capture", "invalidation"):
+        assert name in update and name in listed["board"]["description"]
+    assert "replaces the whole list" in update
+    assert "replaces the step's whole evidence" in update
+    assert "add_issue_ids" in update and "add_evidence" in update
+
+
+def test_a_session_moves_a_chokepoint_to_thesis_ready_through_the_tools(mcp: Mcp) -> None:
+    session = mcp.open()
+    fact = mcp.fact()
+    chokepoint = mcp.ok("add_chokepoint", session_id=session, constraint="c", layer="l")["id"]
+    issue = mcp.ok("open_issue", session_id=session, title="Is c the constraint?")["id"]
+
+    def update(kind: str, payload: dict[str, Any], **extra: Any) -> dict[str, Any]:
+        return mcp.ok(
+            "update_chokepoint",
+            session_id=session,
+            id=chokepoint,
+            kind=kind,
+            payload=payload,
+            **extra,
+        )
+
+    for step in ("constraint", "demand_vs_supply", "control"):
+        update(
+            "step_set", {"step": step, "status": "primary", "add_evidence": {"fact_ids": [fact]}}
+        )
+    update("field_set", {"kill_criteria": ["a second vendor ships"], "add_issue_ids": [issue]})
+    ready = update("status_set", {"status": "thesis_ready"}, reason="a, b and d are primary")
+
+    assert ready["status"] == "thesis_ready" and ready["status_reason"] == "a, b and d are primary"
+    assert ready["needs_review"] is False and ready["thesis_gate"] == {"holds": True, "missing": []}
+    full = mcp.ok("get_chokepoint", session_id=session, id=chokepoint)
+    assert {event["actor"] for event in full["history"]} == {"watch-agent"}  # the session's actor
+    mcp.refused(
+        "update_chokepoint",
+        "thesis_ready_step_locked",
+        session_id=session,
+        id=chokepoint,
+        kind="step_set",
+        payload={"step": "a", "status": "contradicted", "evidence": {"fact_ids": [fact]}},
+    )
+    line = mcp.ok("board", session_id=session)["chokepoints"][0]
+    assert (line["status"], line["status_reason"]) == ("thesis_ready", "a, b and d are primary")
+    assert line["needs_review"] is False and line["steps"]["a"] == "primary"
+    assert mcp.ok("board", session_id=session, status="needs_review")["total"] == 0

@@ -5413,6 +5413,23 @@
             }
           },
           {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -5520,6 +5537,23 @@
               "format": "uuid",
               "title": "Chokepoint Id"
             }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
           }
         ],
         "responses": {
@@ -5544,14 +5578,14 @@
             "description": "Not Found"
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -5641,6 +5675,23 @@
                 }
               ],
               "title": "Theme"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
             }
           },
           {
@@ -11721,7 +11772,8 @@
           "candidate",
           "thesis_ready",
           "killed",
-          "stale"
+          "stale",
+          "needs_review"
         ]
       },
       "Bottlenecks": {
@@ -14605,7 +14657,8 @@
                 "type": "null"
               }
             ],
-            "title": "Created By Run"
+            "title": "Created By Run",
+            "description": "a row of the `run` table"
           },
           "constraint": {
             "type": "string",
@@ -14638,10 +14691,19 @@
             "title": "Status Reason",
             "description": "the reason given with that status"
           },
+          "thesis_gate": {
+            "$ref": "#/components/schemas/ThesisGate",
+            "description": "whether `thesis_ready` would be allowed now"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review",
+            "description": "`thesis_ready` whose gate no longer holds (a step changed under it)"
+          },
           "stale": {
             "type": "boolean",
             "title": "Stale",
-            "description": "derived: no event for 56 days (never for a killed one)"
+            "description": "derived: no field_set or step_set event for 56 days, a note and a status change not counting (never for a killed one)"
           },
           "steps": {
             "items": {
@@ -14693,6 +14755,12 @@
             "format": "date-time",
             "title": "Last Event At"
           },
+          "last_evidence_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Evidence At",
+            "description": "the last created, field_set or step_set event: what staleness reads"
+          },
           "event_count": {
             "type": "integer",
             "title": "Event Count"
@@ -14710,6 +14778,8 @@
           "holders",
           "status",
           "status_reason",
+          "thesis_gate",
+          "needs_review",
           "stale",
           "steps",
           "kill_criteria",
@@ -14717,6 +14787,7 @@
           "crowding",
           "issue_ids",
           "last_event_at",
+          "last_evidence_at",
           "event_count"
         ],
         "title": "Chokepoint",
@@ -14725,7 +14796,7 @@
       "ChokepointCreate": {
         "properties": {
           "theme": {
-            "$ref": "#/components/schemas/Text"
+            "$ref": "#/components/schemas/Theme"
           },
           "constraint": {
             "$ref": "#/components/schemas/Text",
@@ -14753,7 +14824,7 @@
               }
             ],
             "title": "Session Id",
-            "description": "the research session"
+            "description": "the research session (its theme must be the chokepoint's)"
           },
           "run_id": {
             "anyOf": [
@@ -14766,7 +14837,7 @@
               }
             ],
             "title": "Run Id",
-            "description": "the run that created it"
+            "description": "a row of the `run` table (the pipeline's run record), not a watch run"
           },
           "actor": {
             "anyOf": [
@@ -14777,7 +14848,7 @@
                 "type": "null"
               }
             ],
-            "description": "who; default: the API's actor"
+            "description": "who; default: the session's actor, else the API's"
           }
         },
         "additionalProperties": false,
@@ -14827,7 +14898,8 @@
                 "type": "null"
               }
             ],
-            "title": "Created By Run"
+            "title": "Created By Run",
+            "description": "a row of the `run` table"
           },
           "constraint": {
             "type": "string",
@@ -14860,10 +14932,19 @@
             "title": "Status Reason",
             "description": "the reason given with that status"
           },
+          "thesis_gate": {
+            "$ref": "#/components/schemas/ThesisGate",
+            "description": "whether `thesis_ready` would be allowed now"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review",
+            "description": "`thesis_ready` whose gate no longer holds (a step changed under it)"
+          },
           "stale": {
             "type": "boolean",
             "title": "Stale",
-            "description": "derived: no event for 56 days (never for a killed one)"
+            "description": "derived: no field_set or step_set event for 56 days, a note and a status change not counting (never for a killed one)"
           },
           "steps": {
             "items": {
@@ -14915,6 +14996,12 @@
             "format": "date-time",
             "title": "Last Event At"
           },
+          "last_evidence_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Evidence At",
+            "description": "the last created, field_set or step_set event: what staleness reads"
+          },
           "event_count": {
             "type": "integer",
             "title": "Event Count"
@@ -14940,6 +15027,8 @@
           "holders",
           "status",
           "status_reason",
+          "thesis_gate",
+          "needs_review",
           "stale",
           "steps",
           "kill_criteria",
@@ -14947,6 +15036,7 @@
           "crowding",
           "issue_ids",
           "last_event_at",
+          "last_evidence_at",
           "event_count",
           "history"
         ],
@@ -18448,7 +18538,7 @@
             },
             "type": "object",
             "title": "Payload",
-            "description": "by kind: `field_set` any of constraint, layer, holders, relief_horizon ({horizon, basis} or null), crowding (early|emerging|consensus|null), kill_criteria, issue_ids; `step_set` {step a-f, status, evidence {fact_ids, lead_ids, issue_ids}}; `status_set` {status}; `note` {text}"
+            "description": "by kind: `field_set` any of constraint, layer, holders, relief_horizon ({horizon, basis} or null), crowding (early|emerging|consensus|null), kill_criteria, issue_ids (a list given replaces the whole list; add_issue_ids appends); `step_set` {step (a constraint, b demand_vs_supply, c relief, d control, e capture, f invalidation; the letter or the name), status, evidence {fact_ids, lead_ids, issue_ids} (replaces the step's evidence) or add_evidence (appends)}; `status_set` {status}; `note` {text}"
           },
           "reason": {
             "anyOf": [
@@ -18473,7 +18563,7 @@
               }
             ],
             "title": "Session Id",
-            "description": "the research session: its as-of time bounds the Facts cited"
+            "description": "the research session: its as-of time bounds the Facts, leads and Issues cited, its theme must be the chokepoint's, and it must be open and of now"
           },
           "run_id": {
             "anyOf": [
@@ -18485,7 +18575,8 @@
                 "type": "null"
               }
             ],
-            "title": "Run Id"
+            "title": "Run Id",
+            "description": "a row of the `run` table"
           },
           "actor": {
             "anyOf": [
@@ -35168,7 +35259,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "StepEvidence",
-        "description": "What justifies a step's status: `primary` and `contradicted` need Facts, `lead` a lead\nor an Issue."
+        "description": "What justifies a step's status: `primary` and `contradicted` need Facts, `lead` a lead\nor an Issue. Given as `evidence`, it replaces the step's whole evidence."
       },
       "StepKey": {
         "type": "string",
@@ -35185,6 +35276,11 @@
         "properties": {
           "step": {
             "$ref": "#/components/schemas/StepKey"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "constraint, demand_vs_supply, relief, control, capture or invalidation"
           },
           "status": {
             "$ref": "#/components/schemas/StepStatus"
@@ -35209,6 +35305,7 @@
         "type": "object",
         "required": [
           "step",
+          "name",
           "status",
           "evidence",
           "set_at"
@@ -35406,6 +35503,10 @@
         "type": "string",
         "minLength": 1,
         "pattern": "\\S"
+      },
+      "Theme": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{1,40}$"
       },
       "ThemeBelief": {
         "properties": {
@@ -35985,6 +36086,28 @@
           "open_candidate_count"
         ],
         "title": "ThemeSummary"
+      },
+      "ThesisGate": {
+        "properties": {
+          "holds": {
+            "type": "boolean",
+            "title": "Holds"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "holds",
+          "missing"
+        ],
+        "title": "ThesisGate",
+        "description": "What `thesis_ready` needs: steps a, b and d `primary`, a kill criterion, an open linked\nIssue. `missing` names what does not hold (`step_a_primary`, `kill_criteria`,\n`open_issue`, ...)."
       },
       "ThesisJudgeRequest": {
         "properties": {
@@ -37383,6 +37506,28 @@
             "type": "integer",
             "title": "Tool Calls"
           },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens"
+          },
           "session_id": {
             "anyOf": [
               {
@@ -37410,6 +37555,8 @@
           "memo",
           "counts",
           "tool_calls",
+          "cost_usd",
+          "tokens",
           "session_id",
           "created_at"
         ],
@@ -37418,7 +37565,7 @@
       "WatchRunCreate": {
         "properties": {
           "theme": {
-            "$ref": "#/components/schemas/Text"
+            "$ref": "#/components/schemas/Theme"
           },
           "run_date": {
             "type": "string",
@@ -37452,6 +37599,32 @@
             ],
             "title": "Tool Calls",
             "description": "default: the session's recorded calls, else 0"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd",
+            "description": "the run's cost, if known"
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens",
+            "description": "the run's tokens, if known"
           },
           "session_id": {
             "anyOf": [

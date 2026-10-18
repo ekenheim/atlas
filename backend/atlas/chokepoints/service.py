@@ -4,8 +4,9 @@ MCP tools share it."""
 import json
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, JsonValue, ValidationError
 from sqlalchemy import Connection, Engine, text
@@ -13,6 +14,7 @@ from sqlalchemy import Connection, Engine, text
 from atlas.audit import Actor, content_hash, record
 from atlas.chokepoints.model import (
     PAYLOADS,
+    PROSPECTIVE_WINDOW,
     THESIS_STEPS,
     Chokepoint,
     ChokepointCreate,
@@ -51,6 +53,15 @@ def _event(row: Any) -> ChokepointEvent:
     )
 
 
+def _linked_issues(events: Sequence[ChokepointEvent]) -> list[uuid.UUID]:
+    found: dict[uuid.UUID, None] = {}
+    for event in events:
+        if event.kind == "field_set":
+            for each in cast(list[str], event.payload.get("issue_ids") or []):
+                found[uuid.UUID(each)] = None
+    return list(found)
+
+
 def _load(
     connection: Connection, where: str, params: dict[str, Any], now: datetime
 ) -> list[ChokepointDetail]:
@@ -74,7 +85,18 @@ def _load(
         {"ids": list(by_id)},
     ):
         by_id[row.chokepoint_id].append(_event(row))
-    return [fold(dict(head), by_id[head["id"]], now) for head in heads]
+    linked = list({each for events in by_id.values() for each in _linked_issues(events)})
+    active = (
+        frozenset(
+            connection.execute(
+                text("SELECT id FROM issue WHERE id = ANY(:ids) AND status = 'active'"),
+                {"ids": linked},
+            ).scalars()
+        )
+        if linked
+        else frozenset[uuid.UUID]()
+    )
+    return [fold(dict(head), by_id[head["id"]], now, active) for head in heads]
 
 
 def get_chokepoint(
@@ -97,13 +119,22 @@ def list_chokepoints(
     limit: int,
     offset: int,
 ) -> tuple[list[Chokepoint], int]:
-    """The latest event first. `status` is the stored status, or `stale` (the derived flag)."""
+    """The latest event first. `status` is the stored status, or `stale` / `needs_review` (the
+    derived flags)."""
     found = _load(
         connection, "(CAST(:theme AS text) IS NULL OR theme = :theme)", {"theme": theme}, now
     )
     if status is not None:
         found = [
-            each for each in found if (each.stale if status == "stale" else each.status == status)
+            each
+            for each in found
+            if (
+                each.stale
+                if status == "stale"
+                else each.needs_review
+                if status == "needs_review"
+                else each.status == status
+            )
         ]
     found.sort(key=lambda each: (each.last_event_at, str(each.id)), reverse=True)
     return [summary(each) for each in found[offset : offset + limit]], len(found)
@@ -112,13 +143,29 @@ def list_chokepoints(
 # --- checks --------------------------------------------------------------------------------
 
 
-def _check_session(connection: Connection, session_id: uuid.UUID | None) -> datetime | None:
-    """The session's as-of time; the session must exist and must not be isolated (an isolated
-    session, the early-call scorecard's, leaves nothing for others to find)."""
+@dataclass(frozen=True)
+class SessionInfo:
+    id: uuid.UUID
+    as_of: datetime
+    theme: str
+    actor: str
+
+
+def _check_session(
+    connection: Connection, session_id: uuid.UUID | None, now: datetime
+) -> SessionInfo | None:
+    """The session a write or a read names. It must exist, be open, not be isolated (an isolated
+    session, the early-call scorecard's, leaves nothing for others to find) and be of now: the
+    board is prospective, so a session whose as-of time is more than 36 hours before `now` (a
+    replay) is refused."""
     if session_id is None:
         return None
     row = connection.execute(
-        text("SELECT as_of, isolated FROM research_session WHERE id = :id"), {"id": session_id}
+        text(
+            "SELECT as_of, isolated, theme, actor, kind, finished_at FROM research_session"
+            " WHERE id = :id"
+        ),
+        {"id": session_id},
     ).one_or_none()
     if row is None:
         raise ChokepointError(422, "unknown_session", "no such research session")
@@ -129,7 +176,34 @@ def _check_session(connection: Connection, session_id: uuid.UUID | None) -> date
             "an isolated session (the early-call scorecard) has no board: it starts from"
             " nothing and leaves nothing for others",
         )
-    return row.as_of
+    if row.kind != "claude" or row.finished_at is not None:
+        raise ChokepointError(
+            422, "session_closed", "the session is closed (or is not a claude one)"
+        )
+    if row.as_of < now - PROSPECTIVE_WINDOW:
+        raise ChokepointError(
+            422,
+            "not_prospective",
+            "the board is prospective: a session whose as-of time is more than 36 hours old is a"
+            " replay and may not read or write it",
+            as_of=row.as_of.isoformat(),
+        )
+    return SessionInfo(session_id, row.as_of, row.theme, row.actor)
+
+
+def check_read_session(engine: Engine, session_id: uuid.UUID | None, now: datetime) -> None:
+    """Refuse a read that names a session the board is closed to."""
+    with engine.connect() as connection:
+        _check_session(connection, session_id, now)
+
+
+def _same_theme(session: SessionInfo | None, theme: str) -> None:
+    if session is not None and session.theme != theme:
+        raise ChokepointError(
+            422,
+            "other_theme",
+            f"the session is of theme {session.theme!r}, the chokepoint of {theme!r}",
+        )
 
 
 def _check_run(connection: Connection, run_id: uuid.UUID | None) -> None:
@@ -141,103 +215,124 @@ def _check_run(connection: Connection, run_id: uuid.UUID | None) -> None:
         raise ChokepointError(422, "unknown_run", "no such run")
 
 
-_KEYS = {"fact": "assertion_id", "lead": "id", "issue": "id"}
+def _unknown(table: str, what: str, wanted: Sequence[uuid.UUID], held: set[uuid.UUID]) -> None:
+    if missing := sorted(str(each) for each in set(wanted) - held):
+        raise ChokepointError(
+            422, f"unknown_{table}", f"no such {what}: {', '.join(missing)}", ids=missing
+        )
 
 
-def _missing(connection: Connection, table: str, ids: Sequence[uuid.UUID]) -> list[str]:
-    """The IDs that name no row of `table` (a Fact is its assertion's ID)."""
-    wanted = set(ids)
-    if not wanted:
-        return []
-    column = _KEYS[table]
-    held = set(
-        connection.execute(
-            text(f"SELECT {column} FROM {table} WHERE {column} = ANY(:ids)"),  # noqa: S608
-            {"ids": list(wanted)},
-        ).scalars()
-    )
-    return sorted(str(each) for each in wanted - held)
-
-
-def _check_evidence(connection: Connection, evidence: StepEvidence, as_of: datetime | None) -> None:
-    for table, ids, what in (
-        ("fact", evidence.fact_ids, "Fact"),
-        ("lead", evidence.lead_ids, "lead"),
-        ("issue", evidence.issue_ids, "Issue"),
-    ):
-        if missing := _missing(connection, table, ids):
+def _check_facts(
+    connection: Connection, ids: Sequence[uuid.UUID], session: SessionInfo | None
+) -> None:
+    if not ids:
+        return
+    found = connection.execute(
+        text(
+            "SELECT f.assertion_id, a.available_at,"
+            " COALESCE(r.isolated, false) AS isolated FROM fact f"
+            " JOIN assertion s ON s.id = f.assertion_id"
+            " JOIN source_version_availability a ON a.source_version_id = s.source_version_id"
+            " LEFT JOIN research_session r ON r.id = f.session_id"
+            " WHERE f.assertion_id = ANY(:ids) ORDER BY a.available_at, f.assertion_id"
+        ),
+        {"ids": list(set(ids))},
+    ).all()
+    _unknown("fact", "Fact", ids, {row.assertion_id for row in found})
+    for row in found:
+        if row.isolated:
             raise ChokepointError(
-                422, f"unknown_{table}", f"no such {what}: {', '.join(missing)}", ids=missing
+                422,
+                "fact_not_in_session",
+                "a Fact recorded by an isolated session (the early-call scorecard) is not on the"
+                " board's record",
+                fact=str(row.assertion_id),
             )
-    if as_of is None or not evidence.fact_ids:
+    if session is None:
         return
     # The same rule as the MCP tools': a Fact of a Source Version public after the session's
     # as-of time (its effective availability) is not visible to it.
-    later = connection.execute(
-        text(
-            "SELECT f.assertion_id, a.available_at FROM fact f"
-            " JOIN assertion s ON s.id = f.assertion_id"
-            " JOIN source_version_availability a ON a.source_version_id = s.source_version_id"
-            " WHERE f.assertion_id = ANY(:ids) AND a.available_at > :as_of"
-            " ORDER BY a.available_at, f.assertion_id"
-        ),
-        {"ids": list(set(evidence.fact_ids)), "as_of": as_of},
-    ).first()
-    if later is not None:
-        raise ChokepointError(
-            422,
-            "fact_available_after_as_of",
-            "that Fact's document became public after the session's as-of time",
-            fact=str(later.assertion_id),
-            available_at=later.available_at.isoformat(),
-            as_of=as_of.isoformat(),
-        )
+    for row in found:
+        if row.available_at > session.as_of:
+            raise ChokepointError(
+                422,
+                "fact_available_after_as_of",
+                "that Fact's document became public after the session's as-of time",
+                fact=str(row.assertion_id),
+                available_at=row.available_at.isoformat(),
+                as_of=session.as_of.isoformat(),
+            )
 
 
-def _check_step(connection: Connection, step: StepSetPayload, as_of: datetime | None) -> None:
-    evidence = step.evidence
-    if step.status in ("primary", "contradicted") and not evidence.fact_ids:
+def _check_leads(
+    connection: Connection, ids: Sequence[uuid.UUID], session: SessionInfo | None
+) -> None:
+    if not ids:
+        return
+    found = connection.execute(
+        text("SELECT id, first_seen_at FROM lead WHERE id = ANY(:ids) ORDER BY id"),
+        {"ids": list(set(ids))},
+    ).all()
+    _unknown("lead", "lead", ids, {row.id for row in found})
+    for row in found:
+        if session is not None and row.first_seen_at > session.as_of:
+            raise ChokepointError(
+                422,
+                "created_after_as_of",
+                "that lead was first seen after the session's as-of time",
+                lead=str(row.id),
+            )
+
+
+def _check_issues(
+    connection: Connection, ids: Sequence[uuid.UUID], theme: str, session: SessionInfo | None
+) -> None:
+    """The Issues exist, are of the chokepoint's theme, and were not opened after the session's
+    as-of time (unless that session opened them: an agent links what it has just written)."""
+    if not ids:
+        return
+    found = connection.execute(
+        text("SELECT id, theme, created_at, produced_by FROM issue WHERE id = ANY(:ids)"),
+        {"ids": list(set(ids))},
+    ).all()
+    _unknown("issue", "Issue", ids, {row.id for row in found})
+    for row in found:
+        if row.theme != theme:
+            raise ChokepointError(
+                422,
+                "other_theme",
+                f"that Issue is of theme {row.theme!r}, the chokepoint of {theme!r}",
+                issue=str(row.id),
+            )
+        if session is not None and row.created_at > session.as_of and row.produced_by != session.id:
+            raise ChokepointError(
+                422,
+                "created_after_as_of",
+                "that Issue was opened after the session's as-of time, by another session",
+                issue=str(row.id),
+            )
+
+
+def _check_evidence(
+    connection: Connection, evidence: StepEvidence, theme: str, session: SessionInfo | None
+) -> None:
+    _check_facts(connection, evidence.fact_ids, session)
+    _check_leads(connection, evidence.lead_ids, session)
+    _check_issues(connection, evidence.issue_ids, theme, session)
+
+
+def _check_status(status: str, evidence: StepEvidence) -> None:
+    if status in ("primary", "contradicted") and not evidence.fact_ids:
         raise ChokepointError(
             422,
             "step_needs_fact",
-            f"a step set to {step.status} cites at least one Fact (evidence.fact_ids)",
+            f"a step set to {status} cites at least one Fact (evidence.fact_ids)",
         )
-    if step.status == "lead" and not (evidence.lead_ids or evidence.issue_ids):
+    if status == "lead" and not (evidence.lead_ids or evidence.issue_ids):
         raise ChokepointError(
             422,
             "step_needs_lead",
             "a step set to lead cites a lead or an Issue (evidence.lead_ids or issue_ids)",
-        )
-    _check_evidence(connection, evidence, as_of)
-
-
-def _check_thesis_ready(connection: Connection, state: ChokepointDetail) -> None:
-    """Thesis-ready is the hand-off to a Researcher session: steps a, b and d are primary,
-    a kill criterion is written and an Issue linked to it is open."""
-    missing = [
-        f"step_{each.step}_primary"
-        for each in state.steps
-        if each.step in THESIS_STEPS and each.status != "primary"
-    ]
-    if not state.kill_criteria:
-        missing.append("kill_criteria")
-    open_issues = (
-        connection.execute(
-            text("SELECT count(*) FROM issue WHERE id = ANY(:ids) AND status = 'active'"),
-            {"ids": state.issue_ids},
-        ).scalar_one()
-        if state.issue_ids
-        else 0
-    )
-    if not open_issues:
-        missing.append("open_issue")
-    if missing:
-        raise ChokepointError(
-            422,
-            "thesis_not_ready",
-            "thesis_ready needs steps a, b and d primary, a kill criterion and an open linked"
-            f" Issue; missing: {', '.join(missing)}",
-            missing=missing,
         )
 
 
@@ -293,13 +388,17 @@ class Chokepoints:
             },
         )
 
+    def _who(self, named: str | None, session: SessionInfo | None) -> Actor:
+        return Actor(named or (session.actor if session else None) or self._actor.name)
+
     def create(self, request: ChokepointCreate) -> ChokepointDetail:
         at = self._clock().astimezone(UTC)
         chokepoint_id = uuid.uuid4()
-        actor = Actor(request.actor) if request.actor else self._actor
         with self._engine.begin() as connection:
-            _check_session(connection, request.session_id)
+            session = _check_session(connection, request.session_id, at)
+            _same_theme(session, request.theme)
             _check_run(connection, request.run_id)
+            actor = self._who(request.actor, session)
             connection.execute(
                 text(
                     "INSERT INTO chokepoint (id, theme, created_at, created_by_session,"
@@ -342,18 +441,20 @@ class Chokepoints:
     def append(self, chokepoint_id: uuid.UUID, request: EventCreate) -> ChokepointDetail | None:
         """Append one event; None when there is no such chokepoint."""
         at = self._clock().astimezone(UTC)
-        actor = Actor(request.actor) if request.actor else self._actor
         with self._engine.begin() as connection:
-            locked = connection.execute(
-                text("SELECT 1 FROM chokepoint WHERE id = :id FOR UPDATE"), {"id": chokepoint_id}
-            ).first()
-            if locked is None:
-                return None
-            as_of = _check_session(connection, request.session_id)
-            _check_run(connection, request.run_id)
+            # One writer at a time per chokepoint. (Not SELECT ... FOR UPDATE: the app role has
+            # SELECT and INSERT only.)
+            connection.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:id))"), {"id": str(chokepoint_id)}
+            )
+            session = _check_session(connection, request.session_id, at)
             before = get_chokepoint(connection, chokepoint_id, at)
-            assert before is not None
-            payload = self._validated(connection, before, request, as_of)
+            if before is None:
+                return None
+            _same_theme(session, before.theme)
+            _check_run(connection, request.run_id)
+            actor = self._who(request.actor, session)
+            payload = self._validated(connection, before, request, session)
             self._insert_event(
                 connection,
                 chokepoint_id,
@@ -383,31 +484,67 @@ class Chokepoints:
         connection: Connection,
         before: ChokepointDetail,
         request: EventCreate,
-        as_of: datetime | None,
+        session: SessionInfo | None,
     ) -> dict[str, Any]:
-        """The event's payload as it is stored, once the kind's rules hold."""
+        """The event's payload as it is stored (an append resolved to the list it makes, so the
+        fold only ever replaces), once the kind's rules hold."""
         parsed = _parse(PAYLOADS[request.kind], request.payload, request.kind)
         if isinstance(parsed, FieldSetPayload):
-            if parsed.issue_ids is not None and (
-                missing := _missing(connection, "issue", parsed.issue_ids)
+            payload = parsed.model_dump(mode="json", exclude_unset=True)
+            if parsed.add_issue_ids is not None:
+                _check_issues(connection, parsed.add_issue_ids, before.theme, session)
+                payload.pop("add_issue_ids")
+                linked = [*before.issue_ids]
+                linked += [
+                    each for each in dict.fromkeys(parsed.add_issue_ids) if each not in linked
+                ]
+                payload["issue_ids"] = [str(each) for each in linked]
+            elif parsed.issue_ids is not None:
+                _check_issues(connection, parsed.issue_ids, before.theme, session)
+            return payload
+        if isinstance(parsed, StepSetPayload):
+            appended = parsed.add_evidence is not None
+            given = parsed.add_evidence if parsed.add_evidence is not None else parsed.evidence
+            current = next(each for each in before.steps if each.step == parsed.step)
+            evidence = current.evidence.merged(given) if appended else given
+            if (
+                before.status == "thesis_ready"
+                and parsed.step in THESIS_STEPS
+                and parsed.status != "primary"
             ):
                 raise ChokepointError(
-                    422, "unknown_issue", f"no such Issue: {', '.join(missing)}", ids=missing
+                    422,
+                    "thesis_ready_step_locked",
+                    f"step {parsed.step} is part of what makes this chokepoint thesis_ready:"
+                    " move its status down first (status_set), then change the step",
                 )
-            return parsed.model_dump(mode="json", exclude_unset=True)
-        if isinstance(parsed, StepSetPayload):
-            _check_step(connection, parsed, as_of)
-        elif isinstance(parsed, StatusSetPayload):
+            _check_status(parsed.status, evidence)
+            _check_evidence(connection, given, before.theme, session)
+            return {
+                "step": parsed.step,
+                "status": parsed.status,
+                "evidence": evidence.model_dump(mode="json"),
+            }
+        if isinstance(parsed, StatusSetPayload):
             if parsed.status == "killed" and not (request.reason and request.reason.strip()):
                 raise ChokepointError(422, "reason_required", "a killed chokepoint needs a reason")
-            if parsed.status == "thesis_ready":
-                _check_thesis_ready(connection, before)
+            if parsed.status == "thesis_ready" and not before.thesis_gate.holds:
+                missing = before.thesis_gate.missing
+                raise ChokepointError(
+                    422,
+                    "thesis_not_ready",
+                    "thesis_ready needs steps a, b and d primary, a kill criterion and an open"
+                    f" linked Issue; missing: {', '.join(missing)}",
+                    missing=missing,
+                )
         return parsed.model_dump(mode="json")
 
 
 # --- the Watch's run record ----------------------------------------------------------------
 
-_WATCH_COLUMNS = "id, theme, run_date, mode, memo, counts, tool_calls, session_id, created_at"
+_WATCH_COLUMNS = (
+    "id, theme, run_date, mode, memo, counts, tool_calls, cost_usd, tokens, session_id, created_at"
+)
 
 
 def _watch_run(row: Any) -> WatchRun:
@@ -419,6 +556,8 @@ def _watch_run(row: Any) -> WatchRun:
         memo=row.memo,
         counts=row.counts,
         tool_calls=row.tool_calls,
+        cost_usd=None if row.cost_usd is None else float(row.cost_usd),
+        tokens=row.tokens,
         session_id=row.session_id,
         created_at=row.created_at,
     )
@@ -460,7 +599,9 @@ class WatchRuns:
     def create(self, request: WatchRunCreate) -> WatchRun:
         run_id = uuid.uuid4()
         with self._engine.begin() as connection:
-            _check_session(connection, request.session_id)
+            at = self._clock().astimezone(UTC)
+            session = _check_session(connection, request.session_id, at)
+            _same_theme(session, request.theme)
             calls = request.tool_calls
             if calls is None:
                 calls = (
@@ -474,8 +615,8 @@ class WatchRuns:
             connection.execute(
                 text(
                     "INSERT INTO watch_run (id, theme, run_date, mode, memo, counts, tool_calls,"
-                    " session_id, created_at) VALUES (:id, :theme, :run_date, :mode, :memo,"
-                    " CAST(:counts AS jsonb), :calls, :session, :at)"
+                    " cost_usd, tokens, session_id, created_at) VALUES (:id, :theme, :run_date,"
+                    " :mode, :memo, CAST(:counts AS jsonb), :calls, :cost, :tokens, :session, :at)"
                 ),
                 {
                     "id": run_id,
@@ -485,8 +626,10 @@ class WatchRuns:
                     "memo": request.memo,
                     "counts": json.dumps(request.counts),
                     "calls": calls,
+                    "cost": request.cost_usd,
+                    "tokens": request.tokens,
                     "session": request.session_id,
-                    "at": self._clock().astimezone(UTC),
+                    "at": at,
                 },
             )
             record(

@@ -26,13 +26,17 @@ BOARD_NOTE = (
     "The Watch's board: candidate bottlenecks and where each stands. A chokepoint is a lead's"
     " home, never a finding. A step is `primary` only with a Fact you read in the archive"
     " (`record_fact`), `lead` with a lead or an Issue; `crowding` is context, never evidence;"
-    " `stale` means no event for 56 days."
+    " `stale` means no field_set or step_set event for 56 days (a note does not count);"
+    " `needs_review` marks a thesis_ready chokepoint whose gate no longer holds. The steps are"
+    " a constraint, b demand_vs_supply, c relief, d control, e capture, f invalidation."
 )
 
 
 class BoardArgs(Bound):
     theme: str | None = None
-    status: Literal["lead", "candidate", "thesis_ready", "killed", "stale"] | None = None
+    status: (
+        Literal["lead", "candidate", "thesis_ready", "killed", "stale", "needs_review"] | None
+    ) = None
 
 
 def _line(item: dict[str, Any]) -> dict[str, Any]:
@@ -43,7 +47,10 @@ def _line(item: dict[str, Any]) -> dict[str, Any]:
         "layer": item.get("layer"),
         "holders": item.get("holders"),
         "status": item.get("status"),
+        "status_reason": item.get("status_reason"),
         "stale": item.get("stale"),
+        "needs_review": item.get("needs_review"),
+        "thesis_gate": item.get("thesis_gate"),
         "steps": {step["step"]: step["status"] for step in rows(item.get("steps"))},
         "kill_criteria": item.get("kill_criteria"),
         "relief_horizon": item.get("relief_horizon"),
@@ -56,16 +63,24 @@ def _line(item: dict[str, Any]) -> dict[str, Any]:
 @tool(
     "board",
     "The Watch's board for a theme (default: the session's): its chokepoints, latest event"
-    " first, each with its status, the six steps' statuses (a to f), holders, kill criteria,"
-    " relief horizon, crowding and linked Issues, and the theme's last memo. `status` filters"
-    " (`stale`: no event for 56 days). Load it first; then `get_chokepoint` for one's history.",
+    " first, each with its status (and the reason given), the six steps' statuses (a constraint,"
+    " b demand_vs_supply, c relief, d control, e capture, f invalidation), holders, kill"
+    " criteria, relief horizon, crowding, linked Issues, whether `thesis_ready` would hold"
+    " (`thesis_gate`) and whether it needs review, and the theme's last memo. `status` filters"
+    " (`stale`, `needs_review` are derived). Load it first; then `get_chokepoint` for one's"
+    " history.",
     BoardArgs,
 )
 async def board(ctx: Ctx, args: BoardArgs) -> dict[str, Any]:
     ctx.refuse_isolated("board")
     theme = args.theme or ctx.bound.theme
-    listed = await ctx.api.get("/chokepoints", theme=theme, status=args.status, limit=200)
-    memos = rows((await ctx.api.get("/watch-runs", theme=theme, limit=1)).get("items"))
+    session = str(args.session_id)
+    listed = await ctx.api.get(
+        "/chokepoints", theme=theme, status=args.status, limit=200, session_id=session
+    )
+    memos = rows(
+        (await ctx.api.get("/watch-runs", theme=theme, limit=1, session_id=session)).get("items")
+    )
     last = memos[0] if memos else None
     return {
         "theme": theme,
@@ -95,7 +110,8 @@ class GetChokepointArgs(Bound):
 )
 async def get_chokepoint(ctx: Ctx, args: GetChokepointArgs) -> dict[str, Any]:
     ctx.refuse_isolated("get_chokepoint")
-    return {**await ctx.api.get(f"/chokepoints/{args.id}"), "note": BOARD_NOTE}
+    found = await ctx.api.get(f"/chokepoints/{args.id}", session_id=str(args.session_id))
+    return {**found, "note": BOARD_NOTE}
 
 
 class AddChokepointArgs(Bound):
@@ -109,7 +125,8 @@ class AddChokepointArgs(Bound):
     "Add a candidate chokepoint to the session's theme: the scarce thing (`constraint`), the"
     " layer it sits in, and who holds it (`holders`: names, with a company slug and a CIK when"
     " known; a holder outside the universe is fine). Born `lead`, every step `unexamined`. Check"
-    " `board` first: do not add the same constraint and layer twice.",
+    " `board` first: do not add the same constraint and layer twice. Refused in a session of"
+    " another theme or whose as-of time is more than 36 hours old (the board is prospective).",
     AddChokepointArgs,
 )
 async def add_chokepoint(ctx: Ctx, args: AddChokepointArgs) -> dict[str, Any]:
@@ -136,14 +153,21 @@ class UpdateChokepointArgs(Bound):
 
 @tool(
     "update_chokepoint",
-    "Append an event to a chokepoint. `kind` and its `payload`: `field_set` any of constraint,"
-    " layer, holders, relief_horizon ({horizon, basis} or null), crowding (early | emerging |"
-    " consensus | null), kill_criteria (observables), issue_ids (the Issues linked to it);"
-    " `step_set` {step: a-f, status: unexamined | lead | primary | contradicted, evidence:"
-    " {fact_ids, lead_ids, issue_ids}} (primary and contradicted need a Fact, lead a lead or an"
-    " Issue); `status_set` {status: lead | candidate | thesis_ready | killed} (killed needs a"
-    " `reason`; thesis_ready needs steps a, b and d primary, a kill criterion and an open linked"
-    " Issue); `note` {text}. A Fact public after the session's as-of time is refused.",
+    "Append an event to a chokepoint (one event, one change). `kind` and its `payload`:"
+    " `field_set` any of constraint, layer, holders, relief_horizon ({horizon, basis} or null),"
+    " crowding (early | emerging | consensus | null), kill_criteria (observables), issue_ids (the"
+    " Issues linked to it); **a list you give (holders, kill_criteria, issue_ids) replaces the"
+    " whole list**, `add_issue_ids` appends instead; `step_set` {step, status: unexamined | lead"
+    " | primary | contradicted, evidence: {fact_ids, lead_ids, issue_ids}} where the step is a"
+    " constraint, b demand_vs_supply, c relief, d control, e capture or f invalidation (letter"
+    " or name); **`evidence` replaces the step's whole evidence**, `add_evidence` (same shape)"
+    " appends; primary and contradicted need a Fact, lead a lead or an Issue; `status_set`"
+    " {status: lead | candidate | thesis_ready | killed} (killed needs a `reason`; thesis_ready"
+    " needs steps a, b and d primary, a kill criterion and an open linked Issue; while it is"
+    " thesis_ready, move the status down before you change a, b or d away from primary);"
+    " `note` {text}. A Fact public after the session's as-of time, or recorded by an isolated"
+    " session, is refused; so are an Issue of another theme and a lead or Issue opened after"
+    " the as-of time (your own session's Issues are fine).",
     UpdateChokepointArgs,
 )
 async def update_chokepoint(ctx: Ctx, args: UpdateChokepointArgs) -> dict[str, Any]:
@@ -164,13 +188,16 @@ class WriteMemoArgs(Bound):
     mode: Literal["architect", "delta"]
     memo: str
     counts: dict[str, JsonValue] | None = None
+    cost_usd: float | None = Field(default=None, ge=0, description="the run's cost, if known")
+    tokens: int | None = Field(default=None, ge=0, description="the run's tokens, if known")
 
 
 @tool(
     "write_memo",
     "Record the run's memo (markdown) for the session's theme, dated the session's as-of day:"
     " `architect` for the first run, which decomposes the industry, `delta` for a weekly one."
-    " `counts` is a small object of the run's numbers (discoveries, rejections, changes). The"
+    " `counts` is a small object of the run's numbers (discoveries, rejections, changes);"
+    " `cost_usd` and `tokens` the run's cost if you know it. The"
     " Today page shows the latest. Write it last; it is insert-only.",
     WriteMemoArgs,
 )
@@ -184,6 +211,8 @@ async def write_memo(ctx: Ctx, args: WriteMemoArgs) -> dict[str, Any]:
             "mode": args.mode,
             "memo": args.memo,
             "counts": obj(args.counts),
+            "cost_usd": args.cost_usd,
+            "tokens": args.tokens,
             "session_id": str(args.session_id),
         },
     )

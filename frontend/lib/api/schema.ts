@@ -2824,7 +2824,7 @@ export interface components {
             themes: components["schemas"]["ThemeBeliefs"][];
         };
         /** @enum {string} */
-        BoardFilter: "lead" | "candidate" | "thesis_ready" | "killed" | "stale";
+        BoardFilter: "lead" | "candidate" | "thesis_ready" | "killed" | "stale" | "needs_review";
         /** Bottlenecks */
         Bottlenecks: {
             /** @description refreshed: `model.content` is the open gaps; otherwise why there are none */
@@ -3976,7 +3976,10 @@ export interface components {
             created_at: string;
             /** Created By Session */
             created_by_session: string | null;
-            /** Created By Run */
+            /**
+             * Created By Run
+             * @description a row of the `run` table
+             */
             created_by_run: string | null;
             /** Constraint */
             constraint: string;
@@ -3991,9 +3994,16 @@ export interface components {
              * @description the reason given with that status
              */
             status_reason: string | null;
+            /** @description whether `thesis_ready` would be allowed now */
+            thesis_gate: components["schemas"]["ThesisGate"];
+            /**
+             * Needs Review
+             * @description `thesis_ready` whose gate no longer holds (a step changed under it)
+             */
+            needs_review: boolean;
             /**
              * Stale
-             * @description derived: no event for 56 days (never for a killed one)
+             * @description derived: no field_set or step_set event for 56 days, a note and a status change not counting (never for a killed one)
              */
             stale: boolean;
             /**
@@ -4016,12 +4026,18 @@ export interface components {
              * Format: date-time
              */
             last_event_at: string;
+            /**
+             * Last Evidence At
+             * Format: date-time
+             * @description the last created, field_set or step_set event: what staleness reads
+             */
+            last_evidence_at: string;
             /** Event Count */
             event_count: number;
         };
         /** ChokepointCreate */
         ChokepointCreate: {
-            theme: components["schemas"]["Text"];
+            theme: components["schemas"]["Theme"];
             /** @description the scarce thing */
             constraint: components["schemas"]["Text"];
             /** @description where in the chain it sits */
@@ -4030,15 +4046,15 @@ export interface components {
             holders?: components["schemas"]["Holder"][];
             /**
              * Session Id
-             * @description the research session
+             * @description the research session (its theme must be the chokepoint's)
              */
             session_id?: string | null;
             /**
              * Run Id
-             * @description the run that created it
+             * @description a row of the `run` table (the pipeline's run record), not a watch run
              */
             run_id?: string | null;
-            /** @description who; default: the API's actor */
+            /** @description who; default: the session's actor, else the API's */
             actor?: components["schemas"]["Text"] | null;
         };
         /** ChokepointDetail */
@@ -4057,7 +4073,10 @@ export interface components {
             created_at: string;
             /** Created By Session */
             created_by_session: string | null;
-            /** Created By Run */
+            /**
+             * Created By Run
+             * @description a row of the `run` table
+             */
             created_by_run: string | null;
             /** Constraint */
             constraint: string;
@@ -4072,9 +4091,16 @@ export interface components {
              * @description the reason given with that status
              */
             status_reason: string | null;
+            /** @description whether `thesis_ready` would be allowed now */
+            thesis_gate: components["schemas"]["ThesisGate"];
+            /**
+             * Needs Review
+             * @description `thesis_ready` whose gate no longer holds (a step changed under it)
+             */
+            needs_review: boolean;
             /**
              * Stale
-             * @description derived: no event for 56 days (never for a killed one)
+             * @description derived: no field_set or step_set event for 56 days, a note and a status change not counting (never for a killed one)
              */
             stale: boolean;
             /**
@@ -4097,6 +4123,12 @@ export interface components {
              * Format: date-time
              */
             last_event_at: string;
+            /**
+             * Last Evidence At
+             * Format: date-time
+             * @description the last created, field_set or step_set event: what staleness reads
+             */
+            last_evidence_at: string;
             /** Event Count */
             event_count: number;
             /**
@@ -5356,7 +5388,7 @@ export interface components {
             kind: components["schemas"]["WriteKind"];
             /**
              * Payload
-             * @description by kind: `field_set` any of constraint, layer, holders, relief_horizon ({horizon, basis} or null), crowding (early|emerging|consensus|null), kill_criteria, issue_ids; `step_set` {step a-f, status, evidence {fact_ids, lead_ids, issue_ids}}; `status_set` {status}; `note` {text}
+             * @description by kind: `field_set` any of constraint, layer, holders, relief_horizon ({horizon, basis} or null), crowding (early|emerging|consensus|null), kill_criteria, issue_ids (a list given replaces the whole list; add_issue_ids appends); `step_set` {step (a constraint, b demand_vs_supply, c relief, d control, e capture, f invalidation; the letter or the name), status, evidence {fact_ids, lead_ids, issue_ids} (replaces the step's evidence) or add_evidence (appends)}; `status_set` {status}; `note` {text}
              */
             payload: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -5368,10 +5400,13 @@ export interface components {
             reason?: string | null;
             /**
              * Session Id
-             * @description the research session: its as-of time bounds the Facts cited
+             * @description the research session: its as-of time bounds the Facts, leads and Issues cited, its theme must be the chokepoint's, and it must be open and of now
              */
             session_id?: string | null;
-            /** Run Id */
+            /**
+             * Run Id
+             * @description a row of the `run` table
+             */
             run_id?: string | null;
             actor?: components["schemas"]["Text"] | null;
         };
@@ -11517,7 +11552,7 @@ export interface components {
         /**
          * StepEvidence
          * @description What justifies a step's status: `primary` and `contradicted` need Facts, `lead` a lead
-         *     or an Issue.
+         *     or an Issue. Given as `evidence`, it replaces the step's whole evidence.
          */
         StepEvidence: {
             /** Fact Ids */
@@ -11532,6 +11567,11 @@ export interface components {
         /** StepState */
         StepState: {
             step: components["schemas"]["StepKey"];
+            /**
+             * Name
+             * @description constraint, demand_vs_supply, relief, control, capture or invalidation
+             */
+            name: string;
             status: components["schemas"]["StepStatus"];
             evidence: components["schemas"]["StepEvidence"];
             /**
@@ -11612,6 +11652,7 @@ export interface components {
             updated_at: string;
         };
         Text: string;
+        Theme: string;
         /** ThemeBelief */
         ThemeBelief: {
             /**
@@ -11878,6 +11919,18 @@ export interface components {
              * @description Candidates still `lead`, awaiting a decision
              */
             open_candidate_count: number;
+        };
+        /**
+         * ThesisGate
+         * @description What `thesis_ready` needs: steps a, b and d `primary`, a kill criterion, an open linked
+         *     Issue. `missing` names what does not hold (`step_a_primary`, `kill_criteria`,
+         *     `open_issue`, ...).
+         */
+        ThesisGate: {
+            /** Holds */
+            holds: boolean;
+            /** Missing */
+            missing: string[];
         };
         /** ThesisJudgeRequest */
         ThesisJudgeRequest: {
@@ -12424,6 +12477,10 @@ export interface components {
             };
             /** Tool Calls */
             tool_calls: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Tokens */
+            tokens: number | null;
             /** Session Id */
             session_id: string | null;
             /**
@@ -12434,7 +12491,7 @@ export interface components {
         };
         /** WatchRunCreate */
         WatchRunCreate: {
-            theme: components["schemas"]["Text"];
+            theme: components["schemas"]["Theme"];
             /**
              * Run Date
              * Format: date
@@ -12453,6 +12510,16 @@ export interface components {
              * @description default: the session's recorded calls, else 0
              */
             tool_calls?: number | null;
+            /**
+             * Cost Usd
+             * @description the run's cost, if known
+             */
+            cost_usd?: number | null;
+            /**
+             * Tokens
+             * @description the run's tokens, if known
+             */
+            tokens?: number | null;
             /** Session Id */
             session_id?: string | null;
         };
@@ -15690,6 +15757,7 @@ export interface operations {
             query?: {
                 theme?: string | null;
                 status?: components["schemas"]["BoardFilter"] | null;
+                session_id?: string | null;
                 /** @description page size */
                 limit?: number;
                 /** @description items to skip */
@@ -15756,7 +15824,9 @@ export interface operations {
     };
     read_api_v1_chokepoints__chokepoint_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                session_id?: string | null;
+            };
             header?: never;
             path: {
                 chokepoint_id: string;
@@ -15783,13 +15853,13 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -15842,6 +15912,7 @@ export interface operations {
         parameters: {
             query?: {
                 theme?: string | null;
+                session_id?: string | null;
                 /** @description page size */
                 limit?: number;
                 /** @description items to skip */

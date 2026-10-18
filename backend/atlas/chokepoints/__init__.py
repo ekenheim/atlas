@@ -8,6 +8,7 @@ memo. Every write is audited (`chokepoint.created|updated`, `watch_run.created`)
 """
 
 from atlas.chokepoints.model import (
+    PROSPECTIVE_WINDOW,
     STALE_AFTER,
     Chokepoint,
     ChokepointCreate,
@@ -22,6 +23,7 @@ from atlas.chokepoints.model import (
 from atlas.chokepoints.service import (
     Chokepoints,
     WatchRuns,
+    check_read_session,
     get_chokepoint,
     get_watch_run,
     list_chokepoints,
@@ -29,6 +31,7 @@ from atlas.chokepoints.service import (
 )
 
 __all__ = [
+    "PROSPECTIVE_WINDOW",
     "STALE_AFTER",
     "Chokepoint",
     "ChokepointCreate",
@@ -40,6 +43,7 @@ __all__ = [
     "WatchRun",
     "WatchRunCreate",
     "WatchRuns",
+    "check_read_session",
     "fold",
     "get_chokepoint",
     "get_watch_run",

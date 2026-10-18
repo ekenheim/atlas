@@ -8,6 +8,7 @@ insert-only tables are attacked through the engine.
 """
 
 from collections.abc import Iterator
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -30,8 +31,10 @@ REVENUE_QUOTE = "Net revenue for the fourth quarter of fiscal year 2026 was $1.0
 REVENUE_SPAN = (1604, 1676)
 THEME = "photonics"
 NO_SUCH_ID = "00000000-0000-0000-0000-000000000000"
-BEFORE_RELEASE = "2026-08-01T00:00:00Z"  # the press release became public on 11 August
-AFTER_RELEASE = "2026-09-30T00:00:00Z"
+# The press release became public on 11 August; the board is prospective, so a test that needs a
+# session of that day sets the application clock there.
+BEFORE_RELEASE = "2026-08-01T12:00:00+00:00"
+AFTER_RELEASE = "2026-08-12T12:00:00+00:00"
 START = "2026-10-18T09:00:00+00:00"
 CONSTRAINT = "Indium phosphide substrates for 1.6T lasers"
 LAYER = "materials"
@@ -67,7 +70,7 @@ class Board:
             c["id"] for c in self.get("/api/v1/companies")["items"] if c["slug"] == "lumentum"
         )
 
-    def fact(self) -> str:
+    def fact(self, session_id: str | None = None) -> str:
         company = self.company_id()
         documents = self.get(f"/api/v1/companies/{company}/sources", limit=100)["items"]
         version = next(d["latest_version_id"] for d in documents if d["canonical_url"] == URL_EX991)
@@ -86,32 +89,38 @@ class Board:
                 "quantity": {"value": 1.01, "unit": "USD billion", "metric": "net revenue"},
                 "period": "Q4 FY2026",
                 "status": "in_effect",
+                "session_id": session_id,
             },
         )
         assert response.status_code == 201, response.text
         return response.json()["fact"]["id"]
 
-    def lead(self) -> str:
+    def lead(self, first_seen_at: str | None = None) -> str:
         with self.engine.begin() as connection:
             return str(
                 connection.execute(
                     text(
                         "INSERT INTO lead (id, canonical_url, url, title, snippet, engines,"
-                        " origin) VALUES (gen_random_uuid(), 'https://example.test/a',"
+                        " origin, first_seen_at) VALUES (gen_random_uuid(),"
+                        " 'https://example.test/' || gen_random_uuid(),"
                         " 'https://example.test/a', 'InP wafer lead times', 'lead times',"
-                        " '{}', 'tradingview_news') RETURNING id"
-                    )
+                        " '{}', 'tradingview_news', COALESCE(CAST(:seen AS timestamptz), now()))"
+                        " RETURNING id"
+                    ),
+                    {"seen": first_seen_at},
                 ).scalar_one()
             )
 
-    def issue(self, title: str = "Is InP the constraint?") -> str:
+    def issue(self, title: str = "Is InP the constraint?", theme: str = THEME, **extra: Any) -> str:
         response = self.api.post(
-            "/api/v1/issues", json={"title": title, "theme": THEME, "kind": "question"}
+            "/api/v1/issues", json={"title": title, "theme": theme, "kind": "question", **extra}
         )
         assert response.status_code == 201, response.text
         return response.json()["id"]
 
-    def session(self, as_of: str = AFTER_RELEASE, **extra: Any) -> str:
+    def session(self, as_of: str | None = None, **extra: Any) -> str:
+        """Open a session; by default as of the application clock's now."""
+        as_of = as_of or self.clock.now.isoformat()
         response = self.api.post(
             "/api/v1/sessions",
             json={
@@ -454,9 +463,10 @@ def test_a_holder_may_be_outside_the_universe(board: Board) -> None:
 
 
 def test_a_fact_must_have_been_public_by_the_sessions_as_of_time(board: Board) -> None:
+    board.clock.now = at(BEFORE_RELEASE)
     chokepoint = board.create()["id"]
     fact = board.fact()
-    early, later = board.session(BEFORE_RELEASE), board.session(AFTER_RELEASE)
+    early = board.session()
     primary = board.step("primary", fact_ids=[fact])
 
     refusal = board.refused(
@@ -467,6 +477,8 @@ def test_a_fact_must_have_been_public_by_the_sessions_as_of_time(board: Board) -
     assert refusal["detail"]["fact"] == fact
     assert board.events(chokepoint) == 1
 
+    board.clock.now = at(AFTER_RELEASE)
+    later = board.session()
     stored = board.ok(chokepoint, "step_set", primary, session_id=later)
     assert stored["history"][-1]["session_id"] == later
     other = board.create()["id"]
@@ -571,7 +583,7 @@ def test_a_linked_issue_must_be_open_for_thesis_ready(board: Board) -> None:
 # --- stale is derived ---
 
 
-def test_a_chokepoint_with_no_event_for_56_days_reads_stale(board: Board) -> None:
+def test_a_chokepoint_with_no_field_or_step_event_for_56_days_reads_stale(board: Board) -> None:
     chokepoint = board.create()["id"]
 
     board.clock.advance(days=55, hours=23)
@@ -587,13 +599,22 @@ def test_a_chokepoint_with_no_event_for_56_days_reads_stale(board: Board) -> Non
     assert board.get("/api/v1/chokepoints", status="lead")["total"] == 1
     assert board.get("/api/v1/chokepoints")["items"][0]["stale"] is True
 
-    board.ok(chokepoint, "note", {"text": "still watching"})  # any event ends it
+    # A note and a status change are not evidence of anything: they do not end it.
+    board.ok(chokepoint, "note", {"text": "still watching"})
+    board.ok(chokepoint, "status_set", {"status": "candidate"})
+    read = board.get(f"/api/v1/chokepoints/{chokepoint}")
+    assert read["stale"] is True and read["last_event_at"] > read["last_evidence_at"]
+    board.ok(chokepoint, "field_set", {"crowding": "early"})  # a field_set does
+    assert board.get(f"/api/v1/chokepoints/{chokepoint}")["stale"] is False
+    board.clock.advance(days=56)
+    assert board.get(f"/api/v1/chokepoints/{chokepoint}")["stale"] is True
+    board.ok(chokepoint, "step_set", board.step("lead", "a", issue_ids=[board.issue()]))  # a step
     assert board.get(f"/api/v1/chokepoints/{chokepoint}")["stale"] is False
     with board.engine.connect() as connection:  # nothing was stored for it
         statuses = connection.execute(
             text("SELECT DISTINCT payload FROM chokepoint_event WHERE kind = 'status_set'")
         ).all()
-    assert statuses == []
+    assert [row[0] for row in statuses] == [{"status": "candidate"}]  # never "stale"
 
 
 def test_a_killed_chokepoint_is_never_stale(board: Board) -> None:
@@ -736,3 +757,298 @@ def test_an_isolated_session_writes_no_watch_run(board: Board) -> None:
     )
 
     board.refused(response, 422, "isolated_session")
+
+
+# --- review round: the gate, names, appends, the session's bounds ---
+
+
+def ready(board: Board, chokepoint: str) -> tuple[str, str]:
+    """Make the chokepoint's gate hold; the Fact and the open Issue it rests on."""
+    fact, issue = board.fact(), board.issue()
+    for step in ("a", "b", "d"):
+        board.ok(chokepoint, "step_set", board.step("primary", step, fact_ids=[fact]))
+    board.ok(chokepoint, "field_set", {"kill_criteria": ["x"], "issue_ids": [issue]})
+    return fact, issue
+
+
+def test_the_read_says_whether_the_thesis_gate_holds_and_names_the_steps(board: Board) -> None:
+    chokepoint = board.create()["id"]
+
+    read = board.get(f"/api/v1/chokepoints/{chokepoint}")
+    assert read["thesis_gate"] == {
+        "holds": False,
+        "missing": [
+            "step_a_primary",
+            "step_b_primary",
+            "step_d_primary",
+            "kill_criteria",
+            "open_issue",
+        ],
+    }
+    assert read["needs_review"] is False
+    assert [step["name"] for step in read["steps"]] == [
+        "constraint",
+        "demand_vs_supply",
+        "relief",
+        "control",
+        "capture",
+        "invalidation",
+    ]
+    ready(board, chokepoint)
+    assert board.get(f"/api/v1/chokepoints/{chokepoint}")["thesis_gate"] == {
+        "holds": True,
+        "missing": [],
+    }
+
+
+def test_a_thesis_ready_chokepoint_whose_gate_stops_holding_needs_review(board: Board) -> None:
+    chokepoint = board.create()["id"]
+    _, issue = ready(board, chokepoint)
+    board.ok(chokepoint, "status_set", {"status": "thesis_ready"})
+    assert board.get("/api/v1/chokepoints", status="needs_review")["total"] == 0
+
+    # The Issue is closed under it: the status stands, flagged.
+    assert board.api.post(f"/api/v1/issues/{issue}/complete").status_code == 200
+    read = board.get(f"/api/v1/chokepoints/{chokepoint}")
+    assert (read["status"], read["needs_review"]) == ("thesis_ready", True)
+    assert read["thesis_gate"] == {"holds": False, "missing": ["open_issue"]}
+    flagged = board.get("/api/v1/chokepoints", status="needs_review")["items"]
+    assert [item["id"] for item in flagged] == [chokepoint]
+    assert board.get("/api/v1/chokepoints", status="thesis_ready")["total"] == 1
+
+
+def test_steps_a_b_d_of_a_thesis_ready_chokepoint_stay_primary_until_the_status_moves_down(
+    board: Board,
+) -> None:
+    chokepoint = board.create()["id"]
+    fact, _ = ready(board, chokepoint)
+    board.ok(chokepoint, "status_set", {"status": "thesis_ready"})
+    before = board.events(chokepoint)
+
+    for step in ("a", "b", "d"):
+        for status in ("contradicted", "unexamined"):
+            board.refused(
+                board.event(chokepoint, "step_set", board.step(status, step, fact_ids=[fact])),
+                422,
+                "thesis_ready_step_locked",
+            )
+    assert board.events(chokepoint) == before
+    # Other steps, and a primary step with other Facts, are free; so is a move down first.
+    board.ok(chokepoint, "step_set", board.step("contradicted", "c", fact_ids=[fact]))
+    board.ok(chokepoint, "step_set", board.step("primary", "a", fact_ids=[board.fact()]))
+    board.ok(chokepoint, "status_set", {"status": "candidate"})
+    moved = board.ok(chokepoint, "step_set", board.step("contradicted", "a", fact_ids=[fact]))
+    assert moved["steps"][0]["status"] == "contradicted"
+    assert moved["status"] == "candidate"
+
+
+def test_a_step_is_named_by_letter_or_by_name(board: Board) -> None:
+    chokepoint = board.create()["id"]
+    issue = board.issue()
+    names = ["constraint", "demand_vs_supply", "relief", "control", "capture", "invalidation"]
+
+    stored: dict[str, Any] = {}
+    for name in names:
+        stored = board.ok(
+            chokepoint,
+            "step_set",
+            {"step": name, "status": "lead", "evidence": {"issue_ids": [issue]}},
+        )
+    assert [each["status"] for each in stored["steps"]] == ["lead"] * 6
+    assert stored["history"][-1]["payload"]["step"] == "f"  # stored by letter
+    for bad in ("g", "moat"):
+        board.refused(
+            board.event(chokepoint, "step_set", {"step": bad, "status": "lead"}),
+            422,
+            "invalid_payload",
+        )
+
+
+def test_a_list_replaces_the_whole_list_and_an_add_appends(board: Board) -> None:
+    chokepoint = board.create()["id"]
+    one, two, three = board.issue("one"), board.issue("two"), board.issue("three")
+    fact, other_fact, lead = board.fact(), board.fact(), board.lead()
+
+    board.ok(chokepoint, "field_set", {"issue_ids": [one], "kill_criteria": ["a", "b"]})
+    board.ok(chokepoint, "field_set", {"add_issue_ids": [two, one]})
+    appended = board.ok(chokepoint, "field_set", {"add_issue_ids": [three]})
+    assert appended["issue_ids"] == [one, two, three]  # no repeats, in order
+    replaced = board.ok(chokepoint, "field_set", {"issue_ids": [three], "kill_criteria": ["c"]})
+    assert (replaced["issue_ids"], replaced["kill_criteria"]) == ([three], ["c"])
+    board.refused(
+        board.event(chokepoint, "field_set", {"issue_ids": [one], "add_issue_ids": [two]}),
+        422,
+        "invalid_payload",
+    )
+    unknown = board.event(chokepoint, "field_set", {"add_issue_ids": [NO_SUCH_ID]})
+    board.refused(unknown, 422, "unknown_issue")
+
+    board.ok(chokepoint, "step_set", board.step("primary", "a", fact_ids=[fact]))
+    added = board.ok(
+        chokepoint,
+        "step_set",
+        {
+            "step": "a",
+            "status": "primary",
+            "add_evidence": {"fact_ids": [other_fact, fact], "lead_ids": [lead]},
+        },
+    )
+    assert added["steps"][0]["evidence"] == {
+        "fact_ids": [fact, other_fact],
+        "lead_ids": [lead],
+        "issue_ids": [],
+    }
+    swapped = board.ok(chokepoint, "step_set", board.step("primary", "a", fact_ids=[other_fact]))
+    assert swapped["steps"][0]["evidence"]["fact_ids"] == [other_fact]
+    assert swapped["steps"][0]["evidence"]["lead_ids"] == []  # evidence replaced the lot
+    # What an add leaves a step with must still satisfy its status; replace and add don't mix.
+    only_a_lead = {"step": "b", "status": "primary", "add_evidence": {"lead_ids": [lead]}}
+    board.refused(board.event(chokepoint, "step_set", only_a_lead), 422, "step_needs_fact")
+    both = {
+        "step": "b",
+        "status": "primary",
+        "evidence": {"fact_ids": [fact]},
+        "add_evidence": {"fact_ids": [fact]},
+    }
+    board.refused(board.event(chokepoint, "step_set", both), 422, "invalid_payload")
+
+
+def test_a_fact_an_isolated_session_recorded_is_not_citable(board: Board) -> None:
+    chokepoint = board.create()["id"]
+    fact = board.fact(board.session(isolated=True))
+
+    board.refused(
+        board.event(chokepoint, "step_set", board.step("primary", fact_ids=[fact])),
+        422,
+        "fact_not_in_session",
+    )
+    assert board.events(chokepoint) == 1
+
+
+def test_the_board_is_prospective_a_session_older_than_36_hours_is_refused(board: Board) -> None:
+    chokepoint = board.create()["id"]
+    replay = board.session((board.clock.now - timedelta(hours=37)).isoformat())
+    fresh = board.session((board.clock.now - timedelta(hours=35)).isoformat())
+    note = {"text": "x"}
+    run = {"theme": THEME, "run_date": "2026-10-17", "mode": "delta", "memo": "m"}
+    new = {"theme": THEME, "constraint": CONSTRAINT, "layer": LAYER}
+
+    board.refused(board.event(chokepoint, "note", note, session_id=replay), 422, "not_prospective")
+    posted = board.api.post("/api/v1/chokepoints", json=new | {"session_id": replay})
+    board.refused(posted, 422, "not_prospective")
+    posted = board.api.post("/api/v1/watch-runs", json=run | {"session_id": replay})
+    board.refused(posted, 422, "not_prospective")
+    for path in ("/api/v1/chokepoints", f"/api/v1/chokepoints/{chokepoint}", "/api/v1/watch-runs"):
+        board.refused(board.api.get(path, params={"session_id": replay}), 422, "not_prospective")
+        assert board.api.get(path, params={"session_id": fresh}).status_code == 200
+    assert board.ok(chokepoint, "note", note, session_id=fresh)["event_count"] == 2
+
+
+def test_a_closed_session_is_refused_on_the_routes(board: Board) -> None:
+    chokepoint = board.create()["id"]
+    session = board.session()
+    assert board.api.post(f"/api/v1/sessions/{session}/close", json={}).status_code == 200
+
+    sent = board.event(chokepoint, "note", {"text": "x"}, session_id=session)
+    board.refused(sent, 422, "session_closed")
+    read = board.api.get("/api/v1/chokepoints", params={"session_id": session})
+    board.refused(read, 422, "session_closed")
+
+
+def test_a_session_writes_only_to_its_own_theme_and_cites_only_that_themes_issues(
+    board: Board,
+) -> None:
+    chokepoint = board.create()["id"]
+    robotics, session = board.session(theme="robotics"), board.session()
+    new = {"theme": THEME, "constraint": CONSTRAINT, "layer": LAYER}
+
+    sent = board.event(chokepoint, "note", {"text": "x"}, session_id=robotics)
+    board.refused(sent, 422, "other_theme")
+    posted = board.api.post("/api/v1/chokepoints", json=new | {"session_id": robotics})
+    board.refused(posted, 422, "other_theme")
+    foreign = board.issue("Robots", theme="robotics")
+    sent = board.event(chokepoint, "field_set", {"issue_ids": [foreign]}, session_id=session)
+    board.refused(sent, 422, "other_theme")
+    # With no session too: an Issue of another theme is not linked to this one's chokepoint.
+    sent = board.event(chokepoint, "step_set", board.step("lead", issue_ids=[foreign]))
+    board.refused(sent, 422, "other_theme")
+    assert board.events(chokepoint) == 1
+
+
+def test_a_session_cites_only_what_existed_by_its_as_of_time_unless_it_made_it(
+    board: Board,
+) -> None:
+    board.clock.now = at("2026-01-05T00:00:00+00:00")  # before any Issue the database stamps now
+    chokepoint = board.create()["id"]
+    session = board.session()
+    soon = (board.clock.now + timedelta(hours=1)).isoformat()
+    future_lead = board.lead(first_seen_at=soon)
+    # An Issue is stamped by the database's clock, which is after the session's as-of time.
+    elsewhere = board.issue("Opened by nobody's session")
+    own = board.issue("Opened by this session", produced_by=session)
+
+    sent = board.event(
+        chokepoint, "step_set", board.step("lead", lead_ids=[future_lead]), session_id=session
+    )
+    board.refused(sent, 422, "created_after_as_of")
+    sent = board.event(chokepoint, "field_set", {"issue_ids": [elsewhere]}, session_id=session)
+    board.refused(sent, 422, "created_after_as_of")
+    linked = board.ok(chokepoint, "field_set", {"add_issue_ids": [own]}, session_id=session)
+    assert linked["issue_ids"] == [own]
+    past_lead = board.lead(first_seen_at=(board.clock.now - timedelta(hours=1)).isoformat())
+    board.ok(chokepoint, "step_set", board.step("lead", lead_ids=[past_lead]), session_id=session)
+
+
+def test_a_sessions_actor_is_the_events_unless_one_is_given(board: Board) -> None:
+    session = board.session()
+
+    created = board.create(session_id=session)
+    assert created["history"][0]["actor"] == "claude-session"
+    noted = board.ok(created["id"], "note", {"text": "x"}, session_id=session)
+    assert noted["history"][-1]["actor"] == "claude-session"
+    named = board.ok(created["id"], "note", {"text": "y"}, session_id=session, actor="someone")
+    assert named["history"][-1]["actor"] == "someone"
+    assert board.ok(created["id"], "note", {"text": "z"})["history"][-1]["actor"] == ACTOR
+
+
+@pytest.mark.parametrize(
+    "theme", ["Photonics", "1photonics", "a", "has space", "x" * 42, "under_score", ""]
+)
+def test_a_theme_is_a_slug(board: Board, theme: str) -> None:
+    created = board.api.post(
+        "/api/v1/chokepoints", json={"theme": theme, "constraint": CONSTRAINT, "layer": LAYER}
+    )
+    run = {"run_date": "2026-10-18", "mode": "delta", "memo": "m"}
+    posted = board.api.post("/api/v1/watch-runs", json={"theme": theme} | run)
+
+    assert (created.status_code, posted.status_code) == (422, 422)
+    inserts = (  # and the database says so too
+        "INSERT INTO chokepoint (id, theme, created_at) VALUES (gen_random_uuid(), :t, now())",
+        "INSERT INTO watch_run (id, theme, run_date, mode, memo, created_at)"
+        " VALUES (gen_random_uuid(), :t, '2026-10-18', 'delta', 'm', now())",
+    )
+    for insert in inserts:
+        with pytest.raises(DBAPIError), board.engine.begin() as connection:
+            connection.execute(text(insert), {"t": theme})
+
+
+def test_a_watch_run_keeps_its_cost_and_tokens(board: Board) -> None:
+    run = {"theme": THEME, "run_date": "2026-10-18", "mode": "delta", "memo": "m"}
+    created = board.api.post("/api/v1/watch-runs", json=run | {"cost_usd": 1.25, "tokens": 480_000})
+    plain = board.api.post("/api/v1/watch-runs", json=run)
+
+    assert (created.json()["cost_usd"], created.json()["tokens"]) == (1.25, 480_000)
+    assert (plain.json()["cost_usd"], plain.json()["tokens"]) == (None, None)
+    assert board.get(f"/api/v1/watch-runs/{created.json()['id']}")["cost_usd"] == 1.25
+    for bad in ({"cost_usd": -1}, {"tokens": -1}):
+        assert board.api.post("/api/v1/watch-runs", json=run | bad).status_code == 422
+
+
+def test_the_tables_refuse_truncate(board: Board) -> None:
+    board.create()
+    run = {"theme": THEME, "run_date": "2026-10-18", "mode": "delta", "memo": "m"}
+    board.api.post("/api/v1/watch-runs", json=run)
+
+    for table in ("chokepoint_event", "chokepoint", "watch_run"):
+        with pytest.raises(DBAPIError), board.engine.begin() as connection:
+            connection.execute(text(f"TRUNCATE {table} CASCADE"))
