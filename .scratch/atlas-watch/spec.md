@@ -77,7 +77,7 @@ Each check has its source span or observation. MCP `bear_checks`. The Skeptic an
 - **Settlement:** predictions and calls settled, hit or miss.
 - **Kill rate:** killed chokepoints, with their reasons.
 
-**W6: one greenfield industry.** An industry Atlas has never touched (the owner names it; a review suggests robotics manufacturing). Started by the architect run with zero seed companies. Holders are admitted to the universe as they become candidates: a Candidate committed, SEC ingest and the TradingView catalog. Four weekly cycles, then the owner judges the output, not the code.
+**W6: one greenfield industry: robotics manufacturing** (the owner's choice, 2026-10-18). An industry Atlas has never touched. Its key suppliers are often Japanese, so they stay leads until phase 2's registries are in. Its theme config needs an empty company list, which is a config change if the loader requires companies. Started by the architect run with zero seed companies. Holders are admitted to the universe as they become candidates: a Candidate committed, SEC ingest and the TradingView catalog. Four weekly cycles, then the owner judges the output, not the code.
 
 **W7: ticket 33's scan feeds the Watch.** The EDGAR phrase scan runs weekly as a delta, and its shortlist arrives as leads. Ticket 33 closes into this effort.
 
