@@ -12,6 +12,18 @@
   --warn: #e3a94b;
   --gap: #f2685c;
   --focus: var(--accent);
+  --text-2: #aab2bf; /* secondary text: Atlas's statement of a Fact, meta that matters */
+  --raise-hover: #222733; /* a row's hover and focus surface */
+  --quote-face: ui-serif, "Iowan Old Style", Georgia, serif; /* the document's words */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --frame: 72rem;
+  --measure: 52rem;
   color-scheme: dark;
   font-family: system-ui, sans-serif;
   line-height: 1.5;
@@ -21,12 +33,29 @@ body {
   background: var(--bg);
   color: var(--text);
   margin: 0 auto;
-  max-width: 72rem;
+  max-width: var(--frame);
   padding: 0 1rem 3rem;
 }
 
 a {
   color: var(--accent);
+  text-decoration: none;
+}
+
+/* Underlines stay on links inside prose, and appear on hover everywhere. */
+p a,
+.prose a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Prose, quotes and headlines keep a readable line length inside the one frame. */
+.measure {
+  max-width: var(--measure);
 }
 
 header {
@@ -88,6 +117,13 @@ th[scope="row"] {
   width: 1%;
 }
 
+/* A row header that holds prose (a prediction's measure) wraps. */
+th[scope="row"].th-wrap,
+.th-wrap {
+  white-space: normal;
+  width: auto;
+}
+
 td {
   overflow-wrap: anywhere;
 }
@@ -135,8 +171,7 @@ button:disabled {
   color: var(--muted);
 }
 
-.ident,
-time {
+.ident {
   font-family: ui-monospace, monospace;
   font-size: 0.9em;
 }
@@ -600,10 +635,8 @@ nav[aria-label="Site"] .nav-ops {
 
 /* The reader's visual language (ticket 08): a calm, spacious single column. */
 
-/* A single column about 52rem wide, centred; wraps a reader page. */
+/* Wraps a reader page: it shares the one frame (and so one left edge) with every page. */
 .reader {
-  margin: 0 auto;
-  max-width: 52rem;
   padding-bottom: 4rem;
 }
 
@@ -694,6 +727,7 @@ nav[aria-label="Site"] .nav-ops {
 
 /* A row's layout: main text and a muted line on the left, a pill on the right; stacks on a phone. */
 .reader-row {
+  position: relative;
   align-items: center;
   display: grid;
   gap: 0.25rem 1rem;
@@ -904,4 +938,53 @@ nav[aria-label="Site"] .nav-ops {
 
 .prediction-lapsed {
   color: var(--warn);
+}
+
+/* Row-as-link: the title's link covers its list row, so the whole row opens. It never covers a
+   quote, a headline or a statement in an evidence block (those rows are not list rows). */
+.reader-row > .row-title a::after,
+.reader-row .row-title a::after {
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.reader-row .row-secondary a {
+  position: relative;
+  z-index: 1;
+}
+
+.reader-row:hover,
+.reader-row:focus-within {
+  background: var(--raise-hover);
+}
+
+.reader-row:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.row-title {
+  overflow-wrap: anywhere;
+}
+
+.row-title a {
+  color: var(--text);
+}
+
+/* Disclosures fade in over 120ms. */
+details[open] > *:not(summary) {
+  animation: reveal 120ms ease-out;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  details[open] > *:not(summary) {
+    animation: none;
+  }
 }
