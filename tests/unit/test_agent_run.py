@@ -938,3 +938,338 @@ def test_the_summary_names_the_atlas_session_the_run_opened(run: Run, tmp_path: 
 
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout.splitlines()[0])["atlas_session_id"] == "this-run"
+
+
+# --- The Chokepoint Watch (ticket W2): `run.sh watch` ----------------------------------------
+
+AGENT_DRY_RUNS = ROOT / "tests" / "fixtures" / "agents"
+WATCH_PROMPT = ROOT / "agent" / "prompts" / "watch.md"
+WATCH_DRIVER = "Humanoid robots built at volume for factories and warehouses"
+# AS_OF is 2026-10-20: architect mode sweeps 90 days back.
+ARCHITECT_SINCE = "2026-07-22"
+
+
+def masked_dry_run(run: Run, result: subprocess.CompletedProcess[str]) -> str:
+    """A `--dry-run` with the scratch directory and the working directory masked."""
+    return re.sub(
+        r"(?m)^working directory: .*$",
+        "working directory: <cwd>",
+        result.stdout.replace(posix(run.tmp), "<tmp>"),
+    )
+
+
+def watch_run(run: Run, *args: str, **env: str) -> subprocess.CompletedProcess[str]:
+    settings = {
+        "ATLAS_AGENT_THEME": "robotics-manufacturing",
+        "ATLAS_WATCH_DEMAND_DRIVER": WATCH_DRIVER,
+    }
+    return run.call("watch", *args, **(settings | env))
+
+
+def watch_tools_line() -> list[str]:
+    line = next(
+        each
+        for each in WATCH_PROMPT.read_text(encoding="utf-8").splitlines()
+        if each.startswith("Tools: ")
+    )
+    return line.removeprefix("Tools: ").split(", ")
+
+
+def allowed_in(command: str) -> list[str]:
+    """The words of `--allowedTools` in a dry run's command line."""
+    words = command.split(" --allowedTools ", 1)[1].split(" --add-dir ", 1)[0]
+    return words.replace("'", "").split(" ")
+
+
+@pytest.mark.parametrize("agent", ["scout", "researcher", "skeptic"])
+def test_the_other_agents_dry_runs_are_what_they_were_before_the_watch(run: Run, agent: str):
+    # Recorded from the code before ticket W2 (agent/run.sh gained the watch): the scout, the
+    # researcher that is not isolated and the skeptic print byte for byte what they printed.
+    result = run.call(agent, "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    expected = (AGENT_DRY_RUNS / f"dry-run.{agent}.txt").read_text(encoding="utf-8")
+    assert masked_dry_run(run, result) == expected
+
+
+def test_the_watch_dry_run_fills_its_prompt_and_asks_atlas_nothing(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas()
+
+    result = watch_run(
+        run,
+        "--dry-run",
+        ATLAS_MCP_URL=fake.mcp_url,
+        ATLAS_WATCH_MODE="delta",
+        ATLAS_WATCH_SINCE="2026-10-11",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert fake.asked() == [], "mode and since given: no network call"
+    assert not run.stub_was_called()
+    assert list(run.tmp.iterdir()) == [], "a dry run writes nothing"
+    assert "agent: watch" in result.stdout
+    assert f"demand driver: {WATCH_DRIVER}" in result.stdout
+    assert "mode: delta" in result.stdout and "since: 2026-10-11" in result.stdout
+    assert "would ask Atlas" not in result.stdout
+    prompt = result.stdout.split("prompt:\n", 1)[1]
+    assert "{{" not in prompt
+    assert "# Chokepoint Watch: robotics-manufacturing, week of " + AS_OF in prompt
+    assert f"- **Demand driver:** {WATCH_DRIVER}." in prompt
+    assert "- **Mode:** delta." in prompt
+    assert "- **Since:** 2026-10-11." in prompt
+    assert (
+        f"- **As of:** {AS_OF}. Pass it to `open_session` unchanged, with `actor: atlas-watch`."
+        in (prompt)
+    )
+    assert "- **Call bound:** 60 tool calls." in prompt
+    assert f"- **Output folder:** {posix(run.tmp)}/out." in prompt
+    command = next(
+        line for line in result.stdout.splitlines() if line.startswith("command: claude -p ")
+    )
+    assert " --max-turns 100" in command
+    assert " --strict-mcp-config" in command and " --tools Read,Write,Edit,Glob" in command
+
+
+def test_the_watch_driver_goes_into_the_prompt_as_text(run: Run):
+    driver = "Robots & {{braces}} at \\1 volume 'quoted'"
+
+    prompt = watch_run(run, "--dry-run", ATLAS_WATCH_DEMAND_DRIVER=driver).stdout.split(
+        "prompt:\n", 1
+    )[1]
+
+    assert f"- **Demand driver:** {driver}." in prompt
+
+
+def test_the_watch_is_allowed_exactly_the_tools_of_its_tools_line(run: Run):
+    tools = watch_tools_line()
+    assert len(tools) == len(set(tools)) >= 15
+
+    result = watch_run(run, "--dry-run")
+
+    command = next(
+        line for line in result.stdout.splitlines() if line.startswith("command: claude -p ")
+    )
+    assert allowed_in(command) == [f"mcp__atlas__{name}" for name in tools] + BUILT_IN
+    # Never the whole server.
+    assert " mcp__atlas " not in command and "mcp__atlas__*" not in command
+    # The prompt filled in carries the same Tools line.
+    assert f"\nTools: {', '.join(tools)}\n" in result.stdout.split("prompt:\n", 1)[1]
+    # And it has the board and the memo, not the Belief or hypothesis tools.
+    assert {"board", "get_chokepoint", "add_chokepoint", "update_chokepoint", "write_memo"} <= set(
+        tools
+    )
+    assert not {"propose_belief", "judge_statement", "draft_hypothesis", "next_issue"} & set(tools)
+
+
+def test_a_real_watch_run_hands_claude_the_tools_line_as_its_allow_list(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    result = watch_run(
+        run,
+        ATLAS_MCP_URL=atlas().mcp_url,
+        ATLAS_WATCH_MODE="delta",
+        ATLAS_WATCH_SINCE="2026-10-11",
+    )
+
+    assert result.returncode == 0, result.stderr
+    args = run.stub_args()
+    start = args.index("--allowedTools") + 1
+    end = next(i for i in range(start, len(args)) if args[i].startswith("--"))
+    assert args[start:end] == [f"mcp__atlas__{name}" for name in watch_tools_line()] + BUILT_IN
+    assert args[args.index("--max-turns") + 1] == "100"
+    assert "- **Call bound:** 60 tool calls." in "\n".join(args)
+
+
+def test_a_watch_without_a_mode_would_ask_atlas_and_a_dry_run_does_not(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas()
+
+    result = watch_run(run, "--dry-run", ATLAS_MCP_URL=fake.mcp_url)
+
+    assert result.returncode == 0, result.stderr
+    assert fake.asked() == [] and fake.posted() == []
+    shown = result.stdout
+    assert "watch: run.sh would ask Atlas (GET " in shown
+    assert "/api/v1/watch-runs?theme=robotics-manufacturing&limit=1)" in shown
+    assert "mode: <asked of Atlas when the run starts>" in shown
+    prompt = shown.split("prompt:\n", 1)[1]
+    assert "- **Mode:** <asked of Atlas when the run starts>." in prompt
+    assert "- **Since:** <asked of Atlas when the run starts>." in prompt
+
+
+def test_architect_given_needs_no_since_and_asks_nothing(run: Run, atlas: Callable[..., FakeAtlas]):
+    fake = atlas()
+
+    result = watch_run(run, "--dry-run", ATLAS_MCP_URL=fake.mcp_url, ATLAS_WATCH_MODE="architect")
+
+    assert fake.asked() == []
+    assert f"since: {ARCHITECT_SINCE}" in result.stdout
+    assert "would ask Atlas" not in result.stdout
+
+
+def test_delta_without_since_would_ask_atlas_for_the_last_run(run: Run):
+    result = watch_run(run, "--dry-run", ATLAS_WATCH_MODE="delta")
+
+    assert "would ask Atlas" in result.stdout
+    assert "mode: delta" in result.stdout
+    assert "since: <asked of Atlas when the run starts>" in result.stdout
+
+
+def summary_of(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
+    lines = result.stdout.splitlines()
+    assert len(lines) == 1, result.stdout
+    return json.loads(lines[0])
+
+
+def test_the_mode_is_architect_when_atlas_holds_no_watch_run_of_the_theme(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    # Another theme's run does not count.
+    fake = atlas(watch_runs=[{"theme": "photonics", "run_date": "2026-10-10"}])
+
+    result = watch_run(run, ATLAS_MCP_URL=fake.mcp_url)
+
+    assert result.returncode == 0, result.stderr
+    assert "GET /api/v1/watch-runs?theme=robotics-manufacturing&limit=1" in fake.asked()
+    prompt = "\n".join(run.stub_args())
+    assert "- **Mode:** architect." in prompt
+    assert f"- **Since:** {ARCHITECT_SINCE}." in prompt
+    summary = summary_of(result)
+    assert summary["mode"] == "architect" and summary["since"] == ARCHITECT_SINCE
+    assert summary["agent"] == "watch" and summary["ok"] is True
+
+
+def test_the_mode_is_delta_since_the_last_run_when_atlas_holds_one(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas(
+        watch_runs=[
+            {"theme": "robotics-manufacturing", "run_date": "2026-10-11"},
+            {"theme": "robotics-manufacturing", "run_date": "2026-10-04"},
+        ]
+    )
+
+    result = watch_run(run, ATLAS_MCP_URL=fake.mcp_url)
+
+    assert result.returncode == 0, result.stderr
+    prompt = "\n".join(run.stub_args())
+    assert "- **Mode:** delta." in prompt
+    assert "- **Since:** 2026-10-11." in prompt
+    summary = summary_of(result)
+    assert summary["mode"] == "delta" and summary["since"] == "2026-10-11"
+
+
+def test_a_given_mode_and_since_override_what_atlas_holds(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas(watch_runs=[{"theme": "robotics-manufacturing", "run_date": "2026-10-11"}])
+
+    result = watch_run(
+        run,
+        ATLAS_MCP_URL=fake.mcp_url,
+        ATLAS_WATCH_MODE="architect",
+        ATLAS_WATCH_SINCE="2026-08-01",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not [each for each in fake.asked() if "watch-runs" in each], "nothing to ask"
+    summary = summary_of(result)
+    assert summary["mode"] == "architect" and summary["since"] == "2026-08-01"
+
+
+def test_a_given_since_alone_keeps_the_mode_atlas_chooses(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas(watch_runs=[{"theme": "robotics-manufacturing", "run_date": "2026-10-11"}])
+
+    result = watch_run(run, ATLAS_MCP_URL=fake.mcp_url, ATLAS_WATCH_SINCE="2026-10-01")
+
+    summary = summary_of(result)
+    assert summary["mode"] == "delta" and summary["since"] == "2026-10-01"
+
+
+@pytest.mark.parametrize("config", [{"watch_runs_status": 500}, None])
+def test_a_watch_run_that_cannot_ask_atlas_fails_without_calling_claude(
+    run: Run, atlas: Callable[..., FakeAtlas], config: dict[str, Any] | None
+):
+    url = atlas(**config).mcp_url if config else "http://127.0.0.1:9/mcp"
+
+    result = watch_run(run, ATLAS_MCP_URL=url)
+
+    assert result.returncode == 1
+    assert not run.stub_was_called()
+    summary = summary_of(result)
+    assert summary["ok"] is False and summary["agent"] == "watch"
+    assert "watch" in summary["reason"] or "Atlas" in summary["reason"]
+    assert TOKEN not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    ("setting", "message"),
+    [
+        ({"ATLAS_WATCH_DEMAND_DRIVER": ""}, "ATLAS_WATCH_DEMAND_DRIVER is required"),
+        ({"ATLAS_WATCH_DEMAND_DRIVER": "x" * 301}, "over 300 characters"),
+        ({"ATLAS_WATCH_DEMAND_DRIVER": "two\nlines"}, "control character or a newline"),
+        ({"ATLAS_WATCH_MODE": "weekly"}, "not architect or delta"),
+        ({"ATLAS_WATCH_SINCE": "last week"}, "not a date"),
+        ({"ATLAS_WATCH_SINCE": "2026-02-31"}, "not a date"),
+        ({"ATLAS_WATCH_SINCE": "2026-10-11T00:00:00Z"}, "not a date"),
+    ],
+)
+def test_a_watch_setting_that_does_not_fit_is_refused(
+    run: Run, setting: dict[str, str], message: str
+):
+    result = watch_run(run, "--dry-run", **setting)
+
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert not run.stub_was_called()
+
+
+def test_a_watch_without_its_demand_driver_is_refused_even_if_unset(run: Run):
+    result = run.call("watch", "--dry-run", ATLAS_AGENT_THEME="robotics-manufacturing")
+
+    assert result.returncode == 2
+    assert "ATLAS_WATCH_DEMAND_DRIVER is required" in result.stderr
+
+
+def test_a_watch_needs_its_theme_set(run: Run):
+    result = run.call("watch", "--dry-run", ATLAS_WATCH_DEMAND_DRIVER=WATCH_DRIVER)
+
+    assert result.returncode == 2
+    assert "ATLAS_AGENT_THEME is required for the watch" in result.stderr
+
+
+@pytest.mark.parametrize("agent", ["scout", "researcher", "skeptic"])
+@pytest.mark.parametrize(
+    "setting",
+    [
+        {"ATLAS_WATCH_DEMAND_DRIVER": "a driver"},
+        {"ATLAS_WATCH_MODE": "delta"},
+        {"ATLAS_WATCH_SINCE": "2026-10-11"},
+    ],
+)
+def test_the_watch_settings_are_the_watch_s_alone(run: Run, agent: str, setting: dict[str, str]):
+    result = run.call(agent, "--dry-run", **setting)
+
+    assert result.returncode == 2
+    assert "are the watch's" in result.stderr
+
+
+def test_a_watch_run_prints_one_summary_line_with_its_mode_and_since(run: Run):
+    result = watch_run(
+        run,
+        ATLAS_MCP_URL="http://127.0.0.1:9/mcp",
+        ATLAS_WATCH_MODE="delta",
+        ATLAS_WATCH_SINCE="2026-10-11",
+    )
+
+    assert result.returncode == 0, result.stderr
+    summary = summary_of(result)
+    assert summary["agent"] == "watch" and summary["ok"] is True
+    assert summary["mode"] == "delta" and summary["since"] == "2026-10-11"
+    assert summary["turns"] == 7 and summary["result"] == "all done"
+    assert TOKEN not in result.stdout + result.stderr

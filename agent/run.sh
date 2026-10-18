@@ -2,7 +2,7 @@
 # One scheduled agent run (atlas-beliefs ticket 17): headless Claude Code on the owner's
 # subscription, against Atlas's MCP server.
 #
-#   run.sh <scout|researcher|skeptic> [--dry-run]
+#   run.sh <scout|researcher|skeptic|watch> [--dry-run]
 #
 # Environment:
 #   CLAUDE_CODE_OAUTH_TOKEN   required (not for --dry-run): the owner's `claude setup-token` token.
@@ -25,20 +25,30 @@
 #                             isolation (ticket 29b). Needs the question. Default false. The
 #                             early-call scorecard's runs (ticket 29): `agent/scorecard-run.sh`
 #                             passes all of it and the exact model ID in ATLAS_AGENT_MODEL
+#   ATLAS_WATCH_DEMAND_DRIVER (watch only; required) the theme's demand driver, one line of at
+#                             most 300 characters, put in the prompt as text (the Chokepoint
+#                             Watch, ticket W2). `ATLAS_AGENT_THEME` is required for the watch,
+#                             with no default
+#   ATLAS_WATCH_MODE          (watch only) `architect` (week one: decompose the industry, sweep 90
+#                             days) or `delta`. Default: `architect` when Atlas holds no watch run
+#                             of the theme yet, else `delta` (`GET /api/v1/watch-runs?theme=&limit=1`)
+#   ATLAS_WATCH_SINCE         (watch only) the date the sweep starts, YYYY-MM-DD. Default: the last
+#                             run's `run_date`, or 90 days before the as-of time in architect mode
 #   ATLAS_AGENT_TMP           the writable directory (default /tmp): the output folder is
 #                             $ATLAS_AGENT_TMP/out, the MCP config $ATLAS_AGENT_TMP/atlas-mcp.json
 #
 # Prints one JSON line to stdout (agent, session id, the Atlas session id, turns, cost, duration,
 # started_at and finished_at in UTC, the first 2,000 characters of the result) for the pod log;
 # exits non-zero when the run failed. --dry-run prints the command, the MCP config and the
-# prompt, and calls nothing (no network: an isolated run shows a placeholder for the session id).
+# prompt, and calls nothing (no network: an isolated run shows a placeholder for the session id;
+# a watch given its mode and its since date asks Atlas nothing, otherwise it says it would ask).
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 
 usage() {
-  echo "usage: run.sh <scout|researcher|skeptic> [--dry-run]" >&2
+  echo "usage: run.sh <scout|researcher|skeptic|watch> [--dry-run]" >&2
   exit "${1:-2}"
 }
 
@@ -48,7 +58,7 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) dry_run=1 ;;
     -h | --help) usage 0 ;;
-    scout | researcher | skeptic)
+    scout | researcher | skeptic | watch)
       [[ -z "$agent" ]] || usage
       agent="$arg"
       ;;
@@ -78,6 +88,11 @@ case "$agent" in
     default_turns=140
     default_calls=80
     ;;
+  watch)
+    # watch.md: at most 60 tool calls, the Scout's bound, so the Scout's turns.
+    default_turns=100
+    default_calls=60
+    ;;
 esac
 
 mcp_url="${ATLAS_MCP_URL:-http://atlas.development.svc.cluster.local:8000/mcp}"
@@ -92,6 +107,9 @@ as_of="${ATLAS_AGENT_AS_OF:-$(date -u +%Y-%m-%dT%H:%M:%S+00:00)}"
 question="${ATLAS_AGENT_QUESTION:-}"
 seeds="${ATLAS_AGENT_SEEDS:-}"
 isolated="${ATLAS_AGENT_ISOLATED:-false}"
+demand_driver="${ATLAS_WATCH_DEMAND_DRIVER:-}"
+watch_mode="${ATLAS_WATCH_MODE:-}"
+watch_since="${ATLAS_WATCH_SINCE:-}"
 
 # What goes into the prompt and the JSON file is checked, not escaped.
 url_re='^https?://[^[:space:]"\\]+$'
@@ -125,6 +143,84 @@ if [[ -n "$question" ]]; then
   [[ ! "$question" =~ $control_re ]] || die "ATLAS_AGENT_QUESTION has a control character or a newline"
 fi
 
+# The Chokepoint Watch's inputs (ticket W2). The driver goes into the prompt as text, so it is
+# checked for length and control characters; the mode and the date must fit what they name.
+if [[ -n "$demand_driver$watch_mode$watch_since" ]]; then
+  [[ "$agent" == watch ]] \
+    || die "ATLAS_WATCH_DEMAND_DRIVER, ATLAS_WATCH_MODE and ATLAS_WATCH_SINCE are the watch's"
+fi
+watch_ask=0
+watch_ref="<asked of Atlas when the run starts>"
+if [[ "$agent" == watch ]]; then
+  [[ -n "${ATLAS_AGENT_THEME:-}" ]] || die "ATLAS_AGENT_THEME is required for the watch"
+  [[ -n "$demand_driver" ]] || die "ATLAS_WATCH_DEMAND_DRIVER is required for the watch"
+  [[ ${#demand_driver} -le 300 ]] || die "ATLAS_WATCH_DEMAND_DRIVER is over 300 characters"
+  driver_control_re='[[:cntrl:]]'
+  [[ ! "$demand_driver" =~ $driver_control_re ]] \
+    || die "ATLAS_WATCH_DEMAND_DRIVER has a control character or a newline"
+  [[ -z "$watch_mode" || "$watch_mode" == architect || "$watch_mode" == delta ]] \
+    || die "ATLAS_WATCH_MODE is not architect or delta: $watch_mode"
+  day_re='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+  if [[ -n "$watch_since" ]]; then
+    [[ "$watch_since" =~ $day_re && "$(date -u -d "$watch_since" +%F 2>/dev/null)" == "$watch_since" ]] \
+      || die "ATLAS_WATCH_SINCE is not a date (YYYY-MM-DD): $watch_since"
+  fi
+  # Architect mode sweeps 90 days back from the as-of time.
+  ninety_days_before() {
+    date -u -d "@$(($(date -d "$as_of" +%s) - 90 * 86400))" +%F
+  }
+  if [[ "$watch_mode" == architect && -z "$watch_since" ]]; then
+    watch_since="$(ninety_days_before)"
+  fi
+  # Atlas is asked (GET /api/v1/watch-runs?theme=&limit=1) for what is not given: the mode, and in
+  # delta mode the last run's date. A dry run asks nothing and shows a placeholder.
+  if [[ -z "$watch_mode" || ( "$watch_mode" == delta && -z "$watch_since" ) ]]; then
+    watch_ask=1
+  fi
+  if [[ "$watch_ask" == 1 && "$dry_run" == 0 ]]; then
+    command -v node >/dev/null 2>&1 || die "node is not installed"
+    # Prints "<mode> <last run date or ->"; on failure the one JSON line and exit 1, with claude
+    # never called (the pod's log says why).
+    watch_js='
+const [mcpUrl, theme, agent] = process.argv.slice(1);
+const fail = (reason) => {
+  process.stderr.write("run.sh: could not ask Atlas for the last watch run: " + reason + "\n");
+  process.stdout.write(JSON.stringify({ agent, ok: false, exit_status: null, reason,
+    finished_at: new Date().toISOString().replace(/\.[0-9]+Z$/, "Z") }) + "\n");
+  process.exit(1);
+};
+(async () => {
+  try {
+    const base = String(mcpUrl).replace(/\/mcp\/?$/, "");
+    const answer = await fetch(base + "/api/v1/watch-runs?theme=" + encodeURIComponent(theme) + "&limit=1",
+      { signal: AbortSignal.timeout(30000) });
+    if (!answer.ok) fail("GET /api/v1/watch-runs answered " + answer.status);
+    const body = await answer.json();
+    const rows = Array.isArray(body) ? body : Array.isArray(body && body.items) ? body.items : [];
+    const last = rows.length ? String(rows[0].run_date || "") : "";
+    if (rows.length && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(last)) fail("the last run has no run_date");
+    process.stdout.write((last ? "delta " + last : "architect -") + "\n");
+  } catch (error) {
+    fail("Atlas is unreachable: " + (error && error.message ? error.message : String(error)));
+  }
+})();
+'
+    asked_status=0
+    asked="$(node -e "$watch_js" "$mcp_url" "$theme" "$agent")" || asked_status=$?
+    if [[ "$asked_status" != 0 ]]; then
+      printf '%s\n' "$asked"
+      exit 1
+    fi
+    asked_mode="${asked%% *}"
+    asked_last="${asked#* }"
+    [[ -n "$watch_mode" ]] || watch_mode="$asked_mode"
+    if [[ -z "$watch_since" ]]; then
+      if [[ "$asked_last" != "-" ]]; then watch_since="$asked_last"; else watch_since="$(ninety_days_before)"; fi
+    fi
+    watch_ask=0
+  fi
+fi
+
 prompt_file="$here/prompts/$agent.md"
 [[ -f "$prompt_file" ]] || die "no prompt for $agent: $prompt_file"
 prompt="$(cat "$prompt_file")"
@@ -132,6 +228,8 @@ prompt="${prompt//'{{THEME}}'/$theme}"
 prompt="${prompt//'{{AS_OF}}'/$as_of}"
 prompt="${prompt//'{{OUT_DIR}}'/$out_dir}"
 prompt="${prompt//'{{CALL_BOUND}}'/$call_bound}"
+prompt="${prompt//'{{MODE}}'/"${watch_mode:-$watch_ref}"}"
+prompt="${prompt//'{{SINCE}}'/"${watch_since:-$watch_ref}"}"
 
 # The researcher's inputs (a wrapper without these placeholders is unchanged): the frontier's
 # question by default; the lead's question and seeds when given; an isolated session when asked.
@@ -186,8 +284,18 @@ prompt="${prompt//'{{SEEDS_INPUT}}'/$seeds_block}"
 prompt="${prompt//'{{START_INPUT}}'/$start_block}"
 prompt="${prompt//'{{RECALL_INPUT}}'/$recall_block}"
 prompt="${prompt//'{{ISOLATION_INPUT}}'/$isolation_block}"
-[[ "${prompt//'{{QUESTION_TEXT}}'/}" != *'{{'* ]] || die "the $agent prompt has a placeholder nothing fills"
+# The watch's driver is free text like the question: its sentinel is stripped for the check and
+# the text goes in last, so braces in it are no placeholder and nothing in it is replaced again.
+if [[ "$agent" == watch ]]; then
+  prompt="${prompt//'{{DEMAND_DRIVER}}'/'{{DEMAND_DRIVER_TEXT}}'}"
+fi
+unfilled="${prompt//'{{QUESTION_TEXT}}'/}"
+unfilled="${unfilled//'{{DEMAND_DRIVER_TEXT}}'/}"
+[[ "$unfilled" != *'{{'* ]] || die "the $agent prompt has a placeholder nothing fills"
 prompt="${prompt//'{{QUESTION_TEXT}}'/"$question"}"
+if [[ "$agent" == watch ]]; then
+  prompt="${prompt//'{{DEMAND_DRIVER_TEXT}}'/"$demand_driver"}"
+fi
 
 mcp_json="{\"mcpServers\":{\"atlas\":{\"type\":\"http\",\"url\":\"$mcp_url\"}}}"
 
@@ -200,6 +308,18 @@ allowed=("mcp__atlas" "mcp__atlas__*" Read Write Edit Glob)
 if [[ "$isolated" == true ]]; then
   allowed=()
   for tool in $isolated_tools; do allowed+=("mcp__atlas__$tool"); done
+  allowed+=(Read Write Edit Glob)
+fi
+# The watch is allowed exactly the tools of its prompt's Tools line (tests/unit/test_agent_run.py
+# checks the two are the same list), never the whole server.
+if [[ "$agent" == watch ]]; then
+  watch_tools="$(grep '^Tools: ' "$prompt_file")"
+  watch_tools="${watch_tools#Tools: }"
+  allowed=()
+  for tool in ${watch_tools//,/ }; do
+    [[ "$tool" =~ ^[a-z][a-z_]*$ ]] || die "the watch prompt's Tools line has a name that is not a tool: $tool"
+    allowed+=("mcp__atlas__$tool")
+  done
   allowed+=(Read Write Edit Glob)
 fi
 # Built again once an isolated run has the session's id in its prompt.
@@ -229,9 +349,21 @@ quote() {
 
 if [[ "$dry_run" == 1 ]]; then
   printf 'agent: %s\n' "$agent"
-  printf 'question: %s\n' "${question:-none (next_issue)}"
-  printf 'seeds: %s\n' "${seeds:-none}"
-  printf 'isolated: %s\n' "$isolated"
+  if [[ "$agent" == watch ]]; then
+    printf 'demand driver: %s\n' "$demand_driver"
+    printf 'mode: %s\n' "${watch_mode:-$watch_ref}"
+    printf 'since: %s\n' "${watch_since:-$watch_ref}"
+    if [[ "$watch_ask" == 1 ]]; then
+      atlas_base="${mcp_url%/}"
+      atlas_base="${atlas_base%/mcp}"
+      printf 'watch: run.sh would ask Atlas (GET %s/api/v1/watch-runs?theme=%s&limit=1) for the mode and the since date before claude starts; the prompt shows a placeholder for each it would ask\n' \
+        "$atlas_base" "$theme"
+    fi
+  else
+    printf 'question: %s\n' "${question:-none (next_issue)}"
+    printf 'seeds: %s\n' "${seeds:-none}"
+    printf 'isolated: %s\n' "$isolated"
+  fi
   if [[ "$isolated" == true ]]; then
     atlas_base="${mcp_url%/}"
     atlas_base="${atlas_base%/mcp}"
@@ -349,7 +481,7 @@ finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # replaced first.
 summary_js='
 const fs = require("fs");
-const [agent, resultFile, errorFile, status, wall, mcpUrl, asOf, question, seeds, startedAt, finishedAt, openedSession] = process.argv.slice(1);
+const [agent, resultFile, errorFile, status, wall, mcpUrl, asOf, question, seeds, startedAt, finishedAt, openedSession, watchMode, watchSince] = process.argv.slice(1);
 const token = process.env.CLAUDE_CODE_OAUTH_TOKEN || "";
 const redact = (text) => (token ? String(text).split(token).join("[redacted]") : String(text));
 const first = (text, n) => Array.from(String(text)).slice(0, n).join("");
@@ -413,6 +545,7 @@ const line = {
   finished_at: finishedAt,
   subtype: object ? object.subtype ?? null : null,
   is_error: object ? object.is_error ?? null : null,
+  ...(watchMode ? { mode: watchMode, since: watchSince } : {}),
   result: redact(first(object ? (typeof object.result === "string" ? object.result : JSON.stringify(object.result ?? null)) : "unparseable output: " + raw, 2000)),
 };
 // The files stay in the output folder for whoever reads the run: with the token cut out.
@@ -428,5 +561,5 @@ process.exit(ok ? 0 : 1);
 })();
 '
 exit_code=0
-node -e "$summary_js" "$agent" "$result" "$errors" "$status" "$((finished - started))" "$mcp_url" "$as_of" "$question" "$seeds" "$started_at" "$finished_at" "$atlas_session" || exit_code=$?
+node -e "$summary_js" "$agent" "$result" "$errors" "$status" "$((finished - started))" "$mcp_url" "$as_of" "$question" "$seeds" "$started_at" "$finished_at" "$atlas_session" "$watch_mode" "$watch_since" || exit_code=$?
 exit "$exit_code"
