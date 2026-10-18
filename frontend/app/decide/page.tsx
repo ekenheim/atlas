@@ -85,7 +85,6 @@ export default function DecidePage() {
     <div className="decide-page">
       <h1>Decide</h1>
       <StatStrip
-        label="Waiting on you"
         stats={[
           {
             label: "Waiting on you",
