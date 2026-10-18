@@ -18,9 +18,10 @@ English Source Versions of some companies available at an as-of time, for the re
 - **Section.** Each hit names the section (`atlas.retention.sections`, the anchor retention and
   Assertions use) its passage starts in.
 - **Web pages** (provider `web`, `atlas sources fetch`) are never public before Atlas had
-  them: with a `session_id` a page is searched only if it was fetched by the as-of time or by
-  that session, and not at all for an isolated session; without a session, only if it was
-  fetched by the as-of time.
+  them: a page is searched when it was public and fetched by the as-of time, or when the
+  `session_id` asking fetched it itself with its as-of time within 36 hours before that fetch
+  (a prospective session reads what it fetched minutes after its start); never for an isolated
+  session, and for no other session before its fetch.
 - **Cache.** The archive reads are kept in an in-process LRU of the last `TEXT_CACHE` (256)
   parsed texts, by the parse's archived object URI (a parse never changes); the passages, their
   tokens and the sections are cached per text too (`indexed_passages`, bound 256 texts;
@@ -106,10 +107,13 @@ _VERSIONS = """
     JOIN source_version v ON v.source_document_id = d.id
     JOIN source_version_availability a ON a.source_version_id = v.id
     WHERE d.company_id = ANY(:companies) AND d.source_type <> 'xbrl_companyfacts'
-      AND a.available_at <= :as_of
-      AND (d.provider <> 'web' OR (NOT :isolated AND (v.fetched_at <= :as_of OR EXISTS (
-          SELECT 1 FROM fetch_observation o
-          WHERE o.source_version_id = v.id AND o.session_id = CAST(:session AS uuid)))))
+      AND ((d.provider <> 'web' AND a.available_at <= :as_of)
+        OR (d.provider = 'web' AND NOT :isolated AND (
+          (a.available_at <= :as_of AND v.fetched_at <= :as_of)
+          OR EXISTS (
+            SELECT 1 FROM fetch_observation o
+            WHERE o.source_version_id = v.id AND o.session_id = CAST(:session AS uuid)
+              AND :as_of >= o.fetched_at - interval '36 hours'))))
     ORDER BY d.id, a.available_at DESC, v.version_number DESC
 """
 

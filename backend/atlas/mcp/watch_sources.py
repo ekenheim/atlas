@@ -15,9 +15,10 @@ prompt's list; Atlas enforces it.
   the rest.
 - `fetch_page` archives a page through the fetch gate, recording the session that asked. A page
   is never public before Atlas had it: its `available_at` is its own recent date or the fetch
-  time (`atlas.ledger.web_fetch`), and a session as of an earlier time reads it only if it
-  fetched it itself (`Ctx.visible_version`). A page whose `available_at` is after the as-of time
-  is recorded but not `readable` (`read` refuses it as `available_after_as_of`).
+  time (`atlas.ledger.web_fetch`), and a session reads it when Atlas had it by the as-of time
+  or when it fetched it itself while prospective, its as-of time within 36 hours before the
+  fetch (`Ctx.visible_version`). Any other page is recorded but not `readable` (`read` refuses
+  it as `available_after_as_of`).
 
 Registered by importing this module (`atlas.mcp`'s package init).
 """
@@ -207,8 +208,11 @@ async def fetch_page(ctx: Ctx, args: FetchPageArgs) -> dict[str, Any]:
         "/sources/fetch",
         {"company": args.company, "url": args.url, "session_id": str(args.session_id)},
     )
-    available = datetime.fromisoformat(page["available_at"])
-    readable = available <= ctx.as_of
+    try:
+        await ctx.visible_version(page["source_version_id"])
+        readable = True
+    except Refusal:
+        readable = False
     return {
         "fetched": True,
         "outcome": page.get("outcome"),

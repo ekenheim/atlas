@@ -547,7 +547,7 @@ def test_a_page_this_session_fetched_is_readable_by_it_and_not_by_another_as_of_
         status="in_effect",
         statement="Example Issuer says demand for its lasers exceeded capacity.",
     )
-    assert "another session" in refused["message"] and refused["fetched_at"]
+    assert "within 36 hours" in refused["message"] and refused["fetched_at"]
     # Asking for the page itself makes it that session's too (an unchanged fetch, its own record).
     again = mcp.ok("fetch_page", session_id=other, company="lumentum", url=RECENT)
     assert again["outcome"] == "unchanged" and again["version_id"] == version
@@ -577,6 +577,74 @@ def test_search_and_newest_documents_show_a_page_only_to_a_session_that_may_read
     assert seen(other) == ([], [])
     assert seen(later) == ([page["version_id"]], [page["version_id"]])
     mcp.ok("read", session_id=later, version_id=page["version_id"], start=0, end=100)
+
+
+UNDATED = f"{IR}/news/no-date.html"  # no date of its own: available from its fetch
+
+
+def test_an_undated_page_fetched_by_a_prospective_session_is_readable_by_that_session_alone(
+    mcp: Mcp, moment: datetime
+) -> None:
+    # As of an hour ago, the Watch's start; the page is available from its fetch, a little later.
+    as_of = zulu(moment - timedelta(hours=1))
+    fetcher, other = mcp.open(as_of), mcp.open(as_of)
+
+    page = mcp.ok("fetch_page", session_id=fetcher, company="lumentum", url=UNDATED)
+    version = page["version_id"]
+
+    assert page["date_source"] == "fetch_time" and when(page["available_at"]) > when(as_of)
+    assert page["readable"] is True
+    window = mcp.ok("read", session_id=fetcher, version_id=version, start=0, end=300)
+    assert "long-term supply agreements" in window["text"]
+    found = mcp.ok("search", session_id=fetcher, company="lumentum", q="long-term supply")
+    assert [each["source_version_id"] for each in found["hits"]] == [version]
+    mcp.refused(
+        "read", "available_after_as_of", session_id=other, version_id=version, start=0, end=9
+    )
+    searched = mcp.ok("search", session_id=other, company="lumentum", q="long-term supply")
+    assert searched["hits"] == []
+
+
+def test_a_session_older_than_36_hours_before_its_fetch_does_not_read_what_it_fetched(
+    mcp: Mcp, moment: datetime
+) -> None:
+    near = mcp.open(zulu(moment - timedelta(hours=35)))
+    replay = mcp.open(zulu(moment - timedelta(hours=40)))
+
+    kept = mcp.ok("fetch_page", session_id=near, company="lumentum", url=UNDATED)
+    past = mcp.ok("fetch_page", session_id=replay, company="lumentum", url=UNDATED)
+
+    assert kept["readable"] is True
+    # The same page, now fetched by a session as of 40 hours ago: it asked, it does not qualify.
+    assert past["outcome"] == "unchanged" and past["readable"] is False
+    mcp.refused(
+        "read",
+        "available_after_as_of",
+        session_id=replay,
+        version_id=past["version_id"],
+        start=0,
+        end=9,
+    )
+    found = mcp.ok("search", session_id=replay, company="lumentum", q="long-term supply")
+    assert found["hits"] == []
+
+
+def test_a_page_fetched_for_an_isolated_session_is_not_readable_by_it(
+    mcp: Mcp, moment: datetime
+) -> None:
+    as_of = zulu(moment - timedelta(hours=1))
+    isolated = mcp.open(as_of, isolated=True)
+    # The tool refuses an isolated session; the route does not know, so ask it directly.
+    asked = mcp.api.post(
+        "/api/v1/sources/fetch",
+        json={"company": "lumentum", "url": UNDATED, "session_id": isolated},
+    )
+    assert asked.status_code == 200, asked.text
+    version = asked.json()["source_version_id"]
+
+    mcp.refused("read", "isolated_session", session_id=isolated, version_id=version, start=0, end=9)
+    searched = mcp.ok("search", session_id=isolated, company="lumentum", q="long-term supply")
+    assert searched["hits"] == [] and searched["documents_searched"] == 0
 
 
 def test_an_isolated_session_sees_no_web_version(mcp: Mcp, moment: datetime) -> None:

@@ -44,7 +44,7 @@ passages with theirs); Memory's `recall` is labelled an index, never Evidence.
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
@@ -54,6 +54,7 @@ from atlas.mcp.api import Api, Refusal, obj, rows
 from atlas.mcp.locate import Located, locate_quote
 
 MAX_READ_CHARS = 20_000  # one `read` window; the skill asks for 2,000 to 6,000
+PROSPECTIVE_WINDOW = timedelta(hours=36)  # a session may read a page it fetched this soon
 JOINED_DAYS = 90  # the finding judge's `merged` rule: quotes this far apart need their dates
 
 type BeliefStep = Literal[
@@ -141,6 +142,9 @@ class Ctx:
     async def visible_version(self, version_id: uuid.UUID | str) -> dict[str, Any]:
         """The Source Version, if it was public by the session's as-of time."""
         held = await self.version(version_id)
+        if held["source_document"]["provider"] == "web":
+            self._check_web_page(held, version_id)
+            return held
         available = datetime.fromisoformat(held["available_at"])
         if available > self.as_of:
             raise Refusal(
@@ -150,14 +154,15 @@ class Ctx:
                 available_at=held["available_at"],
                 as_of=self.as_of_iso,
             )
-        if held["source_document"]["provider"] == "web":
-            self._check_web_page(held, version_id)
         return held
 
     def _check_web_page(self, held: dict[str, Any], version_id: uuid.UUID | str) -> None:
         """A fetched web page is never public before Atlas had it (W3). An isolated session
-        sees none at all (pages did not exist when its surface was frozen); another session
-        reads one only if it was fetched by the session's as-of time or by that session."""
+        sees none at all (pages did not exist when its surface was frozen). Any other session
+        reads one when (a) it was public and fetched by the session's as-of time, or (b) the
+        session fetched it itself and is prospective: its as-of time is within
+        `PROSPECTIVE_WINDOW` before that fetch (or after it). A replay as of the past never
+        qualifies for (b), and no other session gains anything from it."""
         if self.bound.isolated:
             raise Refusal(
                 "isolated_session",
@@ -165,16 +170,24 @@ class Ctx:
                 " as it was when its surface was frozen",
                 version=str(version_id),
             )
+        available = datetime.fromisoformat(held["available_at"])
         fetched = datetime.fromisoformat(held["fetched_at"])
-        mine = any(each.get("session_id") == str(self.bound.id) for each in held["fetches"])
-        if fetched > self.as_of and not mine:
-            raise Refusal(
-                "available_after_as_of",
-                "that web page was fetched after the session's as-of time, by another session",
-                version=str(version_id),
-                fetched_at=held["fetched_at"],
-                as_of=self.as_of_iso,
-            )
+        if available <= self.as_of and fetched <= self.as_of:
+            return
+        for each in held["fetches"]:
+            if each.get("session_id") == str(self.bound.id) and (
+                self.as_of >= datetime.fromisoformat(each["fetched_at"]) - PROSPECTIVE_WINDOW
+            ):
+                return
+        raise Refusal(
+            "available_after_as_of",
+            "that web page was not public and fetched by the session's as-of time, and this"
+            " session did not fetch it within 36 hours of that time",
+            version=str(version_id),
+            available_at=held["available_at"],
+            fetched_at=held["fetched_at"],
+            as_of=self.as_of_iso,
+        )
 
     async def parsed(
         self, version_id: uuid.UUID | str, parser_version: str | None
