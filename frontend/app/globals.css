@@ -2138,6 +2138,15 @@ textarea {
   margin: 0;
 }
 
+/* Rows of links, not prose: no underline until hovered. */
+.watch-row a {
+  text-decoration: none;
+}
+
+.watch-row a:hover {
+  text-decoration: underline;
+}
+
 .watch-line {
   align-items: baseline;
   display: flex;

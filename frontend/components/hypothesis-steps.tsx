@@ -304,11 +304,22 @@ export function HypothesisCalls({
 export const ISSUES_SHOWN = 7;
 
 /** The theme's Issues still open: what the Hypothesis does not yet settle. */
-export function OpenIssues({ theme, title = "Open Issues" }: { theme: string; title?: string }) {
+export function OpenIssues({
+  theme,
+  title = "Open Issues",
+  label = false,
+}: {
+  theme: string;
+  title?: string;
+  /** Set as a section label (a page whose sections are labels, such as a theme's). */
+  label?: boolean;
+}) {
   const issues = useApi("issues", loadIssues);
   return (
     <section aria-labelledby="open-issues">
-      <h2 id="open-issues">{title}</h2>
+      <h2 id="open-issues" className={label ? "reader-label" : undefined}>
+        {title}
+      </h2>
       <Load loaded={issues} what="the Issues">
         {(page) => {
           const open = openIssues(page.items, theme);

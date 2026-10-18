@@ -173,7 +173,7 @@ function BoardLed({
       ) : (
         <Board items={items} run={runs[0] ?? null} now={now} />
       )}
-      <OpenIssues theme={slug} title="Open questions" />
+      <OpenIssues theme={slug} title="Open questions" label />
       {summary && summary.company_count > 0 ? (
         <section aria-labelledby="companies">
           <h2 className="reader-label" id="companies">

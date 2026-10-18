@@ -1,19 +1,22 @@
 "use client";
 
 // Today: what Atlas believes per theme and how sure it is, what changed since the last visit,
-// what is due, and whether Atlas is working. Every read loads at once and a failed one costs only
-// its own slot. Nothing here is a record: those are one click deeper.
+// what is due, what the Watch found, and whether Atlas is working. Every read loads at once and a
+// failed one costs only its own slot. Nothing here is a record: those are one click deeper.
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ThemeCard } from "../components/theme-card";
 import { DueList } from "../components/due-list";
+import { WatchSection } from "../components/watch-section";
 import {
   api,
   type BeliefSummary,
   type Call,
+  type Chokepoint,
   type Prediction,
   type ThemeSummary,
+  type WatchRun,
 } from "../lib/api/client";
 import { activity } from "../lib/format";
 import { routes } from "../lib/routes";
@@ -29,6 +32,7 @@ import {
 } from "../lib/today";
 import { type Loaded, useApi } from "../lib/use-api";
 import { useDecideCount } from "../lib/use-decide-count";
+import { todayCards, watchRows } from "../lib/watch";
 
 const loadThemes = () => api.themes();
 const loadHypotheses = async () => (await api.hypotheses()).items;
@@ -38,6 +42,8 @@ const loadPredictions = async () => (await api.predictions("open")).items;
 const loadSessions = async () => (await api.sessions()).items;
 const loadLeads = async () =>
   (await api.calendarLeads(new Date().toISOString().slice(0, 10))).items;
+const loadBoard = async () => (await api.chokepoints({ limit: 500 })).items;
+const loadRuns = async () => (await api.watchRuns({ limit: 200 })).items;
 
 export default function TodayPage() {
   const themes = useApi("themes", loadThemes);
@@ -47,6 +53,8 @@ export default function TodayPage() {
   const predictions = useApi("predictions", loadPredictions);
   const sessions = useApi("sessions", loadSessions);
   const leads = useApi("leads", loadLeads);
+  const board = useApi("board", loadBoard);
+  const runs = useApi("watch-runs", loadRuns);
   const decide = useDecideCount();
 
   // The previous visit's mark is read once, when the page mounts, and drives the dots; this
@@ -73,9 +81,12 @@ export default function TodayPage() {
         calls={calls}
         predictions={predictions}
         leads={leads}
+        board={board}
+        runs={runs}
         mark={mark}
       />
 
+      <Watch themes={themes} beliefs={beliefs} board={board} runs={runs} mark={mark} />
       <AgentsLine sessions={sessions} />
       <RecordLine calls={calls} predictions={predictions} />
     </div>
@@ -89,6 +100,8 @@ function Cards({
   calls,
   predictions,
   leads,
+  board,
+  runs,
   mark,
 }: {
   themes: Loaded<ThemeSummary[]>;
@@ -97,6 +110,8 @@ function Cards({
   calls: Loaded<Call[]>;
   predictions: Loaded<Prediction[]>;
   leads: Loaded<Awaited<ReturnType<typeof loadLeads>>>;
+  board: Loaded<Chokepoint[]>;
+  runs: Loaded<WatchRun[]>;
   mark: Date | null;
 }) {
   if (themes.state === "loading") {
@@ -118,9 +133,17 @@ function Cards({
       ? themes.data.filter((each) => themeBeliefs(beliefs.data, each.id).length === 0).map((each) => each.id)
       : [],
   );
+  // A theme the Watch has begun on but nothing is believed of yet has its Watch row, not a card;
+  // the board and the runs count as empty while they load or when they fail.
+  const carded = todayCards(
+    orderThemes(themes.data, starting),
+    beliefs.state === "ready" ? beliefs.data : null,
+    board.state === "ready" ? board.data : [],
+    runs.state === "ready" ? runs.data : [],
+  );
   return (
     <div className="cards">
-      {orderThemes(themes.data, starting).map((theme) => (
+      {carded.map((theme) => (
         <TodayCard
           key={theme.id}
           theme={theme}
@@ -226,6 +249,39 @@ function TodayCard({
       }
     />
   );
+}
+
+/** The Watch's rows, once the board and the runs have answered; nothing while they load, when
+ * both fail, or when no theme is watched (the shipping state). */
+function Watch({
+  themes,
+  beliefs,
+  board,
+  runs,
+  mark,
+}: {
+  themes: Loaded<ThemeSummary[]>;
+  beliefs: Loaded<BeliefSummary[]>;
+  board: Loaded<Chokepoint[]>;
+  runs: Loaded<WatchRun[]>;
+  mark: Date | null;
+}) {
+  if (board.state === "loading" || runs.state === "loading") return null;
+  const listed = themes.state === "ready" ? themes.data : [];
+  const starting = new Set(
+    beliefs.state === "ready"
+      ? listed.filter((each) => themeBeliefs(beliefs.data, each.id).length === 0).map((each) => each.id)
+      : [],
+  );
+  const now = new Date();
+  const rows = watchRows(
+    orderThemes(listed, starting),
+    board.state === "ready" ? board.data : [],
+    runs.state === "ready" ? runs.data : [],
+    mark,
+    now,
+  );
+  return <WatchSection rows={rows} now={now} />;
 }
 
 function AgentsLine({ sessions }: { sessions: Loaded<Awaited<ReturnType<typeof loadSessions>>> }) {
