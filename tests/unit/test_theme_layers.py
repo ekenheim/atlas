@@ -4,7 +4,9 @@ with both themes, and a company whose layer its theme does not list is refused a
 Seam: `atlas.companies.load_universe` on the shipped config and on copies of it.
 """
 
+import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,8 @@ import yaml
 
 from atlas.claims import LAYERS
 from atlas.companies import UniverseConfigError, load_universe
+from atlas.retention.service import SourceVersionInfo, observation_scopes, version_tags
+from atlas.retention.triage import triage_themes
 from tests.harness import THEMES
 
 MEMORY_LAYERS = [
@@ -117,3 +121,35 @@ def test_a_company_with_no_layer_is_allowed_in_either_theme(tmp_path: Path) -> N
         document["companies"]["amkor"].pop("layer")
 
     assert load_universe(written(tmp_path, clear)).companies["amkor"].layer is None
+
+
+def version_of(slug: str) -> SourceVersionInfo:
+    return SourceVersionInfo(
+        id=uuid.uuid4(),
+        raw_sha256="0" * 64,
+        parse_status="parsed",
+        parsed_object_uri=None,
+        language="en",
+        available_at=datetime(2026, 1, 1, tzinfo=UTC),
+        provider="sec_edgar",
+        source_type="filing",
+        form_type="10-K",
+        document_type=None,
+        title="annual report",
+        company_id=uuid.uuid4(),
+        company_slug=slug,
+        company_name=slug,
+        company_legal_name=slug,
+        publisher="SEC EDGAR",
+        metadata={},
+    )
+
+
+def test_a_company_s_retain_item_carries_only_its_own_themes() -> None:
+    universe = load_universe(THEMES)
+
+    for slug, theme in (("lumentum", "photonics"), ("micron", "memory-packaging")):
+        tags = version_tags(version_of(slug), universe)
+        assert [tag for tag in tags if tag.startswith("theme:")] == [f"theme:{theme}"]
+        assert observation_scopes(tags) == [[f"theme:{theme}"]]
+        assert [t.theme_id for t in triage_themes(version_of(slug), universe)] == [theme]

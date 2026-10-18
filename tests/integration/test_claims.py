@@ -106,6 +106,11 @@ def litellm(llm: FakeLiteLLM) -> Iterator[Served]:
 @pytest.fixture
 def themes(tmp_path: Path) -> Path:
     universe = yaml.safe_load(THEMES.read_text(encoding="utf-8"))
+    # The photonics universe plus NVIDIA: Coherent's 10-K names Micron (an officer's earlier
+    # employer), a memory-packaging company, whose entity windows would crowd the ones read here.
+    kept = set(universe["themes"]["photonics"]["companies"])
+    universe["themes"] = {"photonics": universe["themes"]["photonics"]}
+    universe["companies"] = {k: v for k, v in universe["companies"].items() if k in kept}
     universe["companies"]["nvidia"] = {
         "legal_name": "NVIDIA Corporation",
         "display_name": "NVIDIA",

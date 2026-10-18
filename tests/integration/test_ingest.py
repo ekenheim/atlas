@@ -24,6 +24,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from atlas.api.app import create_app
+from atlas.companies import load_universe
 from atlas.jobs import JobQueue, Worker, builtin_registry
 from atlas.settings import Settings
 from tests.harness import EDGAR_FIXTURES, REPO, THEMES, Metrics, make_settings, scrape_metrics
@@ -548,7 +549,7 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
 
     events = atlas.audit_events()
     company = atlas.company()
-    universe = atlas.get("/api/v1/companies", limit=100)["items"]  # the 12 seeded companies
+    universe = atlas.get("/api/v1/companies", limit=100)["items"]  # every company of the config
     documents = atlas.documents()
     versions = [atlas.version(url) for url in ALL_URLS]
     fetches = [fetch for version in versions for fetch in version["fetches"]]
@@ -578,7 +579,7 @@ def test_every_mutation_is_audited_in_one_chain_that_verifies(atlas: Atlas) -> N
     assert len(fetches) == 10
     assert {e["actor"] for e in events} == {"local-researcher"}
     assert Counter(e["action"] for e in events) == {
-        "company.created": 12,
+        "company.created": len(load_universe(THEMES).companies),
         "security.created": 1,
         "source_document.created": 5,
         "source_version.created": 5,
