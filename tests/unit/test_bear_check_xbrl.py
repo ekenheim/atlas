@@ -3,12 +3,15 @@ share classes, and net cash from distinct debt concepts. Hand-built observations
 out; the recorded filings are in `tests/integration/test_bear_checks.py`."""
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
+import pytest
+
+from atlas.bear_checks import xbrl
 from atlas.bear_checks.models import DilutionCheck, NetCashCheck
-from atlas.bear_checks.xbrl import dilution, net_cash
-from atlas.financials import Observation, select_as_of
+from atlas.bear_checks.xbrl import dilution, gaap_gross_margin, net_cash
+from atlas.financials import MetricValue, Observation, select_as_of
 
 AS_OF = datetime(2026, 9, 29, tzinfo=UTC)
 FILED = datetime(2026, 8, 17, tzinfo=UTC)
@@ -140,6 +143,47 @@ def test_several_share_classes_on_the_cover_are_unknown():
     assert answer.status == "unknown"
     assert "share classes" in answer.basis
     assert answer.unknown_reason == "several_share_classes"
+
+
+def test_revenue_that_is_not_positive_has_its_own_reason_not_a_missing_comparison():
+    ends = ["2025-09-27", "2025-12-27", "2026-03-28", "2026-06-27"]
+    values = [
+        MetricValue(
+            metric=metric,
+            unit="USD",
+            period_start=date.fromisoformat(end) - timedelta(days=91),
+            period_end=date.fromisoformat(end),
+            value=Decimal(0),
+            derived=False,
+            concept=None,
+            available_at=FILED,
+            sources=(),
+            flags=(),
+        )
+        for end in ends
+        for metric in ("revenue", "gross_profit")
+    ]
+
+    answer = gaap_gross_margin(values, AS_OF)
+
+    assert (answer.status, answer.value, answer.unknown_reason) == ("unknown", None, "no_revenue")
+    assert answer.summary == (
+        "Not known: the company had no positive revenue over the last four quarters, so there is"
+        " no margin."
+    )
+
+
+def test_debt_of_an_unread_taxonomy_is_unknown_for_that_reason(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(xbrl, "CASH_CONCEPTS", (("ifrs-other", "CashAndCashEquivalents"),))
+    answer = net_cash_of(
+        obs("CashAndCashEquivalents", END, 2000, taxonomy="ifrs-other"),
+        obs("Borrowings", END, 1000, taxonomy="ifrs-other"),
+    )
+
+    assert (answer.status, answer.unknown_reason) == ("unknown", "taxonomy_not_read")
+    assert answer.summary == (
+        "Not known: Atlas does not read this filer's accounting taxonomy for debt."
+    )
 
 
 # --- net cash ---------------------------------------------------------------------------------

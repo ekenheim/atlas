@@ -39175,6 +39175,8 @@
         "enum": [
           "form_not_collected",
           "no_xbrl",
+          "no_revenue",
+          "taxonomy_not_read",
           "not_comparable",
           "no_statement",
           "partial_parse",

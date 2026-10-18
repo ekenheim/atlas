@@ -340,7 +340,12 @@ def _customer_concentration(
             key="customer_concentration",
             status="clear",
             unknown_reason=None,
-            summary=f"No customer is as much as {limit}% of revenue, the annual report says.",
+            summary=(
+                "The largest customer share the annual report states is"
+                f" {_share(max(each.current for each in stated))}%, below {limit}%."
+                if stated
+                else f"The annual report says no customer is {limit}% of revenue or more."
+            ),
             value=value,
             basis=(
                 f"the latest annual report ({_describe(report)}) states "
