@@ -89,7 +89,7 @@ function Body({ belief, reload }: { belief: Belief; reload: () => void }) {
       </p>
       <h1 className="measure">{belief.statement}</h1>
       <p className="verdict-line" aria-label="Verdict">
-        <BeliefVerdict belief={belief} />
+        <BeliefVerdict belief={belief} />{" "}
         <span className="verdict-rest">
           · judged {evidenceDay(belief.judgement.at)} · {STEPS[belief.step]} · as of{" "}
           {evidenceDay(belief.as_of)}

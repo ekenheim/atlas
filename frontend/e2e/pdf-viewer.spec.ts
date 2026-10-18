@@ -1,5 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 
+import { openSystem } from "./helpers";
+
 // A PDF Source Version in the viewer: its language, page count and page anchors.
 // scripts/e2e.py records tests/fixtures/pdf/annual-report-en.pdf (written by
 // scripts/make_pdf_fixtures.py) for Lumentum; the expected values are that script's pages:
@@ -8,7 +10,7 @@ const TITLE = "Synthetic annual report (PDF)";
 
 test("a PDF version shows its page anchors and jumps to a page", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Companies" }).click();
+  await openSystem(page, "Companies");
   await page.getByRole("link", { name: "Lumentum" }).click();
   await page.locator("summary", { hasText: "Records" }).click();
   await page.getByRole("link", { name: TITLE }).click();

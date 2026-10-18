@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { openSystem } from "./helpers";
+
 // The Memory page, against the workbench's API (`ATLAS_E2E_WORKBENCH_URL`): its database has
 // Coherent ingested and retained into the recorded Hindsight fake, so it holds facts for one
 // company and nothing for the other universe companies. The first database has no Hindsight
@@ -14,7 +16,7 @@ test("the Memory page shows the five figures and companies, expands a row and so
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Memory" }).click();
+  await openSystem(page, "Memory");
   await expect(page.getByRole("heading", { level: 1, name: "Memory" })).toBeVisible();
 
   await expect(page.locator(".mem-figure .mem-label")).toHaveText(FIGURES);

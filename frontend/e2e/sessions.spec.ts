@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { openSystem } from "./helpers";
+
 // The sessions pages, against the database `scripts/e2e.py` seeds (`seed_session`): one
 // Claude session on Lumentum with two Facts quoted from its March 2026 10-Q and a small card
 // citing them. Expected values are the seed's.
@@ -14,7 +16,7 @@ test("the sessions list opens a session's card, its Facts and a Fact's source sp
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Sessions" }).click();
+  await openSystem(page, "Sessions");
   await expect(page.getByRole("heading", { level: 1, name: "Sessions" })).toBeVisible();
   const list = page.getByRole("table", { name: "Research sessions, newest first" });
   await expect(list.getByRole("row", { name: new RegExp(QUESTION) }).getByRole("cell")).toHaveText([

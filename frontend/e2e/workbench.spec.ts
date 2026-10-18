@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { openSystem } from "./helpers";
+
 // The research workbench, against the second API `scripts/e2e.py` starts
 // (`ATLAS_E2E_WORKBENCH_URL`): its database holds two investigations of Coherent and
 // Lumentum, each run through the API and worker passes with scripted role answers to an
@@ -21,10 +23,7 @@ test("an investigation shows its plan, events and Evidence, and launches one fol
   page,
 }) => {
   await page.goto("/");
-  await page
-    .getByRole("navigation", { name: "Site" })
-    .getByRole("link", { name: "Research workbench" })
-    .click();
+  await openSystem(page, "Research workbench");
   await expect(page.getByRole("heading", { level: 1, name: "Research workbench" })).toBeVisible();
   const list = page.getByRole("table", { name: /^Investigations, newest first/ });
   await expect(list.locator("tbody").getByRole("row")).toHaveCount(2);

@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { openSystem } from "./helpers";
+
 // Selection-to-Assertion and review, against the API seeded from the recorded Lumentum
 // EDGAR fixtures (scripts/e2e.py). The quotes and their offsets are those of the Q4 FY26
 // press release (EX-99.1) as parsed by text-v3 (it has no page artifacts, so the text is
@@ -40,7 +42,7 @@ function sha256(data: string): string {
 /** Open version 1 of Lumentum's Q4 FY26 press release by clicking through the viewer. */
 async function openPressRelease(page: Page): Promise<Locator> {
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Companies" }).click();
+  await openSystem(page, "Companies");
   await page.getByRole("link", { name: "Lumentum" }).click();
   await page.locator("summary", { hasText: "Records" }).click();
   await page

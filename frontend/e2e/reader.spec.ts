@@ -1,56 +1,57 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// The reader's way in: the research index, the nav's two groups and the company dossier
-// (findings first, records folded away). The index is read from the workbench's API
-// (`ATLAS_E2E_WORKBENCH_URL`), whose database holds two investigations; the dossier from the
-// first database, where Lumentum has three Relationships (scripts/e2e.py).
+import { expectNoOverflow, openSystem } from "./helpers";
+
+// The reader's way in: the nav (five items, the current one marked), the research index on the
+// workbench's page, and the company dossier (findings first, records folded away). The index is
+// read from the workbench's API (`ATLAS_E2E_WORKBENCH_URL`), whose database holds two
+// investigations; the dossier from the first database, where Lumentum has three Relationships
+// (scripts/e2e.py).
 const WORKBENCH = process.env.ATLAS_E2E_WORKBENCH_URL;
 const QUESTION = "Who supplies the lasers in AI data-center optics, and to whom?";
 
-/** How far the page runs past the viewport sideways, in pixels. */
-async function overflow(page: Page): Promise<number> {
-  return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+/** The nav's current item: the link marked `aria-current="page"`. */
+async function current(page: Page): Promise<string[]> {
+  return page
+    .getByRole("navigation", { name: "Site" })
+    .locator('a[aria-current="page"]')
+    .allTextContents();
 }
 
-test.describe("the research index", () => {
+test.describe("the nav and the research index", () => {
   test.use({ baseURL: WORKBENCH });
 
-  test("lists a question with its status and opens its investigation; the nav has two groups", async ({
+  test("the nav has five items and marks the section the page belongs to", async ({ page }) => {
+    await page.goto("/");
+    const nav = page.getByRole("navigation", { name: "Site" });
+    await expect(nav.getByRole("link")).toHaveText(["Today", "Themes", "Record", "Decide", "System"]);
+    expect(await current(page)).toEqual(["Today"]);
+
+    await page.goto("/theme/?id=photonics");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    expect(await current(page)).toEqual(["Themes"]);
+
+    await page.goto("/memory/");
+    await expect(page.getByRole("heading", { level: 1, name: "Memory" })).toBeVisible();
+    expect(await current(page)).toEqual(["System"]);
+  });
+
+  test("lists a question with its status on the workbench and opens its investigation", async ({
     page,
   }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1, name: "Research" })).toBeVisible();
-
-    const nav = page.getByRole("navigation", { name: "Site" });
-    await expect(nav.locator("ul.nav-reader").getByRole("link")).toHaveText([
-      "Research",
-      "Beliefs",
-      "Hypotheses",
-      "Companies",
-      "Sessions",
-      "Issues",
-    ]);
-    await expect(nav.getByRole("list", { name: "Operations" }).getByRole("link")).toHaveText([
-      "Memory",
-      "Relationships",
-      "Exceptions queue",
-      "Research workbench",
-      "Themes",
-    ]);
-
-    const row = page.locator(".reader-row").filter({ hasText: QUESTION });
-    await expect(row).toBeVisible();
-    // workbench.spec may follow this run up or save a Hypothesis, so only a word is asserted.
-    await expect(row.locator(".reader-pill")).toHaveText(/^[A-Z]\w+/);
-    await row.getByRole("link", { name: QUESTION }).click();
+    await page.goto("/workbench/");
+    await expect(page.getByRole("heading", { level: 1, name: "Research workbench" })).toBeVisible();
+    const list = page.getByRole("table", { name: /^Investigations, newest first/ });
+    await expect(list.getByRole("row").filter({ hasText: QUESTION })).toBeVisible();
+    await list.getByRole("link", { name: QUESTION }).click();
     await expect(page.getByRole("heading", { level: 1, name: QUESTION })).toBeVisible();
   });
 
   test("does not scroll sideways at phone width", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    await expect(page.locator(".reader-row").first()).toBeVisible();
-    expect(await overflow(page)).toBeLessThanOrEqual(0);
+    await expect(page.locator("article.theme-card:not(.theme-card-skeleton)").first()).toBeVisible();
+    await expectNoOverflow(page);
   });
 });
 
@@ -59,10 +60,7 @@ test.describe("the company dossier", () => {
     page,
   }) => {
     await page.goto("/");
-    await page
-      .getByRole("navigation", { name: "Site" })
-      .getByRole("link", { name: "Companies" })
-      .click();
+    await openSystem(page, "Companies");
     await page.getByRole("link", { name: "Lumentum" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
     // The assessment leads: the company's Beliefs (seeded) come before what was found.
@@ -97,6 +95,6 @@ test.describe("the company dossier", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
     await page.locator("summary", { hasText: "Records" }).click();
     await expect(page.getByRole("table", { name: "Identity" })).toBeVisible();
-    expect(await overflow(page)).toBeLessThanOrEqual(0);
+    await expectNoOverflow(page);
   });
 });
