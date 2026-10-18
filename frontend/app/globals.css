@@ -595,44 +595,6 @@ button.sort:hover:not(:disabled) {
   width: 70%;
 }
 
-/* Site nav: the reader's items first, the Operations group after it, smaller and muted. */
-nav[aria-label="Site"] {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 2rem;
-}
-
-nav[aria-label="Site"] ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.1rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.nav-reader {
-  font-weight: 600;
-}
-
-nav[aria-label="Site"] .nav-ops {
-  border-left: 1px solid var(--line);
-  font-size: 0.85rem;
-  padding-left: 1.25rem;
-}
-
-.nav-ops a {
-  color: var(--muted);
-}
-
-@media (max-width: 40rem) {
-  nav[aria-label="Site"] .nav-ops {
-    border-left: 0;
-    padding-left: 0;
-  }
-}
-
 /* The reader's visual language (ticket 08): a calm, spacious single column. */
 
 /* Wraps a reader page: it shares the one frame (and so one left edge) with every page. */
@@ -987,4 +949,500 @@ details[open] > *:not(summary) {
   details[open] > *:not(summary) {
     animation: none;
   }
+}
+
+/* Site nav: five items in one row, System pushed right and muted. The current item has a 2px
+   accent bar under its label, never an underline. */
+nav[aria-label="Site"] ul {
+  align-items: center;
+  display: flex;
+  gap: 0 var(--s5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+nav[aria-label="Site"] a {
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--text);
+  display: inline-flex;
+  font-weight: 600;
+  gap: 0.4rem;
+  padding: 0.3rem 0;
+  text-decoration: none;
+}
+
+nav[aria-label="Site"] a[aria-current="page"] {
+  border-bottom-color: var(--accent);
+}
+
+nav[aria-label="Site"] .nav-system {
+  margin-left: auto;
+}
+
+nav[aria-label="Site"] .nav-system a {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.nav-badge {
+  align-items: center;
+  color: var(--warn);
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  gap: 0.3rem;
+}
+
+.nav-dot {
+  background: var(--warn);
+  border-radius: 50%;
+  display: inline-block;
+  height: 6px;
+  width: 6px;
+}
+
+@media (max-width: 40rem) {
+  header {
+    padding: 0.3rem 0;
+  }
+
+  nav[aria-label="Site"] ul {
+    gap: 0 var(--s3);
+  }
+
+  nav[aria-label="Site"] a {
+    font-size: 0.9rem;
+  }
+}
+
+/* A status: a 6px dot and a word, coloured by what it means. */
+.status {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.status-dot {
+  background: currentColor;
+  border-radius: 50%;
+  display: inline-block;
+  height: 6px;
+  margin-right: 0.4em;
+  vertical-align: middle;
+  width: 6px;
+}
+
+.status-ok {
+  color: var(--ok);
+}
+.status-warn {
+  color: var(--warn);
+}
+.status-gap {
+  color: var(--gap);
+}
+.status-muted {
+  color: var(--muted);
+}
+.status-struck {
+  text-decoration: line-through;
+}
+
+/* A confidence: a plain track and fill, the number beside it. */
+.confidence {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.confidence-track {
+  background: var(--line);
+  border-radius: 2px;
+  display: inline-block;
+  flex: none;
+  height: 4px;
+  overflow: hidden;
+  width: 56px;
+}
+
+.confidence-fill {
+  background: var(--text-2);
+  display: block;
+  height: 100%;
+}
+
+.confidence-number {
+  color: var(--text-2);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The evidence block: Atlas's statement, the document's words, who and where, the way in. */
+.quote-card {
+  margin: 0 0 var(--s4);
+}
+
+.quote-statement {
+  color: var(--text-2);
+  font-size: 0.95rem;
+  margin: 0 0 var(--s2);
+  max-width: var(--measure);
+}
+
+blockquote.quote-text {
+  border-left: 2px solid var(--line);
+  color: var(--text);
+  font-family: var(--quote-face);
+  font-size: 1.0625rem;
+  margin: 0 0 var(--s2);
+  max-width: var(--measure);
+  padding: 0.1rem 0 0.1rem var(--s3);
+}
+
+blockquote.quote-text::before {
+  content: "\201C";
+}
+blockquote.quote-text::after {
+  content: "\201D";
+}
+
+blockquote.quote-clamped {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+
+.quote-against blockquote.quote-text {
+  border-left-color: var(--edge);
+}
+
+.quote-caption {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.quote-tag {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text-2);
+  font-size: 0.7rem;
+  margin-left: 0.5rem;
+  padding: 0 0.3rem;
+}
+
+.quote-tag-gap {
+  border-color: var(--gap);
+  color: var(--gap);
+}
+
+.quote-open {
+  align-items: center;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.9rem;
+  min-height: 24px;
+  padding: 2px 0;
+}
+
+.quote-toggle {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font-size: 0.8rem;
+  margin: 0 0 var(--s2);
+  min-height: 24px;
+  padding: 0;
+}
+
+/* The argument strip: four for-cells, a divider, "Against", two against-cells. */
+.strip {
+  align-items: stretch;
+  display: grid;
+  gap: var(--s2);
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 1px auto repeat(2, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.strip-cell {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--s2) var(--s3);
+}
+
+.strip-empty {
+  background: none;
+  border-style: dashed;
+}
+
+.strip-step {
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.strip-count,
+.strip-dash {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.strip-divider {
+  background: var(--line);
+}
+
+.strip-against {
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.strip .confidence {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.strip .confidence-track {
+  width: auto;
+}
+
+.strip-compact .strip-cell {
+  padding: 6px var(--s2);
+}
+
+@media (max-width: 40rem) {
+  .strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .strip-divider {
+    display: none;
+  }
+
+  .strip-against {
+    grid-column: 1 / -1;
+    line-height: 1;
+    margin-top: var(--s1);
+  }
+
+  .strip-cell {
+    padding: 6px;
+  }
+}
+
+/* The six steps as rows. */
+.steps {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.step {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.step:first-child {
+  border-top: 0;
+}
+
+.step-head {
+  align-items: baseline;
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr);
+  padding: 0.7rem 1rem;
+}
+
+.step-head p {
+  margin: 0;
+}
+
+.step-details > summary {
+  align-items: baseline;
+  cursor: pointer;
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr) auto;
+  list-style: none;
+  padding: 0.7rem 1rem;
+}
+
+.step-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.step-details > summary:hover {
+  background: var(--raise-hover);
+}
+
+.step-name {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  gap: 2px;
+}
+
+.step-side,
+.step-count {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.step-headline {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.step-verdict {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  gap: 0.25rem 0.75rem;
+  justify-content: flex-end;
+}
+
+.step-details .reader-rows {
+  border-left: 0;
+  border-radius: 0;
+  border-right: 0;
+  border-width: 1px 0 0;
+}
+
+.step-lead {
+  padding: var(--s3) 1rem 0;
+}
+
+.row-verdict {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.show-all {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  margin: var(--s2) 1rem;
+  padding: 0;
+}
+
+@media (max-width: 40rem) {
+  .step-head,
+  .step-details > summary {
+    gap: var(--s1);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .step-verdict {
+    justify-content: flex-start;
+    order: -1;
+  }
+
+  .step-name {
+    order: -2;
+  }
+}
+
+/* Figures: a strip of three to five cells. */
+.stat-strip {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 0 var(--s5);
+  overflow: hidden;
+}
+
+.stat {
+  background: var(--surface);
+  flex: 1 1 10rem;
+  padding: 0.6rem 0.9rem;
+}
+
+.stat dd {
+  margin: 0;
+}
+
+.stat-label,
+.stat-sub {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.stat-warn {
+  color: var(--warn);
+}
+.stat-gap {
+  color: var(--gap);
+}
+.stat-ok {
+  color: var(--ok);
+}
+
+/* What is due: rows of "18 Nov · in 31 d · first checkpoint · 22 calls". */
+.due-list {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.due-row {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  display: block;
+  padding: 0.6rem 1rem;
+}
+
+.due-row:first-child {
+  border-top: 0;
+}
+
+.due-when {
+  font-variant-numeric: tabular-nums;
+}
+
+.due-overdue {
+  color: var(--warn);
+}
+
+/* Placeholders at their final height, so nothing shifts when the data arrives. */
+.sk {
+  background: var(--line);
+  border-radius: 3px;
+  display: block;
+  height: 0.9rem;
+  margin: 0.5rem 0;
 }

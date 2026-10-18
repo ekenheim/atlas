@@ -197,10 +197,10 @@ test("flags and confirmations are modifiers beside the judgement", () => {
   expect(beliefWords(belief("unproven")).main.tone).toBe("warn");
   expect(beliefWords(belief("disproven")).main.tone).toBe("gap");
   expect(beliefWords(belief("proven", { open_flags: 2 })).modifiers).toEqual([
-    { word: "Flagged", tone: "gap" },
+    { word: "Flagged", tone: "gap", detail: "2 flags" },
   ]);
   expect(beliefWords(belief("proven", { open_notices: 1 })).modifiers).toEqual([
-    { word: "Confirmed", tone: "ok" },
+    { word: "Confirmed", tone: "ok", detail: "1 confirmation" },
   ]);
   const superseded = beliefWords(belief("proven", { status: "superseded" }));
   expect(superseded.main.word).toBe("Superseded");

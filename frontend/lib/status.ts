@@ -16,6 +16,8 @@ export type Tone = "ok" | "warn" | "gap" | "muted";
 export interface Word {
   word: string;
   tone: Tone;
+  /** What the word is shown as when it counts something: "Flagged" reads "1 flag" on a row. */
+  detail?: string;
 }
 
 // --- a Belief ------------------------------------------------------------------------------
@@ -53,8 +55,20 @@ export function beliefWords(
 ): BeliefWords {
   const state = BELIEF_STATE_WORDS[belief.status];
   const modifiers: Word[] = [];
-  if (belief.open_flags > 0) modifiers.push({ word: "Flagged", tone: "gap" });
-  if (belief.open_notices > 0) modifiers.push({ word: "Confirmed", tone: "ok" });
+  if (belief.open_flags > 0) {
+    modifiers.push({
+      word: "Flagged",
+      tone: "gap",
+      detail: `${belief.open_flags} ${belief.open_flags === 1 ? "flag" : "flags"}`,
+    });
+  }
+  if (belief.open_notices > 0) {
+    modifiers.push({
+      word: "Confirmed",
+      tone: "ok",
+      detail: `${belief.open_notices} ${belief.open_notices === 1 ? "confirmation" : "confirmations"}`,
+    });
+  }
   return {
     main: state ?? JUDGEMENT_WORDS[belief.judgement.judgement],
     struck: belief.status === "superseded",

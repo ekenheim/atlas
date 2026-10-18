@@ -94,6 +94,10 @@ export type Call = Schemas["Call"];
 export type Checkpoint = Schemas["Checkpoint"];
 export type Prediction = Schemas["Prediction"];
 export type NextIssue = Schemas["NextIssue"];
+export type Lead = Schemas["Lead"];
+export type ProposedUpdate = Schemas["ProposedUpdate"];
+export type IssueProduct = Schemas["IssueProduct"];
+export type FactRecord = Schemas["atlas__facts__service__Fact"];
 export type ExportFormat = NonNullable<
   NonNullable<Params<"/api/v1/hypotheses/{hypothesis_id}/export">["query"]>["format"]
 >;
