@@ -1827,3 +1827,141 @@ h1,
 .change-compact .reader-row-sub {
   flex: none;
 }
+
+/* The Hypothesis page. */
+.kicker {
+  align-items: baseline;
+  color: var(--text-2);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  gap: 0 var(--s2);
+  margin: var(--s4) 0 0;
+}
+
+.kicker a {
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.kicker a:hover {
+  text-decoration: underline;
+}
+
+.hypothesis-page .reader-headline {
+  font-size: 1.75rem;
+  margin: var(--s2) 0 var(--s3);
+}
+
+.thesis-rest p {
+  color: var(--text-2);
+  margin: 0 0 var(--s2);
+}
+
+.clamp-3 {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.hypothesis-page header .card-weakest {
+  margin: var(--s2) 0 var(--s3) !important;
+}
+
+.gate-banner {
+  background: var(--surface);
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+  margin: var(--s5) 0;
+  padding: var(--s3) var(--s5);
+}
+
+.gate-title {
+  font-size: 1rem;
+  margin: 0 0 var(--s2);
+}
+
+.gate-lead {
+  margin: 0 0 var(--s2);
+}
+
+.plain-list {
+  margin: var(--s2) 0;
+  padding-left: 1.2rem;
+}
+
+.plain-list li {
+  margin: var(--s1) 0;
+}
+
+.step-statements {
+  list-style: none;
+  margin: 0;
+  padding: var(--s3) 1rem 0;
+}
+
+.step-statements li {
+  margin: 0 0 var(--s2);
+  max-width: var(--measure);
+}
+
+.row-quotes {
+  grid-column: 1 / -1;
+  position: relative;
+  z-index: 2;
+}
+
+.row-quotes .quote-card {
+  margin-top: var(--s2);
+}
+
+.clamp-2 {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.one-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.band-3 .plain-list {
+  font-size: 0.9rem;
+}
+
+.band-3 h2:not(.reader-label) {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  margin: var(--s5) 0 0.75rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.verdict-line {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s2);
+  margin: 0 0 var(--s2);
+}
+
+.verdict-rest {
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+
+.verdict-reason {
+  color: var(--gap);
+  font-size: 0.9rem;
+  margin: 0 0 var(--s4);
+}
+
+.quote-open {
+  gap: 0.3em;
+}
