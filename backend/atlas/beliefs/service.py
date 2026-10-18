@@ -188,6 +188,10 @@ class BeliefSummary(BaseModel):
         " tested (read from its own `as_of`)",
     )
     last_examined_outcome: ExaminationOutcome | None
+    newest_evidence_at: datetime | None = Field(
+        description="the latest `available_at` among the Source Versions of its load-bearing"
+        " citations (Facts or Assertions); None with none",
+    )
 
 
 class CitationRecord(BaseModel):
@@ -273,7 +277,11 @@ _SUMMARY = """
               AND f.cleared_by IS NULL) AS open_flags,
            (SELECT count(*) FROM belief_notice n WHERE n.belief_id = b.id
               AND n.cleared_by IS NULL) AS open_notices,
-           (SELECT count(*) FROM belief_citation c WHERE c.belief_id = b.id) AS citations
+           (SELECT count(*) FROM belief_citation c WHERE c.belief_id = b.id) AS citations,
+           (SELECT max(v.available_at) FROM belief_citation c
+               JOIN assertion a ON a.id = c.ref_id
+               JOIN source_version v ON v.id = a.source_version_id
+               WHERE c.belief_id = b.id AND c.weight = 'load_bearing') AS newest_evidence_at
     FROM belief b
     JOIN LATERAL (
         SELECT * FROM belief_judgement x WHERE x.belief_id = b.id
@@ -349,6 +357,7 @@ def _summaries(connection: Connection, rows: list[Any]) -> list[BeliefSummary]:
             last_examined_at=row.last_examined_at,
             last_examined_as_of=row.last_examined_as_of,
             last_examined_outcome=row.last_examined_outcome,
+            newest_evidence_at=row.newest_evidence_at,
         )
         for row in rows
     ]

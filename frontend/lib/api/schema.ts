@@ -2030,6 +2030,8 @@ export interface components {
              */
             assertion_ids: string[];
         };
+        /** @enum {string} */
+        Agent: "scout" | "researcher" | "skeptic" | "editor" | "lead";
         /** Alias */
         Alias: {
             /** Name */
@@ -2491,6 +2493,11 @@ export interface components {
              */
             last_examined_as_of: string | null;
             last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
+            /**
+             * Newest Evidence At
+             * @description the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none
+             */
+            newest_evidence_at: string | null;
             /** Citations */
             citations: components["schemas"]["CitationRecord"][];
             /**
@@ -2650,6 +2657,11 @@ export interface components {
              */
             last_examined_as_of: string | null;
             last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
+            /**
+             * Newest Evidence At
+             * @description the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none
+             */
+            newest_evidence_at: string | null;
         };
         /** BeliefSupersede */
         BeliefSupersede: {
@@ -4274,6 +4286,11 @@ export interface components {
             last_examined_as_of: string | null;
             last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
             /**
+             * Newest Evidence At
+             * @description the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none
+             */
+            newest_evidence_at: string | null;
+            /**
              * Cited Companies
              * @description the companies whose Facts the Belief cites, by name
              */
@@ -5310,6 +5327,20 @@ export interface components {
              * Format: date-time
              */
             at: string;
+        };
+        /**
+         * Examined
+         * @description The Beliefs a session tested, counted by what it found (`belief_examination`).
+         */
+        Examined: {
+            /** Confirmed */
+            confirmed: number;
+            /** Qualified */
+            qualified: number;
+            /** Contradicted */
+            contradicted: number;
+            /** Nothing New */
+            nothing_new: number;
         };
         /** ExportCompany */
         ExportCompany: {
@@ -9767,6 +9798,21 @@ export interface components {
              * @default 0
              */
             facts_reused: number;
+            /** @description who ran it, derived from `kind`, `actor` and `question` (ticket 31): a pipeline session is `lead`'s; otherwise `scout`, `researcher`, `skeptic` or `editor` when the actor is that name alone (with an optional `atlas-` before and `-agent` or `-routine` after), else when the question opens with `Scout:`, `Skeptic:` or `Editor:`; any other is `lead` */
+            agent: components["schemas"]["Agent"];
+            /**
+             * Beliefs Proposed
+             * @description the Beliefs it produced (`belief.produced_by`)
+             */
+            beliefs_proposed: number;
+            /** @description the Beliefs it tested, counted by outcome (`belief_examination`); zeros when it tested none */
+            beliefs_examined: components["schemas"]["Examined"];
+            /**
+             * Issues Opened
+             * @description the Issues it produced (`issue.produced_by`)
+             * @default 0
+             */
+            issues_opened: number;
             /** Card */
             card: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -10494,6 +10540,21 @@ export interface components {
              * @default 0
              */
             facts_reused: number;
+            /** @description who ran it, derived from `kind`, `actor` and `question` (ticket 31): a pipeline session is `lead`'s; otherwise `scout`, `researcher`, `skeptic` or `editor` when the actor is that name alone (with an optional `atlas-` before and `-agent` or `-routine` after), else when the question opens with `Scout:`, `Skeptic:` or `Editor:`; any other is `lead` */
+            agent: components["schemas"]["Agent"];
+            /**
+             * Beliefs Proposed
+             * @description the Beliefs it produced (`belief.produced_by`)
+             */
+            beliefs_proposed: number;
+            /** @description the Beliefs it tested, counted by outcome (`belief_examination`); zeros when it tested none */
+            beliefs_examined: components["schemas"]["Examined"];
+            /**
+             * Issues Opened
+             * @description the Issues it produced (`issue.produced_by`)
+             * @default 0
+             */
+            issues_opened: number;
         };
         /** Settlement */
         Settlement: {
@@ -11115,6 +11176,11 @@ export interface components {
              */
             last_examined_as_of: string | null;
             last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
+            /**
+             * Newest Evidence At
+             * @description the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none
+             */
+            newest_evidence_at: string | null;
             /**
              * Cited Companies
              * @description the companies whose Facts the Belief cites, by name
@@ -16106,6 +16172,7 @@ export interface operations {
     listing_api_v1_hypotheses_get: {
         parameters: {
             query?: {
+                theme?: string | null;
                 theme_id?: string | null;
                 status?: ("draft" | "researching" | "evidence_ready" | "reviewed" | "paper_tracking" | "closed" | "rejected" | "needs_more_evidence") | null;
                 /** @description page size */

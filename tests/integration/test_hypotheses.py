@@ -1106,6 +1106,11 @@ def test_saving_needs_a_stopped_investigation_with_a_research_card(
     listed = atlas.get("/api/v1/hypotheses", theme_id="photonics")
     assert [h["id"] for h in listed["items"]] == [saved["id"]]
     assert atlas.get("/api/v1/hypotheses", status="reviewed")["items"] == []
+    # `theme` filters like the other routes' (`theme_id` is kept); an unknown theme is empty.
+    by_slug = atlas.get("/api/v1/hypotheses", theme="photonics")
+    assert [h["id"] for h in by_slug["items"]] == [saved["id"]] and by_slug["total"] == 1
+    unknown = atlas.get("/api/v1/hypotheses", theme="robotics")
+    assert unknown["items"] == [] and unknown["total"] == 0
 
 
 def test_a_draft_the_editor_keeps_failing_is_marked_failed_with_nothing_invented(

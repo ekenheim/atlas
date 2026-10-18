@@ -7262,6 +7262,22 @@
         "operationId": "listing_api_v1_hypotheses_get",
         "parameters": [
           {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
             "name": "theme_id",
             "in": "query",
             "required": false,
@@ -9369,6 +9385,16 @@
         ],
         "title": "AffectedFinding"
       },
+      "Agent": {
+        "type": "string",
+        "enum": [
+          "scout",
+          "researcher",
+          "skeptic",
+          "editor",
+          "lead"
+        ]
+      },
       "Alias": {
         "properties": {
           "name": {
@@ -10590,6 +10616,19 @@
               }
             ]
           },
+          "newest_evidence_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest Evidence At",
+            "description": "the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none"
+          },
           "citations": {
             "items": {
               "$ref": "#/components/schemas/CitationRecord"
@@ -10680,6 +10719,7 @@
           "last_examined_at",
           "last_examined_as_of",
           "last_examined_outcome",
+          "newest_evidence_at",
           "citations",
           "counterevidence",
           "flags",
@@ -10981,6 +11021,19 @@
                 "type": "null"
               }
             ]
+          },
+          "newest_evidence_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest Evidence At",
+            "description": "the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none"
           }
         },
         "type": "object",
@@ -11001,7 +11054,8 @@
           "created_at",
           "last_examined_at",
           "last_examined_as_of",
-          "last_examined_outcome"
+          "last_examined_outcome",
+          "newest_evidence_at"
         ],
         "title": "BeliefSummary"
       },
@@ -15166,6 +15220,19 @@
               }
             ]
           },
+          "newest_evidence_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest Evidence At",
+            "description": "the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none"
+          },
           "cited_companies": {
             "items": {
               "$ref": "#/components/schemas/CompanyRef"
@@ -15198,6 +15265,7 @@
           "last_examined_at",
           "last_examined_as_of",
           "last_examined_outcome",
+          "newest_evidence_at",
           "cited_companies",
           "exposure"
         ],
@@ -17954,6 +18022,35 @@
           "at"
         ],
         "title": "ExaminationRecord"
+      },
+      "Examined": {
+        "properties": {
+          "confirmed": {
+            "type": "integer",
+            "title": "Confirmed"
+          },
+          "qualified": {
+            "type": "integer",
+            "title": "Qualified"
+          },
+          "contradicted": {
+            "type": "integer",
+            "title": "Contradicted"
+          },
+          "nothing_new": {
+            "type": "integer",
+            "title": "Nothing New"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "qualified",
+          "contradicted",
+          "nothing_new"
+        ],
+        "title": "Examined",
+        "description": "The Beliefs a session tested, counted by what it found (`belief_examination`)."
       },
       "ExportCompany": {
         "properties": {
@@ -30378,6 +30475,25 @@
             "description": "the times it recorded a span an earlier Fact already covers and was given that Fact instead of a new one (`session_fact_reuse`, ticket 26)",
             "default": 0
           },
+          "agent": {
+            "$ref": "#/components/schemas/Agent",
+            "description": "who ran it, derived from `kind`, `actor` and `question` (ticket 31): a pipeline session is `lead`'s; otherwise `scout`, `researcher`, `skeptic` or `editor` when the actor is that name alone (with an optional `atlas-` before and `-agent` or `-routine` after), else when the question opens with `Scout:`, `Skeptic:` or `Editor:`; any other is `lead`"
+          },
+          "beliefs_proposed": {
+            "type": "integer",
+            "title": "Beliefs Proposed",
+            "description": "the Beliefs it produced (`belief.produced_by`)"
+          },
+          "beliefs_examined": {
+            "$ref": "#/components/schemas/Examined",
+            "description": "the Beliefs it tested, counted by outcome (`belief_examination`); zeros when it tested none"
+          },
+          "issues_opened": {
+            "type": "integer",
+            "title": "Issues Opened",
+            "description": "the Issues it produced (`issue.produced_by`)",
+            "default": 0
+          },
           "card": {
             "anyOf": [
               {
@@ -30427,6 +30543,9 @@
           "usage",
           "facts",
           "tool_calls",
+          "agent",
+          "beliefs_proposed",
+          "beliefs_examined",
           "card",
           "card_markdown",
           "fact_items"
@@ -32071,6 +32190,25 @@
             "title": "Facts Reused",
             "description": "the times it recorded a span an earlier Fact already covers and was given that Fact instead of a new one (`session_fact_reuse`, ticket 26)",
             "default": 0
+          },
+          "agent": {
+            "$ref": "#/components/schemas/Agent",
+            "description": "who ran it, derived from `kind`, `actor` and `question` (ticket 31): a pipeline session is `lead`'s; otherwise `scout`, `researcher`, `skeptic` or `editor` when the actor is that name alone (with an optional `atlas-` before and `-agent` or `-routine` after), else when the question opens with `Scout:`, `Skeptic:` or `Editor:`; any other is `lead`"
+          },
+          "beliefs_proposed": {
+            "type": "integer",
+            "title": "Beliefs Proposed",
+            "description": "the Beliefs it produced (`belief.produced_by`)"
+          },
+          "beliefs_examined": {
+            "$ref": "#/components/schemas/Examined",
+            "description": "the Beliefs it tested, counted by outcome (`belief_examination`); zeros when it tested none"
+          },
+          "issues_opened": {
+            "type": "integer",
+            "title": "Issues Opened",
+            "description": "the Issues it produced (`issue.produced_by`)",
+            "default": 0
           }
         },
         "type": "object",
@@ -32088,7 +32226,10 @@
           "finished_at",
           "usage",
           "facts",
-          "tool_calls"
+          "tool_calls",
+          "agent",
+          "beliefs_proposed",
+          "beliefs_examined"
         ],
         "title": "SessionSummary"
       },
@@ -33831,6 +33972,19 @@
               }
             ]
           },
+          "newest_evidence_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest Evidence At",
+            "description": "the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none"
+          },
           "cited_companies": {
             "items": {
               "$ref": "#/components/schemas/CompanyRef"
@@ -33859,6 +34013,7 @@
           "last_examined_at",
           "last_examined_as_of",
           "last_examined_outcome",
+          "newest_evidence_at",
           "cited_companies"
         ],
         "title": "ThemeBelief"

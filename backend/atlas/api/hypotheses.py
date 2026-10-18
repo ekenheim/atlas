@@ -8,9 +8,11 @@
   the argument's steps, each with the Beliefs it rests on (judgement, confidence, as-of and
   the Facts' quotes at their spans) and the step's statement, grounded and judged
   (atlas.hypotheses.belief_drafting). 503 when LiteLLM or Hindsight isn't configured.
-- `GET /hypotheses[?theme_id=&status=]`, `GET /hypotheses/{id}`: status and allowed
+- `GET /hypotheses[?theme=&status=]`, `GET /hypotheses/{id}`: status and allowed
   transitions, the drafting's state, every version (content, content hash, provenance,
-  publication) and the transitions.
+  publication) and the transitions. `theme` is the theme's slug, like the other routes' (an
+  unknown theme is an empty list); `theme_id` is the same filter under its older name, and
+  `theme` wins when both are given.
 - `POST /hypotheses/{id}/transitions` (`{"to", "note"?}`): a §5.6 lifecycle change (409
   `invalid_transition` otherwise; `reviewed` only by publishing).
 - `POST /hypotheses/{id}/versions`: a correction: a new version from the latest one with the
@@ -265,13 +267,17 @@ def hypotheses_router(
     @router.get("", response_model=Page[Hypothesis])
     def listing(  # pyright: ignore[reportUnusedFunction]
         page: Paged,
+        theme: str | None = None,
         theme_id: str | None = None,
         status: HypothesisStatus | None = None,
     ) -> Page[Hypothesis]:
+        # note: every item embeds all its versions' content, so the list is heavy (112 KB for
+        # two Hypotheses on 18 Oct). The default shape stays; a slimmer list (the latest
+        # version's summary, without `content`) would help the pages that only list.
         with engine.connect() as connection:
             items, total = list_hypotheses(
                 connection,
-                theme_id=theme_id,
+                theme_id=theme if theme is not None else theme_id,
                 status=status,
                 limit=page.limit,
                 offset=page.offset,

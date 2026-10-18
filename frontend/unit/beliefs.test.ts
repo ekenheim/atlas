@@ -48,6 +48,7 @@ function belief(overrides: Overrides): BeliefSummary {
     last_examined_at: null,
     last_examined_as_of: null,
     last_examined_outcome: null,
+    newest_evidence_at: null,
     citation_count: 1,
     produced_by: null,
     created_by: "claude",

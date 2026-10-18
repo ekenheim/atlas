@@ -371,3 +371,83 @@ def test_a_sessions_tool_calls_are_listed_in_order_and_an_unknown_session_is_not
     assert all({"id", "tool", "arguments", "outcome", "reason", "at"} == set(c) for c in calls)
     assert atlas.get(f"/api/v1/sessions/{opened['id']}")["tool_calls"] == 3
     assert atlas.api.get(f"/api/v1/sessions/{NO_SUCH_ID}/tool-calls").status_code == 404
+
+
+def test_a_session_names_the_agent_that_ran_it_by_its_actor_or_its_opening_question(
+    atlas: Atlas,
+) -> None:
+    opened = {
+        "scout": atlas.open(actor="atlas-scout"),
+        "researcher": atlas.open(actor="researcher-agent"),
+        "skeptic": atlas.open(actor="Skeptic"),
+        "editor": atlas.open(actor="atlas-editor"),
+        # The scheduled routines pass no actor, so their sessions carry the API's own: the
+        # question's opening word then names the agent (`scout.md`, `skeptic.md`, `editor.md`).
+        "scout by question": atlas.open(
+            actor="local-researcher", question="Scout: what is scarce?"
+        ),
+        "skeptic by question": atlas.open(
+            actor="local-researcher", question="Skeptic: what would falsify Belief 7?"
+        ),
+        "editor by question": atlas.open(actor="local-researcher", question="Editor: draft"),
+        "lead": atlas.open(actor="local-researcher"),
+        "lead, near miss": atlas.open(actor="boyscout", question="Scouting costs"),
+    }
+
+    listed = {s["id"]: s["agent"] for s in atlas.get("/api/v1/sessions")["items"]}
+
+    assert {name: listed[s["id"]] for name, s in opened.items()} == {
+        "scout": "scout",
+        "researcher": "researcher",
+        "skeptic": "skeptic",
+        "editor": "editor",
+        "scout by question": "scout",
+        "skeptic by question": "skeptic",
+        "editor by question": "editor",
+        "lead": "lead",
+        "lead, near miss": "lead",
+    }
+    # A freshly opened session already carries it, and the one session reads the same.
+    assert opened["scout"]["agent"] == "scout"
+    assert atlas.get(f"/api/v1/sessions/{opened['skeptic']['id']}")["agent"] == "skeptic"
+
+
+def test_a_session_counts_the_beliefs_it_proposed_examined_and_the_issues_it_opened(
+    atlas: Atlas,
+) -> None:
+    author = atlas.open(actor="atlas-researcher")
+    skeptic = atlas.open(actor="atlas-skeptic")
+    idle = atlas.open()
+    fact = atlas.api.post("/api/v1/facts", json=atlas.fact_body(author["id"]))
+    belief = believe(atlas, author["id"], fact.json()["fact"]["id"])
+    for outcome in ("nothing_new", "confirmed", "confirmed"):
+        done = atlas.api.post(
+            f"/api/v1/beliefs/{belief}/examine",
+            json={"session_id": skeptic["id"], "outcome": outcome},
+        )
+        assert done.status_code == 200, done.text
+    for title in ("Who else makes InP lasers?", "Is the wafer supply sole-sourced?"):
+        made = atlas.api.post(
+            "/api/v1/issues",
+            json={"title": title, "theme": "photonics", "produced_by": skeptic["id"]},
+        )
+        assert made.status_code == 201, made.text
+
+    listed = {s["id"]: s for s in atlas.get("/api/v1/sessions")["items"]}
+
+    zero = {"confirmed": 0, "qualified": 0, "contradicted": 0, "nothing_new": 0}
+    assert listed[author["id"]]["beliefs_proposed"] == 1
+    assert listed[author["id"]]["beliefs_examined"] == zero
+    assert listed[author["id"]]["issues_opened"] == 0
+    assert listed[skeptic["id"]]["beliefs_proposed"] == 0
+    assert listed[skeptic["id"]]["beliefs_examined"] == zero | {"confirmed": 2, "nothing_new": 1}
+    assert listed[skeptic["id"]]["issues_opened"] == 2
+    assert listed[idle["id"]]["beliefs_proposed"] == 0
+    assert listed[idle["id"]]["beliefs_examined"] == zero
+    assert listed[idle["id"]]["issues_opened"] == 0
+    # The one session carries the same counts, and a session just opened starts at zero.
+    read = atlas.get(f"/api/v1/sessions/{skeptic['id']}")
+    assert read["beliefs_examined"] == listed[skeptic["id"]]["beliefs_examined"]
+    assert read["issues_opened"] == 2 and read["beliefs_proposed"] == 0
+    assert idle["beliefs_proposed"] == 0 and idle["beliefs_examined"] == zero
+    assert idle["issues_opened"] == 0
