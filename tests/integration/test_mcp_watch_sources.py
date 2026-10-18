@@ -629,6 +629,56 @@ def test_a_session_older_than_36_hours_before_its_fetch_does_not_read_what_it_fe
     assert found["hits"] == []
 
 
+def test_the_board_takes_a_fact_of_a_page_only_from_a_session_that_may_read_the_page(
+    mcp: Mcp, moment: datetime
+) -> None:
+    # Integration of W1 and W3: the board's Fact rule is the MCP tools' rule, web pages included.
+    # The Watch fetches an undated page (public from its fetch, after the session's as-of time),
+    # records a Fact of it and makes it a step's primary evidence.
+    as_of = zulu(moment - timedelta(hours=1))
+    watch, other = mcp.open(as_of), mcp.open(as_of)
+    undated = mcp.ok("fetch_page", session_id=watch, company="lumentum", url=UNDATED)
+    dated = mcp.ok("fetch_page", session_id=watch, company="lumentum", url=RECENT)
+    assert when(undated["available_at"]) > when(as_of) and undated["readable"] is True
+    facts = [
+        mcp.ok(
+            "record_fact",
+            session_id=watch,
+            version_id=page["version_id"],
+            quote=quote,
+            step="constraint",
+            status="in_effect",
+            statement=statement,
+        )["fact_id"]
+        for page, quote, statement in (
+            (
+                undated,
+                "Our lasers are sold under long-term supply agreements.",
+                "Example Issuer says its lasers are sold under long-term supply agreements.",
+            ),
+            (dated, QUOTE, "Example Issuer says demand for its lasers exceeded capacity."),
+        )
+    ]
+    for fact in facts:
+        chokepoint = mcp.ok("add_chokepoint", session_id=watch, constraint=fact, layer="l")["id"]
+        primary = {"step": "a", "status": "primary", "evidence": {"fact_ids": [fact]}}
+        mcp.ok(
+            "update_chokepoint", session_id=watch, id=chokepoint, kind="step_set", payload=primary
+        )
+        # Another session as of the same time did not fetch the page, so cannot cite its Fact,
+        # whether the page's own date is after its as-of time (undated) or before it (dated).
+        theirs = mcp.ok("add_chokepoint", session_id=other, constraint=fact, layer="m")["id"]
+        refused = mcp.refused(
+            "update_chokepoint",
+            "fact_available_after_as_of",
+            session_id=other,
+            id=theirs,
+            kind="step_set",
+            payload=primary,
+        )
+        assert refused["fact"] == fact
+
+
 def test_a_page_fetched_for_an_isolated_session_is_not_readable_by_it(
     mcp: Mcp, moment: datetime
 ) -> None:
