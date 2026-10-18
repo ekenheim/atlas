@@ -239,9 +239,10 @@ def test_seeding_again_changes_nothing_and_audits_nothing(universe: Universe) ->
     events = universe.count("audit_event")
     second = universe.seed()
 
-    # 23 companies (the three themes) plus Lumentum's one security, each created once.
-    assert sum(each["changes"] for each in first) == events == 24
-    assert [each["changes"] for each in second] == [0] * 23
+    # 28 companies (the three themes; ticket 33 added five memory buyers) plus Lumentum's one
+    # security, each created once.
+    assert sum(each["changes"] for each in first) == events == 29
+    assert [each["changes"] for each in second] == [0] * 28
     assert universe.count("audit_event") == events
 
 
